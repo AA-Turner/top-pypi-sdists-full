@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix-evals
-Version: 2.8.0
+Version: 2.9.0
 Summary: LLM Evaluations
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -44,7 +44,7 @@ Requires-Dist: nest-asyncio; extra == 'test'
 Requires-Dist: openai>=1.0.0; extra == 'test'
 Requires-Dist: openinference-semantic-conventions; extra == 'test'
 Requires-Dist: pandas; extra == 'test'
-Requires-Dist: pandas-stubs<=2.0.2.230605; extra == 'test'
+Requires-Dist: pandas-stubs==2.0.3.230814; extra == 'test'
 Requires-Dist: respx; extra == 'test'
 Requires-Dist: tqdm; extra == 'test'
 Requires-Dist: types-tqdm; extra == 'test'

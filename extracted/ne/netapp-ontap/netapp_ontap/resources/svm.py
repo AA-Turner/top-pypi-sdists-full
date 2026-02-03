@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -21,11 +21,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -39,14 +38,26 @@ __pdoc__ = {
     "SvmSchema.opts": False,
 }
 
-
 class SvmSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Svm object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the svm."""
 
-    aggregates = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.svm_aggregates.SvmAggregatesSchema", unknown=EXCLUDE, allow_none=True), data_key="aggregates", allow_none=True)
+    aggregates = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.svm_aggregates", "SvmAggregatesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="aggregates",
+                allow_none=True
+            )
     r""" List of allowed aggregates for SVM volumes. An administrator is allowed to create volumes on these aggregates."""
 
     aggregates_delegated = marshmallow_fields.Boolean(
@@ -55,51 +66,56 @@ class SvmSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" This property is true when the administrator has delegated the aggregates for the SVM volumes."""
 
-    anti_ransomware = marshmallow_fields.Nested("netapp_ontap.models.arw_vserver.ArwVserverSchema", data_key="anti_ransomware", unknown=EXCLUDE, allow_none=True)
+    anti_ransomware = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.arw_vserver", "ArwVserverSchema"),
+                data_key="anti_ransomware",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Anti-ransomware related information for the SVM."""
 
     anti_ransomware_auto_switch_duration_without_new_file_extension = Size(
         data_key="anti_ransomware_auto_switch_duration_without_new_file_extension",
         allow_none=True,
     )
-    r""" One of the many conditions to be satisfied to automatically switch the anti-ransomware state of the volumes in this SVM from “learning” (dry-run) to “enabled” is that no new file-extensions are observed in the volume in recent time. This parameter optionally specifies the recent time duration (in days) to be considered during which no new file-extension should be observed in a given volume to automatically switch the anti-ransomware state from “learning” to “enabled”."""
+    r""" One of the many conditions to be satisfied to automatically switch the anti-ransomware state of the volumes in this SVM from “learning” (dry-run) to “enabled” is that no new file-extensions are observed in the volume in recent time. This parameter optionally specifies the recent time duration (in days) to be considered during which no new file-extension should be observed in a given volume to automatically switch the anti-ransomware state from “learning” to “enabled”. This field will no longer be supported in a future release."""
 
     anti_ransomware_auto_switch_from_learning_to_enabled = marshmallow_fields.Boolean(
         data_key="anti_ransomware_auto_switch_from_learning_to_enabled",
         allow_none=True,
     )
-    r""" This property specifies whether anti-ransomware state of the volumes in this SVM are automatically switched by the system from “learning” (dry-run) to “enabled” (active) state after sufficient learning."""
+    r""" This property specifies whether anti-ransomware state of the volumes in this SVM are automatically switched by the system from “learning” (dry-run) to “enabled” (active) state after sufficient learning. This field will no longer be supported in a future release."""
 
     anti_ransomware_auto_switch_minimum_file_count = Size(
         data_key="anti_ransomware_auto_switch_minimum_file_count",
         allow_none=True,
     )
-    r""" One of the many conditions to be satisfied to automatically switch the anti-ransomware state of the volumes in this SVM from “learning” (dry-run) to “enabled” is that the volume should have a minimum file count in “learning” state. This parameter optionally specifies the minimum number of newly created files in “learning” state in a given volume to automatically switch the anti-ransomware state from “learning” to “enabled”."""
+    r""" One of the many conditions to be satisfied to automatically switch the anti-ransomware state of the volumes in this SVM from “learning” (dry-run) to “enabled” is that the volume should have a minimum file count in “learning” state. This parameter optionally specifies the minimum number of newly created files in “learning” state in a given volume to automatically switch the anti-ransomware state from “learning” to “enabled”. This field will no longer be supported in a future release."""
 
     anti_ransomware_auto_switch_minimum_file_extension = Size(
         data_key="anti_ransomware_auto_switch_minimum_file_extension",
         allow_none=True,
     )
-    r""" One of the many conditions to be satisfied to automatically switch the anti-ransomware state of the volumes in this SVM from “learning” (dry-run) to “enabled” is that the volume should have minimum number of file extensions in “learning” state. This parameter optionally specifies the minimum number of new file extensions in “learning” state in a given volume to automatically switch the anti-ransomware state from “learning” to “enabled”."""
+    r""" One of the many conditions to be satisfied to automatically switch the anti-ransomware state of the volumes in this SVM from “learning” (dry-run) to “enabled” is that the volume should have minimum number of file extensions in “learning” state. This parameter optionally specifies the minimum number of new file extensions in “learning” state in a given volume to automatically switch the anti-ransomware state from “learning” to “enabled”. This field will no longer be supported in a future release."""
 
     anti_ransomware_auto_switch_minimum_incoming_data = marshmallow_fields.Str(
         data_key="anti_ransomware_auto_switch_minimum_incoming_data",
         allow_none=True,
     )
-    r""" One of the many conditions to be satisfied to automatically switch the anti-ransomware state of the volumes in this SVM from “learning” (dry-run) to “enabled” is that the volume should have sufficient data ingested to do the learning. This parameter optionally specifies the minimum amount of data (in GB) to be written to a given volume during the learning period to automatically switch the anti-ransomware state from “learning” to “enabled”. The amount of data considered as ingested also includes the data that is deleted or overwritten after ingestion."""
+    r""" One of the many conditions to be satisfied to automatically switch the anti-ransomware state of the volumes in this SVM from “learning” (dry-run) to “enabled” is that the volume should have sufficient data ingested to do the learning. This parameter optionally specifies the minimum amount of data (in GB) to be written to a given volume during the learning period to automatically switch the anti-ransomware state from “learning” to “enabled”. The amount of data considered as ingested also includes the data that is deleted or overwritten after ingestion. This field will no longer be supported in a future release."""
 
     anti_ransomware_auto_switch_minimum_learning_period = Size(
         data_key="anti_ransomware_auto_switch_minimum_learning_period",
         allow_none=True,
     )
-    r""" One of the many conditions to be satisfied to automatically switch the anti-ransomware state of the volumes in this SVM from “learning” (dry-run) to “enabled” is that the volume should be in “learning” state for sufficient time period. This parameter optionally specifies the minimum number of days a given volume should be in “learning” state to automatically switch the anti-ransomware state from “learning” to “enabled”."""
+    r""" One of the many conditions to be satisfied to automatically switch the anti-ransomware state of the volumes in this SVM from “learning” (dry-run) to “enabled” is that the volume should be in “learning” state for sufficient time period. This parameter optionally specifies the minimum number of days a given volume should be in “learning” state to automatically switch the anti-ransomware state from “learning” to “enabled”. This field will no longer be supported in a future release."""
 
     anti_ransomware_default_volume_state = marshmallow_fields.Str(
         data_key="anti_ransomware_default_volume_state",
         validate=enum_validation(['disabled', 'dry_run']),
         allow_none=True,
     )
-    r""" Specifies the default Anti-ransomware state of the volumes in the SVM. Default "anti_ransomware_default_volume_state" property is disabled for POST operation. If this value is "disabled", Anti-ransomware protection is disabled by default on the new volumes that are created in the SVM. If this value is "dry_run", Anti-ransomware protection is in learning mode by default on the new volumes that are created in the SVM.  When the Anti-ransomware license is not present, this property is ignored and volumes will be created with the "disabled" state.
+    r""" Specifies the default anti-ransomware state of the volumes in the SVM. The default "anti_ransomware_default_volume_state" property is disabled for POST operations. If this value is "disabled", anti-ransomware protection is disabled by default on the new volumes that are created in the SVM. If this value is "dry_run", anti-ransomware protection is in learning mode by default on the new volumes that are created in the SVM.  When the anti-ransomware license is not present, this property is ignored and volumes will be created with the "disabled" state. This value "dry_run" will no longer be supported in a future release.
 
 Valid choices:
 
@@ -116,7 +132,7 @@ Valid choices:
         data_key="anti_ransomware_incoming_write_threshold_percent",
         allow_none=True,
     )
-    r""" One of the many conditions to be satisfied to automatically switch the anti-ransomware state of the volumes in this SVM from “learning” (dry-run) to “enabled” is that the volume should have sufficient data ingested to do the learning. This parameter optionally specifies the minimum amount of data (in percentage) to be written to a given volume during the learning period to automatically switch the anti-ransomware state from “learning” to “enabled”. The amount of data considered as ingested also includes the data that is deleted or overwritten after ingestion."""
+    r""" One of the many conditions to be satisfied to automatically switch the anti-ransomware state of the volumes in this SVM from “learning” (dry-run) to “enabled” is that the volume should have sufficient data ingested to do the learning. This parameter optionally specifies the minimum amount of data (in percentage) to be written to a given volume during the learning period to automatically switch the anti-ransomware state from “learning” to “enabled”. The amount of data considered as ingested also includes the data that is deleted or overwritten after ingestion. This field will no longer be supported in a future release."""
 
     auto_enable_activity_tracking = marshmallow_fields.Boolean(
         data_key="auto_enable_activity_tracking",
@@ -130,10 +146,20 @@ Valid choices:
     )
     r""" Specifies whether file system analytics is automatically enabled on volumes that are created in the SVM."""
 
-    certificate = marshmallow_fields.Nested("netapp_ontap.resources.security_certificate.SecurityCertificateSchema", data_key="certificate", unknown=EXCLUDE, allow_none=True)
+    certificate = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.security_certificate", "SecurityCertificateSchema"),
+                data_key="certificate",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The certificate field of the svm."""
 
-    cifs = marshmallow_fields.Nested("netapp_ontap.models.svm_cifs_service.SvmCifsServiceSchema", data_key="cifs", unknown=EXCLUDE, allow_none=True)
+    cifs = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.svm_cifs_service", "SvmCifsServiceSchema"),
+                data_key="cifs",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The cifs field of the svm."""
 
     comment = marshmallow_fields.Str(
@@ -143,13 +169,31 @@ Valid choices:
     )
     r""" Comment"""
 
-    dns = marshmallow_fields.Nested("netapp_ontap.models.svm_dns.SvmDnsSchema", data_key="dns", unknown=EXCLUDE, allow_none=True)
+    dns = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.svm_dns", "SvmDnsSchema"),
+                data_key="dns",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The dns field of the svm."""
 
-    fc_interfaces = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.fc_interface_svm.FcInterfaceSvmSchema", unknown=EXCLUDE, allow_none=True), data_key="fc_interfaces", allow_none=True)
+    fc_interfaces = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.fc_interface_svm", "FcInterfaceSvmSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="fc_interfaces",
+                allow_none=True
+            )
     r""" FC Interface for the SVM"""
 
-    fcp = marshmallow_fields.Nested("netapp_ontap.models.svm_fcp.SvmFcpSchema", data_key="fcp", unknown=EXCLUDE, allow_none=True)
+    fcp = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.svm_fcp", "SvmFcpSchema"),
+                data_key="fcp",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" <personalities supports=unified>
 Available for GET, POST, and PATCH requests.
 </personalities>
@@ -157,10 +201,23 @@ Available for GET, POST, and PATCH requests.
 Available for GET requests. All SVMs are provisioned with the FCP service configured.
 </personalities>"""
 
-    ip_interfaces = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.ip_interface_svm.IpInterfaceSvmSchema", unknown=EXCLUDE, allow_none=True), data_key="ip_interfaces", allow_none=True)
+    ip_interfaces = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.ip_interface_svm", "IpInterfaceSvmSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="ip_interfaces",
+                allow_none=True
+            )
     r""" IP interfaces for the SVM"""
 
-    ipspace = marshmallow_fields.Nested("netapp_ontap.resources.ipspace.IpspaceSchema", data_key="ipspace", unknown=EXCLUDE, allow_none=True)
+    ipspace = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.ipspace", "IpspaceSchema"),
+                data_key="ipspace",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The ipspace field of the svm."""
 
     is_space_enforcement_logical = marshmallow_fields.Boolean(
@@ -175,7 +232,12 @@ Available for GET requests. All SVMs are provisioned with the FCP service config
     )
     r""" Indicates whether logical space reporting for the SVM is enabled."""
 
-    iscsi = marshmallow_fields.Nested("netapp_ontap.models.svm_iscsi.SvmIscsiSchema", data_key="iscsi", unknown=EXCLUDE, allow_none=True)
+    iscsi = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.svm_iscsi", "SvmIscsiSchema"),
+                data_key="iscsi",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" <personalities supports=unified>
 Available for GET, POST, and PATCH requests.
 </personalities>
@@ -262,7 +324,12 @@ Valid choices:
 * zh_tw.big5.utf_8
 * utf8mb4"""
 
-    ldap = marshmallow_fields.Nested("netapp_ontap.models.svm_ldap.SvmLdapSchema", data_key="ldap", unknown=EXCLUDE, allow_none=True)
+    ldap = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.svm_ldap", "SvmLdapSchema"),
+                data_key="ldap",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The ldap field of the svm."""
 
     max_volumes = marshmallow_fields.Str(
@@ -280,16 +347,36 @@ Valid choices:
 
 Example: svm1"""
 
-    ndmp = marshmallow_fields.Nested("netapp_ontap.models.svm_ndmp.SvmNdmpSchema", data_key="ndmp", unknown=EXCLUDE, allow_none=True)
+    ndmp = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.svm_ndmp", "SvmNdmpSchema"),
+                data_key="ndmp",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The ndmp field of the svm."""
 
-    nfs = marshmallow_fields.Nested("netapp_ontap.models.svm_nfs.SvmNfsSchema", data_key="nfs", unknown=EXCLUDE, allow_none=True)
+    nfs = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.svm_nfs", "SvmNfsSchema"),
+                data_key="nfs",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The nfs field of the svm."""
 
-    nis = marshmallow_fields.Nested("netapp_ontap.models.svm_nis.SvmNisSchema", data_key="nis", unknown=EXCLUDE, allow_none=True)
+    nis = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.svm_nis", "SvmNisSchema"),
+                data_key="nis",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The nis field of the svm."""
 
-    nsswitch = marshmallow_fields.Nested("netapp_ontap.models.svm_nsswitch.SvmNsswitchSchema", data_key="nsswitch", unknown=EXCLUDE, allow_none=True)
+    nsswitch = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.svm_nsswitch", "SvmNsswitchSchema"),
+                data_key="nsswitch",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Name service switch configuration"""
 
     number_of_volumes_in_recovery_queue = Size(
@@ -298,7 +385,12 @@ Example: svm1"""
     )
     r""" Number of volumes in the recovery queue."""
 
-    nvme = marshmallow_fields.Nested("netapp_ontap.models.svm_nvme.SvmNvmeSchema", data_key="nvme", unknown=EXCLUDE, allow_none=True)
+    nvme = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.svm_nvme", "SvmNvmeSchema"),
+                data_key="nvme",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" <personalities supports=unified>
 Available for GET, POST, and PATCH requests.
 </personalities>
@@ -306,26 +398,76 @@ Available for GET, POST, and PATCH requests.
 Available for GET requests. All SVMs are provisioned with the NVMe service configured.
 </personalities>"""
 
-    qos_adaptive_policy_group_template = marshmallow_fields.Nested("netapp_ontap.resources.qos_policy.QosPolicySchema", data_key="qos_adaptive_policy_group_template", unknown=EXCLUDE, allow_none=True)
+    qos_adaptive_policy_group_template = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.qos_policy", "QosPolicySchema"),
+                data_key="qos_adaptive_policy_group_template",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The qos_adaptive_policy_group_template field of the svm."""
 
-    qos_policy = marshmallow_fields.Nested("netapp_ontap.resources.qos_policy.QosPolicySchema", data_key="qos_policy", unknown=EXCLUDE, allow_none=True)
+    qos_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.qos_policy", "QosPolicySchema"),
+                data_key="qos_policy",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The qos_policy field of the svm."""
 
-    qos_policy_group_template = marshmallow_fields.Nested("netapp_ontap.resources.qos_policy.QosPolicySchema", data_key="qos_policy_group_template", unknown=EXCLUDE, allow_none=True)
+    qos_policy_group_template = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.qos_policy", "QosPolicySchema"),
+                data_key="qos_policy_group_template",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The qos_policy_group_template field of the svm."""
 
-    routes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.network_route_for_svm.NetworkRouteForSvmSchema", unknown=EXCLUDE, allow_none=True), data_key="routes", allow_none=True)
+    routes = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.network_route_for_svm", "NetworkRouteForSvmSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="routes",
+                allow_none=True
+            )
     r""" Optional array of routes for the SVM"""
 
-    s3 = marshmallow_fields.Nested("netapp_ontap.models.svm_s3_service.SvmS3ServiceSchema", data_key="s3", unknown=EXCLUDE, allow_none=True)
+    s3 = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.svm_s3_service", "SvmS3ServiceSchema"),
+                data_key="s3",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The s3 field of the svm."""
 
-    snapmirror = marshmallow_fields.Nested("netapp_ontap.models.svm_snapmirror.SvmSnapmirrorSchema", data_key="snapmirror", unknown=EXCLUDE, allow_none=True)
+    snapmirror = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.svm_snapmirror", "SvmSnapmirrorSchema"),
+                data_key="snapmirror",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Specifies attributes for SVM DR protection."""
 
-    snapshot_policy = marshmallow_fields.Nested("netapp_ontap.resources.snapshot_policy.SnapshotPolicySchema", data_key="snapshot_policy", unknown=EXCLUDE, allow_none=True)
+    snapshot_autodelete_enabled = marshmallow_fields.Boolean(
+        data_key="snapshot_autodelete_enabled",
+        allow_none=True,
+    )
+    r""" Specifies whether snapshot autodelete is automatically enabled on storage units that are created in the SVM."""
+
+    snapshot_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.snapshot_policy", "SnapshotPolicySchema"),
+                data_key="snapshot_policy",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The snapshot_policy field of the svm."""
+
+    snapshot_reserve_percent = Size(
+        data_key="snapshot_reserve_percent",
+        allow_none=True,
+    )
+    r""" Specifies the amount of space reserved for snapshots on the storage units that are created in the SVM."""
 
     state = marshmallow_fields.Str(
         data_key="state",
@@ -343,22 +485,28 @@ Valid choices:
 * deleting
 * initializing"""
 
-    storage = marshmallow_fields.Nested("netapp_ontap.models.svm_storage.SvmStorageSchema", data_key="storage", unknown=EXCLUDE, allow_none=True)
+    storage = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.svm_storage", "SvmStorageSchema"),
+                data_key="storage",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The storage field of the svm."""
 
     subtype = marshmallow_fields.Str(
         data_key="subtype",
-        validate=enum_validation(['default', 'dp_destination', 'sync_source', 'sync_destination']),
+        validate=enum_validation(['default', 'dp_destination', 'sync_source', 'sync_destination', 'data_engine']),
         allow_none=True,
     )
-    r""" SVM subtype. The SVM subtype sync_destination is created automatically when an SVM of subtype sync_source is created on the source MetroCluster cluster. A POST request with sync_destination as SVM subtype is invalid.
+    r""" SVM subtype. The SVM subtype sync_destination is created automatically when an SVM of subtype sync_source is created on the source MetroCluster cluster. A POST request with sync_destination as SVM subtype is invalid. SVM of subtype data_engine cannot be explicitly created by the admin and most management changes are not allowed on it.
 
 Valid choices:
 
 * default
 * dp_destination
 * sync_source
-* sync_destination"""
+* sync_destination
+* data_engine"""
 
     total_volume_size_in_recovery_queue = Size(
         data_key="total_volume_size_in_recovery_queue",
@@ -471,16 +619,18 @@ Example: 02c9e252-41be-11e9-81d5-00a0986138f7"""
         "s3.port",
         "s3.secure_port",
         "snapmirror",
+        "snapshot_autodelete_enabled",
         "snapshot_policy.links",
         "snapshot_policy.name",
         "snapshot_policy.uuid",
+        "snapshot_reserve_percent",
         "state",
         "storage",
         "subtype",
         "total_volume_size_in_recovery_queue",
         "uuid",
     ]
-    """links,aggregates,aggregates_delegated,anti_ransomware,anti_ransomware_auto_switch_duration_without_new_file_extension,anti_ransomware_auto_switch_from_learning_to_enabled,anti_ransomware_auto_switch_minimum_file_count,anti_ransomware_auto_switch_minimum_file_extension,anti_ransomware_auto_switch_minimum_incoming_data,anti_ransomware_auto_switch_minimum_learning_period,anti_ransomware_default_volume_state,anti_ransomware_incoming_write_threshold,anti_ransomware_incoming_write_threshold_percent,auto_enable_activity_tracking,auto_enable_analytics,certificate.links,certificate.name,certificate.uuid,cifs.links,cifs.ad_domain,cifs.allowed,cifs.auth_style,cifs.domain_workgroup,cifs.enabled,cifs.name,cifs.workgroup,comment,dns,fc_interfaces,fcp,ip_interfaces,ipspace.links,ipspace.name,ipspace.uuid,is_space_enforcement_logical,is_space_reporting_logical,iscsi,language,ldap.ad_domain,ldap.base_dn,ldap.bind_dn,ldap.enabled,ldap.restrict_discovery_to_site,ldap.servers,max_volumes,name,ndmp,nfs,nis,nsswitch,number_of_volumes_in_recovery_queue,nvme,qos_adaptive_policy_group_template.links,qos_adaptive_policy_group_template.max_throughput,qos_adaptive_policy_group_template.max_throughput_iops,qos_adaptive_policy_group_template.max_throughput_mbps,qos_adaptive_policy_group_template.min_throughput,qos_adaptive_policy_group_template.min_throughput_iops,qos_adaptive_policy_group_template.min_throughput_mbps,qos_adaptive_policy_group_template.name,qos_adaptive_policy_group_template.uuid,qos_policy.links,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,qos_policy_group_template.links,qos_policy_group_template.max_throughput,qos_policy_group_template.max_throughput_iops,qos_policy_group_template.max_throughput_mbps,qos_policy_group_template.min_throughput,qos_policy_group_template.min_throughput_iops,qos_policy_group_template.min_throughput_mbps,qos_policy_group_template.name,qos_policy_group_template.uuid,s3.links,s3.allowed,s3.certificate,s3.default_unix_user,s3.default_win_user,s3.enabled,s3.is_http_enabled,s3.is_https_enabled,s3.name,s3.port,s3.secure_port,snapmirror,snapshot_policy.links,snapshot_policy.name,snapshot_policy.uuid,state,storage,subtype,total_volume_size_in_recovery_queue,uuid,"""
+    """links,aggregates,aggregates_delegated,anti_ransomware,anti_ransomware_auto_switch_duration_without_new_file_extension,anti_ransomware_auto_switch_from_learning_to_enabled,anti_ransomware_auto_switch_minimum_file_count,anti_ransomware_auto_switch_minimum_file_extension,anti_ransomware_auto_switch_minimum_incoming_data,anti_ransomware_auto_switch_minimum_learning_period,anti_ransomware_default_volume_state,anti_ransomware_incoming_write_threshold,anti_ransomware_incoming_write_threshold_percent,auto_enable_activity_tracking,auto_enable_analytics,certificate.links,certificate.name,certificate.uuid,cifs.links,cifs.ad_domain,cifs.allowed,cifs.auth_style,cifs.domain_workgroup,cifs.enabled,cifs.name,cifs.workgroup,comment,dns,fc_interfaces,fcp,ip_interfaces,ipspace.links,ipspace.name,ipspace.uuid,is_space_enforcement_logical,is_space_reporting_logical,iscsi,language,ldap.ad_domain,ldap.base_dn,ldap.bind_dn,ldap.enabled,ldap.restrict_discovery_to_site,ldap.servers,max_volumes,name,ndmp,nfs,nis,nsswitch,number_of_volumes_in_recovery_queue,nvme,qos_adaptive_policy_group_template.links,qos_adaptive_policy_group_template.max_throughput,qos_adaptive_policy_group_template.max_throughput_iops,qos_adaptive_policy_group_template.max_throughput_mbps,qos_adaptive_policy_group_template.min_throughput,qos_adaptive_policy_group_template.min_throughput_iops,qos_adaptive_policy_group_template.min_throughput_mbps,qos_adaptive_policy_group_template.name,qos_adaptive_policy_group_template.uuid,qos_policy.links,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,qos_policy_group_template.links,qos_policy_group_template.max_throughput,qos_policy_group_template.max_throughput_iops,qos_policy_group_template.max_throughput_mbps,qos_policy_group_template.min_throughput,qos_policy_group_template.min_throughput_iops,qos_policy_group_template.min_throughput_mbps,qos_policy_group_template.name,qos_policy_group_template.uuid,s3.links,s3.allowed,s3.certificate,s3.default_unix_user,s3.default_win_user,s3.enabled,s3.is_http_enabled,s3.is_https_enabled,s3.name,s3.port,s3.secure_port,snapmirror,snapshot_autodelete_enabled,snapshot_policy.links,snapshot_policy.name,snapshot_policy.uuid,snapshot_reserve_percent,state,storage,subtype,total_volume_size_in_recovery_queue,uuid,"""
 
     patchable_fields = [
         "aggregates",
@@ -539,12 +689,14 @@ Example: 02c9e252-41be-11e9-81d5-00a0986138f7"""
         "qos_policy_group_template.uuid",
         "s3.allowed",
         "snapmirror",
+        "snapshot_autodelete_enabled",
         "snapshot_policy.name",
         "snapshot_policy.uuid",
+        "snapshot_reserve_percent",
         "state",
         "storage",
     ]
-    """aggregates,anti_ransomware,anti_ransomware_auto_switch_duration_without_new_file_extension,anti_ransomware_auto_switch_from_learning_to_enabled,anti_ransomware_auto_switch_minimum_file_count,anti_ransomware_auto_switch_minimum_file_extension,anti_ransomware_auto_switch_minimum_incoming_data,anti_ransomware_auto_switch_minimum_learning_period,anti_ransomware_default_volume_state,anti_ransomware_incoming_write_threshold,anti_ransomware_incoming_write_threshold_percent,auto_enable_activity_tracking,auto_enable_analytics,certificate.name,certificate.uuid,cifs.allowed,cifs.workgroup,comment,fcp,ip_interfaces,is_space_enforcement_logical,is_space_reporting_logical,iscsi,language,max_volumes,name,ndmp,nfs,nsswitch,nvme,qos_adaptive_policy_group_template.max_throughput,qos_adaptive_policy_group_template.max_throughput_iops,qos_adaptive_policy_group_template.max_throughput_mbps,qos_adaptive_policy_group_template.min_throughput,qos_adaptive_policy_group_template.min_throughput_iops,qos_adaptive_policy_group_template.min_throughput_mbps,qos_adaptive_policy_group_template.name,qos_adaptive_policy_group_template.uuid,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,qos_policy_group_template.max_throughput,qos_policy_group_template.max_throughput_iops,qos_policy_group_template.max_throughput_mbps,qos_policy_group_template.min_throughput,qos_policy_group_template.min_throughput_iops,qos_policy_group_template.min_throughput_mbps,qos_policy_group_template.name,qos_policy_group_template.uuid,s3.allowed,snapmirror,snapshot_policy.name,snapshot_policy.uuid,state,storage,"""
+    """aggregates,anti_ransomware,anti_ransomware_auto_switch_duration_without_new_file_extension,anti_ransomware_auto_switch_from_learning_to_enabled,anti_ransomware_auto_switch_minimum_file_count,anti_ransomware_auto_switch_minimum_file_extension,anti_ransomware_auto_switch_minimum_incoming_data,anti_ransomware_auto_switch_minimum_learning_period,anti_ransomware_default_volume_state,anti_ransomware_incoming_write_threshold,anti_ransomware_incoming_write_threshold_percent,auto_enable_activity_tracking,auto_enable_analytics,certificate.name,certificate.uuid,cifs.allowed,cifs.workgroup,comment,fcp,ip_interfaces,is_space_enforcement_logical,is_space_reporting_logical,iscsi,language,max_volumes,name,ndmp,nfs,nsswitch,nvme,qos_adaptive_policy_group_template.max_throughput,qos_adaptive_policy_group_template.max_throughput_iops,qos_adaptive_policy_group_template.max_throughput_mbps,qos_adaptive_policy_group_template.min_throughput,qos_adaptive_policy_group_template.min_throughput_iops,qos_adaptive_policy_group_template.min_throughput_mbps,qos_adaptive_policy_group_template.name,qos_adaptive_policy_group_template.uuid,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,qos_policy_group_template.max_throughput,qos_policy_group_template.max_throughput_iops,qos_policy_group_template.max_throughput_mbps,qos_policy_group_template.min_throughput,qos_policy_group_template.min_throughput_iops,qos_policy_group_template.min_throughput_mbps,qos_policy_group_template.name,qos_policy_group_template.uuid,s3.allowed,snapmirror,snapshot_autodelete_enabled,snapshot_policy.name,snapshot_policy.uuid,snapshot_reserve_percent,state,storage,"""
 
     postable_fields = [
         "aggregates",
@@ -617,12 +769,14 @@ Example: 02c9e252-41be-11e9-81d5-00a0986138f7"""
         "s3.port",
         "s3.secure_port",
         "snapmirror",
+        "snapshot_autodelete_enabled",
         "snapshot_policy.name",
         "snapshot_policy.uuid",
+        "snapshot_reserve_percent",
         "storage",
         "subtype",
     ]
-    """aggregates,anti_ransomware,anti_ransomware_auto_switch_duration_without_new_file_extension,anti_ransomware_auto_switch_from_learning_to_enabled,anti_ransomware_auto_switch_minimum_file_count,anti_ransomware_auto_switch_minimum_file_extension,anti_ransomware_auto_switch_minimum_incoming_data,anti_ransomware_auto_switch_minimum_learning_period,anti_ransomware_default_volume_state,anti_ransomware_incoming_write_threshold,anti_ransomware_incoming_write_threshold_percent,auto_enable_activity_tracking,auto_enable_analytics,cifs.ad_domain,cifs.allowed,cifs.enabled,cifs.name,cifs.workgroup,comment,dns,fc_interfaces,fcp,ip_interfaces,ipspace.name,ipspace.uuid,is_space_enforcement_logical,is_space_reporting_logical,iscsi,language,ldap.ad_domain,ldap.base_dn,ldap.bind_dn,ldap.enabled,ldap.restrict_discovery_to_site,ldap.servers,max_volumes,name,ndmp,nfs,nis,nsswitch,nvme,qos_adaptive_policy_group_template.max_throughput,qos_adaptive_policy_group_template.max_throughput_iops,qos_adaptive_policy_group_template.max_throughput_mbps,qos_adaptive_policy_group_template.min_throughput,qos_adaptive_policy_group_template.min_throughput_iops,qos_adaptive_policy_group_template.min_throughput_mbps,qos_adaptive_policy_group_template.name,qos_adaptive_policy_group_template.uuid,qos_policy_group_template.max_throughput,qos_policy_group_template.max_throughput_iops,qos_policy_group_template.max_throughput_mbps,qos_policy_group_template.min_throughput,qos_policy_group_template.min_throughput_iops,qos_policy_group_template.min_throughput_mbps,qos_policy_group_template.name,qos_policy_group_template.uuid,routes,s3.allowed,s3.certificate,s3.default_unix_user,s3.default_win_user,s3.enabled,s3.is_http_enabled,s3.is_https_enabled,s3.name,s3.port,s3.secure_port,snapmirror,snapshot_policy.name,snapshot_policy.uuid,storage,subtype,"""
+    """aggregates,anti_ransomware,anti_ransomware_auto_switch_duration_without_new_file_extension,anti_ransomware_auto_switch_from_learning_to_enabled,anti_ransomware_auto_switch_minimum_file_count,anti_ransomware_auto_switch_minimum_file_extension,anti_ransomware_auto_switch_minimum_incoming_data,anti_ransomware_auto_switch_minimum_learning_period,anti_ransomware_default_volume_state,anti_ransomware_incoming_write_threshold,anti_ransomware_incoming_write_threshold_percent,auto_enable_activity_tracking,auto_enable_analytics,cifs.ad_domain,cifs.allowed,cifs.enabled,cifs.name,cifs.workgroup,comment,dns,fc_interfaces,fcp,ip_interfaces,ipspace.name,ipspace.uuid,is_space_enforcement_logical,is_space_reporting_logical,iscsi,language,ldap.ad_domain,ldap.base_dn,ldap.bind_dn,ldap.enabled,ldap.restrict_discovery_to_site,ldap.servers,max_volumes,name,ndmp,nfs,nis,nsswitch,nvme,qos_adaptive_policy_group_template.max_throughput,qos_adaptive_policy_group_template.max_throughput_iops,qos_adaptive_policy_group_template.max_throughput_mbps,qos_adaptive_policy_group_template.min_throughput,qos_adaptive_policy_group_template.min_throughput_iops,qos_adaptive_policy_group_template.min_throughput_mbps,qos_adaptive_policy_group_template.name,qos_adaptive_policy_group_template.uuid,qos_policy_group_template.max_throughput,qos_policy_group_template.max_throughput_iops,qos_policy_group_template.max_throughput_mbps,qos_policy_group_template.min_throughput,qos_policy_group_template.min_throughput_iops,qos_policy_group_template.min_throughput_mbps,qos_policy_group_template.name,qos_policy_group_template.uuid,routes,s3.allowed,s3.certificate,s3.default_unix_user,s3.default_win_user,s3.enabled,s3.is_http_enabled,s3.is_https_enabled,s3.name,s3.port,s3.secure_port,snapmirror,snapshot_autodelete_enabled,snapshot_policy.name,snapshot_policy.uuid,snapshot_reserve_percent,storage,subtype,"""
 
 class Svm(Resource):
     """Allows interaction with Svm objects on the host"""

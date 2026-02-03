@@ -23,7 +23,7 @@ class RunTaskResponse(UniversalBaseModel):
 
     job_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Windmill job ID for debugging
+    Job ID for debugging
     """
 
     result: typing.Optional[typing.Optional[typing.Any]] = pydantic.Field(default=None)

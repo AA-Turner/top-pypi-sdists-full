@@ -1,6 +1,7 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 from __future__ import annotations
+
 import collections
 import functools
 import hashlib
@@ -11,9 +12,11 @@ from types import ModuleType
 
 from contrast_vendor.importlib_metadata import (
     Distribution,
-    distributions as importlib_distributions,
     _top_level_declared,
     _top_level_inferred,
+)
+from contrast_vendor.importlib_metadata import (
+    distributions as importlib_distributions,
 )
 from contrast_vendor.importlib_metadata._meta import PackageMetadata
 
@@ -22,8 +25,20 @@ from contrast_vendor.importlib_metadata._meta import PackageMetadata
 def distributions() -> list[Distribution]:
     """
     Get all Distribution instances for the current environment.
+    Deduplicates by package name to avoid reporting inaccessible packages.
     """
-    return list(importlib_distributions())
+    seen_names = set()
+    distributions = []
+    for dist in importlib_distributions():
+        if (
+            dist.metadata
+            and (norm_name := normalize_dist_name(dist.metadata["Name"]))
+            not in seen_names
+        ):
+            seen_names.add(norm_name)
+            distributions.append(dist)
+
+    return distributions
 
 
 @functools.cache

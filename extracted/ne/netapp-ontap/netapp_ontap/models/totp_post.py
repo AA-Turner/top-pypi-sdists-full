@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["TotpPost", "TotpPostSchema"]
@@ -17,14 +16,23 @@ __pdoc__ = {
     "TotpPost": False,
 }
 
-
 class TotpPostSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the TotpPost object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", unknown=EXCLUDE, data_key="_links", allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                unknown=EXCLUDE,
+                data_key="_links",
+                allow_none=True
+            )
     r""" The links field of the totp_post. """
 
-    account = marshmallow_fields.Nested("netapp_ontap.resources.account.AccountSchema", unknown=EXCLUDE, data_key="account", allow_none=True)
+    account = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.account", "AccountSchema"),
+                unknown=EXCLUDE,
+                data_key="account",
+                allow_none=True
+            )
     r""" The account field of the totp_post. """
 
     comment = marshmallow_fields.Str(data_key="comment", allow_none=True)
@@ -43,7 +51,12 @@ Example: true """
     install_url = marshmallow_fields.Str(data_key="install_url", allow_none=True)
     r""" TOTP profile installation URL for a user. """
 
-    owner = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", unknown=EXCLUDE, data_key="owner", allow_none=True)
+    owner = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                unknown=EXCLUDE,
+                data_key="owner",
+                allow_none=True
+            )
     r""" The owner field of the totp_post. """
 
     scope = marshmallow_fields.Str(data_key="scope", allow_none=True)

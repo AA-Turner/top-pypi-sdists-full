@@ -7,8 +7,14 @@ term frequency, position, and relationships with other terms to calculate
 a relevance score for each word.
 """
 
+import logging
 import math
-import numpy as np
+from typing import Any
+import numpy as np  # pylint: disable=import-error
+import networkx as nx  # pylint: disable=import-error
+
+# Configure module logger
+logger = logging.getLogger(__name__)
 
 
 class SingleWord:
@@ -24,17 +30,24 @@ class SingleWord:
         See property accessors below for available attributes.
     """
 
-    def __init__(self, unique, idx, graph):
+    # Use __slots__ to reduce memory overhead per instance
+    __slots__ = ('id', 'g', 'data', '_graph_metrics_cache', '_graph_version')
+
+    def __init__(self, unique: str, idx: int, graph: nx.DiGraph):
         """
         Initialize a SingleWord term object.
 
         Args:
-            unique (str): The unique normalized term this object represents
-            idx (int): Unique identifier for the term in the document
-            graph (networkx.DiGraph): Word co-occurrence graph from the document
+            unique: The unique normalized term this object represents
+            idx: Unique identifier for the term in the document
+            graph: Word co-occurrence graph from the document
         """
         self.id = idx  # Fast access needed as it's used in graph operations
         self.g = graph  # Fast access needed for network calculations
+
+        # Cache for graph metrics to avoid recalculation
+        self._graph_metrics_cache = None
+        self._graph_version = 0  # Track graph changes for cache invalidation
 
         self.data = {
             # Basic information
@@ -59,38 +72,38 @@ class SingleWord:
         }
 
     # Forward common dictionary operations to self.data
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> Any:
         """
         Access attributes dictionary-style with obj['key'].
 
         Args:
-            key (str): The attribute key to access
+            key: The attribute key to access
 
         Returns:
-            Any: The value associated with the key
+            The value associated with the key
         """
         return self.data[key]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: Any) -> None:
         """
         Set attributes dictionary-style with obj['key'] = value.
 
         Args:
-            key (str): The attribute key to set
-            value (Any): The value to associate with the key
+            key: The attribute key to set
+            value: The value to associate with the key
         """
         self.data[key] = value
 
-    def get(self, key, default=None):
+    def get(self, key: str, default: Any = None) -> Any:
         """
         Get with default, mimicking dict.get().
 
         Args:
-            key (str): The attribute key to access
-            default (Any, optional): The default value if key doesn't exist
+            key: The attribute key to access
+            default: The default value if key doesn't exist
 
         Returns:
-            Any: The value associated with the key or the default value
+            The value associated with the key or the default value
         """
         return self.data.get(key, default)
 
@@ -173,12 +186,23 @@ class SingleWord:
         """
         self.data[name] = value
 
+    def invalidate_graph_cache(self):
+        """
+        Invalidate the cached graph metrics.
+        
+        Call this method when the graph structure changes to force
+        recalculation of metrics on next access.
+        """
+        self._graph_metrics_cache = None
+        self._graph_version += 1
+
     def get_graph_metrics(self):
         """
-        Calculate all graph-based metrics at once.
+        Calculate all graph-based metrics at once with caching.
 
         Analyzes the term's connections in the co-occurrence graph to compute
         various relationship metrics that measure its contextual importance.
+        Results are cached to avoid recalculation on subsequent calls.
 
         Returns:
             dict: Dictionary containing the calculated graph metrics:
@@ -189,6 +213,11 @@ class SingleWord:
                 - wil: Word importance left (sum of incoming edge weights)
                 - pwl: Probability weight left (wdl/wil)
         """
+        # Return cached results if available
+        if self._graph_metrics_cache is not None:
+            return self._graph_metrics_cache
+
+        # Calculate metrics if not cached
         # Out-edges metrics
         wdr = len(self.g.out_edges(self.id))
         wir = sum(d["tf"] for (_, _, d) in self.g.out_edges(self.id, data=True))
@@ -199,22 +228,40 @@ class SingleWord:
         wil = sum(d["tf"] for (_, _, d) in self.g.in_edges(self.id, data=True))
         pwl = 0 if wil == 0 else wdl / wil
 
-        return {"wdr": wdr, "wir": wir, "pwr": pwr, "wdl": wdl, "wil": wil, "pwl": pwl}
+        # Cache the results
+        self._graph_metrics_cache = {
+            "wdr": wdr, "wir": wir, "pwr": pwr,
+            "wdl": wdl, "wil": wil, "pwl": pwl
+        }
+
+        return self._graph_metrics_cache
 
     def update_h(self, stats, features=None):
         """
-        Update the word's score based on statistics.
+        Update the importance score (H) for a single word based on multiple features.
 
-        Calculates all the statistical features that determine the word's
-        relevance score, using document-level statistics for normalization.
+        This function calculates and updates various statistical features that determine
+        the word's importance as a potential keyword. It combines term relevance, frequency,
+        spread across the document, case information, and position to compute an overall
+        importance score (H). A lower H score indicates a more important term.
+
+        The features calculated include:
+        - WRel: Term relevance based on connection to other terms in the graph
+        - WFreq: Normalized term frequency relative to document statistics
+        - WSpread: Term distribution across document sentences
+        - WCase: Case feature capturing capitalization patterns (all caps, proper nouns)
+        - WPos: Position feature based on median occurrence position in the text
+
+        These features are then combined using a formula that balances their contributions
+        to produce the final H score.
 
         Args:
-            stats (dict): Document statistics including:
-                - max_tf (float): Maximum term frequency in the document
-                - avg_tf (float): Average term frequency
-                - std_tf (float): Standard deviation of term frequency
-                - number_of_sentences (int): Total number of sentences
-            features (list, optional): Specific features to calculate, or None for all
+            stats: Document statistics including:
+                - max_tf: Maximum term frequency in the document
+                - avg_tf: Average term frequency across all terms
+                - std_tf: Standard deviation of term frequency
+                - number_of_sentences: Total number of sentences in document
+            features: List of specific features to calculate or None to calculate all
         """
         max_tf = stats["max_tf"]
         avg_tf = stats["avg_tf"]
@@ -262,17 +309,17 @@ class SingleWord:
 
     def add_occur(self, tag, sent_id, pos_sent, pos_text):
         """
-        Add occurrence information for this term.
+        Add occurrence of term in text.
 
         Records where in the document this term appears, tracking sentence ID,
         position within sentence, global position in text, and updates term
         frequency counters.
 
         Args:
-            tag (str): Part-of-speech tag for this occurrence ('a' for acronym, 'n' for proper noun, etc.)
-            sent_id (int): Sentence ID where the term appears
-            pos_sent (int): Position within the sentence
-            pos_text (int): Global position in the entire text
+            tag: Term tag ('a' for acronym, 'n' for proper noun, etc.)
+            sent_id: Sentence ID where the term appears
+            pos_sent: Position within the sentence
+            pos_text: Global position in the entire text
         """
         # Create empty list for this sentence if it's the first occurrence
         if sent_id not in self.occurs:

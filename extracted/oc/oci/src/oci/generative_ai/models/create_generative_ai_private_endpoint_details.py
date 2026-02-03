@@ -56,6 +56,10 @@ class CreateGenerativeAiPrivateEndpointDetails(object):
             The value to assign to the defined_tags property of this CreateGenerativeAiPrivateEndpointDetails.
         :type defined_tags: dict(str, dict(str, object))
 
+        :param security_attributes:
+            The value to assign to the security_attributes property of this CreateGenerativeAiPrivateEndpointDetails.
+        :type security_attributes: dict(str, dict(str, object))
+
         """
         self.swagger_types = {
             'compartment_id': 'str',
@@ -66,7 +70,8 @@ class CreateGenerativeAiPrivateEndpointDetails(object):
             'nsg_ids': 'list[str]',
             'is_allow_on_demand': 'bool',
             'freeform_tags': 'dict(str, str)',
-            'defined_tags': 'dict(str, dict(str, object))'
+            'defined_tags': 'dict(str, dict(str, object))',
+            'security_attributes': 'dict(str, dict(str, object))'
         }
         self.attribute_map = {
             'compartment_id': 'compartmentId',
@@ -77,7 +82,8 @@ class CreateGenerativeAiPrivateEndpointDetails(object):
             'nsg_ids': 'nsgIds',
             'is_allow_on_demand': 'isAllowOnDemand',
             'freeform_tags': 'freeformTags',
-            'defined_tags': 'definedTags'
+            'defined_tags': 'definedTags',
+            'security_attributes': 'securityAttributes'
         }
         self._compartment_id = None
         self._subnet_id = None
@@ -88,6 +94,7 @@ class CreateGenerativeAiPrivateEndpointDetails(object):
         self._is_allow_on_demand = None
         self._freeform_tags = None
         self._defined_tags = None
+        self._security_attributes = None
 
     @property
     def compartment_id(self):
@@ -324,6 +331,38 @@ class CreateGenerativeAiPrivateEndpointDetails(object):
         :type: dict(str, dict(str, object))
         """
         self._defined_tags = defined_tags
+
+    @property
+    def security_attributes(self):
+        """
+        Gets the security_attributes of this CreateGenerativeAiPrivateEndpointDetails.
+        Security attributes for this resource. Each key is predefined and scoped to a namespace.
+        For more information, see `Resource Tags`__.
+        Example: `{\"Oracle-ZPR\": {\"MaxEgressCount\": {\"value\": \"42\", \"mode\": \"enforce\"}}}`
+
+        __ https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm
+
+
+        :return: The security_attributes of this CreateGenerativeAiPrivateEndpointDetails.
+        :rtype: dict(str, dict(str, object))
+        """
+        return self._security_attributes
+
+    @security_attributes.setter
+    def security_attributes(self, security_attributes):
+        """
+        Sets the security_attributes of this CreateGenerativeAiPrivateEndpointDetails.
+        Security attributes for this resource. Each key is predefined and scoped to a namespace.
+        For more information, see `Resource Tags`__.
+        Example: `{\"Oracle-ZPR\": {\"MaxEgressCount\": {\"value\": \"42\", \"mode\": \"enforce\"}}}`
+
+        __ https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm
+
+
+        :param security_attributes: The security_attributes of this CreateGenerativeAiPrivateEndpointDetails.
+        :type: dict(str, dict(str, object))
+        """
+        self._security_attributes = security_attributes
 
     def __repr__(self):
         return formatted_flat_dict(self)

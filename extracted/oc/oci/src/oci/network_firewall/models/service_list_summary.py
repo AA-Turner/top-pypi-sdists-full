@@ -32,20 +32,27 @@ class ServiceListSummary(object):
             The value to assign to the parent_resource_id property of this ServiceListSummary.
         :type parent_resource_id: str
 
+        :param description:
+            The value to assign to the description property of this ServiceListSummary.
+        :type description: str
+
         """
         self.swagger_types = {
             'name': 'str',
             'total_services': 'int',
-            'parent_resource_id': 'str'
+            'parent_resource_id': 'str',
+            'description': 'str'
         }
         self.attribute_map = {
             'name': 'name',
             'total_services': 'totalServices',
-            'parent_resource_id': 'parentResourceId'
+            'parent_resource_id': 'parentResourceId',
+            'description': 'description'
         }
         self._name = None
         self._total_services = None
         self._parent_resource_id = None
+        self._description = None
 
     @property
     def name(self):
@@ -118,6 +125,30 @@ class ServiceListSummary(object):
         :type: str
         """
         self._parent_resource_id = parent_resource_id
+
+    @property
+    def description(self):
+        """
+        Gets the description of this ServiceListSummary.
+        The description of the service list. This field can be used to add additional info.
+
+
+        :return: The description of this ServiceListSummary.
+        :rtype: str
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """
+        Sets the description of this ServiceListSummary.
+        The description of the service list. This field can be used to add additional info.
+
+
+        :param description: The description of this ServiceListSummary.
+        :type: str
+        """
+        self._description = description
 
     def __repr__(self):
         return formatted_flat_dict(self)

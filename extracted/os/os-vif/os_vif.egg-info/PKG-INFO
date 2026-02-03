@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: os_vif
-Version: 4.2.1
+Version: 4.3.0
 Summary: A library for plugging and unplugging virtual interfaces in OpenStack.
 Home-page: https://docs.openstack.org/os-vif/latest/
 Author: OpenStack
@@ -33,6 +33,15 @@ Requires-Dist: ovsdbapp>=0.12.1
 Requires-Dist: pyroute2>=0.5.2
 Requires-Dist: stevedore>=1.20.0
 Requires-Dist: debtcollector>=1.19.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ========================
 Team and repository tags

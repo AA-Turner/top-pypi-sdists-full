@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "ActionCompletionStrategyType",
+    "AdditionalSecurityRequirementType",
     "ApprovalTeamStatusCodeType",
     "ApprovalTeamStatusType",
     "FilterFieldType",
@@ -36,6 +37,8 @@ __all__ = (
     "ListPolicyVersionsPaginatorName",
     "ListResourcePoliciesPaginatorName",
     "ListSessionsPaginatorName",
+    "MfaSyncStatusType",
+    "MfaTypeType",
     "MultipartyApprovalServiceName",
     "OperatorType",
     "PaginatorName",
@@ -47,9 +50,11 @@ __all__ = (
     "SessionResponseType",
     "SessionStatusCodeType",
     "SessionStatusType",
+    "UpdateActionType",
 )
 
 ActionCompletionStrategyType = Literal["AUTO_COMPLETION_UPON_APPROVAL"]
+AdditionalSecurityRequirementType = Literal["APPROVER_VERIFICATION_REQUIRED"]
 ApprovalTeamStatusCodeType = Literal[
     "DELETE_FAILED_APPROVAL",
     "DELETE_FAILED_VALIDATION",
@@ -80,6 +85,8 @@ ListPoliciesPaginatorName = Literal["list_policies"]
 ListPolicyVersionsPaginatorName = Literal["list_policy_versions"]
 ListResourcePoliciesPaginatorName = Literal["list_resource_policies"]
 ListSessionsPaginatorName = Literal["list_sessions"]
+MfaSyncStatusType = Literal["IN_SYNC", "OUT_OF_SYNC"]
+MfaTypeType = Literal["EMAIL_OTP"]
 OperatorType = Literal["BETWEEN", "CONTAINS", "EQ", "GT", "GTE", "LT", "LTE", "NE", "NOT_CONTAINS"]
 PolicyStatusType = Literal["ATTACHABLE", "DEPRECATED"]
 PolicyTypeType = Literal["AWS_MANAGED", "AWS_RAM"]
@@ -87,6 +94,7 @@ SessionExecutionStatusType = Literal["EXECUTED", "FAILED", "PENDING"]
 SessionResponseType = Literal["APPROVED", "NO_RESPONSE", "REJECTED"]
 SessionStatusCodeType = Literal["CONFIGURATION_CHANGED", "EXPIRED", "REJECTED"]
 SessionStatusType = Literal["APPROVED", "CANCELLED", "CREATING", "FAILED", "PENDING"]
+UpdateActionType = Literal["SYNCHRONIZE_MFA_DEVICES"]
 MultipartyApprovalServiceName = Literal["mpa"]
 ServiceName = Literal[
     "accessanalyzer",

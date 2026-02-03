@@ -1,31 +1,30 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 from __future__ import annotations
-from functools import cached_property
 
-import contrast
+from functools import cached_property
 
 from aiohttp.web import StreamResponse
 from aiohttp.web_urldispatcher import DynamicResource
 
-from contrast.agent.request_context import RequestContext
-from contrast.aiohttp import sources
-from contrast.agent import scope, request_state, agent_state
-from contrast.agent.middlewares.route_coverage.aiohttp_routes import (
-    create_aiohttp_routes,
-)
-from contrast.agent.middlewares.route_coverage import common
-from contrast.agent.policy.trigger_node import TriggerNode
+import contrast
 import contrast_rewriter
-from contrast_vendor import structlog as logging
+from contrast.agent import agent_state, request_state, scope
 from contrast.agent.middlewares.base_middleware import (
     BaseMiddleware,
 )
 from contrast.agent.middlewares.response_wrappers.aiohttp_response_wrapper import (
     AioHttpResponseWrapper,
 )
-
+from contrast.agent.middlewares.route_coverage import common
+from contrast.agent.middlewares.route_coverage.aiohttp_routes import (
+    create_aiohttp_routes,
+)
+from contrast.agent.policy.trigger_node import TriggerNode
+from contrast.agent.request_context import RequestContext
+from contrast.aiohttp import sources
 from contrast.utils.decorators import fail_quietly
+from contrast_vendor import structlog as logging
 
 logger = logging.getLogger("contrast")
 
@@ -91,7 +90,7 @@ class AioHttpMiddleware(BaseMiddleware):
 
             finally:
                 if context.assess_enabled:
-                    self.do_aiohttp_first_request_analysis()
+                    self.do_aiohttp_first_request_analysis(context)
                     self.do_aiohttp_route_observation(context, request)
                 self.handle_ensure(context, request)
                 if context.assess_enabled:
@@ -102,8 +101,8 @@ class AioHttpMiddleware(BaseMiddleware):
             return await handler(request)
 
     @fail_quietly()
-    def do_aiohttp_first_request_analysis(self) -> None:
-        if not agent_state.is_first_request():
+    def do_aiohttp_first_request_analysis(self, context: RequestContext) -> None:
+        if not context.first_request or not context.assess_enabled:
             return
 
         common.handle_route_discovery("aiohttp", create_aiohttp_routes, (self.app,))

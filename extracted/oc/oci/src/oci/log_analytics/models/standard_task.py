@@ -43,6 +43,10 @@ class StandardTask(ScheduledTask):
             The value to assign to the display_name property of this StandardTask.
         :type display_name: str
 
+        :param description:
+            The value to assign to the description property of this StandardTask.
+        :type description: str
+
         :param task_type:
             The value to assign to the task_type property of this StandardTask.
             Allowed values for this property are: "SAVED_SEARCH", "ACCELERATION", "PURGE", 'UNKNOWN_ENUM_VALUE'.
@@ -65,7 +69,7 @@ class StandardTask(ScheduledTask):
 
         :param pause_reason:
             The value to assign to the pause_reason property of this StandardTask.
-            Allowed values for this property are: "METRIC_EXTRACTION_NOT_VALID", "SAVED_SEARCH_NOT_VALID", "SAVED_SEARCH_NOT_FOUND", "QUERY_STRING_NOT_VALID", "USER_ACTION", "TENANCY_LIFECYCLE", "PURGE_RESOURCE_NOT_FOUND", 'UNKNOWN_ENUM_VALUE'.
+            Allowed values for this property are: "METRIC_EXTRACTION_NOT_VALID", "SAVED_SEARCH_NOT_VALID", "SAVED_SEARCH_NOT_FOUND", "QUERY_STRING_NOT_VALID", "USER_ACTION", "TENANCY_LIFECYCLE", "PURGE_RESOURCE_NOT_FOUND", "LIMIT_EXCEEDED", 'UNKNOWN_ENUM_VALUE'.
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type pause_reason: str
 
@@ -122,6 +126,7 @@ class StandardTask(ScheduledTask):
             'kind': 'str',
             'id': 'str',
             'display_name': 'str',
+            'description': 'str',
             'task_type': 'str',
             'schedules': 'list[Schedule]',
             'action': 'Action',
@@ -143,6 +148,7 @@ class StandardTask(ScheduledTask):
             'kind': 'kind',
             'id': 'id',
             'display_name': 'displayName',
+            'description': 'description',
             'task_type': 'taskType',
             'schedules': 'schedules',
             'action': 'action',
@@ -163,6 +169,7 @@ class StandardTask(ScheduledTask):
         self._kind = None
         self._id = None
         self._display_name = None
+        self._description = None
         self._task_type = None
         self._schedules = None
         self._action = None

@@ -1,25 +1,18 @@
 # ruff: noqa: N802, PLC0415
 import re
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import Enum
-from importlib import import_module
 from os import PathLike
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Dict,
     Generic,
-    List,
     Literal,
     NamedTuple,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
+    TypeAlias,
     TypeVar,
-    Union,
     cast,
 )
 
@@ -35,7 +28,7 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 
-ContextBehaviorType = Literal["django", "isolated"]
+ContextBehaviorType: TypeAlias = Literal["django", "isolated"]
 
 
 class ContextBehavior(str, Enum):
@@ -150,7 +143,7 @@ class ComponentsSettings(NamedTuple):
     ```
     """
 
-    extensions: Optional[Sequence[Union[Type["ComponentExtension"], str]]] = None
+    extensions: Sequence[type["ComponentExtension"] | str] | None = None
     """
     List of [extensions](../concepts/advanced/extensions.md) to be loaded.
 
@@ -173,7 +166,7 @@ class ComponentsSettings(NamedTuple):
     ```
     """
 
-    extensions_defaults: Optional[Dict[str, Any]] = None
+    extensions_defaults: dict[str, Any] | None = None
     """
     Global defaults for the extension classes.
 
@@ -196,7 +189,7 @@ class ComponentsSettings(NamedTuple):
     ```
     """
 
-    autodiscover: Optional[bool] = None
+    autodiscover: bool | None = None
     """
     Toggle whether to run [autodiscovery](../concepts/fundamentals/autodiscovery.md) at the Django server startup.
 
@@ -209,7 +202,7 @@ class ComponentsSettings(NamedTuple):
     ```
     """
 
-    dirs: Optional[Sequence[Union[str, PathLike, Tuple[str, str], Tuple[str, PathLike]]]] = None
+    dirs: Sequence[str | PathLike | tuple[str, str] | tuple[str, PathLike]] | None = None
     """
     Specify the directories that contain your components.
 
@@ -236,7 +229,7 @@ class ComponentsSettings(NamedTuple):
     ```
     """
 
-    app_dirs: Optional[Sequence[str]] = None
+    app_dirs: Sequence[str] | None = None
     """
     Specify the app-level directories that contain your components.
 
@@ -264,7 +257,7 @@ class ComponentsSettings(NamedTuple):
     ```
     """
 
-    cache: Optional[str] = None
+    cache: str | None = None
     """
     Name of the [Django cache](https://docs.djangoproject.com/en/5.2/topics/cache/)
     to be used for storing component's JS and CSS files.
@@ -283,7 +276,7 @@ class ComponentsSettings(NamedTuple):
     ```
     """
 
-    context_behavior: Optional[ContextBehaviorType] = None
+    context_behavior: ContextBehaviorType | None = None
     """
     Configure whether, inside a component template, you can use variables from the outside
     ([`"django"`](./api.md#django_components.ContextBehavior.DJANGO))
@@ -311,7 +304,7 @@ class ComponentsSettings(NamedTuple):
     """
 
     # TODO_v1 - remove. Users should use extension defaults instead.
-    debug_highlight_components: Optional[bool] = None
+    debug_highlight_components: bool | None = None
     """
     DEPRECATED. Use
     [`extensions_defaults`](./settings.md#django_components.app_settings.ComponentsSettings.extensions_defaults)
@@ -330,7 +323,7 @@ class ComponentsSettings(NamedTuple):
     """
 
     # TODO_v1 - remove. Users should use extension defaults instead.
-    debug_highlight_slots: Optional[bool] = None
+    debug_highlight_slots: bool | None = None
     """
     DEPRECATED. Use
     [`extensions_defaults`](./settings.md#django_components.app_settings.ComponentsSettings.extensions_defaults)
@@ -348,7 +341,7 @@ class ComponentsSettings(NamedTuple):
     ```
     """
 
-    dynamic_component_name: Optional[str] = None
+    dynamic_component_name: str | None = None
     """
     By default, the [dynamic component](./components.md#django_components.components.dynamic.DynamicComponent)
     is registered under the name `"dynamic"`.
@@ -374,7 +367,7 @@ class ComponentsSettings(NamedTuple):
     ```
     """
 
-    libraries: Optional[List[str]] = None
+    libraries: list[str] | None = None
     """
     Configure extra python modules that should be loaded.
 
@@ -419,7 +412,7 @@ class ComponentsSettings(NamedTuple):
     ```
     """
 
-    multiline_tags: Optional[bool] = None
+    multiline_tags: bool | None = None
     """
     Enable / disable
     [multiline support for template tags](../concepts/fundamentals/template_tag_syntax.md#multiline-tags).
@@ -438,12 +431,12 @@ class ComponentsSettings(NamedTuple):
     """
 
     # TODO_REMOVE_IN_V1
-    reload_on_template_change: Optional[bool] = None
+    reload_on_template_change: bool | None = None
     """Deprecated. Use
     [`COMPONENTS.reload_on_file_change`](./settings.md#django_components.app_settings.ComponentsSettings.reload_on_file_change)
     instead."""
 
-    reload_on_file_change: Optional[bool] = None
+    reload_on_file_change: bool | None = None
     """
     This is relevant if you are using the project structure where
     HTML, JS, CSS and Python are in separate files and nested in a directory.
@@ -473,7 +466,7 @@ class ComponentsSettings(NamedTuple):
         This setting should be enabled only for the dev environment!
     """  # noqa: E501
 
-    static_files_allowed: Optional[List[Union[str, re.Pattern]]] = None
+    static_files_allowed: list[str | re.Pattern] | None = None
     """
     A list of file extensions (including the leading dot) that define which files within
     [`COMPONENTS.dirs`](./settings.md#django_components.app_settings.ComponentsSettings.dirs)
@@ -513,12 +506,12 @@ class ComponentsSettings(NamedTuple):
     """
 
     # TODO_REMOVE_IN_V1
-    forbidden_static_files: Optional[List[Union[str, re.Pattern]]] = None
+    forbidden_static_files: list[str | re.Pattern] | None = None
     """Deprecated. Use
     [`COMPONENTS.static_files_forbidden`](./settings.md#django_components.app_settings.ComponentsSettings.static_files_forbidden)
     instead."""
 
-    static_files_forbidden: Optional[List[Union[str, re.Pattern]]] = None
+    static_files_forbidden: list[str | re.Pattern] | None = None
     """
     A list of file extensions (including the leading dot) that define which files within
     [`COMPONENTS.dirs`](./settings.md#django_components.app_settings.ComponentsSettings.dirs)
@@ -555,7 +548,7 @@ class ComponentsSettings(NamedTuple):
         See [Security notes](../overview/security_notes.md).
     """
 
-    tag_formatter: Optional[Union["TagFormatterABC", str]] = None
+    tag_formatter: "TagFormatterABC | str | None" = None
     """
     Configure what syntax is used inside Django templates to render components.
     See the [available tag formatters](./tag_formatters.md).
@@ -622,7 +615,7 @@ class ComponentsSettings(NamedTuple):
     """
 
     # TODO_V1 - remove
-    template_cache_size: Optional[int] = None
+    template_cache_size: int | None = None
     """
     DEPRECATED. Template caching will be removed in v1.
 
@@ -748,7 +741,7 @@ defaults = ComponentsSettings(
 # Settings are loaded from Django settings only once, at `apps.py` in `ready()`.
 class InternalSettings:
     def __init__(self) -> None:
-        self._settings: Optional[ComponentsSettings] = None
+        self._settings: ComponentsSettings | None = None
 
     def _load_settings(self) -> None:
         data = getattr(settings, "COMPONENTS", {})
@@ -758,7 +751,7 @@ class InternalSettings:
 
         # For DIRS setting, we use a getter for the default value, because the default value
         # uses Django settings, which may not yet be initialized at the time these settings are generated.
-        dirs_default_fn = cast("Dynamic[Sequence[Union[str, Tuple[str, str]]]]", defaults.dirs)
+        dirs_default_fn = cast("Dynamic[Sequence[str | tuple[str, str]]]", defaults.dirs)
         dirs_default = dirs_default_fn.getter()
 
         self._settings = ComponentsSettings(
@@ -776,9 +769,7 @@ class InternalSettings:
                 defaults.dynamic_component_name,
             ),
             libraries=default(components_settings.libraries, defaults.libraries),
-            # NOTE: Internally we store the extensions as a list of instances, but the user
-            #       can pass in either a list of classes or a list of import strings.
-            extensions=self._prepare_extensions(components_settings),  # type: ignore[arg-type]
+            extensions=self._prepare_extensions(components_settings),
             extensions_defaults=default(components_settings.extensions_defaults, defaults.extensions_defaults),
             multiline_tags=default(components_settings.multiline_tags, defaults.multiline_tags),
             reload_on_file_change=self._prepare_reload_on_file_change(components_settings),
@@ -794,46 +785,33 @@ class InternalSettings:
             self._load_settings()
         return cast("ComponentsSettings", self._settings)
 
-    def _prepare_extensions(self, new_settings: ComponentsSettings) -> List["ComponentExtension"]:
-        extensions: Sequence[Union[Type[ComponentExtension], str]] = default(
+    def _prepare_extensions(self, new_settings: ComponentsSettings) -> "Sequence[type[ComponentExtension]]":
+        # User-provided extensions
+        extensions: Sequence[type[ComponentExtension] | str] = default(
             new_settings.extensions,
-            cast("List[str]", defaults.extensions),
+            cast("list[str]", defaults.extensions),
         )
 
-        # Prepend built-in extensions
+        # Prepend built-in extensions (these are always loaded)
+        from django_components.extensions.autodiscovery import AutodiscoveryExtension
         from django_components.extensions.cache import CacheExtension
         from django_components.extensions.debug_highlight import DebugHighlightExtension
         from django_components.extensions.defaults import DefaultsExtension
         from django_components.extensions.dependencies import DependenciesExtension
         from django_components.extensions.view import ViewExtension
 
-        extensions = cast(
-            "List[Type[ComponentExtension]]",
-            [
-                CacheExtension,
-                DefaultsExtension,
-                DependenciesExtension,
-                ViewExtension,
-                DebugHighlightExtension,
-            ],
-        ) + list(extensions)
+        built_in_extensions = [
+            AutodiscoveryExtension,
+            CacheExtension,
+            DefaultsExtension,
+            DependenciesExtension,
+            ViewExtension,
+            DebugHighlightExtension,
+        ]
 
-        # Extensions may be passed in either as classes or import strings.
-        extension_instances: List[ComponentExtension] = []
-        for extension in extensions:
-            if isinstance(extension, str):
-                import_path, class_name = extension.rsplit(".", 1)
-                extension_module = import_module(import_path)
-                extension = cast("Type[ComponentExtension]", getattr(extension_module, class_name))  # noqa: PLW2901
-
-            if isinstance(extension, type):
-                extension_instance = extension()
-            else:
-                extension_instances.append(extension)
-
-            extension_instances.append(extension_instance)
-
-        return extension_instances
+        # Combine built-in extensions with user extensions
+        all_extensions = [*built_in_extensions, *extensions]
+        return all_extensions  # type: ignore[return-value]
 
     def _prepare_reload_on_file_change(self, new_settings: ComponentsSettings) -> bool:
         val = new_settings.reload_on_file_change
@@ -843,13 +821,13 @@ class InternalSettings:
 
         return default(val, cast("bool", defaults.reload_on_file_change))
 
-    def _prepare_static_files_forbidden(self, new_settings: ComponentsSettings) -> List[Union[str, re.Pattern]]:
+    def _prepare_static_files_forbidden(self, new_settings: ComponentsSettings) -> list[str | re.Pattern]:
         val = new_settings.static_files_forbidden
         # TODO_REMOVE_IN_V1
         if val is None:
             val = new_settings.forbidden_static_files
 
-        return default(val, cast("List[Union[str, re.Pattern]]", defaults.static_files_forbidden))
+        return default(val, cast("list[str | re.Pattern]", defaults.static_files_forbidden))
 
     def _prepare_context_behavior(self, new_settings: ComponentsSettings) -> Literal["django", "isolated"]:
         raw_value = cast(
@@ -869,11 +847,11 @@ class InternalSettings:
         return self._get_settings().autodiscover  # type: ignore[return-value]
 
     @property
-    def CACHE(self) -> Optional[str]:
+    def CACHE(self) -> str | None:
         return self._get_settings().cache
 
     @property
-    def DIRS(self) -> Sequence[Union[str, PathLike, Tuple[str, str], Tuple[str, PathLike]]]:
+    def DIRS(self) -> Sequence[str | PathLike | tuple[str, str] | tuple[str, PathLike]]:
         return self._get_settings().dirs  # type: ignore[return-value]
 
     @property
@@ -893,15 +871,15 @@ class InternalSettings:
         return self._get_settings().dynamic_component_name  # type: ignore[return-value]
 
     @property
-    def LIBRARIES(self) -> List[str]:
+    def LIBRARIES(self) -> list[str]:
         return self._get_settings().libraries  # type: ignore[return-value]
 
     @property
-    def EXTENSIONS(self) -> List["ComponentExtension"]:
+    def EXTENSIONS(self) -> Sequence[type["ComponentExtension"] | str]:
         return self._get_settings().extensions  # type: ignore[return-value]
 
     @property
-    def EXTENSIONS_DEFAULTS(self) -> Dict[str, Any]:
+    def EXTENSIONS_DEFAULTS(self) -> dict[str, Any]:
         return self._get_settings().extensions_defaults  # type: ignore[return-value]
 
     @property
@@ -917,11 +895,11 @@ class InternalSettings:
         return self._get_settings().template_cache_size  # type: ignore[return-value]
 
     @property
-    def STATIC_FILES_ALLOWED(self) -> Sequence[Union[str, re.Pattern]]:
+    def STATIC_FILES_ALLOWED(self) -> Sequence[str | re.Pattern]:
         return self._get_settings().static_files_allowed  # type: ignore[return-value]
 
     @property
-    def STATIC_FILES_FORBIDDEN(self) -> Sequence[Union[str, re.Pattern]]:
+    def STATIC_FILES_FORBIDDEN(self) -> Sequence[str | re.Pattern]:
         return self._get_settings().static_files_forbidden  # type: ignore[return-value]
 
     @property
@@ -929,7 +907,7 @@ class InternalSettings:
         return ContextBehavior(self._get_settings().context_behavior)
 
     @property
-    def TAG_FORMATTER(self) -> Union["TagFormatterABC", str]:
+    def TAG_FORMATTER(self) -> "TagFormatterABC | str":
         return self._get_settings().tag_formatter  # type: ignore[return-value]
 
 

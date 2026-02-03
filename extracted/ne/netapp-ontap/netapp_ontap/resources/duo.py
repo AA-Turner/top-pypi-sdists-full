@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,17 +26,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Duo(
     {
-        "comment": "Duo profile for Cserver",
-        "max_prompts": 1,
-        "status": "Ok",
-        "integration_key": "AAAA1A11A1AAA1AAA111",
-        "is_enabled": True,
-        "fingerprint": "xxxxxxxxxc8f58b1d52317e1212e9f067a958c387e5e2axxxxxxxxxxxxxxxxxx",
-        "owner": {"uuid": "f810005a-d908-11ed-a6e6-0050568e8ef2", "name": "cluster-1"},
-        "api_host": "api-******.duosecurity.com",
-        "push_info": True,
         "fail_mode": "safe",
+        "push_info": True,
+        "integration_key": "<INTEGRATION-KEY>",
+        "api_host": "api-******.duosecurity.com",
+        "comment": "Duo profile for Cserver",
+        "is_enabled": True,
+        "owner": {"name": "cluster-1", "uuid": "f810005a-d908-11ed-a6e6-0050568e8ef2"},
         "auto_push": True,
+        "fingerprint": "<FINGERPRINT>",
+        "status": "Ok",
+        "max_prompts": 1,
     }
 )
 
@@ -73,11 +73,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -91,11 +90,15 @@ __pdoc__ = {
     "DuoSchema.opts": False,
 }
 
-
 class DuoSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Duo object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the duo."""
 
     api_host = marshmallow_fields.Str(
@@ -169,7 +172,12 @@ Example: true"""
 
 Example: 1"""
 
-    owner = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="owner", unknown=EXCLUDE, allow_none=True)
+    owner = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="owner",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The owner field of the duo."""
 
     push_info = marshmallow_fields.Boolean(

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -60,6 +60,58 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Disk(
     {
         "serial_number": "EC47PC5021SW",
+        "effective_type": "sas",
+        "name": "1.24.3",
+        "aggregates": [
+            {
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/aggregates/3fd9c345-ba91-4949-a7b1-6e2b898d74e3"
+                    }
+                },
+                "name": "node_2_SAS_1",
+                "uuid": "3fd9c345-ba91-4949-a7b1-6e2b898d74e3",
+            }
+        ],
+        "paths": [
+            {
+                "initiator": "3a",
+                "port_name": "B",
+                "wwpn": "5000cca02f0e676a",
+                "port_type": "sas",
+                "wwnn": "5000cca02f0e6768",
+            },
+            {
+                "initiator": "3d",
+                "port_name": "A",
+                "wwpn": "5000cca02f0e6769",
+                "port_type": "sas",
+                "wwnn": "5000cca02f0e6768",
+            },
+            {
+                "initiator": "3d",
+                "port_name": "A",
+                "wwpn": "5000cca02f0e6769",
+                "port_type": "sas",
+                "wwnn": "5000cca02f0e6768",
+            },
+            {
+                "initiator": "3a",
+                "port_name": "B",
+                "wwpn": "5000cca02f0e676a",
+                "port_type": "sas",
+                "wwnn": "5000cca02f0e6768",
+            },
+        ],
+        "node": {
+            "name": "node-2",
+            "_links": {
+                "self": {
+                    "href": "/api/cluster/nodes/3a89ed49-8c6d-11e8-93bc-00a0985a64b6"
+                }
+            },
+            "uuid": "3a89ed49-8c6d-11e8-93bc-00a0985a64b6",
+        },
         "error": [
             {
                 "reason": {
@@ -69,91 +121,24 @@ Disk(
                 "type": "notallflashdisk",
             }
         ],
-        "rpm": 10000,
-        "container_type": "aggregate",
-        "state": "present",
-        "usable_size": 438304768000,
-        "type": "sas",
-        "firmware_version": "NA02",
-        "sector_count": 1172123568,
-        "model": "X421_FAL12450A10",
-        "paths": [
-            {
-                "wwpn": "5000cca02f0e676a",
-                "initiator": "3a",
-                "port_name": "B",
-                "port_type": "sas",
-                "wwnn": "5000cca02f0e6768",
-            },
-            {
-                "wwpn": "5000cca02f0e6769",
-                "initiator": "3d",
-                "port_name": "A",
-                "port_type": "sas",
-                "wwnn": "5000cca02f0e6768",
-            },
-            {
-                "wwpn": "5000cca02f0e6769",
-                "initiator": "3d",
-                "port_name": "A",
-                "port_type": "sas",
-                "wwnn": "5000cca02f0e6768",
-            },
-            {
-                "wwpn": "5000cca02f0e676a",
-                "initiator": "3a",
-                "port_name": "B",
-                "port_type": "sas",
-                "wwnn": "5000cca02f0e6768",
-            },
-        ],
-        "pool": "pool0",
-        "bytes_per_sector": 512,
-        "effective_type": "sas",
-        "home_node": {
-            "uuid": "3a89ed49-8c6d-11e8-93bc-00a0985a64b6",
-            "name": "node-2",
-            "_links": {
-                "self": {
-                    "href": "/api/cluster/nodes/3a89ed49-8c6d-11e8-93bc-00a0985a64b6"
-                }
-            },
-        },
-        "node": {
-            "uuid": "3a89ed49-8c6d-11e8-93bc-00a0985a64b6",
-            "name": "node-2",
-            "_links": {
-                "self": {
-                    "href": "/api/cluster/nodes/3a89ed49-8c6d-11e8-93bc-00a0985a64b6"
-                }
-            },
-        },
-        "stats": {
-            "iops_total": 12854,
-            "throughput": 1957888,
-            "path_error_count": 0,
-            "average_latency": 6,
-            "power_on_hours": 11797,
-        },
-        "name": "1.24.3",
-        "physical_size": 438804988000,
-        "class": "performance",
-        "right_size_sector_count": 5579776,
-        "bay": 3,
-        "uid": "50000394:0808AA88:00000000:00000000:00000000:00000000:00000000:00000000:00000000:00000000",
         "vendor": "NETAPP",
+        "container_type": "aggregate",
+        "usable_size": 438304768000,
+        "right_size_sector_count": 5579776,
+        "pool": "pool0",
+        "home_node": {
+            "name": "node-2",
+            "_links": {
+                "self": {
+                    "href": "/api/cluster/nodes/3a89ed49-8c6d-11e8-93bc-00a0985a64b6"
+                }
+            },
+            "uuid": "3a89ed49-8c6d-11e8-93bc-00a0985a64b6",
+        },
+        "bay": 3,
+        "state": "present",
         "shelf": {"uid": "10318311901725526608"},
-        "aggregates": [
-            {
-                "uuid": "3fd9c345-ba91-4949-a7b1-6e2b898d74e3",
-                "name": "node_2_SAS_1",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/aggregates/3fd9c345-ba91-4949-a7b1-6e2b898d74e3"
-                    }
-                },
-            }
-        ],
+        "physical_size": 438804988000,
         "outage": {
             "reason": {
                 "message": 'Failed disk. Reason: "admin failed".',
@@ -161,7 +146,22 @@ Disk(
             },
             "persistently_failed": True,
         },
+        "model": "X421_FAL12450A10",
+        "bytes_per_sector": 512,
+        "uid": "50000394:0808AA88:00000000:00000000:00000000:00000000:00000000:00000000:00000000:00000000",
         "local": True,
+        "type": "sas",
+        "stats": {
+            "average_latency": 6,
+            "power_on_hours": 11797,
+            "throughput": 1957888,
+            "path_error_count": 0,
+            "iops_total": 12854,
+        },
+        "rpm": 10000,
+        "firmware_version": "NA02",
+        "sector_count": 1172123568,
+        "class": "performance",
     }
 )
 
@@ -191,69 +191,69 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Disk(
     {
         "serial_number": "3234363765386464",
-        "container_type": "mediator",
-        "type": "vmdisk",
-        "firmware_version": "0001",
-        "sector_count": 204808,
-        "model": "PHA-DISK",
+        "name": "NET-3.2",
         "paths": [
             {
-                "wwpn": "53059d50444f5476",
                 "initiator": "0f",
                 "port_name": "A",
-                "port_type": "sas",
+                "wwpn": "53059d50444f5476",
                 "vmdisk_hypervisor_file_name": "LUN 4.0",
+                "port_type": "sas",
                 "wwnn": "53059d50444f5476",
             },
             {
-                "wwpn": "53059d50444f5476",
                 "initiator": "0f",
                 "port_name": "A",
-                "port_type": "sas",
+                "wwpn": "53059d50444f5476",
                 "vmdisk_hypervisor_file_name": "LUN 2.0",
+                "port_type": "sas",
                 "wwnn": "53059d50444f5476",
             },
         ],
-        "pool": "pool0",
-        "self_encrypting": False,
-        "bytes_per_sector": 512,
-        "home_node": {
-            "uuid": "f4cb78ba-5841-11ec-80c4-916f62b4cd44",
-            "name": "example_node_name",
-            "_links": {
-                "self": {
-                    "href": "/api/cluster/nodes/f4cb78ba-5841-11ec-80c4-916f62b4cd44"
-                }
-            },
-        },
         "node": {
-            "uuid": "f4cb78ba-5841-11ec-80c4-916f62b4cd44",
             "name": "example_node_name",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/f4cb78ba-5841-11ec-80c4-916f62b4cd44"
                 }
             },
+            "uuid": "f4cb78ba-5841-11ec-80c4-916f62b4cd44",
         },
-        "stats": {
-            "iops_total": 1,
-            "throughput": 4096,
-            "path_error_count": 0,
-            "average_latency": 2157188883,
-            "power_on_hours": 0,
-        },
-        "name": "NET-3.2",
-        "physical_size": 204808,
-        "class": "virtual",
-        "right_size_sector_count": 5579776,
-        "uid": "32343637:65386464:00000000:00000000:00000000:00000000:00000000:00000000:00000000:00000000",
         "vendor": "NETAPP",
+        "container_type": "mediator",
         "fips_certified": False,
+        "right_size_sector_count": 5579776,
+        "pool": "pool0",
+        "home_node": {
+            "name": "example_node_name",
+            "_links": {
+                "self": {
+                    "href": "/api/cluster/nodes/f4cb78ba-5841-11ec-80c4-916f62b4cd44"
+                }
+            },
+            "uuid": "f4cb78ba-5841-11ec-80c4-916f62b4cd44",
+        },
+        "self_encrypting": False,
+        "physical_size": 204808,
         "outage": {
             "reason": {"message": 'Failed disk. Reason: "".', "code": "721081"},
             "persistently_failed": False,
         },
+        "model": "PHA-DISK",
+        "bytes_per_sector": 512,
+        "uid": "32343637:65386464:00000000:00000000:00000000:00000000:00000000:00000000:00000000:00000000",
         "local": True,
+        "type": "vmdisk",
+        "stats": {
+            "average_latency": 2157188883,
+            "power_on_hours": 0,
+            "throughput": 4096,
+            "path_error_count": 0,
+            "iops_total": 1,
+        },
+        "firmware_version": "0001",
+        "sector_count": 204808,
+        "class": "virtual",
     }
 )
 
@@ -396,11 +396,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -414,11 +413,18 @@ __pdoc__ = {
     "DiskSchema.opts": False,
 }
 
-
 class DiskSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Disk object"""
 
-    aggregates = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.aggregate.AggregateSchema", unknown=EXCLUDE, allow_none=True), data_key="aggregates", allow_none=True)
+    aggregates = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.container_volume_exclude_aggregates", "ContainerVolumeExcludeAggregatesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="aggregates",
+                allow_none=True
+            )
     r""" List of aggregates sharing this disk"""
 
     bay = Size(
@@ -492,10 +498,20 @@ Valid choices:
 
 Example: TCG Enterprise"""
 
-    dr_node = marshmallow_fields.Nested("netapp_ontap.models.dr_node.DrNodeSchema", data_key="dr_node", unknown=EXCLUDE, allow_none=True)
+    dr_node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.dr_node", "DrNodeSchema"),
+                data_key="dr_node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The dr_node field of the disk."""
 
-    drawer = marshmallow_fields.Nested("netapp_ontap.models.disk_drawer.DiskDrawerSchema", data_key="drawer", unknown=EXCLUDE, allow_none=True)
+    drawer = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.disk_drawer", "DiskDrawerSchema"),
+                data_key="drawer",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The drawer field of the disk."""
 
     effective_type = marshmallow_fields.Str(
@@ -527,7 +543,15 @@ Valid choices:
     )
     r""" This field should only be set as a query parameter in a PATCH operation. It is input only and won't be returned by a subsequent GET."""
 
-    error = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.disk_error_info.DiskErrorInfoSchema", unknown=EXCLUDE, allow_none=True), data_key="error", allow_none=True)
+    error = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.disk_error_info", "DiskErrorInfoSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="error",
+                allow_none=True
+            )
     r""" List of disk errors information."""
 
     fips_certified = marshmallow_fields.Boolean(
@@ -544,10 +568,20 @@ Valid choices:
 
 Example: NA51"""
 
-    home_node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="home_node", unknown=EXCLUDE, allow_none=True)
+    home_node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="home_node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The home_node field of the disk."""
 
-    key_id = marshmallow_fields.Nested("netapp_ontap.models.disk_key_id.DiskKeyIdSchema", data_key="key_id", unknown=EXCLUDE, allow_none=True)
+    key_id = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.disk_key_id", "DiskKeyIdSchema"),
+                data_key="key_id",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The key_id field of the disk."""
 
     local = marshmallow_fields.Boolean(
@@ -582,10 +616,20 @@ Example: X421_HCOBE450A10"""
 
 Example: 1.0.1"""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the disk."""
 
-    outage = marshmallow_fields.Nested("netapp_ontap.models.disk_outage.DiskOutageSchema", data_key="outage", unknown=EXCLUDE, allow_none=True)
+    outage = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.disk_outage", "DiskOutageSchema"),
+                data_key="outage",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Indicates if a disk has an entry in the failed disk registry, along with the reason for the failure."""
 
     overall_security = marshmallow_fields.Str(
@@ -596,7 +640,15 @@ Example: 1.0.1"""
 
 Example: Level 2"""
 
-    paths = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.disk_path_info.DiskPathInfoSchema", unknown=EXCLUDE, allow_none=True), data_key="paths", allow_none=True)
+    paths = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.disk_path_info", "DiskPathInfoSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="paths",
+                allow_none=True
+            )
     r""" List of paths to a disk"""
 
     physical_size = Size(
@@ -694,7 +746,12 @@ Example: 1172123568"""
 
 Example: KHG2VX8R"""
 
-    shelf = marshmallow_fields.Nested("netapp_ontap.resources.shelf.ShelfSchema", data_key="shelf", unknown=EXCLUDE, allow_none=True)
+    shelf = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.shelf", "ShelfSchema"),
+                data_key="shelf",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The shelf field of the disk."""
 
     state = marshmallow_fields.Str(
@@ -718,13 +775,28 @@ Valid choices:
 * unfail
 * zeroing"""
 
-    stats = marshmallow_fields.Nested("netapp_ontap.models.disk_stats.DiskStatsSchema", data_key="stats", unknown=EXCLUDE, allow_none=True)
+    stats = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.disk_stats", "DiskStatsSchema"),
+                data_key="stats",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The stats field of the disk."""
 
-    storage_availability_zone = marshmallow_fields.Nested("netapp_ontap.resources.storage_availability_zone.StorageAvailabilityZoneSchema", data_key="storage_availability_zone", unknown=EXCLUDE, allow_none=True)
+    storage_availability_zone = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.storage_availability_zone", "StorageAvailabilityZoneSchema"),
+                data_key="storage_availability_zone",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The storage_availability_zone field of the disk."""
 
-    storage_pool = marshmallow_fields.Nested("netapp_ontap.resources.storage_pool.StoragePoolSchema", data_key="storage_pool", unknown=EXCLUDE, allow_none=True)
+    storage_pool = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.storage_pool", "StoragePoolSchema"),
+                data_key="storage_pool",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The storage_pool field of the disk."""
 
     type = marshmallow_fields.Str(
@@ -774,7 +846,12 @@ Example: 959934889984"""
 
 Example: NETAPP"""
 
-    virtual = marshmallow_fields.Nested("netapp_ontap.models.disk_virtual.DiskVirtualSchema", data_key="virtual", unknown=EXCLUDE, allow_none=True)
+    virtual = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.disk_virtual", "DiskVirtualSchema"),
+                data_key="virtual",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Information about backing storage for disks on cloud platforms."""
 
     @property

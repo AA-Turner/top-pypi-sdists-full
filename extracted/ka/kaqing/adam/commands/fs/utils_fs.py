@@ -8,7 +8,7 @@ from adam.commands.export.export_sessions import export_session
 from adam.repl_state import ReplState
 from adam.utils import Color, PodLogFile, log2, log_dir, log_to_pods, pod_log_dir
 from adam.utils_tabulize import tabulize
-from adam.utils_cassandra.node_restart_scheduler import NodeRestartScheduler
+from adam.utils_cassandra.node_scheduler import NodeScheduler
 from adam.utils_context import Context
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.utils_k8s.pod_files import PodFiles
@@ -135,18 +135,18 @@ def show_last_results_for_background_jobs(state: ReplState, cmd: CommandInfo, ct
         ctx.log2()
         lines = []
 
-        waiting_ons: dict[tuple[str, str], str] = NodeRestartScheduler.waiting_ons()
+        waiting_ons: dict[tuple[str, str], str] = NodeScheduler.waiting_ons()
         def wo(pod: tuple[str, str]):
             if pod in waiting_ons:
                 return waiting_ons[pod]
 
             return '-'
 
-        for k, v in sorted(list(NodeRestartScheduler.completed().items()), key=lambda kv: kv[1]):
+        for k, v in sorted(list(NodeScheduler.completed().items()), key=lambda kv: kv[1]):
             lines.append(f'{k[0]}\t{k[1]}\tRestarted\t{datetime.fromtimestamp(v).replace(microsecond=0)}\t-')
-        for k, v in sorted(list(NodeRestartScheduler.restartings().items()), key=lambda kv: kv[1]):
+        for k, v in sorted(list(NodeScheduler.restartings().items()), key=lambda kv: kv[1]):
             lines.append(f'{k[0]}\t{k[1]}\tIn Restart\t{datetime.fromtimestamp(v).replace(microsecond=0)}\t-')
-        for k, v in sorted(list(NodeRestartScheduler.pending().items()), key=lambda kv: kv[1]):
+        for k, v in sorted(list(NodeScheduler.pending().items()), key=lambda kv: kv[1]):
             lines.append(f'{k[0]}\t{k[1]}\tPending\t{datetime.fromtimestamp(v).replace(microsecond=0)}\t{wo(k)}')
 
         tabulize(lines,

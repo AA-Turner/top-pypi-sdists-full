@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["CifsServiceDelete", "CifsServiceDeleteSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "CifsServiceDelete": False,
 }
 
-
 class CifsServiceDeleteSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the CifsServiceDelete object"""
 
-    ad_domain = marshmallow_fields.Nested("netapp_ontap.models.ad_domain_delete.AdDomainDeleteSchema", unknown=EXCLUDE, data_key="ad_domain", allow_none=True)
+    ad_domain = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ad_domain_delete", "AdDomainDeleteSchema"),
+                unknown=EXCLUDE,
+                data_key="ad_domain",
+                allow_none=True
+            )
     r""" The ad_domain field of the cifs_service_delete. """
 
     auth_user_type = marshmallow_fields.Str(data_key="auth_user_type", allow_none=True)
@@ -59,7 +62,7 @@ Example: e959d1b5-5a63-4284-9268-851e30e3eceb """
     client_secret = marshmallow_fields.Str(data_key="client_secret", allow_none=True)
     r""" Secret used by the application to prove its identity to AKV.
 
-Example: _8E8Q~Qu866jtihUE3ia4Q5Y5IDEVC6UfskbZa6X """
+Example: <APPLICATION-CLIENT-SECRET-FOR-AKV> """
 
     key_vault_uri = marshmallow_fields.Str(data_key="key_vault_uri", allow_none=True)
     r""" URI of the deployed AKV that is used by ONTAP for storing keys.

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -49,26 +49,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Audit(
     {
-        "enabled": True,
-        "guarantee": True,
         "log_path": "/",
-        "svm": {"uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf", "name": "vs1"},
+        "svm": {"name": "vs1", "uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf"},
+        "guarantee": True,
         "events": {
-            "cap_staging": False,
-            "security_group": False,
-            "file_operations": True,
-            "user_account": False,
             "cifs_logon_logoff": True,
-            "async_delete": False,
+            "security_group": False,
             "authorization_policy": False,
-            "file_share": False,
             "audit_policy_change": True,
+            "cap_staging": False,
+            "user_account": False,
+            "file_operations": True,
+            "async_delete": False,
+            "file_share": False,
         },
         "log": {
-            "retention": {"duration": "0s", "count": 10},
-            "rotation": {"size": 2048000},
             "format": "evtx",
+            "retention": {"count": 10, "duration": "0s"},
+            "rotation": {"size": 2048000},
         },
+        "enabled": True,
     }
 )
 
@@ -126,34 +126,34 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Audit(
     {
-        "enabled": True,
-        "guarantee": True,
         "log_path": "/",
-        "svm": {"uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e", "name": "vs3"},
+        "svm": {"name": "vs3", "uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e"},
+        "guarantee": True,
         "events": {
-            "cap_staging": False,
-            "security_group": False,
-            "file_operations": True,
-            "user_account": False,
             "cifs_logon_logoff": True,
-            "async_delete": False,
+            "security_group": False,
             "authorization_policy": False,
-            "file_share": False,
             "audit_policy_change": True,
+            "cap_staging": False,
+            "user_account": False,
+            "file_operations": True,
+            "async_delete": False,
+            "file_share": False,
         },
         "log": {
-            "retention": {"duration": "P4DT12H30M5S", "count": 0},
+            "format": "xml",
+            "retention": {"count": 0, "duration": "P4DT12H30M5S"},
             "rotation": {
                 "schedule": {
+                    "weekdays": [0, 2, 5],
                     "months": [0],
                     "hours": [0, 1, 6, 12, 18, 23],
-                    "weekdays": [0, 2, 5],
-                    "days": [1, 5, 10, 15],
                     "minutes": [10, 15, 30, 45, 59],
+                    "days": [1, 5, 10, 15],
                 }
             },
-            "format": "xml",
         },
+        "enabled": True,
     }
 )
 
@@ -180,60 +180,60 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Audit(
         {
-            "enabled": True,
-            "guarantee": True,
             "log_path": "/",
-            "svm": {"uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf", "name": "vs1"},
+            "charge_qos": False,
+            "svm": {"name": "vs1", "uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf"},
+            "guarantee": True,
             "events": {
-                "cap_staging": False,
-                "security_group": False,
-                "file_operations": True,
-                "user_account": False,
                 "cifs_logon_logoff": True,
-                "async_delete": False,
+                "security_group": False,
                 "authorization_policy": False,
-                "file_share": False,
                 "audit_policy_change": True,
+                "cap_staging": False,
+                "user_account": False,
+                "file_operations": True,
+                "async_delete": False,
+                "file_share": False,
             },
             "log": {
-                "retention": {"duration": "0s", "count": 10},
-                "rotation": {"size": 2048000},
                 "format": "evtx",
+                "retention": {"count": 10, "duration": "0s"},
+                "rotation": {"size": 2048000},
             },
-            "charge_qos": False,
+            "enabled": True,
         }
     ),
     Audit(
         {
-            "enabled": True,
-            "guarantee": True,
             "log_path": "/",
-            "svm": {"uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e", "name": "vs3"},
+            "charge_qos": False,
+            "svm": {"name": "vs3", "uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e"},
+            "guarantee": True,
             "events": {
-                "cap_staging": False,
-                "security_group": False,
-                "file_operations": True,
-                "user_account": False,
                 "cifs_logon_logoff": True,
-                "async_delete": False,
+                "security_group": False,
                 "authorization_policy": False,
-                "file_share": False,
                 "audit_policy_change": True,
+                "cap_staging": False,
+                "user_account": False,
+                "file_operations": True,
+                "async_delete": False,
+                "file_share": False,
             },
             "log": {
-                "retention": {"duration": "P4DT12H30M5S", "count": 0},
+                "format": "xml",
+                "retention": {"count": 0, "duration": "P4DT12H30M5S"},
                 "rotation": {
                     "schedule": {
+                        "weekdays": [0, 2, 5],
                         "months": [0],
                         "hours": [0, 1, 6, 12, 18, 23],
-                        "weekdays": [0, 2, 5],
-                        "days": [1, 5, 10, 15],
                         "minutes": [10, 15, 30, 45, 59],
+                        "days": [1, 5, 10, 15],
                     }
                 },
-                "format": "xml",
             },
-            "charge_qos": False,
+            "enabled": True,
         }
     ),
 ]
@@ -270,14 +270,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Audit(
         {
-            "svm": {"uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf", "name": "vs1"},
-            "events": {"file_operations": True, "cifs_logon_logoff": True},
+            "svm": {"name": "vs1", "uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf"},
+            "events": {"cifs_logon_logoff": True, "file_operations": True},
         }
     ),
     Audit(
         {
-            "svm": {"uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e", "name": "vs3"},
-            "events": {"file_operations": True, "cifs_logon_logoff": True},
+            "svm": {"name": "vs3", "uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e"},
+            "events": {"cifs_logon_logoff": True, "file_operations": True},
         }
     ),
 ]
@@ -308,27 +308,27 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Audit(
     {
-        "enabled": True,
-        "guarantee": True,
         "log_path": "/",
-        "svm": {"uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf", "name": "vs1"},
+        "charge_qos": False,
+        "svm": {"name": "vs1", "uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf"},
+        "guarantee": True,
         "events": {
-            "cap_staging": False,
-            "security_group": False,
-            "file_operations": True,
-            "user_account": False,
             "cifs_logon_logoff": True,
-            "async_delete": False,
+            "security_group": False,
             "authorization_policy": False,
-            "file_share": False,
             "audit_policy_change": True,
+            "cap_staging": False,
+            "user_account": False,
+            "file_operations": True,
+            "async_delete": False,
+            "file_share": False,
         },
         "log": {
-            "retention": {"duration": "0s", "count": 10},
-            "rotation": {"size": 2048000},
             "format": "evtx",
+            "retention": {"count": 10, "duration": "0s"},
+            "rotation": {"size": 2048000},
         },
-        "charge_qos": False,
+        "enabled": True,
     }
 )
 
@@ -372,11 +372,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -389,7 +388,6 @@ __pdoc__ = {
     "AuditSchema.resource": False,
     "AuditSchema.opts": False,
 }
-
 
 class AuditSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Audit object"""
@@ -408,7 +406,12 @@ Example: false"""
     )
     r""" Specifies whether or not auditing is enabled on the SVM."""
 
-    events = marshmallow_fields.Nested("netapp_ontap.models.audit_events.AuditEventsSchema", data_key="events", unknown=EXCLUDE, allow_none=True)
+    events = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.audit_events", "AuditEventsSchema"),
+                data_key="events",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The events field of the audit."""
 
     guarantee = marshmallow_fields.Boolean(
@@ -419,7 +422,12 @@ Example: false"""
 
 Example: false"""
 
-    log = marshmallow_fields.Nested("netapp_ontap.models.log.LogSchema", data_key="log", unknown=EXCLUDE, allow_none=True)
+    log = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.log", "LogSchema"),
+                data_key="log",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The log field of the audit."""
 
     log_path = marshmallow_fields.Str(
@@ -428,7 +436,12 @@ Example: false"""
     )
     r""" The audit log destination path where consolidated audit logs are stored."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the audit."""
 
     @property

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "LCPDelta"
-version = "2.1.25"
+version = "2.1.26"
 authors = [
   { name="LCP Delta", email="enact.helpdesk@lcp.uk.com" },
 ]
@@ -21,7 +21,7 @@ dependencies = [
     "numpy",
     "pandas",
     "requests",
-    "signalrcore==0.9.5",
+    "pysignalr",
     "matplotlib",
     "httpx",
     "tenacity"
@@ -39,7 +39,6 @@ dev = [
     "nbval",
     "pandas",
     "numpy",
-    "signalrcore==0.9.5",
 ]
 
 [project.urls]
@@ -48,7 +47,7 @@ dev = [
 [tool.ruff]
 src = ["lcpdelta_python_package/src"]
 line-length = 120
-target-version = "2.1.25"
+target-version = "2.1.26"
 
 [tool.ruff.lint.extend-per-file-ignores]
 "__init__.py" = ["E402", "F401"]

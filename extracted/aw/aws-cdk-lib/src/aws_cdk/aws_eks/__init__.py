@@ -761,6 +761,22 @@ eks.Cluster(self, "HelloEKS",
 )
 ```
 
+To overwrite an existing ALB controller service account, use the `overwriteServiceAccount` property:
+
+```python
+from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+
+
+eks.Cluster(self, "HelloEKS",
+    version=eks.KubernetesVersion.V1_34,
+    alb_controller=eks.AlbControllerOptions(
+        version=eks.AlbControllerVersion.V2_8_2,
+        overwrite_service_account=True
+    ),
+    kubectl_layer=KubectlV34Layer(self, "kubectl")
+)
+```
+
 The `albController` requires `defaultCapacity` or at least one nodegroup. If there's no `defaultCapacity` or available
 nodegroup for the cluster, the `albController` deployment would fail.
 
@@ -1469,6 +1485,17 @@ service_account = cluster.add_service_account("MyServiceAccount",
 )
 ```
 
+To overwrite an existing service account, use the `overwriteServiceAccount` property:
+
+```python
+# cluster: eks.Cluster
+
+# overwrite existing service account
+service_account = cluster.add_service_account("MyServiceAccount",
+    overwrite_service_account=True
+)
+```
+
 You can also add service accounts to existing clusters.
 To do so, pass the `openIdConnectProvider` property when you import the cluster into the application.
 
@@ -1476,8 +1503,8 @@ To do so, pass the `openIdConnectProvider` property when you import the cluster 
 # or create a new one using an existing issuer url
 # issuer_url: str
 # you can import an existing provider
-provider = eks.OpenIdConnectProvider.from_open_id_connect_provider_arn(self, "Provider", "arn:aws:iam::123456:oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/AB123456ABC")
-provider2 = eks.OpenIdConnectProvider(self, "Provider",
+provider = eks.OidcProviderNative.from_oidc_provider_arn(self, "Provider", "arn:aws:iam::123456:oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/AB123456ABC")
+provider2 = eks.OidcProviderNative(self, "Provider",
     url=issuer_url
 )
 
@@ -1496,6 +1523,77 @@ bucket.grant_read_write(service_account)
 Note that adding service accounts requires running `kubectl` commands against the cluster.
 This means you must also pass the `kubectlRoleArn` when importing the cluster.
 See [Using existing Clusters](https://github.com/aws/aws-cdk/tree/main/packages/aws-cdk-lib/aws-eks#using-existing-clusters).
+
+##### Migrating from eks.OpenIdConnectProvider to eks.OidcProviderNative
+
+`eks.OpenIdConnectProvider` creates an IAM OIDC (OpenId Connect) provider using a custom resource while `eks.OidcProviderNative` uses the CFN L1 (AWS::IAM::OidcProvider) to create the provider. It is recommended for new and existing projects to use `eks.OidcProviderNative`. Migrating from the `eks.OpenIdConnectProvider` is not as trivial as switching out the property since the property controls the creation of a resource whose type is changing. Due to the potential complexlity of the migration and the requirement of a manual step (`cdk import`) we are not deprecating the `eks.OpenIdConnectProvider` construct but encourge you to migrate.
+
+To migrate without temporarily removing the OIDCProvider, follow these steps:
+
+1. Set the `removalPolicy` of `cluster.openIdConnectProvider` to `RETAIN`.
+
+   ```python
+   import aws_cdk as cdk
+   # cluster: eks.Cluster
+
+
+   cdk.RemovalPolicies.of(cluster.open_id_connect_provider).apply(cdk.RemovalPolicy.RETAIN)
+   ```
+2. Run `cdk diff` to verify the changes are expected then `cdk deploy`.
+3. Add the following to the `context` field of your `cdk.json` to enable the feature flag that creates the native oidc provider.
+
+   ```json
+   "@aws-cdk/aws-eks:useNativeOidcProvider": true,
+   ```
+4. Run `cdk diff` and ensure the changes are expected. Example of an expected diff:
+
+   ```bash
+   Resources
+   [-] Custom::AWSCDKOpenIdConnectProvider TestCluster/OpenIdConnectProvider/Resource TestClusterOpenIdConnectProviderE18F0FD0 orphan
+   [-] AWS::IAM::Role Custom::AWSCDKOpenIdConnectProviderCustomResourceProvider/Role CustomAWSCDKOpenIdConnectProviderCustomResourceProviderRole517FED65 destroy
+   [-] AWS::Lambda::Function Custom::AWSCDKOpenIdConnectProviderCustomResourceProvider/Handler CustomAWSCDKOpenIdConnectProviderCustomResourceProviderHandlerF2C543E0 destroy
+   [+] AWS::IAM::OIDCProvider TestCluster/OidcProviderNative TestClusterOidcProviderNative0BE3F155
+   ```
+5. Run `cdk import --force` and provide the ARN of the existing OpenIdConnectProvider when prompted. You will get a warning about pending changes to existing resources which is expected.
+6. Run `cdk deploy` to apply any pending changes. This will apply the destroy/orphan changes in the above example.
+
+If you are creating the OpenIdConnectProvider manually via `new eks.OpenIdConnectProvider`, follow these steps:
+
+1. Set the `removalPolicy` of the existing `OpenIdConnectProvider` to `RemovalPolicy.RETAIN`.
+
+   ```python
+   import aws_cdk as cdk
+
+   # Step 1: Add retain policy to existing provider
+   existing_provider = eks.OpenIdConnectProvider(self, "Provider",
+       url="https://oidc.eks.us-west-2.amazonaws.com/id/EXAMPLE",
+       removal_policy=cdk.RemovalPolicy.RETAIN
+   )
+   ```
+2. Deploy with the retain policy to avoid deletion of the underlying resource.
+
+   ```bash
+   cdk deploy
+   ```
+3. Replace `OpenIdConnectProvider` with `OidcProviderNative` in your code.
+
+   ```python
+   # Step 3: Replace with native provider
+   native_provider = eks.OidcProviderNative(self, "Provider",
+       url="https://oidc.eks.us-west-2.amazonaws.com/id/EXAMPLE"
+   )
+   ```
+4. Run `cdk diff` and verify the changes are expected. Example of an expected diff:
+
+   ```bash
+   Resources
+   [-] Custom::AWSCDKOpenIdConnectProvider TestCluster/OpenIdConnectProvider/Resource TestClusterOpenIdConnectProviderE18F0FD0 orphan
+   [-] AWS::IAM::Role Custom::AWSCDKOpenIdConnectProviderCustomResourceProvider/Role CustomAWSCDKOpenIdConnectProviderCustomResourceProviderRole517FED65 destroy
+   [-] AWS::Lambda::Function Custom::AWSCDKOpenIdConnectProviderCustomResourceProvider/Handler CustomAWSCDKOpenIdConnectProviderCustomResourceProviderHandlerF2C543E0 destroy
+   [+] AWS::IAM::OIDCProvider TestCluster/OidcProviderNative TestClusterOidcProviderNative0BE3F155
+   ```
+5. Run `cdk import --force` to import the existing OIDC provider resource by providing the existing ARN.
+6. Run `cdk deploy` to apply any pending changes. This will apply the destroy/orphan operations in the example diff above.
 
 ### Pod Identities
 
@@ -2196,6 +2294,7 @@ from ..aws_iam import (
     IPrincipal as _IPrincipal_539bb2fd,
     IRole as _IRole_235f5d8e,
     IUser as _IUser_c32311f7,
+    OidcProviderNative as _OidcProviderNative_18002ae4,
     OpenIdConnectProvider as _OpenIdConnectProvider_5cb7bc9f,
     PolicyStatement as _PolicyStatement_0fe33853,
     PrincipalPolicyFragment as _PrincipalPolicyFragment_6a855d11,
@@ -3011,6 +3110,7 @@ class AlbController(
                 enable_waf=False,
                 enable_wafv2=False
             ),
+            overwrite_service_account=False,
             policy=policy,
             repository="repository"
         )
@@ -3024,6 +3124,7 @@ class AlbController(
         cluster: "Cluster",
         version: "AlbControllerVersion",
         additional_helm_chart_values: typing.Optional[typing.Union["AlbControllerHelmChartOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        overwrite_service_account: typing.Optional[builtins.bool] = None,
         policy: typing.Any = None,
         repository: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -3033,6 +3134,7 @@ class AlbController(
         :param cluster: [disable-awslint:ref-via-interface] Cluster to install the controller onto.
         :param version: Version of the controller.
         :param additional_helm_chart_values: Additional helm chart values for ALB controller. Default: - no additional helm chart values
+        :param overwrite_service_account: Overwrite any existing ALB controller service account. If this is set, we will use ``kubectl apply`` instead of ``kubectl create`` when the ALB controller service account is created. Otherwise, if there is already a service account named 'aws-load-balancer-controller' in the kube-system namespace, the operation will fail. Default: false
         :param policy: The IAM policy to apply to the service account. If you're using one of the built-in versions, this is not required since CDK ships with the appropriate policies for those versions. However, if you are using a custom version, this is required (and validated). Default: - Corresponds to the predefined version.
         :param repository: The repository to pull the controller image from. Note that the default repository works for most regions, but not all. If the repository is not applicable to your region, use a custom repository according to the information here: https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases. Default: '602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller'
         '''
@@ -3044,6 +3146,7 @@ class AlbController(
             cluster=cluster,
             version=version,
             additional_helm_chart_values=additional_helm_chart_values,
+            overwrite_service_account=overwrite_service_account,
             policy=policy,
             repository=repository,
         )
@@ -3059,6 +3162,7 @@ class AlbController(
         cluster: "Cluster",
         version: "AlbControllerVersion",
         additional_helm_chart_values: typing.Optional[typing.Union["AlbControllerHelmChartOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        overwrite_service_account: typing.Optional[builtins.bool] = None,
         policy: typing.Any = None,
         repository: typing.Optional[builtins.str] = None,
     ) -> "AlbController":
@@ -3070,6 +3174,7 @@ class AlbController(
         :param cluster: [disable-awslint:ref-via-interface] Cluster to install the controller onto.
         :param version: Version of the controller.
         :param additional_helm_chart_values: Additional helm chart values for ALB controller. Default: - no additional helm chart values
+        :param overwrite_service_account: Overwrite any existing ALB controller service account. If this is set, we will use ``kubectl apply`` instead of ``kubectl create`` when the ALB controller service account is created. Otherwise, if there is already a service account named 'aws-load-balancer-controller' in the kube-system namespace, the operation will fail. Default: false
         :param policy: The IAM policy to apply to the service account. If you're using one of the built-in versions, this is not required since CDK ships with the appropriate policies for those versions. However, if you are using a custom version, this is required (and validated). Default: - Corresponds to the predefined version.
         :param repository: The repository to pull the controller image from. Note that the default repository works for most regions, but not all. If the repository is not applicable to your region, use a custom repository according to the information here: https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases. Default: '602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller'
         '''
@@ -3080,6 +3185,7 @@ class AlbController(
             cluster=cluster,
             version=version,
             additional_helm_chart_values=additional_helm_chart_values,
+            overwrite_service_account=overwrite_service_account,
             policy=policy,
             repository=repository,
         )
@@ -3168,6 +3274,7 @@ class AlbControllerHelmChartOptions:
     name_mapping={
         "version": "version",
         "additional_helm_chart_values": "additionalHelmChartValues",
+        "overwrite_service_account": "overwriteServiceAccount",
         "policy": "policy",
         "repository": "repository",
     },
@@ -3178,6 +3285,7 @@ class AlbControllerOptions:
         *,
         version: "AlbControllerVersion",
         additional_helm_chart_values: typing.Optional[typing.Union["AlbControllerHelmChartOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        overwrite_service_account: typing.Optional[builtins.bool] = None,
         policy: typing.Any = None,
         repository: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -3185,6 +3293,7 @@ class AlbControllerOptions:
 
         :param version: Version of the controller.
         :param additional_helm_chart_values: Additional helm chart values for ALB controller. Default: - no additional helm chart values
+        :param overwrite_service_account: Overwrite any existing ALB controller service account. If this is set, we will use ``kubectl apply`` instead of ``kubectl create`` when the ALB controller service account is created. Otherwise, if there is already a service account named 'aws-load-balancer-controller' in the kube-system namespace, the operation will fail. Default: false
         :param policy: The IAM policy to apply to the service account. If you're using one of the built-in versions, this is not required since CDK ships with the appropriate policies for those versions. However, if you are using a custom version, this is required (and validated). Default: - Corresponds to the predefined version.
         :param repository: The repository to pull the controller image from. Note that the default repository works for most regions, but not all. If the repository is not applicable to your region, use a custom repository according to the information here: https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases. Default: '602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller'
 
@@ -3198,7 +3307,8 @@ class AlbControllerOptions:
             eks.Cluster(self, "HelloEKS",
                 version=eks.KubernetesVersion.V1_34,
                 alb_controller=eks.AlbControllerOptions(
-                    version=eks.AlbControllerVersion.V2_8_2
+                    version=eks.AlbControllerVersion.V2_8_2,
+                    overwrite_service_account=True
                 ),
                 kubectl_layer=KubectlV34Layer(self, "kubectl")
             )
@@ -3209,6 +3319,7 @@ class AlbControllerOptions:
             type_hints = typing.get_type_hints(_typecheckingstub__b22ec5f19b5d1b4d655cc304c12c33352da257e2109041355aa01fc993ec3ef9)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument additional_helm_chart_values", value=additional_helm_chart_values, expected_type=type_hints["additional_helm_chart_values"])
+            check_type(argname="argument overwrite_service_account", value=overwrite_service_account, expected_type=type_hints["overwrite_service_account"])
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3216,6 +3327,8 @@ class AlbControllerOptions:
         }
         if additional_helm_chart_values is not None:
             self._values["additional_helm_chart_values"] = additional_helm_chart_values
+        if overwrite_service_account is not None:
+            self._values["overwrite_service_account"] = overwrite_service_account
         if policy is not None:
             self._values["policy"] = policy
         if repository is not None:
@@ -3238,6 +3351,19 @@ class AlbControllerOptions:
         '''
         result = self._values.get("additional_helm_chart_values")
         return typing.cast(typing.Optional["AlbControllerHelmChartOptions"], result)
+
+    @builtins.property
+    def overwrite_service_account(self) -> typing.Optional[builtins.bool]:
+        '''Overwrite any existing ALB controller service account.
+
+        If this is set, we will use ``kubectl apply`` instead of ``kubectl create``
+        when the ALB controller service account is created. Otherwise, if there is already a service account
+        named 'aws-load-balancer-controller' in the kube-system namespace, the operation will fail.
+
+        :default: false
+        '''
+        result = self._values.get("overwrite_service_account")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def policy(self) -> typing.Any:
@@ -3284,6 +3410,7 @@ class AlbControllerOptions:
     name_mapping={
         "version": "version",
         "additional_helm_chart_values": "additionalHelmChartValues",
+        "overwrite_service_account": "overwriteServiceAccount",
         "policy": "policy",
         "repository": "repository",
         "cluster": "cluster",
@@ -3295,6 +3422,7 @@ class AlbControllerProps(AlbControllerOptions):
         *,
         version: "AlbControllerVersion",
         additional_helm_chart_values: typing.Optional[typing.Union["AlbControllerHelmChartOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        overwrite_service_account: typing.Optional[builtins.bool] = None,
         policy: typing.Any = None,
         repository: typing.Optional[builtins.str] = None,
         cluster: "Cluster",
@@ -3303,6 +3431,7 @@ class AlbControllerProps(AlbControllerOptions):
 
         :param version: Version of the controller.
         :param additional_helm_chart_values: Additional helm chart values for ALB controller. Default: - no additional helm chart values
+        :param overwrite_service_account: Overwrite any existing ALB controller service account. If this is set, we will use ``kubectl apply`` instead of ``kubectl create`` when the ALB controller service account is created. Otherwise, if there is already a service account named 'aws-load-balancer-controller' in the kube-system namespace, the operation will fail. Default: false
         :param policy: The IAM policy to apply to the service account. If you're using one of the built-in versions, this is not required since CDK ships with the appropriate policies for those versions. However, if you are using a custom version, this is required (and validated). Default: - Corresponds to the predefined version.
         :param repository: The repository to pull the controller image from. Note that the default repository works for most regions, but not all. If the repository is not applicable to your region, use a custom repository according to the information here: https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases. Default: '602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller'
         :param cluster: [disable-awslint:ref-via-interface] Cluster to install the controller onto.
@@ -3328,6 +3457,7 @@ class AlbControllerProps(AlbControllerOptions):
                     enable_waf=False,
                     enable_wafv2=False
                 ),
+                overwrite_service_account=False,
                 policy=policy,
                 repository="repository"
             )
@@ -3338,6 +3468,7 @@ class AlbControllerProps(AlbControllerOptions):
             type_hints = typing.get_type_hints(_typecheckingstub__9f52254abb63608be11e6e9e1ec6c94ebb428a9ab274e1bda653dd78d26cd509)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument additional_helm_chart_values", value=additional_helm_chart_values, expected_type=type_hints["additional_helm_chart_values"])
+            check_type(argname="argument overwrite_service_account", value=overwrite_service_account, expected_type=type_hints["overwrite_service_account"])
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
@@ -3347,6 +3478,8 @@ class AlbControllerProps(AlbControllerOptions):
         }
         if additional_helm_chart_values is not None:
             self._values["additional_helm_chart_values"] = additional_helm_chart_values
+        if overwrite_service_account is not None:
+            self._values["overwrite_service_account"] = overwrite_service_account
         if policy is not None:
             self._values["policy"] = policy
         if repository is not None:
@@ -3369,6 +3502,19 @@ class AlbControllerProps(AlbControllerOptions):
         '''
         result = self._values.get("additional_helm_chart_values")
         return typing.cast(typing.Optional["AlbControllerHelmChartOptions"], result)
+
+    @builtins.property
+    def overwrite_service_account(self) -> typing.Optional[builtins.bool]:
+        '''Overwrite any existing ALB controller service account.
+
+        If this is set, we will use ``kubectl apply`` instead of ``kubectl create``
+        when the ALB controller service account is created. Otherwise, if there is already a service account
+        named 'aws-load-balancer-controller' in the kube-system namespace, the operation will fail.
+
+        :default: false
+        '''
+        result = self._values.get("overwrite_service_account")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def policy(self) -> typing.Any:
@@ -3434,7 +3580,8 @@ class AlbControllerVersion(
         eks.Cluster(self, "HelloEKS",
             version=eks.KubernetesVersion.V1_34,
             alb_controller=eks.AlbControllerOptions(
-                version=eks.AlbControllerVersion.V2_8_2
+                version=eks.AlbControllerVersion.V2_8_2,
+                overwrite_service_account=True
             ),
             kubectl_layer=KubectlV34Layer(self, "kubectl")
         )
@@ -15917,6 +16064,7 @@ class ICluster(
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
+        overwrite_service_account: typing.Optional[builtins.bool] = None,
     ) -> "ServiceAccount":
         '''Creates a new service account with corresponding IAM Role (IRSA).
 
@@ -15926,6 +16074,7 @@ class ICluster(
         :param labels: Additional labels of the service account. Default: - no additional labels
         :param name: The name of the service account. The name of a ServiceAccount object must be a valid DNS subdomain name. https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/ Default: - If no name is given, it will use the id of the resource.
         :param namespace: The namespace of the service account. All namespace names must be valid RFC 1123 DNS labels. https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#namespaces-and-dns Default: "default"
+        :param overwrite_service_account: Overwrite existing service account. If this is set, we will use ``kubectl apply`` instead of ``kubectl create`` when the service account is created. Otherwise, if there is already a service account in the cluster with the same name, the operation will fail. Default: false
         '''
         ...
 
@@ -16326,6 +16475,7 @@ class _IClusterProxy(
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
+        overwrite_service_account: typing.Optional[builtins.bool] = None,
     ) -> "ServiceAccount":
         '''Creates a new service account with corresponding IAM Role (IRSA).
 
@@ -16335,6 +16485,7 @@ class _IClusterProxy(
         :param labels: Additional labels of the service account. Default: - no additional labels
         :param name: The name of the service account. The name of a ServiceAccount object must be a valid DNS subdomain name. https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/ Default: - If no name is given, it will use the id of the resource.
         :param namespace: The namespace of the service account. All namespace names must be valid RFC 1123 DNS labels. https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#namespaces-and-dns Default: "default"
+        :param overwrite_service_account: Overwrite existing service account. If this is set, we will use ``kubectl apply`` instead of ``kubectl create`` when the service account is created. Otherwise, if there is already a service account in the cluster with the same name, the operation will fail. Default: false
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e1ebfaeb10359620b55323126554d3e31b14090625de1618808646a519d578de)
@@ -16345,6 +16496,7 @@ class _IClusterProxy(
             labels=labels,
             name=name,
             namespace=namespace,
+            overwrite_service_account=overwrite_service_account,
         )
 
         return typing.cast("ServiceAccount", jsii.invoke(self, "addServiceAccount", [id, options]))
@@ -19328,10 +19480,10 @@ class NodegroupRemoteAccess:
         )
 
 
-class OpenIdConnectProvider(
-    _OpenIdConnectProvider_5cb7bc9f,
+class OidcProviderNative(
+    _OidcProviderNative_18002ae4,
     metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_eks.OpenIdConnectProvider",
+    jsii_type="aws-cdk-lib.aws_eks.OidcProviderNative",
 ):
     '''IAM OIDC identity providers are entities in IAM that describe an external identity provider (IdP) service that supports the OpenID Connect (OIDC) standard, such as Google or Salesforce.
 
@@ -19339,11 +19491,11 @@ class OpenIdConnectProvider(
     when you want to establish trust between an OIDC-compatible IdP and your AWS
     account.
 
-    This implementation has default values for thumbprints and clientIds props
-    that will be compatible with the eks cluster
+    This implementation uses the native CloudFormation resource and has default
+    values for thumbprints and clientIds props that will be compatible with the eks cluster.
 
     :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_oidc.html
-    :resource: AWS::CloudFormation::CustomResource
+    :resource: AWS::IAM::OIDCProvider
     :exampleMetadata: infused
 
     Example::
@@ -19351,8 +19503,8 @@ class OpenIdConnectProvider(
         # or create a new one using an existing issuer url
         # issuer_url: str
         # you can import an existing provider
-        provider = eks.OpenIdConnectProvider.from_open_id_connect_provider_arn(self, "Provider", "arn:aws:iam::123456:oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/AB123456ABC")
-        provider2 = eks.OpenIdConnectProvider(self, "Provider",
+        provider = eks.OidcProviderNative.from_oidc_provider_arn(self, "Provider", "arn:aws:iam::123456:oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/AB123456ABC")
+        provider2 = eks.OidcProviderNative(self, "Provider",
             url=issuer_url
         )
         
@@ -19374,18 +19526,83 @@ class OpenIdConnectProvider(
         id: builtins.str,
         *,
         url: builtins.str,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+    ) -> None:
+        '''Defines a native OpenID Connect provider.
+
+        :param scope: The definition scope.
+        :param id: Construct ID.
+        :param url: The URL of the identity provider. The URL must begin with https:// and should correspond to the iss claim in the provider's OpenID Connect ID tokens. Per the OIDC standard, path components are allowed but query parameters are not. Typically the URL consists of only a hostname, like https://server.example.org or https://example.com. You can find your OIDC Issuer URL by: aws eks describe-cluster --name %cluster_name% --query "cluster.identity.oidc.issuer" --output text
+        :param removal_policy: The removal policy to apply to the OpenID Connect Provider. Default: - RemovalPolicy.DESTROY
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4bee862ee512fe0b8064db8153d9d0841e04b1c00ed670c7608723ffec37fb23)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = OidcProviderNativeProps(url=url, removal_policy=removal_policy)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+
+class OpenIdConnectProvider(
+    _OpenIdConnectProvider_5cb7bc9f,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_eks.OpenIdConnectProvider",
+):
+    '''IAM OIDC identity providers are entities in IAM that describe an external identity provider (IdP) service that supports the OpenID Connect (OIDC) standard, such as Google or Salesforce.
+
+    You use an IAM OIDC identity provider
+    when you want to establish trust between an OIDC-compatible IdP and your AWS
+    account.
+
+    This implementation has default values for thumbprints and clientIds props
+    that will be compatible with the eks cluster
+
+    :see:
+
+    https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_oidc.html
+
+    **For new projects, it is recommended to use ``OidcProviderNative`` instead which creates the OIDC provider using the native CloudFormation resource (AWS::IAM::OIDCProvider).**
+    :resource: AWS::CloudFormation::CustomResource
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk as cdk
+        
+        # Step 1: Add retain policy to existing provider
+        existing_provider = eks.OpenIdConnectProvider(self, "Provider",
+            url="https://oidc.eks.us-west-2.amazonaws.com/id/EXAMPLE",
+            removal_policy=cdk.RemovalPolicy.RETAIN
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        url: builtins.str,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
     ) -> None:
         '''Defines an OpenID Connect provider.
 
         :param scope: The definition scope.
         :param id: Construct ID.
         :param url: The URL of the identity provider. The URL must begin with https:// and should correspond to the iss claim in the provider's OpenID Connect ID tokens. Per the OIDC standard, path components are allowed but query parameters are not. Typically the URL consists of only a hostname, like https://server.example.org or https://example.com. You can find your OIDC Issuer URL by: aws eks describe-cluster --name %cluster_name% --query "cluster.identity.oidc.issuer" --output text
+        :param removal_policy: The removal policy to apply to the OpenID Connect Provider. Default: - RemovalPolicy.DESTROY
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__71eee7d03a26aea18beb68698a39be2bf4e6d9b2f46d16ba179993326ea5a086)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = OpenIdConnectProviderProps(url=url)
+        props = OpenIdConnectProviderProps(url=url, removal_policy=removal_policy)
 
         jsii.create(self.__class__, self, [scope, id, props])
 
@@ -19399,43 +19616,41 @@ class OpenIdConnectProvider(
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_eks.OpenIdConnectProviderProps",
     jsii_struct_bases=[],
-    name_mapping={"url": "url"},
+    name_mapping={"url": "url", "removal_policy": "removalPolicy"},
 )
 class OpenIdConnectProviderProps:
-    def __init__(self, *, url: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        url: builtins.str,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+    ) -> None:
         '''Initialization properties for ``OpenIdConnectProvider``.
 
         :param url: The URL of the identity provider. The URL must begin with https:// and should correspond to the iss claim in the provider's OpenID Connect ID tokens. Per the OIDC standard, path components are allowed but query parameters are not. Typically the URL consists of only a hostname, like https://server.example.org or https://example.com. You can find your OIDC Issuer URL by: aws eks describe-cluster --name %cluster_name% --query "cluster.identity.oidc.issuer" --output text
+        :param removal_policy: The removal policy to apply to the OpenID Connect Provider. Default: - RemovalPolicy.DESTROY
 
         :exampleMetadata: infused
 
         Example::
 
-            # or create a new one using an existing issuer url
-            # issuer_url: str
-            # you can import an existing provider
-            provider = eks.OpenIdConnectProvider.from_open_id_connect_provider_arn(self, "Provider", "arn:aws:iam::123456:oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/AB123456ABC")
-            provider2 = eks.OpenIdConnectProvider(self, "Provider",
-                url=issuer_url
+            import aws_cdk as cdk
+            
+            # Step 1: Add retain policy to existing provider
+            existing_provider = eks.OpenIdConnectProvider(self, "Provider",
+                url="https://oidc.eks.us-west-2.amazonaws.com/id/EXAMPLE",
+                removal_policy=cdk.RemovalPolicy.RETAIN
             )
-            
-            cluster = eks.Cluster.from_cluster_attributes(self, "MyCluster",
-                cluster_name="Cluster",
-                open_id_connect_provider=provider,
-                kubectl_role_arn="arn:aws:iam::123456:role/service-role/k8sservicerole"
-            )
-            
-            service_account = cluster.add_service_account("MyServiceAccount")
-            
-            bucket = s3.Bucket(self, "Bucket")
-            bucket.grant_read_write(service_account)
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c02764139ca6306efb78e2db6695149f8ddc6b3e8adb63a11131864ce9246c30)
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "url": url,
         }
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
 
     @builtins.property
     def url(self) -> builtins.str:
@@ -19453,6 +19668,15 @@ class OpenIdConnectProviderProps:
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+        '''The removal policy to apply to the OpenID Connect Provider.
+
+        :default: - RemovalPolicy.DESTROY
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -19675,24 +19899,15 @@ class ServiceAccount(
 
     Example::
 
-        # or create a new one using an existing issuer url
-        # issuer_url: str
-        # you can import an existing provider
-        provider = eks.OpenIdConnectProvider.from_open_id_connect_provider_arn(self, "Provider", "arn:aws:iam::123456:oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/AB123456ABC")
-        provider2 = eks.OpenIdConnectProvider(self, "Provider",
-            url=issuer_url
+        # cluster: eks.Cluster
+        
+        
+        eks.ServiceAccount(self, "ServiceAccount",
+            cluster=cluster,
+            name="test-sa",
+            namespace="default",
+            identity_type=eks.IdentityType.POD_IDENTITY
         )
-        
-        cluster = eks.Cluster.from_cluster_attributes(self, "MyCluster",
-            cluster_name="Cluster",
-            open_id_connect_provider=provider,
-            kubectl_role_arn="arn:aws:iam::123456:role/service-role/k8sservicerole"
-        )
-        
-        service_account = cluster.add_service_account("MyServiceAccount")
-        
-        bucket = s3.Bucket(self, "Bucket")
-        bucket.grant_read_write(service_account)
     '''
 
     def __init__(
@@ -19706,6 +19921,7 @@ class ServiceAccount(
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
+        overwrite_service_account: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
         :param scope: -
@@ -19716,6 +19932,7 @@ class ServiceAccount(
         :param labels: Additional labels of the service account. Default: - no additional labels
         :param name: The name of the service account. The name of a ServiceAccount object must be a valid DNS subdomain name. https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/ Default: - If no name is given, it will use the id of the resource.
         :param namespace: The namespace of the service account. All namespace names must be valid RFC 1123 DNS labels. https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#namespaces-and-dns Default: "default"
+        :param overwrite_service_account: Overwrite existing service account. If this is set, we will use ``kubectl apply`` instead of ``kubectl create`` when the service account is created. Otherwise, if there is already a service account in the cluster with the same name, the operation will fail. Default: false
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c59483a03e00366cbc5eed954b787cea3e7b09f1579c5c9badd84776ccd54cc1)
@@ -19728,6 +19945,7 @@ class ServiceAccount(
             labels=labels,
             name=name,
             namespace=namespace,
+            overwrite_service_account=overwrite_service_account,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -19792,6 +20010,7 @@ class ServiceAccount(
         "labels": "labels",
         "name": "name",
         "namespace": "namespace",
+        "overwrite_service_account": "overwriteServiceAccount",
     },
 )
 class ServiceAccountOptions:
@@ -19803,6 +20022,7 @@ class ServiceAccountOptions:
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
+        overwrite_service_account: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Options for ``ServiceAccount``.
 
@@ -19811,6 +20031,7 @@ class ServiceAccountOptions:
         :param labels: Additional labels of the service account. Default: - no additional labels
         :param name: The name of the service account. The name of a ServiceAccount object must be a valid DNS subdomain name. https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/ Default: - If no name is given, it will use the id of the resource.
         :param namespace: The namespace of the service account. All namespace names must be valid RFC 1123 DNS labels. https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#namespaces-and-dns Default: "default"
+        :param overwrite_service_account: Overwrite existing service account. If this is set, we will use ``kubectl apply`` instead of ``kubectl create`` when the service account is created. Otherwise, if there is already a service account in the cluster with the same name, the operation will fail. Default: false
 
         :exampleMetadata: infused
 
@@ -19835,6 +20056,7 @@ class ServiceAccountOptions:
             check_type(argname="argument labels", value=labels, expected_type=type_hints["labels"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
+            check_type(argname="argument overwrite_service_account", value=overwrite_service_account, expected_type=type_hints["overwrite_service_account"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if annotations is not None:
             self._values["annotations"] = annotations
@@ -19846,6 +20068,8 @@ class ServiceAccountOptions:
             self._values["name"] = name
         if namespace is not None:
             self._values["namespace"] = namespace
+        if overwrite_service_account is not None:
+            self._values["overwrite_service_account"] = overwrite_service_account
 
     @builtins.property
     def annotations(
@@ -19900,6 +20124,19 @@ class ServiceAccountOptions:
         result = self._values.get("namespace")
         return typing.cast(typing.Optional[builtins.str], result)
 
+    @builtins.property
+    def overwrite_service_account(self) -> typing.Optional[builtins.bool]:
+        '''Overwrite existing service account.
+
+        If this is set, we will use ``kubectl apply`` instead of ``kubectl create``
+        when the service account is created. Otherwise, if there is already a service account
+        in the cluster with the same name, the operation will fail.
+
+        :default: false
+        '''
+        result = self._values.get("overwrite_service_account")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -19921,6 +20158,7 @@ class ServiceAccountOptions:
         "labels": "labels",
         "name": "name",
         "namespace": "namespace",
+        "overwrite_service_account": "overwriteServiceAccount",
         "cluster": "cluster",
     },
 )
@@ -19933,6 +20171,7 @@ class ServiceAccountProps(ServiceAccountOptions):
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
+        overwrite_service_account: typing.Optional[builtins.bool] = None,
         cluster: "ICluster",
     ) -> None:
         '''Properties for defining service accounts.
@@ -19942,6 +20181,7 @@ class ServiceAccountProps(ServiceAccountOptions):
         :param labels: Additional labels of the service account. Default: - no additional labels
         :param name: The name of the service account. The name of a ServiceAccount object must be a valid DNS subdomain name. https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/ Default: - If no name is given, it will use the id of the resource.
         :param namespace: The namespace of the service account. All namespace names must be valid RFC 1123 DNS labels. https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#namespaces-and-dns Default: "default"
+        :param overwrite_service_account: Overwrite existing service account. If this is set, we will use ``kubectl apply`` instead of ``kubectl create`` when the service account is created. Otherwise, if there is already a service account in the cluster with the same name, the operation will fail. Default: false
         :param cluster: The cluster to apply the patch to.
 
         :exampleMetadata: infused
@@ -19965,6 +20205,7 @@ class ServiceAccountProps(ServiceAccountOptions):
             check_type(argname="argument labels", value=labels, expected_type=type_hints["labels"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
+            check_type(argname="argument overwrite_service_account", value=overwrite_service_account, expected_type=type_hints["overwrite_service_account"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster": cluster,
@@ -19979,6 +20220,8 @@ class ServiceAccountProps(ServiceAccountOptions):
             self._values["name"] = name
         if namespace is not None:
             self._values["namespace"] = namespace
+        if overwrite_service_account is not None:
+            self._values["overwrite_service_account"] = overwrite_service_account
 
     @builtins.property
     def annotations(
@@ -20032,6 +20275,19 @@ class ServiceAccountProps(ServiceAccountOptions):
         '''
         result = self._values.get("namespace")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def overwrite_service_account(self) -> typing.Optional[builtins.bool]:
+        '''Overwrite existing service account.
+
+        If this is set, we will use ``kubectl apply`` instead of ``kubectl create``
+        when the service account is created. Otherwise, if there is already a service account
+        in the cluster with the same name, the operation will fail.
+
+        :default: false
+        '''
+        result = self._values.get("overwrite_service_account")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def cluster(self) -> "ICluster":
@@ -21215,6 +21471,7 @@ class Cluster(
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
+        overwrite_service_account: typing.Optional[builtins.bool] = None,
     ) -> "ServiceAccount":
         '''Creates a new service account with corresponding IAM Role (IRSA).
 
@@ -21224,6 +21481,7 @@ class Cluster(
         :param labels: Additional labels of the service account. Default: - no additional labels
         :param name: The name of the service account. The name of a ServiceAccount object must be a valid DNS subdomain name. https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/ Default: - If no name is given, it will use the id of the resource.
         :param namespace: The namespace of the service account. All namespace names must be valid RFC 1123 DNS labels. https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#namespaces-and-dns Default: "default"
+        :param overwrite_service_account: Overwrite existing service account. If this is set, we will use ``kubectl apply`` instead of ``kubectl create`` when the service account is created. Otherwise, if there is already a service account in the cluster with the same name, the operation will fail. Default: false
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a242c66f1c038c3d983fd703316e9b6709e3aed4c6773ed4ea290f2c0f5749be)
@@ -21234,6 +21492,7 @@ class Cluster(
             labels=labels,
             name=name,
             namespace=namespace,
+            overwrite_service_account=overwrite_service_account,
         )
 
         return typing.cast("ServiceAccount", jsii.invoke(self, "addServiceAccount", [id, options]))
@@ -21807,6 +22066,7 @@ class ClusterOptions(CommonClusterOptions):
                         enable_waf=False,
                         enable_wafv2=False
                     ),
+                    overwrite_service_account=False,
                     policy=policy,
                     repository="repository"
                 ),
@@ -23823,6 +24083,94 @@ class IngressLoadBalancerAddressOptions(ServiceLoadBalancerAddressOptions):
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_eks.OidcProviderNativeProps",
+    jsii_struct_bases=[OpenIdConnectProviderProps],
+    name_mapping={"url": "url", "removal_policy": "removalPolicy"},
+)
+class OidcProviderNativeProps(OpenIdConnectProviderProps):
+    def __init__(
+        self,
+        *,
+        url: builtins.str,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+    ) -> None:
+        '''Initialization properties for ``OidcProviderNative``.
+
+        :param url: The URL of the identity provider. The URL must begin with https:// and should correspond to the iss claim in the provider's OpenID Connect ID tokens. Per the OIDC standard, path components are allowed but query parameters are not. Typically the URL consists of only a hostname, like https://server.example.org or https://example.com. You can find your OIDC Issuer URL by: aws eks describe-cluster --name %cluster_name% --query "cluster.identity.oidc.issuer" --output text
+        :param removal_policy: The removal policy to apply to the OpenID Connect Provider. Default: - RemovalPolicy.DESTROY
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # or create a new one using an existing issuer url
+            # issuer_url: str
+            # you can import an existing provider
+            provider = eks.OidcProviderNative.from_oidc_provider_arn(self, "Provider", "arn:aws:iam::123456:oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/AB123456ABC")
+            provider2 = eks.OidcProviderNative(self, "Provider",
+                url=issuer_url
+            )
+            
+            cluster = eks.Cluster.from_cluster_attributes(self, "MyCluster",
+                cluster_name="Cluster",
+                open_id_connect_provider=provider,
+                kubectl_role_arn="arn:aws:iam::123456:role/service-role/k8sservicerole"
+            )
+            
+            service_account = cluster.add_service_account("MyServiceAccount")
+            
+            bucket = s3.Bucket(self, "Bucket")
+            bucket.grant_read_write(service_account)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eb140e5a4f7af4fda7a924d44eb3ec2d248aae9d4942a2acc9ff98c26c40b11f)
+            check_type(argname="argument url", value=url, expected_type=type_hints["url"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "url": url,
+        }
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
+
+    @builtins.property
+    def url(self) -> builtins.str:
+        '''The URL of the identity provider.
+
+        The URL must begin with https:// and
+        should correspond to the iss claim in the provider's OpenID Connect ID
+        tokens. Per the OIDC standard, path components are allowed but query
+        parameters are not. Typically the URL consists of only a hostname, like
+        https://server.example.org or https://example.com.
+
+        You can find your OIDC Issuer URL by:
+        aws eks describe-cluster --name %cluster_name% --query "cluster.identity.oidc.issuer" --output text
+        '''
+        result = self._values.get("url")
+        assert result is not None, "Required property 'url' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+        '''The removal policy to apply to the OpenID Connect Provider.
+
+        :default: - RemovalPolicy.DESTROY
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OidcProviderNativeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "AccessEntry",
     "AccessEntryAttributes",
@@ -23915,6 +24263,8 @@ __all__ = [
     "NodegroupOptions",
     "NodegroupProps",
     "NodegroupRemoteAccess",
+    "OidcProviderNative",
+    "OidcProviderNativeProps",
     "OpenIdConnectProvider",
     "OpenIdConnectProviderProps",
     "PatchType",
@@ -24012,6 +24362,7 @@ def _typecheckingstub__5e2ca421e3f17c3114d53057ba096ab3f90bd3b8ed6c2e0f75f61c88d
     cluster: Cluster,
     version: AlbControllerVersion,
     additional_helm_chart_values: typing.Optional[typing.Union[AlbControllerHelmChartOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    overwrite_service_account: typing.Optional[builtins.bool] = None,
     policy: typing.Any = None,
     repository: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -24024,6 +24375,7 @@ def _typecheckingstub__1b3813db11381f0166360b7dc6066bdeadc4a52043da6eba56f9a55a4
     cluster: Cluster,
     version: AlbControllerVersion,
     additional_helm_chart_values: typing.Optional[typing.Union[AlbControllerHelmChartOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    overwrite_service_account: typing.Optional[builtins.bool] = None,
     policy: typing.Any = None,
     repository: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -24042,6 +24394,7 @@ def _typecheckingstub__b22ec5f19b5d1b4d655cc304c12c33352da257e2109041355aa01fc99
     *,
     version: AlbControllerVersion,
     additional_helm_chart_values: typing.Optional[typing.Union[AlbControllerHelmChartOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    overwrite_service_account: typing.Optional[builtins.bool] = None,
     policy: typing.Any = None,
     repository: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -24052,6 +24405,7 @@ def _typecheckingstub__9f52254abb63608be11e6e9e1ec6c94ebb428a9ab274e1bda653dd78d
     *,
     version: AlbControllerVersion,
     additional_helm_chart_values: typing.Optional[typing.Union[AlbControllerHelmChartOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    overwrite_service_account: typing.Optional[builtins.bool] = None,
     policy: typing.Any = None,
     repository: typing.Optional[builtins.str] = None,
     cluster: Cluster,
@@ -25680,6 +26034,7 @@ def _typecheckingstub__e1ebfaeb10359620b55323126554d3e31b14090625de1618808646a51
     labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
+    overwrite_service_account: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25941,11 +26296,22 @@ def _typecheckingstub__d2ac0f8076733623c4989d2cd59ea2c4091215dc03c2749533886d1c5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4bee862ee512fe0b8064db8153d9d0841e04b1c00ed670c7608723ffec37fb23(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    url: builtins.str,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__71eee7d03a26aea18beb68698a39be2bf4e6d9b2f46d16ba179993326ea5a086(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     url: builtins.str,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25953,6 +26319,7 @@ def _typecheckingstub__71eee7d03a26aea18beb68698a39be2bf4e6d9b2f46d16ba179993326
 def _typecheckingstub__c02764139ca6306efb78e2db6695149f8ddc6b3e8adb63a11131864ce9246c30(
     *,
     url: builtins.str,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25989,6 +26356,7 @@ def _typecheckingstub__c59483a03e00366cbc5eed954b787cea3e7b09f1579c5c9badd84776c
     labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
+    overwrite_service_account: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26006,6 +26374,7 @@ def _typecheckingstub__c16813f7f34b0f551b6879a204a04016f3eb45d120b546a7afd47fee0
     labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
+    overwrite_service_account: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26017,6 +26386,7 @@ def _typecheckingstub__f409e147cd54788bf9d9542d66a6b0445436e408deb553426c2dca2bd
     labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
+    overwrite_service_account: typing.Optional[builtins.bool] = None,
     cluster: ICluster,
 ) -> None:
     """Type checking stubs"""
@@ -26308,6 +26678,7 @@ def _typecheckingstub__a242c66f1c038c3d983fd703316e9b6709e3aed4c6773ed4ea290f2c0
     labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
+    overwrite_service_account: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26509,6 +26880,14 @@ def _typecheckingstub__b393c3f294ed9f8582743840eca786b8cd915c5b4df9d362597e69dbe
     *,
     namespace: typing.Optional[builtins.str] = None,
     timeout: typing.Optional[_Duration_4839e8c3] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eb140e5a4f7af4fda7a924d44eb3ec2d248aae9d4942a2acc9ff98c26c40b11f(
+    *,
+    url: builtins.str,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
 ) -> None:
     """Type checking stubs"""
     pass

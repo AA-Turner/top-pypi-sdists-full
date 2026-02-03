@@ -2,23 +2,23 @@
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 import sys
 
+from contrast_fireball import DiscoveredRoute
+
 import contrast
 from contrast.agent import scope
+from contrast.agent.middlewares.route_coverage import common
+from contrast.agent.policy import patch_manager
 from contrast.agent.policy.applicator import (
     apply_module_patches,
     reverse_module_patches,
 )
-from contrast.agent.middlewares.route_coverage import common
-from contrast.agent.policy import patch_manager
+from contrast.utils.decorators import fail_quietly
 from contrast.utils.patch_utils import (
     build_and_apply_patch,
+    register_module_patcher,
     unregister_module_patcher,
     wrap_and_watermark,
-    register_module_patcher,
 )
-from contrast.utils.decorators import fail_quietly
-from contrast_fireball import DiscoveredRoute
-
 from contrast_vendor import structlog as logging
 
 MODULE_NAME = "bottle"
@@ -74,9 +74,9 @@ def build_call_patch(orig_func, patch_policy):
 @fail_quietly("unable to perform Bottle route discovery")
 @scope.contrast_scope()
 def do_bottle_route_discovery(bottle_instance):
-    from contrast.agent import agent_state
+    context = contrast.REQUEST_CONTEXT.get()
 
-    if not agent_state.is_first_request():
+    if context is None or not context.first_request or not context.assess_enabled:
         return
 
     common.handle_route_discovery("bottle", create_bottle_routes, (bottle_instance,))

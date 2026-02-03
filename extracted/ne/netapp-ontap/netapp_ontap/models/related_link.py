@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["RelatedLink", "RelatedLinkSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "RelatedLink": False,
 }
 
-
 class RelatedLinkSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the RelatedLink object"""
 
-    related = marshmallow_fields.Nested("netapp_ontap.models.href.HrefSchema", unknown=EXCLUDE, data_key="related", allow_none=True)
+    related = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.href", "HrefSchema"),
+                unknown=EXCLUDE,
+                data_key="related",
+                allow_none=True
+            )
     r""" The related field of the related_link. """
 
     @property

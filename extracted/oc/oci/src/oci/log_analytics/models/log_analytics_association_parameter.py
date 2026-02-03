@@ -363,7 +363,7 @@ class LogAnalyticsAssociationParameter(object):
     def required_properties(self):
         """
         Gets the required_properties of this LogAnalyticsAssociationParameter.
-        A list of requried properties.
+        A list of required properties.
 
 
         :return: The required_properties of this LogAnalyticsAssociationParameter.
@@ -375,7 +375,7 @@ class LogAnalyticsAssociationParameter(object):
     def required_properties(self, required_properties):
         """
         Sets the required_properties of this LogAnalyticsAssociationParameter.
-        A list of requried properties.
+        A list of required properties.
 
 
         :param required_properties: The required_properties of this LogAnalyticsAssociationParameter.

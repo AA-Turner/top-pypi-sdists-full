@@ -1,2684 +1,1479 @@
-"""
-Copyright &copy; 2025 NetApp Inc. All rights reserved.
+# pylint: skip-file
+
+import apipkg
+apipkg.initpkg(__name__, {
+        'VolumeSpace' : 'netapp_ontap.models.volume_space:VolumeSpace',
+        'AzureKeyVaultConnectivity' : 'netapp_ontap.models.azure_key_vault_connectivity:AzureKeyVaultConnectivity',
+        'EmsFilterRuleResponseRecordsParameterCriteria' : 'netapp_ontap.models.ems_filter_rule_response_records_parameter_criteria:EmsFilterRuleResponseRecordsParameterCriteria',
+        'TopMetricsDirectoryResponseIncompleteResponseReason' : 'netapp_ontap.models.top_metrics_directory_response_incomplete_response_reason:TopMetricsDirectoryResponseIncompleteResponseReason',
+        'SoftwareValidationReferenceIssue' : 'netapp_ontap.models.software_validation_reference_issue:SoftwareValidationReferenceIssue',
+        'NfsServiceProtocol' : 'netapp_ontap.models.nfs_service_protocol:NfsServiceProtocol',
+        'DataEngineGovernanceFilePreviewFileContent' : 'netapp_ontap.models.data_engine_governance_file_preview_file_content:DataEngineGovernanceFilePreviewFileContent',
+        'ApplicationStatisticsIops' : 'netapp_ontap.models.application_statistics_iops:ApplicationStatisticsIops',
+        'VsiOnNas' : 'netapp_ontap.models.vsi_on_nas:VsiOnNas',
+        'SvmMigrationDestinationVolumePlacementAggregates' : 'netapp_ontap.models.svm_migration_destination_volume_placement_aggregates:SvmMigrationDestinationVolumePlacementAggregates',
+        'AclDelete' : 'netapp_ontap.models.acl_delete:AclDelete',
+        'DiskAggregates' : 'netapp_ontap.models.disk_aggregates:DiskAggregates',
+        'VsiOnNasDatastoreStorageService' : 'netapp_ontap.models.vsi_on_nas_datastore_storage_service:VsiOnNasDatastoreStorageService',
+        'VolumeEfficiency' : 'netapp_ontap.models.volume_efficiency:VolumeEfficiency',
+        'NvmeSubsystemHostRecordsSubsystem' : 'netapp_ontap.models.nvme_subsystem_host_records_subsystem:NvmeSubsystemHostRecordsSubsystem',
+        'ActiveDirectoryPreferredDcs' : 'netapp_ontap.models.active_directory_preferred_dcs:ActiveDirectoryPreferredDcs',
+        'AdDomainDelete' : 'netapp_ontap.models.ad_domain_delete:AdDomainDelete',
+        'KeyServerState' : 'netapp_ontap.models.key_server_state:KeyServerState',
+        'DatacollectionVersionDataCollectionEmbedding' : 'netapp_ontap.models.datacollection_version_data_collection_embedding:DatacollectionVersionDataCollectionEmbedding',
+        'SvmNis' : 'netapp_ontap.models.svm_nis:SvmNis',
+        'ClusterNodesHaGivebackStatus' : 'netapp_ontap.models.cluster_nodes_ha_giveback_status:ClusterNodesHaGivebackStatus',
+        'NvmeInterfaceFcInterface' : 'netapp_ontap.models.nvme_interface_fc_interface:NvmeInterfaceFcInterface',
+        'FirmwareDisk' : 'netapp_ontap.models.firmware_disk:FirmwareDisk',
+        'NvmeNamespaceSpaceGuarantee' : 'netapp_ontap.models.nvme_namespace_space_guarantee:NvmeNamespaceSpaceGuarantee',
+        'InterfaceMetricsData' : 'netapp_ontap.models.interface_metrics_data:InterfaceMetricsData',
+        'StorageSwitchPorts' : 'netapp_ontap.models.storage_switch_ports:StorageSwitchPorts',
+        'ConsistencyGroupResponseRecordsConsistencyGroupsVolumes' : 'netapp_ontap.models.consistency_group_response_records_consistency_groups_volumes:ConsistencyGroupResponseRecordsConsistencyGroupsVolumes',
+        'FirmwareDqpRecordCount' : 'netapp_ontap.models.firmware_dqp_record_count:FirmwareDqpRecordCount',
+        'LunLunMaps' : 'netapp_ontap.models.lun_lun_maps:LunLunMaps',
+        'ConsistencyGroupApplication' : 'netapp_ontap.models.consistency_group_application:ConsistencyGroupApplication',
+        'StorageBridgeSasPortsCable' : 'netapp_ontap.models.storage_bridge_sas_ports_cable:StorageBridgeSasPortsCable',
+        'DataEngineEntityAttributes' : 'netapp_ontap.models.data_engine_entity_attributes:DataEngineEntityAttributes',
+        'IscsiConnectionInterface' : 'netapp_ontap.models.iscsi_connection_interface:IscsiConnectionInterface',
+        'MediatorPingErrorError' : 'netapp_ontap.models.mediator_ping_error_error:MediatorPingErrorError',
+        'NvmeSubsystemControllerDigest' : 'netapp_ontap.models.nvme_subsystem_controller_digest:NvmeSubsystemControllerDigest',
+        'IgroupNestedIgroup' : 'netapp_ontap.models.igroup_nested_igroup:IgroupNestedIgroup',
+        'ConsistencyGroupReplicationRelationships1' : 'netapp_ontap.models.consistency_group_replication_relationships1:ConsistencyGroupReplicationRelationships1',
+        'IscsiConnectionInterfaceIp' : 'netapp_ontap.models.iscsi_connection_interface_ip:IscsiConnectionInterfaceIp',
+        'LocalCifsUserMembership' : 'netapp_ontap.models.local_cifs_user_membership:LocalCifsUserMembership',
+        'StorageSwitchZonesPort' : 'netapp_ontap.models.storage_switch_zones_port:StorageSwitchZonesPort',
+        'DcnNodeCertificateResponseRecords' : 'netapp_ontap.models.dcn_node_certificate_response_records:DcnNodeCertificateResponseRecords',
+        'TopMetricsFileIops' : 'netapp_ontap.models.top_metrics_file_iops:TopMetricsFileIops',
+        'SupportedAlgorithmsAlgorithm' : 'netapp_ontap.models.supported_algorithms_algorithm:SupportedAlgorithmsAlgorithm',
+        'DataEngineGovernancePoliciesGuardrailWorkspaces' : 'netapp_ontap.models.data_engine_governance_policies_guardrail_workspaces:DataEngineGovernancePoliciesGuardrailWorkspaces',
+        'LunSpaceGuarantee' : 'netapp_ontap.models.lun_space_guarantee:LunSpaceGuarantee',
+        'ClusterNodesServiceProcessorAutoConfig' : 'netapp_ontap.models.cluster_nodes_service_processor_auto_config:ClusterNodesServiceProcessorAutoConfig',
+        'SvmNfs' : 'netapp_ontap.models.svm_nfs:SvmNfs',
+        'TimezoneCluster' : 'netapp_ontap.models.timezone_cluster:TimezoneCluster',
+        'LicenseCapacity' : 'netapp_ontap.models.license_capacity:LicenseCapacity',
+        'StorageSwitchErrors' : 'netapp_ontap.models.storage_switch_errors:StorageSwitchErrors',
+        'ConsistencyGroupResponseRecordsConsistencyGroupsNamespaces' : 'netapp_ontap.models.consistency_group_response_records_consistency_groups_namespaces:ConsistencyGroupResponseRecordsConsistencyGroupsNamespaces',
+        'S3BucketPolicy' : 'netapp_ontap.models.s3_bucket_policy:S3BucketPolicy',
+        'ConsistencyGroupNamespaceStatus' : 'netapp_ontap.models.consistency_group_namespace_status:ConsistencyGroupNamespaceStatus',
+        'ApplicationStatistics' : 'netapp_ontap.models.application_statistics:ApplicationStatistics',
+        'SnaplockLitigationGet' : 'netapp_ontap.models.snaplock_litigation_get:SnaplockLitigationGet',
+        'ClusterNodesVm' : 'netapp_ontap.models.cluster_nodes_vm:ClusterNodesVm',
+        'SwitchPortRemotePortDevice' : 'netapp_ontap.models.switch_port_remote_port_device:SwitchPortRemotePortDevice',
+        'CifsDomainDiscoveredServer' : 'netapp_ontap.models.cifs_domain_discovered_server:CifsDomainDiscoveredServer',
+        'MetroclusterLocal' : 'netapp_ontap.models.metrocluster_local:MetroclusterLocal',
+        'DiskStats' : 'netapp_ontap.models.disk_stats:DiskStats',
+        'AntiRansomwareVolumeSpace' : 'netapp_ontap.models.anti_ransomware_volume_space:AntiRansomwareVolumeSpace',
+        'EmsActionParameterDescriptionArguments' : 'netapp_ontap.models.ems_action_parameter_description_arguments:EmsActionParameterDescriptionArguments',
+        'HwAssistStatus' : 'netapp_ontap.models.hw_assist_status:HwAssistStatus',
+        'DcnVersion' : 'netapp_ontap.models.dcn_version:DcnVersion',
+        'Ipv4InterfaceAndGateway' : 'netapp_ontap.models.ipv4_interface_and_gateway:Ipv4InterfaceAndGateway',
+        'LicenseManagerResponseRecords' : 'netapp_ontap.models.license_manager_response_records:LicenseManagerResponseRecords',
+        'ConsistencyGroupQos' : 'netapp_ontap.models.consistency_group_qos:ConsistencyGroupQos',
+        'VolumeActivityTrackingNotices' : 'netapp_ontap.models.volume_activity_tracking_notices:VolumeActivityTrackingNotices',
+        'SoftwareStatusDetails' : 'netapp_ontap.models.software_status_details:SoftwareStatusDetails',
+        'NodeResponseRecordsHaGivebackStatus' : 'netapp_ontap.models.node_response_records_ha_giveback_status:NodeResponseRecordsHaGivebackStatus',
+        'ConsistencyGroupNamespace' : 'netapp_ontap.models.consistency_group_namespace:ConsistencyGroupNamespace',
+        'VscanOnDemandPolicy' : 'netapp_ontap.models.vscan_on_demand_policy:VscanOnDemandPolicy',
+        'MongoDbOnSanNewIgroupsIgroups' : 'netapp_ontap.models.mongo_db_on_san_new_igroups_igroups:MongoDbOnSanNewIgroupsIgroups',
+        'ConsistencyGroupConsistencyGroupsRestoreTo' : 'netapp_ontap.models.consistency_group_consistency_groups_restore_to:ConsistencyGroupConsistencyGroupsRestoreTo',
+        'ConsistencyGroupSnapshotResponseRecordsMissingNamespaces' : 'netapp_ontap.models.consistency_group_snapshot_response_records_missing_namespaces:ConsistencyGroupSnapshotResponseRecordsMissingNamespaces',
+        'ApplicationSnapshotComponents' : 'netapp_ontap.models.application_snapshot_components:ApplicationSnapshotComponents',
+        'ApplicationCifsPropertiesPermissions' : 'netapp_ontap.models.application_cifs_properties_permissions:ApplicationCifsPropertiesPermissions',
+        'LicenseCompliance' : 'netapp_ontap.models.license_compliance:LicenseCompliance',
+        'ConsistencyGroupResponseRecordsNamespaces' : 'netapp_ontap.models.consistency_group_response_records_namespaces:ConsistencyGroupResponseRecordsNamespaces',
+        'ShelfVoltageSensors' : 'netapp_ontap.models.shelf_voltage_sensors:ShelfVoltageSensors',
+        'KeyServerReadcreate' : 'netapp_ontap.models.key_server_readcreate:KeyServerReadcreate',
+        'ClusterNodesNvlog' : 'netapp_ontap.models.cluster_nodes_nvlog:ClusterNodesNvlog',
+        'VolumeMetricsResponseRecords' : 'netapp_ontap.models.volume_metrics_response_records:VolumeMetricsResponseRecords',
+        'S3BucketSvmProtectionStatus' : 'netapp_ontap.models.s3_bucket_svm_protection_status:S3BucketSvmProtectionStatus',
+        'Tls' : 'netapp_ontap.models.tls:Tls',
+        'ApplicationStatisticsComponentsIops' : 'netapp_ontap.models.application_statistics_components_iops:ApplicationStatisticsComponentsIops',
+        'VdiOnNas' : 'netapp_ontap.models.vdi_on_nas:VdiOnNas',
+        'VolumeNas' : 'netapp_ontap.models.volume_nas:VolumeNas',
+        'NvmeServiceMetric' : 'netapp_ontap.models.nvme_service_metric:NvmeServiceMetric',
+        'SecurityCertificateRefUuid' : 'netapp_ontap.models.security_certificate_ref_uuid:SecurityCertificateRefUuid',
+        'ActiveDirectorySecurity' : 'netapp_ontap.models.active_directory_security:ActiveDirectorySecurity',
+        'SvmFcp' : 'netapp_ontap.models.svm_fcp:SvmFcp',
+        'ContainerVolumesSpace' : 'netapp_ontap.models.container_volumes_space:ContainerVolumesSpace',
+        'QuotaReportGroup' : 'netapp_ontap.models.quota_report_group:QuotaReportGroup',
+        'SvmMigrationVolumePlacementAggregates' : 'netapp_ontap.models.svm_migration_volume_placement_aggregates:SvmMigrationVolumePlacementAggregates',
+        'ClusterNodesControllerCpu' : 'netapp_ontap.models.cluster_nodes_controller_cpu:ClusterNodesControllerCpu',
+        'S3BucketPolicyStatement' : 'netapp_ontap.models.s3_bucket_policy_statement:S3BucketPolicyStatement',
+        'CifsDomainNameMapping' : 'netapp_ontap.models.cifs_domain_name_mapping:CifsDomainNameMapping',
+        'DatacollectionEntities' : 'netapp_ontap.models.datacollection_entities:DatacollectionEntities',
+        'NfsServiceWindows' : 'netapp_ontap.models.nfs_service_windows:NfsServiceWindows',
+        'VolumeSpaceSnapshot' : 'netapp_ontap.models.volume_space_snapshot:VolumeSpaceSnapshot',
+        'ChassisNodes' : 'netapp_ontap.models.chassis_nodes:ChassisNodes',
+        'AntiRansomwareStorageUnit' : 'netapp_ontap.models.anti_ransomware_storage_unit:AntiRansomwareStorageUnit',
+        'PerformanceFcPortMetricResponseRecords' : 'netapp_ontap.models.performance_fc_port_metric_response_records:PerformanceFcPortMetricResponseRecords',
+        'ShelfTemperatureSensorsThresholdLow' : 'netapp_ontap.models.shelf_temperature_sensors_threshold_low:ShelfTemperatureSensorsThresholdLow',
+        'AggregateBlockStorageMirror' : 'netapp_ontap.models.aggregate_block_storage_mirror:AggregateBlockStorageMirror',
+        'SvmMigrationTimeMetrics' : 'netapp_ontap.models.svm_migration_time_metrics:SvmMigrationTimeMetrics',
+        'FabricCache' : 'netapp_ontap.models.fabric_cache:FabricCache',
+        'ConsistencyGroupConsistencyGroupsVolumesProvisioningOptionsStorageService' : 'netapp_ontap.models.consistency_group_consistency_groups_volumes_provisioning_options_storage_service:ConsistencyGroupConsistencyGroupsVolumesProvisioningOptionsStorageService',
+        'Peer' : 'netapp_ontap.models.peer:Peer',
+        'MongoDbOnSanNewIgroups' : 'netapp_ontap.models.mongo_db_on_san_new_igroups:MongoDbOnSanNewIgroups',
+        'S3BucketLifecycleManagementRules' : 'netapp_ontap.models.s3_bucket_lifecycle_management_rules:S3BucketLifecycleManagementRules',
+        'KeyServerNoRecords' : 'netapp_ontap.models.key_server_no_records:KeyServerNoRecords',
+        'QosPolicyAdaptive' : 'netapp_ontap.models.qos_policy_adaptive:QosPolicyAdaptive',
+        'HwAssist' : 'netapp_ontap.models.hw_assist:HwAssist',
+        'AggregateSimulate' : 'netapp_ontap.models.aggregate_simulate:AggregateSimulate',
+        'DataEngineGovernanceAuditImpactedFilesFile' : 'netapp_ontap.models.data_engine_governance_audit_impacted_files_file:DataEngineGovernanceAuditImpactedFilesFile',
+        'NfsServiceCredentialCache' : 'netapp_ontap.models.nfs_service_credential_cache:NfsServiceCredentialCache',
+        'TopMetricsSvmClientExcludedVolumeReason' : 'netapp_ontap.models.top_metrics_svm_client_excluded_volume_reason:TopMetricsSvmClientExcludedVolumeReason',
+        'FirmwareDqp' : 'netapp_ontap.models.firmware_dqp:FirmwareDqp',
+        'DataEngineGovernancePoliciesClassifier' : 'netapp_ontap.models.data_engine_governance_policies_classifier:DataEngineGovernancePoliciesClassifier',
+        'SnapmirrorConsistencyGroupFailoverStatus' : 'netapp_ontap.models.snapmirror_consistency_group_failover_status:SnapmirrorConsistencyGroupFailoverStatus',
+        'StorageBridgeFcPorts' : 'netapp_ontap.models.storage_bridge_fc_ports:StorageBridgeFcPorts',
+        'CounterProperty' : 'netapp_ontap.models.counter_property:CounterProperty',
+        'CifsConnectionSessions' : 'netapp_ontap.models.cifs_connection_sessions:CifsConnectionSessions',
+        'ConsistencyGroupResponseRecordsVolumes' : 'netapp_ontap.models.consistency_group_response_records_volumes:ConsistencyGroupResponseRecordsVolumes',
+        'S3BucketEncryption' : 'netapp_ontap.models.s3_bucket_encryption:S3BucketEncryption',
+        'SnapmirrorError' : 'netapp_ontap.models.snapmirror_error:SnapmirrorError',
+        'FcZoneMembers' : 'netapp_ontap.models.fc_zone_members:FcZoneMembers',
+        'ConsistencyGroupExportPolicy' : 'netapp_ontap.models.consistency_group_export_policy:ConsistencyGroupExportPolicy',
+        'FlexcacheWriteback' : 'netapp_ontap.models.flexcache_writeback:FlexcacheWriteback',
+        'LunProvisioningOptionsExcludeAggregates' : 'netapp_ontap.models.lun_provisioning_options_exclude_aggregates:LunProvisioningOptionsExcludeAggregates',
+        'VolumeProtocolRawPerformanceStatRw' : 'netapp_ontap.models.volume_protocol_raw_performance_stat_rw:VolumeProtocolRawPerformanceStatRw',
+        'AwsKmsEkmipReachability' : 'netapp_ontap.models.aws_kms_ekmip_reachability:AwsKmsEkmipReachability',
+        'ApplicationSanAccessBackingStorage' : 'netapp_ontap.models.application_san_access_backing_storage:ApplicationSanAccessBackingStorage',
+        'ShareAcl' : 'netapp_ontap.models.share_acl:ShareAcl',
+        'ClusterNodesControllerFlashCache' : 'netapp_ontap.models.cluster_nodes_controller_flash_cache:ClusterNodesControllerFlashCache',
+        'DcnNodeError' : 'netapp_ontap.models.dcn_node_error:DcnNodeError',
+        'NvmeTcpTls' : 'netapp_ontap.models.nvme_tcp_tls:NvmeTcpTls',
+        'LunMovement' : 'netapp_ontap.models.lun_movement:LunMovement',
+        'QosPolicyFixed' : 'netapp_ontap.models.qos_policy_fixed:QosPolicyFixed',
+        'LunMapReportingNodesLinks' : 'netapp_ontap.models.lun_map_reporting_nodes_links:LunMapReportingNodesLinks',
+        'ClusterNodesControllerFailedFanMessage' : 'netapp_ontap.models.cluster_nodes_controller_failed_fan_message:ClusterNodesControllerFailedFanMessage',
+        'FpolicyConnectionDisconnectedReason' : 'netapp_ontap.models.fpolicy_connection_disconnected_reason:FpolicyConnectionDisconnectedReason',
+        'InstanceCounterAggregation' : 'netapp_ontap.models.instance_counter_aggregation:InstanceCounterAggregation',
+        'FabricConnectionsClusterPortNode' : 'netapp_ontap.models.fabric_connections_cluster_port_node:FabricConnectionsClusterPortNode',
+        'MongoDbOnSanDatasetStorageService' : 'netapp_ontap.models.mongo_db_on_san_dataset_storage_service:MongoDbOnSanDatasetStorageService',
+        'IpInterfaceSvm' : 'netapp_ontap.models.ip_interface_svm:IpInterfaceSvm',
+        'EmsEventActionParametersTitleArguments' : 'netapp_ontap.models.ems_event_action_parameters_title_arguments:EmsEventActionParametersTitleArguments',
+        'DataEngineJobParentJob' : 'netapp_ontap.models.data_engine_job_parent_job:DataEngineJobParentJob',
+        'NisServiceBindingDetails' : 'netapp_ontap.models.nis_service_binding_details:NisServiceBindingDetails',
+        'DocumentClassifierCategoriesInner' : 'netapp_ontap.models.document_classifier_categories_inner:DocumentClassifierCategoriesInner',
+        'StoragePoolSpareAllocationUnit' : 'netapp_ontap.models.storage_pool_spare_allocation_unit:StoragePoolSpareAllocationUnit',
+        'ScannerPool' : 'netapp_ontap.models.scanner_pool:ScannerPool',
+        'StorageUnitMovementDestination' : 'netapp_ontap.models.storage_unit_movement_destination:StorageUnitMovementDestination',
+        'ApplicationProtectionGroupsRpoRemote' : 'netapp_ontap.models.application_protection_groups_rpo_remote:ApplicationProtectionGroupsRpoRemote',
+        'PerformanceMetricReducedThroughput' : 'netapp_ontap.models.performance_metric_reduced_throughput:PerformanceMetricReducedThroughput',
+        'NdmpData' : 'netapp_ontap.models.ndmp_data:NdmpData',
+        'IgroupInitiatorListItemProximity' : 'netapp_ontap.models.igroup_initiator_list_item_proximity:IgroupInitiatorListItemProximity',
+        'AntiRansomwareVolume' : 'netapp_ontap.models.anti_ransomware_volume:AntiRansomwareVolume',
+        'EmsEventActionDescriptionArguments' : 'netapp_ontap.models.ems_event_action_description_arguments:EmsEventActionDescriptionArguments',
+        'AdDomainSvm' : 'netapp_ontap.models.ad_domain_svm:AdDomainSvm',
+        'AggregateSnapshot' : 'netapp_ontap.models.aggregate_snapshot:AggregateSnapshot',
+        'PerformanceMonitoredFilesMetric' : 'netapp_ontap.models.performance_monitored_files_metric:PerformanceMonitoredFilesMetric',
+        'OracleRacOnNfs' : 'netapp_ontap.models.oracle_rac_on_nfs:OracleRacOnNfs',
+        'PerformanceQtreeMetricResponseRecords' : 'netapp_ontap.models.performance_qtree_metric_response_records:PerformanceQtreeMetricResponseRecords',
+        'VolumeActivityTrackingUnsupportedReason' : 'netapp_ontap.models.volume_activity_tracking_unsupported_reason:VolumeActivityTrackingUnsupportedReason',
+        'CounterDenominator' : 'netapp_ontap.models.counter_denominator:CounterDenominator',
+        'QuotaRuleUsers' : 'netapp_ontap.models.quota_rule_users:QuotaRuleUsers',
+        'EmsFilterResponseRecords' : 'netapp_ontap.models.ems_filter_response_records:EmsFilterResponseRecords',
+        'GuardrailPolicy' : 'netapp_ontap.models.guardrail_policy:GuardrailPolicy',
+        'FpolicyEngineSvm' : 'netapp_ontap.models.fpolicy_engine_svm:FpolicyEngineSvm',
+        'ConsistencyGroupVolumes' : 'netapp_ontap.models.consistency_group_volumes:ConsistencyGroupVolumes',
+        'VolumeAsynchronousDirectoryDelete' : 'netapp_ontap.models.volume_asynchronous_directory_delete:VolumeAsynchronousDirectoryDelete',
+        'TopMetricsSvmFileExcludedVolume' : 'netapp_ontap.models.top_metrics_svm_file_excluded_volume:TopMetricsSvmFileExcludedVolume',
+        'ConsistencyGroupSnapshotNamespaces' : 'netapp_ontap.models.consistency_group_snapshot_namespaces:ConsistencyGroupSnapshotNamespaces',
+        'SnapshotPolicyCopies' : 'netapp_ontap.models.snapshot_policy_copies:SnapshotPolicyCopies',
+        'NvmeNamespaceStatus' : 'netapp_ontap.models.nvme_namespace_status:NvmeNamespaceStatus',
+        'VolumeSpaceLogicalSpace' : 'netapp_ontap.models.volume_space_logical_space:VolumeSpaceLogicalSpace',
+        'ApplicationNvmeAccessSubsystemMapSubsystem' : 'netapp_ontap.models.application_nvme_access_subsystem_map_subsystem:ApplicationNvmeAccessSubsystemMapSubsystem',
+        'WorkspaceVersion1' : 'netapp_ontap.models.workspace_version1:WorkspaceVersion1',
+        'EmsEventActionParameters' : 'netapp_ontap.models.ems_event_action_parameters:EmsEventActionParameters',
+        'GroupPolicyObjectSecuritySetting' : 'netapp_ontap.models.group_policy_object_security_setting:GroupPolicyObjectSecuritySetting',
+        'ChassisNodesUsbsPorts' : 'netapp_ontap.models.chassis_nodes_usbs_ports:ChassisNodesUsbsPorts',
+        'IscsiConnection' : 'netapp_ontap.models.iscsi_connection:IscsiConnection',
+        'EmsDestinationResponseRecords' : 'netapp_ontap.models.ems_destination_response_records:EmsDestinationResponseRecords',
+        'S3BucketLifecycleExpiration' : 'netapp_ontap.models.s3_bucket_lifecycle_expiration:S3BucketLifecycleExpiration',
+        'IscsiCredentialsInitiatorAddress' : 'netapp_ontap.models.iscsi_credentials_initiator_address:IscsiCredentialsInitiatorAddress',
+        'WorkspaceVersionWorkspacePoliciesVersion' : 'netapp_ontap.models.workspace_version_workspace_policies_version:WorkspaceVersionWorkspacePoliciesVersion',
+        'SnapmirrorTransferFiles' : 'netapp_ontap.models.snapmirror_transfer_files:SnapmirrorTransferFiles',
+        'FcInterfaceLocation' : 'netapp_ontap.models.fc_interface_location:FcInterfaceLocation',
+        'MongoDbOnSan' : 'netapp_ontap.models.mongo_db_on_san:MongoDbOnSan',
+        'NvmeNamespaceLocation' : 'netapp_ontap.models.nvme_namespace_location:NvmeNamespaceLocation',
+        'GroupPolicyObjectRestrictAnonymous' : 'netapp_ontap.models.group_policy_object_restrict_anonymous:GroupPolicyObjectRestrictAnonymous',
+        'PerformanceS3MetricResponseRecords' : 'netapp_ontap.models.performance_s3_metric_response_records:PerformanceS3MetricResponseRecords',
+        'StorageBridgeSasPorts' : 'netapp_ontap.models.storage_bridge_sas_ports:StorageBridgeSasPorts',
+        'ExportClients' : 'netapp_ontap.models.export_clients:ExportClients',
+        'SoftwareNode' : 'netapp_ontap.models.software_node:SoftwareNode',
+        'ErrorResponses' : 'netapp_ontap.models.error_responses:ErrorResponses',
+        'StorageBridgeErrors' : 'netapp_ontap.models.storage_bridge_errors:StorageBridgeErrors',
+        'EmsEventParameter' : 'netapp_ontap.models.ems_event_parameter:EmsEventParameter',
+        'DataCollectionMetricsCountsByState' : 'netapp_ontap.models.data_collection_metrics_counts_by_state:DataCollectionMetricsCountsByState',
+        'DataEngineEntityAttributesCustom' : 'netapp_ontap.models.data_engine_entity_attributes_custom:DataEngineEntityAttributesCustom',
+        'FcInterfaceRecommendMessage' : 'netapp_ontap.models.fc_interface_recommend_message:FcInterfaceRecommendMessage',
+        'NasProtectionType' : 'netapp_ontap.models.nas_protection_type:NasProtectionType',
+        'VdiskSpaceSnapshot' : 'netapp_ontap.models.vdisk_space_snapshot:VdiskSpaceSnapshot',
+        'ConsistencyGroupNvmeHostProximity' : 'netapp_ontap.models.consistency_group_nvme_host_proximity:ConsistencyGroupNvmeHostProximity',
+        'SpaceEfficiency' : 'netapp_ontap.models.space_efficiency:SpaceEfficiency',
+        'SelfLink' : 'netapp_ontap.models.self_link:SelfLink',
+        'EmsActionParameterValidationErrorMessageArguments' : 'netapp_ontap.models.ems_action_parameter_validation_error_message_arguments:EmsActionParameterValidationErrorMessageArguments',
+        'DataEngineEntityPermissions' : 'netapp_ontap.models.data_engine_entity_permissions:DataEngineEntityPermissions',
+        'IgroupInitiatorListItem' : 'netapp_ontap.models.igroup_initiator_list_item:IgroupInitiatorListItem',
+        'ExportClientPolicy' : 'netapp_ontap.models.export_client_policy:ExportClientPolicy',
+        'ClusterManagementInterfaces' : 'netapp_ontap.models.cluster_management_interfaces:ClusterManagementInterfaces',
+        'IscsiCredentialsChap' : 'netapp_ontap.models.iscsi_credentials_chap:IscsiCredentialsChap',
+        'PerformanceLunMetricResponseRecords' : 'netapp_ontap.models.performance_lun_metric_response_records:PerformanceLunMetricResponseRecords',
+        'NodeHa' : 'netapp_ontap.models.node_ha:NodeHa',
+        'NvmeSubsystemReplication' : 'netapp_ontap.models.nvme_subsystem_replication:NvmeSubsystemReplication',
+        'ZappS3Bucket' : 'netapp_ontap.models.zapp_s3_bucket:ZappS3Bucket',
+        'AntiRansomwareVolumeWorkloadSurgeUsageNewlyObservedFileExtensions' : 'netapp_ontap.models.anti_ransomware_volume_workload_surge_usage_newly_observed_file_extensions:AntiRansomwareVolumeWorkloadSurgeUsageNewlyObservedFileExtensions',
+        'SnapmirrorRelationshipTransfer' : 'netapp_ontap.models.snapmirror_relationship_transfer:SnapmirrorRelationshipTransfer',
+        'IgroupConnectivityTrackingAlerts' : 'netapp_ontap.models.igroup_connectivity_tracking_alerts:IgroupConnectivityTrackingAlerts',
+        'PerformanceQtreeMetricData' : 'netapp_ontap.models.performance_qtree_metric_data:PerformanceQtreeMetricData',
+        'CifsDomainTrustRelationships' : 'netapp_ontap.models.cifs_domain_trust_relationships:CifsDomainTrustRelationships',
+        'Ppk' : 'netapp_ontap.models.ppk:Ppk',
+        'PerformanceNvmeMetricResponseRecords' : 'netapp_ontap.models.performance_nvme_metric_response_records:PerformanceNvmeMetricResponseRecords',
+        'NodeResponseRecordsHa' : 'netapp_ontap.models.node_response_records_ha:NodeResponseRecordsHa',
+        'ZappS3BucketApplicationComponentsAccessPolicies' : 'netapp_ontap.models.zapp_s3_bucket_application_components_access_policies:ZappS3BucketApplicationComponentsAccessPolicies',
+        'PerformanceMetricIoType' : 'netapp_ontap.models.performance_metric_io_type:PerformanceMetricIoType',
+        'PortDiscoveredDevices' : 'netapp_ontap.models.port_discovered_devices:PortDiscoveredDevices',
+        'DatacollectionEmbedding' : 'netapp_ontap.models.datacollection_embedding:DatacollectionEmbedding',
+        'CifsShareAcls' : 'netapp_ontap.models.cifs_share_acls:CifsShareAcls',
+        'VolumeMetricCloud' : 'netapp_ontap.models.volume_metric_cloud:VolumeMetricCloud',
+        'ApplicationSnapshotRestoreApplication' : 'netapp_ontap.models.application_snapshot_restore_application:ApplicationSnapshotRestoreApplication',
+        'RecentWorkspacesInner' : 'netapp_ontap.models.recent_workspaces_inner:RecentWorkspacesInner',
+        'NfsServiceProtocolV3Features' : 'netapp_ontap.models.nfs_service_protocol_v3_features:NfsServiceProtocolV3Features',
+        'KeyServerRecords' : 'netapp_ontap.models.key_server_records:KeyServerRecords',
+        'AntiRansomwareVolumeSurgeUsage' : 'netapp_ontap.models.anti_ransomware_volume_surge_usage:AntiRansomwareVolumeSurgeUsage',
+        'StorageUnitMapsLunMap' : 'netapp_ontap.models.storage_unit_maps_lun_map:StorageUnitMapsLunMap',
+        'VolumeQuota' : 'netapp_ontap.models.volume_quota:VolumeQuota',
+        'AggregateWarningWarning' : 'netapp_ontap.models.aggregate_warning_warning:AggregateWarningWarning',
+        'AwsConnectivity' : 'netapp_ontap.models.aws_connectivity:AwsConnectivity',
+        'ApplicationBackingStorage' : 'netapp_ontap.models.application_backing_storage:ApplicationBackingStorage',
+        'ContainerVolumeS3BucketPolicy' : 'netapp_ontap.models.container_volume_s3_bucket_policy:ContainerVolumeS3BucketPolicy',
+        'NdmpConnect' : 'netapp_ontap.models.ndmp_connect:NdmpConnect',
+        'MetroclusterSvmPartnerSvm' : 'netapp_ontap.models.metrocluster_svm_partner_svm:MetroclusterSvmPartnerSvm',
+        'NvmeNamespaceSpace' : 'netapp_ontap.models.nvme_namespace_space:NvmeNamespaceSpace',
+        'VolumeConstituentsAggregates' : 'netapp_ontap.models.volume_constituents_aggregates:VolumeConstituentsAggregates',
+        'EmsConnectivityErrorMessageArguments' : 'netapp_ontap.models.ems_connectivity_error_message_arguments:EmsConnectivityErrorMessageArguments',
+        'SvmMigrationCreate' : 'netapp_ontap.models.svm_migration_create:SvmMigrationCreate',
+        'LunMovementPaths' : 'netapp_ontap.models.lun_movement_paths:LunMovementPaths',
+        'EmsDestinationFilters' : 'netapp_ontap.models.ems_destination_filters:EmsDestinationFilters',
+        'PerformanceSvmNfsMetricHistoricalV41' : 'netapp_ontap.models.performance_svm_nfs_metric_historical_v41:PerformanceSvmNfsMetricHistoricalV41',
+        'VolumeAnalyticsScanThrottleReason' : 'netapp_ontap.models.volume_analytics_scan_throttle_reason:VolumeAnalyticsScanThrottleReason',
+        'GroupPolicyObjectRegistrySetting' : 'netapp_ontap.models.group_policy_object_registry_setting:GroupPolicyObjectRegistrySetting',
+        'AntiRansomwareVolumeTypicalUsage' : 'netapp_ontap.models.anti_ransomware_volume_typical_usage:AntiRansomwareVolumeTypicalUsage',
+        'BarbicanState' : 'netapp_ontap.models.barbican_state:BarbicanState',
+        'DcnNodeMetricsCpu' : 'netapp_ontap.models.dcn_node_metrics_cpu:DcnNodeMetricsCpu',
+        'Rfc2307bis' : 'netapp_ontap.models.rfc2307bis:Rfc2307bis',
+        'S3BucketSvmLifecycleManagementRules' : 'netapp_ontap.models.s3_bucket_svm_lifecycle_management_rules:S3BucketSvmLifecycleManagementRules',
+        'ConsistencyGroupCifsShare' : 'netapp_ontap.models.consistency_group_cifs_share:ConsistencyGroupCifsShare',
+        'S3BucketProtectionStatusDestination' : 'netapp_ontap.models.s3_bucket_protection_status_destination:S3BucketProtectionStatusDestination',
+        'NvmeInterfaceIpInterfaceLocation' : 'netapp_ontap.models.nvme_interface_ip_interface_location:NvmeInterfaceIpInterfaceLocation',
+        'NfsServiceTransport' : 'netapp_ontap.models.nfs_service_transport:NfsServiceTransport',
+        'VolumeSpaceSnapshotAutodelete' : 'netapp_ontap.models.volume_space_snapshot_autodelete:VolumeSpaceSnapshotAutodelete',
+        'VolumeSnapmirrorDestinations' : 'netapp_ontap.models.volume_snapmirror_destinations:VolumeSnapmirrorDestinations',
+        'FlexcacheRelationship' : 'netapp_ontap.models.flexcache_relationship:FlexcacheRelationship',
+        'VolumeMetricFlexcache' : 'netapp_ontap.models.volume_metric_flexcache:VolumeMetricFlexcache',
+        'SplitLoadLoad' : 'netapp_ontap.models.split_load_load:SplitLoadLoad',
+        'GcpConnectivity' : 'netapp_ontap.models.gcp_connectivity:GcpConnectivity',
+        'DataEngineDatacollectionAclUserOrGroup' : 'netapp_ontap.models.data_engine_datacollection_acl_user_or_group:DataEngineDatacollectionAclUserOrGroup',
+        'VsiOnSan' : 'netapp_ontap.models.vsi_on_san:VsiOnSan',
+        'ApplicationCifsProperties' : 'netapp_ontap.models.application_cifs_properties:ApplicationCifsProperties',
+        'StorageUnitStatus' : 'netapp_ontap.models.storage_unit_status:StorageUnitStatus',
+        'DatacollectionVersionWorkspace' : 'netapp_ontap.models.datacollection_version_workspace:DatacollectionVersionWorkspace',
+        'ExportRulePolicy' : 'netapp_ontap.models.export_rule_policy:ExportRulePolicy',
+        'Rotation' : 'netapp_ontap.models.rotation:Rotation',
+        'VolumeConstituentsSpace' : 'netapp_ontap.models.volume_constituents_space:VolumeConstituentsSpace',
+        'ClusterNodesHa' : 'netapp_ontap.models.cluster_nodes_ha:ClusterNodesHa',
+        'IgroupInitiators' : 'netapp_ontap.models.igroup_initiators:IgroupInitiators',
+        'WebCsrfToken' : 'netapp_ontap.models.web_csrf_token:WebCsrfToken',
+        'AzureKeyVaultKey' : 'netapp_ontap.models.azure_key_vault_key:AzureKeyVaultKey',
+        'NasApplicationComponentsFlexcache' : 'netapp_ontap.models.nas_application_components_flexcache:NasApplicationComponentsFlexcache',
+        'ClusterNodes' : 'netapp_ontap.models.cluster_nodes:ClusterNodes',
+        'ConsistencyGroupLun' : 'netapp_ontap.models.consistency_group_lun:ConsistencyGroupLun',
+        'DrNode' : 'netapp_ontap.models.dr_node:DrNode',
+        'DataEnginePolicyConditions' : 'netapp_ontap.models.data_engine_policy_conditions:DataEnginePolicyConditions',
+        'ClusterSpaceMetricsResponseRecords' : 'netapp_ontap.models.cluster_space_metrics_response_records:ClusterSpaceMetricsResponseRecords',
+        'ClusterPeerStatus' : 'netapp_ontap.models.cluster_peer_status:ClusterPeerStatus',
+        'WorkspaceVersionDiffEntities' : 'netapp_ontap.models.workspace_version_diff_entities:WorkspaceVersionDiffEntities',
+        'EmsCertificate' : 'netapp_ontap.models.ems_certificate:EmsCertificate',
+        'S3GroupPolicies' : 'netapp_ontap.models.s3_group_policies:S3GroupPolicies',
+        'LunProvisioningOptions' : 'netapp_ontap.models.lun_provisioning_options:LunProvisioningOptions',
+        'AnalyticsInfoByModifiedTime' : 'netapp_ontap.models.analytics_info_by_modified_time:AnalyticsInfoByModifiedTime',
+        'LicenseManagerUri' : 'netapp_ontap.models.license_manager_uri:LicenseManagerUri',
+        'AggregateSpaceBlockStorage' : 'netapp_ontap.models.aggregate_space_block_storage:AggregateSpaceBlockStorage',
+        'StorageUnitMovement' : 'netapp_ontap.models.storage_unit_movement:StorageUnitMovement',
+        'VolumeConstituentsMovement' : 'netapp_ontap.models.volume_constituents_movement:VolumeConstituentsMovement',
+        'ConsistencyGroupClone1Volume' : 'netapp_ontap.models.consistency_group_clone1_volume:ConsistencyGroupClone1Volume',
+        'UniformResourceIdentifier' : 'netapp_ontap.models.uniform_resource_identifier:UniformResourceIdentifier',
+        'NodeResponseRecordsManagementInterfaces' : 'netapp_ontap.models.node_response_records_management_interfaces:NodeResponseRecordsManagementInterfaces',
+        'VolumeAnalyticsInitialization' : 'netapp_ontap.models.volume_analytics_initialization:VolumeAnalyticsInitialization',
+        'AggrSpaceEfficiency' : 'netapp_ontap.models.aggr_space_efficiency:AggrSpaceEfficiency',
+        'FileMoveFilesToMoveSources' : 'netapp_ontap.models.file_move_files_to_move_sources:FileMoveFilesToMoveSources',
+        'ShelfVendor' : 'netapp_ontap.models.shelf_vendor:ShelfVendor',
+        'ConsistencyGroupSnapshotLuns' : 'netapp_ontap.models.consistency_group_snapshot_luns:ConsistencyGroupSnapshotLuns',
+        'AggregateInodeAttributes' : 'netapp_ontap.models.aggregate_inode_attributes:AggregateInodeAttributes',
+        'LicenseKeys' : 'netapp_ontap.models.license_keys:LicenseKeys',
+        'SecurityAssociationIpsecInbound' : 'netapp_ontap.models.security_association_ipsec_inbound:SecurityAssociationIpsecInbound',
+        'FpolicyEngineCertificate' : 'netapp_ontap.models.fpolicy_engine_certificate:FpolicyEngineCertificate',
+        'ApplicationRpo' : 'netapp_ontap.models.application_rpo:ApplicationRpo',
+        'ClusterNodesManagementInterface' : 'netapp_ontap.models.cluster_nodes_management_interface:ClusterNodesManagementInterface',
+        'NodeMetricsResponseRecords' : 'netapp_ontap.models.node_metrics_response_records:NodeMetricsResponseRecords',
+        'IgroupReplicationError' : 'netapp_ontap.models.igroup_replication_error:IgroupReplicationError',
+        'IpInterfaceSvmIp' : 'netapp_ontap.models.ip_interface_svm_ip:IpInterfaceSvmIp',
+        'Log' : 'netapp_ontap.models.log:Log',
+        'AnalyticsCollectionInfo' : 'netapp_ontap.models.analytics_collection_info:AnalyticsCollectionInfo',
+        'ClusterNodesHaTakeoverFailure' : 'netapp_ontap.models.cluster_nodes_ha_takeover_failure:ClusterNodesHaTakeoverFailure',
+        'DcnClusterSoftwareInstallStatus' : 'netapp_ontap.models.dcn_cluster_software_install_status:DcnClusterSoftwareInstallStatus',
+        'SecurityAssociationIke' : 'netapp_ontap.models.security_association_ike:SecurityAssociationIke',
+        'WorkspaceVersionWorkspaceSpace' : 'netapp_ontap.models.workspace_version_workspace_space:WorkspaceVersionWorkspaceSpace',
+        'TapeDevicePosition' : 'netapp_ontap.models.tape_device_position:TapeDevicePosition',
+        'MetroclusterDrPairs' : 'netapp_ontap.models.metrocluster_dr_pairs:MetroclusterDrPairs',
+        'SecurityKeyManagerRestoreKeys' : 'netapp_ontap.models.security_key_manager_restore_keys:SecurityKeyManagerRestoreKeys',
+        'AntiRansomwareVolumeEntropyStatsResponseRecords' : 'netapp_ontap.models.anti_ransomware_volume_entropy_stats_response_records:AntiRansomwareVolumeEntropyStatsResponseRecords',
+        'DatacollectionVersion1Next' : 'netapp_ontap.models.datacollection_version1_next:DatacollectionVersion1Next',
+        'DataSourcesAggregationsInner' : 'netapp_ontap.models.data_sources_aggregations_inner:DataSourcesAggregationsInner',
+        'BindingDetails' : 'netapp_ontap.models.binding_details:BindingDetails',
+        'DcnNodeMetricsGpu' : 'netapp_ontap.models.dcn_node_metrics_gpu:DcnNodeMetricsGpu',
+        'FirmwareUpdateProgressState' : 'netapp_ontap.models.firmware_update_progress_state:FirmwareUpdateProgressState',
+        'CommonDataSource' : 'netapp_ontap.models.common_data_source:CommonDataSource',
+        'MongoDbOnSanDataset' : 'netapp_ontap.models.mongo_db_on_san_dataset:MongoDbOnSanDataset',
+        'BgpPeerGroupLocal' : 'netapp_ontap.models.bgp_peer_group_local:BgpPeerGroupLocal',
+        'AggregateBlockStorageHybridCacheSimulatedRaidGroups' : 'netapp_ontap.models.aggregate_block_storage_hybrid_cache_simulated_raid_groups:AggregateBlockStorageHybridCacheSimulatedRaidGroups',
+        'ConsistencyGroupSnapshotResponseRecordsLuns' : 'netapp_ontap.models.consistency_group_snapshot_response_records_luns:ConsistencyGroupSnapshotResponseRecordsLuns',
+        'SecurityClusterNetworkCertificatesResponseRecords' : 'netapp_ontap.models.security_cluster_network_certificates_response_records:SecurityClusterNetworkCertificatesResponseRecords',
+        'ReplicationErrorIgroup' : 'netapp_ontap.models.replication_error_igroup:ReplicationErrorIgroup',
+        'StorageSwitchVsans' : 'netapp_ontap.models.storage_switch_vsans:StorageSwitchVsans',
+        'EmsEventAction' : 'netapp_ontap.models.ems_event_action:EmsEventAction',
+        'LocalUserMembership' : 'netapp_ontap.models.local_user_membership:LocalUserMembership',
+        'NvmeInterfaceIpInterfaceIp' : 'netapp_ontap.models.nvme_interface_ip_interface_ip:NvmeInterfaceIpInterfaceIp',
+        'ConsistencyGroupProvisioningOptions' : 'netapp_ontap.models.consistency_group_provisioning_options:ConsistencyGroupProvisioningOptions',
+        'WorkspaceMetricsCountsByState' : 'netapp_ontap.models.workspace_metrics_counts_by_state:WorkspaceMetricsCountsByState',
+        'ConsistencyGroupUnmapFrom' : 'netapp_ontap.models.consistency_group_unmap_from:ConsistencyGroupUnmapFrom',
+        'TopMetricsClientResponseIncompleteResponseReason' : 'netapp_ontap.models.top_metrics_client_response_incomplete_response_reason:TopMetricsClientResponseIncompleteResponseReason',
+        'ConsistencyGroupConsistencyGroupsProvisioningOptionsStorageService' : 'netapp_ontap.models.consistency_group_consistency_groups_provisioning_options_storage_service:ConsistencyGroupConsistencyGroupsProvisioningOptionsStorageService',
+        'DataEngineGovernanceFilePreviewFileContentRequestWorkspace' : 'netapp_ontap.models.data_engine_governance_file_preview_file_content_request_workspace:DataEngineGovernanceFilePreviewFileContentRequestWorkspace',
+        'SnaplockFileFingerprintGet' : 'netapp_ontap.models.snaplock_file_fingerprint_get:SnaplockFileFingerprintGet',
+        'DatacollectionVersionDiffVersion' : 'netapp_ontap.models.datacollection_version_diff_version:DatacollectionVersionDiffVersion',
+        'StorageBridgeLastReboot' : 'netapp_ontap.models.storage_bridge_last_reboot:StorageBridgeLastReboot',
+        'VdiOnSan' : 'netapp_ontap.models.vdi_on_san:VdiOnSan',
+        'AppNfsAccess' : 'netapp_ontap.models.app_nfs_access:AppNfsAccess',
+        'LunConvert' : 'netapp_ontap.models.lun_convert:LunConvert',
+        'ActiveDirectoryDiscoveredServer' : 'netapp_ontap.models.active_directory_discovered_server:ActiveDirectoryDiscoveredServer',
+        'QtreeExtPerformanceMonitoring' : 'netapp_ontap.models.qtree_ext_performance_monitoring:QtreeExtPerformanceMonitoring',
+        'SvmMigrationDestination' : 'netapp_ontap.models.svm_migration_destination:SvmMigrationDestination',
+        'NasApplicationComponentsTiering' : 'netapp_ontap.models.nas_application_components_tiering:NasApplicationComponentsTiering',
+        'ZappNvmeComponentsSubsystemHostsDhHmacChap' : 'netapp_ontap.models.zapp_nvme_components_subsystem_hosts_dh_hmac_chap:ZappNvmeComponentsSubsystemHostsDhHmacChap',
+        'OracleOnNfsRedoLog' : 'netapp_ontap.models.oracle_on_nfs_redo_log:OracleOnNfsRedoLog',
+        'ContainerVolumesS3BucketPolicy' : 'netapp_ontap.models.container_volumes_s3_bucket_policy:ContainerVolumesS3BucketPolicy',
+        'SqlOnSanLogStorageService' : 'netapp_ontap.models.sql_on_san_log_storage_service:SqlOnSanLogStorageService',
+        'StorageBridgePathsSourcePort' : 'netapp_ontap.models.storage_bridge_paths_source_port:StorageBridgePathsSourcePort',
+        'KeyManagerState' : 'netapp_ontap.models.key_manager_state:KeyManagerState',
+        'VolumeEncryptionSupport' : 'netapp_ontap.models.volume_encryption_support:VolumeEncryptionSupport',
+        'TopMetricsClientResponsePartialResponseReason' : 'netapp_ontap.models.top_metrics_client_response_partial_response_reason:TopMetricsClientResponsePartialResponseReason',
+        'EmsFilterRulesParameterCriteria' : 'netapp_ontap.models.ems_filter_rules_parameter_criteria:EmsFilterRulesParameterCriteria',
+        'LayoutRequirementRaidGroup' : 'netapp_ontap.models.layout_requirement_raid_group:LayoutRequirementRaidGroup',
+        'Ipv6InterfaceAndGateway' : 'netapp_ontap.models.ipv6_interface_and_gateway:Ipv6InterfaceAndGateway',
+        'WebCertificate' : 'netapp_ontap.models.web_certificate:WebCertificate',
+        'IgroupInitiatorProximity' : 'netapp_ontap.models.igroup_initiator_proximity:IgroupInitiatorProximity',
+        'NfsServiceProtocolV41Features' : 'netapp_ontap.models.nfs_service_protocol_v41_features:NfsServiceProtocolV41Features',
+        'S3ServicePostResponseRecords' : 'netapp_ontap.models.s3_service_post_response_records:S3ServicePostResponseRecords',
+        'SvmLdap' : 'netapp_ontap.models.svm_ldap:SvmLdap',
+        'CifsServiceSecurity' : 'netapp_ontap.models.cifs_service_security:CifsServiceSecurity',
+        'ClusterNodesServiceProcessorBackup' : 'netapp_ontap.models.cluster_nodes_service_processor_backup:ClusterNodesServiceProcessorBackup',
+        'MetroclusterRemote' : 'netapp_ontap.models.metrocluster_remote:MetroclusterRemote',
+        'TapeDeviceAliases' : 'netapp_ontap.models.tape_device_aliases:TapeDeviceAliases',
+        'StorageSwitchTemperatureSensors' : 'netapp_ontap.models.storage_switch_temperature_sensors:StorageSwitchTemperatureSensors',
+        'ClusterNodesClusterInterface' : 'netapp_ontap.models.cluster_nodes_cluster_interface:ClusterNodesClusterInterface',
+        'AntiRansomwareNode' : 'netapp_ontap.models.anti_ransomware_node:AntiRansomwareNode',
+        'WebHsts' : 'netapp_ontap.models.web_hsts:WebHsts',
+        'SecurityOauth2Introspection' : 'netapp_ontap.models.security_oauth2_introspection:SecurityOauth2Introspection',
+        'PerformanceNetworkMetrics' : 'netapp_ontap.models.performance_network_metrics:PerformanceNetworkMetrics',
+        'NfsServiceExports' : 'netapp_ontap.models.nfs_service_exports:NfsServiceExports',
+        'ServiceProcessor' : 'netapp_ontap.models.service_processor:ServiceProcessor',
+        'IgroupInitiatorNoRecordsProximityPeerSvms' : 'netapp_ontap.models.igroup_initiator_no_records_proximity_peer_svms:IgroupInitiatorNoRecordsProximityPeerSvms',
+        'VolumeTiering' : 'netapp_ontap.models.volume_tiering:VolumeTiering',
+        'VsiOnSanNewIgroups' : 'netapp_ontap.models.vsi_on_san_new_igroups:VsiOnSanNewIgroups',
+        'PerformanceMetricRaw' : 'netapp_ontap.models.performance_metric_raw:PerformanceMetricRaw',
+        'IgroupInitiatorsConnectivityTracking' : 'netapp_ontap.models.igroup_initiators_connectivity_tracking:IgroupInitiatorsConnectivityTracking',
+        'NodeHaGiveback' : 'netapp_ontap.models.node_ha_giveback:NodeHaGiveback',
+        'ClusterNodesServiceProcessorPrimary' : 'netapp_ontap.models.cluster_nodes_service_processor_primary:ClusterNodesServiceProcessorPrimary',
+        'FileMoveFile' : 'netapp_ontap.models.file_move_file:FileMoveFile',
+        'NodeUuid' : 'netapp_ontap.models.node_uuid:NodeUuid',
+        'UnixGroupUsersRecords' : 'netapp_ontap.models.unix_group_users_records:UnixGroupUsersRecords',
+        'ApplicationStatisticsComponentsLatency' : 'netapp_ontap.models.application_statistics_components_latency:ApplicationStatisticsComponentsLatency',
+        'OracleRacOnNfsOracleCrs' : 'netapp_ontap.models.oracle_rac_on_nfs_oracle_crs:OracleRacOnNfsOracleCrs',
+        'QtreeUser' : 'netapp_ontap.models.qtree_user:QtreeUser',
+        'StorageBridgeErrorsComponent' : 'netapp_ontap.models.storage_bridge_errors_component:StorageBridgeErrorsComponent',
+        'VolumeRebalancing1EngineScanner' : 'netapp_ontap.models.volume_rebalancing1_engine_scanner:VolumeRebalancing1EngineScanner',
+        'ApplicationStatisticsLatency' : 'netapp_ontap.models.application_statistics_latency:ApplicationStatisticsLatency',
+        'FlexcacheCifsChangeNotify' : 'netapp_ontap.models.flexcache_cifs_change_notify:FlexcacheCifsChangeNotify',
+        'ScopeIpspace' : 'netapp_ontap.models.scope_ipspace:ScopeIpspace',
+        'TopMetricsClientResponseNotice' : 'netapp_ontap.models.top_metrics_client_response_notice:TopMetricsClientResponseNotice',
+        'S3ServerWarning' : 'netapp_ontap.models.s3_server_warning:S3ServerWarning',
+        'SnapmirrorEndpoint' : 'netapp_ontap.models.snapmirror_endpoint:SnapmirrorEndpoint',
+        'EmsEventActionTitleArguments' : 'netapp_ontap.models.ems_event_action_title_arguments:EmsEventActionTitleArguments',
+        'VolumeRebalancing1EngineScannerFilesSkipped' : 'netapp_ontap.models.volume_rebalancing1_engine_scanner_files_skipped:VolumeRebalancing1EngineScannerFilesSkipped',
+        'PerformanceMetricRawReducedThroughput' : 'netapp_ontap.models.performance_metric_raw_reduced_throughput:PerformanceMetricRawReducedThroughput',
+        'SqlOnSanLog' : 'netapp_ontap.models.sql_on_san_log:SqlOnSanLog',
+        'IpInterfaceSvmLocation' : 'netapp_ontap.models.ip_interface_svm_location:IpInterfaceSvmLocation',
+        'PerformanceCifsMetricResponseRecords' : 'netapp_ontap.models.performance_cifs_metric_response_records:PerformanceCifsMetricResponseRecords',
+        'ShelfPaths' : 'netapp_ontap.models.shelf_paths:ShelfPaths',
+        'AutosupportConnectivityIssue' : 'netapp_ontap.models.autosupport_connectivity_issue:AutosupportConnectivityIssue',
+        'SvmStorage' : 'netapp_ontap.models.svm_storage:SvmStorage',
+        'StorageUnitSpaceSnapshot' : 'netapp_ontap.models.storage_unit_space_snapshot:StorageUnitSpaceSnapshot',
+        'ShelfFrus' : 'netapp_ontap.models.shelf_frus:ShelfFrus',
+        'StorageUnitEncryption' : 'netapp_ontap.models.storage_unit_encryption:StorageUnitEncryption',
+        'SvmMigrationIpInterfacePort' : 'netapp_ontap.models.svm_migration_ip_interface_port:SvmMigrationIpInterfacePort',
+        'VolumeEfficiencyPolicy1' : 'netapp_ontap.models.volume_efficiency_policy1:VolumeEfficiencyPolicy1',
+        'TopMetricsSvmClientExcludedVolume' : 'netapp_ontap.models.top_metrics_svm_client_excluded_volume:TopMetricsSvmClientExcludedVolume',
+        'OracleRacOnNfsOracleCrsStorageService' : 'netapp_ontap.models.oracle_rac_on_nfs_oracle_crs_storage_service:OracleRacOnNfsOracleCrsStorageService',
+        'NodeHaGivebackStatus' : 'netapp_ontap.models.node_ha_giveback_status:NodeHaGivebackStatus',
+        'DataCollectionMetrics' : 'netapp_ontap.models.data_collection_metrics:DataCollectionMetrics',
+        'JobLink' : 'netapp_ontap.models.job_link:JobLink',
+        'FcInterfaceSvmLocation' : 'netapp_ontap.models.fc_interface_svm_location:FcInterfaceSvmLocation',
+        'ConsistencyGroupConsistencyGroupsLunsLunMapsIgroupInitiators' : 'netapp_ontap.models.consistency_group_consistency_groups_luns_lun_maps_igroup_initiators:ConsistencyGroupConsistencyGroupsLunsLunMapsIgroupInitiators',
+        'IgroupInitiatorConnectivityTracking' : 'netapp_ontap.models.igroup_initiator_connectivity_tracking:IgroupInitiatorConnectivityTracking',
+        'QuotaReportQtree' : 'netapp_ontap.models.quota_report_qtree:QuotaReportQtree',
+        'FcSwitchPortsAttachedDevice' : 'netapp_ontap.models.fc_switch_ports_attached_device:FcSwitchPortsAttachedDevice',
+        'SvmMigrationVolumeAggregatePair' : 'netapp_ontap.models.svm_migration_volume_aggregate_pair:SvmMigrationVolumeAggregatePair',
+        'ConsistencyGroupChildVolumes' : 'netapp_ontap.models.consistency_group_child_volumes:ConsistencyGroupChildVolumes',
+        'ContainerVolumeFlexcacheRelationship' : 'netapp_ontap.models.container_volume_flexcache_relationship:ContainerVolumeFlexcacheRelationship',
+        'KeyManagerConfigHealthMonitorPolicy' : 'netapp_ontap.models.key_manager_config_health_monitor_policy:KeyManagerConfigHealthMonitorPolicy',
+        'VolumeStatisticsCloud' : 'netapp_ontap.models.volume_statistics_cloud:VolumeStatisticsCloud',
+        'ShelfDrawers' : 'netapp_ontap.models.shelf_drawers:ShelfDrawers',
+        'DatacollectionVersionDiffDataCollectionVersion' : 'netapp_ontap.models.datacollection_version_diff_data_collection_version:DatacollectionVersionDiffDataCollectionVersion',
+        'TopMetricsFileThroughput' : 'netapp_ontap.models.top_metrics_file_throughput:TopMetricsFileThroughput',
+        'AutosupportMessageError' : 'netapp_ontap.models.autosupport_message_error:AutosupportMessageError',
+        'ConsistencyGroupConsistencyGroupsNamespaces' : 'netapp_ontap.models.consistency_group_consistency_groups_namespaces:ConsistencyGroupConsistencyGroupsNamespaces',
+        'EmsFilterRuleParameterCriteria' : 'netapp_ontap.models.ems_filter_rule_parameter_criteria:EmsFilterRuleParameterCriteria',
+        'FcLoginInitiator' : 'netapp_ontap.models.fc_login_initiator:FcLoginInitiator',
+        'SnaplockRetentionPolicyOperation' : 'netapp_ontap.models.snaplock_retention_policy_operation:SnaplockRetentionPolicyOperation',
+        'ContainerResponseRecordsVolumesExcludeAggregates' : 'netapp_ontap.models.container_response_records_volumes_exclude_aggregates:ContainerResponseRecordsVolumesExcludeAggregates',
+        'IgroupConnectivityTracking' : 'netapp_ontap.models.igroup_connectivity_tracking:IgroupConnectivityTracking',
+        'FcSwitchPorts' : 'netapp_ontap.models.fc_switch_ports:FcSwitchPorts',
+        'FpolicyPoliciesScope' : 'netapp_ontap.models.fpolicy_policies_scope:FpolicyPoliciesScope',
+        'MetroclusterDrGroupMccipPorts' : 'netapp_ontap.models.metrocluster_dr_group_mccip_ports:MetroclusterDrGroupMccipPorts',
+        'ClusterNisServiceBindingDetails' : 'netapp_ontap.models.cluster_nis_service_binding_details:ClusterNisServiceBindingDetails',
+        'VolumeRebalancing1EngineMovementLastError' : 'netapp_ontap.models.volume_rebalancing1_engine_movement_last_error:VolumeRebalancing1EngineMovementLastError',
+        'SoftwareStatusDetailsReferenceNode' : 'netapp_ontap.models.software_status_details_reference_node:SoftwareStatusDetailsReferenceNode',
+        'DcnClusterSoftware' : 'netapp_ontap.models.dcn_cluster_software:DcnClusterSoftware',
+        'NvmeSubsystemControllerInterface' : 'netapp_ontap.models.nvme_subsystem_controller_interface:NvmeSubsystemControllerInterface',
+        'EmsDestinationResponseRecordsConnectivity' : 'netapp_ontap.models.ems_destination_response_records_connectivity:EmsDestinationResponseRecordsConnectivity',
+        'CertificateSigningRequest' : 'netapp_ontap.models.certificate_signing_request:CertificateSigningRequest',
+        'StorageBridgeTemperatureSensor' : 'netapp_ontap.models.storage_bridge_temperature_sensor:StorageBridgeTemperatureSensor',
+        'VolumeEncryption' : 'netapp_ontap.models.volume_encryption:VolumeEncryption',
+        'FileMoveFilesToMoveDestinations' : 'netapp_ontap.models.file_move_files_to_move_destinations:FileMoveFilesToMoveDestinations',
+        'SoftwareReferenceMetrocluster' : 'netapp_ontap.models.software_reference_metrocluster:SoftwareReferenceMetrocluster',
+        'ScheduleCron' : 'netapp_ontap.models.schedule_cron:ScheduleCron',
+        'ConsistencyGroupNvmeHostProximity1PeerSvms' : 'netapp_ontap.models.consistency_group_nvme_host_proximity1_peer_svms:ConsistencyGroupNvmeHostProximity1PeerSvms',
+        'ConsistencyGroupClone1StorageUnit' : 'netapp_ontap.models.consistency_group_clone1_storage_unit:ConsistencyGroupClone1StorageUnit',
+        'ConsistencyGroupSnaplock' : 'netapp_ontap.models.consistency_group_snaplock:ConsistencyGroupSnaplock',
+        'AggregateBlockStoragePrimarySimulatedRaidGroups' : 'netapp_ontap.models.aggregate_block_storage_primary_simulated_raid_groups:AggregateBlockStoragePrimarySimulatedRaidGroups',
+        'AutosupportConnectivityCorrectiveAction' : 'netapp_ontap.models.autosupport_connectivity_corrective_action:AutosupportConnectivityCorrectiveAction',
+        'ConsistencyGroupCifsShareAcls' : 'netapp_ontap.models.consistency_group_cifs_share_acls:ConsistencyGroupCifsShareAcls',
+        'LunMapReportingNodes' : 'netapp_ontap.models.lun_map_reporting_nodes:LunMapReportingNodes',
+        'ConsistencyGroupReplicationRelationships' : 'netapp_ontap.models.consistency_group_replication_relationships:ConsistencyGroupReplicationRelationships',
+        'ApplicationProtectionGroups' : 'netapp_ontap.models.application_protection_groups:ApplicationProtectionGroups',
+        'NvmeNamespaceQosPolicy' : 'netapp_ontap.models.nvme_namespace_qos_policy:NvmeNamespaceQosPolicy',
+        'ShareLock' : 'netapp_ontap.models.share_lock:ShareLock',
+        'ApplicationStatisticsComponentsSnapshot' : 'netapp_ontap.models.application_statistics_components_snapshot:ApplicationStatisticsComponentsSnapshot',
+        'S3BucketSnapshotPolicy' : 'netapp_ontap.models.s3_bucket_snapshot_policy:S3BucketSnapshotPolicy',
+        'ClusterNodesMetrocluster' : 'netapp_ontap.models.cluster_nodes_metrocluster:ClusterNodesMetrocluster',
+        'DiskOutage' : 'netapp_ontap.models.disk_outage:DiskOutage',
+        'DeviceDiscoveryData' : 'netapp_ontap.models.device_discovery_data:DeviceDiscoveryData',
+        'SecurityAzure' : 'netapp_ontap.models.security_azure:SecurityAzure',
+        'EmsEventActionConfirmationMessageArguments' : 'netapp_ontap.models.ems_event_action_confirmation_message_arguments:EmsEventActionConfirmationMessageArguments',
+        'DatacollectionQuery' : 'netapp_ontap.models.datacollection_query:DatacollectionQuery',
+        'StoragePortCable' : 'netapp_ontap.models.storage_port_cable:StoragePortCable',
+        'S3BucketSvmEncryption' : 'netapp_ontap.models.s3_bucket_svm_encryption:S3BucketSvmEncryption',
+        'ZappNvme' : 'netapp_ontap.models.zapp_nvme:ZappNvme',
+        'GroupPolicyObjectEventAudit' : 'netapp_ontap.models.group_policy_object_event_audit:GroupPolicyObjectEventAudit',
+        'SoftwareUpdateDetailsReferenceNode' : 'netapp_ontap.models.software_update_details_reference_node:SoftwareUpdateDetailsReferenceNode',
+        'PerformanceNamespaceMetricResponseRecords' : 'netapp_ontap.models.performance_namespace_metric_response_records:PerformanceNamespaceMetricResponseRecords',
+        'BroadcastDomainReferenceIpspace' : 'netapp_ontap.models.broadcast_domain_reference_ipspace:BroadcastDomainReferenceIpspace',
+        'OracleOnNfsDb' : 'netapp_ontap.models.oracle_on_nfs_db:OracleOnNfsDb',
+        'LunCopySourceProgress' : 'netapp_ontap.models.lun_copy_source_progress:LunCopySourceProgress',
+        'LunVvolBindingsPartner' : 'netapp_ontap.models.lun_vvol_bindings_partner:LunVvolBindingsPartner',
+        'AnalyticsCollectionInfoByModifiedTimeBytesUsed' : 'netapp_ontap.models.analytics_collection_info_by_modified_time_bytes_used:AnalyticsCollectionInfoByModifiedTimeBytesUsed',
+        'CifsOpenFileConnection' : 'netapp_ontap.models.cifs_open_file_connection:CifsOpenFileConnection',
+        'VscanOnAccessScope' : 'netapp_ontap.models.vscan_on_access_scope:VscanOnAccessScope',
+        'LicensePackageResponseRecords' : 'netapp_ontap.models.license_package_response_records:LicensePackageResponseRecords',
+        'SizeOfDataInner' : 'netapp_ontap.models.size_of_data_inner:SizeOfDataInner',
+        'DataEngineGovernanceAuditImpactedFilesDataCollection' : 'netapp_ontap.models.data_engine_governance_audit_impacted_files_data_collection:DataEngineGovernanceAuditImpactedFilesDataCollection',
+        'SnapmirrorTransferRelationship' : 'netapp_ontap.models.snapmirror_transfer_relationship:SnapmirrorTransferRelationship',
+        'SecurityKeyManagerExternalServerCaCertificates' : 'netapp_ontap.models.security_key_manager_external_server_ca_certificates:SecurityKeyManagerExternalServerCaCertificates',
+        'StorageUnitSpaceSnapshot1Autodelete' : 'netapp_ontap.models.storage_unit_space_snapshot1_autodelete:StorageUnitSpaceSnapshot1Autodelete',
+        'ConsistencyGroupLunSpace' : 'netapp_ontap.models.consistency_group_lun_space:ConsistencyGroupLunSpace',
+        'OracleOnSanNewIgroups' : 'netapp_ontap.models.oracle_on_san_new_igroups:OracleOnSanNewIgroups',
+        'VolumeClone' : 'netapp_ontap.models.volume_clone:VolumeClone',
+        'IpsecCaCertificateUuid' : 'netapp_ontap.models.ipsec_ca_certificate_uuid:IpsecCaCertificateUuid',
+        'Status' : 'netapp_ontap.models.status:Status',
+        'Server' : 'netapp_ontap.models.server:Server',
+        'PerformanceReducedThroughput' : 'netapp_ontap.models.performance_reduced_throughput:PerformanceReducedThroughput',
+        'IpInterfaceResponseRecommend' : 'netapp_ontap.models.ip_interface_response_recommend:IpInterfaceResponseRecommend',
+        'File' : 'netapp_ontap.models.file:File',
+        'IgroupInitiatorsProximity' : 'netapp_ontap.models.igroup_initiators_proximity:IgroupInitiatorsProximity',
+        'Member' : 'netapp_ontap.models.member:Member',
+        'StorageUnitMapsSubsystemMap' : 'netapp_ontap.models.storage_unit_maps_subsystem_map:StorageUnitMapsSubsystemMap',
+        'MetroclusterDiagnosticsAggregate' : 'netapp_ontap.models.metrocluster_diagnostics_aggregate:MetroclusterDiagnosticsAggregate',
+        'MetroclusterDiagConnection' : 'netapp_ontap.models.metrocluster_diag_connection:MetroclusterDiagConnection',
+        'PortLagMemberPorts' : 'netapp_ontap.models.port_lag_member_ports:PortLagMemberPorts',
+        'Uri' : 'netapp_ontap.models.uri:Uri',
+        'ConsistencyGroupNvmeHostTls' : 'netapp_ontap.models.consistency_group_nvme_host_tls:ConsistencyGroupNvmeHostTls',
+        'MediatorResponseRecords' : 'netapp_ontap.models.mediator_response_records:MediatorResponseRecords',
+        'ClusterNodesControllerFailedPowerSupply' : 'netapp_ontap.models.cluster_nodes_controller_failed_power_supply:ClusterNodesControllerFailedPowerSupply',
+        'EmsEventResponseRecords' : 'netapp_ontap.models.ems_event_response_records:EmsEventResponseRecords',
+        'QuotaRuleFiles' : 'netapp_ontap.models.quota_rule_files:QuotaRuleFiles',
+        'ChassisFrus' : 'netapp_ontap.models.chassis_frus:ChassisFrus',
+        'CloudStoreAggregate' : 'netapp_ontap.models.cloud_store_aggregate:CloudStoreAggregate',
+        'ContainerVolumesExcludeAggregates' : 'netapp_ontap.models.container_volumes_exclude_aggregates:ContainerVolumesExcludeAggregates',
+        'EmsEventParameters' : 'netapp_ontap.models.ems_event_parameters:EmsEventParameters',
+        'WebCsrf' : 'netapp_ontap.models.web_csrf:WebCsrf',
+        'ShelfFans' : 'netapp_ontap.models.shelf_fans:ShelfFans',
+        'Usm' : 'netapp_ontap.models.usm:Usm',
+        'ZappS3BucketProtectionType' : 'netapp_ontap.models.zapp_s3_bucket_protection_type:ZappS3BucketProtectionType',
+        'S3ServiceUserPost' : 'netapp_ontap.models.s3_service_user_post:S3ServiceUserPost',
+        'LunMapLunNode' : 'netapp_ontap.models.lun_map_lun_node:LunMapLunNode',
+        'ClusterNodesHaInterconnect' : 'netapp_ontap.models.cluster_nodes_ha_interconnect:ClusterNodesHaInterconnect',
+        'DcnHardware' : 'netapp_ontap.models.dcn_hardware:DcnHardware',
+        'ClusterNodesHaGivebackFailure' : 'netapp_ontap.models.cluster_nodes_ha_giveback_failure:ClusterNodesHaGivebackFailure',
+        'SnapshotDelta' : 'netapp_ontap.models.snapshot_delta:SnapshotDelta',
+        'ConsistencyGroupVolumeSpace' : 'netapp_ontap.models.consistency_group_volume_space:ConsistencyGroupVolumeSpace',
+        'AggregateBlockStorage' : 'netapp_ontap.models.aggregate_block_storage:AggregateBlockStorage',
+        'FpolicyEngineBufferSize' : 'netapp_ontap.models.fpolicy_engine_buffer_size:FpolicyEngineBufferSize',
+        'NfsServiceAccessCacheConfig' : 'netapp_ontap.models.nfs_service_access_cache_config:NfsServiceAccessCacheConfig',
+        'ConsistencyGroupSnapshotModify' : 'netapp_ontap.models.consistency_group_snapshot_modify:ConsistencyGroupSnapshotModify',
+        'ShelfBays' : 'netapp_ontap.models.shelf_bays:ShelfBays',
+        'PerformanceNamespaceMetricSpace' : 'netapp_ontap.models.performance_namespace_metric_space:PerformanceNamespaceMetricSpace',
+        'SoftwareValidationReferenceAction' : 'netapp_ontap.models.software_validation_reference_action:SoftwareValidationReferenceAction',
+        'LocalCifsGroupMembersNoRecords' : 'netapp_ontap.models.local_cifs_group_members_no_records:LocalCifsGroupMembersNoRecords',
+        'VolumeAnalyticsUnsupportedReason' : 'netapp_ontap.models.volume_analytics_unsupported_reason:VolumeAnalyticsUnsupportedReason',
+        'CollectionLinks' : 'netapp_ontap.models.collection_links:CollectionLinks',
+        'LunCopyDestinations' : 'netapp_ontap.models.lun_copy_destinations:LunCopyDestinations',
+        'MetroclusterPartner' : 'netapp_ontap.models.metrocluster_partner:MetroclusterPartner',
+        'SvmCifsService' : 'netapp_ontap.models.svm_cifs_service:SvmCifsService',
+        'AnalyticsCollectionInfoByModifiedTime' : 'netapp_ontap.models.analytics_collection_info_by_modified_time:AnalyticsCollectionInfoByModifiedTime',
+        'ContainerResponseRecordsVolumesS3BucketPolicyStatements' : 'netapp_ontap.models.container_response_records_volumes_s3_bucket_policy_statements:ContainerResponseRecordsVolumesS3BucketPolicyStatements',
+        'ClusterNodesHaPartners' : 'netapp_ontap.models.cluster_nodes_ha_partners:ClusterNodesHaPartners',
+        'NvmeNamespaceConvert' : 'netapp_ontap.models.nvme_namespace_convert:NvmeNamespaceConvert',
+        'ApplicationLunObject' : 'netapp_ontap.models.application_lun_object:ApplicationLunObject',
+        'S3BucketCorsRule' : 'netapp_ontap.models.s3_bucket_cors_rule:S3BucketCorsRule',
+        'S3BucketPolicyCondition' : 'netapp_ontap.models.s3_bucket_policy_condition:S3BucketPolicyCondition',
+        'VolumeEfficiencyPolicySchedule' : 'netapp_ontap.models.volume_efficiency_policy_schedule:VolumeEfficiencyPolicySchedule',
+        'ContainerResponseRecordsVolumesS3BucketPolicy' : 'netapp_ontap.models.container_response_records_volumes_s3_bucket_policy:ContainerResponseRecordsVolumesS3BucketPolicy',
+        'ConsistencyGroupConsistencyGroupsLunsLunMaps' : 'netapp_ontap.models.consistency_group_consistency_groups_luns_lun_maps:ConsistencyGroupConsistencyGroupsLunsLunMaps',
+        'LunVvolBindings' : 'netapp_ontap.models.lun_vvol_bindings:LunVvolBindings',
+        'PortLagActivePorts' : 'netapp_ontap.models.port_lag_active_ports:PortLagActivePorts',
+        'SvmMigrationDestinationVolumePlacementVolumeAggregatePairs' : 'netapp_ontap.models.svm_migration_destination_volume_placement_volume_aggregate_pairs:SvmMigrationDestinationVolumePlacementVolumeAggregatePairs',
+        'ApplicationComponentSnapshotSvm' : 'netapp_ontap.models.application_component_snapshot_svm:ApplicationComponentSnapshotSvm',
+        'ConsistencyGroupResponseRecordsLunsLunMapsIgroupInitiators' : 'netapp_ontap.models.consistency_group_response_records_luns_lun_maps_igroup_initiators:ConsistencyGroupResponseRecordsLunsLunMapsIgroupInitiators',
+        'DrPair' : 'netapp_ontap.models.dr_pair:DrPair',
+        'ConsistencyGroupResponseRecordsLuns' : 'netapp_ontap.models.consistency_group_response_records_luns:ConsistencyGroupResponseRecordsLuns',
+        'MetroclusterDiagnosticsConfigreplication' : 'netapp_ontap.models.metrocluster_diagnostics_configreplication:MetroclusterDiagnosticsConfigreplication',
+        'Rfc2307Attribute' : 'netapp_ontap.models.rfc2307_attribute:Rfc2307Attribute',
+        'ShelfTemperatureSensorsThresholdHigh' : 'netapp_ontap.models.shelf_temperature_sensors_threshold_high:ShelfTemperatureSensorsThresholdHigh',
+        'SqlOnSanNewIgroups' : 'netapp_ontap.models.sql_on_san_new_igroups:SqlOnSanNewIgroups',
+        'NetworkRouteForSvm' : 'netapp_ontap.models.network_route_for_svm:NetworkRouteForSvm',
+        'ShelfPortsRemote' : 'netapp_ontap.models.shelf_ports_remote:ShelfPortsRemote',
+        'DcnNodeNetworkExternalInterface' : 'netapp_ontap.models.dcn_node_network_external_interface:DcnNodeNetworkExternalInterface',
+        'Fips' : 'netapp_ontap.models.fips:Fips',
+        'LogRetention' : 'netapp_ontap.models.log_retention:LogRetention',
+        'ApplicationSanAccessFcpEndpoint' : 'netapp_ontap.models.application_san_access_fcp_endpoint:ApplicationSanAccessFcpEndpoint',
+        'AggregateCloudStorage' : 'netapp_ontap.models.aggregate_cloud_storage:AggregateCloudStorage',
+        'EmsEventMessage' : 'netapp_ontap.models.ems_event_message:EmsEventMessage',
+        'FlexcacheGuarantee' : 'netapp_ontap.models.flexcache_guarantee:FlexcacheGuarantee',
+        'IpInterfaceAndGateway' : 'netapp_ontap.models.ip_interface_and_gateway:IpInterfaceAndGateway',
+        'IpInfo' : 'netapp_ontap.models.ip_info:IpInfo',
+        'Ipv6Interface' : 'netapp_ontap.models.ipv6_interface:Ipv6Interface',
+        'AggregateWarningAction' : 'netapp_ontap.models.aggregate_warning_action:AggregateWarningAction',
+        'NvmeSubsystemIoQueue' : 'netapp_ontap.models.nvme_subsystem_io_queue:NvmeSubsystemIoQueue',
+        'DcnCommonError' : 'netapp_ontap.models.dcn_common_error:DcnCommonError',
+        'FcPortTransceiver' : 'netapp_ontap.models.fc_port_transceiver:FcPortTransceiver',
+        'ClusterMetricsResponseRecords' : 'netapp_ontap.models.cluster_metrics_response_records:ClusterMetricsResponseRecords',
+        'ClusterNodesExternalCacheBypass' : 'netapp_ontap.models.cluster_nodes_external_cache_bypass:ClusterNodesExternalCacheBypass',
+        'StorageUnitMovementSource' : 'netapp_ontap.models.storage_unit_movement_source:StorageUnitMovementSource',
+        'RaidGroup' : 'netapp_ontap.models.raid_group:RaidGroup',
+        'OnboardKeyManagerConfigurableStatus' : 'netapp_ontap.models.onboard_key_manager_configurable_status:OnboardKeyManagerConfigurableStatus',
+        'EmsFilterRulesMessageCriteria' : 'netapp_ontap.models.ems_filter_rules_message_criteria:EmsFilterRulesMessageCriteria',
+        'HealthMonitorPolicyFields' : 'netapp_ontap.models.health_monitor_policy_fields:HealthMonitorPolicyFields',
+        'ContainerResponseRecords' : 'netapp_ontap.models.container_response_records:ContainerResponseRecords',
+        'DataEngineEventAttributes' : 'netapp_ontap.models.data_engine_event_attributes:DataEngineEventAttributes',
+        'FpolicyEventFileOperations' : 'netapp_ontap.models.fpolicy_event_file_operations:FpolicyEventFileOperations',
+        'AutosupportIssues' : 'netapp_ontap.models.autosupport_issues:AutosupportIssues',
+        'SoftwareUpdateDetails' : 'netapp_ontap.models.software_update_details:SoftwareUpdateDetails',
+        'SecurityKeyManagerExternal' : 'netapp_ontap.models.security_key_manager_external:SecurityKeyManagerExternal',
+        'SvmMigrationSource' : 'netapp_ontap.models.svm_migration_source:SvmMigrationSource',
+        'FcInterfaceSvm' : 'netapp_ontap.models.fc_interface_svm:FcInterfaceSvm',
+        'BgpPeerGroupLocalIp' : 'netapp_ontap.models.bgp_peer_group_local_ip:BgpPeerGroupLocalIp',
+        'ClusterNodesExternalCache' : 'netapp_ontap.models.cluster_nodes_external_cache:ClusterNodesExternalCache',
+        'DcnClusterNetworkPool' : 'netapp_ontap.models.dcn_cluster_network_pool:DcnClusterNetworkPool',
+        'ShelfManufacturer' : 'netapp_ontap.models.shelf_manufacturer:ShelfManufacturer',
+        'TokenNode' : 'netapp_ontap.models.token_node:TokenNode',
+        'ConsistencyGroupChild' : 'netapp_ontap.models.consistency_group_child:ConsistencyGroupChild',
+        'FileInfoConstituent' : 'netapp_ontap.models.file_info_constituent:FileInfoConstituent',
+        'LunLunMapsIgroupInitiators' : 'netapp_ontap.models.lun_lun_maps_igroup_initiators:LunLunMapsIgroupInitiators',
+        'ApplicationCifsPropertiesBackingStorage' : 'netapp_ontap.models.application_cifs_properties_backing_storage:ApplicationCifsPropertiesBackingStorage',
+        'ConsistencyGroupIgroupIgroups' : 'netapp_ontap.models.consistency_group_igroup_igroups:ConsistencyGroupIgroupIgroups',
+        'ClusterNodesControllerFrus' : 'netapp_ontap.models.cluster_nodes_controller_frus:ClusterNodesControllerFrus',
+        'SoftwareStatusDetailsReferenceIssue' : 'netapp_ontap.models.software_status_details_reference_issue:SoftwareStatusDetailsReferenceIssue',
+        'ZappS3BucketApplicationComponentsSnapshotPolicy' : 'netapp_ontap.models.zapp_s3_bucket_application_components_snapshot_policy:ZappS3BucketApplicationComponentsSnapshotPolicy',
+        'NfsServiceProtocolV42Features' : 'netapp_ontap.models.nfs_service_protocol_v42_features:NfsServiceProtocolV42Features',
+        'FpolicyEvents' : 'netapp_ontap.models.fpolicy_events:FpolicyEvents',
+        'QtreeGroup' : 'netapp_ontap.models.qtree_group:QtreeGroup',
+        'NvmeInterfaceIpInterface' : 'netapp_ontap.models.nvme_interface_ip_interface:NvmeInterfaceIpInterface',
+        'VdiOnSanNewIgroups' : 'netapp_ontap.models.vdi_on_san_new_igroups:VdiOnSanNewIgroups',
+        'ContainerVolumesStorageService' : 'netapp_ontap.models.container_volumes_storage_service:ContainerVolumesStorageService',
+        'RelatedLink' : 'netapp_ontap.models.related_link:RelatedLink',
+        'DcnNodeStatisticsGpu' : 'netapp_ontap.models.dcn_node_statistics_gpu:DcnNodeStatisticsGpu',
+        'SwitchPortIdentity' : 'netapp_ontap.models.switch_port_identity:SwitchPortIdentity',
+        'VolumeAnalytics' : 'netapp_ontap.models.volume_analytics:VolumeAnalytics',
+        'WorkspaceDataSources' : 'netapp_ontap.models.workspace_data_sources:WorkspaceDataSources',
+        'LunMapReportingNodeLun' : 'netapp_ontap.models.lun_map_reporting_node_lun:LunMapReportingNodeLun',
+        'CounterSchema' : 'netapp_ontap.models.counter_schema:CounterSchema',
+        'SwitchPortRemotePort' : 'netapp_ontap.models.switch_port_remote_port:SwitchPortRemotePort',
+        'VolumeProtocolRawPerformanceStatCreate' : 'netapp_ontap.models.volume_protocol_raw_performance_stat_create:VolumeProtocolRawPerformanceStatCreate',
+        'PoliciesAndRulesToBeAppliedToBeApplied' : 'netapp_ontap.models.policies_and_rules_to_be_applied_to_be_applied:PoliciesAndRulesToBeAppliedToBeApplied',
+        'ApplyTo' : 'netapp_ontap.models.apply_to:ApplyTo',
+        'PortStatisticsDevice' : 'netapp_ontap.models.port_statistics_device:PortStatisticsDevice',
+        'FcPortFabric' : 'netapp_ontap.models.fc_port_fabric:FcPortFabric',
+        'EmsUiMessageArguments' : 'netapp_ontap.models.ems_ui_message_arguments:EmsUiMessageArguments',
+        'PortSvm' : 'netapp_ontap.models.port_svm:PortSvm',
+        'IpsecPolicyResponseRecords' : 'netapp_ontap.models.ipsec_policy_response_records:IpsecPolicyResponseRecords',
+        'DataEngineEventJob' : 'netapp_ontap.models.data_engine_event_job:DataEngineEventJob',
+        'FcSwitchPort' : 'netapp_ontap.models.fc_switch_port:FcSwitchPort',
+        'StorageSwitchPortsSfp' : 'netapp_ontap.models.storage_switch_ports_sfp:StorageSwitchPortsSfp',
+        'SoftwareUpload' : 'netapp_ontap.models.software_upload:SoftwareUpload',
+        'LunCopyDestinationsProgress' : 'netapp_ontap.models.lun_copy_destinations_progress:LunCopyDestinationsProgress',
+        'AggregateBlockStoragePrimary' : 'netapp_ontap.models.aggregate_block_storage_primary:AggregateBlockStoragePrimary',
+        'DataEngineAclUserOrGroup' : 'netapp_ontap.models.data_engine_acl_user_or_group:DataEngineAclUserOrGroup',
+        'NvmeSubsystemSubsystemMapsNamespace' : 'netapp_ontap.models.nvme_subsystem_subsystem_maps_namespace:NvmeSubsystemSubsystemMapsNamespace',
+        'KeyServerStateArray' : 'netapp_ontap.models.key_server_state_array:KeyServerStateArray',
+        'SnapmirrorDestinationCreationTiering' : 'netapp_ontap.models.snapmirror_destination_creation_tiering:SnapmirrorDestinationCreationTiering',
+        'LayoutRequirement' : 'netapp_ontap.models.layout_requirement:LayoutRequirement',
+        'DataEngineGovernanceAuditDatacollectionCountDataCollection' : 'netapp_ontap.models.data_engine_governance_audit_datacollection_count_data_collection:DataEngineGovernanceAuditDatacollectionCountDataCollection',
+        'IgroupInitiatorRecords' : 'netapp_ontap.models.igroup_initiator_records:IgroupInitiatorRecords',
+        'ApplicationStatisticsComponentsSpace' : 'netapp_ontap.models.application_statistics_components_space:ApplicationStatisticsComponentsSpace',
+        'PerformanceMonitoredFilesMetricResponseRecords' : 'netapp_ontap.models.performance_monitored_files_metric_response_records:PerformanceMonitoredFilesMetricResponseRecords',
+        'SecurityAssociationIpsecOutbound' : 'netapp_ontap.models.security_association_ipsec_outbound:SecurityAssociationIpsecOutbound',
+        'ApplicationNfsPropertiesExportPolicy' : 'netapp_ontap.models.application_nfs_properties_export_policy:ApplicationNfsPropertiesExportPolicy',
+        'MediatorPingError' : 'netapp_ontap.models.mediator_ping_error:MediatorPingError',
+        'NvmeServiceStatistics' : 'netapp_ontap.models.nvme_service_statistics:NvmeServiceStatistics',
+        'ConsistencyGroupLunLunMapsIgroupInitiators' : 'netapp_ontap.models.consistency_group_lun_lun_maps_igroup_initiators:ConsistencyGroupLunLunMapsIgroupInitiators',
+        'FirmwareUpdateProgress' : 'netapp_ontap.models.firmware_update_progress:FirmwareUpdateProgress',
+        'QtreeStatisticsRaw' : 'netapp_ontap.models.qtree_statistics_raw:QtreeStatisticsRaw',
+        'AgeOfDataInner' : 'netapp_ontap.models.age_of_data_inner:AgeOfDataInner',
+        'ApplicationNamespaceObject' : 'netapp_ontap.models.application_namespace_object:ApplicationNamespaceObject',
+        'ConsistencyGroupMapTo' : 'netapp_ontap.models.consistency_group_map_to:ConsistencyGroupMapTo',
+        'ConsistencyGroupReplicationRelationship' : 'netapp_ontap.models.consistency_group_replication_relationship:ConsistencyGroupReplicationRelationship',
+        'ArwVserverEventLog' : 'netapp_ontap.models.arw_vserver_event_log:ArwVserverEventLog',
+        'DataEngineEventResource' : 'netapp_ontap.models.data_engine_event_resource:DataEngineEventResource',
+        'JobNode' : 'netapp_ontap.models.job_node:JobNode',
+        'LunConsistencyGroup' : 'netapp_ontap.models.lun_consistency_group:LunConsistencyGroup',
+        'PerformanceSvmNfsMetricHistoricalV3' : 'netapp_ontap.models.performance_svm_nfs_metric_historical_v3:PerformanceSvmNfsMetricHistoricalV3',
+        'LunAttributes' : 'netapp_ontap.models.lun_attributes:LunAttributes',
+        'PerformanceSvmNfsMetricHistoricalV4' : 'netapp_ontap.models.performance_svm_nfs_metric_historical_v4:PerformanceSvmNfsMetricHistoricalV4',
+        'SnaplockLogArchive' : 'netapp_ontap.models.snaplock_log_archive:SnaplockLogArchive',
+        'DataEngineGovernancePoliciesGuardrailConditions' : 'netapp_ontap.models.data_engine_governance_policies_guardrail_conditions:DataEngineGovernancePoliciesGuardrailConditions',
+        'EmsActionParameterTitleArguments' : 'netapp_ontap.models.ems_action_parameter_title_arguments:EmsActionParameterTitleArguments',
+        'IgroupConnectivityTrackingRequiredNodes' : 'netapp_ontap.models.igroup_connectivity_tracking_required_nodes:IgroupConnectivityTrackingRequiredNodes',
+        'IscsiServiceTarget' : 'netapp_ontap.models.iscsi_service_target:IscsiServiceTarget',
+        'ClusterPeerLocalNetworkInterfaces' : 'netapp_ontap.models.cluster_peer_local_network_interfaces:ClusterPeerLocalNetworkInterfaces',
+        'DataSourceSpace' : 'netapp_ontap.models.data_source_space:DataSourceSpace',
+        'CifsNetbios' : 'netapp_ontap.models.cifs_netbios:CifsNetbios',
+        'ZappNvmeComponentsSubsystemHosts' : 'netapp_ontap.models.zapp_nvme_components_subsystem_hosts:ZappNvmeComponentsSubsystemHosts',
+        'NodeManagementInterfaces' : 'netapp_ontap.models.node_management_interfaces:NodeManagementInterfaces',
+        'StoragePoolCapacity' : 'netapp_ontap.models.storage_pool_capacity:StoragePoolCapacity',
+        'QuotaReportSpace' : 'netapp_ontap.models.quota_report_space:QuotaReportSpace',
+        'ZappS3BucketApplicationComponentsAccessPoliciesConditions' : 'netapp_ontap.models.zapp_s3_bucket_application_components_access_policies_conditions:ZappS3BucketApplicationComponentsAccessPoliciesConditions',
+        'LunCopySource' : 'netapp_ontap.models.lun_copy_source:LunCopySource',
+        'ConsistencyGroupResponseRecordsLunsLunMapsIgroupIgroups' : 'netapp_ontap.models.consistency_group_response_records_luns_lun_maps_igroup_igroups:ConsistencyGroupResponseRecordsLunsLunMapsIgroupIgroups',
+        'ClusterPeerRemote' : 'netapp_ontap.models.cluster_peer_remote:ClusterPeerRemote',
+        'AzureKeyVaultEkmipReachability' : 'netapp_ontap.models.azure_key_vault_ekmip_reachability:AzureKeyVaultEkmipReachability',
+        'TotpPost' : 'netapp_ontap.models.totp_post:TotpPost',
+        'MetroclusterDiagnosticsCluster' : 'netapp_ontap.models.metrocluster_diagnostics_cluster:MetroclusterDiagnosticsCluster',
+        'ApplicationRpoComponentsRpo' : 'netapp_ontap.models.application_rpo_components_rpo:ApplicationRpoComponentsRpo',
+        'LunMovementProgress' : 'netapp_ontap.models.lun_movement_progress:LunMovementProgress',
+        'PerformanceSvmNfsStatistics' : 'netapp_ontap.models.performance_svm_nfs_statistics:PerformanceSvmNfsStatistics',
+        'ConsistencyGroupNamespaceSubsystemMap' : 'netapp_ontap.models.consistency_group_namespace_subsystem_map:ConsistencyGroupNamespaceSubsystemMap',
+        'EmsEventActionParametersValidationErrorMessageArguments' : 'netapp_ontap.models.ems_event_action_parameters_validation_error_message_arguments:EmsEventActionParametersValidationErrorMessageArguments',
+        'NvmeNamespaceSubsystemMapSubsystem' : 'netapp_ontap.models.nvme_namespace_subsystem_map_subsystem:NvmeNamespaceSubsystemMapSubsystem',
+        'ClusterNodesControllerFailedPowerSupplyMessage' : 'netapp_ontap.models.cluster_nodes_controller_failed_power_supply_message:ClusterNodesControllerFailedPowerSupplyMessage',
+        'ApplicationComponentSnapshotRestore' : 'netapp_ontap.models.application_component_snapshot_restore:ApplicationComponentSnapshotRestore',
+        'AggregateSpare' : 'netapp_ontap.models.aggregate_spare:AggregateSpare',
+        'EmsDestinationConnectivity' : 'netapp_ontap.models.ems_destination_connectivity:EmsDestinationConnectivity',
+        'DiskVirtual' : 'netapp_ontap.models.disk_virtual:DiskVirtual',
+        'ApplicationSanAccess' : 'netapp_ontap.models.application_san_access:ApplicationSanAccess',
+        'PerformanceSvm' : 'netapp_ontap.models.performance_svm:PerformanceSvm',
+        'PortsetInterfaces' : 'netapp_ontap.models.portset_interfaces:PortsetInterfaces',
+        'Firmware' : 'netapp_ontap.models.firmware:Firmware',
+        'LunLunMapsIgroupIgroups' : 'netapp_ontap.models.lun_lun_maps_igroup_igroups:LunLunMapsIgroupIgroups',
+        'StoragePoolShowSpares' : 'netapp_ontap.models.storage_pool_show_spares:StoragePoolShowSpares',
+        'S3BucketLifecycleObjectFilter' : 'netapp_ontap.models.s3_bucket_lifecycle_object_filter:S3BucketLifecycleObjectFilter',
+        'SvmNsswitch' : 'netapp_ontap.models.svm_nsswitch:SvmNsswitch',
+        'PerformanceFcInterfaceMetricResponseRecords' : 'netapp_ontap.models.performance_fc_interface_metric_response_records:PerformanceFcInterfaceMetricResponseRecords',
+        'GivebackStatus' : 'netapp_ontap.models.giveback_status:GivebackStatus',
+        'CifsTarget' : 'netapp_ontap.models.cifs_target:CifsTarget',
+        'S3ServicePost' : 'netapp_ontap.models.s3_service_post:S3ServicePost',
+        'ConsistencyGroupChildLuns' : 'netapp_ontap.models.consistency_group_child_luns:ConsistencyGroupChildLuns',
+        'LunMapLunSmbc' : 'netapp_ontap.models.lun_map_lun_smbc:LunMapLunSmbc',
+        'ClusterSpaceMetrics' : 'netapp_ontap.models.cluster_space_metrics:ClusterSpaceMetrics',
+        'EmsConnectivityError' : 'netapp_ontap.models.ems_connectivity_error:EmsConnectivityError',
+        'FileInfoQosPolicy' : 'netapp_ontap.models.file_info_qos_policy:FileInfoQosPolicy',
+        'Ipv4Interface' : 'netapp_ontap.models.ipv4_interface:Ipv4Interface',
+        'LunConvertNamespace' : 'netapp_ontap.models.lun_convert_namespace:LunConvertNamespace',
+        'PortMetricsResponseRecords' : 'netapp_ontap.models.port_metrics_response_records:PortMetricsResponseRecords',
+        'DataEnginePolicyActions' : 'netapp_ontap.models.data_engine_policy_actions:DataEnginePolicyActions',
+        'ShelfFrusPsu' : 'netapp_ontap.models.shelf_frus_psu:ShelfFrusPsu',
+        'WorkspaceVersionWorkspace' : 'netapp_ontap.models.workspace_version_workspace:WorkspaceVersionWorkspace',
+        'NasApplicationComponentsFlexcacheOriginComponent' : 'netapp_ontap.models.nas_application_components_flexcache_origin_component:NasApplicationComponentsFlexcacheOriginComponent',
+        'FirmwareHistoryUpdateStateWorker' : 'netapp_ontap.models.firmware_history_update_state_worker:FirmwareHistoryUpdateStateWorker',
+        'EmsSyslog' : 'netapp_ontap.models.ems_syslog:EmsSyslog',
+        'S3Log' : 'netapp_ontap.models.s3_log:S3Log',
+        'ConsistencyGroupResponseRecordsConsistencyGroupsLunsLunMapsIgroupInitiators' : 'netapp_ontap.models.consistency_group_response_records_consistency_groups_luns_lun_maps_igroup_initiators:ConsistencyGroupResponseRecordsConsistencyGroupsLunsLunMapsIgroupInitiators',
+        'EmsEventActionParametersHelpArguments' : 'netapp_ontap.models.ems_event_action_parameters_help_arguments:EmsEventActionParametersHelpArguments',
+        'ShelfAcps' : 'netapp_ontap.models.shelf_acps:ShelfAcps',
+        'AntiRansomwareStorageUnitAttackReports' : 'netapp_ontap.models.anti_ransomware_storage_unit_attack_reports:AntiRansomwareStorageUnitAttackReports',
+        'DcnNodeStatisticsCpu' : 'netapp_ontap.models.dcn_node_statistics_cpu:DcnNodeStatisticsCpu',
+        'S3BucketSvmCors' : 'netapp_ontap.models.s3_bucket_svm_cors:S3BucketSvmCors',
+        'TopMetricsSvmUserIops' : 'netapp_ontap.models.top_metrics_svm_user_iops:TopMetricsSvmUserIops',
+        'VolumeActivityTracking' : 'netapp_ontap.models.volume_activity_tracking:VolumeActivityTracking',
+        'StorageUnitClone' : 'netapp_ontap.models.storage_unit_clone:StorageUnitClone',
+        'CloudStoreUnavailableReason' : 'netapp_ontap.models.cloud_store_unavailable_reason:CloudStoreUnavailableReason',
+        'ByteLock' : 'netapp_ontap.models.byte_lock:ByteLock',
+        'AggregateBlockStorageHybridCacheStoragePools' : 'netapp_ontap.models.aggregate_block_storage_hybrid_cache_storage_pools:AggregateBlockStorageHybridCacheStoragePools',
+        'ManagementProtocols' : 'netapp_ontap.models.management_protocols:ManagementProtocols',
+        'OracleOnNfsOraHomeStorageService' : 'netapp_ontap.models.oracle_on_nfs_ora_home_storage_service:OracleOnNfsOraHomeStorageService',
+        'VolumeRebalancing1Engine' : 'netapp_ontap.models.volume_rebalancing1_engine:VolumeRebalancing1Engine',
+        'ApplicationSubsystemMapObject' : 'netapp_ontap.models.application_subsystem_map_object:ApplicationSubsystemMapObject',
+        'StorageUnitConsistencyGroup' : 'netapp_ontap.models.storage_unit_consistency_group:StorageUnitConsistencyGroup',
+        'SnapmirrorRelationshipSvmdrVolumes' : 'netapp_ontap.models.snapmirror_relationship_svmdr_volumes:SnapmirrorRelationshipSvmdrVolumes',
+        'SqlOnSanDb' : 'netapp_ontap.models.sql_on_san_db:SqlOnSanDb',
+        'Error' : 'netapp_ontap.models.error:Error',
+        'MetroclusterDiagnosticsConnection' : 'netapp_ontap.models.metrocluster_diagnostics_connection:MetroclusterDiagnosticsConnection',
+        'FlexcacheAggregates' : 'netapp_ontap.models.flexcache_aggregates:FlexcacheAggregates',
+        'AnalyticsHistogramByTime' : 'netapp_ontap.models.analytics_histogram_by_time:AnalyticsHistogramByTime',
+        'ConsistencyGroupNvmeSubsystem' : 'netapp_ontap.models.consistency_group_nvme_subsystem:ConsistencyGroupNvmeSubsystem',
+        'ApplicationComponentSnapshotApplication' : 'netapp_ontap.models.application_component_snapshot_application:ApplicationComponentSnapshotApplication',
+        'ClusterNodesServiceProcessorWebService' : 'netapp_ontap.models.cluster_nodes_service_processor_web_service:ClusterNodesServiceProcessorWebService',
+        'VolumeRebalancing' : 'netapp_ontap.models.volume_rebalancing:VolumeRebalancing',
+        'NvmeSubsystemHostNoRecords' : 'netapp_ontap.models.nvme_subsystem_host_no_records:NvmeSubsystemHostNoRecords',
+        'SanNewIgroups' : 'netapp_ontap.models.san_new_igroups:SanNewIgroups',
+        'SecurityOauth2Jwks' : 'netapp_ontap.models.security_oauth2_jwks:SecurityOauth2Jwks',
+        'OracleRacOnSan' : 'netapp_ontap.models.oracle_rac_on_san:OracleRacOnSan',
+        'StorageBridgePaths' : 'netapp_ontap.models.storage_bridge_paths:StorageBridgePaths',
+        'ActiveDirectoryDiscoveredServers' : 'netapp_ontap.models.active_directory_discovered_servers:ActiveDirectoryDiscoveredServers',
+        'WorkspaceVersionWorkspaceVersion' : 'netapp_ontap.models.workspace_version_workspace_version:WorkspaceVersionWorkspaceVersion',
+        'InterfaceStatistics' : 'netapp_ontap.models.interface_statistics:InterfaceStatistics',
+        'ConsistencyGroupLunMapIgroupIgroups' : 'netapp_ontap.models.consistency_group_lun_map_igroup_igroups:ConsistencyGroupLunMapIgroupIgroups',
+        'ZappNvmeComponentsSubsystem' : 'netapp_ontap.models.zapp_nvme_components_subsystem:ZappNvmeComponentsSubsystem',
+        'TopMetricsSvmDirectoryExcludedVolume' : 'netapp_ontap.models.top_metrics_svm_directory_excluded_volume:TopMetricsSvmDirectoryExcludedVolume',
+        'ContainerVolumesS3Bucket' : 'netapp_ontap.models.container_volumes_s3_bucket:ContainerVolumesS3Bucket',
+        'VolumeFiles' : 'netapp_ontap.models.volume_files:VolumeFiles',
+        'NasApplicationComponentsSnaplockRetention' : 'netapp_ontap.models.nas_application_components_snaplock_retention:NasApplicationComponentsSnaplockRetention',
+        'MetroclusterInterconnectMirror' : 'netapp_ontap.models.metrocluster_interconnect_mirror:MetroclusterInterconnectMirror',
+        'StorageSwitchFans' : 'netapp_ontap.models.storage_switch_fans:StorageSwitchFans',
+        'AutoUpdateInfoEula' : 'netapp_ontap.models.auto_update_info_eula:AutoUpdateInfoEula',
+        'StorageSwitchConnections' : 'netapp_ontap.models.storage_switch_connections:StorageSwitchConnections',
+        'AntiRansomwareVolumeClearSuspect' : 'netapp_ontap.models.anti_ransomware_volume_clear_suspect:AntiRansomwareVolumeClearSuspect',
+        'ConsistencyGroupClone1ParentConsistencyGroup' : 'netapp_ontap.models.consistency_group_clone1_parent_consistency_group:ConsistencyGroupClone1ParentConsistencyGroup',
+        'ClusterSpaceBlockStorageMedias' : 'netapp_ontap.models.cluster_space_block_storage_medias:ClusterSpaceBlockStorageMedias',
+        'ConsistencyGroupLunMap' : 'netapp_ontap.models.consistency_group_lun_map:ConsistencyGroupLunMap',
+        'SnapmirrorPolicyRule' : 'netapp_ontap.models.snapmirror_policy_rule:SnapmirrorPolicyRule',
+        'PerformanceNvmeMetricProperties' : 'netapp_ontap.models.performance_nvme_metric_properties:PerformanceNvmeMetricProperties',
+        'FcPortSpeed' : 'netapp_ontap.models.fc_port_speed:FcPortSpeed',
+        'ZappNvmeComponentsPerformance' : 'netapp_ontap.models.zapp_nvme_components_performance:ZappNvmeComponentsPerformance',
+        'CifsOpenFileSession' : 'netapp_ontap.models.cifs_open_file_session:CifsOpenFileSession',
+        'EmsEventLinks' : 'netapp_ontap.models.ems_event_links:EmsEventLinks',
+        'FileMoveScanner' : 'netapp_ontap.models.file_move_scanner:FileMoveScanner',
+        'ConsistencyGroupResponseRecordsConsistencyGroupsLuns' : 'netapp_ontap.models.consistency_group_response_records_consistency_groups_luns:ConsistencyGroupResponseRecordsConsistencyGroupsLuns',
+        'LunStatus' : 'netapp_ontap.models.lun_status:LunStatus',
+        'Version' : 'netapp_ontap.models.version:Version',
+        'CapacityPoolResponseRecordsNodes' : 'netapp_ontap.models.capacity_pool_response_records_nodes:CapacityPoolResponseRecordsNodes',
+        'KerberosRealmPasswordServer' : 'netapp_ontap.models.kerberos_realm_password_server:KerberosRealmPasswordServer',
+        'IgroupInitiatorsProximityPeerSvms' : 'netapp_ontap.models.igroup_initiators_proximity_peer_svms:IgroupInitiatorsProximityPeerSvms',
+        'CapacityPoolNode' : 'netapp_ontap.models.capacity_pool_node:CapacityPoolNode',
+        'ClusterNodesController' : 'netapp_ontap.models.cluster_nodes_controller:ClusterNodesController',
+        'FirmwareHistoryUpdateStateError' : 'netapp_ontap.models.firmware_history_update_state_error:FirmwareHistoryUpdateStateError',
+        'NasExcludeAggregates' : 'netapp_ontap.models.nas_exclude_aggregates:NasExcludeAggregates',
+        'OracleRacOnSanNewIgroups' : 'netapp_ontap.models.oracle_rac_on_san_new_igroups:OracleRacOnSanNewIgroups',
+        'PortsetInterfaceNoRecords' : 'netapp_ontap.models.portset_interface_no_records:PortsetInterfaceNoRecords',
+        'IgroupNestedNoRecords' : 'netapp_ontap.models.igroup_nested_no_records:IgroupNestedNoRecords',
+        'OracleOnNfsOraHome' : 'netapp_ontap.models.oracle_on_nfs_ora_home:OracleOnNfsOraHome',
+        'ApplicationLinks' : 'netapp_ontap.models.application_links:ApplicationLinks',
+        'IgroupReplication' : 'netapp_ontap.models.igroup_replication:IgroupReplication',
+        'DiskErrorInfo' : 'netapp_ontap.models.disk_error_info:DiskErrorInfo',
+        'FabricConnectionsClusterPort' : 'netapp_ontap.models.fabric_connections_cluster_port:FabricConnectionsClusterPort',
+        'ApplicationNfsPropertiesPermissions' : 'netapp_ontap.models.application_nfs_properties_permissions:ApplicationNfsPropertiesPermissions',
+        'EkmipServerConnectivity' : 'netapp_ontap.models.ekmip_server_connectivity:EkmipServerConnectivity',
+        'ConsistencyGroupLunLunMapsIgroupIgroups' : 'netapp_ontap.models.consistency_group_lun_lun_maps_igroup_igroups:ConsistencyGroupLunLunMapsIgroupIgroups',
+        'NodeSetupIp' : 'netapp_ontap.models.node_setup_ip:NodeSetupIp',
+        'S3BucketSnapshotRestore' : 'netapp_ontap.models.s3_bucket_snapshot_restore:S3BucketSnapshotRestore',
+        'OracleOnNfsRedoLogStorageService' : 'netapp_ontap.models.oracle_on_nfs_redo_log_storage_service:OracleOnNfsRedoLogStorageService',
+        'KerberosRealmAdminServer' : 'netapp_ontap.models.kerberos_realm_admin_server:KerberosRealmAdminServer',
+        'NvmeSubsystemHostRecordsIoQueue' : 'netapp_ontap.models.nvme_subsystem_host_records_io_queue:NvmeSubsystemHostRecordsIoQueue',
+        'ConsistencyGroupLuns' : 'netapp_ontap.models.consistency_group_luns:ConsistencyGroupLuns',
+        'DcnHardwareGpu' : 'netapp_ontap.models.dcn_hardware_gpu:DcnHardwareGpu',
+        'ConsistencyGroupLunsLunMapsIgroupInitiators' : 'netapp_ontap.models.consistency_group_luns_lun_maps_igroup_initiators:ConsistencyGroupLunsLunMapsIgroupInitiators',
+        'ActiveDirectoryDelete' : 'netapp_ontap.models.active_directory_delete:ActiveDirectoryDelete',
+        'SoftwareImagesInner' : 'netapp_ontap.models.software_images_inner:SoftwareImagesInner',
+        'FcpServiceTarget' : 'netapp_ontap.models.fcp_service_target:FcpServiceTarget',
+        'NvmeNamespaceSubsystemMap' : 'netapp_ontap.models.nvme_namespace_subsystem_map:NvmeNamespaceSubsystemMap',
+        'EmsActionParameter' : 'netapp_ontap.models.ems_action_parameter:EmsActionParameter',
+        'PlexResync' : 'netapp_ontap.models.plex_resync:PlexResync',
+        'Acl' : 'netapp_ontap.models.acl:Acl',
+        'TopMetricsClientIops' : 'netapp_ontap.models.top_metrics_client_iops:TopMetricsClientIops',
+        'ReturnedError' : 'netapp_ontap.models.returned_error:ReturnedError',
+        'ContainerProvisioningOptionsExcludeAggregates' : 'netapp_ontap.models.container_provisioning_options_exclude_aggregates:ContainerProvisioningOptionsExcludeAggregates',
+        'MongoDbOnSanProtectionType' : 'netapp_ontap.models.mongo_db_on_san_protection_type:MongoDbOnSanProtectionType',
+        'ConsistencyGroupChildLunsLunMaps' : 'netapp_ontap.models.consistency_group_child_luns_lun_maps:ConsistencyGroupChildLunsLunMaps',
+        'SwitchPortIdentityBreakout' : 'netapp_ontap.models.switch_port_identity_breakout:SwitchPortIdentityBreakout',
+        'QtreeNas' : 'netapp_ontap.models.qtree_nas:QtreeNas',
+        'VolumeConsistencyGroup' : 'netapp_ontap.models.volume_consistency_group:VolumeConsistencyGroup',
+        'CloudStorageTier' : 'netapp_ontap.models.cloud_storage_tier:CloudStorageTier',
+        'NvmeNamespaceConsistencyGroup' : 'netapp_ontap.models.nvme_namespace_consistency_group:NvmeNamespaceConsistencyGroup',
+        'ClusterPeerLinks' : 'netapp_ontap.models.cluster_peer_links:ClusterPeerLinks',
+        'QuotaReportSpaceUsed' : 'netapp_ontap.models.quota_report_space_used:QuotaReportSpaceUsed',
+        'ZappNvmeRpoLocal' : 'netapp_ontap.models.zapp_nvme_rpo_local:ZappNvmeRpoLocal',
+        'NdmpScsi' : 'netapp_ontap.models.ndmp_scsi:NdmpScsi',
+        'FirmwareShelf' : 'netapp_ontap.models.firmware_shelf:FirmwareShelf',
+        'StorageUnitCloneSource' : 'netapp_ontap.models.storage_unit_clone_source:StorageUnitCloneSource',
+        'DiskKeyId' : 'netapp_ontap.models.disk_key_id:DiskKeyId',
+        'EmsEventResponseRecordsParameters' : 'netapp_ontap.models.ems_event_response_records_parameters:EmsEventResponseRecordsParameters',
+        'ConsistencyGroupVolumeProvisioningOptions' : 'netapp_ontap.models.consistency_group_volume_provisioning_options:ConsistencyGroupVolumeProvisioningOptions',
+        'ApplicationSanAccessIscsiEndpoint' : 'netapp_ontap.models.application_san_access_iscsi_endpoint:ApplicationSanAccessIscsiEndpoint',
+        'S3BucketSvmAggregates' : 'netapp_ontap.models.s3_bucket_svm_aggregates:S3BucketSvmAggregates',
+        'ApplicationComponentSnapshotComponent' : 'netapp_ontap.models.application_component_snapshot_component:ApplicationComponentSnapshotComponent',
+        'ScheduleCluster' : 'netapp_ontap.models.schedule_cluster:ScheduleCluster',
+        'StorageBridgePathsTargetPort' : 'netapp_ontap.models.storage_bridge_paths_target_port:StorageBridgePathsTargetPort',
+        'ApplicationRpoRemote' : 'netapp_ontap.models.application_rpo_remote:ApplicationRpoRemote',
+        'OracleRacOnSanDbSids' : 'netapp_ontap.models.oracle_rac_on_san_db_sids:OracleRacOnSanDbSids',
+        'ApplicationCifsPropertiesShare' : 'netapp_ontap.models.application_cifs_properties_share:ApplicationCifsPropertiesShare',
+        'BackupNode' : 'netapp_ontap.models.backup_node:BackupNode',
+        'NvmeSubsystemSubsystemMaps' : 'netapp_ontap.models.nvme_subsystem_subsystem_maps:NvmeSubsystemSubsystemMaps',
+        'MetroclusterInterconnectInterfaces' : 'netapp_ontap.models.metrocluster_interconnect_interfaces:MetroclusterInterconnectInterfaces',
+        'NvmeSubsystemReplicationPeerSubsystem' : 'netapp_ontap.models.nvme_subsystem_replication_peer_subsystem:NvmeSubsystemReplicationPeerSubsystem',
+        'NodeResponseRecordsHaGiveback' : 'netapp_ontap.models.node_response_records_ha_giveback:NodeResponseRecordsHaGiveback',
+        'EmsRoleConfigResponseRecords' : 'netapp_ontap.models.ems_role_config_response_records:EmsRoleConfigResponseRecords',
+        'MultiAdminVerifyRuleApprovalGroups' : 'netapp_ontap.models.multi_admin_verify_rule_approval_groups:MultiAdminVerifyRuleApprovalGroups',
+        'StorageUnitMaps' : 'netapp_ontap.models.storage_unit_maps:StorageUnitMaps',
+        'SecurityAuditLogSvm' : 'netapp_ontap.models.security_audit_log_svm:SecurityAuditLogSvm',
+        'FileMoveFilesToMove' : 'netapp_ontap.models.file_move_files_to_move:FileMoveFilesToMove',
+        'ApplicationLunMappingObject' : 'netapp_ontap.models.application_lun_mapping_object:ApplicationLunMappingObject',
+        'Nas' : 'netapp_ontap.models.nas:Nas',
+        'WebauthnCredentialsPublicKey' : 'netapp_ontap.models.webauthn_credentials_public_key:WebauthnCredentialsPublicKey',
+        'ContainerProvisioningOptions' : 'netapp_ontap.models.container_provisioning_options:ContainerProvisioningOptions',
+        'MediatorPing' : 'netapp_ontap.models.mediator_ping:MediatorPing',
+        'ApplicationVolumeObject' : 'netapp_ontap.models.application_volume_object:ApplicationVolumeObject',
+        'FpolicyEventFilters' : 'netapp_ontap.models.fpolicy_event_filters:FpolicyEventFilters',
+        'VolumeEfficiencyIdcsScanner' : 'netapp_ontap.models.volume_efficiency_idcs_scanner:VolumeEfficiencyIdcsScanner',
+        'DocumentClassifierInner' : 'netapp_ontap.models.document_classifier_inner:DocumentClassifierInner',
+        'EmsEventActionParametersDescriptionArguments' : 'netapp_ontap.models.ems_event_action_parameters_description_arguments:EmsEventActionParametersDescriptionArguments',
+        'AntiRansomwareSuspectFile' : 'netapp_ontap.models.anti_ransomware_suspect_file:AntiRansomwareSuspectFile',
+        'PerformanceMetricIoTypeRwt' : 'netapp_ontap.models.performance_metric_io_type_rwt:PerformanceMetricIoTypeRwt',
+        'SvmNdmp' : 'netapp_ontap.models.svm_ndmp:SvmNdmp',
+        'SqlOnSmb' : 'netapp_ontap.models.sql_on_smb:SqlOnSmb',
+        'CifsDomainPreferredDcs' : 'netapp_ontap.models.cifs_domain_preferred_dcs:CifsDomainPreferredDcs',
+        'ClusterNodesClusterInterfaces' : 'netapp_ontap.models.cluster_nodes_cluster_interfaces:ClusterNodesClusterInterfaces',
+        'S3PolicyStatement' : 'netapp_ontap.models.s3_policy_statement:S3PolicyStatement',
+        'AuditSchedule' : 'netapp_ontap.models.audit_schedule:AuditSchedule',
+        'AccountApplication' : 'netapp_ontap.models.account_application:AccountApplication',
+        'ApplicationNvmeAccessSubsystemMapSubsystemHostsLinks' : 'netapp_ontap.models.application_nvme_access_subsystem_map_subsystem_hosts_links:ApplicationNvmeAccessSubsystemMapSubsystemHostsLinks',
+        'Share' : 'netapp_ontap.models.share:Share',
+        'VolumeConstituentsNode' : 'netapp_ontap.models.volume_constituents_node:VolumeConstituentsNode',
+        'WindowsToUnix' : 'netapp_ontap.models.windows_to_unix:WindowsToUnix',
+        'NodeHaPartners' : 'netapp_ontap.models.node_ha_partners:NodeHaPartners',
+        'NvmeSubsystemHostsProximityPeerSvms' : 'netapp_ontap.models.nvme_subsystem_hosts_proximity_peer_svms:NvmeSubsystemHostsProximityPeerSvms',
+        'TapeDeviceStoragePort' : 'netapp_ontap.models.tape_device_storage_port:TapeDeviceStoragePort',
+        'DcnHardwareCpu' : 'netapp_ontap.models.dcn_hardware_cpu:DcnHardwareCpu',
+        'NodeStatistics' : 'netapp_ontap.models.node_statistics:NodeStatistics',
+        'TopMetricsDirectoryResponseNotice' : 'netapp_ontap.models.top_metrics_directory_response_notice:TopMetricsDirectoryResponseNotice',
+        'MetroclusterDiagnosticsInterface' : 'netapp_ontap.models.metrocluster_diagnostics_interface:MetroclusterDiagnosticsInterface',
+        'CapacityPoolResponseRecords' : 'netapp_ontap.models.capacity_pool_response_records:CapacityPoolResponseRecords',
+        'ApplicationRpoLocal' : 'netapp_ontap.models.application_rpo_local:ApplicationRpoLocal',
+        'StorageUnitLocation' : 'netapp_ontap.models.storage_unit_location:StorageUnitLocation',
+        'ConsistencyGroupSpace' : 'netapp_ontap.models.consistency_group_space:ConsistencyGroupSpace',
+        'InterfaceMetricsResponseRecords' : 'netapp_ontap.models.interface_metrics_response_records:InterfaceMetricsResponseRecords',
+        'QuotaRuleGroup' : 'netapp_ontap.models.quota_rule_group:QuotaRuleGroup',
+        'LunMapLun' : 'netapp_ontap.models.lun_map_lun:LunMapLun',
+        'SqlOnSmbAccess' : 'netapp_ontap.models.sql_on_smb_access:SqlOnSmbAccess',
+        'EmsEventUpdate' : 'netapp_ontap.models.ems_event_update:EmsEventUpdate',
+        'ShelfTemperatureSensorsThreshold' : 'netapp_ontap.models.shelf_temperature_sensors_threshold:ShelfTemperatureSensorsThreshold',
+        'ConsistencyGroupLunsLunMapsIgroupIgroups' : 'netapp_ontap.models.consistency_group_luns_lun_maps_igroup_igroups:ConsistencyGroupLunsLunMapsIgroupIgroups',
+        'DcnFru' : 'netapp_ontap.models.dcn_fru:DcnFru',
+        'PerformanceSvmNfsMetric' : 'netapp_ontap.models.performance_svm_nfs_metric:PerformanceSvmNfsMetric',
+        'EmsDestinationResponseRecordsConnectivityErrorsMessageArguments' : 'netapp_ontap.models.ems_destination_response_records_connectivity_errors_message_arguments:EmsDestinationResponseRecordsConnectivityErrorsMessageArguments',
+        'VsiOnNasDatastore' : 'netapp_ontap.models.vsi_on_nas_datastore:VsiOnNasDatastore',
+        'StorageSwitchPaths' : 'netapp_ontap.models.storage_switch_paths:StorageSwitchPaths',
+        'SvmMigrationIpInterfacePlacement' : 'netapp_ontap.models.svm_migration_ip_interface_placement:SvmMigrationIpInterfacePlacement',
+        'VolumeProtocolRawPerformanceStats' : 'netapp_ontap.models.volume_protocol_raw_performance_stats:VolumeProtocolRawPerformanceStats',
+        'FlexcacheNfsv4' : 'netapp_ontap.models.flexcache_nfsv4:FlexcacheNfsv4',
+        'ApplicationStatisticsComponents' : 'netapp_ontap.models.application_statistics_components:ApplicationStatisticsComponents',
+        'SvmAggregates' : 'netapp_ontap.models.svm_aggregates:SvmAggregates',
+        'ApplicationComponentApplication' : 'netapp_ontap.models.application_component_application:ApplicationComponentApplication',
+        'SnaplockLitigationGetOperations' : 'netapp_ontap.models.snaplock_litigation_get_operations:SnaplockLitigationGetOperations',
+        'SecurityAssociationResponseRecords' : 'netapp_ontap.models.security_association_response_records:SecurityAssociationResponseRecords',
+        'ConsistencyGroupQosPolicy' : 'netapp_ontap.models.consistency_group_qos_policy:ConsistencyGroupQosPolicy',
+        'GcpKmsKey' : 'netapp_ontap.models.gcp_kms_key:GcpKmsKey',
+        'VolumeRebalancing1EngineMovement' : 'netapp_ontap.models.volume_rebalancing1_engine_movement:VolumeRebalancing1EngineMovement',
+        'ConsistencyGroupNamespaceSpaceGuarantee' : 'netapp_ontap.models.consistency_group_namespace_space_guarantee:ConsistencyGroupNamespaceSpaceGuarantee',
+        'ExportRules' : 'netapp_ontap.models.export_rules:ExportRules',
+        'ContainerVolumeS3BucketPolicyStatements' : 'netapp_ontap.models.container_volume_s3_bucket_policy_statements:ContainerVolumeS3BucketPolicyStatements',
+        'AggregateSpace' : 'netapp_ontap.models.aggregate_space:AggregateSpace',
+        'SnapshotSnaplock' : 'netapp_ontap.models.snapshot_snaplock:SnapshotSnaplock',
+        'DataEngineEntityAttributesSystem' : 'netapp_ontap.models.data_engine_entity_attributes_system:DataEngineEntityAttributesSystem',
+        'UnixGroupUsersNoRecords' : 'netapp_ontap.models.unix_group_users_no_records:UnixGroupUsersNoRecords',
+        'ConsistencyGroupVolume' : 'netapp_ontap.models.consistency_group_volume:ConsistencyGroupVolume',
+        'IgroupInitiatorListItemProximityPeerSvms' : 'netapp_ontap.models.igroup_initiator_list_item_proximity_peer_svms:IgroupInitiatorListItemProximityPeerSvms',
+        'SnapmirrorConsistencyGroupFailover' : 'netapp_ontap.models.snapmirror_consistency_group_failover:SnapmirrorConsistencyGroupFailover',
+        'NvmeSubsystemControllerHost' : 'netapp_ontap.models.nvme_subsystem_controller_host:NvmeSubsystemControllerHost',
+        'TopMetricsClientThroughput' : 'netapp_ontap.models.top_metrics_client_throughput:TopMetricsClientThroughput',
+        'MultiAdminVerifyRuleOwner' : 'netapp_ontap.models.multi_admin_verify_rule_owner:MultiAdminVerifyRuleOwner',
+        'QuotaRuleQtree' : 'netapp_ontap.models.quota_rule_qtree:QuotaRuleQtree',
+        'NvmeNamespaceSubsystemMapSubsystemHostsProximityPeerSvms' : 'netapp_ontap.models.nvme_namespace_subsystem_map_subsystem_hosts_proximity_peer_svms:NvmeNamespaceSubsystemMapSubsystemHostsProximityPeerSvms',
+        'LunSpace' : 'netapp_ontap.models.lun_space:LunSpace',
+        'Nis' : 'netapp_ontap.models.nis:Nis',
+        'PerformanceReducedThroughputResponseRecords' : 'netapp_ontap.models.performance_reduced_throughput_response_records:PerformanceReducedThroughputResponseRecords',
+        'ShelfTemperatureSensors' : 'netapp_ontap.models.shelf_temperature_sensors:ShelfTemperatureSensors',
+        'ConsistencyGroupResponseRecordsLunsLunMaps' : 'netapp_ontap.models.consistency_group_response_records_luns_lun_maps:ConsistencyGroupResponseRecordsLunsLunMaps',
+        'DataEngineVersionJob' : 'netapp_ontap.models.data_engine_version_job:DataEngineVersionJob',
+        'EmsDestinationConnectivityErrors' : 'netapp_ontap.models.ems_destination_connectivity_errors:EmsDestinationConnectivityErrors',
+        'QuotaReportFilesUsed' : 'netapp_ontap.models.quota_report_files_used:QuotaReportFilesUsed',
+        'RaidGroupRecomputingParity' : 'netapp_ontap.models.raid_group_recomputing_parity:RaidGroupRecomputingParity',
+        'AntiRansomwareAttackReportLinks' : 'netapp_ontap.models.anti_ransomware_attack_report_links:AntiRansomwareAttackReportLinks',
+        'DcnServiceProcessor' : 'netapp_ontap.models.dcn_service_processor:DcnServiceProcessor',
+        'DataEngineGovernancePoliciesGuardrailActions' : 'netapp_ontap.models.data_engine_governance_policies_guardrail_actions:DataEngineGovernancePoliciesGuardrailActions',
+        'EmsUiMessage' : 'netapp_ontap.models.ems_ui_message:EmsUiMessage',
+        'NvmeHostProximity' : 'netapp_ontap.models.nvme_host_proximity:NvmeHostProximity',
+        'PerformanceMetricSvm' : 'netapp_ontap.models.performance_metric_svm:PerformanceMetricSvm',
+        'MetroclusterDiagnosticsNode' : 'netapp_ontap.models.metrocluster_diagnostics_node:MetroclusterDiagnosticsNode',
+        'NasApplicationComponentsQosPolicy' : 'netapp_ontap.models.nas_application_components_qos_policy:NasApplicationComponentsQosPolicy',
+        'WorkspaceVersionDiffDataSource' : 'netapp_ontap.models.workspace_version_diff_data_source:WorkspaceVersionDiffDataSource',
+        'ConsistencyGroupNamespaces' : 'netapp_ontap.models.consistency_group_namespaces:ConsistencyGroupNamespaces',
+        'SqlOnSan' : 'netapp_ontap.models.sql_on_san:SqlOnSan',
+        'NvmeSubsystemControllerAdminQueue' : 'netapp_ontap.models.nvme_subsystem_controller_admin_queue:NvmeSubsystemControllerAdminQueue',
+        'ConsistencyGroupInitiator' : 'netapp_ontap.models.consistency_group_initiator:ConsistencyGroupInitiator',
+        'ConsistencyGroupChildLunsLunMapsIgroupInitiators' : 'netapp_ontap.models.consistency_group_child_luns_lun_maps_igroup_initiators:ConsistencyGroupChildLunsLunMapsIgroupInitiators',
+        'ConsistencyGroupNvmeHostProximityPeerSvms' : 'netapp_ontap.models.consistency_group_nvme_host_proximity_peer_svms:ConsistencyGroupNvmeHostProximityPeerSvms',
+        'LunMapReportingNodeIgroup' : 'netapp_ontap.models.lun_map_reporting_node_igroup:LunMapReportingNodeIgroup',
+        'Ddns' : 'netapp_ontap.models.ddns:Ddns',
+        'ConsistencyGroupConsistencyGroupsApplication' : 'netapp_ontap.models.consistency_group_consistency_groups_application:ConsistencyGroupConsistencyGroupsApplication',
+        'ApplicationProtectionGroupsRpo' : 'netapp_ontap.models.application_protection_groups_rpo:ApplicationProtectionGroupsRpo',
+        'ConsistencyGroupConsistencyGroups' : 'netapp_ontap.models.consistency_group_consistency_groups:ConsistencyGroupConsistencyGroups',
+        'DataEnginePolicyVersion1' : 'netapp_ontap.models.data_engine_policy_version1:DataEnginePolicyVersion1',
+        'LunLunMapsIgroup' : 'netapp_ontap.models.lun_lun_maps_igroup:LunLunMapsIgroup',
+        'TopMetricsSvmDirectoryResponseNotice' : 'netapp_ontap.models.top_metrics_svm_directory_response_notice:TopMetricsSvmDirectoryResponseNotice',
+        'ApplicationComponentSnapshotRestoreApplication' : 'netapp_ontap.models.application_component_snapshot_restore_application:ApplicationComponentSnapshotRestoreApplication',
+        'FileInfoLinks' : 'netapp_ontap.models.file_info_links:FileInfoLinks',
+        'IgroupInitiatorNoRecords' : 'netapp_ontap.models.igroup_initiator_no_records:IgroupInitiatorNoRecords',
+        'ConsistencyGroupConsistencyGroupsTieringObjectStores' : 'netapp_ontap.models.consistency_group_consistency_groups_tiering_object_stores:ConsistencyGroupConsistencyGroupsTieringObjectStores',
+        'QuotaReportUsers' : 'netapp_ontap.models.quota_report_users:QuotaReportUsers',
+        'TopMetricsSvmUserVolumes' : 'netapp_ontap.models.top_metrics_svm_user_volumes:TopMetricsSvmUserVolumes',
+        'RaidGroupReconstruct' : 'netapp_ontap.models.raid_group_reconstruct:RaidGroupReconstruct',
+        'NasApplicationComponentsExportPolicy' : 'netapp_ontap.models.nas_application_components_export_policy:NasApplicationComponentsExportPolicy',
+        'IscsiSessionIgroups' : 'netapp_ontap.models.iscsi_session_igroups:IscsiSessionIgroups',
+        'FlexcacheS3' : 'netapp_ontap.models.flexcache_s3:FlexcacheS3',
+        'ZappNvmeRpoRemote' : 'netapp_ontap.models.zapp_nvme_rpo_remote:ZappNvmeRpoRemote',
+        'S3BucketCorsRules' : 'netapp_ontap.models.s3_bucket_cors_rules:S3BucketCorsRules',
+        'ZappNvmeRpo' : 'netapp_ontap.models.zapp_nvme_rpo:ZappNvmeRpo',
+        'DataEngineOperationsInner' : 'netapp_ontap.models.data_engine_operations_inner:DataEngineOperationsInner',
+        'ApplicationNvmeAccessSubsystemMapSubsystemHosts' : 'netapp_ontap.models.application_nvme_access_subsystem_map_subsystem_hosts:ApplicationNvmeAccessSubsystemMapSubsystemHosts',
+        'DatacollectionVersion1Current' : 'netapp_ontap.models.datacollection_version1_current:DatacollectionVersion1Current',
+        'MccipPort' : 'netapp_ontap.models.mccip_port:MccipPort',
+        'CifsDomainDiscoveredServers' : 'netapp_ontap.models.cifs_domain_discovered_servers:CifsDomainDiscoveredServers',
+        'DataEngineEventOwner' : 'netapp_ontap.models.data_engine_event_owner:DataEngineEventOwner',
+        'VolumeConstituentsSpaceSnapshot' : 'netapp_ontap.models.volume_constituents_space_snapshot:VolumeConstituentsSpaceSnapshot',
+        'EmsDestinationConnectivityErrorsMessageArguments' : 'netapp_ontap.models.ems_destination_connectivity_errors_message_arguments:EmsDestinationConnectivityErrorsMessageArguments',
+        'PortMetricsData' : 'netapp_ontap.models.port_metrics_data:PortMetricsData',
+        'FirmwareHistoryUpdateState' : 'netapp_ontap.models.firmware_history_update_state:FirmwareHistoryUpdateState',
+        'IgroupNestedRecords' : 'netapp_ontap.models.igroup_nested_records:IgroupNestedRecords',
+        'AntiRansomwareAttackReport' : 'netapp_ontap.models.anti_ransomware_attack_report:AntiRansomwareAttackReport',
+        'PortsetInterfacePortset' : 'netapp_ontap.models.portset_interface_portset:PortsetInterfacePortset',
+        'SnaplockLogVolume' : 'netapp_ontap.models.snaplock_log_volume:SnaplockLogVolume',
+        'IgroupInitiatorRecordsProximity' : 'netapp_ontap.models.igroup_initiator_records_proximity:IgroupInitiatorRecordsProximity',
+        'VolumeSnaplockRetention' : 'netapp_ontap.models.volume_snaplock_retention:VolumeSnaplockRetention',
+        'WorkspaceSpace' : 'netapp_ontap.models.workspace_space:WorkspaceSpace',
+        'LunProvisioningOptionsStorageService' : 'netapp_ontap.models.lun_provisioning_options_storage_service:LunProvisioningOptionsStorageService',
+        'EmsFilterResponseRecordsRules' : 'netapp_ontap.models.ems_filter_response_records_rules:EmsFilterResponseRecordsRules',
+        'UnixGroupUsersUnixGroup' : 'netapp_ontap.models.unix_group_users_unix_group:UnixGroupUsersUnixGroup',
+        'TopMetricsDirectoryIops' : 'netapp_ontap.models.top_metrics_directory_iops:TopMetricsDirectoryIops',
+        'S3BucketRetention' : 'netapp_ontap.models.s3_bucket_retention:S3BucketRetention',
+        'DcnNodeSoftware' : 'netapp_ontap.models.dcn_node_software:DcnNodeSoftware',
+        'ClusterNodesManagementInterfaces' : 'netapp_ontap.models.cluster_nodes_management_interfaces:ClusterNodesManagementInterfaces',
+        'ConsistencyGroupIgroupChild' : 'netapp_ontap.models.consistency_group_igroup_child:ConsistencyGroupIgroupChild',
+        'ConsistencyGroupSnaplockRetention' : 'netapp_ontap.models.consistency_group_snaplock_retention:ConsistencyGroupSnaplockRetention',
+        'FabricConnections' : 'netapp_ontap.models.fabric_connections:FabricConnections',
+        'NodeResponseRecordsClusterInterfaces' : 'netapp_ontap.models.node_response_records_cluster_interfaces:NodeResponseRecordsClusterInterfaces',
+        'SqlOnSanDbStorageService' : 'netapp_ontap.models.sql_on_san_db_storage_service:SqlOnSanDbStorageService',
+        'VolumeAutosize' : 'netapp_ontap.models.volume_autosize:VolumeAutosize',
+        'PoolHealth' : 'netapp_ontap.models.pool_health:PoolHealth',
+        'NdmpMover' : 'netapp_ontap.models.ndmp_mover:NdmpMover',
+        'PerformanceSvmResponseRecords' : 'netapp_ontap.models.performance_svm_response_records:PerformanceSvmResponseRecords',
+        'NasApplicationComponents' : 'netapp_ontap.models.nas_application_components:NasApplicationComponents',
+        'EmsSyslogFormat' : 'netapp_ontap.models.ems_syslog_format:EmsSyslogFormat',
+        'S3BucketLifecycleAbortIncompleteMultipartUpload' : 'netapp_ontap.models.s3_bucket_lifecycle_abort_incomplete_multipart_upload:S3BucketLifecycleAbortIncompleteMultipartUpload',
+        'S3BucketSvmCorsRules' : 'netapp_ontap.models.s3_bucket_svm_cors_rules:S3BucketSvmCorsRules',
+        'VolumeStatistics' : 'netapp_ontap.models.volume_statistics:VolumeStatistics',
+        'DcnNodeNetwork' : 'netapp_ontap.models.dcn_node_network:DcnNodeNetwork',
+        'VolumeProtocolRawPerformanceStatOther' : 'netapp_ontap.models.volume_protocol_raw_performance_stat_other:VolumeProtocolRawPerformanceStatOther',
+        'DatacollectionRag' : 'netapp_ontap.models.datacollection_rag:DatacollectionRag',
+        'LocalCifsGroupMembers1' : 'netapp_ontap.models.local_cifs_group_members1:LocalCifsGroupMembers1',
+        'NodeResponseRecords' : 'netapp_ontap.models.node_response_records:NodeResponseRecords',
+        'FpolicyPolicies' : 'netapp_ontap.models.fpolicy_policies:FpolicyPolicies',
+        'SoftwareReferenceMetroclusterProgressDetails' : 'netapp_ontap.models.software_reference_metrocluster_progress_details:SoftwareReferenceMetroclusterProgressDetails',
+        'SvmMigrationIpInterfacePlacementIpInterfaces' : 'netapp_ontap.models.svm_migration_ip_interface_placement_ip_interfaces:SvmMigrationIpInterfacePlacementIpInterfaces',
+        'ApplicationRpoComponentsRpoRemote' : 'netapp_ontap.models.application_rpo_components_rpo_remote:ApplicationRpoComponentsRpoRemote',
+        'ConsistencyGroupConsistencyGroupsLunsCloneSource' : 'netapp_ontap.models.consistency_group_consistency_groups_luns_clone_source:ConsistencyGroupConsistencyGroupsLunsCloneSource',
+        'IscsiConnectionInitiatorAddress' : 'netapp_ontap.models.iscsi_connection_initiator_address:IscsiConnectionInitiatorAddress',
+        'LunLocation' : 'netapp_ontap.models.lun_location:LunLocation',
+        'FpolicyPersistentStores' : 'netapp_ontap.models.fpolicy_persistent_stores:FpolicyPersistentStores',
+        'DatacollectionVersionDiffDataSource' : 'netapp_ontap.models.datacollection_version_diff_data_source:DatacollectionVersionDiffDataSource',
+        'DcnNodeStatistics' : 'netapp_ontap.models.dcn_node_statistics:DcnNodeStatistics',
+        'CloudTargetCluster' : 'netapp_ontap.models.cloud_target_cluster:CloudTargetCluster',
+        'IkpConnectivity' : 'netapp_ontap.models.ikp_connectivity:IkpConnectivity',
+        'ConsistencyGroupLunSpaceGuarantee' : 'netapp_ontap.models.consistency_group_lun_space_guarantee:ConsistencyGroupLunSpaceGuarantee',
+        'TokenExpiryTime' : 'netapp_ontap.models.token_expiry_time:TokenExpiryTime',
+        'DataEngineSubJob' : 'netapp_ontap.models.data_engine_sub_job:DataEngineSubJob',
+        'CifsDomainPreferredDcStatus' : 'netapp_ontap.models.cifs_domain_preferred_dc_status:CifsDomainPreferredDcStatus',
+        'NfsServiceQtree' : 'netapp_ontap.models.nfs_service_qtree:NfsServiceQtree',
+        'IgroupInitiatorProximityPeerSvms' : 'netapp_ontap.models.igroup_initiator_proximity_peer_svms:IgroupInitiatorProximityPeerSvms',
+        'Rfc2307' : 'netapp_ontap.models.rfc2307:Rfc2307',
+        'GroupPolicyObjectRegistryValue' : 'netapp_ontap.models.group_policy_object_registry_value:GroupPolicyObjectRegistryValue',
+        'SnaplockLitigationFileResponseRecords' : 'netapp_ontap.models.snaplock_litigation_file_response_records:SnaplockLitigationFileResponseRecords',
+        'FcZoneMember' : 'netapp_ontap.models.fc_zone_member:FcZoneMember',
+        'LocalCifsGroupMembersLocalCifsGroup' : 'netapp_ontap.models.local_cifs_group_members_local_cifs_group:LocalCifsGroupMembersLocalCifsGroup',
+        'SystemFirmware' : 'netapp_ontap.models.system_firmware:SystemFirmware',
+        'PerformanceMetricResponseRecords' : 'netapp_ontap.models.performance_metric_response_records:PerformanceMetricResponseRecords',
+        'KerberosRealmKdc' : 'netapp_ontap.models.kerberos_realm_kdc:KerberosRealmKdc',
+        'OracleRacOnNfsGridBinary' : 'netapp_ontap.models.oracle_rac_on_nfs_grid_binary:OracleRacOnNfsGridBinary',
+        'AntiRansomwareVolumeWorkloadHistoricalStatistics' : 'netapp_ontap.models.anti_ransomware_volume_workload_historical_statistics:AntiRansomwareVolumeWorkloadHistoricalStatistics',
+        'EmsParameterCriterion' : 'netapp_ontap.models.ems_parameter_criterion:EmsParameterCriterion',
+        'ApplicationStatisticsComponentsStorageService' : 'netapp_ontap.models.application_statistics_components_storage_service:ApplicationStatisticsComponentsStorageService',
+        'RemoteStorage' : 'netapp_ontap.models.remote_storage:RemoteStorage',
+        'VscanOnAccessPolicy' : 'netapp_ontap.models.vscan_on_access_policy:VscanOnAccessPolicy',
+        'MongoDbOnSanSecondaryIgroups' : 'netapp_ontap.models.mongo_db_on_san_secondary_igroups:MongoDbOnSanSecondaryIgroups',
+        'NodeClusterInterfaces' : 'netapp_ontap.models.node_cluster_interfaces:NodeClusterInterfaces',
+        'ClusterPeerLocalNetwork' : 'netapp_ontap.models.cluster_peer_local_network:ClusterPeerLocalNetwork',
+        'TapeDeviceAlias' : 'netapp_ontap.models.tape_device_alias:TapeDeviceAlias',
+        'VdiOnNasDesktops' : 'netapp_ontap.models.vdi_on_nas_desktops:VdiOnNasDesktops',
+        'BgpPeerGroupPeer' : 'netapp_ontap.models.bgp_peer_group_peer:BgpPeerGroupPeer',
+        'VolumeMovement' : 'netapp_ontap.models.volume_movement:VolumeMovement',
+        'IgroupInitiatorConnectivityTrackingConnectionsLogins' : 'netapp_ontap.models.igroup_initiator_connectivity_tracking_connections_logins:IgroupInitiatorConnectivityTrackingConnectionsLogins',
+        'ReplicationErrorSubsystem' : 'netapp_ontap.models.replication_error_subsystem:ReplicationErrorSubsystem',
+        'WorkspaceVersionWorkspacePolicies' : 'netapp_ontap.models.workspace_version_workspace_policies:WorkspaceVersionWorkspacePolicies',
+        'DataEngineGovernancePoliciesGuardrailIssueTags' : 'netapp_ontap.models.data_engine_governance_policies_guardrail_issue_tags:DataEngineGovernancePoliciesGuardrailIssueTags',
+        'SvmS3Service' : 'netapp_ontap.models.svm_s3_service:SvmS3Service',
+        'TopMetricsDirectoryThroughput' : 'netapp_ontap.models.top_metrics_directory_throughput:TopMetricsDirectoryThroughput',
+        'PerformanceFcpMetricSvm' : 'netapp_ontap.models.performance_fcp_metric_svm:PerformanceFcpMetricSvm',
+        'NvmeSubsystemHostIoQueue' : 'netapp_ontap.models.nvme_subsystem_host_io_queue:NvmeSubsystemHostIoQueue',
+        'AnalyticsCollectionInfoByAccessedTimeBytesUsed' : 'netapp_ontap.models.analytics_collection_info_by_accessed_time_bytes_used:AnalyticsCollectionInfoByAccessedTimeBytesUsed',
+        'ChassisNodesPcisCards' : 'netapp_ontap.models.chassis_nodes_pcis_cards:ChassisNodesPcisCards',
+        'NvmeNamespaceSubsystemMapSubsystemHosts' : 'netapp_ontap.models.nvme_namespace_subsystem_map_subsystem_hosts:NvmeNamespaceSubsystemMapSubsystemHosts',
+        'EmsEventMessage1' : 'netapp_ontap.models.ems_event_message1:EmsEventMessage1',
+        'BgpPeerGroupLocalPortNode' : 'netapp_ontap.models.bgp_peer_group_local_port_node:BgpPeerGroupLocalPortNode',
+        'NasApplicationComponentsFlexcacheOrigin' : 'netapp_ontap.models.nas_application_components_flexcache_origin:NasApplicationComponentsFlexcacheOrigin',
+        'S3ServiceDelete' : 'netapp_ontap.models.s3_service_delete:S3ServiceDelete',
+        'ClusterNodesHaGivebackStatusError' : 'netapp_ontap.models.cluster_nodes_ha_giveback_status_error:ClusterNodesHaGivebackStatusError',
+        'ApplicationStatisticsSpace' : 'netapp_ontap.models.application_statistics_space:ApplicationStatisticsSpace',
+        'StorageUnitMapsHostGroup' : 'netapp_ontap.models.storage_unit_maps_host_group:StorageUnitMapsHostGroup',
+        'MultiAdminVerifyApprovalGroupOwner' : 'netapp_ontap.models.multi_admin_verify_approval_group_owner:MultiAdminVerifyApprovalGroupOwner',
+        'StorageSwitchPathsAdapter' : 'netapp_ontap.models.storage_switch_paths_adapter:StorageSwitchPathsAdapter',
+        'BroadcastDomainPorts' : 'netapp_ontap.models.broadcast_domain_ports:BroadcastDomainPorts',
+        'ErrorArguments' : 'netapp_ontap.models.error_arguments:ErrorArguments',
+        'EmsFilterRuleResponseRecords' : 'netapp_ontap.models.ems_filter_rule_response_records:EmsFilterRuleResponseRecords',
+        'Entitlement' : 'netapp_ontap.models.entitlement:Entitlement',
+        'ConsistencyGroupConsistencyGroupsLunsClone' : 'netapp_ontap.models.consistency_group_consistency_groups_luns_clone:ConsistencyGroupConsistencyGroupsLunsClone',
+        'AppCifsAccess' : 'netapp_ontap.models.app_cifs_access:AppCifsAccess',
+        'EmsMessageResponseRecords' : 'netapp_ontap.models.ems_message_response_records:EmsMessageResponseRecords',
+        'WhoamiPrivileges' : 'netapp_ontap.models.whoami_privileges:WhoamiPrivileges',
+        'ConsistencyGroupClone1Guarantee' : 'netapp_ontap.models.consistency_group_clone1_guarantee:ConsistencyGroupClone1Guarantee',
+        'DatacollectionVersionDataCollection' : 'netapp_ontap.models.datacollection_version_data_collection:DatacollectionVersionDataCollection',
+        'ConsistencyGroupTiering' : 'netapp_ontap.models.consistency_group_tiering:ConsistencyGroupTiering',
+        'StorageUnitSpace' : 'netapp_ontap.models.storage_unit_space:StorageUnitSpace',
+        'S3BucketSvmLifecycleManagement' : 'netapp_ontap.models.s3_bucket_svm_lifecycle_management:S3BucketSvmLifecycleManagement',
+        'PortLag' : 'netapp_ontap.models.port_lag:PortLag',
+        'FabricConnectionsSwitchPort' : 'netapp_ontap.models.fabric_connections_switch_port:FabricConnectionsSwitchPort',
+        'DatacollectionEntityAttributes' : 'netapp_ontap.models.datacollection_entity_attributes:DatacollectionEntityAttributes',
+        'S3BucketCors' : 'netapp_ontap.models.s3_bucket_cors:S3BucketCors',
+        'GroupPolicyObjectEventLog' : 'netapp_ontap.models.group_policy_object_event_log:GroupPolicyObjectEventLog',
+        'NvmeSubsystemIoQueueDefault' : 'netapp_ontap.models.nvme_subsystem_io_queue_default:NvmeSubsystemIoQueueDefault',
+        'NasApplicationComponentsQos' : 'netapp_ontap.models.nas_application_components_qos:NasApplicationComponentsQos',
+        'VscanOnDemandScope' : 'netapp_ontap.models.vscan_on_demand_scope:VscanOnDemandScope',
+        'ContainerResponseRecordsVolumes' : 'netapp_ontap.models.container_response_records_volumes:ContainerResponseRecordsVolumes',
+        'San' : 'netapp_ontap.models.san:San',
+        'ConsistencyGroupConsistencyGroupsVolumesNasJunctionParent' : 'netapp_ontap.models.consistency_group_consistency_groups_volumes_nas_junction_parent:ConsistencyGroupConsistencyGroupsVolumesNasJunctionParent',
+        'LdapSchemaAccount' : 'netapp_ontap.models.ldap_schema_account:LdapSchemaAccount',
+        'SqlOnSanTempDbStorageService' : 'netapp_ontap.models.sql_on_san_temp_db_storage_service:SqlOnSanTempDbStorageService',
+        'AggregateSpaceCloudStorage' : 'netapp_ontap.models.aggregate_space_cloud_storage:AggregateSpaceCloudStorage',
+        'VolumeEfficiencyScanner' : 'netapp_ontap.models.volume_efficiency_scanner:VolumeEfficiencyScanner',
+        'NvmeDhHmacChapAuthentication' : 'netapp_ontap.models.nvme_dh_hmac_chap_authentication:NvmeDhHmacChapAuthentication',
+        'StorageBridgePowerSupplyUnits' : 'netapp_ontap.models.storage_bridge_power_supply_units:StorageBridgePowerSupplyUnits',
+        'AntiRansomwareVolumeSuspectFiles' : 'netapp_ontap.models.anti_ransomware_volume_suspect_files:AntiRansomwareVolumeSuspectFiles',
+        'FabricZoneset' : 'netapp_ontap.models.fabric_zoneset:FabricZoneset',
+        'VolumeNasJunctionParent' : 'netapp_ontap.models.volume_nas_junction_parent:VolumeNasJunctionParent',
+        'NasApplicationComponentsStorageService' : 'netapp_ontap.models.nas_application_components_storage_service:NasApplicationComponentsStorageService',
+        'VolumeConstituents' : 'netapp_ontap.models.volume_constituents:VolumeConstituents',
+        'VolumeQos' : 'netapp_ontap.models.volume_qos:VolumeQos',
+        'ClusterPeerInitialAllowedSvms' : 'netapp_ontap.models.cluster_peer_initial_allowed_svms:ClusterPeerInitialAllowedSvms',
+        'ConsistencyGroupConsistencyGroupsLunsLunMapsIgroupIgroups' : 'netapp_ontap.models.consistency_group_consistency_groups_luns_lun_maps_igroup_igroups:ConsistencyGroupConsistencyGroupsLunsLunMapsIgroupIgroups',
+        'FpolicyEngineResiliency' : 'netapp_ontap.models.fpolicy_engine_resiliency:FpolicyEngineResiliency',
+        'VolumeGuarantee' : 'netapp_ontap.models.volume_guarantee:VolumeGuarantee',
+        'RaidGroupDisk' : 'netapp_ontap.models.raid_group_disk:RaidGroupDisk',
+        'PortVlan' : 'netapp_ontap.models.port_vlan:PortVlan',
+        'SoftwareReferenceMetroclusterProgressSummary' : 'netapp_ontap.models.software_reference_metrocluster_progress_summary:SoftwareReferenceMetroclusterProgressSummary',
+        'AnalyticsCollectionInfoByAccessedTime' : 'netapp_ontap.models.analytics_collection_info_by_accessed_time:AnalyticsCollectionInfoByAccessedTime',
+        'SnapmirrorRelationshipPolicy' : 'netapp_ontap.models.snapmirror_relationship_policy:SnapmirrorRelationshipPolicy',
+        'S3BucketLifecycleNonCurrentVersionExpiration' : 'netapp_ontap.models.s3_bucket_lifecycle_non_current_version_expiration:S3BucketLifecycleNonCurrentVersionExpiration',
+        'NvmeSubsystemHosts' : 'netapp_ontap.models.nvme_subsystem_hosts:NvmeSubsystemHosts',
+        'AdDomain' : 'netapp_ontap.models.ad_domain:AdDomain',
+        'S3BucketProtectionStatus' : 'netapp_ontap.models.s3_bucket_protection_status:S3BucketProtectionStatus',
+        'VdiOnNasHyperVAccess' : 'netapp_ontap.models.vdi_on_nas_hyper_v_access:VdiOnNasHyperVAccess',
+        'WebauthnCredentialsRelyingParty' : 'netapp_ontap.models.webauthn_credentials_relying_party:WebauthnCredentialsRelyingParty',
+        'ConsistencyGroupSnapshotSnaplock' : 'netapp_ontap.models.consistency_group_snapshot_snaplock:ConsistencyGroupSnapshotSnaplock',
+        'SecurityKeystoreConfiguration' : 'netapp_ontap.models.security_keystore_configuration:SecurityKeystoreConfiguration',
+        'PerformanceIscsiMetricResponseRecords' : 'netapp_ontap.models.performance_iscsi_metric_response_records:PerformanceIscsiMetricResponseRecords',
+        'SecuritySamlDefMetadataCertificate' : 'netapp_ontap.models.security_saml_def_metadata_certificate:SecuritySamlDefMetadataCertificate',
+        'ShelfPortsCable' : 'netapp_ontap.models.shelf_ports_cable:ShelfPortsCable',
+        'ConsistencyGroupChildLunsLunMapsIgroupIgroups' : 'netapp_ontap.models.consistency_group_child_luns_lun_maps_igroup_igroups:ConsistencyGroupChildLunsLunMapsIgroupIgroups',
+        'LdapSchemaNameMapping' : 'netapp_ontap.models.ldap_schema_name_mapping:LdapSchemaNameMapping',
+        'DatacollectionSearch' : 'netapp_ontap.models.datacollection_search:DatacollectionSearch',
+        'ConsistencyGroupResponseRecordsConsistencyGroupsLunsLunMaps' : 'netapp_ontap.models.consistency_group_response_records_consistency_groups_luns_lun_maps:ConsistencyGroupResponseRecordsConsistencyGroupsLunsLunMaps',
+        'PerformanceLunMetricSpace' : 'netapp_ontap.models.performance_lun_metric_space:PerformanceLunMetricSpace',
+        'S3BucketAggregates' : 'netapp_ontap.models.s3_bucket_aggregates:S3BucketAggregates',
+        'Cn' : 'netapp_ontap.models.cn:Cn',
+        'ApplicationRpoComponentsRpoLocal' : 'netapp_ontap.models.application_rpo_components_rpo_local:ApplicationRpoComponentsRpoLocal',
+        'ConsistencyGroupSnapshotResponseRecords' : 'netapp_ontap.models.consistency_group_snapshot_response_records:ConsistencyGroupSnapshotResponseRecords',
+        'S3UserPostPatch' : 'netapp_ontap.models.s3_user_post_patch:S3UserPostPatch',
+        'ApplicationRpoComponents' : 'netapp_ontap.models.application_rpo_components:ApplicationRpoComponents',
+        'IscsiCredentialsChapInbound' : 'netapp_ontap.models.iscsi_credentials_chap_inbound:IscsiCredentialsChapInbound',
+        'NfsServiceProtocolV40Features' : 'netapp_ontap.models.nfs_service_protocol_v40_features:NfsServiceProtocolV40Features',
+        'CifsSessionVolumes' : 'netapp_ontap.models.cifs_session_volumes:CifsSessionVolumes',
+        'SoftwareDataEncryption' : 'netapp_ontap.models.software_data_encryption:SoftwareDataEncryption',
+        'SwitchPortRemotePortDeviceShelf' : 'netapp_ontap.models.switch_port_remote_port_device_shelf:SwitchPortRemotePortDeviceShelf',
+        'NetworkRouteInterfaces' : 'netapp_ontap.models.network_route_interfaces:NetworkRouteInterfaces',
+        'ClusterPeerEncryption' : 'netapp_ontap.models.cluster_peer_encryption:ClusterPeerEncryption',
+        'SwitchMonitoring' : 'netapp_ontap.models.switch_monitoring:SwitchMonitoring',
+        'PortsetIgroups' : 'netapp_ontap.models.portset_igroups:PortsetIgroups',
+        'TopMetricValueErrorBounds' : 'netapp_ontap.models.top_metric_value_error_bounds:TopMetricValueErrorBounds',
+        'DataEngineGovernanceAuditDatacollectionCountWorkspace' : 'netapp_ontap.models.data_engine_governance_audit_datacollection_count_workspace:DataEngineGovernanceAuditDatacollectionCountWorkspace',
+        'DcnNodeMetricsResponseRecords' : 'netapp_ontap.models.dcn_node_metrics_response_records:DcnNodeMetricsResponseRecords',
+        'IgroupParent' : 'netapp_ontap.models.igroup_parent:IgroupParent',
+        'NvmeSubsystemHostProximityPeerSvms' : 'netapp_ontap.models.nvme_subsystem_host_proximity_peer_svms:NvmeSubsystemHostProximityPeerSvms',
+        'TapeDeviceDeviceNames' : 'netapp_ontap.models.tape_device_device_names:TapeDeviceDeviceNames',
+        'LunMapIgroup' : 'netapp_ontap.models.lun_map_igroup:LunMapIgroup',
+        'PreferredDcs' : 'netapp_ontap.models.preferred_dcs:PreferredDcs',
+        'FlexcacheCifs' : 'netapp_ontap.models.flexcache_cifs:FlexcacheCifs',
+        'DataEngineEntityErrors' : 'netapp_ontap.models.data_engine_entity_errors:DataEngineEntityErrors',
+        'ShelfErrors' : 'netapp_ontap.models.shelf_errors:ShelfErrors',
+        'StorageUnitAntiRansomwareSuspectResponseRecords' : 'netapp_ontap.models.storage_unit_anti_ransomware_suspect_response_records:StorageUnitAntiRansomwareSuspectResponseRecords',
+        'NasApplicationComponentsFlexcacheOriginSvm' : 'netapp_ontap.models.nas_application_components_flexcache_origin_svm:NasApplicationComponentsFlexcacheOriginSvm',
+        'AntiRansomwareVolumeWorkloadSurgeStatistics' : 'netapp_ontap.models.anti_ransomware_volume_workload_surge_statistics:AntiRansomwareVolumeWorkloadSurgeStatistics',
+        'PerformanceSvmNfsResponseRecords' : 'netapp_ontap.models.performance_svm_nfs_response_records:PerformanceSvmNfsResponseRecords',
+        'NvmeHostProximityPeerSvms' : 'netapp_ontap.models.nvme_host_proximity_peer_svms:NvmeHostProximityPeerSvms',
+        'ApplicationTemplate1' : 'netapp_ontap.models.application_template1:ApplicationTemplate1',
+        'S3AuditEvents' : 'netapp_ontap.models.s3_audit_events:S3AuditEvents',
+        'NasApplicationComponentsTieringObjectStores' : 'netapp_ontap.models.nas_application_components_tiering_object_stores:NasApplicationComponentsTieringObjectStores',
+        'ClusterNodesMetroclusterPorts' : 'netapp_ontap.models.cluster_nodes_metrocluster_ports:ClusterNodesMetroclusterPorts',
+        'SvmIscsi' : 'netapp_ontap.models.svm_iscsi:SvmIscsi',
+        'ClusterManagementInterface' : 'netapp_ontap.models.cluster_management_interface:ClusterManagementInterface',
+        'NvmeSubsystemControllerDhHmacChap' : 'netapp_ontap.models.nvme_subsystem_controller_dh_hmac_chap:NvmeSubsystemControllerDhHmacChap',
+        'PerformanceMetricRawSvm' : 'netapp_ontap.models.performance_metric_raw_svm:PerformanceMetricRawSvm',
+        'EntityWorkspaceVersion' : 'netapp_ontap.models.entity_workspace_version:EntityWorkspaceVersion',
+        'ContainerVolume' : 'netapp_ontap.models.container_volume:ContainerVolume',
+        'Posix' : 'netapp_ontap.models.posix:Posix',
+        'NfsServiceRoot' : 'netapp_ontap.models.nfs_service_root:NfsServiceRoot',
+        'SnapmirrorDestinationCreationStorageService' : 'netapp_ontap.models.snapmirror_destination_creation_storage_service:SnapmirrorDestinationCreationStorageService',
+        'MetroclusterDiagConnectionDetails' : 'netapp_ontap.models.metrocluster_diag_connection_details:MetroclusterDiagConnectionDetails',
+        'OracleRacOnNfsGridBinaryStorageService' : 'netapp_ontap.models.oracle_rac_on_nfs_grid_binary_storage_service:OracleRacOnNfsGridBinaryStorageService',
+        'ConsistencyGroupResponseRecordsConsistencyGroupsLunsLunMapsIgroupIgroups' : 'netapp_ontap.models.consistency_group_response_records_consistency_groups_luns_lun_maps_igroup_igroups:ConsistencyGroupResponseRecordsConsistencyGroupsLunsLunMapsIgroupIgroups',
+        'ConsistencyGroupConsistencyGroupsVolumesNasCifs' : 'netapp_ontap.models.consistency_group_consistency_groups_volumes_nas_cifs:ConsistencyGroupConsistencyGroupsVolumesNasCifs',
+        'GroupPolicyObjectPrivilegeRight' : 'netapp_ontap.models.group_policy_object_privilege_right:GroupPolicyObjectPrivilegeRight',
+        'VolumeSnapmirror' : 'netapp_ontap.models.volume_snapmirror:VolumeSnapmirror',
+        'Counter' : 'netapp_ontap.models.counter:Counter',
+        'PerformanceFcpMetricResponseRecords' : 'netapp_ontap.models.performance_fcp_metric_response_records:PerformanceFcpMetricResponseRecords',
+        'SecurityCertificateSign' : 'netapp_ontap.models.security_certificate_sign:SecurityCertificateSign',
+        'GroupPolicyObjectKerberos' : 'netapp_ontap.models.group_policy_object_kerberos:GroupPolicyObjectKerberos',
+        'QuotaRuleSpace' : 'netapp_ontap.models.quota_rule_space:QuotaRuleSpace',
+        'ClusterNodesSnaplock' : 'netapp_ontap.models.cluster_nodes_snaplock:ClusterNodesSnaplock',
+        'VolumeSnaplock' : 'netapp_ontap.models.volume_snaplock:VolumeSnaplock',
+        'S3BucketLifecycleManagement' : 'netapp_ontap.models.s3_bucket_lifecycle_management:S3BucketLifecycleManagement',
+        'ShelfCurrentSensors' : 'netapp_ontap.models.shelf_current_sensors:ShelfCurrentSensors',
+        'SvmSnapmirror' : 'netapp_ontap.models.svm_snapmirror:SvmSnapmirror',
+        'SvmMigrationVolumePlacement' : 'netapp_ontap.models.svm_migration_volume_placement:SvmMigrationVolumePlacement',
+        'NvmeSubsystemControllerTls' : 'netapp_ontap.models.nvme_subsystem_controller_tls:NvmeSubsystemControllerTls',
+        'QuotaReportFiles' : 'netapp_ontap.models.quota_report_files:QuotaReportFiles',
+        'SecurityKeyManagerOnboard' : 'netapp_ontap.models.security_key_manager_onboard:SecurityKeyManagerOnboard',
+        'ClusterPeeringPolicy' : 'netapp_ontap.models.cluster_peering_policy:ClusterPeeringPolicy',
+        'GroupPolicyObjectBranchcache' : 'netapp_ontap.models.group_policy_object_branchcache:GroupPolicyObjectBranchcache',
+        'IgroupInitiatorsLinks' : 'netapp_ontap.models.igroup_initiators_links:IgroupInitiatorsLinks',
+        'ApplicationComponentSvm' : 'netapp_ontap.models.application_component_svm:ApplicationComponentSvm',
+        'AntiRansomwareVolumeAttackDetectionParameters' : 'netapp_ontap.models.anti_ransomware_volume_attack_detection_parameters:AntiRansomwareVolumeAttackDetectionParameters',
+        'NvmeNamespaceProvisioningOptions' : 'netapp_ontap.models.nvme_namespace_provisioning_options:NvmeNamespaceProvisioningOptions',
+        'LocalCifsGroupMembersRecords' : 'netapp_ontap.models.local_cifs_group_members_records:LocalCifsGroupMembersRecords',
+        'NvmeSubsystemReplicationError' : 'netapp_ontap.models.nvme_subsystem_replication_error:NvmeSubsystemReplicationError',
+        'NvmeNamespaceProvisioningOptionsStorageService' : 'netapp_ontap.models.nvme_namespace_provisioning_options_storage_service:NvmeNamespaceProvisioningOptionsStorageService',
+        'BarbicanConnectivity' : 'netapp_ontap.models.barbican_connectivity:BarbicanConnectivity',
+        'NvmeNamespaceConvertLun' : 'netapp_ontap.models.nvme_namespace_convert_lun:NvmeNamespaceConvertLun',
+        'SecurityAssociationIpsec' : 'netapp_ontap.models.security_association_ipsec:SecurityAssociationIpsec',
+        'ConsistencyGroupLunsLunMaps' : 'netapp_ontap.models.consistency_group_luns_lun_maps:ConsistencyGroupLunsLunMaps',
+        'Smb' : 'netapp_ontap.models.smb:Smb',
+        'FirmwareSpBmc' : 'netapp_ontap.models.firmware_sp_bmc:FirmwareSpBmc',
+        'EmsFilterResponseRecordsRulesParameterCriteria' : 'netapp_ontap.models.ems_filter_response_records_rules_parameter_criteria:EmsFilterResponseRecordsRulesParameterCriteria',
+        'CifsAdDomain' : 'netapp_ontap.models.cifs_ad_domain:CifsAdDomain',
+        'S3BucketSvmProtectionStatusDestination' : 'netapp_ontap.models.s3_bucket_svm_protection_status_destination:S3BucketSvmProtectionStatusDestination',
+        'SnaplockLogFile' : 'netapp_ontap.models.snaplock_log_file:SnaplockLogFile',
+        'ContainerVolumeExcludeAggregates' : 'netapp_ontap.models.container_volume_exclude_aggregates:ContainerVolumeExcludeAggregates',
+        'NvmeNamespaceClone' : 'netapp_ontap.models.nvme_namespace_clone:NvmeNamespaceClone',
+        'UnixGroupUsers1' : 'netapp_ontap.models.unix_group_users1:UnixGroupUsers1',
+        'AggregateDataEncryption' : 'netapp_ontap.models.aggregate_data_encryption:AggregateDataEncryption',
+        'S3ServiceDeleteResponseRecords' : 'netapp_ontap.models.s3_service_delete_response_records:S3ServiceDeleteResponseRecords',
+        'NasApplicationComponentsSnaplock' : 'netapp_ontap.models.nas_application_components_snaplock:NasApplicationComponentsSnaplock',
+        'DataClassifierInner' : 'netapp_ontap.models.data_classifier_inner:DataClassifierInner',
+        'WorkspacePolicies' : 'netapp_ontap.models.workspace_policies:WorkspacePolicies',
+        'AggregateSpaceSnapshot' : 'netapp_ontap.models.aggregate_space_snapshot:AggregateSpaceSnapshot',
+        'MccipPortL3Config' : 'netapp_ontap.models.mccip_port_l3_config:MccipPortL3Config',
+        'SnapmirrorEndpointConsistencyGroupVolumes' : 'netapp_ontap.models.snapmirror_endpoint_consistency_group_volumes:SnapmirrorEndpointConsistencyGroupVolumes',
+        'DataEngineJobResource' : 'netapp_ontap.models.data_engine_job_resource:DataEngineJobResource',
+        'IgroupInitiatorRecordsProximityPeerSvms' : 'netapp_ontap.models.igroup_initiator_records_proximity_peer_svms:IgroupInitiatorRecordsProximityPeerSvms',
+        'ApplicationProtectionGroupsRpoLocal' : 'netapp_ontap.models.application_protection_groups_rpo_local:ApplicationProtectionGroupsRpoLocal',
+        'StorageUnitSnapshotSnaplock' : 'netapp_ontap.models.storage_unit_snapshot_snaplock:StorageUnitSnapshotSnaplock',
+        'SwitchSnmp' : 'netapp_ontap.models.switch_snmp:SwitchSnmp',
+        'S3AuditEventSelector' : 'netapp_ontap.models.s3_audit_event_selector:S3AuditEventSelector',
+        'AntiRansomwareVolumeWorkloadSurgeUsage' : 'netapp_ontap.models.anti_ransomware_volume_workload_surge_usage:AntiRansomwareVolumeWorkloadSurgeUsage',
+        'ConsistencyGroupConsistencyGroupsVolumes' : 'netapp_ontap.models.consistency_group_consistency_groups_volumes:ConsistencyGroupConsistencyGroupsVolumes',
+        'DataSourceVersionVersion' : 'netapp_ontap.models.data_source_version_version:DataSourceVersionVersion',
+        'IpsecEndpoint' : 'netapp_ontap.models.ipsec_endpoint:IpsecEndpoint',
+        'FcInterfaceResponseRecommend' : 'netapp_ontap.models.fc_interface_response_recommend:FcInterfaceResponseRecommend',
+        'StorageSwitchErrorsComponent' : 'netapp_ontap.models.storage_switch_errors_component:StorageSwitchErrorsComponent',
+        'SoftwarePackageDownloadGet' : 'netapp_ontap.models.software_package_download_get:SoftwarePackageDownloadGet',
+        'DatacollectionVersionDataCollectionVersion' : 'netapp_ontap.models.datacollection_version_data_collection_version:DatacollectionVersionDataCollectionVersion',
+        'AdvancedRights' : 'netapp_ontap.models.advanced_rights:AdvancedRights',
+        'SvmMigrationVolumePlacementVolumeAggregatePairs' : 'netapp_ontap.models.svm_migration_volume_placement_volume_aggregate_pairs:SvmMigrationVolumePlacementVolumeAggregatePairs',
+        'MetroclusterDiagnosticsVolume' : 'netapp_ontap.models.metrocluster_diagnostics_volume:MetroclusterDiagnosticsVolume',
+        'SvmNvme' : 'netapp_ontap.models.svm_nvme:SvmNvme',
+        'ApplicationNvmeAccessBackingStorage' : 'netapp_ontap.models.application_nvme_access_backing_storage:ApplicationNvmeAccessBackingStorage',
+        'EmsFilterRules' : 'netapp_ontap.models.ems_filter_rules:EmsFilterRules',
+        'StorageBridgeSasPortsPhy2' : 'netapp_ontap.models.storage_bridge_sas_ports_phy2:StorageBridgeSasPortsPhy2',
+        'StorageBridgeSasPortsPhy1' : 'netapp_ontap.models.storage_bridge_sas_ports_phy1:StorageBridgeSasPortsPhy1',
+        'StorageSwitchConnectionsPeerPort' : 'netapp_ontap.models.storage_switch_connections_peer_port:StorageSwitchConnectionsPeerPort',
+        'StorageBridgeSasPortsPhy4' : 'netapp_ontap.models.storage_bridge_sas_ports_phy4:StorageBridgeSasPortsPhy4',
+        'StorageBridgeSasPortsPhy3' : 'netapp_ontap.models.storage_bridge_sas_ports_phy3:StorageBridgeSasPortsPhy3',
+        'ConsistencyGroupLunLunMaps' : 'netapp_ontap.models.consistency_group_lun_lun_maps:ConsistencyGroupLunLunMaps',
+        'License' : 'netapp_ontap.models.license:License',
+        'ApplicationSnapshotApplication' : 'netapp_ontap.models.application_snapshot_application:ApplicationSnapshotApplication',
+        'ApplicationSnapshotRestore' : 'netapp_ontap.models.application_snapshot_restore:ApplicationSnapshotRestore',
+        'ArwVserver' : 'netapp_ontap.models.arw_vserver:ArwVserver',
+        'IscsiCredentialsChapOutbound' : 'netapp_ontap.models.iscsi_credentials_chap_outbound:IscsiCredentialsChapOutbound',
+        'SoftwareStatusDetailsReferenceAction' : 'netapp_ontap.models.software_status_details_reference_action:SoftwareStatusDetailsReferenceAction',
+        'BroadcastDomainSvm' : 'netapp_ontap.models.broadcast_domain_svm:BroadcastDomainSvm',
+        'ClusterNodesNvram' : 'netapp_ontap.models.cluster_nodes_nvram:ClusterNodesNvram',
+        'LunVvol' : 'netapp_ontap.models.lun_vvol:LunVvol',
+        'NodeResponseRecordsHaPartners' : 'netapp_ontap.models.node_response_records_ha_partners:NodeResponseRecordsHaPartners',
+        'PortStatisticsPacketCounters' : 'netapp_ontap.models.port_statistics_packet_counters:PortStatisticsPacketCounters',
+        'StorageBridgeFcPortsSfp' : 'netapp_ontap.models.storage_bridge_fc_ports_sfp:StorageBridgeFcPortsSfp',
+        'WorkspaceMetrics' : 'netapp_ontap.models.workspace_metrics:WorkspaceMetrics',
+        'ConsistencyGroupNamespaceSpace' : 'netapp_ontap.models.consistency_group_namespace_space:ConsistencyGroupNamespaceSpace',
+        'IgroupInitiatorConnectivityTrackingConnections' : 'netapp_ontap.models.igroup_initiator_connectivity_tracking_connections:IgroupInitiatorConnectivityTrackingConnections',
+        'CifsDomainTrust' : 'netapp_ontap.models.cifs_domain_trust:CifsDomainTrust',
+        'StorageSwitchPathsPort' : 'netapp_ontap.models.storage_switch_paths_port:StorageSwitchPathsPort',
+        'IscsiSessionInitiator' : 'netapp_ontap.models.iscsi_session_initiator:IscsiSessionInitiator',
+        'AggregateInactiveDataReporting' : 'netapp_ontap.models.aggregate_inactive_data_reporting:AggregateInactiveDataReporting',
+        'ContainerVolumesFlexcache' : 'netapp_ontap.models.container_volumes_flexcache:ContainerVolumesFlexcache',
+        'ZappNvmeComponentsTiering' : 'netapp_ontap.models.zapp_nvme_components_tiering:ZappNvmeComponentsTiering',
+        'NvmeNamespaceCloneSource' : 'netapp_ontap.models.nvme_namespace_clone_source:NvmeNamespaceCloneSource',
+        'DataClassifierCategoriesInner' : 'netapp_ontap.models.data_classifier_categories_inner:DataClassifierCategoriesInner',
+        'DetailedStatusCodeMessage' : 'netapp_ontap.models.detailed_status_code_message:DetailedStatusCodeMessage',
+        'ContainerResponseRecordsVolumesS3Bucket' : 'netapp_ontap.models.container_response_records_volumes_s3_bucket:ContainerResponseRecordsVolumesS3Bucket',
+        'FcInterfaceLocationHomePortNode' : 'netapp_ontap.models.fc_interface_location_home_port_node:FcInterfaceLocationHomePortNode',
+        'TopMetricsSvmUserThroughput' : 'netapp_ontap.models.top_metrics_svm_user_throughput:TopMetricsSvmUserThroughput',
+        'GcpKmsState' : 'netapp_ontap.models.gcp_kms_state:GcpKmsState',
+        'NfsServiceSecurity' : 'netapp_ontap.models.nfs_service_security:NfsServiceSecurity',
+        'VolumeFlexgroup' : 'netapp_ontap.models.volume_flexgroup:VolumeFlexgroup',
+        'ConsistencyGroupMetricsResponseRecords' : 'netapp_ontap.models.consistency_group_metrics_response_records:ConsistencyGroupMetricsResponseRecords',
+        'FpolicyEngines' : 'netapp_ontap.models.fpolicy_engines:FpolicyEngines',
+        'ClusterNodesHaTakeover' : 'netapp_ontap.models.cluster_nodes_ha_takeover:ClusterNodesHaTakeover',
+        'SanApplicationComponentsTiering' : 'netapp_ontap.models.san_application_components_tiering:SanApplicationComponentsTiering',
+        'Counter2d' : 'netapp_ontap.models.counter2d:Counter2d',
+        'FlexcacheAtimeScrub' : 'netapp_ontap.models.flexcache_atime_scrub:FlexcacheAtimeScrub',
+        'IgroupInitiatorNoRecordsProximity' : 'netapp_ontap.models.igroup_initiator_no_records_proximity:IgroupInitiatorNoRecordsProximity',
+        'OracleOnNfs' : 'netapp_ontap.models.oracle_on_nfs:OracleOnNfs',
+        'TopMetricsSvmUserExcludedVolume' : 'netapp_ontap.models.top_metrics_svm_user_excluded_volume:TopMetricsSvmUserExcludedVolume',
+        'AwsKmsKey' : 'netapp_ontap.models.aws_kms_key:AwsKmsKey',
+        'ClusterNodesServiceProcessorApiService' : 'netapp_ontap.models.cluster_nodes_service_processor_api_service:ClusterNodesServiceProcessorApiService',
+        'ShelfBaysDrawer' : 'netapp_ontap.models.shelf_bays_drawer:ShelfBaysDrawer',
+        'ShadowcopyAddFiles' : 'netapp_ontap.models.shadowcopy_add_files:ShadowcopyAddFiles',
+        'StorageUnitQosPolicy' : 'netapp_ontap.models.storage_unit_qos_policy:StorageUnitQosPolicy',
+        'DataEngineEntityAttributesContent' : 'netapp_ontap.models.data_engine_entity_attributes_content:DataEngineEntityAttributesContent',
+        'FabricConnectionsSwitch' : 'netapp_ontap.models.fabric_connections_switch:FabricConnectionsSwitch',
+        'CifsOpenFileShare' : 'netapp_ontap.models.cifs_open_file_share:CifsOpenFileShare',
+        'SecurityProxy' : 'netapp_ontap.models.security_proxy:SecurityProxy',
+        'DataSourceVersion' : 'netapp_ontap.models.data_source_version:DataSourceVersion',
+        'DiskDrawer' : 'netapp_ontap.models.disk_drawer:DiskDrawer',
+        'SnapmirrorTransferErrorInfo' : 'netapp_ontap.models.snapmirror_transfer_error_info:SnapmirrorTransferErrorInfo',
+        'WebauthnCredentialsCredential' : 'netapp_ontap.models.webauthn_credentials_credential:WebauthnCredentialsCredential',
+        'StoragePoolDisk' : 'netapp_ontap.models.storage_pool_disk:StoragePoolDisk',
+        'ConsistencyGroupNvmeHostDhHmacChap' : 'netapp_ontap.models.consistency_group_nvme_host_dh_hmac_chap:ConsistencyGroupNvmeHostDhHmacChap',
+        'ChassisNodesPcis' : 'netapp_ontap.models.chassis_nodes_pcis:ChassisNodesPcis',
+        'AnalyticsInfo' : 'netapp_ontap.models.analytics_info:AnalyticsInfo',
+        'ReferenceFileMoveFile' : 'netapp_ontap.models.reference_file_move_file:ReferenceFileMoveFile',
+        'ConsistencyGroupConsistencyGroupsLuns' : 'netapp_ontap.models.consistency_group_consistency_groups_luns:ConsistencyGroupConsistencyGroupsLuns',
+        'SwitchPortRoles' : 'netapp_ontap.models.switch_port_roles:SwitchPortRoles',
+        'DataEngineJobLink' : 'netapp_ontap.models.data_engine_job_link:DataEngineJobLink',
+        'ApplicationLunMappingObjectIgroup' : 'netapp_ontap.models.application_lun_mapping_object_igroup:ApplicationLunMappingObjectIgroup',
+        'SvmMigrationMessages' : 'netapp_ontap.models.svm_migration_messages:SvmMigrationMessages',
+        'VolumeNodes' : 'netapp_ontap.models.volume_nodes:VolumeNodes',
+        'DcnBondPort' : 'netapp_ontap.models.dcn_bond_port:DcnBondPort',
+        'LunCopy' : 'netapp_ontap.models.lun_copy:LunCopy',
+        'TopEnforcedGuardrailsInner' : 'netapp_ontap.models.top_enforced_guardrails_inner:TopEnforcedGuardrailsInner',
+        'VolumeAggregates' : 'netapp_ontap.models.volume_aggregates:VolumeAggregates',
+        'FlexcachePrepopulate' : 'netapp_ontap.models.flexcache_prepopulate:FlexcachePrepopulate',
+        'IpAddressRange' : 'netapp_ontap.models.ip_address_range:IpAddressRange',
+        'LdapIpStatus' : 'netapp_ontap.models.ldap_ip_status:LdapIpStatus',
+        'VdiskSpaceSnapshotAutodelete' : 'netapp_ontap.models.vdisk_space_snapshot_autodelete:VdiskSpaceSnapshotAutodelete',
+        'ApplicationComponentStorageService' : 'netapp_ontap.models.application_component_storage_service:ApplicationComponentStorageService',
+        'CifsDomainPasswordSchedule' : 'netapp_ontap.models.cifs_domain_password_schedule:CifsDomainPasswordSchedule',
+        'ZappS3BucketApplicationComponents' : 'netapp_ontap.models.zapp_s3_bucket_application_components:ZappS3BucketApplicationComponents',
+        'LdapStatus' : 'netapp_ontap.models.ldap_status:LdapStatus',
+        'S3LogRetention' : 'netapp_ontap.models.s3_log_retention:S3LogRetention',
+        'SoftwareValidation' : 'netapp_ontap.models.software_validation:SoftwareValidation',
+        'ConsistencyGroupResponseRecords' : 'netapp_ontap.models.consistency_group_response_records:ConsistencyGroupResponseRecords',
+        'DatacollectionVersionDiffDataCollection' : 'netapp_ontap.models.datacollection_version_diff_data_collection:DatacollectionVersionDiffDataCollection',
+        'MetroclusterDiagCheck' : 'netapp_ontap.models.metrocluster_diag_check:MetroclusterDiagCheck',
+        'ConsistencyGroupLunMapIgroupInitiators' : 'netapp_ontap.models.consistency_group_lun_map_igroup_initiators:ConsistencyGroupLunMapIgroupInitiators',
+        'ClusterNodesHaTakeoverCheck' : 'netapp_ontap.models.cluster_nodes_ha_takeover_check:ClusterNodesHaTakeoverCheck',
+        'SanApplicationComponents' : 'netapp_ontap.models.san_application_components:SanApplicationComponents',
+        'NfsServiceProtocolAccessRules' : 'netapp_ontap.models.nfs_service_protocol_access_rules:NfsServiceProtocolAccessRules',
+        'ClusterPeerAuthentication' : 'netapp_ontap.models.cluster_peer_authentication:ClusterPeerAuthentication',
+        'TopMetricsSvmDirectoryExcludedVolumeReason' : 'netapp_ontap.models.top_metrics_svm_directory_excluded_volume_reason:TopMetricsSvmDirectoryExcludedVolumeReason',
+        'AntiRansomwareVolumeEventLog' : 'netapp_ontap.models.anti_ransomware_volume_event_log:AntiRansomwareVolumeEventLog',
+        'QosPolicyGroup' : 'netapp_ontap.models.qos_policy_group:QosPolicyGroup',
+        'IgroupInitiatorConnectivityTrackingConnectionsLoginsInterface' : 'netapp_ontap.models.igroup_initiator_connectivity_tracking_connections_logins_interface:IgroupInitiatorConnectivityTrackingConnectionsLoginsInterface',
+        'DataEngineGovernanceAuditCountWorkspace' : 'netapp_ontap.models.data_engine_governance_audit_count_workspace:DataEngineGovernanceAuditCountWorkspace',
+        'SnapshotProvenanceVolume' : 'netapp_ontap.models.snapshot_provenance_volume:SnapshotProvenanceVolume',
+        'StorageAvailabilityZoneSpace' : 'netapp_ontap.models.storage_availability_zone_space:StorageAvailabilityZoneSpace',
+        'StoragePoolPatch' : 'netapp_ontap.models.storage_pool_patch:StoragePoolPatch',
+        'FlexcacheRelativeSize' : 'netapp_ontap.models.flexcache_relative_size:FlexcacheRelativeSize',
+        'PortStatistics' : 'netapp_ontap.models.port_statistics:PortStatistics',
+        'StorageUnitAntiRansomwareEntropyStatsResponseRecords' : 'netapp_ontap.models.storage_unit_anti_ransomware_entropy_stats_response_records:StorageUnitAntiRansomwareEntropyStatsResponseRecords',
+        'ConsistencyGroupResponseRecordsReplicationRelationships' : 'netapp_ontap.models.consistency_group_response_records_replication_relationships:ConsistencyGroupResponseRecordsReplicationRelationships',
+        'ConsistencyGroupSnapshotResponseRecordsNamespaces' : 'netapp_ontap.models.consistency_group_snapshot_response_records_namespaces:ConsistencyGroupSnapshotResponseRecordsNamespaces',
+        'AntiRansomwareVolumeWorkloadNewlyObservedFileExtensions' : 'netapp_ontap.models.anti_ransomware_volume_workload_newly_observed_file_extensions:AntiRansomwareVolumeWorkloadNewlyObservedFileExtensions',
+        'SnapmirrorSourceEndpoint' : 'netapp_ontap.models.snapmirror_source_endpoint:SnapmirrorSourceEndpoint',
+        'IgroupTarget' : 'netapp_ontap.models.igroup_target:IgroupTarget',
+        'ClusterNodesServiceProcessorSshInfo' : 'netapp_ontap.models.cluster_nodes_service_processor_ssh_info:ClusterNodesServiceProcessorSshInfo',
+        'VolumeFlashPool' : 'netapp_ontap.models.volume_flash_pool:VolumeFlashPool',
+        'ClusterNodesHwAssistStatus' : 'netapp_ontap.models.cluster_nodes_hw_assist_status:ClusterNodesHwAssistStatus',
+        'DataEngineGovernanceFilePreviewFileContentRequestFile' : 'netapp_ontap.models.data_engine_governance_file_preview_file_content_request_file:DataEngineGovernanceFilePreviewFileContentRequestFile',
+        'PortReachableBroadcastDomains' : 'netapp_ontap.models.port_reachable_broadcast_domains:PortReachableBroadcastDomains',
+        'VolumeRebalancing1EngineScannerBlocksSkipped' : 'netapp_ontap.models.volume_rebalancing1_engine_scanner_blocks_skipped:VolumeRebalancing1EngineScannerBlocksSkipped',
+        'StorageSwitchConnectionsSourcePort' : 'netapp_ontap.models.storage_switch_connections_source_port:StorageSwitchConnectionsSourcePort',
+        'AnalyticsInfoByAccessedTime' : 'netapp_ontap.models.analytics_info_by_accessed_time:AnalyticsInfoByAccessedTime',
+        'ConsistencyGroupClone' : 'netapp_ontap.models.consistency_group_clone:ConsistencyGroupClone',
+        'DatacollectionVersionDiffEntities' : 'netapp_ontap.models.datacollection_version_diff_entities:DatacollectionVersionDiffEntities',
+        'StoragePoolUsedAllocationUnit' : 'netapp_ontap.models.storage_pool_used_allocation_unit:StoragePoolUsedAllocationUnit',
+        'DataEngineEventVisibleTo' : 'netapp_ontap.models.data_engine_event_visible_to:DataEngineEventVisibleTo',
+        'CapacityPoolNodes' : 'netapp_ontap.models.capacity_pool_nodes:CapacityPoolNodes',
+        'KerberosRealmAdServer' : 'netapp_ontap.models.kerberos_realm_ad_server:KerberosRealmAdServer',
+        'EmsDestinationResponseRecordsConnectivityErrors' : 'netapp_ontap.models.ems_destination_response_records_connectivity_errors:EmsDestinationResponseRecordsConnectivityErrors',
+        'MetroclusterDiagDetails' : 'netapp_ontap.models.metrocluster_diag_details:MetroclusterDiagDetails',
+        'LunQosPolicy' : 'netapp_ontap.models.lun_qos_policy:LunQosPolicy',
+        'NvmeSubsystemMapNamespace' : 'netapp_ontap.models.nvme_subsystem_map_namespace:NvmeSubsystemMapNamespace',
+        'ClusterNodesHaGiveback' : 'netapp_ontap.models.cluster_nodes_ha_giveback:ClusterNodesHaGiveback',
+        'AggregateBlockStorageHybridCache' : 'netapp_ontap.models.aggregate_block_storage_hybrid_cache:AggregateBlockStorageHybridCache',
+        'ContainerVolumes' : 'netapp_ontap.models.container_volumes:ContainerVolumes',
+        'TopMetricsSvmClientResponseNotice' : 'netapp_ontap.models.top_metrics_svm_client_response_notice:TopMetricsSvmClientResponseNotice',
+        'CifsServiceDelete' : 'netapp_ontap.models.cifs_service_delete:CifsServiceDelete',
+        'ChassisNodesUsbs' : 'netapp_ontap.models.chassis_nodes_usbs:ChassisNodesUsbs',
+        'ConsistencyGroupVdiskProvisioningOptions' : 'netapp_ontap.models.consistency_group_vdisk_provisioning_options:ConsistencyGroupVdiskProvisioningOptions',
+        'StorageAvailabilityZoneSpaceEfficiencyWithoutSnapshots' : 'netapp_ontap.models.storage_availability_zone_space_efficiency_without_snapshots:StorageAvailabilityZoneSpaceEfficiencyWithoutSnapshots',
+        'VolumeErrorState' : 'netapp_ontap.models.volume_error_state:VolumeErrorState',
+        'ShelfAcpsError' : 'netapp_ontap.models.shelf_acps_error:ShelfAcpsError',
+        'ChassisNode' : 'netapp_ontap.models.chassis_node:ChassisNode',
+        'CifsServiceOptions' : 'netapp_ontap.models.cifs_service_options:CifsServiceOptions',
+        'LocalStorage' : 'netapp_ontap.models.local_storage:LocalStorage',
+        'DiskPathInfo' : 'netapp_ontap.models.disk_path_info:DiskPathInfo',
+        'Href' : 'netapp_ontap.models.href:Href',
+        'SwitchPortStatistics' : 'netapp_ontap.models.switch_port_statistics:SwitchPortStatistics',
+        'ContainerVolumesS3BucketPolicyStatements' : 'netapp_ontap.models.container_volumes_s3_bucket_policy_statements:ContainerVolumesS3BucketPolicyStatements',
+        'SvmDns' : 'netapp_ontap.models.svm_dns:SvmDns',
+        'ContainerVolumeSnaplock' : 'netapp_ontap.models.container_volume_snaplock:ContainerVolumeSnaplock',
+        'DatacollectionVersion1' : 'netapp_ontap.models.datacollection_version1:DatacollectionVersion1',
+        'ContainerVolumeS3Bucket' : 'netapp_ontap.models.container_volume_s3_bucket:ContainerVolumeS3Bucket',
+        'SoftwareErrors' : 'netapp_ontap.models.software_errors:SoftwareErrors',
+        'ConsistencyGroupChildNamespaces' : 'netapp_ontap.models.consistency_group_child_namespaces:ConsistencyGroupChildNamespaces',
+        'AzureKeyVaultState' : 'netapp_ontap.models.azure_key_vault_state:AzureKeyVaultState',
+        'ApplicationNfsProperties' : 'netapp_ontap.models.application_nfs_properties:ApplicationNfsProperties',
+        'EmsActionParameterHelpArguments' : 'netapp_ontap.models.ems_action_parameter_help_arguments:EmsActionParameterHelpArguments',
+        'MccNode' : 'netapp_ontap.models.mcc_node:MccNode',
+        'ClusterSpaceBlockStorage' : 'netapp_ontap.models.cluster_space_block_storage:ClusterSpaceBlockStorage',
+        'ConsistencyGroupVolumeSnapshot' : 'netapp_ontap.models.consistency_group_volume_snapshot:ConsistencyGroupVolumeSnapshot',
+        'BindingStatus' : 'netapp_ontap.models.binding_status:BindingStatus',
+        'ConsistencyGroupNvmeHost' : 'netapp_ontap.models.consistency_group_nvme_host:ConsistencyGroupNvmeHost',
+        'GcpKmsEkmipReachability' : 'netapp_ontap.models.gcp_kms_ekmip_reachability:GcpKmsEkmipReachability',
+        'PerformanceSvmNfsMetricHistorical' : 'netapp_ontap.models.performance_svm_nfs_metric_historical:PerformanceSvmNfsMetricHistorical',
+        'ConsistencyGroupSnapshotMissingNamespaces' : 'netapp_ontap.models.consistency_group_snapshot_missing_namespaces:ConsistencyGroupSnapshotMissingNamespaces',
+        'NvmeSubsystemHostRecords' : 'netapp_ontap.models.nvme_subsystem_host_records:NvmeSubsystemHostRecords',
+        'PortsetInterfaceRecords' : 'netapp_ontap.models.portset_interface_records:PortsetInterfaceRecords',
+        'FileCopyFilesToCopy' : 'netapp_ontap.models.file_copy_files_to_copy:FileCopyFilesToCopy',
+        'ApplicationSvm' : 'netapp_ontap.models.application_svm:ApplicationSvm',
+        'ApplicationSanAccessIscsiEndpointInterfaceIp' : 'netapp_ontap.models.application_san_access_iscsi_endpoint_interface_ip:ApplicationSanAccessIscsiEndpointInterfaceIp',
+        'ClusterActiveDirectory' : 'netapp_ontap.models.cluster_active_directory:ClusterActiveDirectory',
+        'VdiOnNasDesktopsStorageService' : 'netapp_ontap.models.vdi_on_nas_desktops_storage_service:VdiOnNasDesktopsStorageService',
+        'AntiRansomwareVolumeWorkload' : 'netapp_ontap.models.anti_ransomware_volume_workload:AntiRansomwareVolumeWorkload',
+        'LicensePackageLicenses' : 'netapp_ontap.models.license_package_licenses:LicensePackageLicenses',
+        'ClusterNodesHaPorts' : 'netapp_ontap.models.cluster_nodes_ha_ports:ClusterNodesHaPorts',
+        'ConsistencyGroupIgroupInitiators' : 'netapp_ontap.models.consistency_group_igroup_initiators:ConsistencyGroupIgroupInitiators',
+        'SubjectAlternateName' : 'netapp_ontap.models.subject_alternate_name:SubjectAlternateName',
+        'VolumeEncryptionStatus' : 'netapp_ontap.models.volume_encryption_status:VolumeEncryptionStatus',
+        'ClusterNodesControllerFailedFan' : 'netapp_ontap.models.cluster_nodes_controller_failed_fan:ClusterNodesControllerFailedFan',
+        'NvmeSubsystemControllerIoQueue' : 'netapp_ontap.models.nvme_subsystem_controller_io_queue:NvmeSubsystemControllerIoQueue',
+        'ShelfPorts' : 'netapp_ontap.models.shelf_ports:ShelfPorts',
+        'IkpKmsKey' : 'netapp_ontap.models.ikp_kms_key:IkpKmsKey',
+        'SnapmirrorDestinationCreation' : 'netapp_ontap.models.snapmirror_destination_creation:SnapmirrorDestinationCreation',
+        'StoragePortError' : 'netapp_ontap.models.storage_port_error:StoragePortError',
+        'ConsistencyGroupIgroup' : 'netapp_ontap.models.consistency_group_igroup:ConsistencyGroupIgroup',
+        'StorageAvailabilityZoneNodes' : 'netapp_ontap.models.storage_availability_zone_nodes:StorageAvailabilityZoneNodes',
+        'SwitchPortRemotePortDeviceDcn' : 'netapp_ontap.models.switch_port_remote_port_device_dcn:SwitchPortRemotePortDeviceDcn',
+        'ConsistencyGroupStatistics' : 'netapp_ontap.models.consistency_group_statistics:ConsistencyGroupStatistics',
+        'SvmMigrationVolumeErrors' : 'netapp_ontap.models.svm_migration_volume_errors:SvmMigrationVolumeErrors',
+        'SoftwareMcc' : 'netapp_ontap.models.software_mcc:SoftwareMcc',
+        'StorageSwitchZones' : 'netapp_ontap.models.storage_switch_zones:StorageSwitchZones',
+        'DataEngineEntityAttributesExtended' : 'netapp_ontap.models.data_engine_entity_attributes_extended:DataEngineEntityAttributesExtended',
+        'EmsDestinationResponseRecordsFilters' : 'netapp_ontap.models.ems_destination_response_records_filters:EmsDestinationResponseRecordsFilters',
+        'AwsKmsState' : 'netapp_ontap.models.aws_kms_state:AwsKmsState',
+        'OracleOnSan' : 'netapp_ontap.models.oracle_on_san:OracleOnSan',
+        'OracleOnNfsArchiveLog' : 'netapp_ontap.models.oracle_on_nfs_archive_log:OracleOnNfsArchiveLog',
+        'LunAttributeLun' : 'netapp_ontap.models.lun_attribute_lun:LunAttributeLun',
+        'ApplicationCifsPropertiesServer' : 'netapp_ontap.models.application_cifs_properties_server:ApplicationCifsPropertiesServer',
+        'EntityWorkspaceVersionVersion' : 'netapp_ontap.models.entity_workspace_version_version:EntityWorkspaceVersionVersion',
+        'ClusterSpaceCloudStorage' : 'netapp_ontap.models.cluster_space_cloud_storage:ClusterSpaceCloudStorage',
+        'ConsistencyGroupResponseRecordsConsistencyGroups' : 'netapp_ontap.models.consistency_group_response_records_consistency_groups:ConsistencyGroupResponseRecordsConsistencyGroups',
+        'IpInterfaceLocation' : 'netapp_ontap.models.ip_interface_location:IpInterfaceLocation',
+        'MetroclusterMccipPorts' : 'netapp_ontap.models.metrocluster_mccip_ports:MetroclusterMccipPorts',
+        'VolumeConstituentsSpaceLogicalSpace' : 'netapp_ontap.models.volume_constituents_space_logical_space:VolumeConstituentsSpaceLogicalSpace',
+        'LicensePackageResponseRecordsLicenses' : 'netapp_ontap.models.license_package_response_records_licenses:LicensePackageResponseRecordsLicenses',
+        'OracleOnNfsArchiveLogStorageService' : 'netapp_ontap.models.oracle_on_nfs_archive_log_storage_service:OracleOnNfsArchiveLogStorageService',
+        'ApplicationComponentSnapshotRestoreComponent' : 'netapp_ontap.models.application_component_snapshot_restore_component:ApplicationComponentSnapshotRestoreComponent',
+        'VolumeApplication' : 'netapp_ontap.models.volume_application:VolumeApplication',
+        'IgroupLunMapsLun' : 'netapp_ontap.models.igroup_lun_maps_lun:IgroupLunMapsLun',
+        'ConsistencyGroupNas' : 'netapp_ontap.models.consistency_group_nas:ConsistencyGroupNas',
+        'AggregateWarning' : 'netapp_ontap.models.aggregate_warning:AggregateWarning',
+        'S3GroupUsers' : 'netapp_ontap.models.s3_group_users:S3GroupUsers',
+        'ConsistencyGroupConsistencyGroupsRestoreToSnapshot' : 'netapp_ontap.models.consistency_group_consistency_groups_restore_to_snapshot:ConsistencyGroupConsistencyGroupsRestoreToSnapshot',
+        'SqlOnSanTempDb' : 'netapp_ontap.models.sql_on_san_temp_db:SqlOnSanTempDb',
+        'ApplicationNvmeAccess' : 'netapp_ontap.models.application_nvme_access:ApplicationNvmeAccess',
+        'AuditEvents' : 'netapp_ontap.models.audit_events:AuditEvents',
+        'VolumeEfficiencySpaceSavings' : 'netapp_ontap.models.volume_efficiency_space_savings:VolumeEfficiencySpaceSavings',
+        'VolumeStatisticsFlexcacheRaw' : 'netapp_ontap.models.volume_statistics_flexcache_raw:VolumeStatisticsFlexcacheRaw',
+        'IgroupChild' : 'netapp_ontap.models.igroup_child:IgroupChild',
+        'ZappNvmeComponents' : 'netapp_ontap.models.zapp_nvme_components:ZappNvmeComponents',
+        'MongoDbOnSanNewIgroupsInitiatorObjects' : 'netapp_ontap.models.mongo_db_on_san_new_igroups_initiator_objects:MongoDbOnSanNewIgroupsInitiatorObjects',
+        'IgroupLunMaps' : 'netapp_ontap.models.igroup_lun_maps:IgroupLunMaps',
+        'FcLoginIgroups' : 'netapp_ontap.models.fc_login_igroups:FcLoginIgroups',
+        'CLI' : 'netapp_ontap.resources.cli:CLI'
+    },
+    attr={'__doc__':"""
+Copyright &copy; 2026 NetApp Inc. All rights reserved.
 
 All of the modules in this package define the supporting objects used to
 organize the fields in the corresponding `netapp_ontap.resource.Resource`
 types. These models are a subset of `netapp_ontap.resource.Resource` and
 do not have any actions that can be performed on them.
-"""
-
-# pylint: disable=trailing-newlines
-# pylint: disable=line-too-long
-# pylint: disable=too-many-lines
-
-from netapp_ontap.models.volume_space import VolumeSpace
-from netapp_ontap.models.azure_key_vault_connectivity import AzureKeyVaultConnectivity
-from netapp_ontap.models.ems_filter_rule_response_records_parameter_criteria import EmsFilterRuleResponseRecordsParameterCriteria
-from netapp_ontap.models.top_metrics_directory_response_incomplete_response_reason import TopMetricsDirectoryResponseIncompleteResponseReason
-from netapp_ontap.models.software_validation_reference_issue import SoftwareValidationReferenceIssue
-from netapp_ontap.models.nfs_service_protocol import NfsServiceProtocol
-from netapp_ontap.models.application_statistics_iops import ApplicationStatisticsIops
-from netapp_ontap.models.vsi_on_nas import VsiOnNas
-from netapp_ontap.models.svm_migration_destination_volume_placement_aggregates import SvmMigrationDestinationVolumePlacementAggregates
-from netapp_ontap.models.acl_delete import AclDelete
-from netapp_ontap.models.disk_aggregates import DiskAggregates
-from netapp_ontap.models.vsi_on_nas_datastore_storage_service import VsiOnNasDatastoreStorageService
-from netapp_ontap.models.volume_efficiency import VolumeEfficiency
-from netapp_ontap.models.nvme_subsystem_host_records_subsystem import NvmeSubsystemHostRecordsSubsystem
-from netapp_ontap.models.active_directory_preferred_dcs import ActiveDirectoryPreferredDcs
-from netapp_ontap.models.ad_domain_delete import AdDomainDelete
-from netapp_ontap.models.key_server_state import KeyServerState
-from netapp_ontap.models.svm_nis import SvmNis
-from netapp_ontap.models.cluster_nodes_ha_giveback_status import ClusterNodesHaGivebackStatus
-from netapp_ontap.models.nvme_interface_fc_interface import NvmeInterfaceFcInterface
-from netapp_ontap.models.firmware_disk import FirmwareDisk
-from netapp_ontap.models.nvme_namespace_space_guarantee import NvmeNamespaceSpaceGuarantee
-from netapp_ontap.models.interface_metrics_data import InterfaceMetricsData
-from netapp_ontap.models.storage_switch_ports import StorageSwitchPorts
-from netapp_ontap.models.consistency_group_response_records_consistency_groups_volumes import ConsistencyGroupResponseRecordsConsistencyGroupsVolumes
-from netapp_ontap.models.firmware_dqp_record_count import FirmwareDqpRecordCount
-from netapp_ontap.models.lun_lun_maps import LunLunMaps
-from netapp_ontap.models.consistency_group_application import ConsistencyGroupApplication
-from netapp_ontap.models.storage_bridge_sas_ports_cable import StorageBridgeSasPortsCable
-from netapp_ontap.models.iscsi_connection_interface import IscsiConnectionInterface
-from netapp_ontap.models.mediator_ping_error_error import MediatorPingErrorError
-from netapp_ontap.models.nvme_subsystem_controller_digest import NvmeSubsystemControllerDigest
-from netapp_ontap.models.igroup_nested_igroup import IgroupNestedIgroup
-from netapp_ontap.models.consistency_group_replication_relationships1 import ConsistencyGroupReplicationRelationships1
-from netapp_ontap.models.iscsi_connection_interface_ip import IscsiConnectionInterfaceIp
-from netapp_ontap.models.local_cifs_user_membership import LocalCifsUserMembership
-from netapp_ontap.models.storage_switch_zones_port import StorageSwitchZonesPort
-from netapp_ontap.models.top_metrics_file_iops import TopMetricsFileIops
-from netapp_ontap.models.supported_algorithms_algorithm import SupportedAlgorithmsAlgorithm
-from netapp_ontap.models.lun_space_guarantee import LunSpaceGuarantee
-from netapp_ontap.models.cluster_nodes_service_processor_auto_config import ClusterNodesServiceProcessorAutoConfig
-from netapp_ontap.models.svm_nfs import SvmNfs
-from netapp_ontap.models.timezone_cluster import TimezoneCluster
-from netapp_ontap.models.license_capacity import LicenseCapacity
-from netapp_ontap.models.storage_switch_errors import StorageSwitchErrors
-from netapp_ontap.models.consistency_group_response_records_consistency_groups_namespaces import ConsistencyGroupResponseRecordsConsistencyGroupsNamespaces
-from netapp_ontap.models.s3_bucket_policy import S3BucketPolicy
-from netapp_ontap.models.consistency_group_namespace_status import ConsistencyGroupNamespaceStatus
-from netapp_ontap.models.application_statistics import ApplicationStatistics
-from netapp_ontap.models.snaplock_litigation_get import SnaplockLitigationGet
-from netapp_ontap.models.cluster_nodes_vm import ClusterNodesVm
-from netapp_ontap.models.switch_port_remote_port_device import SwitchPortRemotePortDevice
-from netapp_ontap.models.cifs_domain_discovered_server import CifsDomainDiscoveredServer
-from netapp_ontap.models.metrocluster_local import MetroclusterLocal
-from netapp_ontap.models.disk_stats import DiskStats
-from netapp_ontap.models.anti_ransomware_volume_space import AntiRansomwareVolumeSpace
-from netapp_ontap.models.ems_action_parameter_description_arguments import EmsActionParameterDescriptionArguments
-from netapp_ontap.models.hw_assist_status import HwAssistStatus
-from netapp_ontap.models.ipv4_interface_and_gateway import Ipv4InterfaceAndGateway
-from netapp_ontap.models.license_manager_response_records import LicenseManagerResponseRecords
-from netapp_ontap.models.consistency_group_qos import ConsistencyGroupQos
-from netapp_ontap.models.software_status_details import SoftwareStatusDetails
-from netapp_ontap.models.node_response_records_ha_giveback_status import NodeResponseRecordsHaGivebackStatus
-from netapp_ontap.models.consistency_group_namespace import ConsistencyGroupNamespace
-from netapp_ontap.models.vscan_on_demand_policy import VscanOnDemandPolicy
-from netapp_ontap.models.mongo_db_on_san_new_igroups_igroups import MongoDbOnSanNewIgroupsIgroups
-from netapp_ontap.models.consistency_group_consistency_groups_restore_to import ConsistencyGroupConsistencyGroupsRestoreTo
-from netapp_ontap.models.consistency_group_snapshot_response_records_missing_namespaces import ConsistencyGroupSnapshotResponseRecordsMissingNamespaces
-from netapp_ontap.models.application_snapshot_components import ApplicationSnapshotComponents
-from netapp_ontap.models.application_cifs_properties_permissions import ApplicationCifsPropertiesPermissions
-from netapp_ontap.models.license_compliance import LicenseCompliance
-from netapp_ontap.models.consistency_group_response_records_namespaces import ConsistencyGroupResponseRecordsNamespaces
-from netapp_ontap.models.shelf_voltage_sensors import ShelfVoltageSensors
-from netapp_ontap.models.key_server_readcreate import KeyServerReadcreate
-from netapp_ontap.models.cluster_nodes_nvlog import ClusterNodesNvlog
-from netapp_ontap.models.volume_metrics_response_records import VolumeMetricsResponseRecords
-from netapp_ontap.models.s3_bucket_svm_protection_status import S3BucketSvmProtectionStatus
-from netapp_ontap.models.tls import Tls
-from netapp_ontap.models.application_statistics_components_iops import ApplicationStatisticsComponentsIops
-from netapp_ontap.models.vdi_on_nas import VdiOnNas
-from netapp_ontap.models.volume_nas import VolumeNas
-from netapp_ontap.models.nvme_service_metric import NvmeServiceMetric
-from netapp_ontap.models.security_certificate_ref_uuid import SecurityCertificateRefUuid
-from netapp_ontap.models.active_directory_security import ActiveDirectorySecurity
-from netapp_ontap.models.svm_fcp import SvmFcp
-from netapp_ontap.models.container_volumes_space import ContainerVolumesSpace
-from netapp_ontap.models.quota_report_group import QuotaReportGroup
-from netapp_ontap.models.svm_migration_volume_placement_aggregates import SvmMigrationVolumePlacementAggregates
-from netapp_ontap.models.cluster_nodes_controller_cpu import ClusterNodesControllerCpu
-from netapp_ontap.models.s3_bucket_policy_statement import S3BucketPolicyStatement
-from netapp_ontap.models.cifs_domain_name_mapping import CifsDomainNameMapping
-from netapp_ontap.models.nfs_service_windows import NfsServiceWindows
-from netapp_ontap.models.volume_space_snapshot import VolumeSpaceSnapshot
-from netapp_ontap.models.chassis_nodes import ChassisNodes
-from netapp_ontap.models.anti_ransomware_storage_unit import AntiRansomwareStorageUnit
-from netapp_ontap.models.performance_fc_port_metric_response_records import PerformanceFcPortMetricResponseRecords
-from netapp_ontap.models.shelf_temperature_sensors_threshold_low import ShelfTemperatureSensorsThresholdLow
-from netapp_ontap.models.aggregate_block_storage_mirror import AggregateBlockStorageMirror
-from netapp_ontap.models.svm_migration_time_metrics import SvmMigrationTimeMetrics
-from netapp_ontap.models.fabric_cache import FabricCache
-from netapp_ontap.models.consistency_group_consistency_groups_volumes_provisioning_options_storage_service import ConsistencyGroupConsistencyGroupsVolumesProvisioningOptionsStorageService
-from netapp_ontap.models.peer import Peer
-from netapp_ontap.models.mongo_db_on_san_new_igroups import MongoDbOnSanNewIgroups
-from netapp_ontap.models.s3_bucket_lifecycle_management_rules import S3BucketLifecycleManagementRules
-from netapp_ontap.models.key_server_no_records import KeyServerNoRecords
-from netapp_ontap.models.qos_policy_adaptive import QosPolicyAdaptive
-from netapp_ontap.models.hw_assist import HwAssist
-from netapp_ontap.models.aggregate_simulate import AggregateSimulate
-from netapp_ontap.models.nfs_service_credential_cache import NfsServiceCredentialCache
-from netapp_ontap.models.top_metrics_svm_client_excluded_volume_reason import TopMetricsSvmClientExcludedVolumeReason
-from netapp_ontap.models.firmware_dqp import FirmwareDqp
-from netapp_ontap.models.snapmirror_consistency_group_failover_status import SnapmirrorConsistencyGroupFailoverStatus
-from netapp_ontap.models.storage_bridge_fc_ports import StorageBridgeFcPorts
-from netapp_ontap.models.counter_property import CounterProperty
-from netapp_ontap.models.cifs_connection_sessions import CifsConnectionSessions
-from netapp_ontap.models.consistency_group_response_records_volumes import ConsistencyGroupResponseRecordsVolumes
-from netapp_ontap.models.s3_bucket_encryption import S3BucketEncryption
-from netapp_ontap.models.snapmirror_error import SnapmirrorError
-from netapp_ontap.models.fc_zone_members import FcZoneMembers
-from netapp_ontap.models.consistency_group_export_policy import ConsistencyGroupExportPolicy
-from netapp_ontap.models.flexcache_writeback import FlexcacheWriteback
-from netapp_ontap.models.volume_protocol_raw_performance_stat_rw import VolumeProtocolRawPerformanceStatRw
-from netapp_ontap.models.aws_kms_ekmip_reachability import AwsKmsEkmipReachability
-from netapp_ontap.models.application_san_access_backing_storage import ApplicationSanAccessBackingStorage
-from netapp_ontap.models.share_acl import ShareAcl
-from netapp_ontap.models.cluster_nodes_controller_flash_cache import ClusterNodesControllerFlashCache
-from netapp_ontap.models.nvme_tcp_tls import NvmeTcpTls
-from netapp_ontap.models.lun_movement import LunMovement
-from netapp_ontap.models.qos_policy_fixed import QosPolicyFixed
-from netapp_ontap.models.lun_map_reporting_nodes_links import LunMapReportingNodesLinks
-from netapp_ontap.models.cluster_nodes_controller_failed_fan_message import ClusterNodesControllerFailedFanMessage
-from netapp_ontap.models.fpolicy_connection_disconnected_reason import FpolicyConnectionDisconnectedReason
-from netapp_ontap.models.instance_counter_aggregation import InstanceCounterAggregation
-from netapp_ontap.models.fabric_connections_cluster_port_node import FabricConnectionsClusterPortNode
-from netapp_ontap.models.mongo_db_on_san_dataset_storage_service import MongoDbOnSanDatasetStorageService
-from netapp_ontap.models.ip_interface_svm import IpInterfaceSvm
-from netapp_ontap.models.ems_event_action_parameters_title_arguments import EmsEventActionParametersTitleArguments
-from netapp_ontap.models.nis_service_binding_details import NisServiceBindingDetails
-from netapp_ontap.models.storage_pool_spare_allocation_unit import StoragePoolSpareAllocationUnit
-from netapp_ontap.models.scanner_pool import ScannerPool
-from netapp_ontap.models.storage_unit_movement_destination import StorageUnitMovementDestination
-from netapp_ontap.models.application_protection_groups_rpo_remote import ApplicationProtectionGroupsRpoRemote
-from netapp_ontap.models.performance_metric_reduced_throughput import PerformanceMetricReducedThroughput
-from netapp_ontap.models.ndmp_data import NdmpData
-from netapp_ontap.models.igroup_initiator_list_item_proximity import IgroupInitiatorListItemProximity
-from netapp_ontap.models.anti_ransomware_volume import AntiRansomwareVolume
-from netapp_ontap.models.ems_event_action_description_arguments import EmsEventActionDescriptionArguments
-from netapp_ontap.models.ad_domain_svm import AdDomainSvm
-from netapp_ontap.models.aggregate_snapshot import AggregateSnapshot
-from netapp_ontap.models.performance_monitored_files_metric import PerformanceMonitoredFilesMetric
-from netapp_ontap.models.oracle_rac_on_nfs import OracleRacOnNfs
-from netapp_ontap.models.performance_qtree_metric_response_records import PerformanceQtreeMetricResponseRecords
-from netapp_ontap.models.volume_activity_tracking_unsupported_reason import VolumeActivityTrackingUnsupportedReason
-from netapp_ontap.models.counter_denominator import CounterDenominator
-from netapp_ontap.models.quota_rule_users import QuotaRuleUsers
-from netapp_ontap.models.ems_filter_response_records import EmsFilterResponseRecords
-from netapp_ontap.models.fpolicy_engine_svm import FpolicyEngineSvm
-from netapp_ontap.models.consistency_group_volumes import ConsistencyGroupVolumes
-from netapp_ontap.models.volume_asynchronous_directory_delete import VolumeAsynchronousDirectoryDelete
-from netapp_ontap.models.top_metrics_svm_file_excluded_volume import TopMetricsSvmFileExcludedVolume
-from netapp_ontap.models.consistency_group_snapshot_namespaces import ConsistencyGroupSnapshotNamespaces
-from netapp_ontap.models.snapshot_policy_copies import SnapshotPolicyCopies
-from netapp_ontap.models.nvme_namespace_status import NvmeNamespaceStatus
-from netapp_ontap.models.volume_space_logical_space import VolumeSpaceLogicalSpace
-from netapp_ontap.models.application_nvme_access_subsystem_map_subsystem import ApplicationNvmeAccessSubsystemMapSubsystem
-from netapp_ontap.models.ems_event_action_parameters import EmsEventActionParameters
-from netapp_ontap.models.group_policy_object_security_setting import GroupPolicyObjectSecuritySetting
-from netapp_ontap.models.chassis_nodes_usbs_ports import ChassisNodesUsbsPorts
-from netapp_ontap.models.iscsi_connection import IscsiConnection
-from netapp_ontap.models.ems_destination_response_records import EmsDestinationResponseRecords
-from netapp_ontap.models.s3_bucket_lifecycle_expiration import S3BucketLifecycleExpiration
-from netapp_ontap.models.iscsi_credentials_initiator_address import IscsiCredentialsInitiatorAddress
-from netapp_ontap.models.snapmirror_transfer_files import SnapmirrorTransferFiles
-from netapp_ontap.models.fc_interface_location import FcInterfaceLocation
-from netapp_ontap.models.mongo_db_on_san import MongoDbOnSan
-from netapp_ontap.models.nvme_namespace_location import NvmeNamespaceLocation
-from netapp_ontap.models.group_policy_object_restrict_anonymous import GroupPolicyObjectRestrictAnonymous
-from netapp_ontap.models.performance_s3_metric_response_records import PerformanceS3MetricResponseRecords
-from netapp_ontap.models.storage_bridge_sas_ports import StorageBridgeSasPorts
-from netapp_ontap.models.export_clients import ExportClients
-from netapp_ontap.models.software_node import SoftwareNode
-from netapp_ontap.models.error_responses import ErrorResponses
-from netapp_ontap.models.storage_bridge_errors import StorageBridgeErrors
-from netapp_ontap.models.ems_event_parameter import EmsEventParameter
-from netapp_ontap.models.fc_interface_recommend_message import FcInterfaceRecommendMessage
-from netapp_ontap.models.nas_protection_type import NasProtectionType
-from netapp_ontap.models.consistency_group_nvme_host_proximity import ConsistencyGroupNvmeHostProximity
-from netapp_ontap.models.space_efficiency import SpaceEfficiency
-from netapp_ontap.models.self_link import SelfLink
-from netapp_ontap.models.ems_action_parameter_validation_error_message_arguments import EmsActionParameterValidationErrorMessageArguments
-from netapp_ontap.models.igroup_initiator_list_item import IgroupInitiatorListItem
-from netapp_ontap.models.export_client_policy import ExportClientPolicy
-from netapp_ontap.models.cluster_management_interfaces import ClusterManagementInterfaces
-from netapp_ontap.models.iscsi_credentials_chap import IscsiCredentialsChap
-from netapp_ontap.models.performance_lun_metric_response_records import PerformanceLunMetricResponseRecords
-from netapp_ontap.models.node_ha import NodeHa
-from netapp_ontap.models.nvme_subsystem_replication import NvmeSubsystemReplication
-from netapp_ontap.models.zapp_s3_bucket import ZappS3Bucket
-from netapp_ontap.models.anti_ransomware_volume_workload_surge_usage_newly_observed_file_extensions import AntiRansomwareVolumeWorkloadSurgeUsageNewlyObservedFileExtensions
-from netapp_ontap.models.snapmirror_relationship_transfer import SnapmirrorRelationshipTransfer
-from netapp_ontap.models.igroup_connectivity_tracking_alerts import IgroupConnectivityTrackingAlerts
-from netapp_ontap.models.performance_qtree_metric_data import PerformanceQtreeMetricData
-from netapp_ontap.models.cifs_domain_trust_relationships import CifsDomainTrustRelationships
-from netapp_ontap.models.ppk import Ppk
-from netapp_ontap.models.performance_nvme_metric_response_records import PerformanceNvmeMetricResponseRecords
-from netapp_ontap.models.node_response_records_ha import NodeResponseRecordsHa
-from netapp_ontap.models.zapp_s3_bucket_application_components_access_policies import ZappS3BucketApplicationComponentsAccessPolicies
-from netapp_ontap.models.performance_metric_io_type import PerformanceMetricIoType
-from netapp_ontap.models.port_discovered_devices import PortDiscoveredDevices
-from netapp_ontap.models.cifs_share_acls import CifsShareAcls
-from netapp_ontap.models.volume_metric_cloud import VolumeMetricCloud
-from netapp_ontap.models.application_snapshot_restore_application import ApplicationSnapshotRestoreApplication
-from netapp_ontap.models.nfs_service_protocol_v3_features import NfsServiceProtocolV3Features
-from netapp_ontap.models.key_server_records import KeyServerRecords
-from netapp_ontap.models.anti_ransomware_volume_surge_usage import AntiRansomwareVolumeSurgeUsage
-from netapp_ontap.models.storage_unit_maps_lun_map import StorageUnitMapsLunMap
-from netapp_ontap.models.volume_quota import VolumeQuota
-from netapp_ontap.models.aggregate_warning_warning import AggregateWarningWarning
-from netapp_ontap.models.aws_connectivity import AwsConnectivity
-from netapp_ontap.models.application_backing_storage import ApplicationBackingStorage
-from netapp_ontap.models.container_volume_s3_bucket_policy import ContainerVolumeS3BucketPolicy
-from netapp_ontap.models.ndmp_connect import NdmpConnect
-from netapp_ontap.models.metrocluster_svm_partner_svm import MetroclusterSvmPartnerSvm
-from netapp_ontap.models.nvme_namespace_space import NvmeNamespaceSpace
-from netapp_ontap.models.volume_constituents_aggregates import VolumeConstituentsAggregates
-from netapp_ontap.models.ems_connectivity_error_message_arguments import EmsConnectivityErrorMessageArguments
-from netapp_ontap.models.svm_migration_create import SvmMigrationCreate
-from netapp_ontap.models.lun_movement_paths import LunMovementPaths
-from netapp_ontap.models.ems_destination_filters import EmsDestinationFilters
-from netapp_ontap.models.performance_svm_nfs_metric_historical_v41 import PerformanceSvmNfsMetricHistoricalV41
-from netapp_ontap.models.volume_analytics_scan_throttle_reason import VolumeAnalyticsScanThrottleReason
-from netapp_ontap.models.group_policy_object_registry_setting import GroupPolicyObjectRegistrySetting
-from netapp_ontap.models.anti_ransomware_volume_typical_usage import AntiRansomwareVolumeTypicalUsage
-from netapp_ontap.models.barbican_state import BarbicanState
-from netapp_ontap.models.rfc2307bis import Rfc2307bis
-from netapp_ontap.models.s3_bucket_svm_lifecycle_management_rules import S3BucketSvmLifecycleManagementRules
-from netapp_ontap.models.consistency_group_cifs_share import ConsistencyGroupCifsShare
-from netapp_ontap.models.s3_bucket_protection_status_destination import S3BucketProtectionStatusDestination
-from netapp_ontap.models.nvme_interface_ip_interface_location import NvmeInterfaceIpInterfaceLocation
-from netapp_ontap.models.nfs_service_transport import NfsServiceTransport
-from netapp_ontap.models.volume_space_snapshot_autodelete import VolumeSpaceSnapshotAutodelete
-from netapp_ontap.models.volume_snapmirror_destinations import VolumeSnapmirrorDestinations
-from netapp_ontap.models.flexcache_relationship import FlexcacheRelationship
-from netapp_ontap.models.volume_metric_flexcache import VolumeMetricFlexcache
-from netapp_ontap.models.split_load_load import SplitLoadLoad
-from netapp_ontap.models.gcp_connectivity import GcpConnectivity
-from netapp_ontap.models.vsi_on_san import VsiOnSan
-from netapp_ontap.models.application_cifs_properties import ApplicationCifsProperties
-from netapp_ontap.models.storage_unit_status import StorageUnitStatus
-from netapp_ontap.models.export_rule_policy import ExportRulePolicy
-from netapp_ontap.models.rotation import Rotation
-from netapp_ontap.models.volume_constituents_space import VolumeConstituentsSpace
-from netapp_ontap.models.cluster_nodes_ha import ClusterNodesHa
-from netapp_ontap.models.igroup_initiators import IgroupInitiators
-from netapp_ontap.models.web_csrf_token import WebCsrfToken
-from netapp_ontap.models.azure_key_vault_key import AzureKeyVaultKey
-from netapp_ontap.models.nas_application_components_flexcache import NasApplicationComponentsFlexcache
-from netapp_ontap.models.cluster_nodes import ClusterNodes
-from netapp_ontap.models.consistency_group_lun import ConsistencyGroupLun
-from netapp_ontap.models.dr_node import DrNode
-from netapp_ontap.models.cluster_space_metrics_response_records import ClusterSpaceMetricsResponseRecords
-from netapp_ontap.models.cluster_peer_status import ClusterPeerStatus
-from netapp_ontap.models.ems_certificate import EmsCertificate
-from netapp_ontap.models.s3_group_policies import S3GroupPolicies
-from netapp_ontap.models.lun_provisioning_options import LunProvisioningOptions
-from netapp_ontap.models.analytics_info_by_modified_time import AnalyticsInfoByModifiedTime
-from netapp_ontap.models.license_manager_uri import LicenseManagerUri
-from netapp_ontap.models.aggregate_space_block_storage import AggregateSpaceBlockStorage
-from netapp_ontap.models.storage_unit_movement import StorageUnitMovement
-from netapp_ontap.models.volume_constituents_movement import VolumeConstituentsMovement
-from netapp_ontap.models.consistency_group_clone1_volume import ConsistencyGroupClone1Volume
-from netapp_ontap.models.uniform_resource_identifier import UniformResourceIdentifier
-from netapp_ontap.models.node_response_records_management_interfaces import NodeResponseRecordsManagementInterfaces
-from netapp_ontap.models.volume_analytics_initialization import VolumeAnalyticsInitialization
-from netapp_ontap.models.aggr_space_efficiency import AggrSpaceEfficiency
-from netapp_ontap.models.file_move_files_to_move_sources import FileMoveFilesToMoveSources
-from netapp_ontap.models.shelf_vendor import ShelfVendor
-from netapp_ontap.models.consistency_group_snapshot_luns import ConsistencyGroupSnapshotLuns
-from netapp_ontap.models.aggregate_inode_attributes import AggregateInodeAttributes
-from netapp_ontap.models.license_keys import LicenseKeys
-from netapp_ontap.models.security_association_ipsec_inbound import SecurityAssociationIpsecInbound
-from netapp_ontap.models.fpolicy_engine_certificate import FpolicyEngineCertificate
-from netapp_ontap.models.application_rpo import ApplicationRpo
-from netapp_ontap.models.cluster_nodes_management_interface import ClusterNodesManagementInterface
-from netapp_ontap.models.node_metrics_response_records import NodeMetricsResponseRecords
-from netapp_ontap.models.igroup_replication_error import IgroupReplicationError
-from netapp_ontap.models.ip_interface_svm_ip import IpInterfaceSvmIp
-from netapp_ontap.models.log import Log
-from netapp_ontap.models.analytics_collection_info import AnalyticsCollectionInfo
-from netapp_ontap.models.cluster_nodes_ha_takeover_failure import ClusterNodesHaTakeoverFailure
-from netapp_ontap.models.security_association_ike import SecurityAssociationIke
-from netapp_ontap.models.tape_device_position import TapeDevicePosition
-from netapp_ontap.models.metrocluster_dr_pairs import MetroclusterDrPairs
-from netapp_ontap.models.security_key_manager_restore_keys import SecurityKeyManagerRestoreKeys
-from netapp_ontap.models.anti_ransomware_volume_entropy_stats_response_records import AntiRansomwareVolumeEntropyStatsResponseRecords
-from netapp_ontap.models.binding_details import BindingDetails
-from netapp_ontap.models.firmware_update_progress_state import FirmwareUpdateProgressState
-from netapp_ontap.models.mongo_db_on_san_dataset import MongoDbOnSanDataset
-from netapp_ontap.models.bgp_peer_group_local import BgpPeerGroupLocal
-from netapp_ontap.models.aggregate_block_storage_hybrid_cache_simulated_raid_groups import AggregateBlockStorageHybridCacheSimulatedRaidGroups
-from netapp_ontap.models.consistency_group_snapshot_response_records_luns import ConsistencyGroupSnapshotResponseRecordsLuns
-from netapp_ontap.models.replication_error_igroup import ReplicationErrorIgroup
-from netapp_ontap.models.storage_switch_vsans import StorageSwitchVsans
-from netapp_ontap.models.ems_event_action import EmsEventAction
-from netapp_ontap.models.local_user_membership import LocalUserMembership
-from netapp_ontap.models.nvme_interface_ip_interface_ip import NvmeInterfaceIpInterfaceIp
-from netapp_ontap.models.consistency_group_provisioning_options import ConsistencyGroupProvisioningOptions
-from netapp_ontap.models.consistency_group_unmap_from import ConsistencyGroupUnmapFrom
-from netapp_ontap.models.top_metrics_client_response_incomplete_response_reason import TopMetricsClientResponseIncompleteResponseReason
-from netapp_ontap.models.consistency_group_consistency_groups_provisioning_options_storage_service import ConsistencyGroupConsistencyGroupsProvisioningOptionsStorageService
-from netapp_ontap.models.snaplock_file_fingerprint_get import SnaplockFileFingerprintGet
-from netapp_ontap.models.storage_bridge_last_reboot import StorageBridgeLastReboot
-from netapp_ontap.models.vdi_on_san import VdiOnSan
-from netapp_ontap.models.app_nfs_access import AppNfsAccess
-from netapp_ontap.models.lun_convert import LunConvert
-from netapp_ontap.models.active_directory_discovered_server import ActiveDirectoryDiscoveredServer
-from netapp_ontap.models.qtree_ext_performance_monitoring import QtreeExtPerformanceMonitoring
-from netapp_ontap.models.svm_migration_destination import SvmMigrationDestination
-from netapp_ontap.models.nas_application_components_tiering import NasApplicationComponentsTiering
-from netapp_ontap.models.zapp_nvme_components_subsystem_hosts_dh_hmac_chap import ZappNvmeComponentsSubsystemHostsDhHmacChap
-from netapp_ontap.models.oracle_on_nfs_redo_log import OracleOnNfsRedoLog
-from netapp_ontap.models.container_volumes_s3_bucket_policy import ContainerVolumesS3BucketPolicy
-from netapp_ontap.models.sql_on_san_log_storage_service import SqlOnSanLogStorageService
-from netapp_ontap.models.storage_bridge_paths_source_port import StorageBridgePathsSourcePort
-from netapp_ontap.models.key_manager_state import KeyManagerState
-from netapp_ontap.models.volume_encryption_support import VolumeEncryptionSupport
-from netapp_ontap.models.ems_filter_rules_parameter_criteria import EmsFilterRulesParameterCriteria
-from netapp_ontap.models.layout_requirement_raid_group import LayoutRequirementRaidGroup
-from netapp_ontap.models.ipv6_interface_and_gateway import Ipv6InterfaceAndGateway
-from netapp_ontap.models.web_certificate import WebCertificate
-from netapp_ontap.models.igroup_initiator_proximity import IgroupInitiatorProximity
-from netapp_ontap.models.nfs_service_protocol_v41_features import NfsServiceProtocolV41Features
-from netapp_ontap.models.s3_service_post_response_records import S3ServicePostResponseRecords
-from netapp_ontap.models.svm_ldap import SvmLdap
-from netapp_ontap.models.cifs_service_security import CifsServiceSecurity
-from netapp_ontap.models.cluster_nodes_service_processor_backup import ClusterNodesServiceProcessorBackup
-from netapp_ontap.models.metrocluster_remote import MetroclusterRemote
-from netapp_ontap.models.tape_device_aliases import TapeDeviceAliases
-from netapp_ontap.models.storage_switch_temperature_sensors import StorageSwitchTemperatureSensors
-from netapp_ontap.models.cluster_nodes_cluster_interface import ClusterNodesClusterInterface
-from netapp_ontap.models.anti_ransomware_node import AntiRansomwareNode
-from netapp_ontap.models.web_hsts import WebHsts
-from netapp_ontap.models.security_oauth2_introspection import SecurityOauth2Introspection
-from netapp_ontap.models.performance_network_metrics import PerformanceNetworkMetrics
-from netapp_ontap.models.nfs_service_exports import NfsServiceExports
-from netapp_ontap.models.service_processor import ServiceProcessor
-from netapp_ontap.models.igroup_initiator_no_records_proximity_peer_svms import IgroupInitiatorNoRecordsProximityPeerSvms
-from netapp_ontap.models.volume_tiering import VolumeTiering
-from netapp_ontap.models.vsi_on_san_new_igroups import VsiOnSanNewIgroups
-from netapp_ontap.models.performance_metric_raw import PerformanceMetricRaw
-from netapp_ontap.models.igroup_initiators_connectivity_tracking import IgroupInitiatorsConnectivityTracking
-from netapp_ontap.models.node_ha_giveback import NodeHaGiveback
-from netapp_ontap.models.cluster_nodes_service_processor_primary import ClusterNodesServiceProcessorPrimary
-from netapp_ontap.models.file_move_file import FileMoveFile
-from netapp_ontap.models.node_uuid import NodeUuid
-from netapp_ontap.models.unix_group_users_records import UnixGroupUsersRecords
-from netapp_ontap.models.application_statistics_components_latency import ApplicationStatisticsComponentsLatency
-from netapp_ontap.models.oracle_rac_on_nfs_oracle_crs import OracleRacOnNfsOracleCrs
-from netapp_ontap.models.qtree_user import QtreeUser
-from netapp_ontap.models.storage_bridge_errors_component import StorageBridgeErrorsComponent
-from netapp_ontap.models.volume_rebalancing1_engine_scanner import VolumeRebalancing1EngineScanner
-from netapp_ontap.models.application_statistics_latency import ApplicationStatisticsLatency
-from netapp_ontap.models.flexcache_cifs_change_notify import FlexcacheCifsChangeNotify
-from netapp_ontap.models.scope_ipspace import ScopeIpspace
-from netapp_ontap.models.top_metrics_client_response_notice import TopMetricsClientResponseNotice
-from netapp_ontap.models.s3_server_warning import S3ServerWarning
-from netapp_ontap.models.snapmirror_endpoint import SnapmirrorEndpoint
-from netapp_ontap.models.ems_event_action_title_arguments import EmsEventActionTitleArguments
-from netapp_ontap.models.volume_rebalancing1_engine_scanner_files_skipped import VolumeRebalancing1EngineScannerFilesSkipped
-from netapp_ontap.models.performance_metric_raw_reduced_throughput import PerformanceMetricRawReducedThroughput
-from netapp_ontap.models.sql_on_san_log import SqlOnSanLog
-from netapp_ontap.models.ip_interface_svm_location import IpInterfaceSvmLocation
-from netapp_ontap.models.performance_cifs_metric_response_records import PerformanceCifsMetricResponseRecords
-from netapp_ontap.models.shelf_paths import ShelfPaths
-from netapp_ontap.models.autosupport_connectivity_issue import AutosupportConnectivityIssue
-from netapp_ontap.models.svm_storage import SvmStorage
-from netapp_ontap.models.shelf_frus import ShelfFrus
-from netapp_ontap.models.storage_unit_encryption import StorageUnitEncryption
-from netapp_ontap.models.svm_migration_ip_interface_port import SvmMigrationIpInterfacePort
-from netapp_ontap.models.volume_efficiency_policy1 import VolumeEfficiencyPolicy1
-from netapp_ontap.models.top_metrics_svm_client_excluded_volume import TopMetricsSvmClientExcludedVolume
-from netapp_ontap.models.oracle_rac_on_nfs_oracle_crs_storage_service import OracleRacOnNfsOracleCrsStorageService
-from netapp_ontap.models.node_ha_giveback_status import NodeHaGivebackStatus
-from netapp_ontap.models.job_link import JobLink
-from netapp_ontap.models.fc_interface_svm_location import FcInterfaceSvmLocation
-from netapp_ontap.models.consistency_group_consistency_groups_luns_lun_maps_igroup_initiators import ConsistencyGroupConsistencyGroupsLunsLunMapsIgroupInitiators
-from netapp_ontap.models.igroup_initiator_connectivity_tracking import IgroupInitiatorConnectivityTracking
-from netapp_ontap.models.quota_report_qtree import QuotaReportQtree
-from netapp_ontap.models.fc_switch_ports_attached_device import FcSwitchPortsAttachedDevice
-from netapp_ontap.models.svm_migration_volume_aggregate_pair import SvmMigrationVolumeAggregatePair
-from netapp_ontap.models.consistency_group_child_volumes import ConsistencyGroupChildVolumes
-from netapp_ontap.models.container_volume_flexcache_relationship import ContainerVolumeFlexcacheRelationship
-from netapp_ontap.models.key_manager_config_health_monitor_policy import KeyManagerConfigHealthMonitorPolicy
-from netapp_ontap.models.volume_statistics_cloud import VolumeStatisticsCloud
-from netapp_ontap.models.shelf_drawers import ShelfDrawers
-from netapp_ontap.models.top_metrics_file_throughput import TopMetricsFileThroughput
-from netapp_ontap.models.autosupport_message_error import AutosupportMessageError
-from netapp_ontap.models.consistency_group_consistency_groups_namespaces import ConsistencyGroupConsistencyGroupsNamespaces
-from netapp_ontap.models.ems_filter_rule_parameter_criteria import EmsFilterRuleParameterCriteria
-from netapp_ontap.models.fc_login_initiator import FcLoginInitiator
-from netapp_ontap.models.snaplock_retention_policy_operation import SnaplockRetentionPolicyOperation
-from netapp_ontap.models.igroup_connectivity_tracking import IgroupConnectivityTracking
-from netapp_ontap.models.fc_switch_ports import FcSwitchPorts
-from netapp_ontap.models.fpolicy_policies_scope import FpolicyPoliciesScope
-from netapp_ontap.models.metrocluster_dr_group_mccip_ports import MetroclusterDrGroupMccipPorts
-from netapp_ontap.models.cluster_nis_service_binding_details import ClusterNisServiceBindingDetails
-from netapp_ontap.models.volume_rebalancing1_engine_movement_last_error import VolumeRebalancing1EngineMovementLastError
-from netapp_ontap.models.software_status_details_reference_node import SoftwareStatusDetailsReferenceNode
-from netapp_ontap.models.nvme_subsystem_controller_interface import NvmeSubsystemControllerInterface
-from netapp_ontap.models.ems_destination_response_records_connectivity import EmsDestinationResponseRecordsConnectivity
-from netapp_ontap.models.certificate_signing_request import CertificateSigningRequest
-from netapp_ontap.models.storage_bridge_temperature_sensor import StorageBridgeTemperatureSensor
-from netapp_ontap.models.volume_encryption import VolumeEncryption
-from netapp_ontap.models.file_move_files_to_move_destinations import FileMoveFilesToMoveDestinations
-from netapp_ontap.models.software_reference_metrocluster import SoftwareReferenceMetrocluster
-from netapp_ontap.models.schedule_cron import ScheduleCron
-from netapp_ontap.models.consistency_group_nvme_host_proximity1_peer_svms import ConsistencyGroupNvmeHostProximity1PeerSvms
-from netapp_ontap.models.consistency_group_clone1_storage_unit import ConsistencyGroupClone1StorageUnit
-from netapp_ontap.models.consistency_group_snaplock import ConsistencyGroupSnaplock
-from netapp_ontap.models.aggregate_block_storage_primary_simulated_raid_groups import AggregateBlockStoragePrimarySimulatedRaidGroups
-from netapp_ontap.models.autosupport_connectivity_corrective_action import AutosupportConnectivityCorrectiveAction
-from netapp_ontap.models.consistency_group_cifs_share_acls import ConsistencyGroupCifsShareAcls
-from netapp_ontap.models.lun_map_reporting_nodes import LunMapReportingNodes
-from netapp_ontap.models.consistency_group_replication_relationships import ConsistencyGroupReplicationRelationships
-from netapp_ontap.models.application_protection_groups import ApplicationProtectionGroups
-from netapp_ontap.models.nvme_namespace_qos_policy import NvmeNamespaceQosPolicy
-from netapp_ontap.models.share_lock import ShareLock
-from netapp_ontap.models.application_statistics_components_snapshot import ApplicationStatisticsComponentsSnapshot
-from netapp_ontap.models.s3_bucket_snapshot_policy import S3BucketSnapshotPolicy
-from netapp_ontap.models.cluster_nodes_metrocluster import ClusterNodesMetrocluster
-from netapp_ontap.models.disk_outage import DiskOutage
-from netapp_ontap.models.device_discovery_data import DeviceDiscoveryData
-from netapp_ontap.models.security_azure import SecurityAzure
-from netapp_ontap.models.ems_event_action_confirmation_message_arguments import EmsEventActionConfirmationMessageArguments
-from netapp_ontap.models.storage_port_cable import StoragePortCable
-from netapp_ontap.models.s3_bucket_svm_encryption import S3BucketSvmEncryption
-from netapp_ontap.models.zapp_nvme import ZappNvme
-from netapp_ontap.models.group_policy_object_event_audit import GroupPolicyObjectEventAudit
-from netapp_ontap.models.software_update_details_reference_node import SoftwareUpdateDetailsReferenceNode
-from netapp_ontap.models.performance_namespace_metric_response_records import PerformanceNamespaceMetricResponseRecords
-from netapp_ontap.models.broadcast_domain_reference_ipspace import BroadcastDomainReferenceIpspace
-from netapp_ontap.models.oracle_on_nfs_db import OracleOnNfsDb
-from netapp_ontap.models.lun_copy_source_progress import LunCopySourceProgress
-from netapp_ontap.models.lun_vvol_bindings_partner import LunVvolBindingsPartner
-from netapp_ontap.models.analytics_collection_info_by_modified_time_bytes_used import AnalyticsCollectionInfoByModifiedTimeBytesUsed
-from netapp_ontap.models.cifs_open_file_connection import CifsOpenFileConnection
-from netapp_ontap.models.vscan_on_access_scope import VscanOnAccessScope
-from netapp_ontap.models.license_package_response_records import LicensePackageResponseRecords
-from netapp_ontap.models.snapmirror_transfer_relationship import SnapmirrorTransferRelationship
-from netapp_ontap.models.security_key_manager_external_server_ca_certificates import SecurityKeyManagerExternalServerCaCertificates
-from netapp_ontap.models.consistency_group_lun_space import ConsistencyGroupLunSpace
-from netapp_ontap.models.oracle_on_san_new_igroups import OracleOnSanNewIgroups
-from netapp_ontap.models.volume_clone import VolumeClone
-from netapp_ontap.models.ipsec_ca_certificate_uuid import IpsecCaCertificateUuid
-from netapp_ontap.models.status import Status
-from netapp_ontap.models.server import Server
-from netapp_ontap.models.performance_reduced_throughput import PerformanceReducedThroughput
-from netapp_ontap.models.ip_interface_response_recommend import IpInterfaceResponseRecommend
-from netapp_ontap.models.file import File
-from netapp_ontap.models.igroup_initiators_proximity import IgroupInitiatorsProximity
-from netapp_ontap.models.member import Member
-from netapp_ontap.models.storage_unit_maps_subsystem_map import StorageUnitMapsSubsystemMap
-from netapp_ontap.models.metrocluster_diagnostics_aggregate import MetroclusterDiagnosticsAggregate
-from netapp_ontap.models.metrocluster_diag_connection import MetroclusterDiagConnection
-from netapp_ontap.models.port_lag_member_ports import PortLagMemberPorts
-from netapp_ontap.models.uri import Uri
-from netapp_ontap.models.consistency_group_nvme_host_tls import ConsistencyGroupNvmeHostTls
-from netapp_ontap.models.mediator_response_records import MediatorResponseRecords
-from netapp_ontap.models.cluster_nodes_controller_failed_power_supply import ClusterNodesControllerFailedPowerSupply
-from netapp_ontap.models.ems_event_response_records import EmsEventResponseRecords
-from netapp_ontap.models.quota_rule_files import QuotaRuleFiles
-from netapp_ontap.models.chassis_frus import ChassisFrus
-from netapp_ontap.models.cloud_store_aggregate import CloudStoreAggregate
-from netapp_ontap.models.ems_event_parameters import EmsEventParameters
-from netapp_ontap.models.web_csrf import WebCsrf
-from netapp_ontap.models.shelf_fans import ShelfFans
-from netapp_ontap.models.usm import Usm
-from netapp_ontap.models.zapp_s3_bucket_protection_type import ZappS3BucketProtectionType
-from netapp_ontap.models.s3_service_user_post import S3ServiceUserPost
-from netapp_ontap.models.lun_map_lun_node import LunMapLunNode
-from netapp_ontap.models.cluster_nodes_ha_interconnect import ClusterNodesHaInterconnect
-from netapp_ontap.models.cluster_nodes_ha_giveback_failure import ClusterNodesHaGivebackFailure
-from netapp_ontap.models.snapshot_delta import SnapshotDelta
-from netapp_ontap.models.consistency_group_volume_space import ConsistencyGroupVolumeSpace
-from netapp_ontap.models.aggregate_block_storage import AggregateBlockStorage
-from netapp_ontap.models.fpolicy_engine_buffer_size import FpolicyEngineBufferSize
-from netapp_ontap.models.nfs_service_access_cache_config import NfsServiceAccessCacheConfig
-from netapp_ontap.models.consistency_group_snapshot_modify import ConsistencyGroupSnapshotModify
-from netapp_ontap.models.shelf_bays import ShelfBays
-from netapp_ontap.models.performance_namespace_metric_space import PerformanceNamespaceMetricSpace
-from netapp_ontap.models.software_validation_reference_action import SoftwareValidationReferenceAction
-from netapp_ontap.models.local_cifs_group_members_no_records import LocalCifsGroupMembersNoRecords
-from netapp_ontap.models.volume_analytics_unsupported_reason import VolumeAnalyticsUnsupportedReason
-from netapp_ontap.models.collection_links import CollectionLinks
-from netapp_ontap.models.lun_copy_destinations import LunCopyDestinations
-from netapp_ontap.models.metrocluster_partner import MetroclusterPartner
-from netapp_ontap.models.svm_cifs_service import SvmCifsService
-from netapp_ontap.models.analytics_collection_info_by_modified_time import AnalyticsCollectionInfoByModifiedTime
-from netapp_ontap.models.container_response_records_volumes_s3_bucket_policy_statements import ContainerResponseRecordsVolumesS3BucketPolicyStatements
-from netapp_ontap.models.cluster_nodes_ha_partners import ClusterNodesHaPartners
-from netapp_ontap.models.nvme_namespace_convert import NvmeNamespaceConvert
-from netapp_ontap.models.application_lun_object import ApplicationLunObject
-from netapp_ontap.models.s3_bucket_cors_rule import S3BucketCorsRule
-from netapp_ontap.models.s3_bucket_policy_condition import S3BucketPolicyCondition
-from netapp_ontap.models.volume_efficiency_policy_schedule import VolumeEfficiencyPolicySchedule
-from netapp_ontap.models.container_response_records_volumes_s3_bucket_policy import ContainerResponseRecordsVolumesS3BucketPolicy
-from netapp_ontap.models.consistency_group_consistency_groups_luns_lun_maps import ConsistencyGroupConsistencyGroupsLunsLunMaps
-from netapp_ontap.models.lun_vvol_bindings import LunVvolBindings
-from netapp_ontap.models.port_lag_active_ports import PortLagActivePorts
-from netapp_ontap.models.svm_migration_destination_volume_placement_volume_aggregate_pairs import SvmMigrationDestinationVolumePlacementVolumeAggregatePairs
-from netapp_ontap.models.application_component_snapshot_svm import ApplicationComponentSnapshotSvm
-from netapp_ontap.models.consistency_group_response_records_luns_lun_maps_igroup_initiators import ConsistencyGroupResponseRecordsLunsLunMapsIgroupInitiators
-from netapp_ontap.models.dr_pair import DrPair
-from netapp_ontap.models.consistency_group_response_records_luns import ConsistencyGroupResponseRecordsLuns
-from netapp_ontap.models.metrocluster_diagnostics_configreplication import MetroclusterDiagnosticsConfigreplication
-from netapp_ontap.models.rfc2307_attribute import Rfc2307Attribute
-from netapp_ontap.models.shelf_temperature_sensors_threshold_high import ShelfTemperatureSensorsThresholdHigh
-from netapp_ontap.models.sql_on_san_new_igroups import SqlOnSanNewIgroups
-from netapp_ontap.models.network_route_for_svm import NetworkRouteForSvm
-from netapp_ontap.models.shelf_ports_remote import ShelfPortsRemote
-from netapp_ontap.models.fips import Fips
-from netapp_ontap.models.log_retention import LogRetention
-from netapp_ontap.models.application_san_access_fcp_endpoint import ApplicationSanAccessFcpEndpoint
-from netapp_ontap.models.aggregate_cloud_storage import AggregateCloudStorage
-from netapp_ontap.models.ems_event_message import EmsEventMessage
-from netapp_ontap.models.flexcache_guarantee import FlexcacheGuarantee
-from netapp_ontap.models.ip_interface_and_gateway import IpInterfaceAndGateway
-from netapp_ontap.models.ip_info import IpInfo
-from netapp_ontap.models.ipv6_interface import Ipv6Interface
-from netapp_ontap.models.aggregate_warning_action import AggregateWarningAction
-from netapp_ontap.models.nvme_subsystem_io_queue import NvmeSubsystemIoQueue
-from netapp_ontap.models.fc_port_transceiver import FcPortTransceiver
-from netapp_ontap.models.cluster_metrics_response_records import ClusterMetricsResponseRecords
-from netapp_ontap.models.cluster_nodes_external_cache_bypass import ClusterNodesExternalCacheBypass
-from netapp_ontap.models.storage_unit_movement_source import StorageUnitMovementSource
-from netapp_ontap.models.raid_group import RaidGroup
-from netapp_ontap.models.onboard_key_manager_configurable_status import OnboardKeyManagerConfigurableStatus
-from netapp_ontap.models.ems_filter_rules_message_criteria import EmsFilterRulesMessageCriteria
-from netapp_ontap.models.health_monitor_policy_fields import HealthMonitorPolicyFields
-from netapp_ontap.models.container_response_records import ContainerResponseRecords
-from netapp_ontap.models.fpolicy_event_file_operations import FpolicyEventFileOperations
-from netapp_ontap.models.autosupport_issues import AutosupportIssues
-from netapp_ontap.models.software_update_details import SoftwareUpdateDetails
-from netapp_ontap.models.security_key_manager_external import SecurityKeyManagerExternal
-from netapp_ontap.models.svm_migration_source import SvmMigrationSource
-from netapp_ontap.models.fc_interface_svm import FcInterfaceSvm
-from netapp_ontap.models.bgp_peer_group_local_ip import BgpPeerGroupLocalIp
-from netapp_ontap.models.cluster_nodes_external_cache import ClusterNodesExternalCache
-from netapp_ontap.models.shelf_manufacturer import ShelfManufacturer
-from netapp_ontap.models.token_node import TokenNode
-from netapp_ontap.models.consistency_group_child import ConsistencyGroupChild
-from netapp_ontap.models.file_info_constituent import FileInfoConstituent
-from netapp_ontap.models.lun_lun_maps_igroup_initiators import LunLunMapsIgroupInitiators
-from netapp_ontap.models.application_cifs_properties_backing_storage import ApplicationCifsPropertiesBackingStorage
-from netapp_ontap.models.consistency_group_igroup_igroups import ConsistencyGroupIgroupIgroups
-from netapp_ontap.models.cluster_nodes_controller_frus import ClusterNodesControllerFrus
-from netapp_ontap.models.software_status_details_reference_issue import SoftwareStatusDetailsReferenceIssue
-from netapp_ontap.models.zapp_s3_bucket_application_components_snapshot_policy import ZappS3BucketApplicationComponentsSnapshotPolicy
-from netapp_ontap.models.nfs_service_protocol_v42_features import NfsServiceProtocolV42Features
-from netapp_ontap.models.fpolicy_events import FpolicyEvents
-from netapp_ontap.models.qtree_group import QtreeGroup
-from netapp_ontap.models.nvme_interface_ip_interface import NvmeInterfaceIpInterface
-from netapp_ontap.models.vdi_on_san_new_igroups import VdiOnSanNewIgroups
-from netapp_ontap.models.related_link import RelatedLink
-from netapp_ontap.models.switch_port_identity import SwitchPortIdentity
-from netapp_ontap.models.volume_analytics import VolumeAnalytics
-from netapp_ontap.models.lun_map_reporting_node_lun import LunMapReportingNodeLun
-from netapp_ontap.models.counter_schema import CounterSchema
-from netapp_ontap.models.switch_port_remote_port import SwitchPortRemotePort
-from netapp_ontap.models.volume_protocol_raw_performance_stat_create import VolumeProtocolRawPerformanceStatCreate
-from netapp_ontap.models.policies_and_rules_to_be_applied_to_be_applied import PoliciesAndRulesToBeAppliedToBeApplied
-from netapp_ontap.models.apply_to import ApplyTo
-from netapp_ontap.models.port_statistics_device import PortStatisticsDevice
-from netapp_ontap.models.fc_port_fabric import FcPortFabric
-from netapp_ontap.models.ems_ui_message_arguments import EmsUiMessageArguments
-from netapp_ontap.models.port_svm import PortSvm
-from netapp_ontap.models.ipsec_policy_response_records import IpsecPolicyResponseRecords
-from netapp_ontap.models.fc_switch_port import FcSwitchPort
-from netapp_ontap.models.storage_switch_ports_sfp import StorageSwitchPortsSfp
-from netapp_ontap.models.software_upload import SoftwareUpload
-from netapp_ontap.models.lun_copy_destinations_progress import LunCopyDestinationsProgress
-from netapp_ontap.models.aggregate_block_storage_primary import AggregateBlockStoragePrimary
-from netapp_ontap.models.nvme_subsystem_subsystem_maps_namespace import NvmeSubsystemSubsystemMapsNamespace
-from netapp_ontap.models.key_server_state_array import KeyServerStateArray
-from netapp_ontap.models.snapmirror_destination_creation_tiering import SnapmirrorDestinationCreationTiering
-from netapp_ontap.models.layout_requirement import LayoutRequirement
-from netapp_ontap.models.igroup_initiator_records import IgroupInitiatorRecords
-from netapp_ontap.models.application_statistics_components_space import ApplicationStatisticsComponentsSpace
-from netapp_ontap.models.performance_monitored_files_metric_response_records import PerformanceMonitoredFilesMetricResponseRecords
-from netapp_ontap.models.security_association_ipsec_outbound import SecurityAssociationIpsecOutbound
-from netapp_ontap.models.application_nfs_properties_export_policy import ApplicationNfsPropertiesExportPolicy
-from netapp_ontap.models.mediator_ping_error import MediatorPingError
-from netapp_ontap.models.nvme_service_statistics import NvmeServiceStatistics
-from netapp_ontap.models.consistency_group_lun_lun_maps_igroup_initiators import ConsistencyGroupLunLunMapsIgroupInitiators
-from netapp_ontap.models.firmware_update_progress import FirmwareUpdateProgress
-from netapp_ontap.models.qtree_statistics_raw import QtreeStatisticsRaw
-from netapp_ontap.models.application_namespace_object import ApplicationNamespaceObject
-from netapp_ontap.models.consistency_group_map_to import ConsistencyGroupMapTo
-from netapp_ontap.models.consistency_group_replication_relationship import ConsistencyGroupReplicationRelationship
-from netapp_ontap.models.arw_vserver_event_log import ArwVserverEventLog
-from netapp_ontap.models.job_node import JobNode
-from netapp_ontap.models.lun_consistency_group import LunConsistencyGroup
-from netapp_ontap.models.performance_svm_nfs_metric_historical_v3 import PerformanceSvmNfsMetricHistoricalV3
-from netapp_ontap.models.lun_attributes import LunAttributes
-from netapp_ontap.models.performance_svm_nfs_metric_historical_v4 import PerformanceSvmNfsMetricHistoricalV4
-from netapp_ontap.models.snaplock_log_archive import SnaplockLogArchive
-from netapp_ontap.models.ems_action_parameter_title_arguments import EmsActionParameterTitleArguments
-from netapp_ontap.models.igroup_connectivity_tracking_required_nodes import IgroupConnectivityTrackingRequiredNodes
-from netapp_ontap.models.iscsi_service_target import IscsiServiceTarget
-from netapp_ontap.models.cluster_peer_local_network_interfaces import ClusterPeerLocalNetworkInterfaces
-from netapp_ontap.models.cifs_netbios import CifsNetbios
-from netapp_ontap.models.zapp_nvme_components_subsystem_hosts import ZappNvmeComponentsSubsystemHosts
-from netapp_ontap.models.node_management_interfaces import NodeManagementInterfaces
-from netapp_ontap.models.storage_pool_capacity import StoragePoolCapacity
-from netapp_ontap.models.quota_report_space import QuotaReportSpace
-from netapp_ontap.models.zapp_s3_bucket_application_components_access_policies_conditions import ZappS3BucketApplicationComponentsAccessPoliciesConditions
-from netapp_ontap.models.lun_copy_source import LunCopySource
-from netapp_ontap.models.consistency_group_response_records_luns_lun_maps_igroup_igroups import ConsistencyGroupResponseRecordsLunsLunMapsIgroupIgroups
-from netapp_ontap.models.cluster_peer_remote import ClusterPeerRemote
-from netapp_ontap.models.azure_key_vault_ekmip_reachability import AzureKeyVaultEkmipReachability
-from netapp_ontap.models.totp_post import TotpPost
-from netapp_ontap.models.metrocluster_diagnostics_cluster import MetroclusterDiagnosticsCluster
-from netapp_ontap.models.application_rpo_components_rpo import ApplicationRpoComponentsRpo
-from netapp_ontap.models.lun_movement_progress import LunMovementProgress
-from netapp_ontap.models.performance_svm_nfs_statistics import PerformanceSvmNfsStatistics
-from netapp_ontap.models.consistency_group_namespace_subsystem_map import ConsistencyGroupNamespaceSubsystemMap
-from netapp_ontap.models.ems_event_action_parameters_validation_error_message_arguments import EmsEventActionParametersValidationErrorMessageArguments
-from netapp_ontap.models.nvme_namespace_subsystem_map_subsystem import NvmeNamespaceSubsystemMapSubsystem
-from netapp_ontap.models.cluster_nodes_controller_failed_power_supply_message import ClusterNodesControllerFailedPowerSupplyMessage
-from netapp_ontap.models.application_component_snapshot_restore import ApplicationComponentSnapshotRestore
-from netapp_ontap.models.aggregate_spare import AggregateSpare
-from netapp_ontap.models.ems_destination_connectivity import EmsDestinationConnectivity
-from netapp_ontap.models.disk_virtual import DiskVirtual
-from netapp_ontap.models.application_san_access import ApplicationSanAccess
-from netapp_ontap.models.performance_svm import PerformanceSvm
-from netapp_ontap.models.portset_interfaces import PortsetInterfaces
-from netapp_ontap.models.firmware import Firmware
-from netapp_ontap.models.lun_lun_maps_igroup_igroups import LunLunMapsIgroupIgroups
-from netapp_ontap.models.storage_pool_show_spares import StoragePoolShowSpares
-from netapp_ontap.models.s3_bucket_lifecycle_object_filter import S3BucketLifecycleObjectFilter
-from netapp_ontap.models.svm_nsswitch import SvmNsswitch
-from netapp_ontap.models.performance_fc_interface_metric_response_records import PerformanceFcInterfaceMetricResponseRecords
-from netapp_ontap.models.giveback_status import GivebackStatus
-from netapp_ontap.models.cifs_target import CifsTarget
-from netapp_ontap.models.s3_service_post import S3ServicePost
-from netapp_ontap.models.consistency_group_child_luns import ConsistencyGroupChildLuns
-from netapp_ontap.models.lun_map_lun_smbc import LunMapLunSmbc
-from netapp_ontap.models.cluster_space_metrics import ClusterSpaceMetrics
-from netapp_ontap.models.ems_connectivity_error import EmsConnectivityError
-from netapp_ontap.models.file_info_qos_policy import FileInfoQosPolicy
-from netapp_ontap.models.ipv4_interface import Ipv4Interface
-from netapp_ontap.models.lun_convert_namespace import LunConvertNamespace
-from netapp_ontap.models.port_metrics_response_records import PortMetricsResponseRecords
-from netapp_ontap.models.shelf_frus_psu import ShelfFrusPsu
-from netapp_ontap.models.nas_application_components_flexcache_origin_component import NasApplicationComponentsFlexcacheOriginComponent
-from netapp_ontap.models.firmware_history_update_state_worker import FirmwareHistoryUpdateStateWorker
-from netapp_ontap.models.ems_syslog import EmsSyslog
-from netapp_ontap.models.s3_log import S3Log
-from netapp_ontap.models.consistency_group_response_records_consistency_groups_luns_lun_maps_igroup_initiators import ConsistencyGroupResponseRecordsConsistencyGroupsLunsLunMapsIgroupInitiators
-from netapp_ontap.models.ems_event_action_parameters_help_arguments import EmsEventActionParametersHelpArguments
-from netapp_ontap.models.shelf_acps import ShelfAcps
-from netapp_ontap.models.anti_ransomware_storage_unit_attack_reports import AntiRansomwareStorageUnitAttackReports
-from netapp_ontap.models.s3_bucket_svm_cors import S3BucketSvmCors
-from netapp_ontap.models.top_metrics_svm_user_iops import TopMetricsSvmUserIops
-from netapp_ontap.models.volume_activity_tracking import VolumeActivityTracking
-from netapp_ontap.models.storage_unit_clone import StorageUnitClone
-from netapp_ontap.models.cloud_store_unavailable_reason import CloudStoreUnavailableReason
-from netapp_ontap.models.byte_lock import ByteLock
-from netapp_ontap.models.aggregate_block_storage_hybrid_cache_storage_pools import AggregateBlockStorageHybridCacheStoragePools
-from netapp_ontap.models.management_protocols import ManagementProtocols
-from netapp_ontap.models.oracle_on_nfs_ora_home_storage_service import OracleOnNfsOraHomeStorageService
-from netapp_ontap.models.volume_rebalancing1_engine import VolumeRebalancing1Engine
-from netapp_ontap.models.application_subsystem_map_object import ApplicationSubsystemMapObject
-from netapp_ontap.models.storage_unit_consistency_group import StorageUnitConsistencyGroup
-from netapp_ontap.models.snapmirror_relationship_svmdr_volumes import SnapmirrorRelationshipSvmdrVolumes
-from netapp_ontap.models.sql_on_san_db import SqlOnSanDb
-from netapp_ontap.models.error import Error
-from netapp_ontap.models.metrocluster_diagnostics_connection import MetroclusterDiagnosticsConnection
-from netapp_ontap.models.flexcache_aggregates import FlexcacheAggregates
-from netapp_ontap.models.analytics_histogram_by_time import AnalyticsHistogramByTime
-from netapp_ontap.models.consistency_group_nvme_subsystem import ConsistencyGroupNvmeSubsystem
-from netapp_ontap.models.application_component_snapshot_application import ApplicationComponentSnapshotApplication
-from netapp_ontap.models.cluster_nodes_service_processor_web_service import ClusterNodesServiceProcessorWebService
-from netapp_ontap.models.volume_rebalancing import VolumeRebalancing
-from netapp_ontap.models.nvme_subsystem_host_no_records import NvmeSubsystemHostNoRecords
-from netapp_ontap.models.san_new_igroups import SanNewIgroups
-from netapp_ontap.models.security_oauth2_jwks import SecurityOauth2Jwks
-from netapp_ontap.models.oracle_rac_on_san import OracleRacOnSan
-from netapp_ontap.models.storage_bridge_paths import StorageBridgePaths
-from netapp_ontap.models.active_directory_discovered_servers import ActiveDirectoryDiscoveredServers
-from netapp_ontap.models.interface_statistics import InterfaceStatistics
-from netapp_ontap.models.consistency_group_lun_map_igroup_igroups import ConsistencyGroupLunMapIgroupIgroups
-from netapp_ontap.models.zapp_nvme_components_subsystem import ZappNvmeComponentsSubsystem
-from netapp_ontap.models.top_metrics_svm_directory_excluded_volume import TopMetricsSvmDirectoryExcludedVolume
-from netapp_ontap.models.container_volumes_s3_bucket import ContainerVolumesS3Bucket
-from netapp_ontap.models.volume_files import VolumeFiles
-from netapp_ontap.models.nas_application_components_snaplock_retention import NasApplicationComponentsSnaplockRetention
-from netapp_ontap.models.metrocluster_interconnect_mirror import MetroclusterInterconnectMirror
-from netapp_ontap.models.storage_switch_fans import StorageSwitchFans
-from netapp_ontap.models.auto_update_info_eula import AutoUpdateInfoEula
-from netapp_ontap.models.storage_switch_connections import StorageSwitchConnections
-from netapp_ontap.models.consistency_group_clone1_parent_consistency_group import ConsistencyGroupClone1ParentConsistencyGroup
-from netapp_ontap.models.cluster_space_block_storage_medias import ClusterSpaceBlockStorageMedias
-from netapp_ontap.models.consistency_group_lun_map import ConsistencyGroupLunMap
-from netapp_ontap.models.snapmirror_policy_rule import SnapmirrorPolicyRule
-from netapp_ontap.models.performance_nvme_metric_properties import PerformanceNvmeMetricProperties
-from netapp_ontap.models.fc_port_speed import FcPortSpeed
-from netapp_ontap.models.zapp_nvme_components_performance import ZappNvmeComponentsPerformance
-from netapp_ontap.models.cifs_open_file_session import CifsOpenFileSession
-from netapp_ontap.models.ems_event_links import EmsEventLinks
-from netapp_ontap.models.file_move_scanner import FileMoveScanner
-from netapp_ontap.models.consistency_group_response_records_consistency_groups_luns import ConsistencyGroupResponseRecordsConsistencyGroupsLuns
-from netapp_ontap.models.lun_status import LunStatus
-from netapp_ontap.models.version import Version
-from netapp_ontap.models.capacity_pool_response_records_nodes import CapacityPoolResponseRecordsNodes
-from netapp_ontap.models.kerberos_realm_password_server import KerberosRealmPasswordServer
-from netapp_ontap.models.igroup_initiators_proximity_peer_svms import IgroupInitiatorsProximityPeerSvms
-from netapp_ontap.models.capacity_pool_node import CapacityPoolNode
-from netapp_ontap.models.cluster_nodes_controller import ClusterNodesController
-from netapp_ontap.models.firmware_history_update_state_error import FirmwareHistoryUpdateStateError
-from netapp_ontap.models.nas_exclude_aggregates import NasExcludeAggregates
-from netapp_ontap.models.oracle_rac_on_san_new_igroups import OracleRacOnSanNewIgroups
-from netapp_ontap.models.portset_interface_no_records import PortsetInterfaceNoRecords
-from netapp_ontap.models.igroup_nested_no_records import IgroupNestedNoRecords
-from netapp_ontap.models.oracle_on_nfs_ora_home import OracleOnNfsOraHome
-from netapp_ontap.models.application_links import ApplicationLinks
-from netapp_ontap.models.igroup_replication import IgroupReplication
-from netapp_ontap.models.disk_error_info import DiskErrorInfo
-from netapp_ontap.models.fabric_connections_cluster_port import FabricConnectionsClusterPort
-from netapp_ontap.models.application_nfs_properties_permissions import ApplicationNfsPropertiesPermissions
-from netapp_ontap.models.ekmip_server_connectivity import EkmipServerConnectivity
-from netapp_ontap.models.consistency_group_lun_lun_maps_igroup_igroups import ConsistencyGroupLunLunMapsIgroupIgroups
-from netapp_ontap.models.node_setup_ip import NodeSetupIp
-from netapp_ontap.models.oracle_on_nfs_redo_log_storage_service import OracleOnNfsRedoLogStorageService
-from netapp_ontap.models.kerberos_realm_admin_server import KerberosRealmAdminServer
-from netapp_ontap.models.nvme_subsystem_host_records_io_queue import NvmeSubsystemHostRecordsIoQueue
-from netapp_ontap.models.consistency_group_luns import ConsistencyGroupLuns
-from netapp_ontap.models.consistency_group_luns_lun_maps_igroup_initiators import ConsistencyGroupLunsLunMapsIgroupInitiators
-from netapp_ontap.models.active_directory_delete import ActiveDirectoryDelete
-from netapp_ontap.models.software_images_inner import SoftwareImagesInner
-from netapp_ontap.models.fcp_service_target import FcpServiceTarget
-from netapp_ontap.models.nvme_namespace_subsystem_map import NvmeNamespaceSubsystemMap
-from netapp_ontap.models.ems_action_parameter import EmsActionParameter
-from netapp_ontap.models.plex_resync import PlexResync
-from netapp_ontap.models.acl import Acl
-from netapp_ontap.models.top_metrics_client_iops import TopMetricsClientIops
-from netapp_ontap.models.returned_error import ReturnedError
-from netapp_ontap.models.mongo_db_on_san_protection_type import MongoDbOnSanProtectionType
-from netapp_ontap.models.consistency_group_child_luns_lun_maps import ConsistencyGroupChildLunsLunMaps
-from netapp_ontap.models.switch_port_identity_breakout import SwitchPortIdentityBreakout
-from netapp_ontap.models.qtree_nas import QtreeNas
-from netapp_ontap.models.volume_consistency_group import VolumeConsistencyGroup
-from netapp_ontap.models.cloud_storage_tier import CloudStorageTier
-from netapp_ontap.models.nvme_namespace_consistency_group import NvmeNamespaceConsistencyGroup
-from netapp_ontap.models.cluster_peer_links import ClusterPeerLinks
-from netapp_ontap.models.quota_report_space_used import QuotaReportSpaceUsed
-from netapp_ontap.models.zapp_nvme_rpo_local import ZappNvmeRpoLocal
-from netapp_ontap.models.ndmp_scsi import NdmpScsi
-from netapp_ontap.models.firmware_shelf import FirmwareShelf
-from netapp_ontap.models.storage_unit_clone_source import StorageUnitCloneSource
-from netapp_ontap.models.disk_key_id import DiskKeyId
-from netapp_ontap.models.ems_event_response_records_parameters import EmsEventResponseRecordsParameters
-from netapp_ontap.models.consistency_group_volume_provisioning_options import ConsistencyGroupVolumeProvisioningOptions
-from netapp_ontap.models.application_san_access_iscsi_endpoint import ApplicationSanAccessIscsiEndpoint
-from netapp_ontap.models.s3_bucket_svm_aggregates import S3BucketSvmAggregates
-from netapp_ontap.models.application_component_snapshot_component import ApplicationComponentSnapshotComponent
-from netapp_ontap.models.schedule_cluster import ScheduleCluster
-from netapp_ontap.models.storage_bridge_paths_target_port import StorageBridgePathsTargetPort
-from netapp_ontap.models.application_rpo_remote import ApplicationRpoRemote
-from netapp_ontap.models.oracle_rac_on_san_db_sids import OracleRacOnSanDbSids
-from netapp_ontap.models.application_cifs_properties_share import ApplicationCifsPropertiesShare
-from netapp_ontap.models.backup_node import BackupNode
-from netapp_ontap.models.nvme_subsystem_subsystem_maps import NvmeSubsystemSubsystemMaps
-from netapp_ontap.models.metrocluster_interconnect_interfaces import MetroclusterInterconnectInterfaces
-from netapp_ontap.models.nvme_subsystem_replication_peer_subsystem import NvmeSubsystemReplicationPeerSubsystem
-from netapp_ontap.models.node_response_records_ha_giveback import NodeResponseRecordsHaGiveback
-from netapp_ontap.models.ems_role_config_response_records import EmsRoleConfigResponseRecords
-from netapp_ontap.models.multi_admin_verify_rule_approval_groups import MultiAdminVerifyRuleApprovalGroups
-from netapp_ontap.models.storage_unit_maps import StorageUnitMaps
-from netapp_ontap.models.security_audit_log_svm import SecurityAuditLogSvm
-from netapp_ontap.models.file_move_files_to_move import FileMoveFilesToMove
-from netapp_ontap.models.application_lun_mapping_object import ApplicationLunMappingObject
-from netapp_ontap.models.nas import Nas
-from netapp_ontap.models.webauthn_credentials_public_key import WebauthnCredentialsPublicKey
-from netapp_ontap.models.mediator_ping import MediatorPing
-from netapp_ontap.models.application_volume_object import ApplicationVolumeObject
-from netapp_ontap.models.fpolicy_event_filters import FpolicyEventFilters
-from netapp_ontap.models.volume_efficiency_idcs_scanner import VolumeEfficiencyIdcsScanner
-from netapp_ontap.models.ems_event_action_parameters_description_arguments import EmsEventActionParametersDescriptionArguments
-from netapp_ontap.models.anti_ransomware_suspect_file import AntiRansomwareSuspectFile
-from netapp_ontap.models.performance_metric_io_type_rwt import PerformanceMetricIoTypeRwt
-from netapp_ontap.models.svm_ndmp import SvmNdmp
-from netapp_ontap.models.sql_on_smb import SqlOnSmb
-from netapp_ontap.models.cifs_domain_preferred_dcs import CifsDomainPreferredDcs
-from netapp_ontap.models.cluster_nodes_cluster_interfaces import ClusterNodesClusterInterfaces
-from netapp_ontap.models.s3_policy_statement import S3PolicyStatement
-from netapp_ontap.models.audit_schedule import AuditSchedule
-from netapp_ontap.models.account_application import AccountApplication
-from netapp_ontap.models.application_nvme_access_subsystem_map_subsystem_hosts_links import ApplicationNvmeAccessSubsystemMapSubsystemHostsLinks
-from netapp_ontap.models.share import Share
-from netapp_ontap.models.volume_constituents_node import VolumeConstituentsNode
-from netapp_ontap.models.windows_to_unix import WindowsToUnix
-from netapp_ontap.models.node_ha_partners import NodeHaPartners
-from netapp_ontap.models.nvme_subsystem_hosts_proximity_peer_svms import NvmeSubsystemHostsProximityPeerSvms
-from netapp_ontap.models.tape_device_storage_port import TapeDeviceStoragePort
-from netapp_ontap.models.node_statistics import NodeStatistics
-from netapp_ontap.models.top_metrics_directory_response_notice import TopMetricsDirectoryResponseNotice
-from netapp_ontap.models.metrocluster_diagnostics_interface import MetroclusterDiagnosticsInterface
-from netapp_ontap.models.capacity_pool_response_records import CapacityPoolResponseRecords
-from netapp_ontap.models.application_rpo_local import ApplicationRpoLocal
-from netapp_ontap.models.storage_unit_location import StorageUnitLocation
-from netapp_ontap.models.consistency_group_space import ConsistencyGroupSpace
-from netapp_ontap.models.interface_metrics_response_records import InterfaceMetricsResponseRecords
-from netapp_ontap.models.quota_rule_group import QuotaRuleGroup
-from netapp_ontap.models.lun_map_lun import LunMapLun
-from netapp_ontap.models.sql_on_smb_access import SqlOnSmbAccess
-from netapp_ontap.models.ems_event_update import EmsEventUpdate
-from netapp_ontap.models.shelf_temperature_sensors_threshold import ShelfTemperatureSensorsThreshold
-from netapp_ontap.models.consistency_group_luns_lun_maps_igroup_igroups import ConsistencyGroupLunsLunMapsIgroupIgroups
-from netapp_ontap.models.performance_svm_nfs_metric import PerformanceSvmNfsMetric
-from netapp_ontap.models.ems_destination_response_records_connectivity_errors_message_arguments import EmsDestinationResponseRecordsConnectivityErrorsMessageArguments
-from netapp_ontap.models.vsi_on_nas_datastore import VsiOnNasDatastore
-from netapp_ontap.models.storage_switch_paths import StorageSwitchPaths
-from netapp_ontap.models.svm_migration_ip_interface_placement import SvmMigrationIpInterfacePlacement
-from netapp_ontap.models.volume_protocol_raw_performance_stats import VolumeProtocolRawPerformanceStats
-from netapp_ontap.models.application_statistics_components import ApplicationStatisticsComponents
-from netapp_ontap.models.svm_aggregates import SvmAggregates
-from netapp_ontap.models.application_component_application import ApplicationComponentApplication
-from netapp_ontap.models.snaplock_litigation_get_operations import SnaplockLitigationGetOperations
-from netapp_ontap.models.security_association_response_records import SecurityAssociationResponseRecords
-from netapp_ontap.models.consistency_group_qos_policy import ConsistencyGroupQosPolicy
-from netapp_ontap.models.gcp_kms_key import GcpKmsKey
-from netapp_ontap.models.volume_rebalancing1_engine_movement import VolumeRebalancing1EngineMovement
-from netapp_ontap.models.consistency_group_namespace_space_guarantee import ConsistencyGroupNamespaceSpaceGuarantee
-from netapp_ontap.models.export_rules import ExportRules
-from netapp_ontap.models.container_volume_s3_bucket_policy_statements import ContainerVolumeS3BucketPolicyStatements
-from netapp_ontap.models.aggregate_space import AggregateSpace
-from netapp_ontap.models.snapshot_snaplock import SnapshotSnaplock
-from netapp_ontap.models.unix_group_users_no_records import UnixGroupUsersNoRecords
-from netapp_ontap.models.consistency_group_volume import ConsistencyGroupVolume
-from netapp_ontap.models.igroup_initiator_list_item_proximity_peer_svms import IgroupInitiatorListItemProximityPeerSvms
-from netapp_ontap.models.snapmirror_consistency_group_failover import SnapmirrorConsistencyGroupFailover
-from netapp_ontap.models.nvme_subsystem_controller_host import NvmeSubsystemControllerHost
-from netapp_ontap.models.top_metrics_client_throughput import TopMetricsClientThroughput
-from netapp_ontap.models.multi_admin_verify_rule_owner import MultiAdminVerifyRuleOwner
-from netapp_ontap.models.quota_rule_qtree import QuotaRuleQtree
-from netapp_ontap.models.nvme_namespace_subsystem_map_subsystem_hosts_proximity_peer_svms import NvmeNamespaceSubsystemMapSubsystemHostsProximityPeerSvms
-from netapp_ontap.models.lun_space import LunSpace
-from netapp_ontap.models.nis import Nis
-from netapp_ontap.models.performance_reduced_throughput_response_records import PerformanceReducedThroughputResponseRecords
-from netapp_ontap.models.shelf_temperature_sensors import ShelfTemperatureSensors
-from netapp_ontap.models.consistency_group_response_records_luns_lun_maps import ConsistencyGroupResponseRecordsLunsLunMaps
-from netapp_ontap.models.ems_destination_connectivity_errors import EmsDestinationConnectivityErrors
-from netapp_ontap.models.quota_report_files_used import QuotaReportFilesUsed
-from netapp_ontap.models.raid_group_recomputing_parity import RaidGroupRecomputingParity
-from netapp_ontap.models.anti_ransomware_attack_report_links import AntiRansomwareAttackReportLinks
-from netapp_ontap.models.ems_ui_message import EmsUiMessage
-from netapp_ontap.models.nvme_host_proximity import NvmeHostProximity
-from netapp_ontap.models.performance_metric_svm import PerformanceMetricSvm
-from netapp_ontap.models.metrocluster_diagnostics_node import MetroclusterDiagnosticsNode
-from netapp_ontap.models.nas_application_components_qos_policy import NasApplicationComponentsQosPolicy
-from netapp_ontap.models.consistency_group_namespaces import ConsistencyGroupNamespaces
-from netapp_ontap.models.sql_on_san import SqlOnSan
-from netapp_ontap.models.nvme_subsystem_controller_admin_queue import NvmeSubsystemControllerAdminQueue
-from netapp_ontap.models.consistency_group_initiator import ConsistencyGroupInitiator
-from netapp_ontap.models.consistency_group_child_luns_lun_maps_igroup_initiators import ConsistencyGroupChildLunsLunMapsIgroupInitiators
-from netapp_ontap.models.consistency_group_nvme_host_proximity_peer_svms import ConsistencyGroupNvmeHostProximityPeerSvms
-from netapp_ontap.models.lun_map_reporting_node_igroup import LunMapReportingNodeIgroup
-from netapp_ontap.models.ddns import Ddns
-from netapp_ontap.models.consistency_group_consistency_groups_application import ConsistencyGroupConsistencyGroupsApplication
-from netapp_ontap.models.application_protection_groups_rpo import ApplicationProtectionGroupsRpo
-from netapp_ontap.models.consistency_group_consistency_groups import ConsistencyGroupConsistencyGroups
-from netapp_ontap.models.lun_lun_maps_igroup import LunLunMapsIgroup
-from netapp_ontap.models.top_metrics_svm_directory_response_notice import TopMetricsSvmDirectoryResponseNotice
-from netapp_ontap.models.application_component_snapshot_restore_application import ApplicationComponentSnapshotRestoreApplication
-from netapp_ontap.models.file_info_links import FileInfoLinks
-from netapp_ontap.models.igroup_initiator_no_records import IgroupInitiatorNoRecords
-from netapp_ontap.models.consistency_group_consistency_groups_tiering_object_stores import ConsistencyGroupConsistencyGroupsTieringObjectStores
-from netapp_ontap.models.quota_report_users import QuotaReportUsers
-from netapp_ontap.models.top_metrics_svm_user_volumes import TopMetricsSvmUserVolumes
-from netapp_ontap.models.raid_group_reconstruct import RaidGroupReconstruct
-from netapp_ontap.models.nas_application_components_export_policy import NasApplicationComponentsExportPolicy
-from netapp_ontap.models.iscsi_session_igroups import IscsiSessionIgroups
-from netapp_ontap.models.zapp_nvme_rpo_remote import ZappNvmeRpoRemote
-from netapp_ontap.models.s3_bucket_cors_rules import S3BucketCorsRules
-from netapp_ontap.models.zapp_nvme_rpo import ZappNvmeRpo
-from netapp_ontap.models.application_nvme_access_subsystem_map_subsystem_hosts import ApplicationNvmeAccessSubsystemMapSubsystemHosts
-from netapp_ontap.models.mccip_port import MccipPort
-from netapp_ontap.models.cifs_domain_discovered_servers import CifsDomainDiscoveredServers
-from netapp_ontap.models.volume_constituents_space_snapshot import VolumeConstituentsSpaceSnapshot
-from netapp_ontap.models.ems_destination_connectivity_errors_message_arguments import EmsDestinationConnectivityErrorsMessageArguments
-from netapp_ontap.models.port_metrics_data import PortMetricsData
-from netapp_ontap.models.firmware_history_update_state import FirmwareHistoryUpdateState
-from netapp_ontap.models.igroup_nested_records import IgroupNestedRecords
-from netapp_ontap.models.anti_ransomware_attack_report import AntiRansomwareAttackReport
-from netapp_ontap.models.portset_interface_portset import PortsetInterfacePortset
-from netapp_ontap.models.snaplock_log_volume import SnaplockLogVolume
-from netapp_ontap.models.igroup_initiator_records_proximity import IgroupInitiatorRecordsProximity
-from netapp_ontap.models.volume_snaplock_retention import VolumeSnaplockRetention
-from netapp_ontap.models.lun_provisioning_options_storage_service import LunProvisioningOptionsStorageService
-from netapp_ontap.models.ems_filter_response_records_rules import EmsFilterResponseRecordsRules
-from netapp_ontap.models.unix_group_users_unix_group import UnixGroupUsersUnixGroup
-from netapp_ontap.models.top_metrics_directory_iops import TopMetricsDirectoryIops
-from netapp_ontap.models.s3_bucket_retention import S3BucketRetention
-from netapp_ontap.models.cluster_nodes_management_interfaces import ClusterNodesManagementInterfaces
-from netapp_ontap.models.consistency_group_igroup_child import ConsistencyGroupIgroupChild
-from netapp_ontap.models.consistency_group_snaplock_retention import ConsistencyGroupSnaplockRetention
-from netapp_ontap.models.fabric_connections import FabricConnections
-from netapp_ontap.models.node_response_records_cluster_interfaces import NodeResponseRecordsClusterInterfaces
-from netapp_ontap.models.sql_on_san_db_storage_service import SqlOnSanDbStorageService
-from netapp_ontap.models.volume_autosize import VolumeAutosize
-from netapp_ontap.models.pool_health import PoolHealth
-from netapp_ontap.models.ndmp_mover import NdmpMover
-from netapp_ontap.models.performance_svm_response_records import PerformanceSvmResponseRecords
-from netapp_ontap.models.nas_application_components import NasApplicationComponents
-from netapp_ontap.models.ems_syslog_format import EmsSyslogFormat
-from netapp_ontap.models.s3_bucket_lifecycle_abort_incomplete_multipart_upload import S3BucketLifecycleAbortIncompleteMultipartUpload
-from netapp_ontap.models.s3_bucket_svm_cors_rules import S3BucketSvmCorsRules
-from netapp_ontap.models.volume_statistics import VolumeStatistics
-from netapp_ontap.models.volume_protocol_raw_performance_stat_other import VolumeProtocolRawPerformanceStatOther
-from netapp_ontap.models.local_cifs_group_members1 import LocalCifsGroupMembers1
-from netapp_ontap.models.node_response_records import NodeResponseRecords
-from netapp_ontap.models.fpolicy_policies import FpolicyPolicies
-from netapp_ontap.models.software_reference_metrocluster_progress_details import SoftwareReferenceMetroclusterProgressDetails
-from netapp_ontap.models.svm_migration_ip_interface_placement_ip_interfaces import SvmMigrationIpInterfacePlacementIpInterfaces
-from netapp_ontap.models.application_rpo_components_rpo_remote import ApplicationRpoComponentsRpoRemote
-from netapp_ontap.models.consistency_group_consistency_groups_luns_clone_source import ConsistencyGroupConsistencyGroupsLunsCloneSource
-from netapp_ontap.models.iscsi_connection_initiator_address import IscsiConnectionInitiatorAddress
-from netapp_ontap.models.lun_location import LunLocation
-from netapp_ontap.models.fpolicy_persistent_stores import FpolicyPersistentStores
-from netapp_ontap.models.cloud_target_cluster import CloudTargetCluster
-from netapp_ontap.models.ikp_connectivity import IkpConnectivity
-from netapp_ontap.models.consistency_group_lun_space_guarantee import ConsistencyGroupLunSpaceGuarantee
-from netapp_ontap.models.token_expiry_time import TokenExpiryTime
-from netapp_ontap.models.cifs_domain_preferred_dc_status import CifsDomainPreferredDcStatus
-from netapp_ontap.models.nfs_service_qtree import NfsServiceQtree
-from netapp_ontap.models.igroup_initiator_proximity_peer_svms import IgroupInitiatorProximityPeerSvms
-from netapp_ontap.models.rfc2307 import Rfc2307
-from netapp_ontap.models.group_policy_object_registry_value import GroupPolicyObjectRegistryValue
-from netapp_ontap.models.snaplock_litigation_file_response_records import SnaplockLitigationFileResponseRecords
-from netapp_ontap.models.fc_zone_member import FcZoneMember
-from netapp_ontap.models.local_cifs_group_members_local_cifs_group import LocalCifsGroupMembersLocalCifsGroup
-from netapp_ontap.models.system_firmware import SystemFirmware
-from netapp_ontap.models.performance_metric_response_records import PerformanceMetricResponseRecords
-from netapp_ontap.models.kerberos_realm_kdc import KerberosRealmKdc
-from netapp_ontap.models.oracle_rac_on_nfs_grid_binary import OracleRacOnNfsGridBinary
-from netapp_ontap.models.anti_ransomware_volume_workload_historical_statistics import AntiRansomwareVolumeWorkloadHistoricalStatistics
-from netapp_ontap.models.ems_parameter_criterion import EmsParameterCriterion
-from netapp_ontap.models.application_statistics_components_storage_service import ApplicationStatisticsComponentsStorageService
-from netapp_ontap.models.vscan_on_access_policy import VscanOnAccessPolicy
-from netapp_ontap.models.mongo_db_on_san_secondary_igroups import MongoDbOnSanSecondaryIgroups
-from netapp_ontap.models.node_cluster_interfaces import NodeClusterInterfaces
-from netapp_ontap.models.cluster_peer_local_network import ClusterPeerLocalNetwork
-from netapp_ontap.models.tape_device_alias import TapeDeviceAlias
-from netapp_ontap.models.vdi_on_nas_desktops import VdiOnNasDesktops
-from netapp_ontap.models.bgp_peer_group_peer import BgpPeerGroupPeer
-from netapp_ontap.models.volume_movement import VolumeMovement
-from netapp_ontap.models.igroup_initiator_connectivity_tracking_connections_logins import IgroupInitiatorConnectivityTrackingConnectionsLogins
-from netapp_ontap.models.replication_error_subsystem import ReplicationErrorSubsystem
-from netapp_ontap.models.svm_s3_service import SvmS3Service
-from netapp_ontap.models.top_metrics_directory_throughput import TopMetricsDirectoryThroughput
-from netapp_ontap.models.performance_fcp_metric_svm import PerformanceFcpMetricSvm
-from netapp_ontap.models.nvme_subsystem_host_io_queue import NvmeSubsystemHostIoQueue
-from netapp_ontap.models.analytics_collection_info_by_accessed_time_bytes_used import AnalyticsCollectionInfoByAccessedTimeBytesUsed
-from netapp_ontap.models.chassis_nodes_pcis_cards import ChassisNodesPcisCards
-from netapp_ontap.models.nvme_namespace_subsystem_map_subsystem_hosts import NvmeNamespaceSubsystemMapSubsystemHosts
-from netapp_ontap.models.ems_event_message1 import EmsEventMessage1
-from netapp_ontap.models.bgp_peer_group_local_port_node import BgpPeerGroupLocalPortNode
-from netapp_ontap.models.nas_application_components_flexcache_origin import NasApplicationComponentsFlexcacheOrigin
-from netapp_ontap.models.s3_service_delete import S3ServiceDelete
-from netapp_ontap.models.cluster_nodes_ha_giveback_status_error import ClusterNodesHaGivebackStatusError
-from netapp_ontap.models.application_statistics_space import ApplicationStatisticsSpace
-from netapp_ontap.models.storage_unit_maps_host_group import StorageUnitMapsHostGroup
-from netapp_ontap.models.multi_admin_verify_approval_group_owner import MultiAdminVerifyApprovalGroupOwner
-from netapp_ontap.models.storage_switch_paths_adapter import StorageSwitchPathsAdapter
-from netapp_ontap.models.broadcast_domain_ports import BroadcastDomainPorts
-from netapp_ontap.models.error_arguments import ErrorArguments
-from netapp_ontap.models.ems_filter_rule_response_records import EmsFilterRuleResponseRecords
-from netapp_ontap.models.entitlement import Entitlement
-from netapp_ontap.models.consistency_group_consistency_groups_luns_clone import ConsistencyGroupConsistencyGroupsLunsClone
-from netapp_ontap.models.app_cifs_access import AppCifsAccess
-from netapp_ontap.models.ems_message_response_records import EmsMessageResponseRecords
-from netapp_ontap.models.consistency_group_clone1_guarantee import ConsistencyGroupClone1Guarantee
-from netapp_ontap.models.consistency_group_tiering import ConsistencyGroupTiering
-from netapp_ontap.models.storage_unit_space import StorageUnitSpace
-from netapp_ontap.models.s3_bucket_svm_lifecycle_management import S3BucketSvmLifecycleManagement
-from netapp_ontap.models.port_lag import PortLag
-from netapp_ontap.models.fabric_connections_switch_port import FabricConnectionsSwitchPort
-from netapp_ontap.models.s3_bucket_cors import S3BucketCors
-from netapp_ontap.models.group_policy_object_event_log import GroupPolicyObjectEventLog
-from netapp_ontap.models.nvme_subsystem_io_queue_default import NvmeSubsystemIoQueueDefault
-from netapp_ontap.models.nas_application_components_qos import NasApplicationComponentsQos
-from netapp_ontap.models.vscan_on_demand_scope import VscanOnDemandScope
-from netapp_ontap.models.container_response_records_volumes import ContainerResponseRecordsVolumes
-from netapp_ontap.models.san import San
-from netapp_ontap.models.consistency_group_consistency_groups_volumes_nas_junction_parent import ConsistencyGroupConsistencyGroupsVolumesNasJunctionParent
-from netapp_ontap.models.ldap_schema_account import LdapSchemaAccount
-from netapp_ontap.models.sql_on_san_temp_db_storage_service import SqlOnSanTempDbStorageService
-from netapp_ontap.models.aggregate_space_cloud_storage import AggregateSpaceCloudStorage
-from netapp_ontap.models.volume_efficiency_scanner import VolumeEfficiencyScanner
-from netapp_ontap.models.nvme_dh_hmac_chap_authentication import NvmeDhHmacChapAuthentication
-from netapp_ontap.models.storage_bridge_power_supply_units import StorageBridgePowerSupplyUnits
-from netapp_ontap.models.anti_ransomware_volume_suspect_files import AntiRansomwareVolumeSuspectFiles
-from netapp_ontap.models.fabric_zoneset import FabricZoneset
-from netapp_ontap.models.volume_nas_junction_parent import VolumeNasJunctionParent
-from netapp_ontap.models.nas_application_components_storage_service import NasApplicationComponentsStorageService
-from netapp_ontap.models.volume_constituents import VolumeConstituents
-from netapp_ontap.models.volume_qos import VolumeQos
-from netapp_ontap.models.cluster_peer_initial_allowed_svms import ClusterPeerInitialAllowedSvms
-from netapp_ontap.models.consistency_group_consistency_groups_luns_lun_maps_igroup_igroups import ConsistencyGroupConsistencyGroupsLunsLunMapsIgroupIgroups
-from netapp_ontap.models.fpolicy_engine_resiliency import FpolicyEngineResiliency
-from netapp_ontap.models.volume_guarantee import VolumeGuarantee
-from netapp_ontap.models.raid_group_disk import RaidGroupDisk
-from netapp_ontap.models.port_vlan import PortVlan
-from netapp_ontap.models.software_reference_metrocluster_progress_summary import SoftwareReferenceMetroclusterProgressSummary
-from netapp_ontap.models.analytics_collection_info_by_accessed_time import AnalyticsCollectionInfoByAccessedTime
-from netapp_ontap.models.snapmirror_relationship_policy import SnapmirrorRelationshipPolicy
-from netapp_ontap.models.s3_bucket_lifecycle_non_current_version_expiration import S3BucketLifecycleNonCurrentVersionExpiration
-from netapp_ontap.models.nvme_subsystem_hosts import NvmeSubsystemHosts
-from netapp_ontap.models.ad_domain import AdDomain
-from netapp_ontap.models.s3_bucket_protection_status import S3BucketProtectionStatus
-from netapp_ontap.models.vdi_on_nas_hyper_v_access import VdiOnNasHyperVAccess
-from netapp_ontap.models.webauthn_credentials_relying_party import WebauthnCredentialsRelyingParty
-from netapp_ontap.models.consistency_group_snapshot_snaplock import ConsistencyGroupSnapshotSnaplock
-from netapp_ontap.models.security_keystore_configuration import SecurityKeystoreConfiguration
-from netapp_ontap.models.performance_iscsi_metric_response_records import PerformanceIscsiMetricResponseRecords
-from netapp_ontap.models.security_saml_def_metadata_certificate import SecuritySamlDefMetadataCertificate
-from netapp_ontap.models.shelf_ports_cable import ShelfPortsCable
-from netapp_ontap.models.consistency_group_child_luns_lun_maps_igroup_igroups import ConsistencyGroupChildLunsLunMapsIgroupIgroups
-from netapp_ontap.models.ldap_schema_name_mapping import LdapSchemaNameMapping
-from netapp_ontap.models.consistency_group_response_records_consistency_groups_luns_lun_maps import ConsistencyGroupResponseRecordsConsistencyGroupsLunsLunMaps
-from netapp_ontap.models.performance_lun_metric_space import PerformanceLunMetricSpace
-from netapp_ontap.models.s3_bucket_aggregates import S3BucketAggregates
-from netapp_ontap.models.cn import Cn
-from netapp_ontap.models.application_rpo_components_rpo_local import ApplicationRpoComponentsRpoLocal
-from netapp_ontap.models.consistency_group_snapshot_response_records import ConsistencyGroupSnapshotResponseRecords
-from netapp_ontap.models.s3_user_post_patch import S3UserPostPatch
-from netapp_ontap.models.application_rpo_components import ApplicationRpoComponents
-from netapp_ontap.models.iscsi_credentials_chap_inbound import IscsiCredentialsChapInbound
-from netapp_ontap.models.nfs_service_protocol_v40_features import NfsServiceProtocolV40Features
-from netapp_ontap.models.cifs_session_volumes import CifsSessionVolumes
-from netapp_ontap.models.software_data_encryption import SoftwareDataEncryption
-from netapp_ontap.models.switch_port_remote_port_device_shelf import SwitchPortRemotePortDeviceShelf
-from netapp_ontap.models.network_route_interfaces import NetworkRouteInterfaces
-from netapp_ontap.models.cluster_peer_encryption import ClusterPeerEncryption
-from netapp_ontap.models.switch_monitoring import SwitchMonitoring
-from netapp_ontap.models.portset_igroups import PortsetIgroups
-from netapp_ontap.models.top_metric_value_error_bounds import TopMetricValueErrorBounds
-from netapp_ontap.models.igroup_parent import IgroupParent
-from netapp_ontap.models.nvme_subsystem_host_proximity_peer_svms import NvmeSubsystemHostProximityPeerSvms
-from netapp_ontap.models.tape_device_device_names import TapeDeviceDeviceNames
-from netapp_ontap.models.lun_map_igroup import LunMapIgroup
-from netapp_ontap.models.preferred_dcs import PreferredDcs
-from netapp_ontap.models.shelf_errors import ShelfErrors
-from netapp_ontap.models.storage_unit_anti_ransomware_suspect_response_records import StorageUnitAntiRansomwareSuspectResponseRecords
-from netapp_ontap.models.nas_application_components_flexcache_origin_svm import NasApplicationComponentsFlexcacheOriginSvm
-from netapp_ontap.models.anti_ransomware_volume_workload_surge_statistics import AntiRansomwareVolumeWorkloadSurgeStatistics
-from netapp_ontap.models.performance_svm_nfs_response_records import PerformanceSvmNfsResponseRecords
-from netapp_ontap.models.nvme_host_proximity_peer_svms import NvmeHostProximityPeerSvms
-from netapp_ontap.models.application_template1 import ApplicationTemplate1
-from netapp_ontap.models.s3_audit_events import S3AuditEvents
-from netapp_ontap.models.nas_application_components_tiering_object_stores import NasApplicationComponentsTieringObjectStores
-from netapp_ontap.models.cluster_nodes_metrocluster_ports import ClusterNodesMetroclusterPorts
-from netapp_ontap.models.svm_iscsi import SvmIscsi
-from netapp_ontap.models.cluster_management_interface import ClusterManagementInterface
-from netapp_ontap.models.nvme_subsystem_controller_dh_hmac_chap import NvmeSubsystemControllerDhHmacChap
-from netapp_ontap.models.performance_metric_raw_svm import PerformanceMetricRawSvm
-from netapp_ontap.models.container_volume import ContainerVolume
-from netapp_ontap.models.posix import Posix
-from netapp_ontap.models.nfs_service_root import NfsServiceRoot
-from netapp_ontap.models.snapmirror_destination_creation_storage_service import SnapmirrorDestinationCreationStorageService
-from netapp_ontap.models.metrocluster_diag_connection_details import MetroclusterDiagConnectionDetails
-from netapp_ontap.models.oracle_rac_on_nfs_grid_binary_storage_service import OracleRacOnNfsGridBinaryStorageService
-from netapp_ontap.models.consistency_group_response_records_consistency_groups_luns_lun_maps_igroup_igroups import ConsistencyGroupResponseRecordsConsistencyGroupsLunsLunMapsIgroupIgroups
-from netapp_ontap.models.consistency_group_consistency_groups_volumes_nas_cifs import ConsistencyGroupConsistencyGroupsVolumesNasCifs
-from netapp_ontap.models.group_policy_object_privilege_right import GroupPolicyObjectPrivilegeRight
-from netapp_ontap.models.volume_snapmirror import VolumeSnapmirror
-from netapp_ontap.models.counter import Counter
-from netapp_ontap.models.performance_fcp_metric_response_records import PerformanceFcpMetricResponseRecords
-from netapp_ontap.models.security_certificate_sign import SecurityCertificateSign
-from netapp_ontap.models.group_policy_object_kerberos import GroupPolicyObjectKerberos
-from netapp_ontap.models.quota_rule_space import QuotaRuleSpace
-from netapp_ontap.models.cluster_nodes_snaplock import ClusterNodesSnaplock
-from netapp_ontap.models.volume_snaplock import VolumeSnaplock
-from netapp_ontap.models.s3_bucket_lifecycle_management import S3BucketLifecycleManagement
-from netapp_ontap.models.shelf_current_sensors import ShelfCurrentSensors
-from netapp_ontap.models.svm_snapmirror import SvmSnapmirror
-from netapp_ontap.models.svm_migration_volume_placement import SvmMigrationVolumePlacement
-from netapp_ontap.models.nvme_subsystem_controller_tls import NvmeSubsystemControllerTls
-from netapp_ontap.models.quota_report_files import QuotaReportFiles
-from netapp_ontap.models.security_key_manager_onboard import SecurityKeyManagerOnboard
-from netapp_ontap.models.cluster_peering_policy import ClusterPeeringPolicy
-from netapp_ontap.models.group_policy_object_branchcache import GroupPolicyObjectBranchcache
-from netapp_ontap.models.igroup_initiators_links import IgroupInitiatorsLinks
-from netapp_ontap.models.application_component_svm import ApplicationComponentSvm
-from netapp_ontap.models.anti_ransomware_volume_attack_detection_parameters import AntiRansomwareVolumeAttackDetectionParameters
-from netapp_ontap.models.nvme_namespace_provisioning_options import NvmeNamespaceProvisioningOptions
-from netapp_ontap.models.local_cifs_group_members_records import LocalCifsGroupMembersRecords
-from netapp_ontap.models.nvme_subsystem_replication_error import NvmeSubsystemReplicationError
-from netapp_ontap.models.nvme_namespace_provisioning_options_storage_service import NvmeNamespaceProvisioningOptionsStorageService
-from netapp_ontap.models.barbican_connectivity import BarbicanConnectivity
-from netapp_ontap.models.nvme_namespace_convert_lun import NvmeNamespaceConvertLun
-from netapp_ontap.models.security_association_ipsec import SecurityAssociationIpsec
-from netapp_ontap.models.consistency_group_luns_lun_maps import ConsistencyGroupLunsLunMaps
-from netapp_ontap.models.smb import Smb
-from netapp_ontap.models.firmware_sp_bmc import FirmwareSpBmc
-from netapp_ontap.models.ems_filter_response_records_rules_parameter_criteria import EmsFilterResponseRecordsRulesParameterCriteria
-from netapp_ontap.models.cifs_ad_domain import CifsAdDomain
-from netapp_ontap.models.s3_bucket_svm_protection_status_destination import S3BucketSvmProtectionStatusDestination
-from netapp_ontap.models.snaplock_log_file import SnaplockLogFile
-from netapp_ontap.models.nvme_namespace_clone import NvmeNamespaceClone
-from netapp_ontap.models.unix_group_users1 import UnixGroupUsers1
-from netapp_ontap.models.aggregate_data_encryption import AggregateDataEncryption
-from netapp_ontap.models.s3_service_delete_response_records import S3ServiceDeleteResponseRecords
-from netapp_ontap.models.nas_application_components_snaplock import NasApplicationComponentsSnaplock
-from netapp_ontap.models.aggregate_space_snapshot import AggregateSpaceSnapshot
-from netapp_ontap.models.mccip_port_l3_config import MccipPortL3Config
-from netapp_ontap.models.snapmirror_endpoint_consistency_group_volumes import SnapmirrorEndpointConsistencyGroupVolumes
-from netapp_ontap.models.igroup_initiator_records_proximity_peer_svms import IgroupInitiatorRecordsProximityPeerSvms
-from netapp_ontap.models.application_protection_groups_rpo_local import ApplicationProtectionGroupsRpoLocal
-from netapp_ontap.models.storage_unit_snapshot_snaplock import StorageUnitSnapshotSnaplock
-from netapp_ontap.models.switch_snmp import SwitchSnmp
-from netapp_ontap.models.s3_audit_event_selector import S3AuditEventSelector
-from netapp_ontap.models.anti_ransomware_volume_workload_surge_usage import AntiRansomwareVolumeWorkloadSurgeUsage
-from netapp_ontap.models.consistency_group_consistency_groups_volumes import ConsistencyGroupConsistencyGroupsVolumes
-from netapp_ontap.models.ipsec_endpoint import IpsecEndpoint
-from netapp_ontap.models.fc_interface_response_recommend import FcInterfaceResponseRecommend
-from netapp_ontap.models.storage_switch_errors_component import StorageSwitchErrorsComponent
-from netapp_ontap.models.software_package_download_get import SoftwarePackageDownloadGet
-from netapp_ontap.models.advanced_rights import AdvancedRights
-from netapp_ontap.models.svm_migration_volume_placement_volume_aggregate_pairs import SvmMigrationVolumePlacementVolumeAggregatePairs
-from netapp_ontap.models.metrocluster_diagnostics_volume import MetroclusterDiagnosticsVolume
-from netapp_ontap.models.svm_nvme import SvmNvme
-from netapp_ontap.models.application_nvme_access_backing_storage import ApplicationNvmeAccessBackingStorage
-from netapp_ontap.models.ems_filter_rules import EmsFilterRules
-from netapp_ontap.models.storage_bridge_sas_ports_phy2 import StorageBridgeSasPortsPhy2
-from netapp_ontap.models.storage_bridge_sas_ports_phy1 import StorageBridgeSasPortsPhy1
-from netapp_ontap.models.storage_switch_connections_peer_port import StorageSwitchConnectionsPeerPort
-from netapp_ontap.models.storage_bridge_sas_ports_phy4 import StorageBridgeSasPortsPhy4
-from netapp_ontap.models.storage_bridge_sas_ports_phy3 import StorageBridgeSasPortsPhy3
-from netapp_ontap.models.consistency_group_lun_lun_maps import ConsistencyGroupLunLunMaps
-from netapp_ontap.models.license import License
-from netapp_ontap.models.application_snapshot_application import ApplicationSnapshotApplication
-from netapp_ontap.models.application_snapshot_restore import ApplicationSnapshotRestore
-from netapp_ontap.models.arw_vserver import ArwVserver
-from netapp_ontap.models.iscsi_credentials_chap_outbound import IscsiCredentialsChapOutbound
-from netapp_ontap.models.software_status_details_reference_action import SoftwareStatusDetailsReferenceAction
-from netapp_ontap.models.broadcast_domain_svm import BroadcastDomainSvm
-from netapp_ontap.models.cluster_nodes_nvram import ClusterNodesNvram
-from netapp_ontap.models.lun_vvol import LunVvol
-from netapp_ontap.models.node_response_records_ha_partners import NodeResponseRecordsHaPartners
-from netapp_ontap.models.port_statistics_packet_counters import PortStatisticsPacketCounters
-from netapp_ontap.models.storage_bridge_fc_ports_sfp import StorageBridgeFcPortsSfp
-from netapp_ontap.models.consistency_group_namespace_space import ConsistencyGroupNamespaceSpace
-from netapp_ontap.models.igroup_initiator_connectivity_tracking_connections import IgroupInitiatorConnectivityTrackingConnections
-from netapp_ontap.models.cifs_domain_trust import CifsDomainTrust
-from netapp_ontap.models.storage_switch_paths_port import StorageSwitchPathsPort
-from netapp_ontap.models.iscsi_session_initiator import IscsiSessionInitiator
-from netapp_ontap.models.aggregate_inactive_data_reporting import AggregateInactiveDataReporting
-from netapp_ontap.models.container_volumes_flexcache import ContainerVolumesFlexcache
-from netapp_ontap.models.zapp_nvme_components_tiering import ZappNvmeComponentsTiering
-from netapp_ontap.models.nvme_namespace_clone_source import NvmeNamespaceCloneSource
-from netapp_ontap.models.detailed_status_code_message import DetailedStatusCodeMessage
-from netapp_ontap.models.container_response_records_volumes_s3_bucket import ContainerResponseRecordsVolumesS3Bucket
-from netapp_ontap.models.fc_interface_location_home_port_node import FcInterfaceLocationHomePortNode
-from netapp_ontap.models.top_metrics_svm_user_throughput import TopMetricsSvmUserThroughput
-from netapp_ontap.models.gcp_kms_state import GcpKmsState
-from netapp_ontap.models.nfs_service_security import NfsServiceSecurity
-from netapp_ontap.models.volume_flexgroup import VolumeFlexgroup
-from netapp_ontap.models.consistency_group_metrics_response_records import ConsistencyGroupMetricsResponseRecords
-from netapp_ontap.models.fpolicy_engines import FpolicyEngines
-from netapp_ontap.models.cluster_nodes_ha_takeover import ClusterNodesHaTakeover
-from netapp_ontap.models.san_application_components_tiering import SanApplicationComponentsTiering
-from netapp_ontap.models.counter2d import Counter2d
-from netapp_ontap.models.flexcache_atime_scrub import FlexcacheAtimeScrub
-from netapp_ontap.models.igroup_initiator_no_records_proximity import IgroupInitiatorNoRecordsProximity
-from netapp_ontap.models.oracle_on_nfs import OracleOnNfs
-from netapp_ontap.models.top_metrics_svm_user_excluded_volume import TopMetricsSvmUserExcludedVolume
-from netapp_ontap.models.aws_kms_key import AwsKmsKey
-from netapp_ontap.models.cluster_nodes_service_processor_api_service import ClusterNodesServiceProcessorApiService
-from netapp_ontap.models.shelf_bays_drawer import ShelfBaysDrawer
-from netapp_ontap.models.shadowcopy_add_files import ShadowcopyAddFiles
-from netapp_ontap.models.storage_unit_qos_policy import StorageUnitQosPolicy
-from netapp_ontap.models.fabric_connections_switch import FabricConnectionsSwitch
-from netapp_ontap.models.cifs_open_file_share import CifsOpenFileShare
-from netapp_ontap.models.security_proxy import SecurityProxy
-from netapp_ontap.models.disk_drawer import DiskDrawer
-from netapp_ontap.models.snapmirror_transfer_error_info import SnapmirrorTransferErrorInfo
-from netapp_ontap.models.webauthn_credentials_credential import WebauthnCredentialsCredential
-from netapp_ontap.models.storage_pool_disk import StoragePoolDisk
-from netapp_ontap.models.consistency_group_nvme_host_dh_hmac_chap import ConsistencyGroupNvmeHostDhHmacChap
-from netapp_ontap.models.chassis_nodes_pcis import ChassisNodesPcis
-from netapp_ontap.models.analytics_info import AnalyticsInfo
-from netapp_ontap.models.reference_file_move_file import ReferenceFileMoveFile
-from netapp_ontap.models.consistency_group_consistency_groups_luns import ConsistencyGroupConsistencyGroupsLuns
-from netapp_ontap.models.switch_port_roles import SwitchPortRoles
-from netapp_ontap.models.application_lun_mapping_object_igroup import ApplicationLunMappingObjectIgroup
-from netapp_ontap.models.svm_migration_messages import SvmMigrationMessages
-from netapp_ontap.models.volume_nodes import VolumeNodes
-from netapp_ontap.models.lun_copy import LunCopy
-from netapp_ontap.models.volume_aggregates import VolumeAggregates
-from netapp_ontap.models.flexcache_prepopulate import FlexcachePrepopulate
-from netapp_ontap.models.ip_address_range import IpAddressRange
-from netapp_ontap.models.ldap_ip_status import LdapIpStatus
-from netapp_ontap.models.application_component_storage_service import ApplicationComponentStorageService
-from netapp_ontap.models.cifs_domain_password_schedule import CifsDomainPasswordSchedule
-from netapp_ontap.models.zapp_s3_bucket_application_components import ZappS3BucketApplicationComponents
-from netapp_ontap.models.ldap_status import LdapStatus
-from netapp_ontap.models.s3_log_retention import S3LogRetention
-from netapp_ontap.models.software_validation import SoftwareValidation
-from netapp_ontap.models.consistency_group_response_records import ConsistencyGroupResponseRecords
-from netapp_ontap.models.metrocluster_diag_check import MetroclusterDiagCheck
-from netapp_ontap.models.consistency_group_lun_map_igroup_initiators import ConsistencyGroupLunMapIgroupInitiators
-from netapp_ontap.models.cluster_nodes_ha_takeover_check import ClusterNodesHaTakeoverCheck
-from netapp_ontap.models.san_application_components import SanApplicationComponents
-from netapp_ontap.models.nfs_service_protocol_access_rules import NfsServiceProtocolAccessRules
-from netapp_ontap.models.cluster_peer_authentication import ClusterPeerAuthentication
-from netapp_ontap.models.top_metrics_svm_directory_excluded_volume_reason import TopMetricsSvmDirectoryExcludedVolumeReason
-from netapp_ontap.models.anti_ransomware_volume_event_log import AntiRansomwareVolumeEventLog
-from netapp_ontap.models.qos_policy_group import QosPolicyGroup
-from netapp_ontap.models.igroup_initiator_connectivity_tracking_connections_logins_interface import IgroupInitiatorConnectivityTrackingConnectionsLoginsInterface
-from netapp_ontap.models.snapshot_provenance_volume import SnapshotProvenanceVolume
-from netapp_ontap.models.storage_availability_zone_space import StorageAvailabilityZoneSpace
-from netapp_ontap.models.storage_pool_patch import StoragePoolPatch
-from netapp_ontap.models.flexcache_relative_size import FlexcacheRelativeSize
-from netapp_ontap.models.port_statistics import PortStatistics
-from netapp_ontap.models.storage_unit_anti_ransomware_entropy_stats_response_records import StorageUnitAntiRansomwareEntropyStatsResponseRecords
-from netapp_ontap.models.consistency_group_response_records_replication_relationships import ConsistencyGroupResponseRecordsReplicationRelationships
-from netapp_ontap.models.consistency_group_snapshot_response_records_namespaces import ConsistencyGroupSnapshotResponseRecordsNamespaces
-from netapp_ontap.models.anti_ransomware_volume_workload_newly_observed_file_extensions import AntiRansomwareVolumeWorkloadNewlyObservedFileExtensions
-from netapp_ontap.models.snapmirror_source_endpoint import SnapmirrorSourceEndpoint
-from netapp_ontap.models.igroup_target import IgroupTarget
-from netapp_ontap.models.cluster_nodes_service_processor_ssh_info import ClusterNodesServiceProcessorSshInfo
-from netapp_ontap.models.volume_flash_pool import VolumeFlashPool
-from netapp_ontap.models.cluster_nodes_hw_assist_status import ClusterNodesHwAssistStatus
-from netapp_ontap.models.port_reachable_broadcast_domains import PortReachableBroadcastDomains
-from netapp_ontap.models.volume_rebalancing1_engine_scanner_blocks_skipped import VolumeRebalancing1EngineScannerBlocksSkipped
-from netapp_ontap.models.storage_switch_connections_source_port import StorageSwitchConnectionsSourcePort
-from netapp_ontap.models.analytics_info_by_accessed_time import AnalyticsInfoByAccessedTime
-from netapp_ontap.models.consistency_group_clone import ConsistencyGroupClone
-from netapp_ontap.models.storage_pool_used_allocation_unit import StoragePoolUsedAllocationUnit
-from netapp_ontap.models.capacity_pool_nodes import CapacityPoolNodes
-from netapp_ontap.models.kerberos_realm_ad_server import KerberosRealmAdServer
-from netapp_ontap.models.ems_destination_response_records_connectivity_errors import EmsDestinationResponseRecordsConnectivityErrors
-from netapp_ontap.models.metrocluster_diag_details import MetroclusterDiagDetails
-from netapp_ontap.models.lun_qos_policy import LunQosPolicy
-from netapp_ontap.models.nvme_subsystem_map_namespace import NvmeSubsystemMapNamespace
-from netapp_ontap.models.cluster_nodes_ha_giveback import ClusterNodesHaGiveback
-from netapp_ontap.models.aggregate_block_storage_hybrid_cache import AggregateBlockStorageHybridCache
-from netapp_ontap.models.container_volumes import ContainerVolumes
-from netapp_ontap.models.top_metrics_svm_client_response_notice import TopMetricsSvmClientResponseNotice
-from netapp_ontap.models.cifs_service_delete import CifsServiceDelete
-from netapp_ontap.models.chassis_nodes_usbs import ChassisNodesUsbs
-from netapp_ontap.models.consistency_group_vdisk_provisioning_options import ConsistencyGroupVdiskProvisioningOptions
-from netapp_ontap.models.storage_availability_zone_space_efficiency_without_snapshots import StorageAvailabilityZoneSpaceEfficiencyWithoutSnapshots
-from netapp_ontap.models.volume_error_state import VolumeErrorState
-from netapp_ontap.models.shelf_acps_error import ShelfAcpsError
-from netapp_ontap.models.chassis_node import ChassisNode
-from netapp_ontap.models.cifs_service_options import CifsServiceOptions
-from netapp_ontap.models.disk_path_info import DiskPathInfo
-from netapp_ontap.models.href import Href
-from netapp_ontap.models.switch_port_statistics import SwitchPortStatistics
-from netapp_ontap.models.container_volumes_s3_bucket_policy_statements import ContainerVolumesS3BucketPolicyStatements
-from netapp_ontap.models.svm_dns import SvmDns
-from netapp_ontap.models.container_volume_snaplock import ContainerVolumeSnaplock
-from netapp_ontap.models.container_volume_s3_bucket import ContainerVolumeS3Bucket
-from netapp_ontap.models.software_errors import SoftwareErrors
-from netapp_ontap.models.consistency_group_child_namespaces import ConsistencyGroupChildNamespaces
-from netapp_ontap.models.azure_key_vault_state import AzureKeyVaultState
-from netapp_ontap.models.application_nfs_properties import ApplicationNfsProperties
-from netapp_ontap.models.ems_action_parameter_help_arguments import EmsActionParameterHelpArguments
-from netapp_ontap.models.mcc_node import MccNode
-from netapp_ontap.models.cluster_space_block_storage import ClusterSpaceBlockStorage
-from netapp_ontap.models.consistency_group_volume_snapshot import ConsistencyGroupVolumeSnapshot
-from netapp_ontap.models.binding_status import BindingStatus
-from netapp_ontap.models.consistency_group_nvme_host import ConsistencyGroupNvmeHost
-from netapp_ontap.models.gcp_kms_ekmip_reachability import GcpKmsEkmipReachability
-from netapp_ontap.models.performance_svm_nfs_metric_historical import PerformanceSvmNfsMetricHistorical
-from netapp_ontap.models.consistency_group_snapshot_missing_namespaces import ConsistencyGroupSnapshotMissingNamespaces
-from netapp_ontap.models.nvme_subsystem_host_records import NvmeSubsystemHostRecords
-from netapp_ontap.models.portset_interface_records import PortsetInterfaceRecords
-from netapp_ontap.models.file_copy_files_to_copy import FileCopyFilesToCopy
-from netapp_ontap.models.application_svm import ApplicationSvm
-from netapp_ontap.models.application_san_access_iscsi_endpoint_interface_ip import ApplicationSanAccessIscsiEndpointInterfaceIp
-from netapp_ontap.models.cluster_active_directory import ClusterActiveDirectory
-from netapp_ontap.models.vdi_on_nas_desktops_storage_service import VdiOnNasDesktopsStorageService
-from netapp_ontap.models.anti_ransomware_volume_workload import AntiRansomwareVolumeWorkload
-from netapp_ontap.models.license_package_licenses import LicensePackageLicenses
-from netapp_ontap.models.cluster_nodes_ha_ports import ClusterNodesHaPorts
-from netapp_ontap.models.consistency_group_igroup_initiators import ConsistencyGroupIgroupInitiators
-from netapp_ontap.models.subject_alternate_name import SubjectAlternateName
-from netapp_ontap.models.volume_encryption_status import VolumeEncryptionStatus
-from netapp_ontap.models.cluster_nodes_controller_failed_fan import ClusterNodesControllerFailedFan
-from netapp_ontap.models.nvme_subsystem_controller_io_queue import NvmeSubsystemControllerIoQueue
-from netapp_ontap.models.shelf_ports import ShelfPorts
-from netapp_ontap.models.ikp_kms_key import IkpKmsKey
-from netapp_ontap.models.snapmirror_destination_creation import SnapmirrorDestinationCreation
-from netapp_ontap.models.storage_port_error import StoragePortError
-from netapp_ontap.models.consistency_group_igroup import ConsistencyGroupIgroup
-from netapp_ontap.models.storage_availability_zone_nodes import StorageAvailabilityZoneNodes
-from netapp_ontap.models.consistency_group_statistics import ConsistencyGroupStatistics
-from netapp_ontap.models.svm_migration_volume_errors import SvmMigrationVolumeErrors
-from netapp_ontap.models.software_mcc import SoftwareMcc
-from netapp_ontap.models.storage_switch_zones import StorageSwitchZones
-from netapp_ontap.models.ems_destination_response_records_filters import EmsDestinationResponseRecordsFilters
-from netapp_ontap.models.aws_kms_state import AwsKmsState
-from netapp_ontap.models.oracle_on_san import OracleOnSan
-from netapp_ontap.models.oracle_on_nfs_archive_log import OracleOnNfsArchiveLog
-from netapp_ontap.models.lun_attribute_lun import LunAttributeLun
-from netapp_ontap.models.application_cifs_properties_server import ApplicationCifsPropertiesServer
-from netapp_ontap.models.cluster_space_cloud_storage import ClusterSpaceCloudStorage
-from netapp_ontap.models.consistency_group_response_records_consistency_groups import ConsistencyGroupResponseRecordsConsistencyGroups
-from netapp_ontap.models.ip_interface_location import IpInterfaceLocation
-from netapp_ontap.models.metrocluster_mccip_ports import MetroclusterMccipPorts
-from netapp_ontap.models.volume_constituents_space_logical_space import VolumeConstituentsSpaceLogicalSpace
-from netapp_ontap.models.license_package_response_records_licenses import LicensePackageResponseRecordsLicenses
-from netapp_ontap.models.oracle_on_nfs_archive_log_storage_service import OracleOnNfsArchiveLogStorageService
-from netapp_ontap.models.application_component_snapshot_restore_component import ApplicationComponentSnapshotRestoreComponent
-from netapp_ontap.models.volume_application import VolumeApplication
-from netapp_ontap.models.igroup_lun_maps_lun import IgroupLunMapsLun
-from netapp_ontap.models.consistency_group_nas import ConsistencyGroupNas
-from netapp_ontap.models.aggregate_warning import AggregateWarning
-from netapp_ontap.models.s3_group_users import S3GroupUsers
-from netapp_ontap.models.consistency_group_consistency_groups_restore_to_snapshot import ConsistencyGroupConsistencyGroupsRestoreToSnapshot
-from netapp_ontap.models.sql_on_san_temp_db import SqlOnSanTempDb
-from netapp_ontap.models.application_nvme_access import ApplicationNvmeAccess
-from netapp_ontap.models.audit_events import AuditEvents
-from netapp_ontap.models.volume_efficiency_space_savings import VolumeEfficiencySpaceSavings
-from netapp_ontap.models.volume_statistics_flexcache_raw import VolumeStatisticsFlexcacheRaw
-from netapp_ontap.models.igroup_child import IgroupChild
-from netapp_ontap.models.zapp_nvme_components import ZappNvmeComponents
-from netapp_ontap.models.mongo_db_on_san_new_igroups_initiator_objects import MongoDbOnSanNewIgroupsInitiatorObjects
-from netapp_ontap.models.igroup_lun_maps import IgroupLunMaps
-from netapp_ontap.models.fc_login_igroups import FcLoginIgroups
-
-__all__ = [
-    "VolumeSpace",
-    "AzureKeyVaultConnectivity",
-    "EmsFilterRuleResponseRecordsParameterCriteria",
-    "TopMetricsDirectoryResponseIncompleteResponseReason",
-    "SoftwareValidationReferenceIssue",
-    "NfsServiceProtocol",
-    "ApplicationStatisticsIops",
-    "VsiOnNas",
-    "SvmMigrationDestinationVolumePlacementAggregates",
-    "AclDelete",
-    "DiskAggregates",
-    "VsiOnNasDatastoreStorageService",
-    "VolumeEfficiency",
-    "NvmeSubsystemHostRecordsSubsystem",
-    "ActiveDirectoryPreferredDcs",
-    "AdDomainDelete",
-    "KeyServerState",
-    "SvmNis",
-    "ClusterNodesHaGivebackStatus",
-    "NvmeInterfaceFcInterface",
-    "FirmwareDisk",
-    "NvmeNamespaceSpaceGuarantee",
-    "InterfaceMetricsData",
-    "StorageSwitchPorts",
-    "ConsistencyGroupResponseRecordsConsistencyGroupsVolumes",
-    "FirmwareDqpRecordCount",
-    "LunLunMaps",
-    "ConsistencyGroupApplication",
-    "StorageBridgeSasPortsCable",
-    "IscsiConnectionInterface",
-    "MediatorPingErrorError",
-    "NvmeSubsystemControllerDigest",
-    "IgroupNestedIgroup",
-    "ConsistencyGroupReplicationRelationships1",
-    "IscsiConnectionInterfaceIp",
-    "LocalCifsUserMembership",
-    "StorageSwitchZonesPort",
-    "TopMetricsFileIops",
-    "SupportedAlgorithmsAlgorithm",
-    "LunSpaceGuarantee",
-    "ClusterNodesServiceProcessorAutoConfig",
-    "SvmNfs",
-    "TimezoneCluster",
-    "LicenseCapacity",
-    "StorageSwitchErrors",
-    "ConsistencyGroupResponseRecordsConsistencyGroupsNamespaces",
-    "S3BucketPolicy",
-    "ConsistencyGroupNamespaceStatus",
-    "ApplicationStatistics",
-    "SnaplockLitigationGet",
-    "ClusterNodesVm",
-    "SwitchPortRemotePortDevice",
-    "CifsDomainDiscoveredServer",
-    "MetroclusterLocal",
-    "DiskStats",
-    "AntiRansomwareVolumeSpace",
-    "EmsActionParameterDescriptionArguments",
-    "HwAssistStatus",
-    "Ipv4InterfaceAndGateway",
-    "LicenseManagerResponseRecords",
-    "ConsistencyGroupQos",
-    "SoftwareStatusDetails",
-    "NodeResponseRecordsHaGivebackStatus",
-    "ConsistencyGroupNamespace",
-    "VscanOnDemandPolicy",
-    "MongoDbOnSanNewIgroupsIgroups",
-    "ConsistencyGroupConsistencyGroupsRestoreTo",
-    "ConsistencyGroupSnapshotResponseRecordsMissingNamespaces",
-    "ApplicationSnapshotComponents",
-    "ApplicationCifsPropertiesPermissions",
-    "LicenseCompliance",
-    "ConsistencyGroupResponseRecordsNamespaces",
-    "ShelfVoltageSensors",
-    "KeyServerReadcreate",
-    "ClusterNodesNvlog",
-    "VolumeMetricsResponseRecords",
-    "S3BucketSvmProtectionStatus",
-    "Tls",
-    "ApplicationStatisticsComponentsIops",
-    "VdiOnNas",
-    "VolumeNas",
-    "NvmeServiceMetric",
-    "SecurityCertificateRefUuid",
-    "ActiveDirectorySecurity",
-    "SvmFcp",
-    "ContainerVolumesSpace",
-    "QuotaReportGroup",
-    "SvmMigrationVolumePlacementAggregates",
-    "ClusterNodesControllerCpu",
-    "S3BucketPolicyStatement",
-    "CifsDomainNameMapping",
-    "NfsServiceWindows",
-    "VolumeSpaceSnapshot",
-    "ChassisNodes",
-    "AntiRansomwareStorageUnit",
-    "PerformanceFcPortMetricResponseRecords",
-    "ShelfTemperatureSensorsThresholdLow",
-    "AggregateBlockStorageMirror",
-    "SvmMigrationTimeMetrics",
-    "FabricCache",
-    "ConsistencyGroupConsistencyGroupsVolumesProvisioningOptionsStorageService",
-    "Peer",
-    "MongoDbOnSanNewIgroups",
-    "S3BucketLifecycleManagementRules",
-    "KeyServerNoRecords",
-    "QosPolicyAdaptive",
-    "HwAssist",
-    "AggregateSimulate",
-    "NfsServiceCredentialCache",
-    "TopMetricsSvmClientExcludedVolumeReason",
-    "FirmwareDqp",
-    "SnapmirrorConsistencyGroupFailoverStatus",
-    "StorageBridgeFcPorts",
-    "CounterProperty",
-    "CifsConnectionSessions",
-    "ConsistencyGroupResponseRecordsVolumes",
-    "S3BucketEncryption",
-    "SnapmirrorError",
-    "FcZoneMembers",
-    "ConsistencyGroupExportPolicy",
-    "FlexcacheWriteback",
-    "VolumeProtocolRawPerformanceStatRw",
-    "AwsKmsEkmipReachability",
-    "ApplicationSanAccessBackingStorage",
-    "ShareAcl",
-    "ClusterNodesControllerFlashCache",
-    "NvmeTcpTls",
-    "LunMovement",
-    "QosPolicyFixed",
-    "LunMapReportingNodesLinks",
-    "ClusterNodesControllerFailedFanMessage",
-    "FpolicyConnectionDisconnectedReason",
-    "InstanceCounterAggregation",
-    "FabricConnectionsClusterPortNode",
-    "MongoDbOnSanDatasetStorageService",
-    "IpInterfaceSvm",
-    "EmsEventActionParametersTitleArguments",
-    "NisServiceBindingDetails",
-    "StoragePoolSpareAllocationUnit",
-    "ScannerPool",
-    "StorageUnitMovementDestination",
-    "ApplicationProtectionGroupsRpoRemote",
-    "PerformanceMetricReducedThroughput",
-    "NdmpData",
-    "IgroupInitiatorListItemProximity",
-    "AntiRansomwareVolume",
-    "EmsEventActionDescriptionArguments",
-    "AdDomainSvm",
-    "AggregateSnapshot",
-    "PerformanceMonitoredFilesMetric",
-    "OracleRacOnNfs",
-    "PerformanceQtreeMetricResponseRecords",
-    "VolumeActivityTrackingUnsupportedReason",
-    "CounterDenominator",
-    "QuotaRuleUsers",
-    "EmsFilterResponseRecords",
-    "FpolicyEngineSvm",
-    "ConsistencyGroupVolumes",
-    "VolumeAsynchronousDirectoryDelete",
-    "TopMetricsSvmFileExcludedVolume",
-    "ConsistencyGroupSnapshotNamespaces",
-    "SnapshotPolicyCopies",
-    "NvmeNamespaceStatus",
-    "VolumeSpaceLogicalSpace",
-    "ApplicationNvmeAccessSubsystemMapSubsystem",
-    "EmsEventActionParameters",
-    "GroupPolicyObjectSecuritySetting",
-    "ChassisNodesUsbsPorts",
-    "IscsiConnection",
-    "EmsDestinationResponseRecords",
-    "S3BucketLifecycleExpiration",
-    "IscsiCredentialsInitiatorAddress",
-    "SnapmirrorTransferFiles",
-    "FcInterfaceLocation",
-    "MongoDbOnSan",
-    "NvmeNamespaceLocation",
-    "GroupPolicyObjectRestrictAnonymous",
-    "PerformanceS3MetricResponseRecords",
-    "StorageBridgeSasPorts",
-    "ExportClients",
-    "SoftwareNode",
-    "ErrorResponses",
-    "StorageBridgeErrors",
-    "EmsEventParameter",
-    "FcInterfaceRecommendMessage",
-    "NasProtectionType",
-    "ConsistencyGroupNvmeHostProximity",
-    "SpaceEfficiency",
-    "SelfLink",
-    "EmsActionParameterValidationErrorMessageArguments",
-    "IgroupInitiatorListItem",
-    "ExportClientPolicy",
-    "ClusterManagementInterfaces",
-    "IscsiCredentialsChap",
-    "PerformanceLunMetricResponseRecords",
-    "NodeHa",
-    "NvmeSubsystemReplication",
-    "ZappS3Bucket",
-    "AntiRansomwareVolumeWorkloadSurgeUsageNewlyObservedFileExtensions",
-    "SnapmirrorRelationshipTransfer",
-    "IgroupConnectivityTrackingAlerts",
-    "PerformanceQtreeMetricData",
-    "CifsDomainTrustRelationships",
-    "Ppk",
-    "PerformanceNvmeMetricResponseRecords",
-    "NodeResponseRecordsHa",
-    "ZappS3BucketApplicationComponentsAccessPolicies",
-    "PerformanceMetricIoType",
-    "PortDiscoveredDevices",
-    "CifsShareAcls",
-    "VolumeMetricCloud",
-    "ApplicationSnapshotRestoreApplication",
-    "NfsServiceProtocolV3Features",
-    "KeyServerRecords",
-    "AntiRansomwareVolumeSurgeUsage",
-    "StorageUnitMapsLunMap",
-    "VolumeQuota",
-    "AggregateWarningWarning",
-    "AwsConnectivity",
-    "ApplicationBackingStorage",
-    "ContainerVolumeS3BucketPolicy",
-    "NdmpConnect",
-    "MetroclusterSvmPartnerSvm",
-    "NvmeNamespaceSpace",
-    "VolumeConstituentsAggregates",
-    "EmsConnectivityErrorMessageArguments",
-    "SvmMigrationCreate",
-    "LunMovementPaths",
-    "EmsDestinationFilters",
-    "PerformanceSvmNfsMetricHistoricalV41",
-    "VolumeAnalyticsScanThrottleReason",
-    "GroupPolicyObjectRegistrySetting",
-    "AntiRansomwareVolumeTypicalUsage",
-    "BarbicanState",
-    "Rfc2307bis",
-    "S3BucketSvmLifecycleManagementRules",
-    "ConsistencyGroupCifsShare",
-    "S3BucketProtectionStatusDestination",
-    "NvmeInterfaceIpInterfaceLocation",
-    "NfsServiceTransport",
-    "VolumeSpaceSnapshotAutodelete",
-    "VolumeSnapmirrorDestinations",
-    "FlexcacheRelationship",
-    "VolumeMetricFlexcache",
-    "SplitLoadLoad",
-    "GcpConnectivity",
-    "VsiOnSan",
-    "ApplicationCifsProperties",
-    "StorageUnitStatus",
-    "ExportRulePolicy",
-    "Rotation",
-    "VolumeConstituentsSpace",
-    "ClusterNodesHa",
-    "IgroupInitiators",
-    "WebCsrfToken",
-    "AzureKeyVaultKey",
-    "NasApplicationComponentsFlexcache",
-    "ClusterNodes",
-    "ConsistencyGroupLun",
-    "DrNode",
-    "ClusterSpaceMetricsResponseRecords",
-    "ClusterPeerStatus",
-    "EmsCertificate",
-    "S3GroupPolicies",
-    "LunProvisioningOptions",
-    "AnalyticsInfoByModifiedTime",
-    "LicenseManagerUri",
-    "AggregateSpaceBlockStorage",
-    "StorageUnitMovement",
-    "VolumeConstituentsMovement",
-    "ConsistencyGroupClone1Volume",
-    "UniformResourceIdentifier",
-    "NodeResponseRecordsManagementInterfaces",
-    "VolumeAnalyticsInitialization",
-    "AggrSpaceEfficiency",
-    "FileMoveFilesToMoveSources",
-    "ShelfVendor",
-    "ConsistencyGroupSnapshotLuns",
-    "AggregateInodeAttributes",
-    "LicenseKeys",
-    "SecurityAssociationIpsecInbound",
-    "FpolicyEngineCertificate",
-    "ApplicationRpo",
-    "ClusterNodesManagementInterface",
-    "NodeMetricsResponseRecords",
-    "IgroupReplicationError",
-    "IpInterfaceSvmIp",
-    "Log",
-    "AnalyticsCollectionInfo",
-    "ClusterNodesHaTakeoverFailure",
-    "SecurityAssociationIke",
-    "TapeDevicePosition",
-    "MetroclusterDrPairs",
-    "SecurityKeyManagerRestoreKeys",
-    "AntiRansomwareVolumeEntropyStatsResponseRecords",
-    "BindingDetails",
-    "FirmwareUpdateProgressState",
-    "MongoDbOnSanDataset",
-    "BgpPeerGroupLocal",
-    "AggregateBlockStorageHybridCacheSimulatedRaidGroups",
-    "ConsistencyGroupSnapshotResponseRecordsLuns",
-    "ReplicationErrorIgroup",
-    "StorageSwitchVsans",
-    "EmsEventAction",
-    "LocalUserMembership",
-    "NvmeInterfaceIpInterfaceIp",
-    "ConsistencyGroupProvisioningOptions",
-    "ConsistencyGroupUnmapFrom",
-    "TopMetricsClientResponseIncompleteResponseReason",
-    "ConsistencyGroupConsistencyGroupsProvisioningOptionsStorageService",
-    "SnaplockFileFingerprintGet",
-    "StorageBridgeLastReboot",
-    "VdiOnSan",
-    "AppNfsAccess",
-    "LunConvert",
-    "ActiveDirectoryDiscoveredServer",
-    "QtreeExtPerformanceMonitoring",
-    "SvmMigrationDestination",
-    "NasApplicationComponentsTiering",
-    "ZappNvmeComponentsSubsystemHostsDhHmacChap",
-    "OracleOnNfsRedoLog",
-    "ContainerVolumesS3BucketPolicy",
-    "SqlOnSanLogStorageService",
-    "StorageBridgePathsSourcePort",
-    "KeyManagerState",
-    "VolumeEncryptionSupport",
-    "EmsFilterRulesParameterCriteria",
-    "LayoutRequirementRaidGroup",
-    "Ipv6InterfaceAndGateway",
-    "WebCertificate",
-    "IgroupInitiatorProximity",
-    "NfsServiceProtocolV41Features",
-    "S3ServicePostResponseRecords",
-    "SvmLdap",
-    "CifsServiceSecurity",
-    "ClusterNodesServiceProcessorBackup",
-    "MetroclusterRemote",
-    "TapeDeviceAliases",
-    "StorageSwitchTemperatureSensors",
-    "ClusterNodesClusterInterface",
-    "AntiRansomwareNode",
-    "WebHsts",
-    "SecurityOauth2Introspection",
-    "PerformanceNetworkMetrics",
-    "NfsServiceExports",
-    "ServiceProcessor",
-    "IgroupInitiatorNoRecordsProximityPeerSvms",
-    "VolumeTiering",
-    "VsiOnSanNewIgroups",
-    "PerformanceMetricRaw",
-    "IgroupInitiatorsConnectivityTracking",
-    "NodeHaGiveback",
-    "ClusterNodesServiceProcessorPrimary",
-    "FileMoveFile",
-    "NodeUuid",
-    "UnixGroupUsersRecords",
-    "ApplicationStatisticsComponentsLatency",
-    "OracleRacOnNfsOracleCrs",
-    "QtreeUser",
-    "StorageBridgeErrorsComponent",
-    "VolumeRebalancing1EngineScanner",
-    "ApplicationStatisticsLatency",
-    "FlexcacheCifsChangeNotify",
-    "ScopeIpspace",
-    "TopMetricsClientResponseNotice",
-    "S3ServerWarning",
-    "SnapmirrorEndpoint",
-    "EmsEventActionTitleArguments",
-    "VolumeRebalancing1EngineScannerFilesSkipped",
-    "PerformanceMetricRawReducedThroughput",
-    "SqlOnSanLog",
-    "IpInterfaceSvmLocation",
-    "PerformanceCifsMetricResponseRecords",
-    "ShelfPaths",
-    "AutosupportConnectivityIssue",
-    "SvmStorage",
-    "ShelfFrus",
-    "StorageUnitEncryption",
-    "SvmMigrationIpInterfacePort",
-    "VolumeEfficiencyPolicy1",
-    "TopMetricsSvmClientExcludedVolume",
-    "OracleRacOnNfsOracleCrsStorageService",
-    "NodeHaGivebackStatus",
-    "JobLink",
-    "FcInterfaceSvmLocation",
-    "ConsistencyGroupConsistencyGroupsLunsLunMapsIgroupInitiators",
-    "IgroupInitiatorConnectivityTracking",
-    "QuotaReportQtree",
-    "FcSwitchPortsAttachedDevice",
-    "SvmMigrationVolumeAggregatePair",
-    "ConsistencyGroupChildVolumes",
-    "ContainerVolumeFlexcacheRelationship",
-    "KeyManagerConfigHealthMonitorPolicy",
-    "VolumeStatisticsCloud",
-    "ShelfDrawers",
-    "TopMetricsFileThroughput",
-    "AutosupportMessageError",
-    "ConsistencyGroupConsistencyGroupsNamespaces",
-    "EmsFilterRuleParameterCriteria",
-    "FcLoginInitiator",
-    "SnaplockRetentionPolicyOperation",
-    "IgroupConnectivityTracking",
-    "FcSwitchPorts",
-    "FpolicyPoliciesScope",
-    "MetroclusterDrGroupMccipPorts",
-    "ClusterNisServiceBindingDetails",
-    "VolumeRebalancing1EngineMovementLastError",
-    "SoftwareStatusDetailsReferenceNode",
-    "NvmeSubsystemControllerInterface",
-    "EmsDestinationResponseRecordsConnectivity",
-    "CertificateSigningRequest",
-    "StorageBridgeTemperatureSensor",
-    "VolumeEncryption",
-    "FileMoveFilesToMoveDestinations",
-    "SoftwareReferenceMetrocluster",
-    "ScheduleCron",
-    "ConsistencyGroupNvmeHostProximity1PeerSvms",
-    "ConsistencyGroupClone1StorageUnit",
-    "ConsistencyGroupSnaplock",
-    "AggregateBlockStoragePrimarySimulatedRaidGroups",
-    "AutosupportConnectivityCorrectiveAction",
-    "ConsistencyGroupCifsShareAcls",
-    "LunMapReportingNodes",
-    "ConsistencyGroupReplicationRelationships",
-    "ApplicationProtectionGroups",
-    "NvmeNamespaceQosPolicy",
-    "ShareLock",
-    "ApplicationStatisticsComponentsSnapshot",
-    "S3BucketSnapshotPolicy",
-    "ClusterNodesMetrocluster",
-    "DiskOutage",
-    "DeviceDiscoveryData",
-    "SecurityAzure",
-    "EmsEventActionConfirmationMessageArguments",
-    "StoragePortCable",
-    "S3BucketSvmEncryption",
-    "ZappNvme",
-    "GroupPolicyObjectEventAudit",
-    "SoftwareUpdateDetailsReferenceNode",
-    "PerformanceNamespaceMetricResponseRecords",
-    "BroadcastDomainReferenceIpspace",
-    "OracleOnNfsDb",
-    "LunCopySourceProgress",
-    "LunVvolBindingsPartner",
-    "AnalyticsCollectionInfoByModifiedTimeBytesUsed",
-    "CifsOpenFileConnection",
-    "VscanOnAccessScope",
-    "LicensePackageResponseRecords",
-    "SnapmirrorTransferRelationship",
-    "SecurityKeyManagerExternalServerCaCertificates",
-    "ConsistencyGroupLunSpace",
-    "OracleOnSanNewIgroups",
-    "VolumeClone",
-    "IpsecCaCertificateUuid",
-    "Status",
-    "Server",
-    "PerformanceReducedThroughput",
-    "IpInterfaceResponseRecommend",
-    "File",
-    "IgroupInitiatorsProximity",
-    "Member",
-    "StorageUnitMapsSubsystemMap",
-    "MetroclusterDiagnosticsAggregate",
-    "MetroclusterDiagConnection",
-    "PortLagMemberPorts",
-    "Uri",
-    "ConsistencyGroupNvmeHostTls",
-    "MediatorResponseRecords",
-    "ClusterNodesControllerFailedPowerSupply",
-    "EmsEventResponseRecords",
-    "QuotaRuleFiles",
-    "ChassisFrus",
-    "CloudStoreAggregate",
-    "EmsEventParameters",
-    "WebCsrf",
-    "ShelfFans",
-    "Usm",
-    "ZappS3BucketProtectionType",
-    "S3ServiceUserPost",
-    "LunMapLunNode",
-    "ClusterNodesHaInterconnect",
-    "ClusterNodesHaGivebackFailure",
-    "SnapshotDelta",
-    "ConsistencyGroupVolumeSpace",
-    "AggregateBlockStorage",
-    "FpolicyEngineBufferSize",
-    "NfsServiceAccessCacheConfig",
-    "ConsistencyGroupSnapshotModify",
-    "ShelfBays",
-    "PerformanceNamespaceMetricSpace",
-    "SoftwareValidationReferenceAction",
-    "LocalCifsGroupMembersNoRecords",
-    "VolumeAnalyticsUnsupportedReason",
-    "CollectionLinks",
-    "LunCopyDestinations",
-    "MetroclusterPartner",
-    "SvmCifsService",
-    "AnalyticsCollectionInfoByModifiedTime",
-    "ContainerResponseRecordsVolumesS3BucketPolicyStatements",
-    "ClusterNodesHaPartners",
-    "NvmeNamespaceConvert",
-    "ApplicationLunObject",
-    "S3BucketCorsRule",
-    "S3BucketPolicyCondition",
-    "VolumeEfficiencyPolicySchedule",
-    "ContainerResponseRecordsVolumesS3BucketPolicy",
-    "ConsistencyGroupConsistencyGroupsLunsLunMaps",
-    "LunVvolBindings",
-    "PortLagActivePorts",
-    "SvmMigrationDestinationVolumePlacementVolumeAggregatePairs",
-    "ApplicationComponentSnapshotSvm",
-    "ConsistencyGroupResponseRecordsLunsLunMapsIgroupInitiators",
-    "DrPair",
-    "ConsistencyGroupResponseRecordsLuns",
-    "MetroclusterDiagnosticsConfigreplication",
-    "Rfc2307Attribute",
-    "ShelfTemperatureSensorsThresholdHigh",
-    "SqlOnSanNewIgroups",
-    "NetworkRouteForSvm",
-    "ShelfPortsRemote",
-    "Fips",
-    "LogRetention",
-    "ApplicationSanAccessFcpEndpoint",
-    "AggregateCloudStorage",
-    "EmsEventMessage",
-    "FlexcacheGuarantee",
-    "IpInterfaceAndGateway",
-    "IpInfo",
-    "Ipv6Interface",
-    "AggregateWarningAction",
-    "NvmeSubsystemIoQueue",
-    "FcPortTransceiver",
-    "ClusterMetricsResponseRecords",
-    "ClusterNodesExternalCacheBypass",
-    "StorageUnitMovementSource",
-    "RaidGroup",
-    "OnboardKeyManagerConfigurableStatus",
-    "EmsFilterRulesMessageCriteria",
-    "HealthMonitorPolicyFields",
-    "ContainerResponseRecords",
-    "FpolicyEventFileOperations",
-    "AutosupportIssues",
-    "SoftwareUpdateDetails",
-    "SecurityKeyManagerExternal",
-    "SvmMigrationSource",
-    "FcInterfaceSvm",
-    "BgpPeerGroupLocalIp",
-    "ClusterNodesExternalCache",
-    "ShelfManufacturer",
-    "TokenNode",
-    "ConsistencyGroupChild",
-    "FileInfoConstituent",
-    "LunLunMapsIgroupInitiators",
-    "ApplicationCifsPropertiesBackingStorage",
-    "ConsistencyGroupIgroupIgroups",
-    "ClusterNodesControllerFrus",
-    "SoftwareStatusDetailsReferenceIssue",
-    "ZappS3BucketApplicationComponentsSnapshotPolicy",
-    "NfsServiceProtocolV42Features",
-    "FpolicyEvents",
-    "QtreeGroup",
-    "NvmeInterfaceIpInterface",
-    "VdiOnSanNewIgroups",
-    "RelatedLink",
-    "SwitchPortIdentity",
-    "VolumeAnalytics",
-    "LunMapReportingNodeLun",
-    "CounterSchema",
-    "SwitchPortRemotePort",
-    "VolumeProtocolRawPerformanceStatCreate",
-    "PoliciesAndRulesToBeAppliedToBeApplied",
-    "ApplyTo",
-    "PortStatisticsDevice",
-    "FcPortFabric",
-    "EmsUiMessageArguments",
-    "PortSvm",
-    "IpsecPolicyResponseRecords",
-    "FcSwitchPort",
-    "StorageSwitchPortsSfp",
-    "SoftwareUpload",
-    "LunCopyDestinationsProgress",
-    "AggregateBlockStoragePrimary",
-    "NvmeSubsystemSubsystemMapsNamespace",
-    "KeyServerStateArray",
-    "SnapmirrorDestinationCreationTiering",
-    "LayoutRequirement",
-    "IgroupInitiatorRecords",
-    "ApplicationStatisticsComponentsSpace",
-    "PerformanceMonitoredFilesMetricResponseRecords",
-    "SecurityAssociationIpsecOutbound",
-    "ApplicationNfsPropertiesExportPolicy",
-    "MediatorPingError",
-    "NvmeServiceStatistics",
-    "ConsistencyGroupLunLunMapsIgroupInitiators",
-    "FirmwareUpdateProgress",
-    "QtreeStatisticsRaw",
-    "ApplicationNamespaceObject",
-    "ConsistencyGroupMapTo",
-    "ConsistencyGroupReplicationRelationship",
-    "ArwVserverEventLog",
-    "JobNode",
-    "LunConsistencyGroup",
-    "PerformanceSvmNfsMetricHistoricalV3",
-    "LunAttributes",
-    "PerformanceSvmNfsMetricHistoricalV4",
-    "SnaplockLogArchive",
-    "EmsActionParameterTitleArguments",
-    "IgroupConnectivityTrackingRequiredNodes",
-    "IscsiServiceTarget",
-    "ClusterPeerLocalNetworkInterfaces",
-    "CifsNetbios",
-    "ZappNvmeComponentsSubsystemHosts",
-    "NodeManagementInterfaces",
-    "StoragePoolCapacity",
-    "QuotaReportSpace",
-    "ZappS3BucketApplicationComponentsAccessPoliciesConditions",
-    "LunCopySource",
-    "ConsistencyGroupResponseRecordsLunsLunMapsIgroupIgroups",
-    "ClusterPeerRemote",
-    "AzureKeyVaultEkmipReachability",
-    "TotpPost",
-    "MetroclusterDiagnosticsCluster",
-    "ApplicationRpoComponentsRpo",
-    "LunMovementProgress",
-    "PerformanceSvmNfsStatistics",
-    "ConsistencyGroupNamespaceSubsystemMap",
-    "EmsEventActionParametersValidationErrorMessageArguments",
-    "NvmeNamespaceSubsystemMapSubsystem",
-    "ClusterNodesControllerFailedPowerSupplyMessage",
-    "ApplicationComponentSnapshotRestore",
-    "AggregateSpare",
-    "EmsDestinationConnectivity",
-    "DiskVirtual",
-    "ApplicationSanAccess",
-    "PerformanceSvm",
-    "PortsetInterfaces",
-    "Firmware",
-    "LunLunMapsIgroupIgroups",
-    "StoragePoolShowSpares",
-    "S3BucketLifecycleObjectFilter",
-    "SvmNsswitch",
-    "PerformanceFcInterfaceMetricResponseRecords",
-    "GivebackStatus",
-    "CifsTarget",
-    "S3ServicePost",
-    "ConsistencyGroupChildLuns",
-    "LunMapLunSmbc",
-    "ClusterSpaceMetrics",
-    "EmsConnectivityError",
-    "FileInfoQosPolicy",
-    "Ipv4Interface",
-    "LunConvertNamespace",
-    "PortMetricsResponseRecords",
-    "ShelfFrusPsu",
-    "NasApplicationComponentsFlexcacheOriginComponent",
-    "FirmwareHistoryUpdateStateWorker",
-    "EmsSyslog",
-    "S3Log",
-    "ConsistencyGroupResponseRecordsConsistencyGroupsLunsLunMapsIgroupInitiators",
-    "EmsEventActionParametersHelpArguments",
-    "ShelfAcps",
-    "AntiRansomwareStorageUnitAttackReports",
-    "S3BucketSvmCors",
-    "TopMetricsSvmUserIops",
-    "VolumeActivityTracking",
-    "StorageUnitClone",
-    "CloudStoreUnavailableReason",
-    "ByteLock",
-    "AggregateBlockStorageHybridCacheStoragePools",
-    "ManagementProtocols",
-    "OracleOnNfsOraHomeStorageService",
-    "VolumeRebalancing1Engine",
-    "ApplicationSubsystemMapObject",
-    "StorageUnitConsistencyGroup",
-    "SnapmirrorRelationshipSvmdrVolumes",
-    "SqlOnSanDb",
-    "Error",
-    "MetroclusterDiagnosticsConnection",
-    "FlexcacheAggregates",
-    "AnalyticsHistogramByTime",
-    "ConsistencyGroupNvmeSubsystem",
-    "ApplicationComponentSnapshotApplication",
-    "ClusterNodesServiceProcessorWebService",
-    "VolumeRebalancing",
-    "NvmeSubsystemHostNoRecords",
-    "SanNewIgroups",
-    "SecurityOauth2Jwks",
-    "OracleRacOnSan",
-    "StorageBridgePaths",
-    "ActiveDirectoryDiscoveredServers",
-    "InterfaceStatistics",
-    "ConsistencyGroupLunMapIgroupIgroups",
-    "ZappNvmeComponentsSubsystem",
-    "TopMetricsSvmDirectoryExcludedVolume",
-    "ContainerVolumesS3Bucket",
-    "VolumeFiles",
-    "NasApplicationComponentsSnaplockRetention",
-    "MetroclusterInterconnectMirror",
-    "StorageSwitchFans",
-    "AutoUpdateInfoEula",
-    "StorageSwitchConnections",
-    "ConsistencyGroupClone1ParentConsistencyGroup",
-    "ClusterSpaceBlockStorageMedias",
-    "ConsistencyGroupLunMap",
-    "SnapmirrorPolicyRule",
-    "PerformanceNvmeMetricProperties",
-    "FcPortSpeed",
-    "ZappNvmeComponentsPerformance",
-    "CifsOpenFileSession",
-    "EmsEventLinks",
-    "FileMoveScanner",
-    "ConsistencyGroupResponseRecordsConsistencyGroupsLuns",
-    "LunStatus",
-    "Version",
-    "CapacityPoolResponseRecordsNodes",
-    "KerberosRealmPasswordServer",
-    "IgroupInitiatorsProximityPeerSvms",
-    "CapacityPoolNode",
-    "ClusterNodesController",
-    "FirmwareHistoryUpdateStateError",
-    "NasExcludeAggregates",
-    "OracleRacOnSanNewIgroups",
-    "PortsetInterfaceNoRecords",
-    "IgroupNestedNoRecords",
-    "OracleOnNfsOraHome",
-    "ApplicationLinks",
-    "IgroupReplication",
-    "DiskErrorInfo",
-    "FabricConnectionsClusterPort",
-    "ApplicationNfsPropertiesPermissions",
-    "EkmipServerConnectivity",
-    "ConsistencyGroupLunLunMapsIgroupIgroups",
-    "NodeSetupIp",
-    "OracleOnNfsRedoLogStorageService",
-    "KerberosRealmAdminServer",
-    "NvmeSubsystemHostRecordsIoQueue",
-    "ConsistencyGroupLuns",
-    "ConsistencyGroupLunsLunMapsIgroupInitiators",
-    "ActiveDirectoryDelete",
-    "SoftwareImagesInner",
-    "FcpServiceTarget",
-    "NvmeNamespaceSubsystemMap",
-    "EmsActionParameter",
-    "PlexResync",
-    "Acl",
-    "TopMetricsClientIops",
-    "ReturnedError",
-    "MongoDbOnSanProtectionType",
-    "ConsistencyGroupChildLunsLunMaps",
-    "SwitchPortIdentityBreakout",
-    "QtreeNas",
-    "VolumeConsistencyGroup",
-    "CloudStorageTier",
-    "NvmeNamespaceConsistencyGroup",
-    "ClusterPeerLinks",
-    "QuotaReportSpaceUsed",
-    "ZappNvmeRpoLocal",
-    "NdmpScsi",
-    "FirmwareShelf",
-    "StorageUnitCloneSource",
-    "DiskKeyId",
-    "EmsEventResponseRecordsParameters",
-    "ConsistencyGroupVolumeProvisioningOptions",
-    "ApplicationSanAccessIscsiEndpoint",
-    "S3BucketSvmAggregates",
-    "ApplicationComponentSnapshotComponent",
-    "ScheduleCluster",
-    "StorageBridgePathsTargetPort",
-    "ApplicationRpoRemote",
-    "OracleRacOnSanDbSids",
-    "ApplicationCifsPropertiesShare",
-    "BackupNode",
-    "NvmeSubsystemSubsystemMaps",
-    "MetroclusterInterconnectInterfaces",
-    "NvmeSubsystemReplicationPeerSubsystem",
-    "NodeResponseRecordsHaGiveback",
-    "EmsRoleConfigResponseRecords",
-    "MultiAdminVerifyRuleApprovalGroups",
-    "StorageUnitMaps",
-    "SecurityAuditLogSvm",
-    "FileMoveFilesToMove",
-    "ApplicationLunMappingObject",
-    "Nas",
-    "WebauthnCredentialsPublicKey",
-    "MediatorPing",
-    "ApplicationVolumeObject",
-    "FpolicyEventFilters",
-    "VolumeEfficiencyIdcsScanner",
-    "EmsEventActionParametersDescriptionArguments",
-    "AntiRansomwareSuspectFile",
-    "PerformanceMetricIoTypeRwt",
-    "SvmNdmp",
-    "SqlOnSmb",
-    "CifsDomainPreferredDcs",
-    "ClusterNodesClusterInterfaces",
-    "S3PolicyStatement",
-    "AuditSchedule",
-    "AccountApplication",
-    "ApplicationNvmeAccessSubsystemMapSubsystemHostsLinks",
-    "Share",
-    "VolumeConstituentsNode",
-    "WindowsToUnix",
-    "NodeHaPartners",
-    "NvmeSubsystemHostsProximityPeerSvms",
-    "TapeDeviceStoragePort",
-    "NodeStatistics",
-    "TopMetricsDirectoryResponseNotice",
-    "MetroclusterDiagnosticsInterface",
-    "CapacityPoolResponseRecords",
-    "ApplicationRpoLocal",
-    "StorageUnitLocation",
-    "ConsistencyGroupSpace",
-    "InterfaceMetricsResponseRecords",
-    "QuotaRuleGroup",
-    "LunMapLun",
-    "SqlOnSmbAccess",
-    "EmsEventUpdate",
-    "ShelfTemperatureSensorsThreshold",
-    "ConsistencyGroupLunsLunMapsIgroupIgroups",
-    "PerformanceSvmNfsMetric",
-    "EmsDestinationResponseRecordsConnectivityErrorsMessageArguments",
-    "VsiOnNasDatastore",
-    "StorageSwitchPaths",
-    "SvmMigrationIpInterfacePlacement",
-    "VolumeProtocolRawPerformanceStats",
-    "ApplicationStatisticsComponents",
-    "SvmAggregates",
-    "ApplicationComponentApplication",
-    "SnaplockLitigationGetOperations",
-    "SecurityAssociationResponseRecords",
-    "ConsistencyGroupQosPolicy",
-    "GcpKmsKey",
-    "VolumeRebalancing1EngineMovement",
-    "ConsistencyGroupNamespaceSpaceGuarantee",
-    "ExportRules",
-    "ContainerVolumeS3BucketPolicyStatements",
-    "AggregateSpace",
-    "SnapshotSnaplock",
-    "UnixGroupUsersNoRecords",
-    "ConsistencyGroupVolume",
-    "IgroupInitiatorListItemProximityPeerSvms",
-    "SnapmirrorConsistencyGroupFailover",
-    "NvmeSubsystemControllerHost",
-    "TopMetricsClientThroughput",
-    "MultiAdminVerifyRuleOwner",
-    "QuotaRuleQtree",
-    "NvmeNamespaceSubsystemMapSubsystemHostsProximityPeerSvms",
-    "LunSpace",
-    "Nis",
-    "PerformanceReducedThroughputResponseRecords",
-    "ShelfTemperatureSensors",
-    "ConsistencyGroupResponseRecordsLunsLunMaps",
-    "EmsDestinationConnectivityErrors",
-    "QuotaReportFilesUsed",
-    "RaidGroupRecomputingParity",
-    "AntiRansomwareAttackReportLinks",
-    "EmsUiMessage",
-    "NvmeHostProximity",
-    "PerformanceMetricSvm",
-    "MetroclusterDiagnosticsNode",
-    "NasApplicationComponentsQosPolicy",
-    "ConsistencyGroupNamespaces",
-    "SqlOnSan",
-    "NvmeSubsystemControllerAdminQueue",
-    "ConsistencyGroupInitiator",
-    "ConsistencyGroupChildLunsLunMapsIgroupInitiators",
-    "ConsistencyGroupNvmeHostProximityPeerSvms",
-    "LunMapReportingNodeIgroup",
-    "Ddns",
-    "ConsistencyGroupConsistencyGroupsApplication",
-    "ApplicationProtectionGroupsRpo",
-    "ConsistencyGroupConsistencyGroups",
-    "LunLunMapsIgroup",
-    "TopMetricsSvmDirectoryResponseNotice",
-    "ApplicationComponentSnapshotRestoreApplication",
-    "FileInfoLinks",
-    "IgroupInitiatorNoRecords",
-    "ConsistencyGroupConsistencyGroupsTieringObjectStores",
-    "QuotaReportUsers",
-    "TopMetricsSvmUserVolumes",
-    "RaidGroupReconstruct",
-    "NasApplicationComponentsExportPolicy",
-    "IscsiSessionIgroups",
-    "ZappNvmeRpoRemote",
-    "S3BucketCorsRules",
-    "ZappNvmeRpo",
-    "ApplicationNvmeAccessSubsystemMapSubsystemHosts",
-    "MccipPort",
-    "CifsDomainDiscoveredServers",
-    "VolumeConstituentsSpaceSnapshot",
-    "EmsDestinationConnectivityErrorsMessageArguments",
-    "PortMetricsData",
-    "FirmwareHistoryUpdateState",
-    "IgroupNestedRecords",
-    "AntiRansomwareAttackReport",
-    "PortsetInterfacePortset",
-    "SnaplockLogVolume",
-    "IgroupInitiatorRecordsProximity",
-    "VolumeSnaplockRetention",
-    "LunProvisioningOptionsStorageService",
-    "EmsFilterResponseRecordsRules",
-    "UnixGroupUsersUnixGroup",
-    "TopMetricsDirectoryIops",
-    "S3BucketRetention",
-    "ClusterNodesManagementInterfaces",
-    "ConsistencyGroupIgroupChild",
-    "ConsistencyGroupSnaplockRetention",
-    "FabricConnections",
-    "NodeResponseRecordsClusterInterfaces",
-    "SqlOnSanDbStorageService",
-    "VolumeAutosize",
-    "PoolHealth",
-    "NdmpMover",
-    "PerformanceSvmResponseRecords",
-    "NasApplicationComponents",
-    "EmsSyslogFormat",
-    "S3BucketLifecycleAbortIncompleteMultipartUpload",
-    "S3BucketSvmCorsRules",
-    "VolumeStatistics",
-    "VolumeProtocolRawPerformanceStatOther",
-    "LocalCifsGroupMembers1",
-    "NodeResponseRecords",
-    "FpolicyPolicies",
-    "SoftwareReferenceMetroclusterProgressDetails",
-    "SvmMigrationIpInterfacePlacementIpInterfaces",
-    "ApplicationRpoComponentsRpoRemote",
-    "ConsistencyGroupConsistencyGroupsLunsCloneSource",
-    "IscsiConnectionInitiatorAddress",
-    "LunLocation",
-    "FpolicyPersistentStores",
-    "CloudTargetCluster",
-    "IkpConnectivity",
-    "ConsistencyGroupLunSpaceGuarantee",
-    "TokenExpiryTime",
-    "CifsDomainPreferredDcStatus",
-    "NfsServiceQtree",
-    "IgroupInitiatorProximityPeerSvms",
-    "Rfc2307",
-    "GroupPolicyObjectRegistryValue",
-    "SnaplockLitigationFileResponseRecords",
-    "FcZoneMember",
-    "LocalCifsGroupMembersLocalCifsGroup",
-    "SystemFirmware",
-    "PerformanceMetricResponseRecords",
-    "KerberosRealmKdc",
-    "OracleRacOnNfsGridBinary",
-    "AntiRansomwareVolumeWorkloadHistoricalStatistics",
-    "EmsParameterCriterion",
-    "ApplicationStatisticsComponentsStorageService",
-    "VscanOnAccessPolicy",
-    "MongoDbOnSanSecondaryIgroups",
-    "NodeClusterInterfaces",
-    "ClusterPeerLocalNetwork",
-    "TapeDeviceAlias",
-    "VdiOnNasDesktops",
-    "BgpPeerGroupPeer",
-    "VolumeMovement",
-    "IgroupInitiatorConnectivityTrackingConnectionsLogins",
-    "ReplicationErrorSubsystem",
-    "SvmS3Service",
-    "TopMetricsDirectoryThroughput",
-    "PerformanceFcpMetricSvm",
-    "NvmeSubsystemHostIoQueue",
-    "AnalyticsCollectionInfoByAccessedTimeBytesUsed",
-    "ChassisNodesPcisCards",
-    "NvmeNamespaceSubsystemMapSubsystemHosts",
-    "EmsEventMessage1",
-    "BgpPeerGroupLocalPortNode",
-    "NasApplicationComponentsFlexcacheOrigin",
-    "S3ServiceDelete",
-    "ClusterNodesHaGivebackStatusError",
-    "ApplicationStatisticsSpace",
-    "StorageUnitMapsHostGroup",
-    "MultiAdminVerifyApprovalGroupOwner",
-    "StorageSwitchPathsAdapter",
-    "BroadcastDomainPorts",
-    "ErrorArguments",
-    "EmsFilterRuleResponseRecords",
-    "Entitlement",
-    "ConsistencyGroupConsistencyGroupsLunsClone",
-    "AppCifsAccess",
-    "EmsMessageResponseRecords",
-    "ConsistencyGroupClone1Guarantee",
-    "ConsistencyGroupTiering",
-    "StorageUnitSpace",
-    "S3BucketSvmLifecycleManagement",
-    "PortLag",
-    "FabricConnectionsSwitchPort",
-    "S3BucketCors",
-    "GroupPolicyObjectEventLog",
-    "NvmeSubsystemIoQueueDefault",
-    "NasApplicationComponentsQos",
-    "VscanOnDemandScope",
-    "ContainerResponseRecordsVolumes",
-    "San",
-    "ConsistencyGroupConsistencyGroupsVolumesNasJunctionParent",
-    "LdapSchemaAccount",
-    "SqlOnSanTempDbStorageService",
-    "AggregateSpaceCloudStorage",
-    "VolumeEfficiencyScanner",
-    "NvmeDhHmacChapAuthentication",
-    "StorageBridgePowerSupplyUnits",
-    "AntiRansomwareVolumeSuspectFiles",
-    "FabricZoneset",
-    "VolumeNasJunctionParent",
-    "NasApplicationComponentsStorageService",
-    "VolumeConstituents",
-    "VolumeQos",
-    "ClusterPeerInitialAllowedSvms",
-    "ConsistencyGroupConsistencyGroupsLunsLunMapsIgroupIgroups",
-    "FpolicyEngineResiliency",
-    "VolumeGuarantee",
-    "RaidGroupDisk",
-    "PortVlan",
-    "SoftwareReferenceMetroclusterProgressSummary",
-    "AnalyticsCollectionInfoByAccessedTime",
-    "SnapmirrorRelationshipPolicy",
-    "S3BucketLifecycleNonCurrentVersionExpiration",
-    "NvmeSubsystemHosts",
-    "AdDomain",
-    "S3BucketProtectionStatus",
-    "VdiOnNasHyperVAccess",
-    "WebauthnCredentialsRelyingParty",
-    "ConsistencyGroupSnapshotSnaplock",
-    "SecurityKeystoreConfiguration",
-    "PerformanceIscsiMetricResponseRecords",
-    "SecuritySamlDefMetadataCertificate",
-    "ShelfPortsCable",
-    "ConsistencyGroupChildLunsLunMapsIgroupIgroups",
-    "LdapSchemaNameMapping",
-    "ConsistencyGroupResponseRecordsConsistencyGroupsLunsLunMaps",
-    "PerformanceLunMetricSpace",
-    "S3BucketAggregates",
-    "Cn",
-    "ApplicationRpoComponentsRpoLocal",
-    "ConsistencyGroupSnapshotResponseRecords",
-    "S3UserPostPatch",
-    "ApplicationRpoComponents",
-    "IscsiCredentialsChapInbound",
-    "NfsServiceProtocolV40Features",
-    "CifsSessionVolumes",
-    "SoftwareDataEncryption",
-    "SwitchPortRemotePortDeviceShelf",
-    "NetworkRouteInterfaces",
-    "ClusterPeerEncryption",
-    "SwitchMonitoring",
-    "PortsetIgroups",
-    "TopMetricValueErrorBounds",
-    "IgroupParent",
-    "NvmeSubsystemHostProximityPeerSvms",
-    "TapeDeviceDeviceNames",
-    "LunMapIgroup",
-    "PreferredDcs",
-    "ShelfErrors",
-    "StorageUnitAntiRansomwareSuspectResponseRecords",
-    "NasApplicationComponentsFlexcacheOriginSvm",
-    "AntiRansomwareVolumeWorkloadSurgeStatistics",
-    "PerformanceSvmNfsResponseRecords",
-    "NvmeHostProximityPeerSvms",
-    "ApplicationTemplate1",
-    "S3AuditEvents",
-    "NasApplicationComponentsTieringObjectStores",
-    "ClusterNodesMetroclusterPorts",
-    "SvmIscsi",
-    "ClusterManagementInterface",
-    "NvmeSubsystemControllerDhHmacChap",
-    "PerformanceMetricRawSvm",
-    "ContainerVolume",
-    "Posix",
-    "NfsServiceRoot",
-    "SnapmirrorDestinationCreationStorageService",
-    "MetroclusterDiagConnectionDetails",
-    "OracleRacOnNfsGridBinaryStorageService",
-    "ConsistencyGroupResponseRecordsConsistencyGroupsLunsLunMapsIgroupIgroups",
-    "ConsistencyGroupConsistencyGroupsVolumesNasCifs",
-    "GroupPolicyObjectPrivilegeRight",
-    "VolumeSnapmirror",
-    "Counter",
-    "PerformanceFcpMetricResponseRecords",
-    "SecurityCertificateSign",
-    "GroupPolicyObjectKerberos",
-    "QuotaRuleSpace",
-    "ClusterNodesSnaplock",
-    "VolumeSnaplock",
-    "S3BucketLifecycleManagement",
-    "ShelfCurrentSensors",
-    "SvmSnapmirror",
-    "SvmMigrationVolumePlacement",
-    "NvmeSubsystemControllerTls",
-    "QuotaReportFiles",
-    "SecurityKeyManagerOnboard",
-    "ClusterPeeringPolicy",
-    "GroupPolicyObjectBranchcache",
-    "IgroupInitiatorsLinks",
-    "ApplicationComponentSvm",
-    "AntiRansomwareVolumeAttackDetectionParameters",
-    "NvmeNamespaceProvisioningOptions",
-    "LocalCifsGroupMembersRecords",
-    "NvmeSubsystemReplicationError",
-    "NvmeNamespaceProvisioningOptionsStorageService",
-    "BarbicanConnectivity",
-    "NvmeNamespaceConvertLun",
-    "SecurityAssociationIpsec",
-    "ConsistencyGroupLunsLunMaps",
-    "Smb",
-    "FirmwareSpBmc",
-    "EmsFilterResponseRecordsRulesParameterCriteria",
-    "CifsAdDomain",
-    "S3BucketSvmProtectionStatusDestination",
-    "SnaplockLogFile",
-    "NvmeNamespaceClone",
-    "UnixGroupUsers1",
-    "AggregateDataEncryption",
-    "S3ServiceDeleteResponseRecords",
-    "NasApplicationComponentsSnaplock",
-    "AggregateSpaceSnapshot",
-    "MccipPortL3Config",
-    "SnapmirrorEndpointConsistencyGroupVolumes",
-    "IgroupInitiatorRecordsProximityPeerSvms",
-    "ApplicationProtectionGroupsRpoLocal",
-    "StorageUnitSnapshotSnaplock",
-    "SwitchSnmp",
-    "S3AuditEventSelector",
-    "AntiRansomwareVolumeWorkloadSurgeUsage",
-    "ConsistencyGroupConsistencyGroupsVolumes",
-    "IpsecEndpoint",
-    "FcInterfaceResponseRecommend",
-    "StorageSwitchErrorsComponent",
-    "SoftwarePackageDownloadGet",
-    "AdvancedRights",
-    "SvmMigrationVolumePlacementVolumeAggregatePairs",
-    "MetroclusterDiagnosticsVolume",
-    "SvmNvme",
-    "ApplicationNvmeAccessBackingStorage",
-    "EmsFilterRules",
-    "StorageBridgeSasPortsPhy2",
-    "StorageBridgeSasPortsPhy1",
-    "StorageSwitchConnectionsPeerPort",
-    "StorageBridgeSasPortsPhy4",
-    "StorageBridgeSasPortsPhy3",
-    "ConsistencyGroupLunLunMaps",
-    "License",
-    "ApplicationSnapshotApplication",
-    "ApplicationSnapshotRestore",
-    "ArwVserver",
-    "IscsiCredentialsChapOutbound",
-    "SoftwareStatusDetailsReferenceAction",
-    "BroadcastDomainSvm",
-    "ClusterNodesNvram",
-    "LunVvol",
-    "NodeResponseRecordsHaPartners",
-    "PortStatisticsPacketCounters",
-    "StorageBridgeFcPortsSfp",
-    "ConsistencyGroupNamespaceSpace",
-    "IgroupInitiatorConnectivityTrackingConnections",
-    "CifsDomainTrust",
-    "StorageSwitchPathsPort",
-    "IscsiSessionInitiator",
-    "AggregateInactiveDataReporting",
-    "ContainerVolumesFlexcache",
-    "ZappNvmeComponentsTiering",
-    "NvmeNamespaceCloneSource",
-    "DetailedStatusCodeMessage",
-    "ContainerResponseRecordsVolumesS3Bucket",
-    "FcInterfaceLocationHomePortNode",
-    "TopMetricsSvmUserThroughput",
-    "GcpKmsState",
-    "NfsServiceSecurity",
-    "VolumeFlexgroup",
-    "ConsistencyGroupMetricsResponseRecords",
-    "FpolicyEngines",
-    "ClusterNodesHaTakeover",
-    "SanApplicationComponentsTiering",
-    "Counter2d",
-    "FlexcacheAtimeScrub",
-    "IgroupInitiatorNoRecordsProximity",
-    "OracleOnNfs",
-    "TopMetricsSvmUserExcludedVolume",
-    "AwsKmsKey",
-    "ClusterNodesServiceProcessorApiService",
-    "ShelfBaysDrawer",
-    "ShadowcopyAddFiles",
-    "StorageUnitQosPolicy",
-    "FabricConnectionsSwitch",
-    "CifsOpenFileShare",
-    "SecurityProxy",
-    "DiskDrawer",
-    "SnapmirrorTransferErrorInfo",
-    "WebauthnCredentialsCredential",
-    "StoragePoolDisk",
-    "ConsistencyGroupNvmeHostDhHmacChap",
-    "ChassisNodesPcis",
-    "AnalyticsInfo",
-    "ReferenceFileMoveFile",
-    "ConsistencyGroupConsistencyGroupsLuns",
-    "SwitchPortRoles",
-    "ApplicationLunMappingObjectIgroup",
-    "SvmMigrationMessages",
-    "VolumeNodes",
-    "LunCopy",
-    "VolumeAggregates",
-    "FlexcachePrepopulate",
-    "IpAddressRange",
-    "LdapIpStatus",
-    "ApplicationComponentStorageService",
-    "CifsDomainPasswordSchedule",
-    "ZappS3BucketApplicationComponents",
-    "LdapStatus",
-    "S3LogRetention",
-    "SoftwareValidation",
-    "ConsistencyGroupResponseRecords",
-    "MetroclusterDiagCheck",
-    "ConsistencyGroupLunMapIgroupInitiators",
-    "ClusterNodesHaTakeoverCheck",
-    "SanApplicationComponents",
-    "NfsServiceProtocolAccessRules",
-    "ClusterPeerAuthentication",
-    "TopMetricsSvmDirectoryExcludedVolumeReason",
-    "AntiRansomwareVolumeEventLog",
-    "QosPolicyGroup",
-    "IgroupInitiatorConnectivityTrackingConnectionsLoginsInterface",
-    "SnapshotProvenanceVolume",
-    "StorageAvailabilityZoneSpace",
-    "StoragePoolPatch",
-    "FlexcacheRelativeSize",
-    "PortStatistics",
-    "StorageUnitAntiRansomwareEntropyStatsResponseRecords",
-    "ConsistencyGroupResponseRecordsReplicationRelationships",
-    "ConsistencyGroupSnapshotResponseRecordsNamespaces",
-    "AntiRansomwareVolumeWorkloadNewlyObservedFileExtensions",
-    "SnapmirrorSourceEndpoint",
-    "IgroupTarget",
-    "ClusterNodesServiceProcessorSshInfo",
-    "VolumeFlashPool",
-    "ClusterNodesHwAssistStatus",
-    "PortReachableBroadcastDomains",
-    "VolumeRebalancing1EngineScannerBlocksSkipped",
-    "StorageSwitchConnectionsSourcePort",
-    "AnalyticsInfoByAccessedTime",
-    "ConsistencyGroupClone",
-    "StoragePoolUsedAllocationUnit",
-    "CapacityPoolNodes",
-    "KerberosRealmAdServer",
-    "EmsDestinationResponseRecordsConnectivityErrors",
-    "MetroclusterDiagDetails",
-    "LunQosPolicy",
-    "NvmeSubsystemMapNamespace",
-    "ClusterNodesHaGiveback",
-    "AggregateBlockStorageHybridCache",
-    "ContainerVolumes",
-    "TopMetricsSvmClientResponseNotice",
-    "CifsServiceDelete",
-    "ChassisNodesUsbs",
-    "ConsistencyGroupVdiskProvisioningOptions",
-    "StorageAvailabilityZoneSpaceEfficiencyWithoutSnapshots",
-    "VolumeErrorState",
-    "ShelfAcpsError",
-    "ChassisNode",
-    "CifsServiceOptions",
-    "DiskPathInfo",
-    "Href",
-    "SwitchPortStatistics",
-    "ContainerVolumesS3BucketPolicyStatements",
-    "SvmDns",
-    "ContainerVolumeSnaplock",
-    "ContainerVolumeS3Bucket",
-    "SoftwareErrors",
-    "ConsistencyGroupChildNamespaces",
-    "AzureKeyVaultState",
-    "ApplicationNfsProperties",
-    "EmsActionParameterHelpArguments",
-    "MccNode",
-    "ClusterSpaceBlockStorage",
-    "ConsistencyGroupVolumeSnapshot",
-    "BindingStatus",
-    "ConsistencyGroupNvmeHost",
-    "GcpKmsEkmipReachability",
-    "PerformanceSvmNfsMetricHistorical",
-    "ConsistencyGroupSnapshotMissingNamespaces",
-    "NvmeSubsystemHostRecords",
-    "PortsetInterfaceRecords",
-    "FileCopyFilesToCopy",
-    "ApplicationSvm",
-    "ApplicationSanAccessIscsiEndpointInterfaceIp",
-    "ClusterActiveDirectory",
-    "VdiOnNasDesktopsStorageService",
-    "AntiRansomwareVolumeWorkload",
-    "LicensePackageLicenses",
-    "ClusterNodesHaPorts",
-    "ConsistencyGroupIgroupInitiators",
-    "SubjectAlternateName",
-    "VolumeEncryptionStatus",
-    "ClusterNodesControllerFailedFan",
-    "NvmeSubsystemControllerIoQueue",
-    "ShelfPorts",
-    "IkpKmsKey",
-    "SnapmirrorDestinationCreation",
-    "StoragePortError",
-    "ConsistencyGroupIgroup",
-    "StorageAvailabilityZoneNodes",
-    "ConsistencyGroupStatistics",
-    "SvmMigrationVolumeErrors",
-    "SoftwareMcc",
-    "StorageSwitchZones",
-    "EmsDestinationResponseRecordsFilters",
-    "AwsKmsState",
-    "OracleOnSan",
-    "OracleOnNfsArchiveLog",
-    "LunAttributeLun",
-    "ApplicationCifsPropertiesServer",
-    "ClusterSpaceCloudStorage",
-    "ConsistencyGroupResponseRecordsConsistencyGroups",
-    "IpInterfaceLocation",
-    "MetroclusterMccipPorts",
-    "VolumeConstituentsSpaceLogicalSpace",
-    "LicensePackageResponseRecordsLicenses",
-    "OracleOnNfsArchiveLogStorageService",
-    "ApplicationComponentSnapshotRestoreComponent",
-    "VolumeApplication",
-    "IgroupLunMapsLun",
-    "ConsistencyGroupNas",
-    "AggregateWarning",
-    "S3GroupUsers",
-    "ConsistencyGroupConsistencyGroupsRestoreToSnapshot",
-    "SqlOnSanTempDb",
-    "ApplicationNvmeAccess",
-    "AuditEvents",
-    "VolumeEfficiencySpaceSavings",
-    "VolumeStatisticsFlexcacheRaw",
-    "IgroupChild",
-    "ZappNvmeComponents",
-    "MongoDbOnSanNewIgroupsInitiatorObjects",
-    "IgroupLunMaps",
-    "FcLoginIgroups",
-]
+"""}
+)

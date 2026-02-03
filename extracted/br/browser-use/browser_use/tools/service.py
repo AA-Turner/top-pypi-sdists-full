@@ -359,6 +359,7 @@ class Tools(Generic[Context]):
 		@self.registry.action(
 			'',
 			param_model=SearchAction,
+			terminates_sequence=True,
 		)
 		async def search(params: SearchAction, browser_session: BrowserSession):
 			import urllib.parse
@@ -402,6 +403,7 @@ class Tools(Generic[Context]):
 		@self.registry.action(
 			'',
 			param_model=NavigateAction,
+			terminates_sequence=True,
 		)
 		async def navigate(params: NavigateAction, browser_session: BrowserSession):
 			try:
@@ -446,7 +448,7 @@ class Tools(Generic[Context]):
 					# Return error in ActionResult instead of re-raising
 					return ActionResult(error=f'Navigation failed: {str(e)}')
 
-		@self.registry.action('Go back', param_model=NoParamsAction)
+		@self.registry.action('Go back', param_model=NoParamsAction, terminates_sequence=True)
 		async def go_back(_: NoParamsAction, browser_session: BrowserSession):
 			try:
 				event = browser_session.event_bus.dispatch(GoBackEvent())
@@ -854,6 +856,7 @@ class Tools(Generic[Context]):
 		@self.registry.action(
 			'Switch to another open tab by tab_id. Tab IDs are shown in browser state tabs list (last 4 chars of target_id). Use when you need to work with content in a different tab.',
 			param_model=SwitchTabAction,
+			terminates_sequence=True,
 		)
 		async def switch(params: SwitchTabAction, browser_session: BrowserSession):
 			# Simple switch tab logic
@@ -914,12 +917,29 @@ class Tools(Generic[Context]):
 			browser_session: BrowserSession,
 			page_extraction_llm: BaseChatModel,
 			file_system: FileSystem,
+			extraction_schema: dict | None = None,
 		):
 			# Constants
 			MAX_CHAR_LIMIT = 100000
 			query = params['query'] if isinstance(params, dict) else params.query
 			extract_links = params['extract_links'] if isinstance(params, dict) else params.extract_links
 			start_from_char = params['start_from_char'] if isinstance(params, dict) else params.start_from_char
+			output_schema: dict | None = params.get('output_schema') if isinstance(params, dict) else params.output_schema
+
+			# If the LLM didn't provide an output_schema, use the agent-injected extraction_schema
+			if output_schema is None and extraction_schema is not None:
+				output_schema = extraction_schema
+
+			# Attempt to convert output_schema to a pydantic model upfront; fall back to free-text on failure
+			structured_model: type[BaseModel] | None = None
+			if output_schema is not None:
+				try:
+					from browser_use.tools.extraction.schema_utils import schema_dict_to_pydantic_model
+
+					structured_model = schema_dict_to_pydantic_model(output_schema)
+				except (ValueError, TypeError) as exc:
+					logger.warning(f'Invalid output_schema, falling back to free-text extraction: {exc}')
+					output_schema = None
 
 			# Extract clean markdown using the unified method
 			try:
@@ -934,35 +954,29 @@ class Tools(Generic[Context]):
 			# Original content length for processing
 			final_filtered_length = content_stats['final_filtered_chars']
 
+			# Structure-aware chunking replaces naive char-based truncation
+			from browser_use.dom.markdown_extractor import chunk_markdown_by_structure
+
+			chunks = chunk_markdown_by_structure(content, max_chunk_chars=MAX_CHAR_LIMIT, start_from_char=start_from_char)
+			if not chunks:
+				return ActionResult(
+					error=f'start_from_char ({start_from_char}) exceeds content length {final_filtered_length} characters.'
+				)
+			chunk = chunks[0]
+			content = chunk.content
+			truncated = chunk.has_more
+
+			# Prepend overlap context for continuation chunks (e.g. table headers)
+			if chunk.overlap_prefix:
+				content = chunk.overlap_prefix + '\n' + content
+
 			if start_from_char > 0:
-				if start_from_char >= len(content):
-					return ActionResult(
-						error=f'start_from_char ({start_from_char}) exceeds content length {final_filtered_length} characters.'
-					)
-				content = content[start_from_char:]
 				content_stats['started_from_char'] = start_from_char
-
-			# Smart truncation with context preservation
-			truncated = False
-			if len(content) > MAX_CHAR_LIMIT:
-				# Try to truncate at a natural break point (paragraph, sentence)
-				truncate_at = MAX_CHAR_LIMIT
-
-				# Look for paragraph break within last 500 chars of limit
-				paragraph_break = content.rfind('\n\n', MAX_CHAR_LIMIT - 500, MAX_CHAR_LIMIT)
-				if paragraph_break > 0:
-					truncate_at = paragraph_break
-				else:
-					# Look for sentence break within last 200 chars of limit
-					sentence_break = content.rfind('.', MAX_CHAR_LIMIT - 200, MAX_CHAR_LIMIT)
-					if sentence_break > 0:
-						truncate_at = sentence_break + 1
-
-				content = content[:truncate_at]
-				truncated = True
-				next_start = (start_from_char or 0) + truncate_at
-				content_stats['truncated_at_char'] = truncate_at
-				content_stats['next_start_char'] = next_start
+			if truncated:
+				content_stats['truncated_at_char'] = chunk.char_offset_end
+				content_stats['next_start_char'] = chunk.char_offset_end
+				content_stats['chunk_index'] = chunk.chunk_index
+				content_stats['total_chunks'] = chunk.total_chunks
 
 			# Add content statistics to the result
 			original_html_length = content_stats['original_html_chars']
@@ -973,10 +987,89 @@ class Tools(Generic[Context]):
 			if start_from_char > 0:
 				stats_summary += f' (started from char {start_from_char:,})'
 			if truncated:
-				stats_summary += f' → {len(content):,} final chars (truncated, use start_from_char={content_stats["next_start_char"]} to continue)'
+				chunk_info = f'chunk {chunk.chunk_index + 1} of {chunk.total_chunks}, '
+				stats_summary += f' → {len(content):,} final chars ({chunk_info}use start_from_char={content_stats["next_start_char"]} to continue)'
 			elif chars_filtered > 0:
 				stats_summary += f' (filtered {chars_filtered:,} chars of noise)'
 
+			# Sanitize surrogates from content to prevent UTF-8 encoding errors
+			content = sanitize_surrogates(content)
+			query = sanitize_surrogates(query)
+
+			# --- Structured extraction path ---
+			if structured_model is not None:
+				assert output_schema is not None
+				system_prompt = """
+You are an expert at extracting structured data from the markdown of a webpage.
+
+<input>
+You will be given a query, a JSON Schema, and the markdown of a webpage that has been filtered to remove noise and advertising content.
+</input>
+
+<instructions>
+- Extract ONLY information present in the webpage. Do not guess or fabricate values.
+- Your response MUST conform to the provided JSON Schema exactly.
+- If a required field's value cannot be found on the page, use null (if the schema allows it) or an empty string / empty array as appropriate.
+- If the content was truncated, extract what is available from the visible portion.
+</instructions>
+""".strip()
+
+				schema_json = json.dumps(output_schema, indent=2)
+				prompt = (
+					f'<query>\n{query}\n</query>\n\n'
+					f'<output_schema>\n{schema_json}\n</output_schema>\n\n'
+					f'<content_stats>\n{stats_summary}\n</content_stats>\n\n'
+					f'<webpage_content>\n{content}\n</webpage_content>'
+				)
+
+				try:
+					response = await asyncio.wait_for(
+						page_extraction_llm.ainvoke(
+							[SystemMessage(content=system_prompt), UserMessage(content=prompt)],
+							output_format=structured_model,
+						),
+						timeout=120.0,
+					)
+
+					# response.completion is a pydantic model instance
+					result_data: dict = response.completion.model_dump(mode='json')  # type: ignore[union-attr]
+					result_json = json.dumps(result_data)
+
+					current_url = await browser_session.get_current_page_url()
+					extracted_content = f'<url>\n{current_url}\n</url>\n<query>\n{query}\n</query>\n<structured_result>\n{result_json}\n</structured_result>'
+
+					from browser_use.tools.extraction.views import ExtractionResult
+
+					extraction_meta = ExtractionResult(
+						data=result_data,
+						schema_used=output_schema,
+						is_partial=truncated,
+						source_url=current_url,
+						content_stats=content_stats,
+					)
+
+					# Simple memory handling
+					MAX_MEMORY_LENGTH = 10000
+					if len(extracted_content) < MAX_MEMORY_LENGTH:
+						memory = extracted_content
+						include_extracted_content_only_once = False
+					else:
+						file_name = await file_system.save_extracted_content(extracted_content)
+						memory = f'Query: {query}\nContent in {file_name} and once in <read_state>.'
+						include_extracted_content_only_once = True
+
+					logger.info(f'📄 {memory}')
+					return ActionResult(
+						extracted_content=extracted_content,
+						include_extracted_content_only_once=include_extracted_content_only_once,
+						long_term_memory=memory,
+						metadata={'structured_extraction': True, 'extraction_result': extraction_meta.model_dump(mode='json')},
+					)
+				except Exception as e:
+					logger.debug(f'Error in structured extraction: {e}')
+					raise RuntimeError(str(e))
+
+			# --- Free-text extraction path (default) ---
 			system_prompt = """
 You are an expert at extracting data from the markdown of a webpage.
 
@@ -997,10 +1090,6 @@ You will be given a query and the markdown of a webpage that has been filtered t
 - Do not answer in conversational format - directly output the relevant information or that the information is unavailable.
 </output>
 """.strip()
-
-			# Sanitize surrogates from content to prevent UTF-8 encoding errors
-			content = sanitize_surrogates(content)
-			query = sanitize_surrogates(query)
 
 			prompt = f'<query>\n{query}\n</query>\n\n<content_stats>\n{stats_summary}\n</content_stats>\n\n<webpage_content>\n{content}\n</webpage_content>'
 
@@ -1778,6 +1867,7 @@ Validated Code (after quote fixing):
 		sensitive_data: dict[str, str | dict[str, str]] | None = None,
 		available_file_paths: list[str] | None = None,
 		file_system: FileSystem | None = None,
+		extraction_schema: dict | None = None,
 	) -> ActionResult:
 		"""Execute an action"""
 
@@ -1809,6 +1899,7 @@ Validated Code (after quote fixing):
 							file_system=file_system,
 							sensitive_data=sensitive_data,
 							available_file_paths=available_file_paths,
+							extraction_schema=extraction_schema,
 						)
 					except BrowserError as e:
 						logger.error(f'❌ Action {action_name} failed with BrowserError: {str(e)}')
@@ -1859,6 +1950,7 @@ Validated Code (after quote fixing):
 					'file_system',
 					'available_file_paths',
 					'sensitive_data',
+					'extraction_schema',
 				}
 
 				# Extract action params (params for the action itself)

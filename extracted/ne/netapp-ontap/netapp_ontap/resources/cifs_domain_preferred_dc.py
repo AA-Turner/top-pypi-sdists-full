@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -34,16 +34,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     CifsDomainPreferredDc(
         {
-            "svm": {"uuid": "1226670c-abc9-11eb-8de3-0050568eb0c4", "name": "svm1"},
-            "fqdn": "host1",
             "server_ip": "4.4.4.4",
+            "fqdn": "host1",
+            "svm": {"name": "svm1", "uuid": "1226670c-abc9-11eb-8de3-0050568eb0c4"},
         }
     ),
     CifsDomainPreferredDc(
         {
-            "svm": {"uuid": "1226670c-abc9-11eb-8de3-0050568eb0c4", "name": "svm1"},
-            "fqdn": "host2",
             "server_ip": "11.11.11.11",
+            "fqdn": "host2",
+            "svm": {"name": "svm1", "uuid": "1226670c-abc9-11eb-8de3-0050568eb0c4"},
         }
     ),
 ]
@@ -74,9 +74,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsDomainPreferredDc(
     {
-        "svm": {"uuid": "1226670c-abc9-11eb-8de3-0050568eb0c4", "name": "svm1"},
-        "fqdn": "host1",
         "server_ip": "4.4.4.4",
+        "fqdn": "host1",
+        "svm": {"name": "svm1", "uuid": "1226670c-abc9-11eb-8de3-0050568eb0c4"},
     }
 )
 
@@ -179,11 +179,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -196,7 +195,6 @@ __pdoc__ = {
     "CifsDomainPreferredDcSchema.resource": False,
     "CifsDomainPreferredDcSchema.opts": False,
 }
-
 
 class CifsDomainPreferredDcSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the CifsDomainPreferredDc object"""
@@ -219,10 +217,20 @@ Example: test.com"""
 
 Example: 4.4.4.4"""
 
-    status = marshmallow_fields.Nested("netapp_ontap.models.cifs_domain_preferred_dc_status.CifsDomainPreferredDcStatusSchema", data_key="status", unknown=EXCLUDE, allow_none=True)
+    status = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cifs_domain_preferred_dc_status", "CifsDomainPreferredDcStatusSchema"),
+                data_key="status",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The status field of the cifs_domain_preferred_dc."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the cifs_domain_preferred_dc."""
 
     @property

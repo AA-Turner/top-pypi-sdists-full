@@ -11,6 +11,10 @@ from .models import CONTENT_ENDPOINTS as CONTENT_ENDPOINTS
 from .models import is_content_endpoint as is_content_endpoint
 from .models import parse_fortios_config as parse_fortios_config
 
+# Transaction support
+from .transaction import Transaction as Transaction
+from .transaction import TransactionError as TransactionError
+
 # FortiManager proxy support
 from .fmg_proxy import FortiManagerProxy as FortiManagerProxy
 from .fmg_proxy import ProxiedFortiOS as ProxiedFortiOS

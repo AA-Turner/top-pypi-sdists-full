@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["AggregateBlockStoragePrimary", "AggregateBlockStoragePrimarySchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "AggregateBlockStoragePrimarySchema.opts": False,
     "AggregateBlockStoragePrimary": False,
 }
-
 
 class AggregateBlockStoragePrimarySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the AggregateBlockStoragePrimary object"""
@@ -82,7 +80,15 @@ Valid choices:
 * raid4
 * mixed_raid_type """
 
-    simulated_raid_groups = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.aggregate_block_storage_primary_simulated_raid_groups.AggregateBlockStoragePrimarySimulatedRaidGroupsSchema", unknown=EXCLUDE, allow_none=True), data_key="simulated_raid_groups", allow_none=True)
+    simulated_raid_groups = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.aggregate_block_storage_primary_simulated_raid_groups", "AggregateBlockStoragePrimarySimulatedRaidGroupsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="simulated_raid_groups",
+                allow_none=True
+                )
     r""" The simulated_raid_groups field of the aggregate_block_storage_primary. """
 
     @property

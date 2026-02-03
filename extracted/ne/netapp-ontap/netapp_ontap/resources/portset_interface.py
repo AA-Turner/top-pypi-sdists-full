@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -10,11 +10,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -28,24 +27,51 @@ __pdoc__ = {
     "PortsetInterfaceSchema.opts": False,
 }
 
-
 class PortsetInterfaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the PortsetInterface object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the portset_interface."""
 
-    fc = marshmallow_fields.Nested("netapp_ontap.resources.fc_interface.FcInterfaceSchema", data_key="fc", unknown=EXCLUDE, allow_none=True)
+    fc = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.fc_interface", "FcInterfaceSchema"),
+                data_key="fc",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The fc field of the portset_interface."""
 
-    ip = marshmallow_fields.Nested("netapp_ontap.resources.ip_interface.IpInterfaceSchema", data_key="ip", unknown=EXCLUDE, allow_none=True)
+    ip = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.ip_interface", "IpInterfaceSchema"),
+                data_key="ip",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The ip field of the portset_interface."""
 
-    portset = marshmallow_fields.Nested("netapp_ontap.models.portset_interface_portset.PortsetInterfacePortsetSchema", data_key="portset", unknown=EXCLUDE, allow_none=True)
+    portset = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.portset_interface_portset", "PortsetInterfacePortsetSchema"),
+                data_key="portset",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The portset in which the network interface is found.<br/>
 Note that this does not mean that the network interface cannot also be found in other portsets."""
 
-    records = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.portset_interfaces.PortsetInterfacesSchema", unknown=EXCLUDE, allow_none=True), data_key="records", allow_none=True)
+    records = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.portset_interfaces", "PortsetInterfacesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="records",
+                allow_none=True
+            )
     r""" An array of network interfaces specified to add multiple interfaces to a portset in a single API call. Valid in POST only and not allowed when the `fc` or `ip` property is used."""
 
     uuid = marshmallow_fields.Str(

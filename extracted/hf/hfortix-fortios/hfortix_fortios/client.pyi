@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional, Union, overload
+from typing import Any, Callable, Literal, Optional, Union, overload
 
 from hfortix_core.http.interface import IHTTPClient
 from hfortix_core.audit import AuditHandler
 from hfortix_fortios.api import API
+from hfortix_fortios.transaction import Transaction
 
 class FortiOS:
     """FortiOS REST API Client.
@@ -143,6 +144,64 @@ class FortiOS:
         self,
         config: dict[str, Any],
     ) -> Any: ...
+    def transaction(
+        self,
+        timeout: int = 60,
+        vdom: Optional[str] = None,
+        auto_commit: bool = True,
+        auto_abort: bool = True,
+    ) -> Transaction:
+        """Create a transaction context manager.
+        
+        Args:
+            timeout: Transaction timeout in seconds (default: 60)
+            vdom: VDOM for transaction (default: client's VDOM)
+            auto_commit: Auto-commit on successful exit (default: True)
+            auto_abort: Auto-abort on exception (default: True)
+            
+        Returns:
+            Transaction context manager
+            
+        Example:
+            with fgt.transaction() as txn:
+                fgt.api.cmdb.firewall.address.post({...})
+                fgt.api.cmdb.firewall.policy.post({...})
+            # Auto-commits on success, auto-aborts on exception
+        """
+        ...
+    def transactional(
+        self,
+        timeout: int = 60,
+        vdom: Optional[str] = None,
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        """Decorator to run a function within a transaction.
+        
+        Args:
+            timeout: Transaction timeout in seconds (default: 60)
+            vdom: VDOM for transaction (default: client's VDOM)
+            
+        Returns:
+            Decorator function
+            
+        Example:
+            @fgt.transactional()
+            def setup_infrastructure():
+                fgt.api.cmdb.system.interface.post({...})
+                fgt.api.cmdb.firewall.address.post({...})
+            
+            setup_infrastructure()  # Runs in transaction
+        """
+        ...
+    def list_transactions(self, vdom: Optional[str] = None) -> list[dict[str, Any]]:
+        """List all active transactions (FortiOS 7.4.1+).
+        
+        Args:
+            vdom: VDOM to query (default: client's VDOM)
+            
+        Returns:
+            List of active transactions
+        """
+        ...
     def close(self) -> None: ...
     async def aclose(self) -> None: ...
     def __enter__(self) -> FortiOS: ...

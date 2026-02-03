@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -63,7 +63,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example0_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example0_result" class="try_it_out_content">
 ```
-Volume({"svm": {"name": "vs1"}, "name": "vol1", "aggregates": [{"name": "aggr1"}]})
+Volume({"name": "vol1", "aggregates": [{"name": "aggr1"}], "svm": {"name": "vs1"}})
 
 ```
 </div>
@@ -91,10 +91,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Volume(
     {
-        "svm": {"name": "vs1"},
-        "snaplock": {"type": "compliance", "retention": {"default": "P20Y"}},
         "name": "vol1",
         "aggregates": [{"name": "aggr1"}],
+        "snaplock": {"retention": {"default": "P20Y"}, "type": "compliance"},
+        "svm": {"name": "vs1"},
     }
 )
 
@@ -130,16 +130,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Volume(
     {
-        "state": "online",
-        "svm": {"name": "vs1"},
-        "type": "RW",
-        "constituents_per_aggregate": 1,
         "name": "vol1",
-        "encryption": {"enabled": False},
-        "autosize": {"maximum": 524288000, "minimum": 251658240},
         "size": 251658240,
-        "efficiency": {"compression": "both"},
         "aggregates": [{"name": "aggr1"}, {"name": "aggr2"}, {"name": "aggr3"}],
+        "constituents_per_aggregate": 1,
+        "efficiency": {"compression": "both"},
+        "autosize": {"maximum": 524288000, "minimum": 251658240},
+        "state": "online",
+        "type": "RW",
+        "encryption": {"enabled": False},
+        "svm": {"name": "vs1"},
     }
 )
 
@@ -173,14 +173,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Volume(
     {
-        "state": "online",
-        "svm": {"name": "vs1"},
-        "type": "RW",
         "name": "vol1",
-        "encryption": {"enabled": False},
-        "autosize": {"maximum": 549755813888000, "minimum": 263882790666240},
         "size": 263882790666240,
         "efficiency": {"compression": "both"},
+        "autosize": {"maximum": 549755813888000, "minimum": 263882790666240},
+        "state": "online",
+        "type": "RW",
+        "encryption": {"enabled": False},
+        "svm": {"name": "vs1"},
     }
 )
 
@@ -209,9 +209,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Volume(
     {
+        "name": "vol1_clone",
         "clone": {"parent_volume": {"name": "vol1"}, "is_flexclone": True},
         "svm": {"name": "vs0"},
-        "name": "vol1_clone",
     }
 )
 
@@ -252,57 +252,57 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Volume(
         {
-            "uuid": "2d1167cc-c3f2-495a-a23f-8f50b071b9b8",
             "name": "vsdata_root",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/2d1167cc-c3f2-495a-a23f-8f50b071b9b8"
                 }
             },
+            "uuid": "2d1167cc-c3f2-495a-a23f-8f50b071b9b8",
         }
     ),
     Volume(
         {
-            "uuid": "3969be7e-78b4-4b4c-82a4-fa86331f03df",
             "name": "vsfg_root",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/3969be7e-78b4-4b4c-82a4-fa86331f03df"
                 }
             },
+            "uuid": "3969be7e-78b4-4b4c-82a4-fa86331f03df",
         }
     ),
     Volume(
         {
-            "uuid": "59c03ac5-e708-4ce8-a676-278dc249fda2",
             "name": "svm_root",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/59c03ac5-e708-4ce8-a676-278dc249fda2"
                 }
             },
+            "uuid": "59c03ac5-e708-4ce8-a676-278dc249fda2",
         }
     ),
     Volume(
         {
-            "uuid": "6802635b-8036-11e8-aae5-0050569503ac",
             "name": "fgvol",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/6802635b-8036-11e8-aae5-0050569503ac"
                 }
             },
+            "uuid": "6802635b-8036-11e8-aae5-0050569503ac",
         }
     ),
     Volume(
         {
-            "uuid": "d0c3359c-5448-4a9b-a077-e3295a7e9057",
             "name": "datavol",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/d0c3359c-5448-4a9b-a077-e3295a7e9057"
                 }
             },
+            "uuid": "d0c3359c-5448-4a9b-a077-e3295a7e9057",
         }
     ),
 ]
@@ -330,99 +330,99 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Volume(
     {
+        "name": "datavol",
+        "size": 20971520,
+        "aggregates": [
+            {
+                "_links": {"self": {"href": "/api/cluster/aggregates/data"}},
+                "name": "data",
+                "uuid": "aa742322-36bc-4d98-bbc4-0a827534c035",
+            }
+        ],
+        "style": "flexvol",
         "metric": {
+            "latency": {"write": 0, "total": 0, "other": 0, "read": 0},
             "timestamp": "2019-04-09T05:50:15+00:00",
-            "throughput": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "flexcache": {
-                "timestamp": "2019-04-09T05:50:15+00:00",
-                "status": "ok",
-                "cache_miss_percent": 0,
-                "duration": "PT1D",
-                "bandwidth_savings": 0,
-            },
-            "iops": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "status": "ok",
+            "iops": {"write": 0, "total": 0, "other": 0, "read": 0},
             "cloud": {
+                "latency": {"write": 0, "total": 0, "other": 0, "read": 0},
                 "timestamp": "2019-04-09T05:50:15+00:00",
-                "iops": {"read": 0, "total": 0, "other": 0, "write": 0},
+                "iops": {"write": 0, "total": 0, "other": 0, "read": 0},
                 "status": "ok",
-                "latency": {"read": 0, "total": 0, "other": 0, "write": 0},
                 "duration": "PT15S",
             },
-            "latency": {"read": 0, "total": 0, "other": 0, "write": 0},
+            "flexcache": {
+                "bandwidth_savings": 0,
+                "timestamp": "2019-04-09T05:50:15+00:00",
+                "cache_miss_percent": 0,
+                "status": "ok",
+                "duration": "PT1D",
+            },
+            "status": "ok",
             "duration": "PT15S",
+            "throughput": {"write": 0, "total": 0, "other": 0, "read": 0},
+        },
+        "snapshot_policy": {"name": "default"},
+        "efficiency": {"ratio": 1.0},
+        "qos": {
+            "policy": {"name": "pg1", "uuid": "228454af-5a8b-11e9-bd5b-005056ac6f1f"}
         },
         "state": "online",
-        "svm": {"uuid": "d61b69f5-7458-11e8-ad3f-0050569503ac", "name": "vsdata"},
-        "uuid": "d0c3359c-5448-4a9b-a077-e3295a7e9057",
-        "type": "rw",
-        "comment": "This is a data volume",
-        "files": {"used": 96, "maximum": 566},
-        "style": "flexvol",
-        "snapshot_policy": {"name": "default"},
+        "statistics": {
+            "throughput_raw": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "flexcache_raw": {
+                "cache_miss_blocks": 0,
+                "status": "ok",
+                "timestamp": "2019-04-09T05:50:15+00:00",
+                "client_requested_blocks": 0,
+            },
+            "iops_raw": {"write": 0, "total": 3, "other": 3, "read": 0},
+            "timestamp": "2019-04-09T05:50:42+00:00",
+            "cloud": {
+                "status": "ok",
+                "latency_raw": {"write": 0, "total": 0, "other": 0, "read": 0},
+                "iops_raw": {"write": 0, "total": 0, "other": 0, "read": 0},
+                "timestamp": "2019-04-09T05:50:42+00:00",
+            },
+            "status": "ok",
+            "latency_raw": {"write": 0, "total": 38298, "other": 38298, "read": 0},
+        },
         "language": "en_us",
+        "comment": "This is a data volume",
+        "create_time": "2018-07-05T14:56:44+05:30",
         "snaplock": {
-            "privileged_delete": "disabled",
+            "append_mode_enabled": False,
+            "expiry_time": "2038-01-19T08:44:28+05:30",
+            "retention": {"default": "P0Y", "minimum": "P0Y", "maximum": "P30Y"},
             "litigation_count": 0,
+            "autocommit_period": "none",
             "type": "enterprise",
             "is_audit_log": False,
-            "retention": {"minimum": "P0Y", "default": "P0Y", "maximum": "P30Y"},
-            "autocommit_period": "none",
-            "append_mode_enabled": False,
+            "privileged_delete": "disabled",
             "compliance_clock_time": "2019-05-24T10:59:00+05:30",
-            "expiry_time": "2038-01-19T08:44:28+05:30",
         },
-        "error_state": {"is_inconsistent": False, "has_bad_blocks": False},
-        "create_time": "2018-07-05T14:56:44+05:30",
+        "files": {"used": 96, "maximum": 566},
+        "type": "rw",
+        "uuid": "d0c3359c-5448-4a9b-a077-e3295a7e9057",
+        "encryption": {"state": "none", "type": "none", "key_id": "", "enabled": False},
         "nas": {
-            "uid": 1357,
-            "export_policy": {"id": 8589934593, "name": "default"},
-            "gid": 2468,
+            "unix_permissions": 4755,
+            "export_policy": {"name": "default", "id": 8589934593},
+            "security_style": "unix",
             "junction_parent": {
-                "uuid": "a2564f80-25fb-41e8-9b49-44de2600991f",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/a2564f80-25fb-41e8-9b49-44de2600991f"
                     }
                 },
                 "name": "vol1",
+                "uuid": "a2564f80-25fb-41e8-9b49-44de2600991f",
             },
-            "unix_permissions": 4755,
-            "security_style": "unix",
+            "uid": 1357,
+            "gid": 2468,
         },
-        "name": "datavol",
-        "statistics": {
-            "timestamp": "2019-04-09T05:50:42+00:00",
-            "latency_raw": {"read": 0, "total": 38298, "other": 38298, "write": 0},
-            "flexcache_raw": {
-                "status": "ok",
-                "cache_miss_blocks": 0,
-                "client_requested_blocks": 0,
-                "timestamp": "2019-04-09T05:50:15+00:00",
-            },
-            "iops_raw": {"read": 0, "total": 3, "other": 3, "write": 0},
-            "status": "ok",
-            "throughput_raw": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "cloud": {
-                "status": "ok",
-                "latency_raw": {"read": 0, "total": 0, "other": 0, "write": 0},
-                "iops_raw": {"read": 0, "total": 0, "other": 0, "write": 0},
-                "timestamp": "2019-04-09T05:50:42+00:00",
-            },
-        },
-        "encryption": {"enabled": False, "state": "none", "type": "none", "key_id": ""},
-        "qos": {
-            "policy": {"uuid": "228454af-5a8b-11e9-bd5b-005056ac6f1f", "name": "pg1"}
-        },
-        "size": 20971520,
-        "efficiency": {"ratio": 1.0},
-        "aggregates": [
-            {
-                "uuid": "aa742322-36bc-4d98-bbc4-0a827534c035",
-                "_links": {"self": {"href": "/api/cluster/aggregates/data"}},
-                "name": "data",
-            }
-        ],
+        "error_state": {"has_bad_blocks": False, "is_inconsistent": False},
+        "svm": {"name": "vsdata", "uuid": "d61b69f5-7458-11e8-ad3f-0050569503ac"},
     }
 )
 
@@ -448,14 +448,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Volume(
     {
-        "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
-        "quota": {"state": "on"},
         "name": "fv",
+        "quota": {"state": "on"},
         "_links": {
             "self": {
                 "href": "/api/storage/volumes/cb20da45-4f6b-11e9-9a71-005056a7f717/"
             }
         },
+        "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
     }
 )
 
@@ -487,50 +487,50 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Volume(
         {
-            "uuid": "fd877f7c-8876-11ec-94a3-005056a7484f",
-            "flexgroup": {"uuid": "fd87d06f-8876-11ec-94a3-005056a7484f"},
             "name": "fg__0001",
+            "flexgroup": {"uuid": "fd87d06f-8876-11ec-94a3-005056a7484f"},
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/fd877f7c-8876-11ec-94a3-005056a7484f?is_constituent=true"
                 }
             },
+            "uuid": "fd877f7c-8876-11ec-94a3-005056a7484f",
         }
     ),
     Volume(
         {
-            "uuid": "fea631d6-8876-11ec-94a3-005056a7484f",
-            "flexgroup": {"uuid": "fd87d06f-8876-11ec-94a3-005056a7484f"},
             "name": "fg__0002",
+            "flexgroup": {"uuid": "fd87d06f-8876-11ec-94a3-005056a7484f"},
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/fea631d6-8876-11ec-94a3-005056a7484f?is_constituent=true"
                 }
             },
+            "uuid": "fea631d6-8876-11ec-94a3-005056a7484f",
         }
     ),
     Volume(
         {
-            "uuid": "ff38a34e-8876-11ec-94a3-005056a7484f",
-            "flexgroup": {"uuid": "fd87d06f-8876-11ec-94a3-005056a7484f"},
             "name": "fg__0003",
+            "flexgroup": {"uuid": "fd87d06f-8876-11ec-94a3-005056a7484f"},
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/ff38a34e-8876-11ec-94a3-005056a7484f?is_constituent=true"
                 }
             },
+            "uuid": "ff38a34e-8876-11ec-94a3-005056a7484f",
         }
     ),
     Volume(
         {
-            "uuid": "ffdbbd1f-8876-11ec-94a3-005056a7484f",
-            "flexgroup": {"uuid": "fd87d06f-8876-11ec-94a3-005056a7484f"},
             "name": "fg__0004",
+            "flexgroup": {"uuid": "fd87d06f-8876-11ec-94a3-005056a7484f"},
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/ffdbbd1f-8876-11ec-94a3-005056a7484f?is_constituent=true"
                 }
             },
+            "uuid": "ffdbbd1f-8876-11ec-94a3-005056a7484f",
         }
     ),
 ]
@@ -557,27 +557,27 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Volume(
     {
-        "uuid": "5f098ebc-32c8-11eb-8dde-005056ace228",
         "name": "vol1",
         "efficiency": {
+            "ratio": 1.0,
             "compaction": "none",
+            "progress": "Idle for 00:10:37",
+            "policy": {"name": "-"},
+            "cross_volume_dedupe": "none",
+            "schedule": "sun-sat@0",
+            "dedupe": "background",
+            "last_op_state": "Success",
             "state": "enabled",
             "type": "regular",
-            "cross_volume_dedupe": "none",
-            "dedupe": "background",
-            "schedule": "sun-sat@0",
-            "ratio": 1.0,
-            "progress": "Idle for 00:10:37",
-            "last_op_state": "Success",
             "last_op_size": 0,
             "compression": "both",
-            "policy": {"name": "-"},
         },
         "_links": {
             "self": {
                 "href": "/api/storage/volumes/5f098ebc-32c8-11eb-8dde-005056ace228"
             }
         },
+        "uuid": "5f098ebc-32c8-11eb-8dde-005056ace228",
     }
 )
 
@@ -736,122 +736,122 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Volume(
         {
-            "uuid": "2b32fdf1-b916-11ec-b103-005056a79638",
             "rebalancing": {
                 "engine": {
                     "scanner": {
-                        "blocks_scanned": 1542675000,
                         "files_skipped": {
-                            "fast_truncate": 22,
-                            "in_snapshot": 77499,
-                            "incompatible": 9377,
-                            "remote_cache": 1912,
-                            "on_demand_destination": 87,
-                            "footprint_invalid": 12,
-                            "metadata": 85449,
                             "too_small": 3812,
                             "other": 336,
-                            "efficiency_blocks": 1823,
                             "too_large": 199,
+                            "in_snapshot": 77499,
+                            "efficiency_blocks": 1823,
+                            "fast_truncate": 22,
+                            "metadata": 85449,
+                            "footprint_invalid": 12,
+                            "incompatible": 9377,
+                            "remote_cache": 1912,
                             "write_fenced": 28,
                             "efficiency_percent": 355,
+                            "on_demand_destination": 87,
                         },
-                        "files_scanned": 3522915,
                         "blocks_skipped": {
-                            "fast_truncate": 54000,
-                            "in_snapshot": 7749000,
-                            "incompatible": 2287000,
-                            "remote_cache": 9914000,
-                            "on_demand_destination": 66000,
-                            "footprint_invalid": 98000,
-                            "metadata": 85673000,
                             "too_small": 8744000,
                             "other": 187000,
-                            "efficiency_blocks": 1472000,
                             "too_large": 865000,
+                            "in_snapshot": 7749000,
+                            "efficiency_blocks": 1472000,
+                            "fast_truncate": 54000,
+                            "metadata": 85673000,
+                            "footprint_invalid": 98000,
+                            "incompatible": 2287000,
+                            "remote_cache": 9914000,
                             "write_fenced": 19000,
                             "efficiency_percent": 366000,
+                            "on_demand_destination": 66000,
                         },
+                        "blocks_scanned": 1542675000,
+                        "files_scanned": 3522915,
                     },
                     "movement": {
                         "file_moves_started": 9833,
+                        "most_recent_start_time": "2022-02-15T12:56:07-05:00",
                         "last_error": {
-                            "destination": 1089,
                             "time": "2022-02-15T09:09:27-05:00",
                             "file_id": 88,
+                            "destination": 1089,
                             "code": 60,
                         },
-                        "most_recent_start_time": "2022-02-15T12:56:07-05:00",
                     },
                 }
             },
-            "flexgroup": {"uuid": "2b3323db-b916-11ec-b103-005056a79638"},
             "name": "fg__0001",
+            "flexgroup": {"uuid": "2b3323db-b916-11ec-b103-005056a79638"},
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/2b32fdf1-b916-11ec-b103-005056a79638?is_constituent=true"
                 }
             },
+            "uuid": "2b32fdf1-b916-11ec-b103-005056a79638",
         }
     ),
     Volume(
         {
-            "uuid": "2cc5da55-b916-11ec-b103-005056a79638",
             "rebalancing": {
                 "engine": {
                     "scanner": {
-                        "blocks_scanned": 1542675000,
                         "files_skipped": {
-                            "fast_truncate": 25,
-                            "in_snapshot": 77499,
-                            "incompatible": 9377,
-                            "remote_cache": 1912,
-                            "on_demand_destination": 87,
-                            "footprint_invalid": 12,
-                            "metadata": 85449,
                             "too_small": 3812,
                             "other": 336,
-                            "efficiency_blocks": 1823,
                             "too_large": 188,
+                            "in_snapshot": 77499,
+                            "efficiency_blocks": 1823,
+                            "fast_truncate": 25,
+                            "metadata": 85449,
+                            "footprint_invalid": 12,
+                            "incompatible": 9377,
+                            "remote_cache": 1912,
                             "write_fenced": 28,
                             "efficiency_percent": 355,
+                            "on_demand_destination": 87,
                         },
-                        "files_scanned": 3522915,
                         "blocks_skipped": {
-                            "fast_truncate": 54000,
-                            "in_snapshot": 7749000,
-                            "incompatible": 2287000,
-                            "remote_cache": 9914000,
-                            "on_demand_destination": 66000,
-                            "footprint_invalid": 98000,
-                            "metadata": 85673000,
                             "too_small": 8744000,
                             "other": 187000,
-                            "efficiency_blocks": 1472000,
                             "too_large": 865000,
+                            "in_snapshot": 7749000,
+                            "efficiency_blocks": 1472000,
+                            "fast_truncate": 54000,
+                            "metadata": 85673000,
+                            "footprint_invalid": 98000,
+                            "incompatible": 2287000,
+                            "remote_cache": 9914000,
                             "write_fenced": 19000,
                             "efficiency_percent": 366000,
+                            "on_demand_destination": 66000,
                         },
+                        "blocks_scanned": 1542675000,
+                        "files_scanned": 3522915,
                     },
                     "movement": {
                         "file_moves_started": 9833,
+                        "most_recent_start_time": "2022-02-15T12:56:07-05:00",
                         "last_error": {
-                            "destination": 1089,
                             "time": "2022-02-15T08:09:27-05:00",
                             "file_id": 88,
+                            "destination": 1089,
                             "code": 60,
                         },
-                        "most_recent_start_time": "2022-02-15T12:56:07-05:00",
                     },
                 }
             },
-            "flexgroup": {"uuid": "2b3323db-b916-11ec-b103-005056a79638"},
             "name": "fg__0002",
+            "flexgroup": {"uuid": "2b3323db-b916-11ec-b103-005056a79638"},
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/2cc5da55-b916-11ec-b103-005056a79638?is_constituent=true"
                 }
             },
+            "uuid": "2cc5da55-b916-11ec-b103-005056a79638",
         }
     ),
 ]
@@ -915,11 +915,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -933,11 +932,15 @@ __pdoc__ = {
     "VolumeSchema.opts": False,
 }
 
-
 class VolumeSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Volume object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the volume."""
 
     tags = marshmallow_fields.List(marshmallow_fields.Str, data_key="_tags", allow_none=True)
@@ -951,10 +954,23 @@ Example: ["team:csi","environment:test"]"""
     )
     r""" Indicates whether or not access time updates are enabled on the volume."""
 
-    activity_tracking = marshmallow_fields.Nested("netapp_ontap.models.volume_activity_tracking.VolumeActivityTrackingSchema", data_key="activity_tracking", unknown=EXCLUDE, allow_none=True)
+    activity_tracking = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_activity_tracking", "VolumeActivityTrackingSchema"),
+                data_key="activity_tracking",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The activity_tracking field of the volume."""
 
-    aggregates = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.svm_migration_volume_placement_aggregates.SvmMigrationVolumePlacementAggregatesSchema", unknown=EXCLUDE, allow_none=True), data_key="aggregates", allow_none=True)
+    aggregates = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.svm_migration_volume_placement_aggregates", "SvmMigrationVolumePlacementAggregatesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="aggregates",
+                allow_none=True
+            )
     r""" <personalities supports=unified,asar2>
 Aggregate(s) hosting the volume. Optional.
 </personalities>
@@ -976,22 +992,52 @@ Valid choices:
 * sequential_read
 * cross_file_sequential_read"""
 
-    analytics = marshmallow_fields.Nested("netapp_ontap.models.volume_analytics.VolumeAnalyticsSchema", data_key="analytics", unknown=EXCLUDE, allow_none=True)
+    analytics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_analytics", "VolumeAnalyticsSchema"),
+                data_key="analytics",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The analytics field of the volume."""
 
-    anti_ransomware = marshmallow_fields.Nested("netapp_ontap.models.anti_ransomware_volume.AntiRansomwareVolumeSchema", data_key="anti_ransomware", unknown=EXCLUDE, allow_none=True)
+    anti_ransomware = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.anti_ransomware_volume", "AntiRansomwareVolumeSchema"),
+                data_key="anti_ransomware",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Anti-ransomware properties of volumes."""
 
-    application = marshmallow_fields.Nested("netapp_ontap.models.volume_application.VolumeApplicationSchema", data_key="application", unknown=EXCLUDE, allow_none=True)
+    application = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_application", "VolumeApplicationSchema"),
+                data_key="application",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The application field of the volume."""
 
-    asynchronous_directory_delete = marshmallow_fields.Nested("netapp_ontap.models.volume_asynchronous_directory_delete.VolumeAsynchronousDirectoryDeleteSchema", data_key="asynchronous_directory_delete", unknown=EXCLUDE, allow_none=True)
+    asynchronous_directory_delete = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_asynchronous_directory_delete", "VolumeAsynchronousDirectoryDeleteSchema"),
+                data_key="asynchronous_directory_delete",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Configuration for asynchronous directory delete from the client. This is only supported on Flexible volumes and FlexGroup volumes."""
 
-    autosize = marshmallow_fields.Nested("netapp_ontap.models.volume_autosize.VolumeAutosizeSchema", data_key="autosize", unknown=EXCLUDE, allow_none=True)
+    autosize = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_autosize", "VolumeAutosizeSchema"),
+                data_key="autosize",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The autosize field of the volume."""
 
-    clone = marshmallow_fields.Nested("netapp_ontap.models.volume_clone.VolumeCloneSchema", data_key="clone", unknown=EXCLUDE, allow_none=True)
+    clone = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_clone", "VolumeCloneSchema"),
+                data_key="clone",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The clone field of the volume."""
 
     cloud_retrieval_policy = marshmallow_fields.Str(
@@ -1027,7 +1073,12 @@ This feature is only available on volumes in FabricPools."""
     )
     r""" A comment for the volume. Valid in POST or PATCH."""
 
-    consistency_group = marshmallow_fields.Nested("netapp_ontap.models.volume_consistency_group.VolumeConsistencyGroupSchema", data_key="consistency_group", unknown=EXCLUDE, allow_none=True)
+    consistency_group = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_consistency_group", "VolumeConsistencyGroupSchema"),
+                data_key="consistency_group",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Consistency group the volume is part of."""
 
     constituent_count = Size(
@@ -1037,7 +1088,15 @@ This feature is only available on volumes in FabricPools."""
     )
     r""" Specifies the number of total constituents in the FlexGroup volume. Valid for POST, PATCH and GET requests. In volume create (POST), you can alternatively specify the number of constituents in the constituents_per_aggregate parameter and specify the storage availability zone in the aggregates parameter. If none of these values are specified, ONTAP determines the number of constituents to create based on the size of the FlexGroup volume."""
 
-    constituents = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.volume_constituents.VolumeConstituentsSchema", unknown=EXCLUDE, allow_none=True), data_key="constituents", allow_none=True)
+    constituents = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.volume_constituents", "VolumeConstituentsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="constituents",
+                allow_none=True
+            )
     r""" FlexGroup volume constituents. FlexGroup volume constituents can be retrieved more efficiently by specifying "is_constituent=true" or "is_constituent=true&flexgroup.uuid=<flexgroup.uuid>" as query parameters."""
 
     constituents_per_aggregate = Size(
@@ -1066,19 +1125,44 @@ Optional. Only supported in volume create (POST), and specifies how many constit
 
 Example: 2018-06-04T19:00:00.000+0000"""
 
-    efficiency = marshmallow_fields.Nested("netapp_ontap.models.volume_efficiency.VolumeEfficiencySchema", data_key="efficiency", unknown=EXCLUDE, allow_none=True)
+    efficiency = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_efficiency", "VolumeEfficiencySchema"),
+                data_key="efficiency",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The efficiency field of the volume."""
 
-    encryption = marshmallow_fields.Nested("netapp_ontap.models.volume_encryption.VolumeEncryptionSchema", data_key="encryption", unknown=EXCLUDE, allow_none=True)
+    encryption = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_encryption", "VolumeEncryptionSchema"),
+                data_key="encryption",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The encryption field of the volume."""
 
-    error_state = marshmallow_fields.Nested("netapp_ontap.models.volume_error_state.VolumeErrorStateSchema", data_key="error_state", unknown=EXCLUDE, allow_none=True)
+    error_state = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_error_state", "VolumeErrorStateSchema"),
+                data_key="error_state",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The error_state field of the volume."""
 
-    files = marshmallow_fields.Nested("netapp_ontap.models.volume_files.VolumeFilesSchema", data_key="files", unknown=EXCLUDE, allow_none=True)
+    files = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_files", "VolumeFilesSchema"),
+                data_key="files",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The files field of the volume."""
 
-    flash_pool = marshmallow_fields.Nested("netapp_ontap.models.volume_flash_pool.VolumeFlashPoolSchema", data_key="flash_pool", unknown=EXCLUDE, allow_none=True)
+    flash_pool = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_flash_pool", "VolumeFlashPoolSchema"),
+                data_key="flash_pool",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The flash_pool field of the volume."""
 
     flexcache_endpoint_type = marshmallow_fields.Str(
@@ -1094,7 +1178,12 @@ Valid choices:
 * cache
 * origin"""
 
-    flexgroup = marshmallow_fields.Nested("netapp_ontap.models.volume_flexgroup.VolumeFlexgroupSchema", data_key="flexgroup", unknown=EXCLUDE, allow_none=True)
+    flexgroup = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_flexgroup", "VolumeFlexgroupSchema"),
+                data_key="flexgroup",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The flexgroup field of the volume."""
 
     granular_data = marshmallow_fields.Boolean(
@@ -1116,7 +1205,12 @@ Valid choices:
 * basic
 * advanced"""
 
-    guarantee = marshmallow_fields.Nested("netapp_ontap.models.volume_guarantee.VolumeGuaranteeSchema", data_key="guarantee", unknown=EXCLUDE, allow_none=True)
+    guarantee = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_guarantee", "VolumeGuaranteeSchema"),
+                data_key="guarantee",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The guarantee field of the volume."""
 
     has_dir_index_public = marshmallow_fields.Boolean(
@@ -1125,17 +1219,35 @@ Valid choices:
     )
     r""" Specifies whether the volume has directories with public index files."""
 
+    has_large_dir = marshmallow_fields.Boolean(
+        data_key="has_large_dir",
+        allow_none=True,
+    )
+    r""" Specifies whether the volume has directories bigger than 4GB."""
+
     is_dir_index_transfer_enabled = marshmallow_fields.Boolean(
         data_key="is_dir_index_transfer_enabled",
         allow_none=True,
     )
     r""" When set to true, this field enables support for directory index transfer."""
 
+    is_large_dir_enabled = marshmallow_fields.Boolean(
+        data_key="is_large_dir_enabled",
+        allow_none=True,
+    )
+    r""" When set to true, this field enables the large directory feature on a volume."""
+
     is_object_store = marshmallow_fields.Boolean(
         data_key="is_object_store",
         allow_none=True,
     )
     r""" Specifies whether the volume is provisioned for an object store server."""
+
+    is_s3_arbitrary_part_size_enabled = marshmallow_fields.Boolean(
+        data_key="is_s3_arbitrary_part_size_enabled",
+        allow_none=True,
+    )
+    r""" Specifies that the volume should allow Amazon S3 multipart uploads with arbitrary part lengths. This is only supported for FlexGroup volumes with `advanced` granular_data. The default value is `false`. When set to `true`, it cannot be reverted to `false`. Clusters with any volumes where this is `true` cannot be reverted to a release that does not support this feature."""
 
     is_svm_root = marshmallow_fields.Boolean(
         data_key="is_svm_root",
@@ -1228,11 +1340,21 @@ Valid choices:
     )
     r""" Maximum directory size. This value sets maximum size, in bytes, to which a directory can grow. The default maximum directory size for FlexVol volumes is model-dependent, and optimized for the size of system memory. Before increasing the maximum directory size, involve technical support."""
 
-    metric = marshmallow_fields.Nested("netapp_ontap.resources.volume_metrics.VolumeMetricsSchema", data_key="metric", unknown=EXCLUDE, allow_none=True)
+    metric = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.volume_metrics", "VolumeMetricsSchema"),
+                data_key="metric",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Performance numbers, such as IOPS, latency and throughput."""
 
-    movement = marshmallow_fields.Nested("netapp_ontap.models.volume_movement.VolumeMovementSchema", data_key="movement", unknown=EXCLUDE, allow_none=True)
-    r""" Volume movement. All attributes are modify, that is, not writable through POST. Set PATCH state to destination_aggregate to initiate a volume move operation. Volume movement on FlexGroup volume constituents are not supported."""
+    movement = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_movement", "VolumeMovementSchema"),
+                data_key="movement",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
+    r""" Volume movement. All attributes are modify, that is, not writable through POST. Set PATCH state to destination_aggregate to initiate a volume move operation."""
 
     msid = Size(
         data_key="msid",
@@ -1249,10 +1371,23 @@ Valid choices:
 
 Example: vol_cs_dept"""
 
-    nas = marshmallow_fields.Nested("netapp_ontap.models.volume_nas.VolumeNasSchema", data_key="nas", unknown=EXCLUDE, allow_none=True)
+    nas = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_nas", "VolumeNasSchema"),
+                data_key="nas",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The nas field of the volume."""
 
-    nodes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", unknown=EXCLUDE, allow_none=True), data_key="nodes", allow_none=True)
+    nodes = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="nodes",
+                allow_none=True
+            )
     r""" List of the nodes hosting the volume."""
 
     optimize_aggregates = marshmallow_fields.Boolean(
@@ -1261,7 +1396,12 @@ Example: vol_cs_dept"""
     )
     r""" Specifies whether to create the constituents of the FlexGroup volume on the aggregates specified in the order they are specified, or whether the system should optimize the ordering of the aggregates. If this value is 'true', the system optimizes the ordering of the aggregates specified. If this value is false, the order of the aggregates is unchanged. The default value is 'false'."""
 
-    qos = marshmallow_fields.Nested("netapp_ontap.models.volume_qos.VolumeQosSchema", data_key="qos", unknown=EXCLUDE, allow_none=True)
+    qos = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_qos", "VolumeQosSchema"),
+                data_key="qos",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" QoS information"""
 
     queue_for_encryption = marshmallow_fields.Boolean(
@@ -1270,10 +1410,20 @@ Example: vol_cs_dept"""
     )
     r""" Specifies whether the volume is queued for encryption."""
 
-    quota = marshmallow_fields.Nested("netapp_ontap.models.volume_quota.VolumeQuotaSchema", data_key="quota", unknown=EXCLUDE, allow_none=True)
+    quota = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_quota", "VolumeQuotaSchema"),
+                data_key="quota",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Quotas track the space or file usage of a user, group, or qtree in a FlexVol volume or a FlexGroup volume."""
 
-    rebalancing = marshmallow_fields.Nested("netapp_ontap.models.volume_rebalancing.VolumeRebalancingSchema", data_key="rebalancing", unknown=EXCLUDE, allow_none=True)
+    rebalancing = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_rebalancing", "VolumeRebalancingSchema"),
+                data_key="rebalancing",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Configuration and runtime properties involving non-disruptive volume capacity rebalancing for a FlexGroup volume."""
 
     scheduled_snapshot_naming_scheme = marshmallow_fields.Str(
@@ -1310,10 +1460,20 @@ Valid choices:
 * use_existing_resources
 * add_new_resources"""
 
-    snaplock = marshmallow_fields.Nested("netapp_ontap.models.volume_snaplock.VolumeSnaplockSchema", data_key="snaplock", unknown=EXCLUDE, allow_none=True)
+    snaplock = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_snaplock", "VolumeSnaplockSchema"),
+                data_key="snaplock",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The snaplock field of the volume."""
 
-    snapmirror = marshmallow_fields.Nested("netapp_ontap.models.volume_snapmirror.VolumeSnapmirrorSchema", data_key="snapmirror", unknown=EXCLUDE, allow_none=True)
+    snapmirror = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_snapmirror", "VolumeSnapmirrorSchema"),
+                data_key="snapmirror",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Specifies attributes for SnapMirror protection."""
 
     snapshot_count = Size(
@@ -1335,10 +1495,20 @@ Valid choices:
     )
     r""" Specifies whether or not snapshot copy locking is enabled on the volume."""
 
-    snapshot_policy = marshmallow_fields.Nested("netapp_ontap.resources.snapshot_policy.SnapshotPolicySchema", data_key="snapshot_policy", unknown=EXCLUDE, allow_none=True)
+    snapshot_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.snapshot_policy", "SnapshotPolicySchema"),
+                data_key="snapshot_policy",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The snapshot_policy field of the volume."""
 
-    space = marshmallow_fields.Nested("netapp_ontap.models.volume_space.VolumeSpaceSchema", data_key="space", unknown=EXCLUDE, allow_none=True)
+    space = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_space", "VolumeSpaceSchema"),
+                data_key="space",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The space field of the volume."""
 
     state = marshmallow_fields.Str(
@@ -1356,7 +1526,12 @@ Valid choices:
 * online
 * restricted"""
 
-    statistics = marshmallow_fields.Nested("netapp_ontap.models.volume_statistics.VolumeStatisticsSchema", data_key="statistics", unknown=EXCLUDE, allow_none=True)
+    statistics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_statistics", "VolumeStatisticsSchema"),
+                data_key="statistics",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The statistics field of the volume."""
 
     status = marshmallow_fields.List(marshmallow_fields.Str, data_key="status", allow_none=True)
@@ -1375,10 +1550,20 @@ Valid choices:
 * flexgroup
 * flexgroup_constituent"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the volume."""
 
-    tiering = marshmallow_fields.Nested("netapp_ontap.models.volume_tiering.VolumeTieringSchema", data_key="tiering", unknown=EXCLUDE, allow_none=True)
+    tiering = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_tiering", "VolumeTieringSchema"),
+                data_key="tiering",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The tiering field of the volume."""
 
     type = marshmallow_fields.Str(
@@ -1452,8 +1637,11 @@ Example: 028baa66-41bd-11e9-81d5-00a0986138f7"""
         "granular_data_mode",
         "guarantee",
         "has_dir_index_public",
+        "has_large_dir",
         "is_dir_index_transfer_enabled",
+        "is_large_dir_enabled",
         "is_object_store",
+        "is_s3_arbitrary_part_size_enabled",
         "is_svm_root",
         "language",
         "max_dir_size",
@@ -1500,7 +1688,7 @@ Example: 028baa66-41bd-11e9-81d5-00a0986138f7"""
         "uuid",
         "validate_only",
     ]
-    """links,tags,access_time_enabled,activity_tracking,aggregates.links,aggregates.name,aggregates.uuid,aggressive_readahead_mode,analytics,anti_ransomware,application,asynchronous_directory_delete,autosize,clone,cloud_retrieval_policy,cloud_write_enabled,comment,consistency_group,constituent_count,constituents,convert_unicode,create_time,efficiency,encryption,error_state,files,flash_pool,flexcache_endpoint_type,flexgroup,granular_data,granular_data_mode,guarantee,has_dir_index_public,is_dir_index_transfer_enabled,is_object_store,is_svm_root,language,max_dir_size,metric,movement,msid,name,nas,nodes.links,nodes.name,nodes.uuid,qos,queue_for_encryption,quota,rebalancing,scheduled_snapshot_naming_scheme,size,snaplock,snapmirror,snapshot_count,snapshot_directory_access_enabled,snapshot_locking_enabled,snapshot_policy.links,snapshot_policy.name,snapshot_policy.uuid,space,state,statistics.cifs_ops_raw,statistics.cloud,statistics.flexcache_raw,statistics.iops_raw,statistics.latency_raw,statistics.nfs_ops_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,status,style,svm.links,svm.name,svm.uuid,tiering,type,uuid,validate_only,"""
+    """links,tags,access_time_enabled,activity_tracking,aggregates.links,aggregates.name,aggregates.uuid,aggressive_readahead_mode,analytics,anti_ransomware,application,asynchronous_directory_delete,autosize,clone,cloud_retrieval_policy,cloud_write_enabled,comment,consistency_group,constituent_count,constituents,convert_unicode,create_time,efficiency,encryption,error_state,files,flash_pool,flexcache_endpoint_type,flexgroup,granular_data,granular_data_mode,guarantee,has_dir_index_public,has_large_dir,is_dir_index_transfer_enabled,is_large_dir_enabled,is_object_store,is_s3_arbitrary_part_size_enabled,is_svm_root,language,max_dir_size,metric,movement,msid,name,nas,nodes.links,nodes.name,nodes.uuid,qos,queue_for_encryption,quota,rebalancing,scheduled_snapshot_naming_scheme,size,snaplock,snapmirror,snapshot_count,snapshot_directory_access_enabled,snapshot_locking_enabled,snapshot_policy.links,snapshot_policy.name,snapshot_policy.uuid,space,state,statistics.cifs_ops_raw,statistics.cloud,statistics.flexcache_raw,statistics.iops_raw,statistics.latency_raw,statistics.nfs_ops_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,status,style,svm.links,svm.name,svm.uuid,tiering,type,uuid,validate_only,"""
 
     patchable_fields = [
         "tags",
@@ -1533,7 +1721,10 @@ Example: 028baa66-41bd-11e9-81d5-00a0986138f7"""
         "granular_data_mode",
         "guarantee",
         "has_dir_index_public",
+        "has_large_dir",
         "is_dir_index_transfer_enabled",
+        "is_large_dir_enabled",
+        "is_s3_arbitrary_part_size_enabled",
         "max_dir_size",
         "movement",
         "msid",
@@ -1560,7 +1751,7 @@ Example: 028baa66-41bd-11e9-81d5-00a0986138f7"""
         "tiering",
         "validate_only",
     ]
-    """tags,access_time_enabled,activity_tracking,aggregates.name,aggregates.uuid,aggressive_readahead_mode,analytics,anti_ransomware,application,asynchronous_directory_delete,autosize,clone,cloud_retrieval_policy,cloud_write_enabled,comment,consistency_group,constituent_count,constituents,constituents_per_aggregate,convert_unicode,efficiency,encryption,error_state,files,flash_pool,flexgroup,granular_data,granular_data_mode,guarantee,has_dir_index_public,is_dir_index_transfer_enabled,max_dir_size,movement,msid,name,nas,nodes.name,nodes.uuid,qos,queue_for_encryption,quota,rebalancing,scheduled_snapshot_naming_scheme,size,sizing_method,snaplock,snapmirror,snapshot_directory_access_enabled,snapshot_locking_enabled,snapshot_policy.name,snapshot_policy.uuid,space,state,style,tiering,validate_only,"""
+    """tags,access_time_enabled,activity_tracking,aggregates.name,aggregates.uuid,aggressive_readahead_mode,analytics,anti_ransomware,application,asynchronous_directory_delete,autosize,clone,cloud_retrieval_policy,cloud_write_enabled,comment,consistency_group,constituent_count,constituents,constituents_per_aggregate,convert_unicode,efficiency,encryption,error_state,files,flash_pool,flexgroup,granular_data,granular_data_mode,guarantee,has_dir_index_public,has_large_dir,is_dir_index_transfer_enabled,is_large_dir_enabled,is_s3_arbitrary_part_size_enabled,max_dir_size,movement,msid,name,nas,nodes.name,nodes.uuid,qos,queue_for_encryption,quota,rebalancing,scheduled_snapshot_naming_scheme,size,sizing_method,snaplock,snapmirror,snapshot_directory_access_enabled,snapshot_locking_enabled,snapshot_policy.name,snapshot_policy.uuid,space,state,style,tiering,validate_only,"""
 
     postable_fields = [
         "tags",
@@ -1592,7 +1783,10 @@ Example: 028baa66-41bd-11e9-81d5-00a0986138f7"""
         "granular_data_mode",
         "guarantee",
         "has_dir_index_public",
+        "has_large_dir",
         "is_dir_index_transfer_enabled",
+        "is_large_dir_enabled",
+        "is_s3_arbitrary_part_size_enabled",
         "language",
         "max_dir_size",
         "movement",
@@ -1623,7 +1817,7 @@ Example: 028baa66-41bd-11e9-81d5-00a0986138f7"""
         "use_mirrored_aggregates",
         "validate_only",
     ]
-    """tags,activity_tracking,aggregates.name,aggregates.uuid,aggressive_readahead_mode,analytics,anti_ransomware,application,asynchronous_directory_delete,autosize,clone,cloud_retrieval_policy,cloud_write_enabled,comment,consistency_group,constituent_count,constituents,constituents_per_aggregate,convert_unicode,efficiency,encryption,error_state,files,flash_pool,flexgroup,granular_data,granular_data_mode,guarantee,has_dir_index_public,is_dir_index_transfer_enabled,language,max_dir_size,movement,msid,name,nas,nodes.name,nodes.uuid,optimize_aggregates,qos,quota,rebalancing,scheduled_snapshot_naming_scheme,size,snaplock,snapmirror,snapshot_directory_access_enabled,snapshot_locking_enabled,snapshot_policy.name,snapshot_policy.uuid,space,state,style,svm.name,svm.uuid,tiering,type,use_mirrored_aggregates,validate_only,"""
+    """tags,activity_tracking,aggregates.name,aggregates.uuid,aggressive_readahead_mode,analytics,anti_ransomware,application,asynchronous_directory_delete,autosize,clone,cloud_retrieval_policy,cloud_write_enabled,comment,consistency_group,constituent_count,constituents,constituents_per_aggregate,convert_unicode,efficiency,encryption,error_state,files,flash_pool,flexgroup,granular_data,granular_data_mode,guarantee,has_dir_index_public,has_large_dir,is_dir_index_transfer_enabled,is_large_dir_enabled,is_s3_arbitrary_part_size_enabled,language,max_dir_size,movement,msid,name,nas,nodes.name,nodes.uuid,optimize_aggregates,qos,quota,rebalancing,scheduled_snapshot_naming_scheme,size,snaplock,snapmirror,snapshot_directory_access_enabled,snapshot_locking_enabled,snapshot_policy.name,snapshot_policy.uuid,space,state,style,svm.name,svm.uuid,tiering,type,use_mirrored_aggregates,validate_only,"""
 
 class Volume(Resource):
     """Allows interaction with Volume objects on the host"""
@@ -1683,7 +1877,6 @@ There is an added computational cost to retrieving values for these properties. 
 * `nas.junction_parent.uuid`
 * `snaplock.*`
 * `restore_to.*`
-* `snapshot_policy.uuid`
 * `quota.*`
 * `qos.*`
 * `flexcache_endpoint_type`
@@ -2052,7 +2245,6 @@ There is an added computational cost to retrieving values for these properties. 
 * `nas.junction_parent.uuid`
 * `snaplock.*`
 * `restore_to.*`
-* `snapshot_policy.uuid`
 * `quota.*`
 * `qos.*`
 * `flexcache_endpoint_type`
@@ -2197,7 +2389,6 @@ There is an added computational cost to retrieving values for these properties. 
 * `nas.junction_parent.uuid`
 * `snaplock.*`
 * `restore_to.*`
-* `snapshot_policy.uuid`
 * `quota.*`
 * `qos.*`
 * `flexcache_endpoint_type`

@@ -35,15 +35,11 @@ class SQL:
         if dsn.startswith("postgresql://") or dsn.startswith("postgres://"):
             self._db_type = "postgresql"
             if asyncpg is None:
-                raise RuntimeError(
-                    "asyncpg not installed. Install with: pip install asyncpg"
-                )
+                raise RuntimeError("asyncpg not installed. Install with: pip install asyncpg")
         else:
             self._db_type = "sqlite"
             if aiosqlite is None:
-                raise RuntimeError(
-                    "aiosqlite not installed. Install with: pip install aiosqlite"
-                )
+                raise RuntimeError("aiosqlite not installed. Install with: pip install aiosqlite")
             # Strip sqlite:/// prefix if present
             if dsn.startswith("sqlite:///"):
                 self.dsn = dsn[10:]

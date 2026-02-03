@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -134,18 +134,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LicensePackage(
         {
-            "scope": "cluster",
+            "_links": {"self": {"href": "/api/cluster/licensing/licenses/fabricpool"}},
+            "name": "fabricpool",
+            "state": "compliant",
+            "description": "FabricPool License",
             "licenses": [
                 {
                     "serial_number": "4149027342",
-                    "capacity": {"maximum_size": 1099511627776, "used_size": 0},
                     "owner": "testcluster-1",
+                    "capacity": {
+                        "used_size": 0,
+                        "measurement_unit": "bytes",
+                        "maximum_size": 1099511627776,
+                    },
                 }
             ],
-            "state": "compliant",
-            "description": "FabricPool License",
-            "_links": {"self": {"href": "/api/cluster/licensing/licenses/fabricpool"}},
-            "name": "fabricpool",
+            "scope": "cluster",
         }
     )
 ]
@@ -175,23 +179,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LicensePackage(
         {
-            "scope": "node",
-            "entitlement": {"risk": "unlicensed", "action": "acquire_license"},
+            "_links": {"self": {"href": "/api/cluster/licensing/licenses/cloud"}},
+            "name": "cloud",
+            "state": "noncompliant",
+            "description": "Cloud ONTAP License",
             "licenses": [
                 {
                     "serial_number": "90120130000000000001",
-                    "compliance": {"state": "noncompliant"},
-                    "shutdown_imminent": True,
+                    "expiry_time": "2021-10-26T19:57:41+00:00",
                     "active": False,
                     "evaluation": True,
+                    "shutdown_imminent": True,
                     "owner": "test-vsim1",
-                    "expiry_time": "2021-10-26T19:57:41+00:00",
+                    "compliance": {"state": "noncompliant"},
                 }
             ],
-            "state": "noncompliant",
-            "description": "Cloud ONTAP License",
-            "_links": {"self": {"href": "/api/cluster/licensing/licenses/cloud"}},
-            "name": "cloud",
+            "entitlement": {"risk": "unlicensed", "action": "acquire_license"},
+            "scope": "node",
         }
     )
 ]
@@ -229,257 +233,281 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LicensePackage(
         {
-            "scope": "node",
-            "entitlement": {"risk": "medium", "action": "acquire_license"},
-            "licenses": [
-                {
-                    "compliance": {"state": "unlicensed"},
-                    "active": False,
-                    "evaluation": False,
-                    "owner": "test-vsim3",
-                },
-                {
-                    "serial_number": "4212426890",
-                    "compliance": {"state": "compliant"},
-                    "capacity": {"maximum_size": 10995116277760},
-                    "active": True,
-                    "evaluation": False,
-                    "owner": "test-vsim4",
-                    "host_id": "4212426890",
-                    "installed_license": "Core Bundle",
-                },
-            ],
-            "state": "noncompliant",
-            "description": "NFS License",
             "_links": {
                 "self": {
                     "href": "/api/cluster/licensing/licenses/nfs/?licenses.installed_license=Core*Bundle"
                 }
             },
             "name": "nfs",
+            "state": "noncompliant",
+            "description": "NFS License",
+            "licenses": [
+                {
+                    "active": False,
+                    "evaluation": False,
+                    "owner": "test-vsim3",
+                    "compliance": {"state": "unlicensed"},
+                },
+                {
+                    "serial_number": "4212426890",
+                    "active": True,
+                    "evaluation": False,
+                    "installed_license": "Core Bundle",
+                    "owner": "test-vsim4",
+                    "compliance": {"state": "compliant"},
+                    "host_id": "4212426890",
+                    "capacity": {
+                        "measurement_unit": "bytes",
+                        "maximum_size": 10995116277760,
+                    },
+                },
+            ],
+            "entitlement": {"risk": "medium", "action": "acquire_license"},
+            "scope": "node",
         }
     ),
     LicensePackage(
         {
-            "scope": "node",
-            "entitlement": {"risk": "medium", "action": "acquire_license"},
-            "licenses": [
-                {
-                    "compliance": {"state": "unlicensed"},
-                    "active": False,
-                    "evaluation": False,
-                    "owner": "test-vsim3",
-                },
-                {
-                    "serial_number": "4212426890",
-                    "compliance": {"state": "compliant"},
-                    "capacity": {"maximum_size": 10995116277760},
-                    "active": True,
-                    "evaluation": False,
-                    "owner": "test-vsim4",
-                    "host_id": "4212426890",
-                    "installed_license": "Core Bundle",
-                },
-            ],
-            "state": "noncompliant",
-            "description": "CIFS License",
             "_links": {
                 "self": {
                     "href": "/api/cluster/licensing/licenses/cifs/?licenses.installed_license=Core*Bundle"
                 }
             },
             "name": "cifs",
+            "state": "noncompliant",
+            "description": "CIFS License",
+            "licenses": [
+                {
+                    "active": False,
+                    "evaluation": False,
+                    "owner": "test-vsim3",
+                    "compliance": {"state": "unlicensed"},
+                },
+                {
+                    "serial_number": "4212426890",
+                    "active": True,
+                    "evaluation": False,
+                    "installed_license": "Core Bundle",
+                    "owner": "test-vsim4",
+                    "compliance": {"state": "compliant"},
+                    "host_id": "4212426890",
+                    "capacity": {
+                        "measurement_unit": "bytes",
+                        "maximum_size": 10995116277760,
+                    },
+                },
+            ],
+            "entitlement": {"risk": "medium", "action": "acquire_license"},
+            "scope": "node",
         }
     ),
     LicensePackage(
         {
-            "scope": "node",
-            "entitlement": {"risk": "medium", "action": "acquire_license"},
-            "licenses": [
-                {
-                    "compliance": {"state": "unlicensed"},
-                    "active": False,
-                    "evaluation": False,
-                    "owner": "test-vsim3",
-                },
-                {
-                    "serial_number": "4212426890",
-                    "compliance": {"state": "compliant"},
-                    "capacity": {"maximum_size": 10995116277760},
-                    "active": True,
-                    "evaluation": False,
-                    "owner": "test-vsim4",
-                    "host_id": "4212426890",
-                    "installed_license": "Core Bundle",
-                },
-            ],
-            "state": "noncompliant",
-            "description": "iSCSI License",
             "_links": {
                 "self": {
                     "href": "/api/cluster/licensing/licenses/iscsi/?licenses.installed_license=Core*Bundle"
                 }
             },
             "name": "iscsi",
+            "state": "noncompliant",
+            "description": "iSCSI License",
+            "licenses": [
+                {
+                    "active": False,
+                    "evaluation": False,
+                    "owner": "test-vsim3",
+                    "compliance": {"state": "unlicensed"},
+                },
+                {
+                    "serial_number": "4212426890",
+                    "active": True,
+                    "evaluation": False,
+                    "installed_license": "Core Bundle",
+                    "owner": "test-vsim4",
+                    "compliance": {"state": "compliant"},
+                    "host_id": "4212426890",
+                    "capacity": {
+                        "measurement_unit": "bytes",
+                        "maximum_size": 10995116277760,
+                    },
+                },
+            ],
+            "entitlement": {"risk": "medium", "action": "acquire_license"},
+            "scope": "node",
         }
     ),
     LicensePackage(
         {
-            "scope": "node",
-            "entitlement": {"risk": "medium", "action": "acquire_license"},
-            "licenses": [
-                {
-                    "compliance": {"state": "unlicensed"},
-                    "active": False,
-                    "evaluation": False,
-                    "owner": "test-vsim3",
-                },
-                {
-                    "serial_number": "4212426890",
-                    "compliance": {"state": "compliant"},
-                    "capacity": {"maximum_size": 10995116277760},
-                    "active": True,
-                    "evaluation": False,
-                    "owner": "test-vsim4",
-                    "host_id": "4212426890",
-                    "installed_license": "Core Bundle",
-                },
-            ],
-            "state": "noncompliant",
-            "description": "FCP License",
             "_links": {
                 "self": {
                     "href": "/api/cluster/licensing/licenses/fcp/?licenses.installed_license=Core*Bundle"
                 }
             },
             "name": "fcp",
+            "state": "noncompliant",
+            "description": "FCP License",
+            "licenses": [
+                {
+                    "active": False,
+                    "evaluation": False,
+                    "owner": "test-vsim3",
+                    "compliance": {"state": "unlicensed"},
+                },
+                {
+                    "serial_number": "4212426890",
+                    "active": True,
+                    "evaluation": False,
+                    "installed_license": "Core Bundle",
+                    "owner": "test-vsim4",
+                    "compliance": {"state": "compliant"},
+                    "host_id": "4212426890",
+                    "capacity": {
+                        "measurement_unit": "bytes",
+                        "maximum_size": 10995116277760,
+                    },
+                },
+            ],
+            "entitlement": {"risk": "medium", "action": "acquire_license"},
+            "scope": "node",
         }
     ),
     LicensePackage(
         {
-            "scope": "node",
-            "entitlement": {"risk": "medium", "action": "acquire_license"},
-            "licenses": [
-                {
-                    "compliance": {"state": "unlicensed"},
-                    "active": False,
-                    "evaluation": False,
-                    "owner": "test-vsim3",
-                },
-                {
-                    "serial_number": "4212426890",
-                    "compliance": {"state": "compliant"},
-                    "capacity": {"maximum_size": 10995116277760},
-                    "active": True,
-                    "evaluation": False,
-                    "owner": "test-vsim4",
-                    "host_id": "4212426890",
-                    "installed_license": "Core Bundle",
-                },
-            ],
-            "state": "noncompliant",
-            "description": "SnapRestore License",
             "_links": {
                 "self": {
                     "href": "/api/cluster/licensing/licenses/snaprestore/?licenses.installed_license=Core*Bundle"
                 }
             },
             "name": "snaprestore",
+            "state": "noncompliant",
+            "description": "SnapRestore License",
+            "licenses": [
+                {
+                    "active": False,
+                    "evaluation": False,
+                    "owner": "test-vsim3",
+                    "compliance": {"state": "unlicensed"},
+                },
+                {
+                    "serial_number": "4212426890",
+                    "active": True,
+                    "evaluation": False,
+                    "installed_license": "Core Bundle",
+                    "owner": "test-vsim4",
+                    "compliance": {"state": "compliant"},
+                    "host_id": "4212426890",
+                    "capacity": {
+                        "measurement_unit": "bytes",
+                        "maximum_size": 10995116277760,
+                    },
+                },
+            ],
+            "entitlement": {"risk": "medium", "action": "acquire_license"},
+            "scope": "node",
         }
     ),
     LicensePackage(
         {
-            "scope": "node",
-            "entitlement": {"risk": "medium", "action": "acquire_license"},
-            "licenses": [
-                {
-                    "compliance": {"state": "unlicensed"},
-                    "active": False,
-                    "evaluation": False,
-                    "owner": "test-vsim3",
-                },
-                {
-                    "serial_number": "4212426890",
-                    "compliance": {"state": "compliant"},
-                    "capacity": {"maximum_size": 10995116277760},
-                    "active": True,
-                    "evaluation": False,
-                    "owner": "test-vsim4",
-                    "host_id": "4212426890",
-                    "installed_license": "Core Bundle",
-                },
-            ],
-            "state": "noncompliant",
-            "description": "FlexClone License",
             "_links": {
                 "self": {
                     "href": "/api/cluster/licensing/licenses/flexclone/?licenses.installed_license=Core*Bundle"
                 }
             },
             "name": "flexclone",
+            "state": "noncompliant",
+            "description": "FlexClone License",
+            "licenses": [
+                {
+                    "active": False,
+                    "evaluation": False,
+                    "owner": "test-vsim3",
+                    "compliance": {"state": "unlicensed"},
+                },
+                {
+                    "serial_number": "4212426890",
+                    "active": True,
+                    "evaluation": False,
+                    "installed_license": "Core Bundle",
+                    "owner": "test-vsim4",
+                    "compliance": {"state": "compliant"},
+                    "host_id": "4212426890",
+                    "capacity": {
+                        "measurement_unit": "bytes",
+                        "maximum_size": 10995116277760,
+                    },
+                },
+            ],
+            "entitlement": {"risk": "medium", "action": "acquire_license"},
+            "scope": "node",
         }
     ),
     LicensePackage(
         {
-            "scope": "node",
-            "licenses": [
-                {
-                    "compliance": {"state": "unlicensed"},
-                    "active": False,
-                    "evaluation": False,
-                    "owner": "test-vsim3",
-                },
-                {
-                    "serial_number": "4212426890",
-                    "compliance": {"state": "compliant"},
-                    "capacity": {"maximum_size": 10995116277760},
-                    "active": True,
-                    "evaluation": False,
-                    "owner": "test-vsim4",
-                    "host_id": "4212426890",
-                    "installed_license": "Core Bundle",
-                },
-            ],
-            "state": "noncompliant",
-            "description": "NVMe-oF License",
             "_links": {
                 "self": {
                     "href": "/api/cluster/licensing/licenses/nvme_of/?licenses.installed_license=Core*Bundle"
                 }
             },
             "name": "nvme_of",
+            "state": "noncompliant",
+            "description": "NVMe-oF License",
+            "licenses": [
+                {
+                    "active": False,
+                    "evaluation": False,
+                    "owner": "test-vsim3",
+                    "compliance": {"state": "unlicensed"},
+                },
+                {
+                    "serial_number": "4212426890",
+                    "active": True,
+                    "evaluation": False,
+                    "installed_license": "Core Bundle",
+                    "owner": "test-vsim4",
+                    "compliance": {"state": "compliant"},
+                    "host_id": "4212426890",
+                    "capacity": {
+                        "measurement_unit": "bytes",
+                        "maximum_size": 10995116277760,
+                    },
+                },
+            ],
+            "scope": "node",
         }
     ),
     LicensePackage(
         {
-            "scope": "node",
-            "entitlement": {"risk": "medium", "action": "acquire_license"},
-            "licenses": [
-                {
-                    "compliance": {"state": "unlicensed"},
-                    "active": False,
-                    "evaluation": False,
-                    "owner": "test-vsim3",
-                },
-                {
-                    "serial_number": "4212426890",
-                    "compliance": {"state": "compliant"},
-                    "capacity": {"maximum_size": 10995116277760},
-                    "active": True,
-                    "evaluation": False,
-                    "owner": "test-vsim4",
-                    "host_id": "4212426890",
-                    "installed_license": "Core Bundle",
-                },
-            ],
-            "state": "noncompliant",
-            "description": "S3 License",
             "_links": {
                 "self": {
                     "href": "/api/cluster/licensing/licenses/s3/?licenses.installed_license=Core*Bundle"
                 }
             },
             "name": "s3",
+            "state": "noncompliant",
+            "description": "S3 License",
+            "licenses": [
+                {
+                    "active": False,
+                    "evaluation": False,
+                    "owner": "test-vsim3",
+                    "compliance": {"state": "unlicensed"},
+                },
+                {
+                    "serial_number": "4212426890",
+                    "active": True,
+                    "evaluation": False,
+                    "installed_license": "Core Bundle",
+                    "owner": "test-vsim4",
+                    "compliance": {"state": "compliant"},
+                    "host_id": "4212426890",
+                    "capacity": {
+                        "measurement_unit": "bytes",
+                        "maximum_size": 10995116277760,
+                    },
+                },
+            ],
+            "entitlement": {"risk": "medium", "action": "acquire_license"},
+            "scope": "node",
         }
     ),
 ]
@@ -507,34 +535,34 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LicensePackage(
         {
-            "scope": "node",
-            "entitlement": {"risk": "low", "action": "none"},
+            "_links": {"self": {"href": "/api/cluster/licensing/licenses/nfs"}},
+            "name": "nfs",
+            "state": "compliant",
+            "description": "NFS License",
             "licenses": [
                 {
                     "serial_number": "1-81-0000000000000004149027492",
                     "owner": "testcluster-1",
                 }
             ],
-            "state": "compliant",
-            "description": "NFS License",
-            "_links": {"self": {"href": "/api/cluster/licensing/licenses/nfs"}},
-            "name": "nfs",
+            "entitlement": {"risk": "low", "action": "none"},
+            "scope": "node",
         }
     ),
     LicensePackage(
         {
-            "scope": "node",
-            "entitlement": {"risk": "medium", "action": "acquire_license"},
+            "_links": {"self": {"href": "/api/cluster/licensing/licenses/cifs"}},
+            "name": "cifs",
+            "state": "compliant",
+            "description": "CIFS License",
             "licenses": [
                 {
                     "serial_number": "1-81-0000000000000004149027492",
                     "owner": "testcluster-1",
                 }
             ],
-            "state": "compliant",
-            "description": "CIFS License",
-            "_links": {"self": {"href": "/api/cluster/licensing/licenses/cifs"}},
-            "name": "cifs",
+            "entitlement": {"risk": "medium", "action": "acquire_license"},
+            "scope": "node",
         }
     ),
 ]
@@ -637,18 +665,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 LicensePackage(
     {
-        "scope": "cluster",
+        "_links": {"self": {"href": "/api/cluster/licensing/licenses/fabricpool/"}},
+        "name": "fabricpool",
+        "state": "compliant",
+        "description": "FabricPool License",
         "licenses": [
             {
                 "serial_number": "123456789",
-                "capacity": {"maximum_size": 109951162777600, "used_size": 0},
                 "owner": "testcluster-1",
+                "capacity": {
+                    "used_size": 0,
+                    "measurement_unit": "bytes",
+                    "maximum_size": 109951162777600,
+                },
             }
         ],
-        "state": "compliant",
-        "description": "FabricPool License",
-        "_links": {"self": {"href": "/api/cluster/licensing/licenses/fabricpool/"}},
-        "name": "fabricpool",
+        "scope": "cluster",
     }
 )
 
@@ -704,11 +736,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -722,11 +753,15 @@ __pdoc__ = {
     "LicensePackageSchema.opts": False,
 }
 
-
 class LicensePackageSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LicensePackage object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the license_package."""
 
     description = marshmallow_fields.Str(
@@ -737,13 +772,26 @@ class LicensePackageSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: NFS License"""
 
-    entitlement = marshmallow_fields.Nested("netapp_ontap.models.entitlement.EntitlementSchema", data_key="entitlement", unknown=EXCLUDE, allow_none=True)
+    entitlement = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.entitlement", "EntitlementSchema"),
+                data_key="entitlement",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The entitlement field of the license_package."""
 
     keys = marshmallow_fields.List(marshmallow_fields.Str, data_key="keys", allow_none=True)
     r""" The keys field of the license_package."""
 
-    licenses = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.license.LicenseSchema", unknown=EXCLUDE, allow_none=True), data_key="licenses", allow_none=True)
+    licenses = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.license", "LicenseSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="licenses",
+                allow_none=True
+            )
     r""" Installed licenses of the package."""
 
     name = marshmallow_fields.Str(

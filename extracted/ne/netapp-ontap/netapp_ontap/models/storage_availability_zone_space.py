@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["StorageAvailabilityZoneSpace", "StorageAvailabilityZoneSpaceSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "StorageAvailabilityZoneSpaceSchema.opts": False,
     "StorageAvailabilityZoneSpace": False,
 }
-
 
 class StorageAvailabilityZoneSpaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the StorageAvailabilityZoneSpace object"""
@@ -27,7 +25,12 @@ class StorageAvailabilityZoneSpaceSchema(ResourceSchema, metaclass=ResourceSchem
     delayed_frees = Size(data_key="delayed_frees", allow_none=True)
     r""" Total space used by the delayed frees in the availability zone. """
 
-    efficiency_without_snapshots = marshmallow_fields.Nested("netapp_ontap.models.storage_availability_zone_space_efficiency_without_snapshots.StorageAvailabilityZoneSpaceEfficiencyWithoutSnapshotsSchema", unknown=EXCLUDE, data_key="efficiency_without_snapshots", allow_none=True)
+    efficiency_without_snapshots = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_availability_zone_space_efficiency_without_snapshots", "StorageAvailabilityZoneSpaceEfficiencyWithoutSnapshotsSchema"),
+                unknown=EXCLUDE,
+                data_key="efficiency_without_snapshots",
+                allow_none=True
+            )
     r""" Storage efficiency that does not include the savings provided by snapshots for the availability zone. """
 
     full_threshold_percent = Size(data_key="full_threshold_percent", allow_none=True)

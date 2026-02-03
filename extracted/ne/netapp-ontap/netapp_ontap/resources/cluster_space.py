@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -30,69 +30,69 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterSpace(
     {
+        "efficiency_without_snapshots": {
+            "logical_used": 167936,
+            "savings": 0,
+            "ratio": 1.0,
+        },
         "block_storage": {
-            "physical_used": 1838284800,
-            "used": 6269812736,
             "medias": [
                 {
-                    "physical_used": 1832886272,
-                    "used": 6163390464,
-                    "available": 3728039936,
-                    "efficiency_without_snapshots_flexclones": {
-                        "ratio": 1.0,
-                        "logical_used": 0,
-                        "savings": 0,
-                    },
                     "efficiency_without_snapshots": {
-                        "ratio": 1.0,
                         "logical_used": 0,
                         "savings": 0,
+                        "ratio": 1.0,
                     },
+                    "available": 3728039936,
+                    "used": 6163390464,
                     "size": 9891430400,
-                    "efficiency": {"ratio": 1.0, "logical_used": 0, "savings": 0},
+                    "efficiency": {"logical_used": 0, "savings": 0, "ratio": 1.0},
+                    "efficiency_without_snapshots_flexclones": {
+                        "logical_used": 0,
+                        "savings": 0,
+                        "ratio": 1.0,
+                    },
+                    "physical_used": 1832886272,
                     "type": "ssd",
                 },
                 {
-                    "physical_used": 5398528,
-                    "used": 106422272,
-                    "available": 46127759360,
-                    "efficiency_without_snapshots_flexclones": {
-                        "ratio": 1.0,
-                        "logical_used": 167936,
-                        "savings": 0,
-                    },
                     "efficiency_without_snapshots": {
-                        "ratio": 1.0,
                         "logical_used": 167936,
                         "savings": 0,
+                        "ratio": 1.0,
                     },
+                    "available": 46127759360,
+                    "used": 106422272,
                     "size": 46234181632,
                     "efficiency": {
-                        "ratio": 1.303964757709251,
                         "logical_used": 1212416,
                         "savings": 282624,
+                        "ratio": 1.303964757709251,
                     },
+                    "efficiency_without_snapshots_flexclones": {
+                        "logical_used": 167936,
+                        "savings": 0,
+                        "ratio": 1.0,
+                    },
+                    "physical_used": 5398528,
                     "type": "vmdisk",
                 },
             ],
             "available": 49855799296,
+            "used": 6269812736,
             "inactive_data": 0,
             "size": 56125612032,
-        },
-        "efficiency_without_snapshots_flexclones": {
-            "ratio": 1.0,
-            "logical_used": 167936,
-            "savings": 0,
-        },
-        "efficiency_without_snapshots": {
-            "ratio": 1.0,
-            "logical_used": 167936,
-            "savings": 0,
+            "physical_used": 1838284800,
         },
         "efficiency": {
-            "ratio": 1.134099616858238,
             "logical_used": 1212416,
             "savings": 143360,
+            "ratio": 1.134099616858238,
+        },
+        "efficiency_without_snapshots_flexclones": {
+            "logical_used": 167936,
+            "savings": 0,
+            "ratio": 1.0,
         },
     }
 )
@@ -123,21 +123,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterSpace(
     {
-        "block_storage": {
-            "physical_used": 58679865344,
-            "nearly_full_threshold_percent": 85,
-            "available": 66677788672,
-            "log_and_recovery_metadata": 58678050816,
-            "physical_used_percent": 46,
-            "delayed_frees": 57139200,
-            "total_metadata_used": 58679865344,
-            "size": 125357654016,
-            "full_threshold_percent": 98,
-        },
         "efficiency_without_snapshots": {
-            "ratio": 1.0,
             "logical_used": 73728,
             "savings": 73728,
+            "ratio": 1.0,
+        },
+        "block_storage": {
+            "log_and_recovery_metadata": 58678050816,
+            "available": 66677788672,
+            "nearly_full_threshold_percent": 85,
+            "physical_used_percent": 46,
+            "size": 125357654016,
+            "full_threshold_percent": 98,
+            "physical_used": 58679865344,
+            "delayed_frees": 57139200,
+            "total_metadata_used": 58679865344,
         },
     }
 )
@@ -167,11 +167,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -185,26 +184,55 @@ __pdoc__ = {
     "ClusterSpaceSchema.opts": False,
 }
 
-
 class ClusterSpaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ClusterSpace object"""
 
-    block_storage = marshmallow_fields.Nested("netapp_ontap.models.cluster_space_block_storage.ClusterSpaceBlockStorageSchema", data_key="block_storage", unknown=EXCLUDE, allow_none=True)
+    block_storage = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_space_block_storage", "ClusterSpaceBlockStorageSchema"),
+                data_key="block_storage",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Configuration information for the locally attached portion of the storage across the cluster. When a cloud store is also used by the storage, this is referred to as the performance tier."""
 
-    cloud_storage = marshmallow_fields.Nested("netapp_ontap.models.cluster_space_cloud_storage.ClusterSpaceCloudStorageSchema", data_key="cloud_storage", unknown=EXCLUDE, allow_none=True)
+    cloud_storage = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_space_cloud_storage", "ClusterSpaceCloudStorageSchema"),
+                data_key="cloud_storage",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Configuration information for the cloud storage portion of all the aggregates across the cluster. This is referred to as the capacity tier."""
 
-    efficiency = marshmallow_fields.Nested("netapp_ontap.models.space_efficiency.SpaceEfficiencySchema", data_key="efficiency", unknown=EXCLUDE, allow_none=True)
+    efficiency = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.space_efficiency", "SpaceEfficiencySchema"),
+                data_key="efficiency",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The efficiency field of the cluster_space."""
 
-    efficiency_without_snapshots = marshmallow_fields.Nested("netapp_ontap.models.space_efficiency.SpaceEfficiencySchema", data_key="efficiency_without_snapshots", unknown=EXCLUDE, allow_none=True)
+    efficiency_without_snapshots = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.space_efficiency", "SpaceEfficiencySchema"),
+                data_key="efficiency_without_snapshots",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The efficiency_without_snapshots field of the cluster_space."""
 
-    efficiency_without_snapshots_flexclones = marshmallow_fields.Nested("netapp_ontap.models.space_efficiency.SpaceEfficiencySchema", data_key="efficiency_without_snapshots_flexclones", unknown=EXCLUDE, allow_none=True)
+    efficiency_without_snapshots_flexclones = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.space_efficiency", "SpaceEfficiencySchema"),
+                data_key="efficiency_without_snapshots_flexclones",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The efficiency_without_snapshots_flexclones field of the cluster_space."""
 
-    metric = marshmallow_fields.Nested("netapp_ontap.models.cluster_space_metrics.ClusterSpaceMetricsSchema", data_key="metric", unknown=EXCLUDE, allow_none=True)
+    metric = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_space_metrics", "ClusterSpaceMetricsSchema"),
+                data_key="metric",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Cluster capacity numbers, such as total size, used size, and available size."""
 
     @property

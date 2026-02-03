@@ -181,8 +181,8 @@ impl Rule for MD011NoReversedLinks {
 
         let line_index = &ctx.line_index;
 
-        // Use filtered_lines() to automatically skip front-matter
-        for filtered_line in ctx.filtered_lines().skip_front_matter() {
+        // Use filtered_lines() to automatically skip front-matter and Obsidian comments
+        for filtered_line in ctx.filtered_lines().skip_front_matter().skip_obsidian_comments() {
             let line_num = filtered_line.line_num;
             let line = filtered_line.content;
 
@@ -209,6 +209,13 @@ impl Rule for MD011NoReversedLinks {
                 // Skip footnote references: [^footnote]
                 // This prevents false positives like [link](url)[^footnote]
                 if bracket_content.starts_with('^') {
+                    last_end += match_obj.end();
+                    continue;
+                }
+
+                // Skip Dataview inline fields in Obsidian flavor
+                // Pattern: (field:: value)[text] is valid Obsidian syntax, not a reversed link
+                if ctx.flavor == crate::config::MarkdownFlavor::Obsidian && paren_content.contains("::") {
                     last_end += match_obj.end();
                     continue;
                 }
@@ -445,5 +452,68 @@ mod tests {
         assert_eq!(warnings.len(), 1);
         assert_eq!(warnings[0].line, 1);
         assert_eq!(warnings[0].column, 1);
+    }
+
+    #[test]
+    fn test_md011_skip_dataview_inline_fields_obsidian() {
+        let rule = MD011NoReversedLinks;
+
+        // Dataview inline field pattern: (field:: value)[text]
+        // In Obsidian flavor, this should NOT be flagged as a reversed link
+        let content = "(status:: active)[link text]\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Obsidian, None);
+        let warnings = rule.check(&ctx).unwrap();
+        assert_eq!(
+            warnings.len(),
+            0,
+            "Should not flag Dataview inline field in Obsidian flavor"
+        );
+
+        // Multiple inline fields
+        let content = "(author:: John)[read more] and (date:: 2024-01-01)[link]\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Obsidian, None);
+        let warnings = rule.check(&ctx).unwrap();
+        assert_eq!(warnings.len(), 0, "Should not flag multiple Dataview inline fields");
+
+        // Mixed content: Dataview field and actual reversed link
+        let content = "(status:: done)[info] (url)[text]\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Obsidian, None);
+        let warnings = rule.check(&ctx).unwrap();
+        assert_eq!(warnings.len(), 1, "Should flag reversed link but not Dataview field");
+        assert_eq!(warnings[0].column, 23);
+    }
+
+    #[test]
+    fn test_md011_flag_dataview_in_standard_flavor() {
+        let rule = MD011NoReversedLinks;
+
+        // In Standard flavor, (field:: value)[text] is treated as a reversed link
+        // because Dataview is Obsidian-specific
+        let content = "(status:: active)[link text]\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let warnings = rule.check(&ctx).unwrap();
+        assert_eq!(
+            warnings.len(),
+            1,
+            "Should flag Dataview-like pattern in Standard flavor"
+        );
+    }
+
+    #[test]
+    fn test_md011_dataview_bracket_syntax_obsidian() {
+        let rule = MD011NoReversedLinks;
+
+        // Dataview also supports [field:: value] syntax inside brackets
+        // The pattern (field:: value)[text] should be skipped in Obsidian
+        let content = "Task has (priority:: high)[see details]\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Obsidian, None);
+        let warnings = rule.check(&ctx).unwrap();
+        assert_eq!(warnings.len(), 0, "Should skip Dataview field with spaces");
+
+        // Field with no value (just key::)
+        let content = "(completed::)[marker]\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Obsidian, None);
+        let warnings = rule.check(&ctx).unwrap();
+        assert_eq!(warnings.len(), 0, "Should skip Dataview field with empty value");
     }
 }

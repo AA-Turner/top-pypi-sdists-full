@@ -5,16 +5,15 @@ import sys
 
 import contrast
 from contrast.agent import scope
+from contrast.agent.middlewares.route_coverage import common
 from contrast.agent.policy import patch_manager
 from contrast.utils.decorators import fail_loudly, fail_quietly
 from contrast.utils.patch_utils import (
     build_and_apply_patch,
+    register_module_patcher,
     unregister_module_patcher,
     wrap_and_watermark,
-    register_module_patcher,
 )
-from contrast.agent.middlewares.route_coverage import common
-
 from contrast_vendor import structlog as logging
 
 DJANGO_WSGI_NAME = "django.core.wsgi"
@@ -25,6 +24,7 @@ DJANGO_ASGI_NAME = "django.core.asgi"
 def do_config_scanning(logger):
     # Lazy import for django
     from django.conf import settings as app_settings
+
     from contrast.agent.assess.rules.config import (
         DjangoHttpOnlyRule,
         DjangoSecureFlagRule,
@@ -50,6 +50,7 @@ def do_config_scanning(logger):
 @scope.contrast_scope()
 def django_first_request(sender, **kwargs):
     from django.core import signals
+
     from contrast.agent.middlewares.route_coverage.django_routes import (
         create_django_routes,
     )
@@ -59,8 +60,10 @@ def django_first_request(sender, **kwargs):
     logger = logging.getLogger("contrast")
     logger.debug("called django first request signal")
 
-    do_config_scanning(logger)
-    common.handle_route_discovery("django", create_django_routes, ())
+    context = contrast.REQUEST_CONTEXT.get()
+    if context is not None and context.assess_enabled:
+        do_config_scanning(logger)
+        common.handle_route_discovery("django", create_django_routes, ())
 
     # the signal is no longer needed after the first request
     logger.debug("disconnecting django first request signal (first request started)")
@@ -146,10 +149,10 @@ def get_app_name() -> str:
 
 @fail_loudly("Failed to initialize Django-specific instrumentation")
 def initialize_django():
-    from contrast.agent.agent_state import set_application_name
-
     # Lazy import for django
     from django.core import signals
+
+    from contrast.agent.agent_state import set_application_name
 
     logger = logging.getLogger("contrast")
     logger.info("Detected application: django")

@@ -29,8 +29,6 @@ Example usage:
 
 import atexit
 
-from absl import app
-
 from google_benchmark import _benchmark
 from google_benchmark._benchmark import (
     Counter as Counter,
@@ -50,7 +48,7 @@ from google_benchmark._benchmark import (
     oNSquared as oNSquared,
 )
 
-__version__ = "1.9.4"
+__version__ = "1.9.5"
 
 
 class __OptionMaker:
@@ -122,19 +120,11 @@ def register(undefined=None, *, name=None):
     return options.func
 
 
-def _flags_parser(argv):
-    argv = _benchmark.Initialize(argv)
-    return app.parse_flags_with_usage(argv)
+def main(argv: list[str] | None = None) -> None:
+    import sys
 
-
-def _run_benchmarks(argv):
-    if len(argv) > 1:
-        raise app.UsageError("Too many command-line arguments.")
+    _benchmark.Initialize(argv or sys.argv)
     return _benchmark.RunSpecifiedBenchmarks()
-
-
-def main(argv=None):
-    return app.run(_run_benchmarks, argv=argv, flags_parser=_flags_parser)
 
 
 # FIXME: can we rerun with disabled ASLR?
@@ -142,4 +132,5 @@ def main(argv=None):
 # Methods for use with custom main function.
 initialize = _benchmark.Initialize
 run_benchmarks = _benchmark.RunSpecifiedBenchmarks
+add_custom_context = _benchmark.AddCustomContext
 atexit.register(_benchmark.ClearRegisteredBenchmarks)

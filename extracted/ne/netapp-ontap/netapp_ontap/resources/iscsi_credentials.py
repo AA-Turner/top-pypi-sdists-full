@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -89,122 +89,122 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     IscsiCredentials(
         {
-            "authentication_type": "none",
             "initiator": "default",
-            "svm": {
-                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
-                "name": "svm1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"
-                    }
-                },
-            },
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/iscsi/credentials/19d04b8e-94d7-11e8-8370-005056b48fd2/default"
                 }
             },
-        }
-    ),
-    IscsiCredentials(
-        {
             "authentication_type": "none",
-            "initiator": "iqn.1992-08.com.netapp:initiator1",
             "svm": {
-                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"
                     }
                 },
+                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
             },
+        }
+    ),
+    IscsiCredentials(
+        {
+            "initiator": "iqn.1992-08.com.netapp:initiator1",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/iscsi/credentials/19d04b8e-94d7-11e8-8370-005056b48fd2/iqn.1992-08.com.netapp:initiator1"
                 }
             },
-        }
-    ),
-    IscsiCredentials(
-        {
-            "authentication_type": "chap",
-            "initiator": "iqn.1992-08.com.netapp:initiator2",
-            "chap": {"inbound": {"user": "user1"}},
+            "authentication_type": "none",
             "svm": {
-                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"
                     }
                 },
+                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
             },
+        }
+    ),
+    IscsiCredentials(
+        {
+            "initiator": "iqn.1992-08.com.netapp:initiator2",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/iscsi/credentials/19d04b8e-94d7-11e8-8370-005056b48fd2/iqn.1992-08.com.netapp:initiator2"
                 }
             },
+            "chap": {"inbound": {"user": "user1"}},
+            "authentication_type": "chap",
+            "svm": {
+                "name": "svm1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"
+                    }
+                },
+                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
+            },
         }
     ),
     IscsiCredentials(
         {
-            "authentication_type": "none",
             "initiator": "default",
-            "svm": {
-                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
-                "name": "svm2",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/25f617cf-94d7-11e8-8370-005056b48fd2"
-                    }
-                },
-            },
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/iscsi/credentials/25f617cf-94d7-11e8-8370-005056b48fd2/default"
                 }
             },
-        }
-    ),
-    IscsiCredentials(
-        {
             "authentication_type": "none",
-            "initiator": "iqn.1992-08.com.netapp:initiator2",
             "svm": {
-                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
                 "name": "svm2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/25f617cf-94d7-11e8-8370-005056b48fd2"
                     }
                 },
+                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
             },
+        }
+    ),
+    IscsiCredentials(
+        {
+            "initiator": "iqn.1992-08.com.netapp:initiator2",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/iscsi/credentials/25f617cf-94d7-11e8-8370-005056b48fd2/iqn.1992-08.com.netapp:initiator2"
                 }
             },
-        }
-    ),
-    IscsiCredentials(
-        {
-            "authentication_type": "deny",
-            "initiator": "iqn.1992-08.com.netapp:initiator3",
+            "authentication_type": "none",
             "svm": {
-                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
                 "name": "svm2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/25f617cf-94d7-11e8-8370-005056b48fd2"
                     }
                 },
+                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
             },
+        }
+    ),
+    IscsiCredentials(
+        {
+            "initiator": "iqn.1992-08.com.netapp:initiator3",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/iscsi/credentials/25f617cf-94d7-11e8-8370-005056b48fd2/iqn.1992-08.com.netapp:initiator3"
                 }
+            },
+            "authentication_type": "deny",
+            "svm": {
+                "name": "svm2",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/25f617cf-94d7-11e8-8370-005056b48fd2"
+                    }
+                },
+                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
             },
         }
     ),
@@ -236,20 +236,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IscsiCredentials(
     {
-        "authentication_type": "chap",
         "initiator": "iqn.1992-08.com.netapp:initiator2",
-        "chap": {"inbound": {"user": "user1"}},
-        "svm": {
-            "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
-            "name": "svm2",
-            "_links": {
-                "self": {"href": "/api/svm/svms/25f617cf-94d7-11e8-8370-005056b48fd2"}
-            },
-        },
         "_links": {
             "self": {
                 "href": "/api/protocols/san/iscsi/credentials/25f617cf-94d7-11e8-8370-005056b48fd2/iqn.1992-08.com.netapp:initiator2"
             }
+        },
+        "chap": {"inbound": {"user": "user1"}},
+        "authentication_type": "chap",
+        "svm": {
+            "name": "svm2",
+            "_links": {
+                "self": {"href": "/api/svm/svms/25f617cf-94d7-11e8-8370-005056b48fd2"}
+            },
+            "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
         },
     }
 )
@@ -313,11 +313,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -331,11 +330,15 @@ __pdoc__ = {
     "IscsiCredentialsSchema.opts": False,
 }
 
-
 class IscsiCredentialsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the IscsiCredentials object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the iscsi_credentials."""
 
     authentication_type = marshmallow_fields.Str(
@@ -352,7 +355,12 @@ Valid choices:
 * none
 * deny"""
 
-    chap = marshmallow_fields.Nested("netapp_ontap.models.iscsi_credentials_chap.IscsiCredentialsChapSchema", data_key="chap", unknown=EXCLUDE, allow_none=True)
+    chap = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.iscsi_credentials_chap", "IscsiCredentialsChapSchema"),
+                data_key="chap",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Challenge-Handshake Authentication Protocol (CHAP) credentials."""
 
     initiator = marshmallow_fields.Str(
@@ -364,10 +372,20 @@ Valid choices:
 
 Example: iqn.1998-01.com.corp.iscsi:name1"""
 
-    initiator_address = marshmallow_fields.Nested("netapp_ontap.models.iscsi_credentials_initiator_address.IscsiCredentialsInitiatorAddressSchema", data_key="initiator_address", unknown=EXCLUDE, allow_none=True)
+    initiator_address = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.iscsi_credentials_initiator_address", "IscsiCredentialsInitiatorAddressSchema"),
+                data_key="initiator_address",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Initiator address ranges."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the iscsi_credentials."""
 
     @property

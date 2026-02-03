@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -31,25 +31,25 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 LocalCifsUsersAndGroupsImport(
     {
         "elements_ignored": 0,
-        "detailed_status": {
-            "message": "Operation completed successfully.",
-            "code": "0",
-        },
-        "svm": {
-            "uuid": "6de1d39d-1473-11ec-b0cf-0050568e4acc",
-            "name": "vs1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/6de1d39d-1473-11ec-b0cf-0050568e4acc"}
-            },
-        },
-        "state": "success",
-        "import_uri": {"path": "http://<import_uri>/file.7z"},
         "_links": {
             "self": {
                 "href": "/api/protocols/cifs/users-and-groups/import/6de1d39d-1473-11ec-b0cf-0050568e4acc"
             }
         },
+        "state": "success",
+        "detailed_status": {
+            "message": "Operation completed successfully.",
+            "code": "0",
+        },
+        "import_uri": {"path": "http://<import_uri>/file.7z"},
         "elements_imported": 2,
+        "svm": {
+            "name": "vs1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/6de1d39d-1473-11ec-b0cf-0050568e4acc"}
+            },
+            "uuid": "6de1d39d-1473-11ec-b0cf-0050568e4acc",
+        },
     }
 )
 
@@ -76,25 +76,25 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 LocalCifsUsersAndGroupsImport(
     {
         "elements_ignored": 0,
-        "detailed_status": {
-            "message": "Failed parsing line 1 of the input file. Check syntax and contents.",
-            "code": "655698",
-        },
-        "svm": {
-            "uuid": "6de1d39d-1473-11ec-b0cf-0050568e4acc",
-            "name": "vs1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/6de1d39d-1473-11ec-b0cf-0050568e4acc"}
-            },
-        },
-        "state": "success",
-        "import_uri": {"path": "http://<import_uri>/file.7z"},
         "_links": {
             "self": {
                 "href": "/api/protocols/cifs/users-and-groups/import/6de1d39d-1473-11ec-b0cf-0050568e4acc"
             }
         },
+        "state": "success",
+        "detailed_status": {
+            "message": "Failed parsing line 1 of the input file. Check syntax and contents.",
+            "code": "655698",
+        },
+        "import_uri": {"path": "http://<import_uri>/file.7z"},
         "elements_imported": 0,
+        "svm": {
+            "name": "vs1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/6de1d39d-1473-11ec-b0cf-0050568e4acc"}
+            },
+            "uuid": "6de1d39d-1473-11ec-b0cf-0050568e4acc",
+        },
     }
 )
 
@@ -124,12 +124,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 LocalCifsUsersAndGroupsImport(
     {
-        "decryption_password": "cccc",
         "import_uri": {
-            "path": "http://example.com/file1.7z",
             "password": "aaaa",
             "username": "user1",
+            "path": "http://example.com/file1.7z",
         },
+        "decryption_password": "cccc",
     }
 )
 
@@ -157,11 +157,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -175,11 +174,15 @@ __pdoc__ = {
     "LocalCifsUsersAndGroupsImportSchema.opts": False,
 }
 
-
 class LocalCifsUsersAndGroupsImportSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LocalCifsUsersAndGroupsImport object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the local_cifs_users_and_groups_import."""
 
     decryption_password = marshmallow_fields.Str(
@@ -189,7 +192,12 @@ class LocalCifsUsersAndGroupsImportSchema(ResourceSchema, metaclass=ResourceSche
     )
     r""" Password to decrypt the compressed file."""
 
-    detailed_status = marshmallow_fields.Nested("netapp_ontap.models.detailed_status_code_message.DetailedStatusCodeMessageSchema", data_key="detailed_status", unknown=EXCLUDE, allow_none=True)
+    detailed_status = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.detailed_status_code_message", "DetailedStatusCodeMessageSchema"),
+                data_key="detailed_status",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The detailed_status field of the local_cifs_users_and_groups_import."""
 
     elements_ignored = Size(
@@ -204,7 +212,12 @@ class LocalCifsUsersAndGroupsImportSchema(ResourceSchema, metaclass=ResourceSche
     )
     r""" Number of elements successfully imported."""
 
-    import_uri = marshmallow_fields.Nested("netapp_ontap.models.uniform_resource_identifier.UniformResourceIdentifierSchema", data_key="import_uri", unknown=EXCLUDE, allow_none=True)
+    import_uri = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.uniform_resource_identifier", "UniformResourceIdentifierSchema"),
+                data_key="import_uri",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The import_uri field of the local_cifs_users_and_groups_import."""
 
     state = marshmallow_fields.Str(
@@ -222,10 +235,20 @@ Valid choices:
 * in_progress
 * unknown"""
 
-    status_uri = marshmallow_fields.Nested("netapp_ontap.models.uniform_resource_identifier.UniformResourceIdentifierSchema", data_key="status_uri", unknown=EXCLUDE, allow_none=True)
+    status_uri = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.uniform_resource_identifier", "UniformResourceIdentifierSchema"),
+                data_key="status_uri",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The status_uri field of the local_cifs_users_and_groups_import."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the local_cifs_users_and_groups_import."""
 
     @property

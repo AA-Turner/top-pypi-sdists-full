@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,82 +28,82 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Coredump(
         {
-            "type": "kernel",
-            "node": {
-                "uuid": "227683c1-e9c7-11eb-b995-005056bbbfb3",
-                "name": "node2",
-                "_links": {
-                    "self": {
-                        "href": "/api/cluster/nodes/227683c1-e9c7-11eb-b995-005056bbbfb3"
-                    }
-                },
-            },
             "_links": {
                 "self": {
                     "href": "/api/support/coredump/coredumps/227683c1-e9c7-11eb-b995-005056bbbfb3/core.4136886422.2021-07-21.20_20_53.nz"
                 }
             },
             "name": "core.4136886422.2021-07-21.20_20_53.nz",
-        }
-    ),
-    Coredump(
-        {
-            "type": "application",
             "node": {
-                "uuid": "227683c1-e9c7-11eb-b995-005056bbbfb3",
                 "name": "node2",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/227683c1-e9c7-11eb-b995-005056bbbfb3"
                     }
                 },
+                "uuid": "227683c1-e9c7-11eb-b995-005056bbbfb3",
             },
+            "type": "kernel",
+        }
+    ),
+    Coredump(
+        {
             "_links": {
                 "self": {
                     "href": "/api/support/coredump/coredumps/227683c1-e9c7-11eb-b995-005056bbbfb3/mlogd.968.4136886422.2021-07-22.01_10_01.ucore.bz2"
                 }
             },
             "name": "mlogd.968.4136886422.2021-07-22.01_10_01.ucore.bz2",
+            "node": {
+                "name": "node2",
+                "_links": {
+                    "self": {
+                        "href": "/api/cluster/nodes/227683c1-e9c7-11eb-b995-005056bbbfb3"
+                    }
+                },
+                "uuid": "227683c1-e9c7-11eb-b995-005056bbbfb3",
+            },
+            "type": "application",
         }
     ),
     Coredump(
         {
-            "type": "kernel",
-            "node": {
-                "uuid": "d583d44e-e9c6-11eb-a270-005056bb47f9",
-                "name": "node1",
-                "_links": {
-                    "self": {
-                        "href": "/api/cluster/nodes/d583d44e-e9c6-11eb-a270-005056bb47f9"
-                    }
-                },
-            },
             "_links": {
                 "self": {
                     "href": "/api/support/coredump/coredumps/d583d44e-e9c6-11eb-a270-005056bb47f9/core.4136886421.2021-07-21.17_57_02.nz"
                 }
             },
             "name": "core.4136886421.2021-07-21.17_57_02.nz",
-        }
-    ),
-    Coredump(
-        {
-            "type": "application",
             "node": {
-                "uuid": "d583d44e-e9c6-11eb-a270-005056bb47f9",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/d583d44e-e9c6-11eb-a270-005056bb47f9"
                     }
                 },
+                "uuid": "d583d44e-e9c6-11eb-a270-005056bb47f9",
             },
+            "type": "kernel",
+        }
+    ),
+    Coredump(
+        {
             "_links": {
                 "self": {
                     "href": "/api/support/coredump/coredumps/d583d44e-e9c6-11eb-a270-005056bb47f9/mlogd.979.4136886421.2021-07-22.01_11_37.ucore.bz2"
                 }
             },
             "name": "mlogd.979.4136886421.2021-07-22.01_11_37.ucore.bz2",
+            "node": {
+                "name": "node1",
+                "_links": {
+                    "self": {
+                        "href": "/api/cluster/nodes/d583d44e-e9c6-11eb-a270-005056bb47f9"
+                    }
+                },
+                "uuid": "d583d44e-e9c6-11eb-a270-005056bb47f9",
+            },
+            "type": "application",
         }
     ),
 ]
@@ -136,25 +136,25 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Coredump(
     {
-        "is_saved": True,
-        "type": "kernel",
-        "size": 945111148,
         "panic_time": "2021-07-21T13:57:02-04:00",
+        "_links": {
+            "self": {
+                "href": "/api/support/coredump/coredumps/d583d44e-e9c6-11eb-a270-005056bb47f9/core.4136886421.2021-07-21.17_57_02.nz"
+            }
+        },
+        "is_saved": True,
+        "name": "core.4136886421.2021-07-21.17_57_02.nz",
+        "size": 945111148,
         "node": {
-            "uuid": "d583d44e-e9c6-11eb-a270-005056bb47f9",
             "name": "node1",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/d583d44e-e9c6-11eb-a270-005056bb47f9"
                 }
             },
+            "uuid": "d583d44e-e9c6-11eb-a270-005056bb47f9",
         },
-        "_links": {
-            "self": {
-                "href": "/api/support/coredump/coredumps/d583d44e-e9c6-11eb-a270-005056bb47f9/core.4136886421.2021-07-21.17_57_02.nz"
-            }
-        },
-        "name": "core.4136886421.2021-07-21.17_57_02.nz",
+        "type": "kernel",
     }
 )
 
@@ -185,11 +185,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -203,11 +202,15 @@ __pdoc__ = {
     "CoredumpSchema.opts": False,
 }
 
-
 class CoredumpSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Coredump object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the coredump."""
 
     is_partial = marshmallow_fields.Boolean(
@@ -238,7 +241,12 @@ Example: 5118488cc5065e33a16986001b1ffa48"""
 
 Example: core.4136886413.2021-03-01.22_09_11.nz"""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the coredump."""
 
     panic_time = ImpreciseDateTime(

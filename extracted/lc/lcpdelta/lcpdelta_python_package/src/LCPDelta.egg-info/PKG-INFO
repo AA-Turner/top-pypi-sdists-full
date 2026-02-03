@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: LCPDelta
-Version: 2.1.25
+Version: 2.1.26
 Summary: LCPDelta Python Package
 Author-email: LCP Delta <enact.helpdesk@lcp.uk.com>
 Project-URL: Homepage, https://portal.lcpdelta.com/
@@ -15,7 +15,7 @@ License-File: LICENSE-Apache
 Requires-Dist: numpy
 Requires-Dist: pandas
 Requires-Dist: requests
-Requires-Dist: signalrcore==0.9.5
+Requires-Dist: pysignalr
 Requires-Dist: matplotlib
 Requires-Dist: httpx
 Requires-Dist: tenacity
@@ -30,7 +30,6 @@ Requires-Dist: jupyter; extra == "dev"
 Requires-Dist: nbval; extra == "dev"
 Requires-Dist: pandas; extra == "dev"
 Requires-Dist: numpy; extra == "dev"
-Requires-Dist: signalrcore==0.9.5; extra == "dev"
 Dynamic: license-file
 
 # LCPDelta Python Package

@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["FpolicyEngines", "FpolicyEnginesSchema"]
@@ -17,14 +16,23 @@ __pdoc__ = {
     "FpolicyEngines": False,
 }
 
-
 class FpolicyEnginesSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the FpolicyEngines object"""
 
-    buffer_size = marshmallow_fields.Nested("netapp_ontap.models.fpolicy_engine_buffer_size.FpolicyEngineBufferSizeSchema", unknown=EXCLUDE, data_key="buffer_size", allow_none=True)
+    buffer_size = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fpolicy_engine_buffer_size", "FpolicyEngineBufferSizeSchema"),
+                unknown=EXCLUDE,
+                data_key="buffer_size",
+                allow_none=True
+            )
     r""" Specifies the send and receive buffer size of the connected socket for the FPolicy server. """
 
-    certificate = marshmallow_fields.Nested("netapp_ontap.models.fpolicy_engine_certificate.FpolicyEngineCertificateSchema", unknown=EXCLUDE, data_key="certificate", allow_none=True)
+    certificate = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fpolicy_engine_certificate", "FpolicyEngineCertificateSchema"),
+                unknown=EXCLUDE,
+                data_key="certificate",
+                allow_none=True
+            )
     r""" Provides details about certificate used to authenticate the FPolicy server. """
 
     format = marshmallow_fields.Str(data_key="format", allow_none=True)
@@ -80,7 +88,12 @@ Example: PT40S """
 
 Example: PT20S """
 
-    resiliency = marshmallow_fields.Nested("netapp_ontap.models.fpolicy_engine_resiliency.FpolicyEngineResiliencySchema", unknown=EXCLUDE, data_key="resiliency", allow_none=True)
+    resiliency = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fpolicy_engine_resiliency", "FpolicyEngineResiliencySchema"),
+                unknown=EXCLUDE,
+                data_key="resiliency",
+                allow_none=True
+            )
     r""" If all primary and secondary servers are down, or if no response is received from the FPolicy servers, file access events are stored inside the storage controller under the specified resiliency-directory-path. """
 
     secondary_servers = marshmallow_fields.List(marshmallow_fields.Str, data_key="secondary_servers", allow_none=True)

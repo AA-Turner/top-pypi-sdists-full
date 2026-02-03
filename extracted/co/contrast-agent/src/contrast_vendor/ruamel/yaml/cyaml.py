@@ -1,16 +1,25 @@
-# coding: utf-8
 
-from _ruamel_yaml import CParser, CEmitter  # type: ignore
+from __future__ import annotations
 
-from contrast_vendor.ruamel.yaml.constructor import Constructor, BaseConstructor, SafeConstructor
-from contrast_vendor.ruamel.yaml.representer import Representer, SafeRepresenter, BaseRepresenter
-from contrast_vendor.ruamel.yaml.resolver import Resolver, BaseResolver
+if False:  # MYPY
+    from typing import Any, Optional
+    from contrast_vendor.ruamel.yaml.compat import StreamTextType, StreamType, VersionType  # NOQA
+
+__yaml_lib: Optional[str] = None
+try:
+    from _ruamel_yaml import CParser, CEmitter  # type: ignore
+    __yaml_lib = 'clib'
+except ModuleNotFoundError:
+    from _ruamel_yaml_clibz import CParser, CEmitter  # type: ignore
+    __yaml_lib = 'clibz'
+
+from contrast_vendor.ruamel.yaml.constructor import Constructor, BaseConstructor, SafeConstructor  # NOQA
+from contrast_vendor.ruamel.yaml.representer import Representer, SafeRepresenter, BaseRepresenter  # NOQA
+from contrast_vendor.ruamel.yaml.resolver import Resolver, BaseResolver                            # NOQA
 
 
-from typing import Any, Union, Optional  # NOQA
-from contrast_vendor.ruamel.yaml.compat import StreamTextType, StreamType, VersionType  # NOQA
-
-__all__ = ['CBaseLoader', 'CSafeLoader', 'CLoader', 'CBaseDumper', 'CSafeDumper', 'CDumper']
+__all__ = ['CBaseLoader', 'CSafeLoader', 'CLoader', 'CBaseDumper', 'CSafeDumper', 'CDumper',
+           '__yaml_lib']
 
 
 # this includes some hacks to solve the  usage of resolver by lower level
@@ -148,7 +157,7 @@ class CSafeDumper(CEmitter, SafeRepresenter, Resolver):  # type: ignore
         )
         self._emitter = self._serializer = self._representer = self
         SafeRepresenter.__init__(
-            self, default_style=default_style, default_flow_style=default_flow_style
+            self, default_style=default_style, default_flow_style=default_flow_style,
         )
         Resolver.__init__(self)
 
@@ -190,6 +199,6 @@ class CDumper(CEmitter, Representer, Resolver):  # type: ignore
         )
         self._emitter = self._serializer = self._representer = self
         Representer.__init__(
-            self, default_style=default_style, default_flow_style=default_flow_style
+            self, default_style=default_style, default_flow_style=default_flow_style,
         )
         Resolver.__init__(self)

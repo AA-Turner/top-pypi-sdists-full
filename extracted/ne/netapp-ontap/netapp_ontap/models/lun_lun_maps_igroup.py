@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["LunLunMapsIgroup", "LunLunMapsIgroupSchema"]
@@ -17,24 +16,44 @@ __pdoc__ = {
     "LunLunMapsIgroup": False,
 }
 
-
 class LunLunMapsIgroupSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LunLunMapsIgroup object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", unknown=EXCLUDE, data_key="_links", allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                unknown=EXCLUDE,
+                data_key="_links",
+                allow_none=True
+            )
     r""" The links field of the lun_lun_maps_igroup. """
 
     comment = marshmallow_fields.Str(data_key="comment", allow_none=True)
     r""" A comment available for use by the administrator. Valid in POST and PATCH. """
 
-    igroups = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.consistency_group_response_records_luns_lun_maps_igroup_igroups.ConsistencyGroupResponseRecordsLunsLunMapsIgroupIgroupsSchema", unknown=EXCLUDE, allow_none=True), data_key="igroups", allow_none=True)
+    igroups = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.consistency_group_response_records_luns_lun_maps_igroup_igroups", "ConsistencyGroupResponseRecordsLunsLunMapsIgroupIgroupsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="igroups",
+                allow_none=True
+                )
     r""" The existing initiator groups that are members of the group. Optional in POST.<br/>
 This property is mutually exclusive with the _initiators_ property during POST.<br/>
 This array contains only the direct children of the initiator group. If the member initiator groups have further nested initiator groups, those are reported in the `igroups` property of the child initiator group.<br/>
 Zero or more nested initiator groups can be supplied when the initiator group is created. The initiator group will act as if it contains the aggregation of all initiators in any nested initiator groups.<br/>
 After creation, nested initiator groups can be added or removed from the initiator group using the `/protocols/san/igroups/{igroup.uuid}/igroups` endpoint. See [`POST /protocols/san/igroups/{igroup.uuid}/igroups`](#/SAN/igroup_nested_create) and [`DELETE /protocols/san/igroups/{igroup.uuid}/igroups/{uuid}`](#/SAN/igroup_nested_delete) for more details. """
 
-    initiators = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.consistency_group_response_records_luns_lun_maps_igroup_initiators.ConsistencyGroupResponseRecordsLunsLunMapsIgroupInitiatorsSchema", unknown=EXCLUDE, allow_none=True), data_key="initiators", allow_none=True)
+    initiators = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.consistency_group_response_records_luns_lun_maps_igroup_initiators", "ConsistencyGroupResponseRecordsLunsLunMapsIgroupInitiatorsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="initiators",
+                allow_none=True
+                )
     r""" The initiators that are members of the group. """
 
     name = marshmallow_fields.Str(data_key="name", allow_none=True)

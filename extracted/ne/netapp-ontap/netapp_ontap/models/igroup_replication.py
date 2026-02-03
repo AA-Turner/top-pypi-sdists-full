@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["IgroupReplication", "IgroupReplicationSchema"]
@@ -17,14 +16,23 @@ __pdoc__ = {
     "IgroupReplication": False,
 }
 
-
 class IgroupReplicationSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the IgroupReplication object"""
 
-    error = marshmallow_fields.Nested("netapp_ontap.models.igroup_replication_error.IgroupReplicationErrorSchema", unknown=EXCLUDE, data_key="error", allow_none=True)
+    error = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.igroup_replication_error", "IgroupReplicationErrorSchema"),
+                unknown=EXCLUDE,
+                data_key="error",
+                allow_none=True
+            )
     r""" Information about asynchronous errors encountered while replicating this igroup. Igroups within a peering relationship are replicated in the same stream, so the error reported here might be related to this igroup or a prior replicated igroup that is now blocking the replication of this igroup. Both the error information and the igroup encountering the error are reported. If the error is configuration related, it can be corrected on the referenced igroup. The replication is retried using exponential backoff up to a maximum of one retry every 5 minutes. Every operation on the same stream triggers an immediate retry and restarts the exponential backoff starting with a 1 second delay. If the error is system related, the retries should correct the error when the system enters a healthy state. """
 
-    peer_svm = marshmallow_fields.Nested("netapp_ontap.resources.svm_peer.SvmPeerSchema", unknown=EXCLUDE, data_key="peer_svm", allow_none=True)
+    peer_svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm_peer", "SvmPeerSchema"),
+                unknown=EXCLUDE,
+                data_key="peer_svm",
+                allow_none=True
+            )
     r""" The peer_svm field of the igroup_replication. """
 
     state = marshmallow_fields.Str(data_key="state", allow_none=True)

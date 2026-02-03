@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["FabricConnectionsSwitch", "FabricConnectionsSwitchSchema"]
@@ -17,14 +16,23 @@ __pdoc__ = {
     "FabricConnectionsSwitch": False,
 }
 
-
 class FabricConnectionsSwitchSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the FabricConnectionsSwitch object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", unknown=EXCLUDE, data_key="_links", allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                unknown=EXCLUDE,
+                data_key="_links",
+                allow_none=True
+            )
     r""" The links field of the fabric_connections_switch. """
 
-    port = marshmallow_fields.Nested("netapp_ontap.models.fabric_connections_switch_port.FabricConnectionsSwitchPortSchema", unknown=EXCLUDE, data_key="port", allow_none=True)
+    port = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fabric_connections_switch_port", "FabricConnectionsSwitchPortSchema"),
+                unknown=EXCLUDE,
+                data_key="port",
+                allow_none=True
+            )
     r""" The port of the Fibre Channel switch to which the cluster node port is connected. """
 
     wwn = marshmallow_fields.Str(data_key="wwn", allow_none=True)

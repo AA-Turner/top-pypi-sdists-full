@@ -86,9 +86,11 @@ use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
 use crate::export::definitions::DependsOn;
 use crate::export::definitions::SyntacticDeps;
+use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
 use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
+use crate::export::special::SpecialExport;
 use crate::module::bundled::BundledStub;
 use crate::module::finder::find_import_prefixes;
 use crate::module::typeshed::BundledTypeshedStdlib;
@@ -111,6 +113,7 @@ use crate::state::steps::Context;
 use crate::state::steps::Step;
 use crate::state::steps::Steps;
 use crate::state::subscriber::Subscriber;
+use crate::types::callable::Deprecation;
 use crate::types::class::Class;
 use crate::types::stdlib::Stdlib;
 use crate::types::types::TParams;
@@ -767,7 +770,7 @@ impl<'a> Transaction<'a> {
                         if let Some(old_notebook) = old_load.module_info.notebook() {
                             **notebook != *old_notebook
                         } else {
-                            false
+                            true
                         }
                     }
                 }
@@ -956,7 +959,7 @@ impl<'a> Transaction<'a> {
                 Some(todo) if todo <= step => todo,
                 _ => break,
             };
-            let mut exclusive = match reader.exclusive(todo) {
+            let exclusive = match reader.exclusive(todo) {
                 Some(exclusive) => exclusive,
                 None => {
                     // The world changed, we should check again
@@ -969,21 +972,10 @@ impl<'a> Transaction<'a> {
             };
 
             computed = true;
-            let compute = todo.compute().0(&exclusive.steps);
             let require = exclusive.require;
-            if todo == Step::Answers && !require.keep_ast() {
-                // We have captured the Ast, and must have already built Exports (we do it serially),
-                // so won't need the Ast again.
-                let to_drop;
-                let mut writer = exclusive.write();
-                to_drop = writer.steps.ast.take();
-                exclusive = writer.exclusive();
-                drop(to_drop);
-            }
-
             let stdlib = self.get_stdlib(&module_data.handle);
             let config = module_data.config.read();
-            let set = compute(&Context {
+            let ctx = Context {
                 require,
                 module: module_data.handle.module(),
                 path: module_data.handle.path(),
@@ -996,9 +988,12 @@ impl<'a> Transaction<'a> {
                     .untyped_def_behavior(module_data.handle.path().as_path()),
                 infer_with_first_use: config
                     .infer_with_first_use(module_data.handle.path().as_path()),
-            });
+                recursion_limit_config: config.recursion_limit_config(),
+            };
+            let set = todo.compute(&exclusive.steps, &ctx);
             {
-                let mut to_drop = None;
+                let mut to_drop_ast = None;
+                let mut to_drop_answers = None;
                 let mut writer = exclusive.write();
                 let mut load_result = None;
                 let old_solutions = if todo == Step::Solutions {
@@ -1006,7 +1001,7 @@ impl<'a> Transaction<'a> {
                 } else {
                     None
                 };
-                set(&mut writer.steps);
+                set.0(&mut writer.steps);
                 // After Exports step, populate syntactic_deps from Exports
                 if todo == Step::Exports
                     && let Some(ref exports) = writer.steps.exports
@@ -1040,16 +1035,21 @@ impl<'a> Transaction<'a> {
                 } else {
                     ChangedExports::NoChange // Not Solutions step = no export changes
                 };
-                if todo == Step::Solutions {
+                if todo == Step::Answers && !require.keep_ast() {
+                    // We have captured the Ast, and must have already built Exports (we do it serially),
+                    // so won't need the Ast again.
+                    to_drop_ast = writer.steps.ast.take();
+                } else if todo == Step::Solutions {
                     if !require.keep_bindings() && !require.keep_answers() {
                         // From now on we can use the answers directly, so evict the bindings/answers.
-                        to_drop = writer.steps.answers.take();
+                        to_drop_answers = writer.steps.answers.take();
                     }
                     load_result = writer.steps.load.dupe();
                 }
                 drop(writer);
                 // Release the lock before dropping
-                drop(to_drop);
+                drop(to_drop_ast);
+                drop(to_drop_answers);
                 if !matches!(changed_exports, ChangedExports::NoChange) {
                     self.data
                         .changed
@@ -1397,7 +1397,8 @@ impl<'a> Transaction<'a> {
 
     fn compute_stdlib(&mut self, sys_infos: SmallSet<SysInfo>) {
         let loader = self.get_cached_loader(&BundledTypeshedStdlib::config());
-        let thread_state = ThreadState::new();
+        // Use defaults (disabled) for stdlib - depth limiting is for user code
+        let thread_state = ThreadState::new(None);
         for k in sys_infos.into_iter_hashed() {
             self.data
                 .stdlib
@@ -1764,7 +1765,8 @@ impl<'a> Transaction<'a> {
         let (bindings, answers) = steps.answers.as_deref().as_ref()?;
         let stdlib = self.get_stdlib(handle);
         let recurser = VarRecurser::new();
-        let thread_state = ThreadState::new();
+        let config = module_data.config.read();
+        let thread_state = ThreadState::new(config.recursion_limit_config());
         let solver = AnswersSolver::new(
             &lookup,
             answers,
@@ -1994,13 +1996,14 @@ impl<'a> Transaction<'a> {
                 lookup: &self.lookup(m.dupe()),
                 untyped_def_behavior: config.untyped_def_behavior(m.handle.path().as_path()),
                 infer_with_first_use: config.infer_with_first_use(m.handle.path().as_path()),
+                recursion_limit_config: config.recursion_limit_config(),
             };
             let mut step = Step::Load; // Start at AST (Load.next)
             alt.load = lock.steps.load.dupe();
             while let Some(s) = step.next() {
                 step = s;
                 let start = Instant::now();
-                step.compute().0(&alt)(&ctx)(&mut alt);
+                step.compute(&alt, &ctx).0(&mut alt);
                 write(&step, start)?;
                 if step == Step::Exports {
                     let start = Instant::now();
@@ -2153,33 +2156,125 @@ impl<'a> TransactionHandle<'a> {
             }
         }
     }
+
+    /// Helper to get exports for a module with the correct lookup context.
+    fn with_exports<T>(
+        &self,
+        module: ModuleName,
+        f: impl FnOnce(&Exports, &Self) -> T,
+    ) -> Option<T> {
+        let module_data = self.get_module(module, None).finding()?;
+        let exports = self.transaction.lookup_export(&module_data);
+        let lookup = TransactionHandle {
+            transaction: self.transaction,
+            module_data,
+        };
+        Some(f(&exports, &lookup))
+    }
 }
 
 impl<'a> LookupExport for TransactionHandle<'a> {
-    fn get(&self, module: ModuleName) -> FindingOrError<Exports> {
-        let module_data = self.get_module(module, None);
-        module_data.map(|module_data| {
-            let exports = self.transaction.lookup_export(&module_data);
-
-            // TODO: Design this better.
-            //
-            // Currently to resolve Exports we have to recursively look at `import *` to get the full set of exported symbols.
-            // We write `lookup.get("imported").wildcards(lookup)` to do that.
-            // But that's no longer correct, because the module resolver for "imported" might be different to our resolver, so should be:
-            //
-            // `lookup.get("imported").wildcards(lookup_for_imported)`
-            //
-            // Since Bindings gets this right, we might have a mismatch from the exports, leading to a crash.
-            // Temporary band-aid is to just force it with the right lookup, but we probably want a type distinction
-            // between templated and resolved exports, or a different API that gives the pair of exports and lookup.
-            let transaction2 = TransactionHandle {
-                transaction: self.transaction,
-                module_data,
-            };
-            exports.wildcard(&transaction2);
-            exports.exports(&transaction2);
-            exports
+    fn export_exists(&self, module: ModuleName, k: &Name) -> bool {
+        self.with_exports(module, |exports, lookup| {
+            exports.exports(lookup).contains_key(k)
         })
+        .unwrap_or(false)
+    }
+
+    fn get_wildcard(&self, module: ModuleName) -> Option<Arc<SmallSet<Name>>> {
+        self.with_exports(module, |exports, lookup| exports.wildcard(lookup))
+    }
+
+    fn module_exists(&self, module: ModuleName) -> FindingOrError<()> {
+        self.get_module(module, None).map(|module_data| {
+            self.transaction.lookup_export(&module_data);
+        })
+    }
+
+    fn is_submodule_imported_implicitly(&self, module: ModuleName, name: &Name) -> bool {
+        self.with_exports(module, |exports, _lookup| {
+            exports.is_submodule_imported_implicitly(name)
+        })
+        .unwrap_or(false)
+    }
+
+    fn get_every_export(&self, module: ModuleName) -> Option<SmallSet<Name>> {
+        self.with_exports(module, |exports, lookup| {
+            exports
+                .exports(lookup)
+                .keys()
+                .cloned()
+                .collect::<SmallSet<Name>>()
+        })
+    }
+
+    fn get_deprecated(&self, module: ModuleName, name: &Name) -> Option<Deprecation> {
+        self.with_exports(module, |exports, lookup| {
+            match exports.exports(lookup).get(name)? {
+                ExportLocation::ThisModule(Export {
+                    deprecation: Some(d),
+                    ..
+                }) => Some(d.clone()),
+                _ => None,
+            }
+        })?
+    }
+
+    fn is_reexport(&self, module: ModuleName, name: &Name) -> bool {
+        self.with_exports(module, |exports, lookup| {
+            matches!(
+                exports.exports(lookup).get(name),
+                Some(ExportLocation::OtherModule(..))
+            )
+        })
+        .unwrap_or(false)
+    }
+
+    fn is_special_export(&self, mut module: ModuleName, name: &Name) -> Option<SpecialExport> {
+        let mut seen = HashSet::new();
+        let mut name = name.clone();
+
+        loop {
+            if let Some(special) = SpecialExport::new(&name)
+                && special.defined_in(module)
+            {
+                return Some(special);
+            }
+
+            if !seen.insert(module) {
+                return None; // Cycle detected
+            }
+
+            let next = self.with_exports(module, |exports, lookup| {
+                match exports.exports(lookup).get(&name)? {
+                    ExportLocation::ThisModule(export) => Some(Err(export.special_export)),
+                    ExportLocation::OtherModule(other_module, original_name) => {
+                        Some(Ok((*other_module, original_name.clone())))
+                    }
+                }
+            })??;
+
+            match next {
+                Err(special) => return special,
+                Ok((other_module, original_name)) => {
+                    if let Some(original_name) = original_name {
+                        name = original_name.clone();
+                    }
+                    module = other_module;
+                }
+            }
+        }
+    }
+
+    fn docstring_range(&self, module: ModuleName, name: &Name) -> Option<TextRange> {
+        self.with_exports(module, |exports, lookup| {
+            match exports.exports(lookup).get(name)? {
+                ExportLocation::ThisModule(Export {
+                    docstring_range, ..
+                }) => *docstring_range,
+                _ => None,
+            }
+        })?
     }
 }
 

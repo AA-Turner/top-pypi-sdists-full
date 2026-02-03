@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["LunProvisioningOptions", "LunProvisioningOptionsSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "LunProvisioningOptionsSchema.opts": False,
     "LunProvisioningOptions": False,
 }
-
 
 class LunProvisioningOptionsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LunProvisioningOptions object"""
@@ -37,19 +35,50 @@ The following behavior is different from a traditional POST request:
     count = Size(data_key="count", allow_none=True)
     r""" The number of LUNs to provision with these properties. Only POST requests based on `space.size` are supported. When provided, the name is considered a prefix, and a suffix of the form __&lt;N&gt;_ is generated where N is the next available numeric index, starting with 1. """
 
-    qos_policy = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_qos_policy.ConsistencyGroupQosPolicySchema", unknown=EXCLUDE, data_key="qos_policy", allow_none=True)
+    exclude_aggregates = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.lun_provisioning_options_exclude_aggregates", "LunProvisioningOptionsExcludeAggregatesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="exclude_aggregates",
+                allow_none=True
+                )
+    r""" A list of aggregates to exclude when determining the placement of the volume. <br/> """
+
+    qos_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_qos_policy", "ConsistencyGroupQosPolicySchema"),
+                unknown=EXCLUDE,
+                data_key="qos_policy",
+                allow_none=True
+            )
     r""" When "min_throughput_iops", "min_throughput_mbps", "min_throughput", "max_throughput_iops", "max_throughput_mbps" or "max_throughput" attributes are specified, the storage object is assigned to an auto-generated QoS policy group. If the attributes are later modified, the auto-generated QoS policy-group attributes are modified. Attributes can be removed by specifying "0" and policy group by specifying "none". Upon deletion of the storage object or if the attributes are removed, then the QoS policy-group is also removed. """
 
     secondary = marshmallow_fields.Boolean(data_key="secondary", allow_none=True)
     r""" This must be set to _true_ to provision a secondary LUN. A secondary LUN must refer to a primary LUN and will be included in snapshots of the primary LUN. Valid in POST when creating LUNs of class `vvol` only. """
 
-    snapshot_policy = marshmallow_fields.Nested("netapp_ontap.resources.snapshot_policy.SnapshotPolicySchema", unknown=EXCLUDE, data_key="snapshot_policy", allow_none=True)
+    snapshot_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.snapshot_policy", "SnapshotPolicySchema"),
+                unknown=EXCLUDE,
+                data_key="snapshot_policy",
+                allow_none=True
+            )
     r""" The snapshot policy for the volume provisioned to host the LUN. This property is only supported when the request provisions a new volume. """
 
-    storage_service = marshmallow_fields.Nested("netapp_ontap.models.lun_provisioning_options_storage_service.LunProvisioningOptionsStorageServiceSchema", unknown=EXCLUDE, data_key="storage_service", allow_none=True)
+    storage_service = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.lun_provisioning_options_storage_service", "LunProvisioningOptionsStorageServiceSchema"),
+                unknown=EXCLUDE,
+                data_key="storage_service",
+                allow_none=True
+            )
     r""" Determines the placement of the LUN based on the value specified. This property is only supported for regular and vvol LUNs. Valid in POST. """
 
-    tiering = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_tiering.ConsistencyGroupTieringSchema", unknown=EXCLUDE, data_key="tiering", allow_none=True)
+    tiering = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_tiering", "ConsistencyGroupTieringSchema"),
+                unknown=EXCLUDE,
+                data_key="tiering",
+                allow_none=True
+            )
     r""" The tiering field of the lun_provisioning_options. """
 
     use_mirrored_aggregates = marshmallow_fields.Boolean(data_key="use_mirrored_aggregates", allow_none=True)
@@ -60,23 +89,26 @@ The following behavior is different from a traditional POST request:
         return LunProvisioningOptions
 
     gettable_fields = [
+        "exclude_aggregates",
         "snapshot_policy.links",
         "snapshot_policy.name",
         "snapshot_policy.uuid",
         "storage_service",
     ]
-    """snapshot_policy.links,snapshot_policy.name,snapshot_policy.uuid,storage_service,"""
+    """exclude_aggregates,snapshot_policy.links,snapshot_policy.name,snapshot_policy.uuid,storage_service,"""
 
     patchable_fields = [
+        "exclude_aggregates",
         "snapshot_policy.name",
         "snapshot_policy.uuid",
         "storage_service",
     ]
-    """snapshot_policy.name,snapshot_policy.uuid,storage_service,"""
+    """exclude_aggregates,snapshot_policy.name,snapshot_policy.uuid,storage_service,"""
 
     postable_fields = [
         "auto",
         "count",
+        "exclude_aggregates",
         "qos_policy",
         "secondary",
         "snapshot_policy.name",
@@ -85,7 +117,7 @@ The following behavior is different from a traditional POST request:
         "tiering",
         "use_mirrored_aggregates",
     ]
-    """auto,count,qos_policy,secondary,snapshot_policy.name,snapshot_policy.uuid,storage_service,tiering,use_mirrored_aggregates,"""
+    """auto,count,exclude_aggregates,qos_policy,secondary,snapshot_policy.name,snapshot_policy.uuid,storage_service,tiering,use_mirrored_aggregates,"""
 
 
 class LunProvisioningOptions(Resource):

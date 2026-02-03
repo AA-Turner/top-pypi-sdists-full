@@ -8893,7 +8893,16 @@ class CfnLogging(
         cfn_logging = iot.CfnLogging(self, "MyCfnLogging",
             account_id="accountId",
             default_log_level="defaultLogLevel",
-            role_arn="roleArn"
+            role_arn="roleArn",
+        
+            # the properties below are optional
+            event_configurations=[iot.CfnLogging.EventConfigurationProperty(
+                event_type="eventType",
+        
+                # the properties below are optional
+                log_destination="logDestination",
+                log_level="logLevel"
+            )]
         )
     '''
 
@@ -8905,6 +8914,7 @@ class CfnLogging(
         account_id: builtins.str,
         default_log_level: builtins.str,
         role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
+        event_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLogging.EventConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IoT::Logging``.
 
@@ -8913,6 +8923,7 @@ class CfnLogging(
         :param account_id: The account ID.
         :param default_log_level: The default log level. Valid Values: ``DEBUG | INFO | ERROR | WARN | DISABLED``
         :param role_arn: The role ARN used for the log.
+        :param event_configurations: Configurations for event-based logging that specifies which event types to log and their logging settings. Overrides account-level logging for the specified event
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__42c0eb8383930c0ee820507c3ca84a084d9791dd182b3af6e1ef31e37e390b76)
@@ -8922,6 +8933,7 @@ class CfnLogging(
             account_id=account_id,
             default_log_level=default_log_level,
             role_arn=role_arn,
+            event_configurations=event_configurations,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -9018,6 +9030,124 @@ class CfnLogging(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="eventConfigurations")
+    def event_configurations(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLogging.EventConfigurationProperty"]]]]:
+        '''Configurations for event-based logging that specifies which event types to log and their logging settings.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLogging.EventConfigurationProperty"]]]], jsii.get(self, "eventConfigurations"))
+
+    @event_configurations.setter
+    def event_configurations(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLogging.EventConfigurationProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__adce71be3ee86bbd7d4d6243e224af9d47f3fa2f323d5836990a8dfea7f98d65)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "eventConfigurations", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnLogging.EventConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "event_type": "eventType",
+            "log_destination": "logDestination",
+            "log_level": "logLevel",
+        },
+    )
+    class EventConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            event_type: builtins.str,
+            log_destination: typing.Optional[builtins.str] = None,
+            log_level: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for event-based logging that specifies which event types to log and their logging settings.
+
+            Used for account-level logging overrides.
+
+            :param event_type: The type of event to log. These include event types like Connect, Publish, and Disconnect.
+            :param log_destination: CloudWatch Log Group for event-based logging. Specifies where log events should be sent. The log destination for event-based logging overrides default Log Group for the specified event type and applies to all resources associated with that event.
+            :param log_level: The logging level for the specified event type. Determines the verbosity of log messages generated for this event type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-logging-eventconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                event_configuration_property = iot.CfnLogging.EventConfigurationProperty(
+                    event_type="eventType",
+                
+                    # the properties below are optional
+                    log_destination="logDestination",
+                    log_level="logLevel"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__be0216a067d97a0a981d4c6213e6d83c45be06ad73ffcd595c6795ecb48611b9)
+                check_type(argname="argument event_type", value=event_type, expected_type=type_hints["event_type"])
+                check_type(argname="argument log_destination", value=log_destination, expected_type=type_hints["log_destination"])
+                check_type(argname="argument log_level", value=log_level, expected_type=type_hints["log_level"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "event_type": event_type,
+            }
+            if log_destination is not None:
+                self._values["log_destination"] = log_destination
+            if log_level is not None:
+                self._values["log_level"] = log_level
+
+        @builtins.property
+        def event_type(self) -> builtins.str:
+            '''The type of event to log.
+
+            These include event types like Connect, Publish, and Disconnect.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-logging-eventconfiguration.html#cfn-iot-logging-eventconfiguration-eventtype
+            '''
+            result = self._values.get("event_type")
+            assert result is not None, "Required property 'event_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def log_destination(self) -> typing.Optional[builtins.str]:
+            '''CloudWatch Log Group for event-based logging.
+
+            Specifies where log events should be sent. The log destination for event-based logging overrides default Log Group for the specified event type and applies to all resources associated with that event.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-logging-eventconfiguration.html#cfn-iot-logging-eventconfiguration-logdestination
+            '''
+            result = self._values.get("log_destination")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def log_level(self) -> typing.Optional[builtins.str]:
+            '''The logging level for the specified event type.
+
+            Determines the verbosity of log messages generated for this event type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-logging-eventconfiguration.html#cfn-iot-logging-eventconfiguration-loglevel
+            '''
+            result = self._values.get("log_level")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EventConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_iot.CfnLoggingProps",
@@ -9026,6 +9156,7 @@ class CfnLogging(
         "account_id": "accountId",
         "default_log_level": "defaultLogLevel",
         "role_arn": "roleArn",
+        "event_configurations": "eventConfigurations",
     },
 )
 class CfnLoggingProps:
@@ -9035,12 +9166,14 @@ class CfnLoggingProps:
         account_id: builtins.str,
         default_log_level: builtins.str,
         role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
+        event_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLogging.EventConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnLogging``.
 
         :param account_id: The account ID.
         :param default_log_level: The default log level. Valid Values: ``DEBUG | INFO | ERROR | WARN | DISABLED``
         :param role_arn: The role ARN used for the log.
+        :param event_configurations: Configurations for event-based logging that specifies which event types to log and their logging settings. Overrides account-level logging for the specified event
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-logging.html
         :exampleMetadata: fixture=_generated
@@ -9054,7 +9187,16 @@ class CfnLoggingProps:
             cfn_logging_props = iot.CfnLoggingProps(
                 account_id="accountId",
                 default_log_level="defaultLogLevel",
-                role_arn="roleArn"
+                role_arn="roleArn",
+            
+                # the properties below are optional
+                event_configurations=[iot.CfnLogging.EventConfigurationProperty(
+                    event_type="eventType",
+            
+                    # the properties below are optional
+                    log_destination="logDestination",
+                    log_level="logLevel"
+                )]
             )
         '''
         if __debug__:
@@ -9062,11 +9204,14 @@ class CfnLoggingProps:
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument default_log_level", value=default_log_level, expected_type=type_hints["default_log_level"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument event_configurations", value=event_configurations, expected_type=type_hints["event_configurations"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "account_id": account_id,
             "default_log_level": default_log_level,
             "role_arn": role_arn,
         }
+        if event_configurations is not None:
+            self._values["event_configurations"] = event_configurations
 
     @builtins.property
     def account_id(self) -> builtins.str:
@@ -9099,6 +9244,19 @@ class CfnLoggingProps:
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(typing.Union[builtins.str, "_IRoleRef_8400221f"], result)
+
+    @builtins.property
+    def event_configurations(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLogging.EventConfigurationProperty"]]]]:
+        '''Configurations for event-based logging that specifies which event types to log and their logging settings.
+
+        Overrides account-level logging for the specified event
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-logging.html#cfn-iot-logging-eventconfigurations
+        '''
+        result = self._values.get("event_configurations")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLogging.EventConfigurationProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -25145,6 +25303,7 @@ def _typecheckingstub__42c0eb8383930c0ee820507c3ca84a084d9791dd182b3af6e1ef31e37
     account_id: builtins.str,
     default_log_level: builtins.str,
     role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
+    event_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLogging.EventConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25185,11 +25344,27 @@ def _typecheckingstub__157734f07e525e2c1c903f3a72894577538f3eb1c02f0893a46522e7a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__adce71be3ee86bbd7d4d6243e224af9d47f3fa2f323d5836990a8dfea7f98d65(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLogging.EventConfigurationProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__be0216a067d97a0a981d4c6213e6d83c45be06ad73ffcd595c6795ecb48611b9(
+    *,
+    event_type: builtins.str,
+    log_destination: typing.Optional[builtins.str] = None,
+    log_level: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__901c60f51fbfd8f93f04a87979753e82a4100266e43b803e7617ae6ab99aca15(
     *,
     account_id: builtins.str,
     default_log_level: builtins.str,
     role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
+    event_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLogging.EventConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

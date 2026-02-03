@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["NvmeNamespaceConvert", "NvmeNamespaceConvertSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "NvmeNamespaceConvert": False,
 }
 
-
 class NvmeNamespaceConvertSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the NvmeNamespaceConvert object"""
 
-    lun = marshmallow_fields.Nested("netapp_ontap.models.nvme_namespace_convert_lun.NvmeNamespaceConvertLunSchema", unknown=EXCLUDE, data_key="lun", allow_none=True)
+    lun = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_namespace_convert_lun", "NvmeNamespaceConvertLunSchema"),
+                unknown=EXCLUDE,
+                data_key="lun",
+                allow_none=True
+            )
     r""" The source LUN for convert operation. This can be specified using property `convert.lun.uuid` or `convert.lun.name`. If both properties are supplied, they must refer to the same LUN.<br/>
 Valid in POST. A convert request from LUN to NVMe namespace cannot be combined with setting any other namespace properties. All other properties of the converted NVMe namespace come from the source LUN.<br/> """
 

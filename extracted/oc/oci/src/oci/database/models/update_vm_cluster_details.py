@@ -24,6 +24,14 @@ class UpdateVmClusterDetails(object):
     #: This constant has a value of "BRING_YOUR_OWN_LICENSE"
     LICENSE_MODEL_BRING_YOUR_OWN_LICENSE = "BRING_YOUR_OWN_LICENSE"
 
+    #: A constant which can be used with the vm_backup_storage_type property of a UpdateVmClusterDetails.
+    #: This constant has a value of "LOCAL"
+    VM_BACKUP_STORAGE_TYPE_LOCAL = "LOCAL"
+
+    #: A constant which can be used with the vm_backup_storage_type property of a UpdateVmClusterDetails.
+    #: This constant has a value of "EXASCALE"
+    VM_BACKUP_STORAGE_TYPE_EXASCALE = "EXASCALE"
+
     def __init__(self, **kwargs):
         """
         Initializes a new UpdateVmClusterDetails object with values from keyword arguments.
@@ -90,6 +98,11 @@ class UpdateVmClusterDetails(object):
             The value to assign to the cloud_automation_update_details property of this UpdateVmClusterDetails.
         :type cloud_automation_update_details: oci.database.models.CloudAutomationUpdateDetails
 
+        :param vm_backup_storage_type:
+            The value to assign to the vm_backup_storage_type property of this UpdateVmClusterDetails.
+            Allowed values for this property are: "LOCAL", "EXASCALE"
+        :type vm_backup_storage_type: str
+
         """
         self.swagger_types = {
             'cpu_core_count': 'int',
@@ -106,7 +119,8 @@ class UpdateVmClusterDetails(object):
             'defined_tags': 'dict(str, dict(str, object))',
             'data_collection_options': 'DataCollectionOptions',
             'file_system_configuration_details': 'list[FileSystemConfigurationDetail]',
-            'cloud_automation_update_details': 'CloudAutomationUpdateDetails'
+            'cloud_automation_update_details': 'CloudAutomationUpdateDetails',
+            'vm_backup_storage_type': 'str'
         }
         self.attribute_map = {
             'cpu_core_count': 'cpuCoreCount',
@@ -123,7 +137,8 @@ class UpdateVmClusterDetails(object):
             'defined_tags': 'definedTags',
             'data_collection_options': 'dataCollectionOptions',
             'file_system_configuration_details': 'fileSystemConfigurationDetails',
-            'cloud_automation_update_details': 'cloudAutomationUpdateDetails'
+            'cloud_automation_update_details': 'cloudAutomationUpdateDetails',
+            'vm_backup_storage_type': 'vmBackupStorageType'
         }
         self._cpu_core_count = None
         self._ocpu_count = None
@@ -140,6 +155,7 @@ class UpdateVmClusterDetails(object):
         self._data_collection_options = None
         self._file_system_configuration_details = None
         self._cloud_automation_update_details = None
+        self._vm_backup_storage_type = None
 
     @property
     def cpu_core_count(self):
@@ -507,6 +523,37 @@ class UpdateVmClusterDetails(object):
         :type: oci.database.models.CloudAutomationUpdateDetails
         """
         self._cloud_automation_update_details = cloud_automation_update_details
+
+    @property
+    def vm_backup_storage_type(self):
+        """
+        Gets the vm_backup_storage_type of this UpdateVmClusterDetails.
+        Specifies the type of VM Backups Storage and supported values are LOCAL and EXASCALE. Storage Type can only be changed once from LOCAL to EXASCALE. EXASCALE to LOCAL is not permitted.
+
+        Allowed values for this property are: "LOCAL", "EXASCALE"
+
+
+        :return: The vm_backup_storage_type of this UpdateVmClusterDetails.
+        :rtype: str
+        """
+        return self._vm_backup_storage_type
+
+    @vm_backup_storage_type.setter
+    def vm_backup_storage_type(self, vm_backup_storage_type):
+        """
+        Sets the vm_backup_storage_type of this UpdateVmClusterDetails.
+        Specifies the type of VM Backups Storage and supported values are LOCAL and EXASCALE. Storage Type can only be changed once from LOCAL to EXASCALE. EXASCALE to LOCAL is not permitted.
+
+
+        :param vm_backup_storage_type: The vm_backup_storage_type of this UpdateVmClusterDetails.
+        :type: str
+        """
+        allowed_values = ["LOCAL", "EXASCALE"]
+        if not value_allowed_none_or_none_sentinel(vm_backup_storage_type, allowed_values):
+            raise ValueError(
+                f"Invalid value for `vm_backup_storage_type`, must be None or one of {allowed_values}"
+            )
+        self._vm_backup_storage_type = vm_backup_storage_type
 
     def __repr__(self):
         return formatted_flat_dict(self)

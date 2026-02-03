@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -25,42 +25,42 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     VscanServerStatus(
         {
+            "version": "5.643",
+            "vendor": "mighty master anti-evil scanner",
+            "ip": "10.140.132.141",
             "interface": {
-                "uuid": "6911e7c6-aefc-11eb-bd8c-0050568e8ed1",
                 "ip": {"address": "10.140.69.165"},
                 "name": "vs1.data",
+                "uuid": "6911e7c6-aefc-11eb-bd8c-0050568e8ed1",
             },
-            "version": "5.643",
-            "update_time": "2021-05-07T21:35:02+05:30",
-            "vendor": "mighty master anti-evil scanner",
-            "svm": {"uuid": "66f8564d-aefc-11eb-bd8c-0050568e8ed1", "name": "vs1"},
             "state": "connected",
-            "node": {
-                "uuid": "ce2463d9-aef6-11eb-bd8c-0050568e8ed1",
-                "name": "user-vsim1",
-            },
-            "ip": "10.140.132.141",
+            "update_time": "2021-05-07T21:35:02+05:30",
             "type": "primary",
+            "node": {
+                "name": "user-vsim1",
+                "uuid": "ce2463d9-aef6-11eb-bd8c-0050568e8ed1",
+            },
+            "svm": {"name": "vs1", "uuid": "66f8564d-aefc-11eb-bd8c-0050568e8ed1"},
         }
     ),
     VscanServerStatus(
         {
+            "version": "5.643",
+            "vendor": "mighty master anti-evil scanner",
+            "ip": "10.140.128.163",
             "interface": {
-                "uuid": "c070b4c2-aef9-11eb-8530-0050568e8ed1",
                 "ip": {"address": "10.140.70.154"},
                 "name": "vs2.data",
+                "uuid": "c070b4c2-aef9-11eb-8530-0050568e8ed1",
             },
-            "version": "5.643",
-            "update_time": "2021-05-07T21:35:43+05:30",
-            "vendor": "mighty master anti-evil scanner",
-            "svm": {"uuid": "a776e8f2-aef9-11eb-8530-0050568e8ed1", "name": "vs2"},
             "state": "connected",
-            "node": {
-                "uuid": "ce2463d9-aef6-11eb-bd8c-0050568e8ed1",
-                "name": "user-vsim1",
-            },
-            "ip": "10.140.128.163",
+            "update_time": "2021-05-07T21:35:43+05:30",
             "type": "primary",
+            "node": {
+                "name": "user-vsim1",
+                "uuid": "ce2463d9-aef6-11eb-bd8c-0050568e8ed1",
+            },
+            "svm": {"name": "vs2", "uuid": "a776e8f2-aef9-11eb-8530-0050568e8ed1"},
         }
     ),
 ]
@@ -88,22 +88,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     VscanServerStatus(
         {
+            "version": "5.643",
+            "vendor": "mighty master anti-evil scanner",
+            "ip": "10.140.132.141",
             "interface": {
-                "uuid": "6911e7c6-aefc-11eb-bd8c-0050568e8ed1",
                 "ip": {"address": "10.140.69.165"},
                 "name": "vs1.data",
+                "uuid": "6911e7c6-aefc-11eb-bd8c-0050568e8ed1",
             },
-            "version": "5.643",
-            "update_time": "2021-05-07T23:08:21+05:30",
-            "vendor": "mighty master anti-evil scanner",
-            "svm": {"uuid": "66f8564d-aefc-11eb-bd8c-0050568e8ed1", "name": "vs1"},
             "state": "connected",
-            "node": {
-                "uuid": "ce2463d9-aef6-11eb-bd8c-0050568e8ed1",
-                "name": "user-vsim1",
-            },
-            "ip": "10.140.132.141",
+            "update_time": "2021-05-07T23:08:21+05:30",
             "type": "primary",
+            "node": {
+                "name": "user-vsim1",
+                "uuid": "ce2463d9-aef6-11eb-bd8c-0050568e8ed1",
+            },
+            "svm": {"name": "vs1", "uuid": "66f8564d-aefc-11eb-bd8c-0050568e8ed1"},
         }
     )
 ]
@@ -118,11 +118,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -135,7 +134,6 @@ __pdoc__ = {
     "VscanServerStatusSchema.resource": False,
     "VscanServerStatusSchema.opts": False,
 }
-
 
 class VscanServerStatusSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the VscanServerStatus object"""
@@ -169,7 +167,12 @@ enum:
   - invalid_user
   - server_removed"""
 
-    interface = marshmallow_fields.Nested("netapp_ontap.resources.ip_interface.IpInterfaceSchema", data_key="interface", unknown=EXCLUDE, allow_none=True)
+    interface = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.ip_interface", "IpInterfaceSchema"),
+                data_key="interface",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The interface field of the vscan_server_status."""
 
     ip = marshmallow_fields.Str(
@@ -178,7 +181,12 @@ enum:
     )
     r""" IP address of the Vscan server."""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the vscan_server_status."""
 
     state = marshmallow_fields.Str(
@@ -194,7 +202,12 @@ enum:
   - connected
   - disconnected"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the vscan_server_status."""
 
     type = marshmallow_fields.Str(

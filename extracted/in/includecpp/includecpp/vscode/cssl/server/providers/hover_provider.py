@@ -245,7 +245,7 @@ class HoverProvider:
                 else:
                     params.append(p.name)
             param_str = ", ".join(params)
-            return_type = symbol.return_type or "void"
+            return_type = symbol.return_type or "dynamic"
 
             modifiers = " ".join(symbol.modifiers) + " " if symbol.modifiers else ""
 

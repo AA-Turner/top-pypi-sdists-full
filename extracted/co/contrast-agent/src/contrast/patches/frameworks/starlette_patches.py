@@ -96,9 +96,9 @@ def build___call___patch(orig_func, patch_policy):
 @fail_quietly("Failed to run starlette first-request analysis")
 @scope.contrast_scope()
 def do_starlette_route_discovery(starlette_router_instance: Router):
-    from contrast.agent import agent_state
+    context = contrast.REQUEST_CONTEXT.get()
 
-    if not agent_state.is_first_request():
+    if context is None or not context.first_request or not context.assess_enabled:
         return
 
     common.handle_route_discovery(

@@ -137,7 +137,7 @@ def option(*param_decls: str, cls: type[click.Option] | None = None, **attrs: An
 )
 @option(
     '--blocking-threads-idle-timeout',
-    type=Duration(10, 600),
+    type=Duration(5, 600),
     default=30,
     help='The maximum amount of time in seconds (or a human-readable duration) an idle blocking thread will be kept alive',
 )
@@ -346,13 +346,20 @@ def option(*param_decls: str, cls: type[click.Option] | None = None, **attrs: An
 )
 @option(
     '--static-path-route',
-    default='/static',
-    help='Route for static file serving',
+    multiple=True,
+    show_default='/static',
+    help='Route(s) for static file serving',
 )
 @option(
     '--static-path-mount',
     type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True, path_type=pathlib.Path),
-    help='Path to mount for static file serving',
+    multiple=True,
+    help='Path(s) to mount for static file serving',
+)
+@option(
+    '--static-path-dir-to-file',
+    default=None,
+    help='Serve the specified file as the index for directory listings',
 )
 @option(
     '--static-path-expires',
@@ -360,6 +367,16 @@ def option(*param_decls: str, cls: type[click.Option] | None = None, **attrs: An
     default=86400,
     help='Cache headers expiration (in seconds or a human-readable duration) for static file serving. 0 to disable.',
 )
+@option('--metrics/--no-metrics', 'metrics_enabled', default=False, help='Enable the prometheus metrics exporter.')
+@option(
+    '--metrics-scrape-interval', default=15, type=Duration(1, 60), help='Configure the interval for metrics collection.'
+)
+@option(
+    '--metrics-address',
+    default='127.0.0.1',
+    help='Metrics exporter host address to bind to',
+)
+@option('--metrics-port', type=int, default=9090, help='Metrics exporter port to bind to.')
 @option(
     '--reload/--no-reload',
     default=False,
@@ -470,9 +487,14 @@ def cli(
     factory: bool,
     working_dir: pathlib.Path | None,
     env_files: list[pathlib.Path] | None,
-    static_path_route: str,
-    static_path_mount: pathlib.Path | None,
+    static_path_route: list[str],
+    static_path_mount: list[pathlib.Path],
+    static_path_dir_to_file: str | None,
     static_path_expires: int,
+    metrics_enabled: bool,
+    metrics_scrape_interval: int,
+    metrics_address: str,
+    metrics_port: int,
     reload: bool,
     reload_paths: list[pathlib.Path] | None,
     reload_ignore_dirs: list[str] | None,
@@ -557,7 +579,12 @@ def cli(
         env_files=env_files,
         static_path_route=static_path_route,
         static_path_mount=static_path_mount,
+        static_path_dir_to_file=static_path_dir_to_file,
         static_path_expires=static_path_expires,
+        metrics_enabled=metrics_enabled,
+        metrics_scrape_interval=metrics_scrape_interval,
+        metrics_address=metrics_address,
+        metrics_port=metrics_port,
         reload=reload,
         reload_paths=reload_paths,
         reload_ignore_paths=reload_ignore_paths,

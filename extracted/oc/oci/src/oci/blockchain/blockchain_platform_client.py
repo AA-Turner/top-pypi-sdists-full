@@ -172,7 +172,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/change_blockchain_platform_compartment.py.html>`__ to see an example of how to use change_blockchain_platform_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/change_blockchain_platform_compartment.py.html>`__ to see an example of how to use change_blockchain_platform_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['blockchainPlatformId']
@@ -287,7 +287,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/create_blockchain_platform.py.html>`__ to see an example of how to use create_blockchain_platform API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/create_blockchain_platform.py.html>`__ to see an example of how to use create_blockchain_platform API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -398,7 +398,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/create_osn.py.html>`__ to see an example of how to use create_osn API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/create_osn.py.html>`__ to see an example of how to use create_osn API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['blockchainPlatformId']
@@ -516,7 +516,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/create_peer.py.html>`__ to see an example of how to use create_peer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/create_peer.py.html>`__ to see an example of how to use create_peer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['blockchainPlatformId']
@@ -636,7 +636,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/delete_blockchain_platform.py.html>`__ to see an example of how to use delete_blockchain_platform API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/delete_blockchain_platform.py.html>`__ to see an example of how to use delete_blockchain_platform API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['blockchainPlatformId']
@@ -752,7 +752,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/delete_osn.py.html>`__ to see an example of how to use delete_osn API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/delete_osn.py.html>`__ to see an example of how to use delete_osn API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['blockchainPlatformId', 'osnId']
@@ -873,7 +873,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/delete_peer.py.html>`__ to see an example of how to use delete_peer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/delete_peer.py.html>`__ to see an example of how to use delete_peer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['blockchainPlatformId', 'peerId']
@@ -987,7 +987,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/delete_work_request.py.html>`__ to see an example of how to use delete_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/delete_work_request.py.html>`__ to see an example of how to use delete_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1090,7 +1090,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/get_blockchain_platform.py.html>`__ to see an example of how to use get_blockchain_platform API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/get_blockchain_platform.py.html>`__ to see an example of how to use get_blockchain_platform API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['blockchainPlatformId']
@@ -1196,7 +1196,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/get_osn.py.html>`__ to see an example of how to use get_osn API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/get_osn.py.html>`__ to see an example of how to use get_osn API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['blockchainPlatformId', 'osnId']
@@ -1303,7 +1303,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/get_peer.py.html>`__ to see an example of how to use get_peer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/get_peer.py.html>`__ to see an example of how to use get_peer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['blockchainPlatformId', 'peerId']
@@ -1407,7 +1407,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1516,7 +1516,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/list_blockchain_platform_patches.py.html>`__ to see an example of how to use list_blockchain_platform_patches API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/list_blockchain_platform_patches.py.html>`__ to see an example of how to use list_blockchain_platform_patches API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['blockchainPlatformId']
@@ -1655,7 +1655,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/list_blockchain_platforms.py.html>`__ to see an example of how to use list_blockchain_platforms API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/list_blockchain_platforms.py.html>`__ to see an example of how to use list_blockchain_platforms API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1813,7 +1813,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/list_osns.py.html>`__ to see an example of how to use list_osns API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/list_osns.py.html>`__ to see an example of how to use list_osns API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['blockchainPlatformId']
@@ -1976,7 +1976,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/list_peers.py.html>`__ to see an example of how to use list_peers API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/list_peers.py.html>`__ to see an example of how to use list_peers API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['blockchainPlatformId']
@@ -2118,7 +2118,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2237,7 +2237,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2369,7 +2369,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'blockchainPlatformId']
@@ -2493,7 +2493,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/preview_scale_blockchain_platform.py.html>`__ to see an example of how to use preview_scale_blockchain_platform API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/preview_scale_blockchain_platform.py.html>`__ to see an example of how to use preview_scale_blockchain_platform API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['blockchainPlatformId']
@@ -2615,7 +2615,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/scale_blockchain_platform.py.html>`__ to see an example of how to use scale_blockchain_platform API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/scale_blockchain_platform.py.html>`__ to see an example of how to use scale_blockchain_platform API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['blockchainPlatformId']
@@ -2737,7 +2737,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/start_blockchain_platform.py.html>`__ to see an example of how to use start_blockchain_platform API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/start_blockchain_platform.py.html>`__ to see an example of how to use start_blockchain_platform API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['blockchainPlatformId']
@@ -2857,7 +2857,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/stop_blockchain_platform.py.html>`__ to see an example of how to use stop_blockchain_platform API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/stop_blockchain_platform.py.html>`__ to see an example of how to use stop_blockchain_platform API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['blockchainPlatformId']
@@ -2980,7 +2980,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/update_blockchain_platform.py.html>`__ to see an example of how to use update_blockchain_platform API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/update_blockchain_platform.py.html>`__ to see an example of how to use update_blockchain_platform API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['blockchainPlatformId']
@@ -3108,7 +3108,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/update_osn.py.html>`__ to see an example of how to use update_osn API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/update_osn.py.html>`__ to see an example of how to use update_osn API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['blockchainPlatformId', 'osnId']
@@ -3237,7 +3237,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/update_peer.py.html>`__ to see an example of how to use update_peer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/update_peer.py.html>`__ to see an example of how to use update_peer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['blockchainPlatformId', 'peerId']
@@ -3363,7 +3363,7 @@ class BlockchainPlatformClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/blockchain/upgrade_blockchain_platform.py.html>`__ to see an example of how to use upgrade_blockchain_platform API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/blockchain/upgrade_blockchain_platform.py.html>`__ to see an example of how to use upgrade_blockchain_platform API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['blockchainPlatformId']

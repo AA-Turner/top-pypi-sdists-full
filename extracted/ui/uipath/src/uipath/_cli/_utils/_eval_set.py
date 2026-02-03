@@ -1,9 +1,11 @@
 import json
 from pathlib import Path
+from typing import Any
 
 import click
-from pydantic import TypeAdapter, ValidationError
+from pydantic import ValidationError
 
+from uipath._cli._evals._evaluator_factory import EvaluatorFactory
 from uipath._cli._evals._models._evaluation_set import (
     EvaluationItem,
     EvaluationSet,
@@ -12,11 +14,30 @@ from uipath._cli._evals._models._evaluation_set import (
 )
 from uipath._cli._evals.mocks.types import InputMockingStrategy, LLMMockingStrategy
 from uipath._cli._utils._console import ConsoleLogger
+from uipath.eval.evaluators import BaseEvaluator
 
 console = ConsoleLogger()
 
 
 EVAL_SETS_DIRECTORY_NAME = "evaluations/eval-sets"
+
+
+def discriminate_eval_set(data: dict[str, Any]) -> EvaluationSet | LegacyEvaluationSet:
+    """Discriminate and parse evaluation set based on version field.
+
+    Uses explicit version checking instead of Pydantic's smart union matching
+    to avoid incorrect type selection when both types have matching fields.
+
+    Args:
+        data: Dictionary containing evaluation set data
+
+    Returns:
+        Either EvaluationSet (for version 1.0) or LegacyEvaluationSet
+    """
+    version = data.get("version")
+    if isinstance(version, (int, float, str)) and float(version) >= 1:
+        return EvaluationSet.model_validate(data)
+    return LegacyEvaluationSet.model_validate(data)
 
 
 class EvalHelpers:
@@ -100,9 +121,7 @@ class EvalHelpers:
             ) from e
 
         try:
-            eval_set: EvaluationSet | LegacyEvaluationSet = TypeAdapter(
-                EvaluationSet | LegacyEvaluationSet
-            ).validate_python(data)
+            eval_set = discriminate_eval_set(data)
             if isinstance(eval_set, LegacyEvaluationSet):
 
                 def migrate_evaluation_item(
@@ -158,3 +177,61 @@ class EvalHelpers:
         if eval_ids:
             eval_set.extract_selected_evals(eval_ids)
         return eval_set, resolved_path
+
+    @staticmethod
+    async def load_evaluators(
+        eval_set_path: str,
+        evaluation_set: EvaluationSet,
+        agent_model: str | None = None,
+    ) -> list[BaseEvaluator[Any, Any, Any]]:
+        """Load evaluators referenced by the evaluation set."""
+        evaluators = []
+        if evaluation_set is None:
+            raise ValueError("eval_set cannot be None")
+        evaluators_dir = Path(eval_set_path).parent.parent / "evaluators"
+
+        # If evaluatorConfigs is specified, use that (new field with weights)
+        # Otherwise, fall back to evaluatorRefs (old field without weights)
+        if (
+            hasattr(evaluation_set, "evaluator_configs")
+            and evaluation_set.evaluator_configs
+        ):
+            # Use new evaluatorConfigs field - supports weights
+            evaluator_ref_ids = {ref.ref for ref in evaluation_set.evaluator_configs}
+        else:
+            # Fall back to old evaluatorRefs field - plain strings
+            evaluator_ref_ids = set(evaluation_set.evaluator_refs)
+
+        found_evaluator_ids = set()
+
+        for file in evaluators_dir.glob("*.json"):
+            try:
+                with open(file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except json.JSONDecodeError as e:
+                raise ValueError(
+                    f"Invalid JSON in evaluator file '{file}': {str(e)}. "
+                    f"Please check the file for syntax errors."
+                ) from e
+
+            try:
+                evaluator_id = data.get("id")
+                if evaluator_id in evaluator_ref_ids:
+                    evaluator = EvaluatorFactory.create_evaluator(
+                        data, evaluators_dir, agent_model=agent_model
+                    )
+                    evaluators.append(evaluator)
+                    found_evaluator_ids.add(evaluator_id)
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to create evaluator from file '{file}': {str(e)}. "
+                    f"Please verify the evaluator configuration."
+                ) from e
+
+        missing_evaluators = evaluator_ref_ids - found_evaluator_ids
+        if missing_evaluators:
+            raise ValueError(
+                f"Could not find the following evaluators: {missing_evaluators}"
+            )
+
+        return evaluators

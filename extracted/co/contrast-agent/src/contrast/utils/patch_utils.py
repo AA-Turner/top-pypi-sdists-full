@@ -19,8 +19,7 @@ from contrast.utils.stdlib_modules import is_stdlib_module
 from contrast.utils.string_utils import ensure_string
 from contrast_vendor import structlog as logging
 from contrast_vendor import wrapt
-from contrast_vendor.wrapt import function_wrapper, importer
-from contrast_vendor.wrapt.importer import register_post_import_hook
+from contrast_vendor.wrapt import importer as wrapt_importer
 
 logger = logging.getLogger("contrast")
 
@@ -41,7 +40,7 @@ def wrap_and_watermark(orig_func, wrapper):
     # 1. The function wrapper always has a __wrapped__ attribute, which is a good watermark itself
     # 2. We can't apply the watermark to the wrapped function because in that
     # case it actually gets applied to the underlying object (which we don't want).
-    return function_wrapper(add_watermark(wrapper))(orig_func)
+    return wrapt.function_wrapper(add_watermark(wrapper))(orig_func)
 
 
 def pack_self(instance: object | None, args: tuple) -> tuple:
@@ -131,7 +130,7 @@ def build_and_apply_patch(
     patch_manager.patch(owner, attr_name, patch)
 
     func = patch_manager.as_func(getattr(owner, attr_name))
-    if hasattr(func, "__name__") and not isinstance(func, wrapt.ObjectProxy):
+    if hasattr(func, "__name__") and not isinstance(func, wrapt.BaseObjectProxy):
         func.__name__ = ensure_string(attr_name)
 
 
@@ -180,7 +179,7 @@ THIRD_PARTY_SUPPORTED_VERSIONS = {
     "sqlalchemy": ((1,), (2,)),
     "starlette": (
         (0, 17),
-        (0, 49),
+        (0, 52),
     ),  # fastapi==0.71.0 requires starlette==0.17.1, fastapi==0.120.1 requires starlette<0.50.0
     "urllib3": ((1, 25), (2, 6)),
     "webob": ((1, 8), (1, 9)),
@@ -211,7 +210,7 @@ def register_module_patcher(patcher: ModulePatcher, module_name: str):
                 f"Patch for non-stdlib module {module_name} must have a version_constraint"
             )
 
-    register_post_import_hook(
+    wrapt.register_post_import_hook(
         patcher,
         module_name,
     )
@@ -221,8 +220,8 @@ def unregister_module_patcher(module_name: str):
     """
     Unregister a patcher that was registered with `register_module_patcher`.
     """
-    with importer._post_import_hooks_lock:
-        importer._post_import_hooks.pop(module_name, None)
+    with wrapt_importer._post_import_hooks_lock:
+        wrapt_importer._post_import_hooks.pop(module_name, None)
 
 
 def is_versioned_patch(patch: object) -> bool:

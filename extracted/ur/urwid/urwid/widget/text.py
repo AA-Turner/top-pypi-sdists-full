@@ -61,9 +61,9 @@ class Text(Widget):
         :param layout: defaults to a shared :class:`StandardTextLayout` instance
         :type layout: text layout instance
 
-        >>> Text(u"Hello")
+        >>> Text("Hello")
         <Text fixed/flow widget 'Hello'>
-        >>> t = Text(('bold', u"stuff"), 'right', 'any')
+        >>> t = Text(("bold", "stuff"), "right", "any")
         >>> t
         <Text fixed/flow widget 'stuff' align='right' wrap='any'>
         >>> print(t.text)
@@ -73,6 +73,7 @@ class Text(Widget):
         """
         super().__init__()
         self._cache_maxcol: int | None = None
+        self._layout: text_layout.TextLayout = layout or text_layout.default_layout
         self.set_text(markup)
         self.set_layout(align, wrap, layout)
 
@@ -108,13 +109,13 @@ class Text(Widget):
         :param markup: see :class:`Text` for description.
         :type markup: text markup
 
-        >>> t = Text(u"foo")
+        >>> t = Text("foo")
         >>> print(t.text)
         foo
-        >>> t.set_text(u"bar")
+        >>> t.set_text("bar")
         >>> print(t.text)
         bar
-        >>> t.text = u"baz"  # not supported because text stores text but set_text() takes markup
+        >>> t.text = "baz"  # not supported because text stores text but set_text() takes markup
         Traceback (most recent call last):
         AttributeError: can't set attribute
         """
@@ -132,11 +133,11 @@ class Text(Widget):
               run length encoded display attributes for *text*, eg.
               ``[('attr1', 10), ('attr2', 5)]``
 
-        >>> Text(u"Hello").get_text() # ... = u in Python 2
+        >>> Text("Hello").get_text()  # ... = u in Python 2
         (...'Hello', [])
-        >>> Text(('bright', u"Headline")).get_text()
+        >>> Text(("bright", "Headline")).get_text()
         (...'Headline', [('bright', 8)])
-        >>> Text([('a', u"one"), u"two", ('b', u"three")]).get_text()
+        >>> Text([("a", "one"), "two", ("b", "three")]).get_text()
         (...'onetwothree', [('a', 3), (None, 3), ('b', 5)])
         """
         return self._text, self._attrib
@@ -165,16 +166,16 @@ class Text(Widget):
         :param mode: typically ``'left'``, ``'center'`` or ``'right'``
         :type mode: text alignment mode
 
-        >>> t = Text(u"word")
-        >>> t.set_align_mode('right')
+        >>> t = Text("word")
+        >>> t.set_align_mode("right")
         >>> t.align
         'right'
-        >>> t.render((10,)).text # ... = b in Python 3
+        >>> t.render((10,)).text  # ... = b in Python 3
         [...'      word']
-        >>> t.align = 'center'
+        >>> t.align = "center"
         >>> t.render((10,)).text
         [...'   word   ']
-        >>> t.align = 'somewhere'
+        >>> t.align = "somewhere"
         Traceback (most recent call last):
         TextError: Alignment mode 'somewhere' not supported.
         """
@@ -191,18 +192,18 @@ class Text(Widget):
         :param mode: typically ``'space'``, ``'any'``, ``'clip'`` or ``'ellipsis'``
         :type mode: text wrapping mode
 
-        >>> t = Text(u"some words")
-        >>> t.render((6,)).text # ... = b in Python 3
+        >>> t = Text("some words")
+        >>> t.render((6,)).text  # ... = b in Python 3
         [...'some  ', ...'words ']
-        >>> t.set_wrap_mode('clip')
+        >>> t.set_wrap_mode("clip")
         >>> t.wrap
         'clip'
         >>> t.render((6,)).text
         [...'some w']
-        >>> t.wrap = 'any'  # Urwid 0.9.9 or later
+        >>> t.wrap = "any"  # Urwid 0.9.9 or later
         >>> t.render((6,)).text
         [...'some w', ...'ords  ']
-        >>> t.wrap = 'somehow'
+        >>> t.wrap = "somehow"
         Traceback (most recent call last):
         TextError: Wrap mode 'somehow' not supported.
         """
@@ -227,8 +228,8 @@ class Text(Widget):
         :param layout: defaults to a shared :class:`StandardTextLayout` instance
         :type layout: text layout instance
 
-        >>> t = Text(u"hi")
-        >>> t.set_layout('right', 'clip')
+        >>> t = Text("hi")
+        >>> t.set_layout("right", "clip")
         >>> t
         <Text fixed/flow widget 'hi' align='right' wrap='clip'>
         """
@@ -255,9 +256,9 @@ class Text(Widget):
 
         See :meth:`Widget.render` for parameter details.
 
-        >>> Text(u"important things").render((18,)).text
+        >>> Text("important things").render((18,)).text
         [b'important things  ']
-        >>> Text(u"important things").render((11,)).text
+        >>> Text("important things").render((11,)).text
         [b'important  ', b'things     ']
         >>> Text("demo text").render(()).text
         [b'demo text']
@@ -277,9 +278,9 @@ class Text(Widget):
 
         See :meth:`Widget.rows` for parameter details.
 
-        >>> Text(u"important things").rows((18,))
+        >>> Text("important things").rows((18,))
         1
-        >>> Text(u"important things").rows((11,))
+        >>> Text("important things").rows((11,))
         2
         """
         (maxcol,) = size
@@ -332,14 +333,25 @@ class Text(Widget):
         :param focus: widget is focused on
         :type focus: bool
 
-        >>> Text(u"important things").pack()
+        >>> Text("important things").pack()
         (16, 1)
-        >>> Text(u"important things").pack((15,))
+        >>> Text("important things").pack((15,))
         (9, 2)
-        >>> Text(u"important things").pack((8,))
+        >>> Text("important things").pack((8,))
         (8, 2)
-        >>> Text(u"important things").pack(())
+        >>> Text("important things").pack(())
         (16, 1)
+        >>> not_common_separated_text = "Line feed\\nLine Separator\\u2028Paragraph Separator\\u2029"
+        >>> # \u2028 (Line Separator) and \u2029 (Paragraph Separator) are not splitted by StandardTextLayout
+        >>> not_common_separated = Text(not_common_separated_text)
+
+        >>> not_common_separated.pack()
+        (33, 2)
+        >>> not_common_separated_canv = not_common_separated.render(())
+        >>> not_common_separated_canv.cols()
+        33
+        >>> not_common_separated_canv.rows()
+        2
         """
         text, attr = self.get_text()
 
@@ -356,8 +368,10 @@ class Text(Widget):
             if isinstance(text, bytes):
                 text = text.decode(get_encoding())
 
+            split_text = text.split("\n")
+
             return (
-                max(calc_width(line, 0, len(line)) for line in text.splitlines(keepends=False)),
-                text.count("\n") + 1,
+                max(calc_width(line, 0, len(line)) for line in split_text),
+                len(split_text),
             )
         return 0, 1

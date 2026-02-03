@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,8 +26,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <div id="example0_result" class="try_it_out_content">
 ```
 [
-    StorageBridge({"wwn": "2000001086a18100", "name": "ATTO_2000001086a18100"}),
-    StorageBridge({"wwn": "2000001086a18380", "name": "ATTO_2000001086a18380"}),
+    StorageBridge({"name": "ATTO_2000001086a18100", "wwn": "2000001086a18100"}),
+    StorageBridge({"name": "ATTO_2000001086a18380", "wwn": "2000001086a18380"}),
 ]
 
 ```
@@ -56,137 +56,137 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 StorageBridge(
     {
         "serial_number": "FB7500N102450",
+        "sas_ports": [
+            {
+                "negotiated_data_rate": 6.0,
+                "phy_2": {"state": "online"},
+                "phy_1": {"state": "online"},
+                "state": "online",
+                "data_rate_capability": 12.0,
+                "wwn": "5001086000a18100",
+                "phy_3": {"state": "online"},
+                "id": 1,
+                "cable": {
+                    "part_number": "112-00431",
+                    "technology": "Passive Copper 5m ID:00",
+                    "serial_number": "618130935",
+                    "vendor": "Molex Inc.",
+                },
+                "phy_4": {"state": "online"},
+                "enabled": True,
+            },
+            {
+                "negotiated_data_rate": 0.0,
+                "phy_2": {"state": "offline"},
+                "phy_1": {"state": "offline"},
+                "state": "offline",
+                "data_rate_capability": 12.0,
+                "wwn": "5001086000a18104",
+                "phy_3": {"state": "offline"},
+                "phy_4": {"state": "offline"},
+                "enabled": False,
+            },
+            {
+                "negotiated_data_rate": 0.0,
+                "phy_2": {"state": "offline"},
+                "phy_1": {"state": "offline"},
+                "state": "offline",
+                "data_rate_capability": 12.0,
+                "wwn": "5001086000a18108",
+                "phy_3": {"state": "offline"},
+                "phy_4": {"state": "offline"},
+                "enabled": False,
+            },
+            {
+                "negotiated_data_rate": 0.0,
+                "phy_2": {"state": "offline"},
+                "phy_1": {"state": "offline"},
+                "state": "offline",
+                "data_rate_capability": 12.0,
+                "wwn": "5001086000a1810c",
+                "phy_3": {"state": "offline"},
+                "phy_4": {"state": "offline"},
+                "enabled": False,
+            },
+        ],
+        "name": "ATTO_2000001086a18100",
         "chassis_throughput_state": "ok",
         "dram_single_bit_error_count": 0,
         "wwn": "2000001086a18100",
-        "managed_by": "in_band",
-        "state": "ok",
-        "firmware_version": "3.10 007A",
-        "model": "FibreBridge 7500N",
-        "last_reboot": {
-            "reason": {
-                "message": 'Reason: "FirmwareRestart Command".',
-                "code": "39321683",
-            },
-            "time": "2020-12-09T00:47:58-05:00",
-        },
         "paths": [
             {
-                "target_port": {"wwn": "2100001086a18380"},
                 "node": {
-                    "uuid": "ecc3d992-3a86-11eb-9fab-00a0985a6024",
                     "name": "sti8080mcc-htp-005",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/ecc3d992-3a86-11eb-9fab-00a0985a6024"
                         }
                     },
+                    "uuid": "ecc3d992-3a86-11eb-9fab-00a0985a6024",
                 },
                 "name": "0e",
+                "target_port": {"wwn": "2100001086a18380"},
             }
         ],
-        "monitoring_enabled": True,
+        "security_enabled": False,
         "temperature_sensor": {
+            "reading": 54,
             "maximum": 90,
             "state": "ok",
-            "reading": 54,
-            "minimum": 0,
             "name": "Chassis Temperature Sensor",
+            "minimum": 0,
         },
-        "ip_address": "10.226.57.178",
+        "vendor": "atto",
+        "monitoring_enabled": True,
+        "managed_by": "in_band",
+        "symbolic_name": "RTP-FCSAS02-41KK10",
+        "state": "ok",
+        "model": "FibreBridge 7500N",
         "power_supply_units": [
             {"state": "ok", "name": "A"},
             {"state": "ok", "name": "B"},
         ],
-        "name": "ATTO_2000001086a18100",
-        "sas_ports": [
-            {
-                "id": 1,
-                "phy_1": {"state": "online"},
-                "enabled": True,
-                "wwn": "5001086000a18100",
-                "phy_4": {"state": "online"},
-                "cable": {
-                    "technology": "Passive Copper 5m ID:00",
-                    "serial_number": "618130935",
-                    "vendor": "Molex Inc.",
-                    "part_number": "112-00431",
-                },
-                "data_rate_capability": 12.0,
-                "negotiated_data_rate": 6.0,
-                "phy_2": {"state": "online"},
-                "phy_3": {"state": "online"},
-                "state": "online",
+        "last_reboot": {
+            "time": "2020-12-09T00:47:58-05:00",
+            "reason": {
+                "message": 'Reason: "FirmwareRestart Command".',
+                "code": "39321683",
             },
-            {
-                "phy_1": {"state": "offline"},
-                "enabled": False,
-                "wwn": "5001086000a18104",
-                "phy_4": {"state": "offline"},
-                "data_rate_capability": 12.0,
-                "negotiated_data_rate": 0.0,
-                "phy_2": {"state": "offline"},
-                "phy_3": {"state": "offline"},
-                "state": "offline",
-            },
-            {
-                "phy_1": {"state": "offline"},
-                "enabled": False,
-                "wwn": "5001086000a18108",
-                "phy_4": {"state": "offline"},
-                "data_rate_capability": 12.0,
-                "negotiated_data_rate": 0.0,
-                "phy_2": {"state": "offline"},
-                "phy_3": {"state": "offline"},
-                "state": "offline",
-            },
-            {
-                "phy_1": {"state": "offline"},
-                "enabled": False,
-                "wwn": "5001086000a1810c",
-                "phy_4": {"state": "offline"},
-                "data_rate_capability": 12.0,
-                "negotiated_data_rate": 0.0,
-                "phy_2": {"state": "offline"},
-                "phy_3": {"state": "offline"},
-                "state": "offline",
-            },
-        ],
-        "vendor": "atto",
-        "symbolic_name": "RTP-FCSAS02-41KK10",
-        "security_enabled": False,
+        },
+        "firmware_version": "3.10 007A",
+        "ip_address": "10.226.57.178",
         "fc_ports": [
             {
-                "id": 1,
-                "enabled": True,
-                "wwn": "2100001086a18100",
-                "configured_data_rate": 8.0,
-                "peer_wwn": "0000000000000000",
-                "data_rate_capability": 16.0,
+                "sfp": {
+                    "part_number": "FTLF8529P3BCV",
+                    "data_rate_capability": 16.0,
+                    "serial_number": "UW106SA",
+                    "vendor": "FINISAR CORP.",
+                },
                 "negotiated_data_rate": 8.0,
                 "state": "online",
-                "sfp": {
-                    "serial_number": "UW106SA",
-                    "data_rate_capability": 16.0,
-                    "vendor": "FINISAR CORP.",
-                    "part_number": "FTLF8529P3BCV",
-                },
+                "data_rate_capability": 16.0,
+                "peer_wwn": "0000000000000000",
+                "wwn": "2100001086a18100",
+                "id": 1,
+                "configured_data_rate": 8.0,
+                "enabled": True,
             },
             {
-                "id": 2,
-                "enabled": True,
-                "wwn": "2200001086a18100",
-                "configured_data_rate": 16.0,
-                "peer_wwn": "0000000000000000",
-                "data_rate_capability": 16.0,
+                "sfp": {
+                    "part_number": "FTLF8529P3BCV",
+                    "data_rate_capability": 16.0,
+                    "serial_number": "UW1072B",
+                    "vendor": "FINISAR CORP.",
+                },
                 "negotiated_data_rate": 16.0,
                 "state": "online",
-                "sfp": {
-                    "serial_number": "UW1072B",
-                    "data_rate_capability": 16.0,
-                    "vendor": "FINISAR CORP.",
-                    "part_number": "FTLF8529P3BCV",
-                },
+                "data_rate_capability": 16.0,
+                "peer_wwn": "0000000000000000",
+                "wwn": "2200001086a18100",
+                "id": 2,
+                "configured_data_rate": 16.0,
+                "enabled": True,
             },
         ],
     }
@@ -202,11 +202,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -219,7 +218,6 @@ __pdoc__ = {
     "StorageBridgeSchema.resource": False,
     "StorageBridgeSchema.opts": False,
 }
-
 
 class StorageBridgeSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the StorageBridge object"""
@@ -242,10 +240,26 @@ Valid choices:
     )
     r""" The dram_single_bit_error_count field of the storage_bridge."""
 
-    errors = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.storage_bridge_errors.StorageBridgeErrorsSchema", unknown=EXCLUDE, allow_none=True), data_key="errors", allow_none=True)
+    errors = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.storage_bridge_errors", "StorageBridgeErrorsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="errors",
+                allow_none=True
+            )
     r""" The errors field of the storage_bridge."""
 
-    fc_ports = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.storage_bridge_fc_ports.StorageBridgeFcPortsSchema", unknown=EXCLUDE, allow_none=True), data_key="fc_ports", allow_none=True)
+    fc_ports = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.storage_bridge_fc_ports", "StorageBridgeFcPortsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="fc_ports",
+                allow_none=True
+            )
     r""" The fc_ports field of the storage_bridge."""
 
     firmware_version = marshmallow_fields.Str(
@@ -262,7 +276,12 @@ Example: 4.10 007A"""
     )
     r""" IP Address"""
 
-    last_reboot = marshmallow_fields.Nested("netapp_ontap.models.storage_bridge_last_reboot.StorageBridgeLastRebootSchema", data_key="last_reboot", unknown=EXCLUDE, allow_none=True)
+    last_reboot = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_bridge_last_reboot", "StorageBridgeLastRebootSchema"),
+                data_key="last_reboot",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The last_reboot field of the storage_bridge."""
 
     managed_by = marshmallow_fields.Str(
@@ -299,13 +318,37 @@ Example: FibreBridge6500N"""
 
 Example: ATTO_FibreBridge6500N_1"""
 
-    paths = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.storage_bridge_paths.StorageBridgePathsSchema", unknown=EXCLUDE, allow_none=True), data_key="paths", allow_none=True)
+    paths = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.storage_bridge_paths", "StorageBridgePathsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="paths",
+                allow_none=True
+            )
     r""" The paths field of the storage_bridge."""
 
-    power_supply_units = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.storage_bridge_power_supply_units.StorageBridgePowerSupplyUnitsSchema", unknown=EXCLUDE, allow_none=True), data_key="power_supply_units", allow_none=True)
+    power_supply_units = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.storage_bridge_power_supply_units", "StorageBridgePowerSupplyUnitsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="power_supply_units",
+                allow_none=True
+            )
     r""" The power_supply_units field of the storage_bridge."""
 
-    sas_ports = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.storage_bridge_sas_ports.StorageBridgeSasPortsSchema", unknown=EXCLUDE, allow_none=True), data_key="sas_ports", allow_none=True)
+    sas_ports = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.storage_bridge_sas_ports", "StorageBridgeSasPortsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="sas_ports",
+                allow_none=True
+            )
     r""" The sas_ports field of the storage_bridge."""
 
     security_enabled = marshmallow_fields.Boolean(
@@ -343,7 +386,12 @@ Valid choices:
 
 Example: rtp-fcsas03-41kk11"""
 
-    temperature_sensor = marshmallow_fields.Nested("netapp_ontap.models.storage_bridge_temperature_sensor.StorageBridgeTemperatureSensorSchema", data_key="temperature_sensor", unknown=EXCLUDE, allow_none=True)
+    temperature_sensor = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_bridge_temperature_sensor", "StorageBridgeTemperatureSensorSchema"),
+                data_key="temperature_sensor",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The temperature_sensor field of the storage_bridge."""
 
     vendor = marshmallow_fields.Str(

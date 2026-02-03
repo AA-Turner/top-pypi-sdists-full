@@ -1,12 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 ## Overview
 ONTAP supports SSH server that can be accessed from any standard SSH client. A user account needs to be associated with SSH as the application (refer the documentation for <i>api/security/accounts</i> [`DOC /security/accounts`](#docs-security-security_accounts)). Upon connecting from a client, the user is authenticated and a command line shell is presented.<br/>
-This endpoint is used to retrieve or modify the SSH configuration at the cluster level. The configuration consists of SSH security parameters (security algorithms, maximum authentication retry attempts allowed before closing the connection, and _ssh-rsa_ enabled status for public key algorithms) and SSH connection limits.<br/>
+This endpoint is used to retrieve or modify the SSH configuration at the cluster level. The configuration consists of SSH security parameters (security algorithms, maximum authentication retry attempts allowed before closing the connection, SSH connection login grace time and _ssh-rsa_ enabled status for public key algorithms) and SSH connection limits.<br/>
 The security algorithms include SSH key exchange algorithms, ciphers for payload encryption, MAC algorithms and host key algorithms. This configuration is the default for all newly created SVMs; existing SVM configurations are not impacted.
 The SSH connection limits include maximum connections per second, maximum simultaneous sessions from the same client host, and overall maximum SSH connections at any given point in time. The connection limits are per node and will be the same for all nodes in the cluster.
 ## Examples
@@ -25,9 +25,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         "diffie_hellman_group18_sha512",
     ]
     resource.mac_algorithms = ["hmac_sha2_512_etm", "umac_128_etm"]
-    resource.host_key_algorithms = ["ecdsa_sha2_nistp256", "ssh_rsa"]
+    resource.host_key_algorithms = [
+        "ecdsa_sha2_nistp256",
+        "ssh_rsa",
+        "ssh_ed25519",
+        "rsa_sha2_256",
+        "rsa_sha2_512",
+    ]
     resource.max_authentication_retry_count = 3
     resource.is_rsa_in_publickey_algorithms_enabled = True
+    resource.login_grace_time = 30
     resource.patch()
 
 ```
@@ -65,20 +72,27 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterSshServer(
     {
-        "max_instances": 10,
-        "ciphers": ["aes256_ctr", "aes192_ctr"],
         "per_source_limit": 5,
+        "_links": {"self": {"href": "/api/security/ssh"}},
+        "ciphers": ["aes256_ctr", "aes192_ctr"],
+        "connections_per_second": 8,
+        "login_grace_time": 30,
+        "max_instances": 10,
+        "mac_algorithms": ["hmac_sha2_512_etm", "umac_128_etm"],
         "max_authentication_retry_count": 3,
-        "is_rsa_in_publickey_algorithms_enabled": True,
         "key_exchange_algorithms": [
             "diffie_hellman_group_exchange_sha256",
             "ecdh_sha2_nistp256",
             "diffie_hellman_group18_sha512",
         ],
-        "host_key_algorithms": ["ecdsa_sha2_nistp256", "ssh_rsa"],
-        "connections_per_second": 8,
-        "_links": {"self": {"href": "/api/security/ssh"}},
-        "mac_algorithms": ["hmac_sha2_512_etm", "umac_128_etm"],
+        "is_rsa_in_publickey_algorithms_enabled": True,
+        "host_key_algorithms": [
+            "ecdsa_sha2_nistp256",
+            "ssh_rsa",
+            "ssh_ed25519",
+            "rsa_sha2_256",
+            "rsa_sha2_512",
+        ],
     }
 )
 
@@ -91,11 +105,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -109,11 +122,15 @@ __pdoc__ = {
     "ClusterSshServerSchema.opts": False,
 }
 
-
 class ClusterSshServerSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ClusterSshServer object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the cluster_ssh_server."""
 
     ciphers = marshmallow_fields.List(marshmallow_fields.Str, data_key="ciphers", allow_none=True)
@@ -129,9 +146,9 @@ Example: ["aes256_ctr","aes192_ctr","aes128_ctr"]"""
     r""" Maximum connections allowed per second."""
 
     host_key_algorithms = marshmallow_fields.List(marshmallow_fields.Str, data_key="host_key_algorithms", allow_none=True)
-    r""" Host key algorithms. The host key algorithm 'ssh_ed25519' can be configured only in non-FIPS mode.
+    r""" Host key algorithms. The host key algorithms 'ssh_ed25519' and 'ssh_rsa' can be configured only in non-FIPS mode.
 
-Example: ["ecdsa_sha2_nistp256","ssh_rsa"]"""
+Example: ["ecdsa_sha2_nistp256","ssh_rsa","rsa_sha2_256","rsa_sha2_512"]"""
 
     is_rsa_in_publickey_algorithms_enabled = marshmallow_fields.Boolean(
         data_key="is_rsa_in_publickey_algorithms_enabled",
@@ -143,6 +160,13 @@ Example: ["ecdsa_sha2_nistp256","ssh_rsa"]"""
     r""" Key exchange algorithms.
 
 Example: ["diffie_hellman_group_exchange_sha256","ecdh_sha2_nistp256","diffie_hellman_group18_sha512"]"""
+
+    login_grace_time = Size(
+        data_key="login_grace_time",
+        validate=integer_validation(minimum=30, maximum=90),
+        allow_none=True,
+    )
+    r""" The SSH connection login grace time allowed for the connection."""
 
     mac_algorithms = marshmallow_fields.List(marshmallow_fields.Str, data_key="mac_algorithms", allow_none=True)
     r""" MAC algorithms.
@@ -181,12 +205,13 @@ Example: ["hmac_sha2_512","hmac_sha2_512_etm"]"""
         "host_key_algorithms",
         "is_rsa_in_publickey_algorithms_enabled",
         "key_exchange_algorithms",
+        "login_grace_time",
         "mac_algorithms",
         "max_authentication_retry_count",
         "max_instances",
         "per_source_limit",
     ]
-    """links,ciphers,connections_per_second,host_key_algorithms,is_rsa_in_publickey_algorithms_enabled,key_exchange_algorithms,mac_algorithms,max_authentication_retry_count,max_instances,per_source_limit,"""
+    """links,ciphers,connections_per_second,host_key_algorithms,is_rsa_in_publickey_algorithms_enabled,key_exchange_algorithms,login_grace_time,mac_algorithms,max_authentication_retry_count,max_instances,per_source_limit,"""
 
     patchable_fields = [
         "ciphers",
@@ -194,12 +219,13 @@ Example: ["hmac_sha2_512","hmac_sha2_512_etm"]"""
         "host_key_algorithms",
         "is_rsa_in_publickey_algorithms_enabled",
         "key_exchange_algorithms",
+        "login_grace_time",
         "mac_algorithms",
         "max_authentication_retry_count",
         "max_instances",
         "per_source_limit",
     ]
-    """ciphers,connections_per_second,host_key_algorithms,is_rsa_in_publickey_algorithms_enabled,key_exchange_algorithms,mac_algorithms,max_authentication_retry_count,max_instances,per_source_limit,"""
+    """ciphers,connections_per_second,host_key_algorithms,is_rsa_in_publickey_algorithms_enabled,key_exchange_algorithms,login_grace_time,mac_algorithms,max_authentication_retry_count,max_instances,per_source_limit,"""
 
     postable_fields = [
         "ciphers",
@@ -207,12 +233,13 @@ Example: ["hmac_sha2_512","hmac_sha2_512_etm"]"""
         "host_key_algorithms",
         "is_rsa_in_publickey_algorithms_enabled",
         "key_exchange_algorithms",
+        "login_grace_time",
         "mac_algorithms",
         "max_authentication_retry_count",
         "max_instances",
         "per_source_limit",
     ]
-    """ciphers,connections_per_second,host_key_algorithms,is_rsa_in_publickey_algorithms_enabled,key_exchange_algorithms,mac_algorithms,max_authentication_retry_count,max_instances,per_source_limit,"""
+    """ciphers,connections_per_second,host_key_algorithms,is_rsa_in_publickey_algorithms_enabled,key_exchange_algorithms,login_grace_time,mac_algorithms,max_authentication_retry_count,max_instances,per_source_limit,"""
 
 class ClusterSshServer(Resource):
     """Allows interaction with ClusterSshServer objects on the host"""
@@ -226,7 +253,7 @@ class ClusterSshServer(Resource):
 
 
     def get(self, **kwargs) -> NetAppResponse:
-        r"""Retrieves the cluster SSH server ciphers, MAC algorithms, key exchange algorithms, host key algorithms, connection limits, and _ssh-rsa_ enabled status for public key algorithms.
+        r"""Retrieves the cluster SSH server ciphers, MAC algorithms, key exchange algorithms, host key algorithms, connection limits, login grace time, and _ssh-rsa_ enabled status for public key algorithms.
 ### Related ONTAP commands
 * `security ssh`
 * `security protocol ssh`
@@ -256,6 +283,7 @@ class ClusterSshServer(Resource):
 * `connections_per_second` - Maximum allowed connections per second
 * `max_instances` - Maximum allowed connections per node
 * `is_rsa_in_publickey_algorithms_enabled` - _ssh-rsa_ enabled status for public key algorithms
+* `login_grace_time` - The SSH connection login grace time
 * `per_source_limit` - Maximum allowed connections from the same client host
 ### Related ONTAP commands
 * `security ssh`

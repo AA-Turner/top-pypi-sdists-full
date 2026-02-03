@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -16,6 +16,7 @@ The API can sometimes fail to return the list of users with the most I/O activit
 * The NFS/CIFS client operations are being served by the client-side filesystem cache.
 * The NFS/CIFS client operations are being buffered by the client operating system.
 * On rare occasions, the incoming traffic pattern is not suitable to obtain the list of users with the most I/O activity.
+* NFSv4 client read operations using Multi-Processor I/O (MPIO) are not tracked.
 ## Failure to return the usernames
 The API can sometimes fail to obtain the usernames for the list of userid entries, due to internal transient errors.
 In such cases, instead of the username, the API will return "{<user-id>}" for the user entry.
@@ -45,62 +46,62 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsUser(
         {
-            "throughput": {
-                "read": 1495,
-                "error": {"upper_bound": 1502, "lower_bound": 1495},
-            },
+            "user_id": "S-1-5-21-256008430-3394229847-3930036330-1001",
             "svm": {
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
                     }
                 },
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
+            },
+            "volume": {"name": "vol1"},
+            "throughput": {
+                "error": {"lower_bound": 1495, "upper_bound": 1502},
+                "read": 1495,
             },
             "user_name": "John",
-            "user_id": "S-1-5-21-256008430-3394229847-3930036330-1001",
-            "volume": {"name": "vol1"},
         }
     ),
     TopMetricsUser(
         {
-            "throughput": {
-                "read": 1022,
-                "error": {"upper_bound": 1025, "lower_bound": 1022},
-            },
+            "user_id": "1988",
             "svm": {
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
                     }
                 },
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
+            },
+            "volume": {"name": "vol1"},
+            "throughput": {
+                "error": {"lower_bound": 1022, "upper_bound": 1025},
+                "read": 1022,
             },
             "user_name": "Ryan",
-            "user_id": "1988",
-            "volume": {"name": "vol1"},
         }
     ),
     TopMetricsUser(
         {
-            "throughput": {
-                "read": 345,
-                "error": {"upper_bound": 348, "lower_bound": 345},
-            },
+            "user_id": "S-1-5-21-256008430-3394229847-3930036330-1003",
             "svm": {
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
                     }
                 },
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
+            },
+            "volume": {"name": "vol1"},
+            "throughput": {
+                "error": {"lower_bound": 345, "upper_bound": 348},
+                "read": 345,
             },
             "user_name": "Julie",
-            "user_id": "S-1-5-21-256008430-3394229847-3930036330-1003",
-            "volume": {"name": "vol1"},
         }
     ),
 ]
@@ -140,11 +141,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -158,17 +158,31 @@ __pdoc__ = {
     "TopMetricsUserSchema.opts": False,
 }
 
-
 class TopMetricsUserSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the TopMetricsUser object"""
 
-    iops = marshmallow_fields.Nested("netapp_ontap.models.top_metrics_svm_user_iops.TopMetricsSvmUserIopsSchema", data_key="iops", unknown=EXCLUDE, allow_none=True)
+    iops = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.top_metrics_svm_user_iops", "TopMetricsSvmUserIopsSchema"),
+                data_key="iops",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The iops field of the top_metrics_user."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the top_metrics_user."""
 
-    throughput = marshmallow_fields.Nested("netapp_ontap.models.top_metrics_svm_user_throughput.TopMetricsSvmUserThroughputSchema", data_key="throughput", unknown=EXCLUDE, allow_none=True)
+    throughput = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.top_metrics_svm_user_throughput", "TopMetricsSvmUserThroughputSchema"),
+                data_key="throughput",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The throughput field of the top_metrics_user."""
 
     user_id = marshmallow_fields.Str(
@@ -187,7 +201,12 @@ Example: S-1-5-21-256008430-3394229847-3930036330-1001"""
 
 Example: James"""
 
-    volume = marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", data_key="volume", unknown=EXCLUDE, allow_none=True)
+    volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                data_key="volume",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The volume field of the top_metrics_user."""
 
     @property

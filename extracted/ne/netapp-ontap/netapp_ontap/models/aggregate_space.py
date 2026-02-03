@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["AggregateSpace", "AggregateSpaceSchema"]
@@ -17,23 +16,47 @@ __pdoc__ = {
     "AggregateSpace": False,
 }
 
-
 class AggregateSpaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the AggregateSpace object"""
 
-    block_storage = marshmallow_fields.Nested("netapp_ontap.models.aggregate_space_block_storage.AggregateSpaceBlockStorageSchema", unknown=EXCLUDE, data_key="block_storage", allow_none=True)
+    block_storage = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.aggregate_space_block_storage", "AggregateSpaceBlockStorageSchema"),
+                unknown=EXCLUDE,
+                data_key="block_storage",
+                allow_none=True
+            )
     r""" The block_storage field of the aggregate_space. """
 
-    cloud_storage = marshmallow_fields.Nested("netapp_ontap.models.aggregate_space_cloud_storage.AggregateSpaceCloudStorageSchema", unknown=EXCLUDE, data_key="cloud_storage", allow_none=True)
+    cloud_storage = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.aggregate_space_cloud_storage", "AggregateSpaceCloudStorageSchema"),
+                unknown=EXCLUDE,
+                data_key="cloud_storage",
+                allow_none=True
+            )
     r""" The cloud_storage field of the aggregate_space. """
 
-    efficiency = marshmallow_fields.Nested("netapp_ontap.models.aggr_space_efficiency.AggrSpaceEfficiencySchema", unknown=EXCLUDE, data_key="efficiency", allow_none=True)
+    efficiency = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.aggr_space_efficiency", "AggrSpaceEfficiencySchema"),
+                unknown=EXCLUDE,
+                data_key="efficiency",
+                allow_none=True
+            )
     r""" The efficiency field of the aggregate_space. """
 
-    efficiency_without_snapshots = marshmallow_fields.Nested("netapp_ontap.models.space_efficiency.SpaceEfficiencySchema", unknown=EXCLUDE, data_key="efficiency_without_snapshots", allow_none=True)
+    efficiency_without_snapshots = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.space_efficiency", "SpaceEfficiencySchema"),
+                unknown=EXCLUDE,
+                data_key="efficiency_without_snapshots",
+                allow_none=True
+            )
     r""" The efficiency_without_snapshots field of the aggregate_space. """
 
-    efficiency_without_snapshots_flexclones = marshmallow_fields.Nested("netapp_ontap.models.space_efficiency.SpaceEfficiencySchema", unknown=EXCLUDE, data_key="efficiency_without_snapshots_flexclones", allow_none=True)
+    efficiency_without_snapshots_flexclones = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.space_efficiency", "SpaceEfficiencySchema"),
+                unknown=EXCLUDE,
+                data_key="efficiency_without_snapshots_flexclones",
+                allow_none=True
+            )
     r""" The efficiency_without_snapshots_flexclones field of the aggregate_space. """
 
     footprint = Size(data_key="footprint", allow_none=True)
@@ -43,8 +66,20 @@ This is an advanced property; there is an added computational cost to retrieving
 
 Example: 608896 """
 
-    snapshot = marshmallow_fields.Nested("netapp_ontap.models.aggregate_space_snapshot.AggregateSpaceSnapshotSchema", unknown=EXCLUDE, data_key="snapshot", allow_none=True)
+    snapshot = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.aggregate_space_snapshot", "AggregateSpaceSnapshotSchema"),
+                unknown=EXCLUDE,
+                data_key="snapshot",
+                allow_none=True
+            )
     r""" The snapshot field of the aggregate_space. """
+
+    total_provisioned_space = Size(data_key="total_provisioned_space", allow_none=True)
+    r""" A summation of volume size, in bytes. This includes all of the volumes inside the aggregate.
+This is an advanced property; there is an added computational cost to retrieving its value. The field is not populated for either a collection GET or an instance GET unless it is explicitly requested using the <i>fields</i> query parameter containing either total_provisioned_space or **.
+
+
+Example: 20971520 """
 
     @property
     def resource(self):
@@ -58,8 +93,9 @@ Example: 608896 """
         "efficiency_without_snapshots_flexclones",
         "footprint",
         "snapshot",
+        "total_provisioned_space",
     ]
-    """block_storage,cloud_storage,efficiency,efficiency_without_snapshots,efficiency_without_snapshots_flexclones,footprint,snapshot,"""
+    """block_storage,cloud_storage,efficiency,efficiency_without_snapshots,efficiency_without_snapshots_flexclones,footprint,snapshot,total_provisioned_space,"""
 
     patchable_fields = [
         "block_storage",

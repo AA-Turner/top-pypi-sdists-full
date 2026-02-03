@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -72,11 +72,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -90,17 +89,31 @@ __pdoc__ = {
     "KerberosRealmSchema.opts": False,
 }
 
-
 class KerberosRealmSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the KerberosRealm object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the kerberos_realm."""
 
-    ad_server = marshmallow_fields.Nested("netapp_ontap.models.kerberos_realm_ad_server.KerberosRealmAdServerSchema", data_key="ad_server", unknown=EXCLUDE, allow_none=True)
+    ad_server = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.kerberos_realm_ad_server", "KerberosRealmAdServerSchema"),
+                data_key="ad_server",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The ad_server field of the kerberos_realm."""
 
-    admin_server = marshmallow_fields.Nested("netapp_ontap.models.kerberos_realm_admin_server.KerberosRealmAdminServerSchema", data_key="admin_server", unknown=EXCLUDE, allow_none=True)
+    admin_server = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.kerberos_realm_admin_server", "KerberosRealmAdminServerSchema"),
+                data_key="admin_server",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The admin_server field of the kerberos_realm."""
 
     clock_skew = Size(
@@ -118,7 +131,12 @@ class KerberosRealmSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     encryption_types = marshmallow_fields.List(marshmallow_fields.Str, data_key="encryption_types", allow_none=True)
     r""" The encryption_types field of the kerberos_realm."""
 
-    kdc = marshmallow_fields.Nested("netapp_ontap.models.kerberos_realm_kdc.KerberosRealmKdcSchema", data_key="kdc", unknown=EXCLUDE, allow_none=True)
+    kdc = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.kerberos_realm_kdc", "KerberosRealmKdcSchema"),
+                data_key="kdc",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The kdc field of the kerberos_realm."""
 
     name = marshmallow_fields.Str(
@@ -127,10 +145,20 @@ class KerberosRealmSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Kerberos realm"""
 
-    password_server = marshmallow_fields.Nested("netapp_ontap.models.kerberos_realm_password_server.KerberosRealmPasswordServerSchema", data_key="password_server", unknown=EXCLUDE, allow_none=True)
+    password_server = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.kerberos_realm_password_server", "KerberosRealmPasswordServerSchema"),
+                data_key="password_server",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The password_server field of the kerberos_realm."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the kerberos_realm."""
 
     @property
@@ -272,7 +300,7 @@ class KerberosRealm(Resource):
 ### Required properties
 * `svm.uuid` or `svm.name` - Existing SVM on which to create the Kerberos realm.
 * `name` - Base name for the Kerberos realm.
-* `kdc.vendor` - Vendor of the Key Distribution Center (KDC) server for this Kerberos realm. If the configuration uses a Microsoft Active Directory domain for authentication, this field nust be `microsoft`.
+* `kdc.vendor` - Vendor of the Key Distribution Center (KDC) server for this Kerberos realm. If the configuration uses a Microsoft Active Directory domain for authentication, this field must be `microsoft`.
 * `kdc.ip` - IP address of the KDC server for this Kerberos realm.
 ### Recommended optional properties
 * `ad_server.name` - Host name of the Active Directory Domain Controller (DC). This is a mandatory parameter if the kdc-vendor is `microsoft`.
@@ -353,7 +381,7 @@ If not specified in POST, the following default property value is assigned:
 ### Required properties
 * `svm.uuid` or `svm.name` - Existing SVM on which to create the Kerberos realm.
 * `name` - Base name for the Kerberos realm.
-* `kdc.vendor` - Vendor of the Key Distribution Center (KDC) server for this Kerberos realm. If the configuration uses a Microsoft Active Directory domain for authentication, this field nust be `microsoft`.
+* `kdc.vendor` - Vendor of the Key Distribution Center (KDC) server for this Kerberos realm. If the configuration uses a Microsoft Active Directory domain for authentication, this field must be `microsoft`.
 * `kdc.ip` - IP address of the KDC server for this Kerberos realm.
 ### Recommended optional properties
 * `ad_server.name` - Host name of the Active Directory Domain Controller (DC). This is a mandatory parameter if the kdc-vendor is `microsoft`.

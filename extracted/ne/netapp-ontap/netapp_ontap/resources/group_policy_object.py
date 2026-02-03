@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -16,11 +16,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -33,7 +32,6 @@ __pdoc__ = {
     "GroupPolicyObjectSchema.resource": False,
     "GroupPolicyObjectSchema.opts": False,
 }
-
 
 class GroupPolicyObjectSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the GroupPolicyObject object"""
@@ -112,13 +110,28 @@ Valid choices:
 
 Example: test_policy"""
 
-    registry_settings = marshmallow_fields.Nested("netapp_ontap.models.group_policy_object_registry_setting.GroupPolicyObjectRegistrySettingSchema", data_key="registry_settings", unknown=EXCLUDE, allow_none=True)
+    registry_settings = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.group_policy_object_registry_setting", "GroupPolicyObjectRegistrySettingSchema"),
+                data_key="registry_settings",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The registry_settings field of the group_policy_object."""
 
-    security_settings = marshmallow_fields.Nested("netapp_ontap.models.group_policy_object_security_setting.GroupPolicyObjectSecuritySettingSchema", data_key="security_settings", unknown=EXCLUDE, allow_none=True)
+    security_settings = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.group_policy_object_security_setting", "GroupPolicyObjectSecuritySettingSchema"),
+                data_key="security_settings",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The security_settings field of the group_policy_object."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the group_policy_object."""
 
     uuid = marshmallow_fields.Str(

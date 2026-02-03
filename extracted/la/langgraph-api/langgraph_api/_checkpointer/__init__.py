@@ -4,6 +4,7 @@ from typing import Any
 import structlog
 from langgraph.checkpoint.base import BaseCheckpointSaver
 
+from langgraph_api._checkpointer import _adapter
 from langgraph_api._checkpointer.protocol import CheckpointerProtocol
 
 logger = structlog.stdlib.get_logger(__name__)
@@ -15,12 +16,10 @@ async def get_checkpointer(
     unpack_hook: Callable[[int, bytes], Any] | None = None,
     use_direct_connection: bool = False,
 ) -> CheckpointerProtocol:
-    # This will be the entrypiont for the custom checkpointer.
-    # If not set (default), proceed here.
-    from langgraph_runtime.checkpoint import Checkpointer
-
-    return Checkpointer(
-        conn, unpack_hook=unpack_hook, use_direct_connection=use_direct_connection
+    return await _adapter.get_checkpointer(
+        conn=conn,
+        unpack_hook=unpack_hook,
+        use_direct_connection=use_direct_connection,
     )
 
 
@@ -42,3 +41,11 @@ async def start_checkpointer() -> None:
 async def exit_checkpointer() -> None:
     """Close the checkpointer resources."""
     # This will close the exit stack if a given custom checkpointer is provided.
+    await _adapter.exit_checkpointer()
+
+
+__all__ = [
+    "exit_checkpointer",
+    "get_checkpointer",
+    "start_checkpointer",
+]

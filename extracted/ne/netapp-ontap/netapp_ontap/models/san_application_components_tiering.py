@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["SanApplicationComponentsTiering", "SanApplicationComponentsTieringSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "SanApplicationComponentsTieringSchema.opts": False,
     "SanApplicationComponentsTiering": False,
 }
-
 
 class SanApplicationComponentsTieringSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SanApplicationComponentsTiering object"""
@@ -30,7 +28,15 @@ Valid choices:
 * best_effort
 * disallowed """
 
-    object_stores = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.nas_application_components_tiering_object_stores.NasApplicationComponentsTieringObjectStoresSchema", unknown=EXCLUDE, allow_none=True), data_key="object_stores", allow_none=True)
+    object_stores = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.nas_application_components_tiering_object_stores", "NasApplicationComponentsTieringObjectStoresSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="object_stores",
+                allow_none=True
+                )
     r""" The object_stores field of the san_application_components_tiering. """
 
     policy = marshmallow_fields.Str(data_key="policy", allow_none=True)

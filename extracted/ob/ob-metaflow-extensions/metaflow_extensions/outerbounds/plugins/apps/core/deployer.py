@@ -147,6 +147,7 @@ def bake_image(
     dep_sources = sum(
         [
             pypi is not None,
+            conda is not None,
             requirements_file is not None,
             pyproject_toml is not None,
         ]
@@ -156,7 +157,7 @@ def bake_image(
 
     if dep_sources > 1:
         raise ImageBakingException(
-            "Only one of pypi, requirements_file, or pyproject_toml can be specified."
+            "Only one of pypi, conda, requirements_file, or pyproject_toml can be specified."
         )
 
     # Set defaults
@@ -198,7 +199,7 @@ def bake_image(
     elif pypi:
         pypi_packages = pypi.copy()
 
-    if conda:
+    elif conda:
         conda_packages = conda.copy()
 
     # Check if there are any packages to bake
@@ -208,7 +209,10 @@ def bake_image(
 
     # Add pinned conda libs required by the platform
     pinned_libs = get_pinned_conda_libs(_python_version, DEFAULT_DATASTORE)
-    pypi_packages.update(pinned_libs)
+    if len(conda_packages) > 0:
+        conda_packages.update(pinned_libs)
+    else:
+        pypi_packages.update(pinned_libs)
 
     _logger(f"🍞 Baking image with {len(pypi_packages)} PyPI packages...")
 

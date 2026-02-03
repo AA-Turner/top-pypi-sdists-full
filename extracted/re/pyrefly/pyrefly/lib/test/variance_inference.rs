@@ -320,3 +320,70 @@ def widen(c: Container[int]) -> Container[float]:
     return c  # OK - T is covariant since Mapping's V type is covariant
 "#,
 );
+
+testcase!(
+    bug = "conformance: Should error when using TypeVar with wrong variance in base class",
+    test_variance_enforcement_in_base_classes,
+    r#"
+from typing import TypeVar, Generic
+
+T = TypeVar("T")
+T_co = TypeVar("T_co", covariant=True)
+T_contra = TypeVar("T_contra", contravariant=True)
+
+class Co(Generic[T_co]): ...
+class Contra(Generic[T_contra]): ...
+class Inv(Generic[T]): ...
+class CoContra(Generic[T_co, T_contra]): ...
+
+class Class1(Inv[T_co]): ...  # should error: Inv requires invariant TypeVar
+class Class2(Inv[T_contra]): ...  # should error: Inv requires invariant TypeVar
+
+class Co_Child3(Co[T_contra]): ...  # should error: Co requires covariant
+class Contra_Child3(Contra[T_co]): ...  # should error: Contra requires contravariant
+class Contra_Child5(Contra[Co[T_co]]): ...  # should error: Contra requires contravariant
+
+class CoContra_Child2(CoContra[T_co, T_co]): ...  # should error: second arg must be contravariant
+class CoContra_Child3(CoContra[T_contra, T_contra]): ...  # should error: first arg must be covariant
+class CoContra_Child5(CoContra[Co[T_co], Co[T_co]]): ...  # should error: second arg must be contravariant
+
+class CoToContraToContra(Contra[Co[Contra[T_contra]]]): ...  # should error
+class ContraToContraToContra(Contra[Contra[Contra[T_co]]]): ...  # should error
+
+Co_TA = Co[T_co]
+Contra_TA = Contra[T_contra]
+
+class CoToContraToContra_WithTA(Contra_TA[Co_TA[Contra_TA[T_contra]]]): ...  # should error
+class ContraToContraToContra_WithTA(Contra_TA[Contra_TA[Contra_TA[T_co]]]): ...  # should error
+"#,
+);
+
+testcase!(
+    bug = "conformance: Should warn when inferred variance differs from declared variance in protocols",
+    test_protocols_variance_conformance,
+    r#"
+from typing import Protocol, TypeVar
+
+T1 = TypeVar("T1")
+T1_co = TypeVar("T1_co", covariant=True)
+T1_contra = TypeVar("T1_contra", contravariant=True)
+
+class AnotherBox(Protocol[T1]):  # should warn: T should be covariant
+    def content(self) -> T1: ...
+
+class Protocol4(Protocol[T1]):  # should warn: T1 should be contravariant
+    def m1(self, p0: T1) -> None: ...
+
+class Protocol5(Protocol[T1_co]):  # should warn: T1_co should be contravariant
+    def m1(self, p0: T1_co) -> None: ... # should error on the parameter type
+
+class Protocol6(Protocol[T1]):  # should warn: T1 should be covariant
+    def m1(self) -> T1: ...
+
+class Protocol7(Protocol[T1_contra]):  # should warn: T1_contra should be covariant
+    def m1(self) -> T1_contra: ... # should error on the return type
+
+class Protocol12(Protocol[T1]):  # should warn: T1 should be covariant
+    def __init__(self, x: T1) -> None: ...
+"#,
+);

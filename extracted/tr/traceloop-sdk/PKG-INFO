@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: traceloop-sdk
-Version: 0.51.1
+Version: 0.52.1
 Summary: Traceloop Software Development Kit (SDK) for Python
 Project-URL: Repository, https://github.com/traceloop/openllmetry
 Project-URL: Documentation, https://traceloop.com/docs/openllmetry
@@ -48,6 +48,7 @@ Requires-Dist: opentelemetry-instrumentation-together
 Requires-Dist: opentelemetry-instrumentation-transformers
 Requires-Dist: opentelemetry-instrumentation-urllib3>=0.59b0
 Requires-Dist: opentelemetry-instrumentation-vertexai
+Requires-Dist: opentelemetry-instrumentation-voyageai
 Requires-Dist: opentelemetry-instrumentation-watsonx
 Requires-Dist: opentelemetry-instrumentation-weaviate
 Requires-Dist: opentelemetry-instrumentation-writer

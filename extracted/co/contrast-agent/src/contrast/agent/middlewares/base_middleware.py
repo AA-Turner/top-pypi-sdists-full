@@ -229,6 +229,7 @@ class BaseMiddleware:
             event_handlers=agent_state.module.event_handlers,
             observe_enabled=agent_state.module.observe_enabled,
             protect_enabled=agent_state.module.protect_enabled,
+            first_request=agent_state.claim_first_request(),
         )
         if not self.is_agent_enabled() or context.disabled:
             logger.debug("Will not analyze request: agent disabled.", path=path)
@@ -286,8 +287,6 @@ class BaseMiddleware:
         self.send_inventory_components(context)
 
         _log_response_info(context.response)
-
-        agent_state.set_first_request(False)
 
     def send_attacks(self, context: RequestContext):
         if attacks := context.attack_events:

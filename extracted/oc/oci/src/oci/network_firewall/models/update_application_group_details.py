@@ -24,14 +24,21 @@ class UpdateApplicationGroupDetails(object):
             The value to assign to the apps property of this UpdateApplicationGroupDetails.
         :type apps: list[str]
 
+        :param description:
+            The value to assign to the description property of this UpdateApplicationGroupDetails.
+        :type description: str
+
         """
         self.swagger_types = {
-            'apps': 'list[str]'
+            'apps': 'list[str]',
+            'description': 'str'
         }
         self.attribute_map = {
-            'apps': 'apps'
+            'apps': 'apps',
+            'description': 'description'
         }
         self._apps = None
+        self._description = None
 
     @property
     def apps(self):
@@ -56,6 +63,30 @@ class UpdateApplicationGroupDetails(object):
         :type: list[str]
         """
         self._apps = apps
+
+    @property
+    def description(self):
+        """
+        Gets the description of this UpdateApplicationGroupDetails.
+        The description of the application list. This field can be used to add additional info.
+
+
+        :return: The description of this UpdateApplicationGroupDetails.
+        :rtype: str
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """
+        Sets the description of this UpdateApplicationGroupDetails.
+        The description of the application list. This field can be used to add additional info.
+
+
+        :param description: The description of this UpdateApplicationGroupDetails.
+        :type: str
+        """
+        self._description = description
 
     def __repr__(self):
         return formatted_flat_dict(self)

@@ -1,17 +1,15 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-from contrast_vendor.wrapt import ObjectProxy
-
 from contrast.agent import scope
 from contrast.agent.assess.policy.source_policy import apply_stream_source
 from contrast.utils.decorators import fail_quietly
-
 from contrast_vendor import structlog as logging
+from contrast_vendor import wrapt
 
 logger = logging.getLogger("contrast")
 
 
-class BaseStreamProxy(ObjectProxy):
+class BaseStreamProxy(wrapt.ObjectProxy):
     """
     Base class for implementing stream proxies (marking streams as sources).
 
@@ -43,8 +41,10 @@ class BaseStreamProxy(ObjectProxy):
 
     We might eventually be able to align this proxy hierarchy more closely with
     https://docs.python.org/3/library/io.html#class-hierarchy.
-    Note that file objects in python 2 do not line up with this inheritance pattern:
-    https://docs.python.org/2/library/stdtypes.html#bltin-file-objects.
+
+    Note that all stream base classes have `__iter__` defined. This means we should use
+    wrapt.ObjectProxy, which has `__iter__` defined explicitly on the proxy (as opposed
+    to wrapt.BaseObjectProxy).
     """
 
     CS__METHOD_NAMES = ["read", "readline", "readlines"]

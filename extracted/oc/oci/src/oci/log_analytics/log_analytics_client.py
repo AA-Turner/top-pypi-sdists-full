@@ -131,10 +131,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_analytics_entity_id: (required)
-            The log analytics entity OCID.
+            The log analytics entity ID [OCID]. Entity ID can be obtained by running 'oci log-analytics entity list --namespace-name <namespace> --compartment-id <compartment>'. The json output 'id' parameter value contains the entity ID.
 
         :param oci.log_analytics.models.AddEntityAssociationDetails add_entity_association_details: (required)
             This parameter specifies the destination entity OCIDs with which associations are to be created.
@@ -176,7 +176,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/add_entity_association.py.html>`__ to see an example of how to use add_entity_association API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/add_entity_association.py.html>`__ to see an example of how to use add_entity_association API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logAnalyticsEntityId']
@@ -266,7 +266,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str source_name: (required)
             The source name.
@@ -304,7 +304,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/add_source_event_types.py.html>`__ to see an example of how to use add_source_event_types API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/add_source_event_types.py.html>`__ to see an example of how to use add_source_event_types API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'sourceName']
@@ -392,7 +392,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str lookup_name: (required)
             The name of the lookup to operate on.
@@ -456,7 +456,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/append_lookup_data.py.html>`__ to see an example of how to use append_lookup_data API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/append_lookup_data.py.html>`__ to see an example of how to use append_lookup_data API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'lookupName']
@@ -579,7 +579,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.AssignEncryptionKeyDetails assign_encryption_key_details: (required)
             This is the input to assign customer encryption key.
@@ -621,7 +621,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/assign_encryption_key.py.html>`__ to see an example of how to use assign_encryption_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/assign_encryption_key.py.html>`__ to see an example of how to use assign_encryption_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -708,7 +708,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.LabelNames basic_details: (required)
             List of label names to get information on
@@ -755,7 +755,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/batch_get_basic_info.py.html>`__ to see an example of how to use batch_get_basic_info API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/batch_get_basic_info.py.html>`__ to see an example of how to use batch_get_basic_info API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'isIncludeDeleted']
@@ -870,10 +870,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str work_request_id: (required)
-            Work Request Identifier `OCID]`__ for the asynchronous request.
+            Work Request Identifier `OCID]`__ for the asynchronous request. The work request id can be usually obtained from the 'opc-work-request-id' response header of the asynchronous request.
 
             __ https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm
 
@@ -907,7 +907,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/cancel_query_work_request.py.html>`__ to see an example of how to use cancel_query_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/cancel_query_work_request.py.html>`__ to see an example of how to use cancel_query_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'workRequestId']
@@ -988,10 +988,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str ingest_time_rule_id: (required)
-            Unique ocid of the ingest time rule.
+            Unique ocid of the ingest time rule. Ingest time rule ID can be obtained by running 'oci log-analytics ingest-time-rule list --namespace-name <namespace> --compartment-id <compartment>'. The json output 'id' parameter value contains the rule ID.
 
         :param oci.log_analytics.models.ChangeIngestTimeRuleCompartmentDetails change_ingest_time_rule_compartment_details: (required)
             The compartment id to move the ingest time rule to.
@@ -1033,7 +1033,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/change_ingest_time_rule_compartment.py.html>`__ to see an example of how to use change_ingest_time_rule_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/change_ingest_time_rule_compartment.py.html>`__ to see an example of how to use change_ingest_time_rule_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'ingestTimeRuleId']
@@ -1123,10 +1123,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_analytics_em_bridge_id: (required)
-            The log analytics enterprise manager bridge OCID.
+            The log analytics enterprise manager bridge OCID. Bridge ID can be obtained by running 'oci log-analytics em-bridge list --namespace-name <namespace> --compartment-id <compartment>'. The json output 'id' parameter value contains the bridge ID.
 
         :param oci.log_analytics.models.ChangeLogAnalyticsEmBridgeCompartmentDetails change_log_analytics_em_bridge_compartment_details: (required)
             Log analytics enterprise manager bridge compartment Id to be updated.
@@ -1168,7 +1168,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/change_log_analytics_em_bridge_compartment.py.html>`__ to see an example of how to use change_log_analytics_em_bridge_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/change_log_analytics_em_bridge_compartment.py.html>`__ to see an example of how to use change_log_analytics_em_bridge_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logAnalyticsEmBridgeId']
@@ -1258,10 +1258,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_analytics_entity_id: (required)
-            The log analytics entity OCID.
+            The log analytics entity ID [OCID]. Entity ID can be obtained by running 'oci log-analytics entity list --namespace-name <namespace> --compartment-id <compartment>'. The json output 'id' parameter value contains the entity ID.
 
         :param oci.log_analytics.models.ChangeLogAnalyticsEntityCompartmentDetails change_log_analytics_entity_compartment_details: (required)
             Log analytics entity compartment Id to be updated.
@@ -1303,7 +1303,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/change_log_analytics_entity_compartment.py.html>`__ to see an example of how to use change_log_analytics_entity_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/change_log_analytics_entity_compartment.py.html>`__ to see an example of how to use change_log_analytics_entity_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logAnalyticsEntityId']
@@ -1393,7 +1393,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_analytics_log_group_id: (required)
             unique logAnalytics log group identifier
@@ -1438,7 +1438,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/change_log_analytics_log_group_compartment.py.html>`__ to see an example of how to use change_log_analytics_log_group_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/change_log_analytics_log_group_compartment.py.html>`__ to see an example of how to use change_log_analytics_log_group_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logAnalyticsLogGroupId']
@@ -1528,10 +1528,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_analytics_object_collection_rule_id: (required)
-            The Logging Analytics Object Collection Rule `OCID`__.
+            The Log Analytics Object Collection Rule `OCID`__.
 
             __ https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm
 
@@ -1568,7 +1568,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/change_log_analytics_object_collection_rule_compartment.py.html>`__ to see an example of how to use change_log_analytics_object_collection_rule_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/change_log_analytics_object_collection_rule_compartment.py.html>`__ to see an example of how to use change_log_analytics_object_collection_rule_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logAnalyticsObjectCollectionRuleId']
@@ -1653,7 +1653,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str lookup_name: (required)
             The name of the lookup to operate on.
@@ -1698,7 +1698,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/change_lookup_compartment.py.html>`__ to see an example of how to use change_lookup_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/change_lookup_compartment.py.html>`__ to see an example of how to use change_lookup_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'lookupName']
@@ -1788,7 +1788,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str scheduled_task_id: (required)
             Unique scheduledTask id returned from task create.
@@ -1834,7 +1834,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/change_scheduled_task_compartment.py.html>`__ to see an example of how to use change_scheduled_task_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/change_scheduled_task_compartment.py.html>`__ to see an example of how to use change_scheduled_task_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'scheduledTaskId']
@@ -1923,7 +1923,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str scheduled_task_id: (required)
             Unique scheduledTask id returned from task create.
@@ -1967,7 +1967,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/clean.py.html>`__ to see an example of how to use clean API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/clean.py.html>`__ to see an example of how to use clean API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'scheduledTaskId']
@@ -2059,7 +2059,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.CompareContentDetails compare_content_details: (required)
             The two payloads to be compared.
@@ -2087,7 +2087,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/compare_content.py.html>`__ to see an example of how to use compare_content API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/compare_content.py.html>`__ to see an example of how to use compare_content API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -2173,7 +2173,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.CreateIngestTimeRuleDetails create_ingest_time_rule_details: (required)
             Details of the new ingest time rule.
@@ -2208,7 +2208,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/create_ingest_time_rule.py.html>`__ to see an example of how to use create_ingest_time_rule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/create_ingest_time_rule.py.html>`__ to see an example of how to use create_ingest_time_rule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -2297,7 +2297,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.CreateLogAnalyticsEmBridgeDetails create_log_analytics_em_bridge_details: (required)
             Details for the enterprise manager bridge.
@@ -2332,7 +2332,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/create_log_analytics_em_bridge.py.html>`__ to see an example of how to use create_log_analytics_em_bridge API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/create_log_analytics_em_bridge.py.html>`__ to see an example of how to use create_log_analytics_em_bridge API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -2421,7 +2421,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.CreateLogAnalyticsEntityDetails create_log_analytics_entity_details: (required)
             Details for the new log analytics entity.
@@ -2456,7 +2456,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/create_log_analytics_entity.py.html>`__ to see an example of how to use create_log_analytics_entity API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/create_log_analytics_entity.py.html>`__ to see an example of how to use create_log_analytics_entity API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -2545,7 +2545,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.CreateLogAnalyticsEntityTypeDetails create_log_analytics_entity_type_details: (required)
             Definition for custom log analytics entity type.
@@ -2580,7 +2580,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/create_log_analytics_entity_type.py.html>`__ to see an example of how to use create_log_analytics_entity_type API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/create_log_analytics_entity_type.py.html>`__ to see an example of how to use create_log_analytics_entity_type API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -2667,7 +2667,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.CreateLogAnalyticsLogGroupDetails create_log_analytics_log_group_details: (required)
             Details for the new Log-Analytics group.
@@ -2702,7 +2702,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/create_log_analytics_log_group.py.html>`__ to see an example of how to use create_log_analytics_log_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/create_log_analytics_log_group.py.html>`__ to see an example of how to use create_log_analytics_log_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -2791,7 +2791,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.CreateLogAnalyticsObjectCollectionRuleDetails create_log_analytics_object_collection_rule_details: (required)
             Details of the rule to be created.
@@ -2819,7 +2819,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/create_log_analytics_object_collection_rule.py.html>`__ to see an example of how to use create_log_analytics_object_collection_rule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/create_log_analytics_object_collection_rule.py.html>`__ to see an example of how to use create_log_analytics_object_collection_rule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -2903,7 +2903,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.CreateScheduledTaskDetails create_scheduled_task_details: (required)
             Scheduled task to be created.
@@ -2938,7 +2938,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/create_scheduled_task.py.html>`__ to see an example of how to use create_scheduled_task API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/create_scheduled_task.py.html>`__ to see an example of how to use create_scheduled_task API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -3025,7 +3025,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.DeleteLogAnalyticsAssociationDetails delete_log_analytics_association_details: (required)
             details for association
@@ -3060,7 +3060,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/delete_associations.py.html>`__ to see an example of how to use delete_associations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/delete_associations.py.html>`__ to see an example of how to use delete_associations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -3147,10 +3147,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str field_name: (required)
-            The field name.
+            The field name. Field name can be obtained by running 'oci log-analytics field list-fields --namespace-name <namespace>'. The json output 'name' parameter value contains the field name.
 
         :param str opc_retry_token: (optional)
             A token that uniquely identifies a request so it can be retried in case of a timeout or
@@ -3189,7 +3189,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/delete_field.py.html>`__ to see an example of how to use delete_field API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/delete_field.py.html>`__ to see an example of how to use delete_field API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'fieldName']
@@ -3273,10 +3273,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str ingest_time_rule_id: (required)
-            Unique ocid of the ingest time rule.
+            Unique ocid of the ingest time rule. Ingest time rule ID can be obtained by running 'oci log-analytics ingest-time-rule list --namespace-name <namespace> --compartment-id <compartment>'. The json output 'id' parameter value contains the rule ID.
 
         :param str if_match: (optional)
             For optimistic concurrency control. In the PUT or DELETE call
@@ -3308,7 +3308,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/delete_ingest_time_rule.py.html>`__ to see an example of how to use delete_ingest_time_rule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/delete_ingest_time_rule.py.html>`__ to see an example of how to use delete_ingest_time_rule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'ingestTimeRuleId']
@@ -3389,10 +3389,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str label_name: (required)
-            The label name.
+            The label name. Label name can be obtained by running 'oci log-analytics label list-labels --namespace-name <namespace>'. The json output 'name' parameter value contains the label name.
 
         :param str opc_retry_token: (optional)
             A token that uniquely identifies a request so it can be retried in case of a timeout or
@@ -3431,7 +3431,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/delete_label.py.html>`__ to see an example of how to use delete_label API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/delete_label.py.html>`__ to see an example of how to use delete_label API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'labelName']
@@ -3515,10 +3515,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_analytics_em_bridge_id: (required)
-            The log analytics enterprise manager bridge OCID.
+            The log analytics enterprise manager bridge OCID. Bridge ID can be obtained by running 'oci log-analytics em-bridge list --namespace-name <namespace> --compartment-id <compartment>'. The json output 'id' parameter value contains the bridge ID.
 
         :param str if_match: (optional)
             For optimistic concurrency control. In the PUT or DELETE call
@@ -3553,7 +3553,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/delete_log_analytics_em_bridge.py.html>`__ to see an example of how to use delete_log_analytics_em_bridge API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/delete_log_analytics_em_bridge.py.html>`__ to see an example of how to use delete_log_analytics_em_bridge API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logAnalyticsEmBridgeId']
@@ -3640,10 +3640,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_analytics_entity_id: (required)
-            The log analytics entity OCID.
+            The log analytics entity ID [OCID]. Entity ID can be obtained by running 'oci log-analytics entity list --namespace-name <namespace> --compartment-id <compartment>'. The json output 'id' parameter value contains the entity ID.
 
         :param str if_match: (optional)
             For optimistic concurrency control. In the PUT or DELETE call
@@ -3678,7 +3678,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/delete_log_analytics_entity.py.html>`__ to see an example of how to use delete_log_analytics_entity API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/delete_log_analytics_entity.py.html>`__ to see an example of how to use delete_log_analytics_entity API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logAnalyticsEntityId']
@@ -3765,10 +3765,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str entity_type_name: (required)
-            Log analytics entity type name.
+            Log analytics entity type name. Entity type name can be obtained by running 'oci log-analytics entity-type list --namespace-name <namespacename> --all'. The json output 'internal-name' parameter value contains the entity type name.
 
         :param str if_match: (optional)
             For optimistic concurrency control. In the PUT or DELETE call
@@ -3800,7 +3800,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/delete_log_analytics_entity_type.py.html>`__ to see an example of how to use delete_log_analytics_entity_type API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/delete_log_analytics_entity_type.py.html>`__ to see an example of how to use delete_log_analytics_entity_type API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'entityTypeName']
@@ -3879,7 +3879,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_analytics_log_group_id: (required)
             unique logAnalytics log group identifier
@@ -3914,7 +3914,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/delete_log_analytics_log_group.py.html>`__ to see an example of how to use delete_log_analytics_log_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/delete_log_analytics_log_group.py.html>`__ to see an example of how to use delete_log_analytics_log_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logAnalyticsLogGroupId']
@@ -3992,14 +3992,14 @@ class LogAnalyticsClient(object):
     def delete_log_analytics_object_collection_rule(self, namespace_name, log_analytics_object_collection_rule_id, **kwargs):
         """
         Deletes the configured object storage bucket based collection rule and stop the log collection.
-        It will not delete the existing processed data associated with this bucket from logging analytics storage.
+        It will not delete the existing processed data associated with this bucket from Log Analytics Storage.
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_analytics_object_collection_rule_id: (required)
-            The Logging Analytics Object Collection Rule `OCID`__.
+            The Log Analytics Object Collection Rule `OCID`__.
 
             __ https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm
 
@@ -4033,7 +4033,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/delete_log_analytics_object_collection_rule.py.html>`__ to see an example of how to use delete_log_analytics_object_collection_rule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/delete_log_analytics_object_collection_rule.py.html>`__ to see an example of how to use delete_log_analytics_object_collection_rule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logAnalyticsObjectCollectionRuleId']
@@ -4112,7 +4112,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str lookup_name: (required)
             The name of the lookup to operate on.
@@ -4157,7 +4157,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/delete_lookup.py.html>`__ to see an example of how to use delete_lookup API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/delete_lookup.py.html>`__ to see an example of how to use delete_lookup API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'lookupName']
@@ -4249,7 +4249,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str parser_name: (required)
             The parser name.
@@ -4291,7 +4291,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/delete_parser.py.html>`__ to see an example of how to use delete_parser API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/delete_parser.py.html>`__ to see an example of how to use delete_parser API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'parserName']
@@ -4375,7 +4375,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str scheduled_task_id: (required)
             Unique scheduledTask id returned from task create.
@@ -4411,7 +4411,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/delete_scheduled_task.py.html>`__ to see an example of how to use delete_scheduled_task API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/delete_scheduled_task.py.html>`__ to see an example of how to use delete_scheduled_task API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'scheduledTaskId']
@@ -4492,7 +4492,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str source_name: (required)
             The source name.
@@ -4534,7 +4534,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/delete_source.py.html>`__ to see an example of how to use delete_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/delete_source.py.html>`__ to see an example of how to use delete_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'sourceName']
@@ -4619,7 +4619,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str upload_reference: (required)
             Unique internal identifier to refer upload container.
@@ -4654,7 +4654,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/delete_upload.py.html>`__ to see an example of how to use delete_upload API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/delete_upload.py.html>`__ to see an example of how to use delete_upload API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'uploadReference']
@@ -4734,7 +4734,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str upload_reference: (required)
             Unique internal identifier to refer upload container.
@@ -4765,7 +4765,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/delete_upload_file.py.html>`__ to see an example of how to use delete_upload_file API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/delete_upload_file.py.html>`__ to see an example of how to use delete_upload_file API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'uploadReference', 'fileReference']
@@ -4843,7 +4843,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str upload_reference: (required)
             Unique internal identifier to refer upload container.
@@ -4874,7 +4874,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/delete_upload_warning.py.html>`__ to see an example of how to use delete_upload_warning API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/delete_upload_warning.py.html>`__ to see an example of how to use delete_upload_warning API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'uploadReference', 'warningReference']
@@ -4952,7 +4952,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -4984,7 +4984,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/disable_archiving.py.html>`__ to see an example of how to use disable_archiving API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/disable_archiving.py.html>`__ to see an example of how to use disable_archiving API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -5068,7 +5068,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str source_name: (required)
             The source name.
@@ -5106,7 +5106,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/disable_auto_association.py.html>`__ to see an example of how to use disable_auto_association API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/disable_auto_association.py.html>`__ to see an example of how to use disable_auto_association API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'sourceName']
@@ -5194,10 +5194,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str ingest_time_rule_id: (required)
-            Unique ocid of the ingest time rule.
+            Unique ocid of the ingest time rule. Ingest time rule ID can be obtained by running 'oci log-analytics ingest-time-rule list --namespace-name <namespace> --compartment-id <compartment>'. The json output 'id' parameter value contains the rule ID.
 
         :param str if_match: (optional)
             For optimistic concurrency control. In the PUT or DELETE call
@@ -5229,7 +5229,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/disable_ingest_time_rule.py.html>`__ to see an example of how to use disable_ingest_time_rule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/disable_ingest_time_rule.py.html>`__ to see an example of how to use disable_ingest_time_rule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'ingestTimeRuleId']
@@ -5310,7 +5310,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str source_name: (required)
             The source name.
@@ -5348,7 +5348,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/disable_source_event_types.py.html>`__ to see an example of how to use disable_source_event_types API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/disable_source_event_types.py.html>`__ to see an example of how to use disable_source_event_types API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'sourceName']
@@ -5436,7 +5436,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -5468,7 +5468,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/enable_archiving.py.html>`__ to see an example of how to use enable_archiving API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/enable_archiving.py.html>`__ to see an example of how to use enable_archiving API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -5552,7 +5552,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str source_name: (required)
             The source name.
@@ -5590,7 +5590,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/enable_auto_association.py.html>`__ to see an example of how to use enable_auto_association API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/enable_auto_association.py.html>`__ to see an example of how to use enable_auto_association API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'sourceName']
@@ -5678,10 +5678,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str ingest_time_rule_id: (required)
-            Unique ocid of the ingest time rule.
+            Unique ocid of the ingest time rule. Ingest time rule ID can be obtained by running 'oci log-analytics ingest-time-rule list --namespace-name <namespace> --compartment-id <compartment>'. The json output 'id' parameter value contains the rule ID.
 
         :param str if_match: (optional)
             For optimistic concurrency control. In the PUT or DELETE call
@@ -5713,7 +5713,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/enable_ingest_time_rule.py.html>`__ to see an example of how to use enable_ingest_time_rule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/enable_ingest_time_rule.py.html>`__ to see an example of how to use enable_ingest_time_rule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'ingestTimeRuleId']
@@ -5794,7 +5794,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str source_name: (required)
             The source name.
@@ -5832,7 +5832,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/enable_source_event_types.py.html>`__ to see an example of how to use enable_source_event_types API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/enable_source_event_types.py.html>`__ to see an example of how to use enable_source_event_types API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'sourceName']
@@ -5920,7 +5920,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.EstimatePurgeDataSizeDetails estimate_purge_data_size_details: (required)
             This is the input to estimate the size of data to be purged.
@@ -5962,7 +5962,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/estimate_purge_data_size.py.html>`__ to see an example of how to use estimate_purge_data_size API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/estimate_purge_data_size.py.html>`__ to see an example of how to use estimate_purge_data_size API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -6053,7 +6053,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.EstimateRecallDataSizeDetails estimate_recall_data_size_details: (required)
             This is the input to estimate the size of data to be recalled.
@@ -6081,7 +6081,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/estimate_recall_data_size.py.html>`__ to see an example of how to use estimate_recall_data_size API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/estimate_recall_data_size.py.html>`__ to see an example of how to use estimate_recall_data_size API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -6167,7 +6167,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.EstimateReleaseDataSizeDetails estimate_release_data_size_details: (required)
             This is the input to estimate the size of recalled data to be released.
@@ -6195,7 +6195,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/estimate_release_data_size.py.html>`__ to see an example of how to use estimate_release_data_size API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/estimate_release_data_size.py.html>`__ to see an example of how to use estimate_release_data_size API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -6281,7 +6281,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.ExportContent export_custom_content_details: (required)
             content to export
@@ -6316,7 +6316,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/export_custom_content.py.html>`__ to see an example of how to use export_custom_content API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/export_custom_content.py.html>`__ to see an example of how to use export_custom_content API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -6349,7 +6349,7 @@ class LogAnalyticsClient(object):
                 raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
 
         header_params = {
-            "accept": "application/octet-stream",
+            "accept": "application/octet-stream, application/json",
             "content-type": "application/json",
             "opc-retry-token": kwargs.get("opc_retry_token", missing),
             "opc-request-id": kwargs.get("opc_request_id", missing)
@@ -6405,7 +6405,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.ExportDetails export_details: (required)
             Query to be exported
@@ -6433,7 +6433,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/export_query_result.py.html>`__ to see an example of how to use export_query_result API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/export_query_result.py.html>`__ to see an example of how to use export_query_result API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -6519,7 +6519,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.LogAnalyticsParser logan_parser_details: (required)
             parser definition
@@ -6527,7 +6527,7 @@ class LogAnalyticsClient(object):
         :param str parser_type: (optional)
             The parser type - possible values are XML, JSON or DELIMITED.
 
-            Allowed values are: "XML", "JSON", "DELIMITED"
+            Allowed values are: "XML", "JSON", "DELIMITED", "REGEX"
 
         :param str opc_retry_token: (optional)
             A token that uniquely identifies a request so it can be retried in case of a timeout or
@@ -6559,7 +6559,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/extract_structured_log_field_paths.py.html>`__ to see an example of how to use extract_structured_log_field_paths API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/extract_structured_log_field_paths.py.html>`__ to see an example of how to use extract_structured_log_field_paths API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -6593,7 +6593,7 @@ class LogAnalyticsClient(object):
                 raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
 
         if 'parser_type' in kwargs:
-            parser_type_allowed_values = ["XML", "JSON", "DELIMITED"]
+            parser_type_allowed_values = ["XML", "JSON", "DELIMITED", "REGEX"]
             if kwargs['parser_type'] not in parser_type_allowed_values:
                 raise ValueError(
                     f"Invalid value for `parser_type`, must be one of { parser_type_allowed_values }"
@@ -6663,7 +6663,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.LogAnalyticsParser logan_parser_details: (required)
             parser definition
@@ -6671,7 +6671,7 @@ class LogAnalyticsClient(object):
         :param str parser_type: (optional)
             The parser type - possible values are XML, JSON or DELIMITED.
 
-            Allowed values are: "XML", "JSON", "DELIMITED"
+            Allowed values are: "XML", "JSON", "DELIMITED", "REGEX"
 
         :param str opc_retry_token: (optional)
             A token that uniquely identifies a request so it can be retried in case of a timeout or
@@ -6703,7 +6703,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/extract_structured_log_header_paths.py.html>`__ to see an example of how to use extract_structured_log_header_paths API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/extract_structured_log_header_paths.py.html>`__ to see an example of how to use extract_structured_log_header_paths API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -6737,7 +6737,7 @@ class LogAnalyticsClient(object):
                 raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
 
         if 'parser_type' in kwargs:
-            parser_type_allowed_values = ["XML", "JSON", "DELIMITED"]
+            parser_type_allowed_values = ["XML", "JSON", "DELIMITED", "REGEX"]
             if kwargs['parser_type'] not in parser_type_allowed_values:
                 raise ValueError(
                     f"Invalid value for `parser_type`, must be one of { parser_type_allowed_values }"
@@ -6807,7 +6807,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.FilterDetails filter_details: (required)
             Query string and filters to add or remove
@@ -6835,7 +6835,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/filter.py.html>`__ to see an example of how to use filter API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/filter.py.html>`__ to see an example of how to use filter API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -6921,7 +6921,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str compartment_id: (required)
             The ID of the compartment in which to list resources.
@@ -6949,7 +6949,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_association_summary.py.html>`__ to see an example of how to use get_association_summary API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_association_summary.py.html>`__ to see an example of how to use get_association_summary API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -7036,7 +7036,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str category_name: (required)
             The category name.
@@ -7064,7 +7064,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_category.py.html>`__ to see an example of how to use get_category API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_category.py.html>`__ to see an example of how to use get_category API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'categoryName']
@@ -7145,7 +7145,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str sql_query: (required)
             The SQL query from which column names are to be extracted.
@@ -7180,7 +7180,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_column_names.py.html>`__ to see an example of how to use get_column_names API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_column_names.py.html>`__ to see an example of how to use get_column_names API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'sqlQuery']
@@ -7270,10 +7270,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str work_request_id: (required)
-            Work Request Identifier `OCID]`__ for the asynchronous request.
+            Work Request Identifier `OCID]`__ for the asynchronous request. The work request id can be usually obtained from the 'opc-work-request-id' response header of the asynchronous request.
 
             __ https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm
 
@@ -7300,7 +7300,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_config_work_request.py.html>`__ to see an example of how to use get_config_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_config_work_request.py.html>`__ to see an example of how to use get_config_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'workRequestId']
@@ -7381,10 +7381,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str field_name: (required)
-            The field name.
+            The field name. Field name can be obtained by running 'oci log-analytics field list-fields --namespace-name <namespace>'. The json output 'name' parameter value contains the field name.
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -7409,7 +7409,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_field.py.html>`__ to see an example of how to use get_field API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_field.py.html>`__ to see an example of how to use get_field API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'fieldName']
@@ -7490,10 +7490,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str field_name: (required)
-            The field name.
+            The field name. Field name can be obtained by running 'oci log-analytics field list-fields --namespace-name <namespace>'. The json output 'name' parameter value contains the field name.
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -7518,7 +7518,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_field_usages.py.html>`__ to see an example of how to use get_field_usages API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_field_usages.py.html>`__ to see an example of how to use get_field_usages API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'fieldName']
@@ -7599,7 +7599,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param bool is_show_detail: (optional)
             A boolean indicating whether or not to display detailed field summary information
@@ -7627,7 +7627,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_fields_summary.py.html>`__ to see an example of how to use get_fields_summary API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_fields_summary.py.html>`__ to see an example of how to use get_fields_summary API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -7715,10 +7715,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str ingest_time_rule_id: (required)
-            Unique ocid of the ingest time rule.
+            Unique ocid of the ingest time rule. Ingest time rule ID can be obtained by running 'oci log-analytics ingest-time-rule list --namespace-name <namespace> --compartment-id <compartment>'. The json output 'id' parameter value contains the rule ID.
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -7743,7 +7743,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_ingest_time_rule.py.html>`__ to see an example of how to use get_ingest_time_rule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_ingest_time_rule.py.html>`__ to see an example of how to use get_ingest_time_rule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'ingestTimeRuleId']
@@ -7824,10 +7824,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str label_name: (required)
-            The label name.
+            The label name. Label name can be obtained by running 'oci log-analytics label list-labels --namespace-name <namespace>'. The json output 'name' parameter value contains the label name.
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -7852,7 +7852,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_label.py.html>`__ to see an example of how to use get_label API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_label.py.html>`__ to see an example of how to use get_label API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'labelName']
@@ -7933,7 +7933,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -7958,7 +7958,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_label_summary.py.html>`__ to see an example of how to use get_label_summary API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_label_summary.py.html>`__ to see an example of how to use get_label_summary API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -8038,10 +8038,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_analytics_em_bridge_id: (required)
-            The log analytics enterprise manager bridge OCID.
+            The log analytics enterprise manager bridge OCID. Bridge ID can be obtained by running 'oci log-analytics em-bridge list --namespace-name <namespace> --compartment-id <compartment>'. The json output 'id' parameter value contains the bridge ID.
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -8066,7 +8066,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_log_analytics_em_bridge.py.html>`__ to see an example of how to use get_log_analytics_em_bridge API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_log_analytics_em_bridge.py.html>`__ to see an example of how to use get_log_analytics_em_bridge API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logAnalyticsEmBridgeId']
@@ -8145,7 +8145,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str compartment_id: (required)
             The ID of the compartment in which to list resources.
@@ -8173,7 +8173,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_log_analytics_em_bridge_summary.py.html>`__ to see an example of how to use get_log_analytics_em_bridge_summary API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_log_analytics_em_bridge_summary.py.html>`__ to see an example of how to use get_log_analytics_em_bridge_summary API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -8258,7 +8258,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str compartment_id: (required)
             The ID of the compartment in which to list resources.
@@ -8286,7 +8286,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_log_analytics_entities_summary.py.html>`__ to see an example of how to use get_log_analytics_entities_summary API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_log_analytics_entities_summary.py.html>`__ to see an example of how to use get_log_analytics_entities_summary API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -8371,10 +8371,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_analytics_entity_id: (required)
-            The log analytics entity OCID.
+            The log analytics entity ID [OCID]. Entity ID can be obtained by running 'oci log-analytics entity list --namespace-name <namespace> --compartment-id <compartment>'. The json output 'id' parameter value contains the entity ID.
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -8402,7 +8402,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_log_analytics_entity.py.html>`__ to see an example of how to use get_log_analytics_entity API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_log_analytics_entity.py.html>`__ to see an example of how to use get_log_analytics_entity API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logAnalyticsEntityId']
@@ -8489,10 +8489,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str entity_type_name: (required)
-            Log analytics entity type name.
+            Log analytics entity type name. Entity type name can be obtained by running 'oci log-analytics entity-type list --namespace-name <namespacename> --all'. The json output 'internal-name' parameter value contains the entity type name.
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -8517,7 +8517,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_log_analytics_entity_type.py.html>`__ to see an example of how to use get_log_analytics_entity_type API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_log_analytics_entity_type.py.html>`__ to see an example of how to use get_log_analytics_entity_type API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'entityTypeName']
@@ -8596,7 +8596,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_analytics_log_group_id: (required)
             unique logAnalytics log group identifier
@@ -8624,7 +8624,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_log_analytics_log_group.py.html>`__ to see an example of how to use get_log_analytics_log_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_log_analytics_log_group.py.html>`__ to see an example of how to use get_log_analytics_log_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logAnalyticsLogGroupId']
@@ -8705,7 +8705,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str compartment_id: (required)
             The ID of the compartment in which to list resources.
@@ -8733,7 +8733,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_log_analytics_log_groups_summary.py.html>`__ to see an example of how to use get_log_analytics_log_groups_summary API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_log_analytics_log_groups_summary.py.html>`__ to see an example of how to use get_log_analytics_log_groups_summary API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -8820,10 +8820,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_analytics_object_collection_rule_id: (required)
-            The Logging Analytics Object Collection Rule `OCID`__.
+            The Log Analytics Object Collection Rule `OCID`__.
 
             __ https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm
 
@@ -8850,7 +8850,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_log_analytics_object_collection_rule.py.html>`__ to see an example of how to use get_log_analytics_object_collection_rule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_log_analytics_object_collection_rule.py.html>`__ to see an example of how to use get_log_analytics_object_collection_rule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logAnalyticsObjectCollectionRuleId']
@@ -8931,7 +8931,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -8956,7 +8956,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_log_sets_count.py.html>`__ to see an example of how to use get_log_sets_count API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_log_sets_count.py.html>`__ to see an example of how to use get_log_sets_count API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -9036,7 +9036,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str lookup_name: (required)
             The name of the lookup to operate on.
@@ -9064,7 +9064,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_lookup.py.html>`__ to see an example of how to use get_lookup API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_lookup.py.html>`__ to see an example of how to use get_lookup API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'lookupName']
@@ -9145,7 +9145,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -9173,7 +9173,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_lookup_summary.py.html>`__ to see an example of how to use get_lookup_summary API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_lookup_summary.py.html>`__ to see an example of how to use get_lookup_summary API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -9257,11 +9257,11 @@ class LogAnalyticsClient(object):
 
     def get_namespace(self, namespace_name, **kwargs):
         """
-        This API gets the namespace details of a tenancy already onboarded in Logging Analytics Application
+        This API gets the namespace details of a tenancy already onboarded in Log Analytics Application
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -9286,7 +9286,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_namespace.py.html>`__ to see an example of how to use get_namespace API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_namespace.py.html>`__ to see an example of how to use get_namespace API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -9366,7 +9366,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str parser_name: (required)
             The parser name.
@@ -9394,7 +9394,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_parser.py.html>`__ to see an example of how to use get_parser API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_parser.py.html>`__ to see an example of how to use get_parser API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'parserName']
@@ -9475,7 +9475,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -9500,7 +9500,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_parser_summary.py.html>`__ to see an example of how to use get_parser_summary API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_parser_summary.py.html>`__ to see an example of how to use get_parser_summary API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -9580,7 +9580,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str sort_order: (optional)
             The sort order to use, either ascending (`ASC`) or descending (`DESC`).
@@ -9621,7 +9621,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_preferences.py.html>`__ to see an example of how to use get_preferences API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_preferences.py.html>`__ to see an example of how to use get_preferences API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -9730,7 +9730,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str work_request_id: (required)
             Work Request Identifier `OCID]`__ for the asynchronous request.
@@ -9777,7 +9777,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_query_result.py.html>`__ to see an example of how to use get_query_result API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_query_result.py.html>`__ to see an example of how to use get_query_result API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'workRequestId']
@@ -9881,10 +9881,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str work_request_id: (required)
-            Work Request Identifier `OCID]`__ for the asynchronous request.
+            Work Request Identifier `OCID]`__ for the asynchronous request. The work request id can be usually obtained from the 'opc-work-request-id' response header of the asynchronous request.
 
             __ https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm
 
@@ -9911,7 +9911,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_query_work_request.py.html>`__ to see an example of how to use get_query_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_query_work_request.py.html>`__ to see an example of how to use get_query_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'workRequestId']
@@ -9992,7 +9992,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -10017,7 +10017,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_recall_count.py.html>`__ to see an example of how to use get_recall_count API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_recall_count.py.html>`__ to see an example of how to use get_recall_count API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -10097,7 +10097,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -10128,7 +10128,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_recalled_data_size.py.html>`__ to see an example of how to use get_recalled_data_size API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_recalled_data_size.py.html>`__ to see an example of how to use get_recalled_data_size API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -10218,7 +10218,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str compartment_id: (required)
             The ID of the compartment in which to list resources.
@@ -10246,7 +10246,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_rules_summary.py.html>`__ to see an example of how to use get_rules_summary API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_rules_summary.py.html>`__ to see an example of how to use get_rules_summary API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -10333,7 +10333,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str scheduled_task_id: (required)
             Unique scheduledTask id returned from task create.
@@ -10362,7 +10362,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_scheduled_task.py.html>`__ to see an example of how to use get_scheduled_task API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_scheduled_task.py.html>`__ to see an example of how to use get_scheduled_task API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'scheduledTaskId']
@@ -10443,7 +10443,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str source_name: (required)
             The source name.
@@ -10474,7 +10474,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_source.py.html>`__ to see an example of how to use get_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_source.py.html>`__ to see an example of how to use get_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'sourceName', 'compartmentId']
@@ -10562,7 +10562,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -10587,7 +10587,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_source_summary.py.html>`__ to see an example of how to use get_source_summary API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_source_summary.py.html>`__ to see an example of how to use get_source_summary API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -10667,7 +10667,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -10692,7 +10692,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_storage.py.html>`__ to see an example of how to use get_storage API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_storage.py.html>`__ to see an example of how to use get_storage API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -10773,7 +10773,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -10798,7 +10798,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_storage_usage.py.html>`__ to see an example of how to use get_storage_usage API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_storage_usage.py.html>`__ to see an example of how to use get_storage_usage API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -10879,12 +10879,12 @@ class LogAnalyticsClient(object):
 
 
         :param str work_request_id: (required)
-            Work Request Identifier `OCID]`__ for the asynchronous request.
+            Work Request Identifier `OCID]`__ for the asynchronous request. The work request id can be usually obtained from the 'opc-work-request-id' response header of the asynchronous request.
 
             __ https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -10909,7 +10909,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_storage_work_request.py.html>`__ to see an example of how to use get_storage_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_storage_work_request.py.html>`__ to see an example of how to use get_storage_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId', 'namespaceName']
@@ -10990,7 +10990,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str template_id: (required)
             Unique ocid of the template.
@@ -11018,7 +11018,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_template.py.html>`__ to see an example of how to use get_template API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_template.py.html>`__ to see an example of how to use get_template API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'templateId']
@@ -11099,7 +11099,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -11124,7 +11124,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_unprocessed_data_bucket.py.html>`__ to see an example of how to use get_unprocessed_data_bucket API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_unprocessed_data_bucket.py.html>`__ to see an example of how to use get_unprocessed_data_bucket API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -11204,7 +11204,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str upload_reference: (required)
             Unique internal identifier to refer upload container.
@@ -11232,7 +11232,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_upload.py.html>`__ to see an example of how to use get_upload API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_upload.py.html>`__ to see an example of how to use get_upload API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'uploadReference']
@@ -11313,10 +11313,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str work_request_id: (required)
-            Work Request Identifier `OCID]`__ for the asynchronous request.
+            Work Request Identifier `OCID]`__ for the asynchronous request. The work request id can be usually obtained from the 'opc-work-request-id' response header of the asynchronous request.
 
             __ https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm
 
@@ -11343,7 +11343,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'workRequestId']
@@ -11422,7 +11422,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param stream import_custom_content_file_body: (required)
             The file to upload which contains the custom content.
@@ -11474,7 +11474,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/import_custom_content.py.html>`__ to see an example of how to use import_custom_content API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/import_custom_content.py.html>`__ to see an example of how to use import_custom_content API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -11594,7 +11594,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str source_name: (required)
             The source name.
@@ -11650,7 +11650,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_associable_entities.py.html>`__ to see an example of how to use list_associable_entities API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_associable_entities.py.html>`__ to see an example of how to use list_associable_entities API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'sourceName', 'compartmentId']
@@ -11771,10 +11771,13 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str compartment_id: (required)
             The ID of the compartment in which to list resources.
+
+        :param str source_name: (optional)
+            The source name.
 
         :param str entity_id: (optional)
             The entity OCID.
@@ -11826,7 +11829,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_associated_entities.py.html>`__ to see an example of how to use list_associated_entities API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_associated_entities.py.html>`__ to see an example of how to use list_associated_entities API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -11840,6 +11843,7 @@ class LogAnalyticsClient(object):
             "allow_control_chars",
             "enable_strict_url_encoding",
             "retry_strategy",
+            "source_name",
             "entity_id",
             "entity_type",
             "entity_type_display_name",
@@ -11879,6 +11883,7 @@ class LogAnalyticsClient(object):
                 )
 
         query_params = {
+            "sourceName": kwargs.get("source_name", missing),
             "entityId": kwargs.get("entity_id", missing),
             "entityType": kwargs.get("entity_type", missing),
             "entityTypeDisplayName": kwargs.get("entity_type_display_name", missing),
@@ -11941,7 +11946,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str source_name: (required)
             The source name.
@@ -11985,7 +11990,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_auto_associations.py.html>`__ to see an example of how to use list_auto_associations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_auto_associations.py.html>`__ to see an example of how to use list_auto_associations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'sourceName']
@@ -12094,7 +12099,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str category_type: (optional)
             A comma-separated list of category types used for filtering. Only categories of the
@@ -12147,7 +12152,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_categories.py.html>`__ to see an example of how to use list_categories API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_categories.py.html>`__ to see an example of how to use list_categories API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -12261,7 +12266,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str compartment_id: (required)
             The ID of the compartment in which to list resources.
@@ -12302,7 +12307,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_config_work_requests.py.html>`__ to see an example of how to use list_config_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_config_work_requests.py.html>`__ to see an example of how to use list_config_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -12408,7 +12413,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str agent_id: (optional)
             The agent ocid.
@@ -12470,7 +12475,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_effective_properties.py.html>`__ to see an example of how to use list_effective_properties API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_effective_properties.py.html>`__ to see an example of how to use list_effective_properties API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -12592,7 +12597,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -12617,7 +12622,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_encryption_key_info.py.html>`__ to see an example of how to use list_encryption_key_info API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_encryption_key_info.py.html>`__ to see an example of how to use list_encryption_key_info API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -12697,10 +12702,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_analytics_entity_id: (required)
-            The log analytics entity OCID.
+            The log analytics entity ID [OCID]. Entity ID can be obtained by running 'oci log-analytics entity list --namespace-name <namespace> --compartment-id <compartment>'. The json output 'id' parameter value contains the entity ID.
 
         :param str direct_or_all_associations: (optional)
             Indicates whether to return direct associated entities or direct and inferred associated entities.
@@ -12747,7 +12752,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_entity_associations.py.html>`__ to see an example of how to use list_entity_associations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_entity_associations.py.html>`__ to see an example of how to use list_entity_associations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logAnalyticsEntityId']
@@ -12863,10 +12868,13 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str compartment_id: (required)
             The ID of the compartment in which to list resources.
+
+        :param str source_name: (optional)
+            The source name.
 
         :param str entity_id: (optional)
             The entity OCID.
@@ -12927,7 +12935,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_entity_source_associations.py.html>`__ to see an example of how to use list_entity_source_associations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_entity_source_associations.py.html>`__ to see an example of how to use list_entity_source_associations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -12941,6 +12949,7 @@ class LogAnalyticsClient(object):
             "allow_control_chars",
             "enable_strict_url_encoding",
             "retry_strategy",
+            "source_name",
             "entity_id",
             "entity_type",
             "entity_type_display_name",
@@ -12989,6 +12998,7 @@ class LogAnalyticsClient(object):
                 )
 
         query_params = {
+            "sourceName": kwargs.get("source_name", missing),
             "entityId": kwargs.get("entity_id", missing),
             "entityType": kwargs.get("entity_type", missing),
             "entityTypeDisplayName": kwargs.get("entity_type_display_name", missing),
@@ -13053,7 +13063,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param bool is_match_all: (optional)
             A flag indicating how to handle filtering when multiple filter criteria are specified.
@@ -13129,7 +13139,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_fields.py.html>`__ to see an example of how to use list_fields API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_fields.py.html>`__ to see an example of how to use list_fields API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -13260,7 +13270,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str compartment_id: (required)
             The ID of the compartment in which to list resources.
@@ -13328,7 +13338,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_ingest_time_rules.py.html>`__ to see an example of how to use list_ingest_time_rules API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_ingest_time_rules.py.html>`__ to see an example of how to use list_ingest_time_rules API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -13461,7 +13471,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param int limit: (optional)
             The maximum number of items to return.
@@ -13492,7 +13502,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_label_priorities.py.html>`__ to see an example of how to use list_label_priorities API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_label_priorities.py.html>`__ to see an example of how to use list_label_priorities API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -13582,7 +13592,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str label_name: (optional)
             The label name used for filtering.  Only items with, or associated with, the
@@ -13627,7 +13637,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_label_source_details.py.html>`__ to see an example of how to use list_label_source_details API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_label_source_details.py.html>`__ to see an example of how to use list_label_source_details API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -13737,7 +13747,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str label_name: (optional)
             The label name used for filtering.  Only items with, or associated with, the
@@ -13780,7 +13790,7 @@ class LogAnalyticsClient(object):
         :param str label_sort_by: (optional)
             The attribute used to sort the returned labels
 
-            Allowed values are: "name", "priority", "sourceUsing"
+            Allowed values are: "name", "priority", "sourceUsing", "timeUpdated"
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -13805,7 +13815,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_labels.py.html>`__ to see an example of how to use list_labels API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_labels.py.html>`__ to see an example of how to use list_labels API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -13868,7 +13878,7 @@ class LogAnalyticsClient(object):
                 )
 
         if 'label_sort_by' in kwargs:
-            label_sort_by_allowed_values = ["name", "priority", "sourceUsing"]
+            label_sort_by_allowed_values = ["name", "priority", "sourceUsing", "timeUpdated"]
             if kwargs['label_sort_by'] not in label_sort_by_allowed_values:
                 raise ValueError(
                     f"Invalid value for `label_sort_by`, must be one of { label_sort_by_allowed_values }"
@@ -13939,7 +13949,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str compartment_id: (required)
             The ID of the compartment in which to list resources.
@@ -14001,7 +14011,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_log_analytics_em_bridges.py.html>`__ to see an example of how to use list_log_analytics_em_bridges API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_log_analytics_em_bridges.py.html>`__ to see an example of how to use list_log_analytics_em_bridges API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -14132,7 +14142,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str compartment_id: (required)
             The ID of the compartment in which to list resources.
@@ -14256,7 +14266,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_log_analytics_entities.py.html>`__ to see an example of how to use list_log_analytics_entities API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_log_analytics_entities.py.html>`__ to see an example of how to use list_log_analytics_entities API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -14421,10 +14431,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_analytics_entity_id: (required)
-            The log analytics entity OCID.
+            The log analytics entity ID [OCID]. Entity ID can be obtained by running 'oci log-analytics entity list --namespace-name <namespace> --compartment-id <compartment>'. The json output 'id' parameter value contains the entity ID.
 
         :param str lifecycle_state: (optional)
             A filter to return only those log analytics entities with the specified lifecycle state. The state
@@ -14479,7 +14489,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_log_analytics_entity_topology.py.html>`__ to see an example of how to use list_log_analytics_entity_topology API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_log_analytics_entity_topology.py.html>`__ to see an example of how to use list_log_analytics_entity_topology API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logAnalyticsEntityId']
@@ -14599,7 +14609,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str name: (optional)
             A filter to return only log analytics entity types whose name matches the entire name given. The match is
@@ -14660,7 +14670,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_log_analytics_entity_types.py.html>`__ to see an example of how to use list_log_analytics_entity_types API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_log_analytics_entity_types.py.html>`__ to see an example of how to use list_log_analytics_entity_types API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -14788,7 +14798,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str compartment_id: (required)
             The ID of the compartment in which to list resources.
@@ -14836,7 +14846,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_log_analytics_log_groups.py.html>`__ to see an example of how to use list_log_analytics_log_groups API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_log_analytics_log_groups.py.html>`__ to see an example of how to use list_log_analytics_log_groups API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -14947,7 +14957,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str compartment_id: (required)
             The ID of the compartment in which to list resources.
@@ -15000,7 +15010,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_log_analytics_object_collection_rules.py.html>`__ to see an example of how to use list_log_analytics_object_collection_rules API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_log_analytics_object_collection_rules.py.html>`__ to see an example of how to use list_log_analytics_object_collection_rules API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -15120,7 +15130,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -15159,7 +15169,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_log_sets.py.html>`__ to see an example of how to use list_log_sets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_log_sets.py.html>`__ to see an example of how to use list_log_sets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -15260,7 +15270,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str type: (required)
             The lookup type.  Valid values are Lookup, Dictionary or Module.
@@ -15331,7 +15341,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_lookups.py.html>`__ to see an example of how to use list_lookups API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_lookups.py.html>`__ to see an example of how to use list_lookups API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'type']
@@ -15472,7 +15482,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param int limit: (optional)
             The maximum number of items to return.
@@ -15513,7 +15523,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_meta_source_types.py.html>`__ to see an example of how to use list_meta_source_types API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_meta_source_types.py.html>`__ to see an example of how to use list_meta_source_types API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -15618,7 +15628,7 @@ class LogAnalyticsClient(object):
     def list_namespaces(self, compartment_id, **kwargs):
         """
         Given a tenancy OCID, this API returns the namespace of the tenancy if it is valid and subscribed to the region.  The
-        result also indicates if the tenancy is onboarded with Logging Analytics.
+        result also indicates if the tenancy is onboarded with Log Analytics.
 
 
         :param str compartment_id: (required)
@@ -15626,6 +15636,9 @@ class LogAnalyticsClient(object):
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
+
+        :param bool is_compartment_delete: (optional)
+            if true, the request is from compartment delete service.
 
         :param obj retry_strategy: (optional)
             A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
@@ -15647,7 +15660,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_namespaces.py.html>`__ to see an example of how to use list_namespaces API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_namespaces.py.html>`__ to see an example of how to use list_namespaces API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -15661,7 +15674,8 @@ class LogAnalyticsClient(object):
             "allow_control_chars",
             "enable_strict_url_encoding",
             "retry_strategy",
-            "opc_request_id"
+            "opc_request_id",
+            "is_compartment_delete"
         ]
         extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
         if extra_kwargs:
@@ -15669,7 +15683,8 @@ class LogAnalyticsClient(object):
                 f"list_namespaces got unknown kwargs: {extra_kwargs!r}")
 
         query_params = {
-            "compartmentId": compartment_id
+            "compartmentId": compartment_id,
+            "isCompartmentDelete": kwargs.get("is_compartment_delete", missing)
         }
         query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
 
@@ -15722,7 +15737,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -15770,7 +15785,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_overlapping_recalls.py.html>`__ to see an example of how to use list_overlapping_recalls API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_overlapping_recalls.py.html>`__ to see an example of how to use list_overlapping_recalls API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -15882,7 +15897,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str name: (optional)
             The parser action name used for filtering.
@@ -15929,7 +15944,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_parser_actions.py.html>`__ to see an example of how to use list_parser_actions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_parser_actions.py.html>`__ to see an example of how to use list_parser_actions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -16041,7 +16056,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str parser_name: (optional)
             The parser name used for filtering.
@@ -16085,7 +16100,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_parser_functions.py.html>`__ to see an example of how to use list_parser_functions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_parser_functions.py.html>`__ to see an example of how to use list_parser_functions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -16195,7 +16210,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param int limit: (optional)
             The maximum number of items to return.
@@ -16236,7 +16251,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_parser_meta_plugins.py.html>`__ to see an example of how to use list_parser_meta_plugins API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_parser_meta_plugins.py.html>`__ to see an example of how to use list_parser_meta_plugins API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -16344,7 +16359,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param bool is_match_all: (optional)
             A flag indicating how to handle filtering when multiple filter criteria are specified.
@@ -16421,7 +16436,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_parsers.py.html>`__ to see an example of how to use list_parsers API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_parsers.py.html>`__ to see an example of how to use list_parsers API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -16564,7 +16579,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str name: (optional)
             The property name used for filtering.
@@ -16618,7 +16633,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_properties_metadata.py.html>`__ to see an example of how to use list_properties_metadata API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_properties_metadata.py.html>`__ to see an example of how to use list_properties_metadata API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -16734,7 +16749,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str compartment_id: (required)
             The ID of the compartment in which to list resources.
@@ -16783,7 +16798,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_query_work_requests.py.html>`__ to see an example of how to use list_query_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_query_work_requests.py.html>`__ to see an example of how to use list_query_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -16901,7 +16916,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -16949,7 +16964,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_recalled_data.py.html>`__ to see an example of how to use list_recalled_data API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_recalled_data.py.html>`__ to see an example of how to use list_recalled_data API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -17061,7 +17076,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -17112,7 +17127,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_recalled_info.py.html>`__ to see an example of how to use list_recalled_info API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_recalled_info.py.html>`__ to see an example of how to use list_recalled_info API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -17227,7 +17242,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str categories: (optional)
             A comma-separated list of categories used for filtering
@@ -17282,7 +17297,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_resource_categories.py.html>`__ to see an example of how to use list_resource_categories API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_resource_categories.py.html>`__ to see an example of how to use list_resource_categories API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -17398,7 +17413,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str compartment_id: (required)
             The ID of the compartment in which to list resources.
@@ -17461,7 +17476,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_rules.py.html>`__ to see an example of how to use list_rules API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_rules.py.html>`__ to see an example of how to use list_rules API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -17592,7 +17607,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str task_type: (required)
             Required parameter to specify schedule task type.
@@ -17658,7 +17673,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_scheduled_tasks.py.html>`__ to see an example of how to use list_scheduled_tasks API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_scheduled_tasks.py.html>`__ to see an example of how to use list_scheduled_tasks API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'taskType', 'compartmentId']
@@ -17784,7 +17799,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str source_name: (required)
             The souce name used for filtering associations.
@@ -17794,6 +17809,9 @@ class LogAnalyticsClient(object):
 
         :param str entity_id: (optional)
             The entity OCID.
+
+        :param str entity_name: (optional)
+            The entity name used for filtering.
 
         :param str life_cycle_state: (optional)
             The life cycle state used for filtering.  Only associations with the specified
@@ -17843,7 +17861,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_source_associations.py.html>`__ to see an example of how to use list_source_associations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_source_associations.py.html>`__ to see an example of how to use list_source_associations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'sourceName', 'compartmentId']
@@ -17858,6 +17876,7 @@ class LogAnalyticsClient(object):
             "enable_strict_url_encoding",
             "retry_strategy",
             "entity_id",
+            "entity_name",
             "life_cycle_state",
             "is_show_total",
             "opc_request_id",
@@ -17905,6 +17924,7 @@ class LogAnalyticsClient(object):
         query_params = {
             "sourceName": source_name,
             "entityId": kwargs.get("entity_id", missing),
+            "entityName": kwargs.get("entity_name", missing),
             "lifeCycleState": kwargs.get("life_cycle_state", missing),
             "isShowTotal": kwargs.get("is_show_total", missing),
             "compartmentId": compartment_id,
@@ -17966,7 +17986,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str source_name: (required)
             The source name.
@@ -18024,7 +18044,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_source_event_types.py.html>`__ to see an example of how to use list_source_event_types API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_source_event_types.py.html>`__ to see an example of how to use list_source_event_types API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'sourceName']
@@ -18146,7 +18166,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str source_name: (required)
             The source name.
@@ -18190,7 +18210,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_source_extended_field_definitions.py.html>`__ to see an example of how to use list_source_extended_field_definitions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_source_extended_field_definitions.py.html>`__ to see an example of how to use list_source_extended_field_definitions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'sourceName']
@@ -18299,7 +18319,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param int limit: (optional)
             The maximum number of items to return.
@@ -18340,7 +18360,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_source_label_operators.py.html>`__ to see an example of how to use list_source_label_operators API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_source_label_operators.py.html>`__ to see an example of how to use list_source_label_operators API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -18448,7 +18468,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param int limit: (optional)
             The maximum number of items to return.
@@ -18489,7 +18509,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_source_meta_functions.py.html>`__ to see an example of how to use list_source_meta_functions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_source_meta_functions.py.html>`__ to see an example of how to use list_source_meta_functions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -18597,7 +18617,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str source_name: (required)
             The source name.
@@ -18644,7 +18664,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_source_patterns.py.html>`__ to see an example of how to use list_source_patterns API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_source_patterns.py.html>`__ to see an example of how to use list_source_patterns API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'sourceName']
@@ -18755,7 +18775,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str compartment_id: (required)
             The ID of the compartment in which to list resources.
@@ -18774,6 +18794,12 @@ class LogAnalyticsClient(object):
             all (for all items, regardless of system value).
 
             Allowed values are: "ALL", "CUSTOM", "BUILT_IN"
+
+        :param str lifecycle_state: (optional)
+            The source lifecycle state used for filtering. Currently supported
+            values are ACTIVE and DELETED.
+
+            Allowed values are: "ACTIVE", "DELETED", "ALL"
 
         :param bool is_auto_associated: (optional)
             An auto-associate flag used for filtering.  Only sources which are marked for automatic
@@ -18838,7 +18864,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_sources.py.html>`__ to see an example of how to use list_sources API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_sources.py.html>`__ to see an example of how to use list_sources API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -18855,6 +18881,7 @@ class LogAnalyticsClient(object):
             "entity_type",
             "source_display_text",
             "is_system",
+            "lifecycle_state",
             "is_auto_associated",
             "sort_order",
             "sort_by",
@@ -18889,6 +18916,13 @@ class LogAnalyticsClient(object):
                     f"Invalid value for `is_system`, must be one of { is_system_allowed_values }"
                 )
 
+        if 'lifecycle_state' in kwargs:
+            lifecycle_state_allowed_values = ["ACTIVE", "DELETED", "ALL"]
+            if kwargs['lifecycle_state'] not in lifecycle_state_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `lifecycle_state`, must be one of { lifecycle_state_allowed_values }"
+                )
+
         if 'sort_order' in kwargs:
             sort_order_allowed_values = ["ASC", "DESC"]
             if kwargs['sort_order'] not in sort_order_allowed_values:
@@ -18907,6 +18941,7 @@ class LogAnalyticsClient(object):
             "entityType": kwargs.get("entity_type", missing),
             "sourceDisplayText": kwargs.get("source_display_text", missing),
             "isSystem": kwargs.get("is_system", missing),
+            "lifecycleState": kwargs.get("lifecycle_state", missing),
             "isAutoAssociated": kwargs.get("is_auto_associated", missing),
             "sortOrder": kwargs.get("sort_order", missing),
             "sortBy": kwargs.get("sort_by", missing),
@@ -18975,12 +19010,12 @@ class LogAnalyticsClient(object):
             The ID of the compartment in which to list resources.
 
         :param str work_request_id: (required)
-            Work Request Identifier `OCID]`__ for the asynchronous request.
+            Work Request Identifier `OCID]`__ for the asynchronous request. The work request id can be usually obtained from the 'opc-work-request-id' response header of the asynchronous request.
 
             __ https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -19021,7 +19056,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_storage_work_request_errors.py.html>`__ to see an example of how to use list_storage_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_storage_work_request_errors.py.html>`__ to see an example of how to use list_storage_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId', 'namespaceName', 'compartmentId']
@@ -19134,7 +19169,7 @@ class LogAnalyticsClient(object):
             The ID of the compartment in which to list resources.
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -19159,7 +19194,7 @@ class LogAnalyticsClient(object):
         :param str operation_type: (optional)
             The is the work request type query parameter
 
-            Allowed values are: "OFFBOARD_TENANCY", "PURGE_STORAGE_DATA", "RECALL_ARCHIVED_STORAGE_DATA", "RELEASE_RECALLED_STORAGE_DATA", "PURGE_ARCHIVAL_DATA", "ARCHIVE_STORAGE_DATA", "CLEANUP_ARCHIVAL_STORAGE_DATA", "ENCRYPT_ACTIVE_DATA", "ENCRYPT_ARCHIVAL_DATA"
+            Allowed values are: "OFFBOARD_TENANCY", "PURGE_STORAGE_DATA", "RECALL_ARCHIVED_STORAGE_DATA", "RELEASE_RECALLED_STORAGE_DATA", "PURGE_ARCHIVAL_DATA", "ARCHIVE_STORAGE_DATA", "CLEANUP_ARCHIVAL_STORAGE_DATA", "ENCRYPT_ACTIVE_DATA", "ENCRYPT_ARCHIVAL_DATA", "ENCRYPT_ALL_DATA"
 
         :param str status: (optional)
             The is the work request status query parameter
@@ -19198,7 +19233,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_storage_work_requests.py.html>`__ to see an example of how to use list_storage_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_storage_work_requests.py.html>`__ to see an example of how to use list_storage_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -19254,7 +19289,7 @@ class LogAnalyticsClient(object):
                 )
 
         if 'operation_type' in kwargs:
-            operation_type_allowed_values = ["OFFBOARD_TENANCY", "PURGE_STORAGE_DATA", "RECALL_ARCHIVED_STORAGE_DATA", "RELEASE_RECALLED_STORAGE_DATA", "PURGE_ARCHIVAL_DATA", "ARCHIVE_STORAGE_DATA", "CLEANUP_ARCHIVAL_STORAGE_DATA", "ENCRYPT_ACTIVE_DATA", "ENCRYPT_ARCHIVAL_DATA"]
+            operation_type_allowed_values = ["OFFBOARD_TENANCY", "PURGE_STORAGE_DATA", "RECALL_ARCHIVED_STORAGE_DATA", "RELEASE_RECALLED_STORAGE_DATA", "PURGE_ARCHIVAL_DATA", "ARCHIVE_STORAGE_DATA", "CLEANUP_ARCHIVAL_STORAGE_DATA", "ENCRYPT_ACTIVE_DATA", "ENCRYPT_ARCHIVAL_DATA", "ENCRYPT_ALL_DATA"]
             if kwargs['operation_type'] not in operation_type_allowed_values:
                 raise ValueError(
                     f"Invalid value for `operation_type`, must be one of { operation_type_allowed_values }"
@@ -19333,7 +19368,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param int limit: (optional)
             The maximum number of items to return.
@@ -19364,7 +19399,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_supported_char_encodings.py.html>`__ to see an example of how to use list_supported_char_encodings API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_supported_char_encodings.py.html>`__ to see an example of how to use list_supported_char_encodings API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -19454,7 +19489,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param int limit: (optional)
             The maximum number of items to return.
@@ -19485,7 +19520,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_supported_timezones.py.html>`__ to see an example of how to use list_supported_timezones API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_supported_timezones.py.html>`__ to see an example of how to use list_supported_timezones API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -19575,7 +19610,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str compartment_id: (required)
             The ID of the compartment in which to list resources.
@@ -19639,7 +19674,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_templates.py.html>`__ to see an example of how to use list_templates API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_templates.py.html>`__ to see an example of how to use list_templates API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -19765,7 +19800,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str upload_reference: (required)
             Unique internal identifier to refer upload container.
@@ -19818,7 +19853,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_upload_files.py.html>`__ to see an example of how to use list_upload_files API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_upload_files.py.html>`__ to see an example of how to use list_upload_files API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'uploadReference']
@@ -19939,7 +19974,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str upload_reference: (required)
             Unique internal identifier to refer upload container.
@@ -19973,7 +20008,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_upload_warnings.py.html>`__ to see an example of how to use list_upload_warnings API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_upload_warnings.py.html>`__ to see an example of how to use list_upload_warnings API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'uploadReference']
@@ -20065,7 +20100,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str name: (optional)
             Name of the upload container.
@@ -20119,7 +20154,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_uploads.py.html>`__ to see an example of how to use list_uploads API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_uploads.py.html>`__ to see an example of how to use list_uploads API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -20240,7 +20275,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str compartment_id: (required)
             The ID of the compartment in which to list resources.
@@ -20264,8 +20299,7 @@ class LogAnalyticsClient(object):
             warning message query parameter
 
         :param str entity_name: (optional)
-            The entity name used for filtering.  Only warnings associated with an entity with the
-            specified name will be returned.
+            The entity name used for filtering.
 
         :param str entity_type: (optional)
             The entity type used for filtering.  Only associations on an entity with the
@@ -20324,7 +20358,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_warnings.py.html>`__ to see an example of how to use list_warnings API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_warnings.py.html>`__ to see an example of how to use list_warnings API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -20460,10 +20494,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str work_request_id: (required)
-            Work Request Identifier `OCID]`__ for the asynchronous request.
+            Work Request Identifier `OCID]`__ for the asynchronous request. The work request id can be usually obtained from the 'opc-work-request-id' response header of the asynchronous request.
 
             __ https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm
 
@@ -20496,7 +20530,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'workRequestId']
@@ -20585,10 +20619,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str work_request_id: (required)
-            Work Request Identifier `OCID]`__ for the asynchronous request.
+            Work Request Identifier `OCID]`__ for the asynchronous request. The work request id can be usually obtained from the 'opc-work-request-id' response header of the asynchronous request.
 
             __ https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm
 
@@ -20621,7 +20655,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'workRequestId']
@@ -20710,7 +20744,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str compartment_id: (required)
             The ID of the compartment in which to list resources.
@@ -20744,7 +20778,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -20829,11 +20863,11 @@ class LogAnalyticsClient(object):
 
     def offboard_namespace(self, namespace_name, **kwargs):
         """
-        Off-boards a tenant from Logging Analytics
+        Off-boards a tenant from Log Analytics
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -20865,7 +20899,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/offboard_namespace.py.html>`__ to see an example of how to use offboard_namespace API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/offboard_namespace.py.html>`__ to see an example of how to use offboard_namespace API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -20940,11 +20974,11 @@ class LogAnalyticsClient(object):
 
     def onboard_namespace(self, namespace_name, **kwargs):
         """
-        On-boards a tenant to Logging Analytics.
+        On-boards a tenant to Log Analytics.
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_retry_token: (optional)
             A token that uniquely identifies a request so it can be retried in case of a timeout or
@@ -20976,7 +21010,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/onboard_namespace.py.html>`__ to see an example of how to use onboard_namespace API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/onboard_namespace.py.html>`__ to see an example of how to use onboard_namespace API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -21055,7 +21089,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.ParseQueryDetails parse_query_details: (required)
             Query string to be parsed
@@ -21083,7 +21117,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/parse_query.py.html>`__ to see an example of how to use parse_query API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/parse_query.py.html>`__ to see an example of how to use parse_query API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -21169,7 +21203,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str scheduled_task_id: (required)
             Unique scheduledTask id returned from task create.
@@ -21205,7 +21239,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/pause_scheduled_task.py.html>`__ to see an example of how to use pause_scheduled_task API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/pause_scheduled_task.py.html>`__ to see an example of how to use pause_scheduled_task API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'scheduledTaskId']
@@ -21289,7 +21323,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.PurgeStorageDataDetails purge_storage_data_details: (required)
             This is the input to purge old data.
@@ -21331,7 +21365,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/purge_storage_data.py.html>`__ to see an example of how to use purge_storage_data API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/purge_storage_data.py.html>`__ to see an example of how to use purge_storage_data API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -21418,10 +21452,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str work_request_id: (required)
-            Work Request Identifier `OCID]`__ for the asynchronous request.
+            Work Request Identifier `OCID]`__ for the asynchronous request. The work request id can be usually obtained from the 'opc-work-request-id' response header of the asynchronous request.
 
             __ https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm
 
@@ -21455,7 +21489,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/put_query_work_request_background.py.html>`__ to see an example of how to use put_query_work_request_background API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/put_query_work_request_background.py.html>`__ to see an example of how to use put_query_work_request_background API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'workRequestId']
@@ -21536,7 +21570,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.QueryDetails query_details: (required)
             Query to be executed.
@@ -21570,7 +21604,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/query.py.html>`__ to see an example of how to use query API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/query.py.html>`__ to see an example of how to use query API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -21666,7 +21700,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.RecallArchivedDataDetails recall_archived_data_details: (required)
             This is the input to recall archived data.
@@ -21708,7 +21742,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/recall_archived_data.py.html>`__ to see an example of how to use recall_archived_data API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/recall_archived_data.py.html>`__ to see an example of how to use recall_archived_data API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -21797,7 +21831,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str type: (required)
             The lookup type.  Valid values are Lookup, Dictionary or Module.
@@ -21868,7 +21902,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/register_lookup.py.html>`__ to see an example of how to use register_lookup API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/register_lookup.py.html>`__ to see an example of how to use register_lookup API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'type']
@@ -22003,7 +22037,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.ReleaseRecalledDataDetails release_recalled_data_details: (required)
             This is the input to release recalled data
@@ -22045,7 +22079,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/release_recalled_data.py.html>`__ to see an example of how to use release_recalled_data API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/release_recalled_data.py.html>`__ to see an example of how to use release_recalled_data API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -22132,10 +22166,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_analytics_entity_id: (required)
-            The log analytics entity OCID.
+            The log analytics entity ID [OCID]. Entity ID can be obtained by running 'oci log-analytics entity list --namespace-name <namespace> --compartment-id <compartment>'. The json output 'id' parameter value contains the entity ID.
 
         :param oci.log_analytics.models.RemoveEntityAssociationsDetails remove_entity_associations_details: (required)
             This parameter specifies the entity OCIDs with which associations are to be deleted.
@@ -22177,7 +22211,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/remove_entity_associations.py.html>`__ to see an example of how to use remove_entity_associations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/remove_entity_associations.py.html>`__ to see an example of how to use remove_entity_associations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logAnalyticsEntityId']
@@ -22267,7 +22301,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.LogAnalyticsPreferenceDetails remove_preferences_details: (required)
             Details of the tenant preferences to delete.
@@ -22302,7 +22336,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/remove_preferences.py.html>`__ to see an example of how to use remove_preferences API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/remove_preferences.py.html>`__ to see an example of how to use remove_preferences API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -22389,7 +22423,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.LogAnalyticsResourceCategoryDetails remove_resource_categories_details: (required)
             Details for removing the specified category assignments of resources.
@@ -22417,7 +22451,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/remove_resource_categories.py.html>`__ to see an example of how to use remove_resource_categories API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/remove_resource_categories.py.html>`__ to see an example of how to use remove_resource_categories API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -22501,7 +22535,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str source_name: (required)
             The source name.
@@ -22539,7 +22573,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/remove_source_event_types.py.html>`__ to see an example of how to use remove_source_event_types API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/remove_source_event_types.py.html>`__ to see an example of how to use remove_source_event_types API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'sourceName']
@@ -22627,7 +22661,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str scheduled_task_id: (required)
             Unique scheduledTask id returned from task create.
@@ -22663,7 +22697,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/resume_scheduled_task.py.html>`__ to see an example of how to use resume_scheduled_task API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/resume_scheduled_task.py.html>`__ to see an example of how to use resume_scheduled_task API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'scheduledTaskId']
@@ -22748,7 +22782,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str scheduled_task_id: (required)
             Unique scheduledTask id returned from task create.
@@ -22792,7 +22826,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/run.py.html>`__ to see an example of how to use run API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/run.py.html>`__ to see an example of how to use run API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'scheduledTaskId']
@@ -22884,10 +22918,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str bucket_name: (required)
-            Name of the Object Storage bucket.
+            Name of the Object Storage bucket. Bucket name can be obtained by running 'oci os bucket list --namespace-name <namespace> --compartment-id <compartment>'. The json output 'name' parameter value contains the bucket name.
 
         :param bool is_enabled: (optional)
             The enabled flag used for filtering.  Only items with the specified enabled value
@@ -22916,7 +22950,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/set_unprocessed_data_bucket.py.html>`__ to see an example of how to use set_unprocessed_data_bucket API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/set_unprocessed_data_bucket.py.html>`__ to see an example of how to use set_unprocessed_data_bucket API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'bucketName']
@@ -23003,7 +23037,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.SuggestDetails suggest_details: (required)
             Query string seeking suggestions for.
@@ -23031,7 +23065,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/suggest.py.html>`__ to see an example of how to use suggest API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/suggest.py.html>`__ to see an example of how to use suggest API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -23117,7 +23151,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.WarningReferenceDetails warning_reference_details: (required)
             list of agent warning references to suppress
@@ -23155,7 +23189,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/suppress_warning.py.html>`__ to see an example of how to use suppress_warning API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/suppress_warning.py.html>`__ to see an example of how to use suppress_warning API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -23249,7 +23283,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.TestParserPayloadDetails test_parser_payload_details: (required)
             Details for test payload
@@ -23293,7 +23327,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/test_parser.py.html>`__ to see an example of how to use test_parser API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/test_parser.py.html>`__ to see an example of how to use test_parser API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -23399,7 +23433,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.WarningReferenceDetails warning_reference_details: (required)
             warnings list
@@ -23437,7 +23471,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/unsuppress_warning.py.html>`__ to see an example of how to use unsuppress_warning API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/unsuppress_warning.py.html>`__ to see an example of how to use unsuppress_warning API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -23531,10 +23565,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str ingest_time_rule_id: (required)
-            Unique ocid of the ingest time rule.
+            Unique ocid of the ingest time rule. Ingest time rule ID can be obtained by running 'oci log-analytics ingest-time-rule list --namespace-name <namespace> --compartment-id <compartment>'. The json output 'id' parameter value contains the rule ID.
 
         :param oci.log_analytics.models.IngestTimeRule update_ingest_time_rule_details: (required)
             The information to be updated.
@@ -23569,7 +23603,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/update_ingest_time_rule.py.html>`__ to see an example of how to use update_ingest_time_rule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/update_ingest_time_rule.py.html>`__ to see an example of how to use update_ingest_time_rule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'ingestTimeRuleId']
@@ -23658,10 +23692,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_analytics_em_bridge_id: (required)
-            The log analytics enterprise manager bridge OCID.
+            The log analytics enterprise manager bridge OCID. Bridge ID can be obtained by running 'oci log-analytics em-bridge list --namespace-name <namespace> --compartment-id <compartment>'. The json output 'id' parameter value contains the bridge ID.
 
         :param oci.log_analytics.models.UpdateLogAnalyticsEmBridgeDetails update_log_analytics_em_bridge_details: (required)
             Log analytics enterprise manager information to be updated.
@@ -23696,7 +23730,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/update_log_analytics_em_bridge.py.html>`__ to see an example of how to use update_log_analytics_em_bridge API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/update_log_analytics_em_bridge.py.html>`__ to see an example of how to use update_log_analytics_em_bridge API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logAnalyticsEmBridgeId']
@@ -23783,10 +23817,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_analytics_entity_id: (required)
-            The log analytics entity OCID.
+            The log analytics entity ID [OCID]. Entity ID can be obtained by running 'oci log-analytics entity list --namespace-name <namespace> --compartment-id <compartment>'. The json output 'id' parameter value contains the entity ID.
 
         :param oci.log_analytics.models.UpdateLogAnalyticsEntityDetails update_log_analytics_entity_details: (required)
             Log analytics entity information to be updated.
@@ -23821,7 +23855,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/update_log_analytics_entity.py.html>`__ to see an example of how to use update_log_analytics_entity API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/update_log_analytics_entity.py.html>`__ to see an example of how to use update_log_analytics_entity API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logAnalyticsEntityId']
@@ -23908,13 +23942,13 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.UpdateLogAnalyticsEntityTypeDetails update_log_analytics_entity_type_details: (required)
             Log analytics entity type update details.
 
         :param str entity_type_name: (required)
-            Log analytics entity type name.
+            Log analytics entity type name. Entity type name can be obtained by running 'oci log-analytics entity-type list --namespace-name <namespacename> --all'. The json output 'internal-name' parameter value contains the entity type name.
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -23946,7 +23980,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/update_log_analytics_entity_type.py.html>`__ to see an example of how to use update_log_analytics_entity_type API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/update_log_analytics_entity_type.py.html>`__ to see an example of how to use update_log_analytics_entity_type API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'entityTypeName']
@@ -24031,7 +24065,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_analytics_log_group_id: (required)
             unique logAnalytics log group identifier
@@ -24069,7 +24103,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/update_log_analytics_log_group.py.html>`__ to see an example of how to use update_log_analytics_log_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/update_log_analytics_log_group.py.html>`__ to see an example of how to use update_log_analytics_log_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logAnalyticsLogGroupId']
@@ -24158,10 +24192,10 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_analytics_object_collection_rule_id: (required)
-            The Logging Analytics Object Collection Rule `OCID`__.
+            The Log Analytics Object Collection Rule `OCID`__.
 
             __ https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm
 
@@ -24198,7 +24232,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/update_log_analytics_object_collection_rule.py.html>`__ to see an example of how to use update_log_analytics_object_collection_rule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/update_log_analytics_object_collection_rule.py.html>`__ to see an example of how to use update_log_analytics_object_collection_rule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logAnalyticsObjectCollectionRuleId']
@@ -24285,7 +24319,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str lookup_name: (required)
             The name of the lookup to operate on.
@@ -24330,7 +24364,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/update_lookup.py.html>`__ to see an example of how to use update_lookup API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/update_lookup.py.html>`__ to see an example of how to use update_lookup API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'lookupName']
@@ -24422,7 +24456,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str lookup_name: (required)
             The name of the lookup to operate on.
@@ -24486,7 +24520,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/update_lookup_data.py.html>`__ to see an example of how to use update_lookup_data API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/update_lookup_data.py.html>`__ to see an example of how to use update_lookup_data API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'lookupName']
@@ -24609,7 +24643,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.LogAnalyticsPreferenceDetails update_preferences_details: (required)
             Details of the tenant preferences to update.
@@ -24644,7 +24678,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/update_preferences.py.html>`__ to see an example of how to use update_preferences API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/update_preferences.py.html>`__ to see an example of how to use update_preferences API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -24731,7 +24765,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.LogAnalyticsResourceCategoryDetails update_resource_categories_details: (required)
             Details for updating the specified category assignments of resources.
@@ -24759,7 +24793,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/update_resource_categories.py.html>`__ to see an example of how to use update_resource_categories API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/update_resource_categories.py.html>`__ to see an example of how to use update_resource_categories API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -24843,7 +24877,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str scheduled_task_id: (required)
             Unique scheduledTask id returned from task create.
@@ -24883,7 +24917,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/update_scheduled_task.py.html>`__ to see an example of how to use update_scheduled_task API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/update_scheduled_task.py.html>`__ to see an example of how to use update_scheduled_task API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'scheduledTaskId']
@@ -24972,7 +25006,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.UpdateStorageDetails update_storage_details: (required)
             This is the archiving configuration
@@ -25007,7 +25041,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/update_storage.py.html>`__ to see an example of how to use update_storage API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/update_storage.py.html>`__ to see an example of how to use update_storage API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -25091,11 +25125,11 @@ class LogAnalyticsClient(object):
 
     def upload_discovery_data(self, namespace_name, upload_discovery_data_details, **kwargs):
         """
-        Accepts discovery data for processing by Logging Analytics.
+        Accepts discovery data for processing by Log Analytics.
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param stream upload_discovery_data_details: (required)
             Discovery data
@@ -25162,7 +25196,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/upload_discovery_data.py.html>`__ to see an example of how to use upload_discovery_data API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/upload_discovery_data.py.html>`__ to see an example of how to use upload_discovery_data API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -25300,11 +25334,11 @@ class LogAnalyticsClient(object):
 
     def upload_log_events_file(self, namespace_name, log_group_id, upload_log_events_file_details, **kwargs):
         """
-        Accepts log events for processing by Logging Analytics.
+        Accepts log events for processing by Log Analytics.
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_group_id: (required)
             The log group OCID that gets mapped to the uploaded logs.
@@ -25373,7 +25407,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/upload_log_events_file.py.html>`__ to see an example of how to use upload_log_events_file API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/upload_log_events_file.py.html>`__ to see an example of how to use upload_log_events_file API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logGroupId']
@@ -25503,11 +25537,11 @@ class LogAnalyticsClient(object):
 
     def upload_log_file(self, namespace_name, log_source_name, filename, opc_meta_loggrpid, upload_log_file_body, **kwargs):
         """
-        Accepts log data for processing by Logging Analytics.
+        Accepts log data for processing by Log Analytics.
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str log_source_name: (required)
             Name of the log source that will be used to process the files being uploaded.
@@ -25547,7 +25581,7 @@ class LogAnalyticsClient(object):
             The client request ID for tracing.
 
         :param str content_md5: (optional)
-            The base-64 encoded MD5 hash of the body. If the Content-MD5 header is present, Logging Analytics performs an integrity check
+            The base-64 encoded MD5 hash of the body. If the Content-MD5 header is present, Log Analytics performs an integrity check
             on the body of the HTTP request by computing the MD5 hash for the body and comparing it to the MD5 hash supplied in the header.
             If the two hashes do not match, the log data is rejected and an HTTP-400 Unmatched Content MD5 error is returned with the message:
 
@@ -25599,7 +25633,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/upload_log_file.py.html>`__ to see an example of how to use upload_log_file API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/upload_log_file.py.html>`__ to see an example of how to use upload_log_file API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'logSourceName', 'filename']
@@ -25742,7 +25776,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str opc_meta_loggrpid: (required)
             The log group OCID to which the log data in this upload will be mapped to.
@@ -25803,7 +25837,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/upload_otlp_logs.py.html>`__ to see an example of how to use upload_otlp_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/upload_otlp_logs.py.html>`__ to see an example of how to use upload_otlp_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -25922,7 +25956,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.UpsertLogAnalyticsAssociationDetails upsert_log_analytics_association_details: (required)
             list of association details
@@ -25960,7 +25994,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/upsert_associations.py.html>`__ to see an example of how to use upsert_associations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/upsert_associations.py.html>`__ to see an example of how to use upsert_associations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -26055,7 +26089,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.UpsertLogAnalyticsFieldDetails upsert_log_analytics_field_details: (required)
             Details for the new LogAnalyticsFieldDetails.
@@ -26097,7 +26131,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/upsert_field.py.html>`__ to see an example of how to use upsert_field API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/upsert_field.py.html>`__ to see an example of how to use upsert_field API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -26188,7 +26222,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.UpsertLogAnalyticsLabelDetails upsert_log_analytics_label_details: (required)
             Details for the new LogAnalyticsTagDetails.
@@ -26230,7 +26264,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/upsert_label.py.html>`__ to see an example of how to use upsert_label API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/upsert_label.py.html>`__ to see an example of how to use upsert_label API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -26321,7 +26355,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.UpsertLogAnalyticsParserDetails upsert_log_analytics_parser_details: (required)
             Details for the new LoganParserDetails.
@@ -26363,7 +26397,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/upsert_parser.py.html>`__ to see an example of how to use upsert_parser API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/upsert_parser.py.html>`__ to see an example of how to use upsert_parser API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -26454,7 +26488,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.UpsertLogAnalyticsSourceDetails upsert_log_analytics_source_details: (required)
             Details for the new LoganSourceDetails.
@@ -26507,7 +26541,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/upsert_source.py.html>`__ to see an example of how to use upsert_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/upsert_source.py.html>`__ to see an example of how to use upsert_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -26610,7 +26644,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.UpsertLogAnalyticsAssociationDetails upsert_log_analytics_association_details: (required)
             Details for the new log analytics associations.
@@ -26661,7 +26695,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/validate_association_parameters.py.html>`__ to see an example of how to use validate_association_parameters API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/validate_association_parameters.py.html>`__ to see an example of how to use validate_association_parameters API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -26778,7 +26812,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.LogAnalyticsEndpoint validate_endpoint_details: (required)
             Details of the REST endpoint configuration to validate.
@@ -26806,7 +26840,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/validate_endpoint.py.html>`__ to see an example of how to use validate_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/validate_endpoint.py.html>`__ to see an example of how to use validate_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -26892,7 +26926,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str object_location: (required)
             Location of the log file.
@@ -26923,7 +26957,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/validate_file.py.html>`__ to see an example of how to use validate_file API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/validate_file.py.html>`__ to see an example of how to use validate_file API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'objectLocation', 'filename']
@@ -27015,7 +27049,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.ValidateLabelConditionDetails validate_label_condition_details: (required)
             Details of source label condition to validate.
@@ -27043,7 +27077,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/validate_label_condition.py.html>`__ to see an example of how to use validate_label_condition API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/validate_label_condition.py.html>`__ to see an example of how to use validate_label_condition API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -27129,7 +27163,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.UpsertLogAnalyticsSourceDetails upsert_log_analytics_source_details: (required)
             Details for the new LoganSourceDetails.
@@ -27175,7 +27209,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/validate_source.py.html>`__ to see an example of how to use validate_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/validate_source.py.html>`__ to see an example of how to use validate_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -27276,7 +27310,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param oci.log_analytics.models.LogAnalyticsSource log_analytics_source: (required)
             Details for the new LogAnalyticsSource.
@@ -27311,7 +27345,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/validate_source_extended_field_details.py.html>`__ to see an example of how to use validate_source_extended_field_details API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/validate_source_extended_field_details.py.html>`__ to see an example of how to use validate_source_extended_field_details API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName']
@@ -27400,7 +27434,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str object_location: (required)
             Location of the log file.
@@ -27434,7 +27468,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/validate_source_mapping.py.html>`__ to see an example of how to use validate_source_mapping API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/validate_source_mapping.py.html>`__ to see an example of how to use validate_source_mapping API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'objectLocation', 'filename', 'logSourceName']
@@ -27526,7 +27560,7 @@ class LogAnalyticsClient(object):
 
 
         :param str namespace_name: (required)
-            The Logging Analytics namespace used for the request.
+            The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
 
         :param str scheduled_task_id: (required)
             Unique scheduledTask id returned from task create.
@@ -27566,7 +27600,7 @@ class LogAnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/loganalytics/verify.py.html>`__ to see an example of how to use verify API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/loganalytics/verify.py.html>`__ to see an example of how to use verify API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'scheduledTaskId']

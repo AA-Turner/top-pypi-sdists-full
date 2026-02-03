@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["PerformanceNetworkMetrics", "PerformanceNetworkMetricsSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "PerformanceNetworkMetrics": False,
 }
 
-
 class PerformanceNetworkMetricsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the PerformanceNetworkMetrics object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", unknown=EXCLUDE, data_key="_links", allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                unknown=EXCLUDE,
+                data_key="_links",
+                allow_none=True
+            )
     r""" The links field of the performance_network_metrics. """
 
     duration = marshmallow_fields.Str(data_key="duration", allow_none=True)
@@ -53,7 +56,12 @@ Valid choices:
 * inconsistent_delta_time
 * inconsistent_old_data """
 
-    throughput = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type_rwt.PerformanceMetricIoTypeRwtSchema", unknown=EXCLUDE, data_key="throughput", allow_none=True)
+    throughput = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type_rwt", "PerformanceMetricIoTypeRwtSchema"),
+                unknown=EXCLUDE,
+                data_key="throughput",
+                allow_none=True
+            )
     r""" The throughput field of the performance_network_metrics. """
 
     timestamp = ImpreciseDateTime(data_key="timestamp", allow_none=True)

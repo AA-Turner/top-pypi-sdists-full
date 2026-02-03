@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,17 +26,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     EmsEvent(
         {
             "message": {"name": "raid.aggr.log.CP.count"},
+            "_links": {"self": {"href": "/api/support/ems/events/node1/661"}},
+            "index": 661,
             "node": {
-                "uuid": "f087b8e3-99ac-11e8-b5a5-005056bb4ec7",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/f087b8e3-99ac-11e8-b5a5-005056bb4ec7"
                     }
                 },
+                "uuid": "f087b8e3-99ac-11e8-b5a5-005056bb4ec7",
             },
-            "_links": {"self": {"href": "/api/support/ems/events/node1/661"}},
-            "index": 661,
         }
     )
 ]
@@ -50,11 +50,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -68,11 +67,15 @@ __pdoc__ = {
     "EmsEventSchema.opts": False,
 }
 
-
 class EmsEventSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the EmsEvent object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.ems_event_links.EmsEventLinksSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ems_event_links", "EmsEventLinksSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the ems_event."""
 
     index = Size(
@@ -89,13 +92,31 @@ Example: 1"""
     )
     r""" A formatted text string populated with parameter details. Returned by default."""
 
-    message = marshmallow_fields.Nested("netapp_ontap.models.ems_event_message1.EmsEventMessage1Schema", data_key="message", unknown=EXCLUDE, allow_none=True)
+    message = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ems_event_message1", "EmsEventMessage1Schema"),
+                data_key="message",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The message field of the ems_event."""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the ems_event."""
 
-    parameters = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.ems_event_parameter.EmsEventParameterSchema", unknown=EXCLUDE, allow_none=True), data_key="parameters", allow_none=True)
+    parameters = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.ems_event_parameter", "EmsEventParameterSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="parameters",
+                allow_none=True
+            )
     r""" A list of parameters provided with the EMS event."""
 
     source = marshmallow_fields.Str(

@@ -34,6 +34,10 @@ class UdpService(Service):
             The value to assign to the parent_resource_id property of this UdpService.
         :type parent_resource_id: str
 
+        :param description:
+            The value to assign to the description property of this UdpService.
+        :type description: str
+
         :param port_ranges:
             The value to assign to the port_ranges property of this UdpService.
         :type port_ranges: list[oci.network_firewall.models.PortRange]
@@ -43,17 +47,20 @@ class UdpService(Service):
             'type': 'str',
             'name': 'str',
             'parent_resource_id': 'str',
+            'description': 'str',
             'port_ranges': 'list[PortRange]'
         }
         self.attribute_map = {
             'type': 'type',
             'name': 'name',
             'parent_resource_id': 'parentResourceId',
+            'description': 'description',
             'port_ranges': 'portRanges'
         }
         self._type = None
         self._name = None
         self._parent_resource_id = None
+        self._description = None
         self._port_ranges = None
         self._type = 'UDP_SERVICE'
 

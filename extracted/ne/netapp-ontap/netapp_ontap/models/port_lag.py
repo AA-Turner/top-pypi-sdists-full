@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["PortLag", "PortLagSchema"]
@@ -17,11 +16,18 @@ __pdoc__ = {
     "PortLag": False,
 }
 
-
 class PortLagSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the PortLag object"""
 
-    active_ports = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.port.PortSchema", unknown=EXCLUDE, allow_none=True), data_key="active_ports", allow_none=True)
+    active_ports = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.port", "PortSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="active_ports",
+                allow_none=True
+                )
     r""" Active ports of a LAG (ifgrp). (Some member ports may be inactive.) """
 
     distribution_policy = marshmallow_fields.Str(data_key="distribution_policy", allow_none=True)
@@ -34,7 +40,15 @@ Valid choices:
 * mac
 * sequential """
 
-    member_ports = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.port.PortSchema", unknown=EXCLUDE, allow_none=True), data_key="member_ports", allow_none=True)
+    member_ports = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.port", "PortSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="member_ports",
+                allow_none=True
+                )
     r""" Array of ports belonging to the LAG, regardless of their state. """
 
     mode = marshmallow_fields.Str(data_key="mode", allow_none=True)

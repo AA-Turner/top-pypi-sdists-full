@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -40,85 +40,85 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StoragePool(
     {
+        "storage_type": "ssd",
+        "name": "new_sp",
+        "health": {"state": "normal", "is_healthy": True},
         "capacity": {
             "spare_allocation_units": [
                 {
                     "available_size": 1846542336,
+                    "syncmirror_pool": "pool0",
                     "count": 1,
                     "size": 1846542336,
-                    "syncmirror_pool": "pool0",
                     "node": {
-                        "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1",
                         "name": "node-1",
+                        "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1",
                     },
                 },
                 {
                     "available_size": 0,
+                    "syncmirror_pool": "pool0",
                     "count": 0,
                     "size": 1846542336,
-                    "syncmirror_pool": "pool0",
                     "node": {
-                        "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47",
                         "name": "node-2",
+                        "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47",
                     },
+                },
+            ],
+            "disks": [
+                {
+                    "usable_size": 1902379008,
+                    "disk": {"name": "VMw-1.11"},
+                    "total_size": 1908871168,
+                },
+                {
+                    "usable_size": 1902379008,
+                    "disk": {"name": "VMw-1.12"},
+                    "total_size": 1908871168,
+                },
+                {
+                    "usable_size": 1902379008,
+                    "disk": {"name": "VMw-1.23"},
+                    "total_size": 1908871168,
+                },
+                {
+                    "usable_size": 1902379008,
+                    "disk": {"name": "VMw-1.24"},
+                    "total_size": 1908871168,
                 },
             ],
             "disk_count": 4,
+            "remaining": 1846542336,
             "total": 7386169344,
-            "disks": [
-                {
-                    "total_size": 1908871168,
-                    "disk": {"name": "VMw-1.11"},
-                    "usable_size": 1902379008,
-                },
-                {
-                    "total_size": 1908871168,
-                    "disk": {"name": "VMw-1.12"},
-                    "usable_size": 1902379008,
-                },
-                {
-                    "total_size": 1908871168,
-                    "disk": {"name": "VMw-1.23"},
-                    "usable_size": 1902379008,
-                },
-                {
-                    "total_size": 1908871168,
-                    "disk": {"name": "VMw-1.24"},
-                    "usable_size": 1902379008,
-                },
-            ],
             "used_allocation_units": [
                 {
                     "node": {
-                        "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1",
                         "name": "node-1",
+                        "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1",
                     },
                     "aggregate": {
-                        "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c",
                         "name": "test_a",
+                        "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c",
                     },
                 },
                 {
                     "node": {
-                        "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47",
                         "name": "node-2",
+                        "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47",
                     },
                     "aggregate": {
-                        "uuid": "f4cc30d5-b052-493a-a49f-19781425f987",
                         "name": "test_b",
+                        "uuid": "f4cc30d5-b052-493a-a49f-19781425f987",
                     },
                 },
             ],
-            "remaining": 1846542336,
         },
-        "health": {"is_healthy": True, "state": "normal"},
         "nodes": [
-            {"uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1", "name": "node-1"},
-            {"uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47", "name": "node-2"},
+            {"name": "node-1", "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1"},
+            {"name": "node-2", "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47"},
         ],
-        "storage_type": "ssd",
         "uuid": "8255fef7-4737-11ec-bd1b-005056bbb879",
-        "name": "new_sp",
     }
 )
 
@@ -166,9 +166,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StoragePool(
     {
+        "name": "sp1",
         "capacity": {"disk_count": 4},
         "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c",
-        "name": "sp1",
     }
 )
 
@@ -206,9 +206,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StoragePool(
     {
+        "name": "sp1",
         "capacity": {"disk_count": 6},
         "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c",
-        "name": "sp1",
     }
 )
 
@@ -235,32 +235,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StoragePool(
     {
+        "name": "sp1",
         "capacity": {
             "spare_allocation_units": [
                 {
                     "available_size": 1846542336,
+                    "syncmirror_pool": "pool0",
                     "count": 1,
                     "size": 1846542336,
-                    "syncmirror_pool": "pool0",
                     "node": {
-                        "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1",
                         "name": "node-1",
+                        "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1",
                     },
                 },
                 {
                     "available_size": 0,
+                    "syncmirror_pool": "pool0",
                     "count": 0,
                     "size": 1846542336,
-                    "syncmirror_pool": "pool0",
                     "node": {
-                        "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47",
                         "name": "node-2",
+                        "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47",
                     },
                 },
             ]
         },
         "uuid": "f3aafdc6-be35-4d93-9590-5a402bffbe4b",
-        "name": "sp1",
     }
 )
 
@@ -303,32 +303,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StoragePool(
     {
+        "name": "sp1",
         "capacity": {
             "spare_allocation_units": [
                 {
                     "available_size": 0,
+                    "syncmirror_pool": "pool0",
                     "count": 0,
                     "size": 1846542336,
-                    "syncmirror_pool": "pool0",
                     "node": {
-                        "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1",
                         "name": "node-1",
+                        "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1",
                     },
                 },
                 {
                     "available_size": 1846542336,
+                    "syncmirror_pool": "pool0",
                     "count": 1,
                     "size": 1846542336,
-                    "syncmirror_pool": "pool0",
                     "node": {
-                        "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47",
                         "name": "node-2",
+                        "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47",
                     },
                 },
             ]
         },
         "uuid": "f3aafdc6-be35-4d93-9590-5a402bffbe4b",
-        "name": "sp1",
     }
 )
 
@@ -341,11 +341,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -359,17 +358,31 @@ __pdoc__ = {
     "StoragePoolSchema.opts": False,
 }
 
-
 class StoragePoolSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the StoragePool object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the storage_pool."""
 
-    capacity = marshmallow_fields.Nested("netapp_ontap.models.storage_pool_capacity.StoragePoolCapacitySchema", data_key="capacity", unknown=EXCLUDE, allow_none=True)
+    capacity = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_pool_capacity", "StoragePoolCapacitySchema"),
+                data_key="capacity",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The capacity field of the storage_pool."""
 
-    health = marshmallow_fields.Nested("netapp_ontap.models.pool_health.PoolHealthSchema", data_key="health", unknown=EXCLUDE, allow_none=True)
+    health = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.pool_health", "PoolHealthSchema"),
+                data_key="health",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The health field of the storage_pool."""
 
     name = marshmallow_fields.Str(
@@ -378,7 +391,15 @@ class StoragePoolSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Storage pool name."""
 
-    nodes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", unknown=EXCLUDE, allow_none=True), data_key="nodes", allow_none=True)
+    nodes = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="nodes",
+                allow_none=True
+            )
     r""" Nodes that can use this storage pool for their aggregates."""
 
     storage_type = marshmallow_fields.Str(

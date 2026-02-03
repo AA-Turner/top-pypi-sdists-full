@@ -28887,17 +28887,19 @@ class scout_chartdefinition_api_CartesianChartDefinitionV1(ConjureBeanType):
             'comparison_run_groups': ConjureFieldDefinition('comparisonRunGroups', List[scout_comparisonrun_api_ComparisonRunGroup]),
             'title': ConjureFieldDefinition('title', OptionalTypeWrapper[str]),
             'value_axes': ConjureFieldDefinition('valueAxes', List[scout_chartdefinition_api_ValueAxis]),
+            'decimation': ConjureFieldDefinition('decimation', OptionalTypeWrapper[scout_chartdefinition_api_ScatterDecimation]),
             'connect_points': ConjureFieldDefinition('connectPoints', OptionalTypeWrapper[bool])
         }
 
-    __slots__: List[str] = ['_plots', '_events', '_comparison_run_groups', '_title', '_value_axes', '_connect_points']
+    __slots__: List[str] = ['_plots', '_events', '_comparison_run_groups', '_title', '_value_axes', '_decimation', '_connect_points']
 
-    def __init__(self, comparison_run_groups: List["scout_comparisonrun_api_ComparisonRunGroup"], plots: List["scout_chartdefinition_api_CartesianPlot"], value_axes: List["scout_chartdefinition_api_ValueAxis"], connect_points: Optional[bool] = None, events: Optional[List["scout_chartdefinition_api_Event"]] = None, title: Optional[str] = None) -> None:
+    def __init__(self, comparison_run_groups: List["scout_comparisonrun_api_ComparisonRunGroup"], plots: List["scout_chartdefinition_api_CartesianPlot"], value_axes: List["scout_chartdefinition_api_ValueAxis"], connect_points: Optional[bool] = None, decimation: Optional["scout_chartdefinition_api_ScatterDecimation"] = None, events: Optional[List["scout_chartdefinition_api_Event"]] = None, title: Optional[str] = None) -> None:
         self._plots = plots
         self._events = events
         self._comparison_run_groups = comparison_run_groups
         self._title = title
         self._value_axes = value_axes
+        self._decimation = decimation
         self._connect_points = connect_points
 
     @builtins.property
@@ -28921,6 +28923,12 @@ class scout_chartdefinition_api_CartesianChartDefinitionV1(ConjureBeanType):
         return self._value_axes
 
     @builtins.property
+    def decimation(self) -> Optional["scout_chartdefinition_api_ScatterDecimation"]:
+        """The strategy for bucketing points together.
+        """
+        return self._decimation
+
+    @builtins.property
     def connect_points(self) -> Optional[bool]:
         """If toggled true, will visually connect the points of the series
         """
@@ -28939,21 +28947,25 @@ class scout_chartdefinition_api_CartesianPlot(ConjureBeanType):
         return {
             'x_variable_name': ConjureFieldDefinition('xVariableName', scout_channelvariables_api_ChannelVariableName),
             'y_variable_name': ConjureFieldDefinition('yVariableName', scout_channelvariables_api_ChannelVariableName),
+            'secondary_variables': ConjureFieldDefinition('secondaryVariables', OptionalTypeWrapper[List[scout_chartdefinition_api_SecondaryVariable]]),
             'enabled': ConjureFieldDefinition('enabled', OptionalTypeWrapper[bool]),
             'x_axis_id': ConjureFieldDefinition('xAxisId', scout_chartdefinition_api_AxisId),
             'y_axis_id': ConjureFieldDefinition('yAxisId', scout_chartdefinition_api_AxisId),
-            'color': ConjureFieldDefinition('color', scout_api_HexColor)
+            'color': ConjureFieldDefinition('color', scout_api_HexColor),
+            'color_by': ConjureFieldDefinition('colorBy', OptionalTypeWrapper[scout_chartdefinition_api_ColorBy])
         }
 
-    __slots__: List[str] = ['_x_variable_name', '_y_variable_name', '_enabled', '_x_axis_id', '_y_axis_id', '_color']
+    __slots__: List[str] = ['_x_variable_name', '_y_variable_name', '_secondary_variables', '_enabled', '_x_axis_id', '_y_axis_id', '_color', '_color_by']
 
-    def __init__(self, color: str, x_axis_id: str, x_variable_name: str, y_axis_id: str, y_variable_name: str, enabled: Optional[bool] = None) -> None:
+    def __init__(self, color: str, x_axis_id: str, x_variable_name: str, y_axis_id: str, y_variable_name: str, color_by: Optional["scout_chartdefinition_api_ColorBy"] = None, enabled: Optional[bool] = None, secondary_variables: Optional[List["scout_chartdefinition_api_SecondaryVariable"]] = None) -> None:
         self._x_variable_name = x_variable_name
         self._y_variable_name = y_variable_name
+        self._secondary_variables = secondary_variables
         self._enabled = enabled
         self._x_axis_id = x_axis_id
         self._y_axis_id = y_axis_id
         self._color = color
+        self._color_by = color_by
 
     @builtins.property
     def x_variable_name(self) -> str:
@@ -28962,6 +28974,10 @@ class scout_chartdefinition_api_CartesianPlot(ConjureBeanType):
     @builtins.property
     def y_variable_name(self) -> str:
         return self._y_variable_name
+
+    @builtins.property
+    def secondary_variables(self) -> Optional[List["scout_chartdefinition_api_SecondaryVariable"]]:
+        return self._secondary_variables
 
     @builtins.property
     def enabled(self) -> Optional[bool]:
@@ -28977,7 +28993,15 @@ class scout_chartdefinition_api_CartesianPlot(ConjureBeanType):
 
     @builtins.property
     def color(self) -> str:
+        """Default color for points
+        """
         return self._color
+
+    @builtins.property
+    def color_by(self) -> Optional["scout_chartdefinition_api_ColorBy"]:
+        """Configuration for dynamic coloring. Overrides color if specified.
+        """
+        return self._color_by
 
 
 scout_chartdefinition_api_CartesianPlot.__name__ = "CartesianPlot"
@@ -29068,6 +29092,88 @@ class scout_chartdefinition_api_ChecklistChartDefinitionV1(ConjureBeanType):
 scout_chartdefinition_api_ChecklistChartDefinitionV1.__name__ = "ChecklistChartDefinitionV1"
 scout_chartdefinition_api_ChecklistChartDefinitionV1.__qualname__ = "ChecklistChartDefinitionV1"
 scout_chartdefinition_api_ChecklistChartDefinitionV1.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_ColorBy(ConjureUnionType):
+    _secondary_variable: Optional[str] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'secondary_variable': ConjureFieldDefinition('secondaryVariable', scout_channelvariables_api_ChannelVariableName)
+        }
+
+    def __init__(
+            self,
+            secondary_variable: Optional[str] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (secondary_variable is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if secondary_variable is not None:
+                self._secondary_variable = secondary_variable
+                self._type = 'secondaryVariable'
+
+        elif type_of_union == 'secondaryVariable':
+            if secondary_variable is None:
+                raise ValueError('a union value must not be None')
+            self._secondary_variable = secondary_variable
+            self._type = 'secondaryVariable'
+
+    @builtins.property
+    def secondary_variable(self) -> Optional[str]:
+        """Color by a secondary variable configured on the trace.
+        """
+        return self._secondary_variable
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_ColorByVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_ColorByVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'secondaryVariable' and self.secondary_variable is not None:
+            return visitor._secondary_variable(self.secondary_variable)
+
+
+scout_chartdefinition_api_ColorBy.__name__ = "ColorBy"
+scout_chartdefinition_api_ColorBy.__qualname__ = "ColorBy"
+scout_chartdefinition_api_ColorBy.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_ColorByVisitor:
+
+    @abstractmethod
+    def _secondary_variable(self, secondary_variable: str) -> Any:
+        pass
+
+
+scout_chartdefinition_api_ColorByVisitor.__name__ = "ColorByVisitor"
+scout_chartdefinition_api_ColorByVisitor.__qualname__ = "ColorByVisitor"
+scout_chartdefinition_api_ColorByVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_ColorScheme(ConjureEnumType):
+
+    TURBO = 'TURBO'
+    '''TURBO'''
+    MAGMA = 'MAGMA'
+    '''MAGMA'''
+    VIRIDIS = 'VIRIDIS'
+    '''VIRIDIS'''
+    PLASMA = 'PLASMA'
+    '''PLASMA'''
+    INFERNO = 'INFERNO'
+    '''INFERNO'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_chartdefinition_api_ColorScheme.__name__ = "ColorScheme"
+scout_chartdefinition_api_ColorScheme.__qualname__ = "ColorScheme"
+scout_chartdefinition_api_ColorScheme.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_ColorStyle(ConjureUnionType):
@@ -31574,41 +31680,6 @@ scout_chartdefinition_api_GeoAdditionalTileset.__qualname__ = "GeoAdditionalTile
 scout_chartdefinition_api_GeoAdditionalTileset.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
-class scout_chartdefinition_api_GeoAdditionalVariable(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'variable_name': ConjureFieldDefinition('variableName', scout_channelvariables_api_ChannelVariableName),
-            'label': ConjureFieldDefinition('label', OptionalTypeWrapper[str]),
-            'visualization_option': ConjureFieldDefinition('visualizationOption', OptionalTypeWrapper[scout_chartdefinition_api_GeoSecondaryPlotVisualizationOption])
-        }
-
-    __slots__: List[str] = ['_variable_name', '_label', '_visualization_option']
-
-    def __init__(self, variable_name: str, label: Optional[str] = None, visualization_option: Optional["scout_chartdefinition_api_GeoSecondaryPlotVisualizationOption"] = None) -> None:
-        self._variable_name = variable_name
-        self._label = label
-        self._visualization_option = visualization_option
-
-    @builtins.property
-    def variable_name(self) -> str:
-        return self._variable_name
-
-    @builtins.property
-    def label(self) -> Optional[str]:
-        return self._label
-
-    @builtins.property
-    def visualization_option(self) -> Optional["scout_chartdefinition_api_GeoSecondaryPlotVisualizationOption"]:
-        return self._visualization_option
-
-
-scout_chartdefinition_api_GeoAdditionalVariable.__name__ = "GeoAdditionalVariable"
-scout_chartdefinition_api_GeoAdditionalVariable.__qualname__ = "GeoAdditionalVariable"
-scout_chartdefinition_api_GeoAdditionalVariable.__module__ = "nominal_api.scout_chartdefinition_api"
-
-
 class scout_chartdefinition_api_GeoBaseTileset(ConjureEnumType):
     """The base map style. Default STREET if unspecified.
     """
@@ -31830,7 +31901,7 @@ class scout_chartdefinition_api_GeoPlotFromLatLong(ConjureBeanType):
         return {
             'latitude_variable_name': ConjureFieldDefinition('latitudeVariableName', scout_channelvariables_api_ChannelVariableName),
             'longitude_variable_name': ConjureFieldDefinition('longitudeVariableName', scout_channelvariables_api_ChannelVariableName),
-            'secondary_variables': ConjureFieldDefinition('secondaryVariables', OptionalTypeWrapper[List[scout_chartdefinition_api_GeoAdditionalVariable]]),
+            'secondary_variables': ConjureFieldDefinition('secondaryVariables', OptionalTypeWrapper[List[scout_chartdefinition_api_SecondaryVariable]]),
             'enabled': ConjureFieldDefinition('enabled', OptionalTypeWrapper[bool]),
             'label': ConjureFieldDefinition('label', OptionalTypeWrapper[str]),
             'visualization_options': ConjureFieldDefinition('visualizationOptions', scout_chartdefinition_api_GeoPlotVisualizationOptions)
@@ -31838,7 +31909,7 @@ class scout_chartdefinition_api_GeoPlotFromLatLong(ConjureBeanType):
 
     __slots__: List[str] = ['_latitude_variable_name', '_longitude_variable_name', '_secondary_variables', '_enabled', '_label', '_visualization_options']
 
-    def __init__(self, latitude_variable_name: str, longitude_variable_name: str, visualization_options: "scout_chartdefinition_api_GeoPlotVisualizationOptions", enabled: Optional[bool] = None, label: Optional[str] = None, secondary_variables: Optional[List["scout_chartdefinition_api_GeoAdditionalVariable"]] = None) -> None:
+    def __init__(self, latitude_variable_name: str, longitude_variable_name: str, visualization_options: "scout_chartdefinition_api_GeoPlotVisualizationOptions", enabled: Optional[bool] = None, label: Optional[str] = None, secondary_variables: Optional[List["scout_chartdefinition_api_SecondaryVariable"]] = None) -> None:
         self._latitude_variable_name = latitude_variable_name
         self._longitude_variable_name = longitude_variable_name
         self._secondary_variables = secondary_variables
@@ -31855,9 +31926,7 @@ class scout_chartdefinition_api_GeoPlotFromLatLong(ConjureBeanType):
         return self._longitude_variable_name
 
     @builtins.property
-    def secondary_variables(self) -> Optional[List["scout_chartdefinition_api_GeoAdditionalVariable"]]:
-        """optional for backcompatibility
-        """
+    def secondary_variables(self) -> Optional[List["scout_chartdefinition_api_SecondaryVariable"]]:
         return self._secondary_variables
 
     @builtins.property
@@ -31955,12 +32024,12 @@ class scout_chartdefinition_api_GeoPoint(ConjureBeanType):
             'icon': ConjureFieldDefinition('icon', str),
             'latitude': ConjureFieldDefinition('latitude', float),
             'longitude': ConjureFieldDefinition('longitude', float),
-            'variables': ConjureFieldDefinition('variables', List[scout_chartdefinition_api_GeoAdditionalVariable])
+            'variables': ConjureFieldDefinition('variables', List[scout_chartdefinition_api_SecondaryVariable])
         }
 
     __slots__: List[str] = ['_label', '_icon', '_latitude', '_longitude', '_variables']
 
-    def __init__(self, icon: str, latitude: float, longitude: float, variables: List["scout_chartdefinition_api_GeoAdditionalVariable"], label: Optional[str] = None) -> None:
+    def __init__(self, icon: str, latitude: float, longitude: float, variables: List["scout_chartdefinition_api_SecondaryVariable"], label: Optional[str] = None) -> None:
         self._label = label
         self._icon = icon
         self._latitude = latitude
@@ -31984,71 +32053,13 @@ class scout_chartdefinition_api_GeoPoint(ConjureBeanType):
         return self._longitude
 
     @builtins.property
-    def variables(self) -> List["scout_chartdefinition_api_GeoAdditionalVariable"]:
+    def variables(self) -> List["scout_chartdefinition_api_SecondaryVariable"]:
         return self._variables
 
 
 scout_chartdefinition_api_GeoPoint.__name__ = "GeoPoint"
 scout_chartdefinition_api_GeoPoint.__qualname__ = "GeoPoint"
 scout_chartdefinition_api_GeoPoint.__module__ = "nominal_api.scout_chartdefinition_api"
-
-
-class scout_chartdefinition_api_GeoSecondaryPlotVisualizationOption(ConjureUnionType):
-    """Specifies how values of a secondary channel should be visualized.
-    """
-    _as_colors: Optional["scout_chartdefinition_api_ValueToColorMap"] = None
-
-    @builtins.classmethod
-    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'as_colors': ConjureFieldDefinition('asColors', scout_chartdefinition_api_ValueToColorMap)
-        }
-
-    def __init__(
-            self,
-            as_colors: Optional["scout_chartdefinition_api_ValueToColorMap"] = None,
-            type_of_union: Optional[str] = None
-            ) -> None:
-        if type_of_union is None:
-            if (as_colors is not None) != 1:
-                raise ValueError('a union must contain a single member')
-
-            if as_colors is not None:
-                self._as_colors = as_colors
-                self._type = 'asColors'
-
-        elif type_of_union == 'asColors':
-            if as_colors is None:
-                raise ValueError('a union value must not be None')
-            self._as_colors = as_colors
-            self._type = 'asColors'
-
-    @builtins.property
-    def as_colors(self) -> Optional["scout_chartdefinition_api_ValueToColorMap"]:
-        return self._as_colors
-
-    def accept(self, visitor) -> Any:
-        if not isinstance(visitor, scout_chartdefinition_api_GeoSecondaryPlotVisualizationOptionVisitor):
-            raise ValueError('{} is not an instance of scout_chartdefinition_api_GeoSecondaryPlotVisualizationOptionVisitor'.format(visitor.__class__.__name__))
-        if self._type == 'asColors' and self.as_colors is not None:
-            return visitor._as_colors(self.as_colors)
-
-
-scout_chartdefinition_api_GeoSecondaryPlotVisualizationOption.__name__ = "GeoSecondaryPlotVisualizationOption"
-scout_chartdefinition_api_GeoSecondaryPlotVisualizationOption.__qualname__ = "GeoSecondaryPlotVisualizationOption"
-scout_chartdefinition_api_GeoSecondaryPlotVisualizationOption.__module__ = "nominal_api.scout_chartdefinition_api"
-
-
-class scout_chartdefinition_api_GeoSecondaryPlotVisualizationOptionVisitor:
-
-    @abstractmethod
-    def _as_colors(self, as_colors: "scout_chartdefinition_api_ValueToColorMap") -> Any:
-        pass
-
-
-scout_chartdefinition_api_GeoSecondaryPlotVisualizationOptionVisitor.__name__ = "GeoSecondaryPlotVisualizationOptionVisitor"
-scout_chartdefinition_api_GeoSecondaryPlotVisualizationOptionVisitor.__qualname__ = "GeoSecondaryPlotVisualizationOptionVisitor"
-scout_chartdefinition_api_GeoSecondaryPlotVisualizationOptionVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_GeoVizDefinition(ConjureUnionType):
@@ -33045,6 +33056,43 @@ class scout_chartdefinition_api_NumericGroupBySortVisitor:
 scout_chartdefinition_api_NumericGroupBySortVisitor.__name__ = "NumericGroupBySortVisitor"
 scout_chartdefinition_api_NumericGroupBySortVisitor.__qualname__ = "NumericGroupBySortVisitor"
 scout_chartdefinition_api_NumericGroupBySortVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_NumericPresetColorRange(ConjureBeanType):
+    """Color interpolation for numeric values using a preset color scheme.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'low': ConjureFieldDefinition('low', float),
+            'high': ConjureFieldDefinition('high', float),
+            'preset': ConjureFieldDefinition('preset', scout_chartdefinition_api_ColorScheme)
+        }
+
+    __slots__: List[str] = ['_low', '_high', '_preset']
+
+    def __init__(self, high: float, low: float, preset: "scout_chartdefinition_api_ColorScheme") -> None:
+        self._low = low
+        self._high = high
+        self._preset = preset
+
+    @builtins.property
+    def low(self) -> float:
+        return self._low
+
+    @builtins.property
+    def high(self) -> float:
+        return self._high
+
+    @builtins.property
+    def preset(self) -> "scout_chartdefinition_api_ColorScheme":
+        return self._preset
+
+
+scout_chartdefinition_api_NumericPresetColorRange.__name__ = "NumericPresetColorRange"
+scout_chartdefinition_api_NumericPresetColorRange.__qualname__ = "NumericPresetColorRange"
+scout_chartdefinition_api_NumericPresetColorRange.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_NumericRawVisualisation(ConjureBeanType):
@@ -34306,6 +34354,204 @@ scout_chartdefinition_api_Scatter3dTraceComputeConfig.__qualname__ = "Scatter3dT
 scout_chartdefinition_api_Scatter3dTraceComputeConfig.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
+class scout_chartdefinition_api_ScatterDecimation(ConjureUnionType):
+    _temporal: Optional["scout_chartdefinition_api_TemporalDecimation"] = None
+    _spatial: Optional["scout_chartdefinition_api_SpatialDecimation"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'temporal': ConjureFieldDefinition('temporal', scout_chartdefinition_api_TemporalDecimation),
+            'spatial': ConjureFieldDefinition('spatial', scout_chartdefinition_api_SpatialDecimation)
+        }
+
+    def __init__(
+            self,
+            temporal: Optional["scout_chartdefinition_api_TemporalDecimation"] = None,
+            spatial: Optional["scout_chartdefinition_api_SpatialDecimation"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (temporal is not None) + (spatial is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if temporal is not None:
+                self._temporal = temporal
+                self._type = 'temporal'
+            if spatial is not None:
+                self._spatial = spatial
+                self._type = 'spatial'
+
+        elif type_of_union == 'temporal':
+            if temporal is None:
+                raise ValueError('a union value must not be None')
+            self._temporal = temporal
+            self._type = 'temporal'
+        elif type_of_union == 'spatial':
+            if spatial is None:
+                raise ValueError('a union value must not be None')
+            self._spatial = spatial
+            self._type = 'spatial'
+
+    @builtins.property
+    def temporal(self) -> Optional["scout_chartdefinition_api_TemporalDecimation"]:
+        return self._temporal
+
+    @builtins.property
+    def spatial(self) -> Optional["scout_chartdefinition_api_SpatialDecimation"]:
+        return self._spatial
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_ScatterDecimationVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_ScatterDecimationVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'temporal' and self.temporal is not None:
+            return visitor._temporal(self.temporal)
+        if self._type == 'spatial' and self.spatial is not None:
+            return visitor._spatial(self.spatial)
+
+
+scout_chartdefinition_api_ScatterDecimation.__name__ = "ScatterDecimation"
+scout_chartdefinition_api_ScatterDecimation.__qualname__ = "ScatterDecimation"
+scout_chartdefinition_api_ScatterDecimation.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_ScatterDecimationVisitor:
+
+    @abstractmethod
+    def _temporal(self, temporal: "scout_chartdefinition_api_TemporalDecimation") -> Any:
+        pass
+
+    @abstractmethod
+    def _spatial(self, spatial: "scout_chartdefinition_api_SpatialDecimation") -> Any:
+        pass
+
+
+scout_chartdefinition_api_ScatterDecimationVisitor.__name__ = "ScatterDecimationVisitor"
+scout_chartdefinition_api_ScatterDecimationVisitor.__qualname__ = "ScatterDecimationVisitor"
+scout_chartdefinition_api_ScatterDecimationVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_SecondaryVariable(ConjureBeanType):
+    """A secondary variable to associate with a trace
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'variable_name': ConjureFieldDefinition('variableName', scout_channelvariables_api_ChannelVariableName),
+            'label': ConjureFieldDefinition('label', OptionalTypeWrapper[str]),
+            'enabled': ConjureFieldDefinition('enabled', OptionalTypeWrapper[bool]),
+            'visualization_option': ConjureFieldDefinition('visualizationOption', OptionalTypeWrapper[scout_chartdefinition_api_SecondaryVariableOptions])
+        }
+
+    __slots__: List[str] = ['_variable_name', '_label', '_enabled', '_visualization_option']
+
+    def __init__(self, variable_name: str, enabled: Optional[bool] = None, label: Optional[str] = None, visualization_option: Optional["scout_chartdefinition_api_SecondaryVariableOptions"] = None) -> None:
+        self._variable_name = variable_name
+        self._label = label
+        self._enabled = enabled
+        self._visualization_option = visualization_option
+
+    @builtins.property
+    def variable_name(self) -> str:
+        return self._variable_name
+
+    @builtins.property
+    def label(self) -> Optional[str]:
+        return self._label
+
+    @builtins.property
+    def enabled(self) -> Optional[bool]:
+        """Default true
+        """
+        return self._enabled
+
+    @builtins.property
+    def visualization_option(self) -> Optional["scout_chartdefinition_api_SecondaryVariableOptions"]:
+        return self._visualization_option
+
+
+scout_chartdefinition_api_SecondaryVariable.__name__ = "SecondaryVariable"
+scout_chartdefinition_api_SecondaryVariable.__qualname__ = "SecondaryVariable"
+scout_chartdefinition_api_SecondaryVariable.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_SecondaryVariableOptions(ConjureUnionType):
+    """Specifies how values of a secondary channel should be visualized.
+    """
+    _as_colors: Optional["scout_chartdefinition_api_ValueToColorMap"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'as_colors': ConjureFieldDefinition('asColors', scout_chartdefinition_api_ValueToColorMap)
+        }
+
+    def __init__(
+            self,
+            as_colors: Optional["scout_chartdefinition_api_ValueToColorMap"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (as_colors is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if as_colors is not None:
+                self._as_colors = as_colors
+                self._type = 'asColors'
+
+        elif type_of_union == 'asColors':
+            if as_colors is None:
+                raise ValueError('a union value must not be None')
+            self._as_colors = as_colors
+            self._type = 'asColors'
+
+    @builtins.property
+    def as_colors(self) -> Optional["scout_chartdefinition_api_ValueToColorMap"]:
+        return self._as_colors
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_SecondaryVariableOptionsVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_SecondaryVariableOptionsVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'asColors' and self.as_colors is not None:
+            return visitor._as_colors(self.as_colors)
+
+
+scout_chartdefinition_api_SecondaryVariableOptions.__name__ = "SecondaryVariableOptions"
+scout_chartdefinition_api_SecondaryVariableOptions.__qualname__ = "SecondaryVariableOptions"
+scout_chartdefinition_api_SecondaryVariableOptions.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_SecondaryVariableOptionsVisitor:
+
+    @abstractmethod
+    def _as_colors(self, as_colors: "scout_chartdefinition_api_ValueToColorMap") -> Any:
+        pass
+
+
+scout_chartdefinition_api_SecondaryVariableOptionsVisitor.__name__ = "SecondaryVariableOptionsVisitor"
+scout_chartdefinition_api_SecondaryVariableOptionsVisitor.__qualname__ = "SecondaryVariableOptionsVisitor"
+scout_chartdefinition_api_SecondaryVariableOptionsVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_SpatialDecimation(ConjureBeanType):
+    """Bucket points together by proximity in value.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_chartdefinition_api_SpatialDecimation.__name__ = "SpatialDecimation"
+scout_chartdefinition_api_SpatialDecimation.__qualname__ = "SpatialDecimation"
+scout_chartdefinition_api_SpatialDecimation.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
 class scout_chartdefinition_api_StalenessCellConfig(ConjureBeanType):
 
     @builtins.classmethod
@@ -34543,6 +34789,24 @@ class scout_chartdefinition_api_StructVisualisationVisitor:
 scout_chartdefinition_api_StructVisualisationVisitor.__name__ = "StructVisualisationVisitor"
 scout_chartdefinition_api_StructVisualisationVisitor.__qualname__ = "StructVisualisationVisitor"
 scout_chartdefinition_api_StructVisualisationVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_TemporalDecimation(ConjureBeanType):
+    """Bucket points together by proximity in time.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_chartdefinition_api_TemporalDecimation.__name__ = "TemporalDecimation"
+scout_chartdefinition_api_TemporalDecimation.__qualname__ = "TemporalDecimation"
+scout_chartdefinition_api_TemporalDecimation.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_Threshold(ConjureBeanType):
@@ -36220,44 +36484,78 @@ scout_chartdefinition_api_ValueTableStalenessConfig.__module__ = "nominal_api.sc
 
 
 class scout_chartdefinition_api_ValueToColorMap(ConjureUnionType):
-    """Specifies an assignment of colors across several values.
+    """Color interpolations for numeric and enum values.
     """
     _numeric: Optional[Dict[str, float]] = None
+    _numeric_preset: Optional["scout_chartdefinition_api_NumericPresetColorRange"] = None
+    _enum: Optional[Dict[str, str]] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'numeric': ConjureFieldDefinition('numeric', Dict[scout_api_HexColor, float])
+            'numeric': ConjureFieldDefinition('numeric', Dict[scout_api_HexColor, float]),
+            'numeric_preset': ConjureFieldDefinition('numericPreset', scout_chartdefinition_api_NumericPresetColorRange),
+            'enum': ConjureFieldDefinition('enum', Dict[str, scout_api_HexColor])
         }
 
     def __init__(
             self,
             numeric: Optional[Dict[str, float]] = None,
+            numeric_preset: Optional["scout_chartdefinition_api_NumericPresetColorRange"] = None,
+            enum: Optional[Dict[str, str]] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (numeric is not None) != 1:
+            if (numeric is not None) + (numeric_preset is not None) + (enum is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if numeric is not None:
                 self._numeric = numeric
                 self._type = 'numeric'
+            if numeric_preset is not None:
+                self._numeric_preset = numeric_preset
+                self._type = 'numericPreset'
+            if enum is not None:
+                self._enum = enum
+                self._type = 'enum'
 
         elif type_of_union == 'numeric':
             if numeric is None:
                 raise ValueError('a union value must not be None')
             self._numeric = numeric
             self._type = 'numeric'
+        elif type_of_union == 'numericPreset':
+            if numeric_preset is None:
+                raise ValueError('a union value must not be None')
+            self._numeric_preset = numeric_preset
+            self._type = 'numericPreset'
+        elif type_of_union == 'enum':
+            if enum is None:
+                raise ValueError('a union value must not be None')
+            self._enum = enum
+            self._type = 'enum'
 
     @builtins.property
     def numeric(self) -> Optional[Dict[str, float]]:
         return self._numeric
+
+    @builtins.property
+    def numeric_preset(self) -> Optional["scout_chartdefinition_api_NumericPresetColorRange"]:
+        return self._numeric_preset
+
+    @builtins.property
+    def enum(self) -> Optional[Dict[str, str]]:
+        return self._enum
 
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_chartdefinition_api_ValueToColorMapVisitor):
             raise ValueError('{} is not an instance of scout_chartdefinition_api_ValueToColorMapVisitor'.format(visitor.__class__.__name__))
         if self._type == 'numeric' and self.numeric is not None:
             return visitor._numeric(self.numeric)
+        if self._type == 'numericPreset' and self.numeric_preset is not None:
+            return visitor._numeric_preset(self.numeric_preset)
+        if self._type == 'enum' and self.enum is not None:
+            return visitor._enum(self.enum)
 
 
 scout_chartdefinition_api_ValueToColorMap.__name__ = "ValueToColorMap"
@@ -36269,6 +36567,14 @@ class scout_chartdefinition_api_ValueToColorMapVisitor:
 
     @abstractmethod
     def _numeric(self, numeric: Dict[str, float]) -> Any:
+        pass
+
+    @abstractmethod
+    def _numeric_preset(self, numeric_preset: "scout_chartdefinition_api_NumericPresetColorRange") -> Any:
+        pass
+
+    @abstractmethod
+    def _enum(self, enum: Dict[str, str]) -> Any:
         pass
 
 
@@ -45402,6 +45708,31 @@ scout_compute_api_BucketedEnumPlot.__qualname__ = "BucketedEnumPlot"
 scout_compute_api_BucketedEnumPlot.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_BucketedFrequencyDomainPlot(ConjureBeanType):
+    """A bucketed/decimated frequency domain plot where multiple frequency bins have been aggregated.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'buckets': ConjureFieldDefinition('buckets', List[scout_compute_api_FrequencyBucket])
+        }
+
+    __slots__: List[str] = ['_buckets']
+
+    def __init__(self, buckets: List["scout_compute_api_FrequencyBucket"]) -> None:
+        self._buckets = buckets
+
+    @builtins.property
+    def buckets(self) -> List["scout_compute_api_FrequencyBucket"]:
+        return self._buckets
+
+
+scout_compute_api_BucketedFrequencyDomainPlot.__name__ = "BucketedFrequencyDomainPlot"
+scout_compute_api_BucketedFrequencyDomainPlot.__qualname__ = "BucketedFrequencyDomainPlot"
+scout_compute_api_BucketedFrequencyDomainPlot.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_BucketedNumericArrayPlot(ConjureBeanType):
     """The array is flattened out into a an arrow stream of bucketed primitive results, with an extra column to
 indicate the index of the array that the bucket corresponds to.
@@ -46621,6 +46952,7 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
     _bucketed_cartesian3d: Optional["scout_compute_api_BucketedCartesian3dPlot"] = None
     _frequency_domain: Optional["scout_compute_api_FrequencyDomainPlot"] = None
     _frequency_domain_v2: Optional["scout_compute_api_FrequencyDomainPlotV2"] = None
+    _bucketed_frequency_domain: Optional["scout_compute_api_BucketedFrequencyDomainPlot"] = None
     _numeric_histogram: Optional["scout_compute_api_NumericHistogramPlot"] = None
     _enum_histogram: Optional["scout_compute_api_EnumHistogramPlot"] = None
     _curve_fit: Optional["scout_compute_api_CurveFitResult"] = None
@@ -46653,6 +46985,7 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             'bucketed_cartesian3d': ConjureFieldDefinition('bucketedCartesian3d', scout_compute_api_BucketedCartesian3dPlot),
             'frequency_domain': ConjureFieldDefinition('frequencyDomain', scout_compute_api_FrequencyDomainPlot),
             'frequency_domain_v2': ConjureFieldDefinition('frequencyDomainV2', scout_compute_api_FrequencyDomainPlotV2),
+            'bucketed_frequency_domain': ConjureFieldDefinition('bucketedFrequencyDomain', scout_compute_api_BucketedFrequencyDomainPlot),
             'numeric_histogram': ConjureFieldDefinition('numericHistogram', scout_compute_api_NumericHistogramPlot),
             'enum_histogram': ConjureFieldDefinition('enumHistogram', scout_compute_api_EnumHistogramPlot),
             'curve_fit': ConjureFieldDefinition('curveFit', scout_compute_api_CurveFitResult),
@@ -46685,6 +47018,7 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             bucketed_cartesian3d: Optional["scout_compute_api_BucketedCartesian3dPlot"] = None,
             frequency_domain: Optional["scout_compute_api_FrequencyDomainPlot"] = None,
             frequency_domain_v2: Optional["scout_compute_api_FrequencyDomainPlotV2"] = None,
+            bucketed_frequency_domain: Optional["scout_compute_api_BucketedFrequencyDomainPlot"] = None,
             numeric_histogram: Optional["scout_compute_api_NumericHistogramPlot"] = None,
             enum_histogram: Optional["scout_compute_api_EnumHistogramPlot"] = None,
             curve_fit: Optional["scout_compute_api_CurveFitResult"] = None,
@@ -46695,7 +47029,7 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (range is not None) + (ranges_summary is not None) + (range_value is not None) + (numeric is not None) + (bucketed_numeric is not None) + (numeric_point is not None) + (single_point is not None) + (arrow_numeric is not None) + (arrow_bucketed_numeric is not None) + (enum is not None) + (enum_point is not None) + (bucketed_enum is not None) + (arrow_enum is not None) + (arrow_bucketed_enum is not None) + (paged_log is not None) + (log_point is not None) + (cartesian is not None) + (bucketed_cartesian is not None) + (bucketed_cartesian3d is not None) + (frequency_domain is not None) + (frequency_domain_v2 is not None) + (numeric_histogram is not None) + (enum_histogram is not None) + (curve_fit is not None) + (grouped is not None) + (array is not None) + (bucketed_struct is not None) + (full_resolution is not None) != 1:
+            if (range is not None) + (ranges_summary is not None) + (range_value is not None) + (numeric is not None) + (bucketed_numeric is not None) + (numeric_point is not None) + (single_point is not None) + (arrow_numeric is not None) + (arrow_bucketed_numeric is not None) + (enum is not None) + (enum_point is not None) + (bucketed_enum is not None) + (arrow_enum is not None) + (arrow_bucketed_enum is not None) + (paged_log is not None) + (log_point is not None) + (cartesian is not None) + (bucketed_cartesian is not None) + (bucketed_cartesian3d is not None) + (frequency_domain is not None) + (frequency_domain_v2 is not None) + (bucketed_frequency_domain is not None) + (numeric_histogram is not None) + (enum_histogram is not None) + (curve_fit is not None) + (grouped is not None) + (array is not None) + (bucketed_struct is not None) + (full_resolution is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if range is not None:
@@ -46761,6 +47095,9 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             if frequency_domain_v2 is not None:
                 self._frequency_domain_v2 = frequency_domain_v2
                 self._type = 'frequencyDomainV2'
+            if bucketed_frequency_domain is not None:
+                self._bucketed_frequency_domain = bucketed_frequency_domain
+                self._type = 'bucketedFrequencyDomain'
             if numeric_histogram is not None:
                 self._numeric_histogram = numeric_histogram
                 self._type = 'numericHistogram'
@@ -46888,6 +47225,11 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._frequency_domain_v2 = frequency_domain_v2
             self._type = 'frequencyDomainV2'
+        elif type_of_union == 'bucketedFrequencyDomain':
+            if bucketed_frequency_domain is None:
+                raise ValueError('a union value must not be None')
+            self._bucketed_frequency_domain = bucketed_frequency_domain
+            self._type = 'bucketedFrequencyDomain'
         elif type_of_union == 'numericHistogram':
             if numeric_histogram is None:
                 raise ValueError('a union value must not be None')
@@ -47009,6 +47351,10 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
         return self._frequency_domain_v2
 
     @builtins.property
+    def bucketed_frequency_domain(self) -> Optional["scout_compute_api_BucketedFrequencyDomainPlot"]:
+        return self._bucketed_frequency_domain
+
+    @builtins.property
     def numeric_histogram(self) -> Optional["scout_compute_api_NumericHistogramPlot"]:
         return self._numeric_histogram
 
@@ -47081,6 +47427,8 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             return visitor._frequency_domain(self.frequency_domain)
         if self._type == 'frequencyDomainV2' and self.frequency_domain_v2 is not None:
             return visitor._frequency_domain_v2(self.frequency_domain_v2)
+        if self._type == 'bucketedFrequencyDomain' and self.bucketed_frequency_domain is not None:
+            return visitor._bucketed_frequency_domain(self.bucketed_frequency_domain)
         if self._type == 'numericHistogram' and self.numeric_histogram is not None:
             return visitor._numeric_histogram(self.numeric_histogram)
         if self._type == 'enumHistogram' and self.enum_histogram is not None:
@@ -47186,6 +47534,10 @@ class scout_compute_api_ComputeNodeResponseVisitor:
 
     @abstractmethod
     def _frequency_domain_v2(self, frequency_domain_v2: "scout_compute_api_FrequencyDomainPlotV2") -> Any:
+        pass
+
+    @abstractmethod
+    def _bucketed_frequency_domain(self, bucketed_frequency_domain: "scout_compute_api_BucketedFrequencyDomainPlot") -> Any:
         pass
 
     @abstractmethod
@@ -50314,14 +50666,16 @@ class scout_compute_api_Fft(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'input': ConjureFieldDefinition('input', scout_compute_api_NumericSeries),
-            'window': ConjureFieldDefinition('window', OptionalTypeWrapper[scout_compute_api_FftWindow])
+            'window': ConjureFieldDefinition('window', OptionalTypeWrapper[scout_compute_api_FftWindow]),
+            'summarization_strategy': ConjureFieldDefinition('summarizationStrategy', OptionalTypeWrapper[scout_compute_api_FrequencySummarizationStrategy])
         }
 
-    __slots__: List[str] = ['_input', '_window']
+    __slots__: List[str] = ['_input', '_window', '_summarization_strategy']
 
-    def __init__(self, input: "scout_compute_api_NumericSeries", window: Optional["scout_compute_api_FftWindow"] = None) -> None:
+    def __init__(self, input: "scout_compute_api_NumericSeries", summarization_strategy: Optional["scout_compute_api_FrequencySummarizationStrategy"] = None, window: Optional["scout_compute_api_FftWindow"] = None) -> None:
         self._input = input
         self._window = window
+        self._summarization_strategy = summarization_strategy
 
     @builtins.property
     def input(self) -> "scout_compute_api_NumericSeries":
@@ -50332,6 +50686,12 @@ class scout_compute_api_Fft(ConjureBeanType):
         """Window function applied to the input series. Defaults to RECT is not specified.
         """
         return self._window
+
+    @builtins.property
+    def summarization_strategy(self) -> Optional["scout_compute_api_FrequencySummarizationStrategy"]:
+        """Strategy to downsample the output frequency spectrum.
+        """
+        return self._summarization_strategy
 
 
 scout_compute_api_Fft.__name__ = "Fft"
@@ -50474,6 +50834,122 @@ For every timestamp in the resampled timestamps, takes the last known value befo
 scout_compute_api_ForwardFillResampleInterpolationConfiguration.__name__ = "ForwardFillResampleInterpolationConfiguration"
 scout_compute_api_ForwardFillResampleInterpolationConfiguration.__qualname__ = "ForwardFillResampleInterpolationConfiguration"
 scout_compute_api_ForwardFillResampleInterpolationConfiguration.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_FrequencyBucket(ConjureBeanType):
+    """A single bucket in a bucketed frequency domain plot.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'frequency_start': ConjureFieldDefinition('frequencyStart', float),
+            'frequency_end': ConjureFieldDefinition('frequencyEnd', float),
+            'frequency_center': ConjureFieldDefinition('frequencyCenter', float),
+            'min_amplitude': ConjureFieldDefinition('minAmplitude', float),
+            'max_amplitude': ConjureFieldDefinition('maxAmplitude', float),
+            'mean_amplitude': ConjureFieldDefinition('meanAmplitude', float),
+            'count': ConjureFieldDefinition('count', int),
+            'first_point': ConjureFieldDefinition('firstPoint', scout_compute_api_FrequencyPoint),
+            'last_point': ConjureFieldDefinition('lastPoint', OptionalTypeWrapper[scout_compute_api_FrequencyPoint])
+        }
+
+    __slots__: List[str] = ['_frequency_start', '_frequency_end', '_frequency_center', '_min_amplitude', '_max_amplitude', '_mean_amplitude', '_count', '_first_point', '_last_point']
+
+    def __init__(self, count: int, first_point: "scout_compute_api_FrequencyPoint", frequency_center: float, frequency_end: float, frequency_start: float, max_amplitude: float, mean_amplitude: float, min_amplitude: float, last_point: Optional["scout_compute_api_FrequencyPoint"] = None) -> None:
+        self._frequency_start = frequency_start
+        self._frequency_end = frequency_end
+        self._frequency_center = frequency_center
+        self._min_amplitude = min_amplitude
+        self._max_amplitude = max_amplitude
+        self._mean_amplitude = mean_amplitude
+        self._count = count
+        self._first_point = first_point
+        self._last_point = last_point
+
+    @builtins.property
+    def frequency_start(self) -> float:
+        """The start frequency of this bucket (inclusive).
+        """
+        return self._frequency_start
+
+    @builtins.property
+    def frequency_end(self) -> float:
+        """The end frequency of this bucket (exclusive).
+        """
+        return self._frequency_end
+
+    @builtins.property
+    def frequency_center(self) -> float:
+        """The center frequency of this bucket.
+        """
+        return self._frequency_center
+
+    @builtins.property
+    def min_amplitude(self) -> float:
+        """The minimum amplitude value in this bucket.
+        """
+        return self._min_amplitude
+
+    @builtins.property
+    def max_amplitude(self) -> float:
+        """The maximum amplitude value in this bucket.
+        """
+        return self._max_amplitude
+
+    @builtins.property
+    def mean_amplitude(self) -> float:
+        """The mean amplitude value in this bucket.
+        """
+        return self._mean_amplitude
+
+    @builtins.property
+    def count(self) -> int:
+        """The number of original frequency points that were aggregated into this bucket.
+        """
+        return self._count
+
+    @builtins.property
+    def first_point(self) -> "scout_compute_api_FrequencyPoint":
+        """The first point (lowest frequency) in this bucket.
+        """
+        return self._first_point
+
+    @builtins.property
+    def last_point(self) -> Optional["scout_compute_api_FrequencyPoint"]:
+        """The last point (highest frequency) in this bucket. Will be empty if the bucket only has a single point.
+        """
+        return self._last_point
+
+
+scout_compute_api_FrequencyBucket.__name__ = "FrequencyBucket"
+scout_compute_api_FrequencyBucket.__qualname__ = "FrequencyBucket"
+scout_compute_api_FrequencyBucket.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_FrequencyDecimateWithBuckets(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'buckets': ConjureFieldDefinition('buckets', int)
+        }
+
+    __slots__: List[str] = ['_buckets']
+
+    def __init__(self, buckets: int) -> None:
+        self._buckets = buckets
+
+    @builtins.property
+    def buckets(self) -> int:
+        """Target number of frequency bins/buckets.
+        """
+        return self._buckets
+
+
+scout_compute_api_FrequencyDecimateWithBuckets.__name__ = "FrequencyDecimateWithBuckets"
+scout_compute_api_FrequencyDecimateWithBuckets.__qualname__ = "FrequencyDecimateWithBuckets"
+scout_compute_api_FrequencyDecimateWithBuckets.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_FrequencyDomain(ConjureUnionType):
@@ -50888,6 +51364,93 @@ class scout_compute_api_FrequencyDomainV2Visitor:
 scout_compute_api_FrequencyDomainV2Visitor.__name__ = "FrequencyDomainV2Visitor"
 scout_compute_api_FrequencyDomainV2Visitor.__qualname__ = "FrequencyDomainV2Visitor"
 scout_compute_api_FrequencyDomainV2Visitor.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_FrequencyPoint(ConjureBeanType):
+    """A single point in a frequency domain plot.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'frequency': ConjureFieldDefinition('frequency', float),
+            'amplitude': ConjureFieldDefinition('amplitude', float)
+        }
+
+    __slots__: List[str] = ['_frequency', '_amplitude']
+
+    def __init__(self, amplitude: float, frequency: float) -> None:
+        self._frequency = frequency
+        self._amplitude = amplitude
+
+    @builtins.property
+    def frequency(self) -> float:
+        return self._frequency
+
+    @builtins.property
+    def amplitude(self) -> float:
+        return self._amplitude
+
+
+scout_compute_api_FrequencyPoint.__name__ = "FrequencyPoint"
+scout_compute_api_FrequencyPoint.__qualname__ = "FrequencyPoint"
+scout_compute_api_FrequencyPoint.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_FrequencySummarizationStrategy(ConjureUnionType):
+    _buckets: Optional["scout_compute_api_FrequencyDecimateWithBuckets"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'buckets': ConjureFieldDefinition('buckets', scout_compute_api_FrequencyDecimateWithBuckets)
+        }
+
+    def __init__(
+            self,
+            buckets: Optional["scout_compute_api_FrequencyDecimateWithBuckets"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (buckets is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if buckets is not None:
+                self._buckets = buckets
+                self._type = 'buckets'
+
+        elif type_of_union == 'buckets':
+            if buckets is None:
+                raise ValueError('a union value must not be None')
+            self._buckets = buckets
+            self._type = 'buckets'
+
+    @builtins.property
+    def buckets(self) -> Optional["scout_compute_api_FrequencyDecimateWithBuckets"]:
+        return self._buckets
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_api_FrequencySummarizationStrategyVisitor):
+            raise ValueError('{} is not an instance of scout_compute_api_FrequencySummarizationStrategyVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'buckets' and self.buckets is not None:
+            return visitor._buckets(self.buckets)
+
+
+scout_compute_api_FrequencySummarizationStrategy.__name__ = "FrequencySummarizationStrategy"
+scout_compute_api_FrequencySummarizationStrategy.__qualname__ = "FrequencySummarizationStrategy"
+scout_compute_api_FrequencySummarizationStrategy.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_FrequencySummarizationStrategyVisitor:
+
+    @abstractmethod
+    def _buckets(self, buckets: "scout_compute_api_FrequencyDecimateWithBuckets") -> Any:
+        pass
+
+
+scout_compute_api_FrequencySummarizationStrategyVisitor.__name__ = "FrequencySummarizationStrategyVisitor"
+scout_compute_api_FrequencySummarizationStrategyVisitor.__qualname__ = "FrequencySummarizationStrategyVisitor"
+scout_compute_api_FrequencySummarizationStrategyVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_FunctionDerivedSeries(ConjureBeanType):
@@ -64085,14 +64648,16 @@ class scout_compute_resolved_api_FftNode(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'input': ConjureFieldDefinition('input', scout_compute_resolved_api_NumericSeriesNode),
-            'window': ConjureFieldDefinition('window', OptionalTypeWrapper[scout_compute_api_FftWindow])
+            'window': ConjureFieldDefinition('window', OptionalTypeWrapper[scout_compute_api_FftWindow]),
+            'summarization_strategy': ConjureFieldDefinition('summarizationStrategy', OptionalTypeWrapper[scout_compute_api_FrequencySummarizationStrategy])
         }
 
-    __slots__: List[str] = ['_input', '_window']
+    __slots__: List[str] = ['_input', '_window', '_summarization_strategy']
 
-    def __init__(self, input: "scout_compute_resolved_api_NumericSeriesNode", window: Optional["scout_compute_api_FftWindow"] = None) -> None:
+    def __init__(self, input: "scout_compute_resolved_api_NumericSeriesNode", summarization_strategy: Optional["scout_compute_api_FrequencySummarizationStrategy"] = None, window: Optional["scout_compute_api_FftWindow"] = None) -> None:
         self._input = input
         self._window = window
+        self._summarization_strategy = summarization_strategy
 
     @builtins.property
     def input(self) -> "scout_compute_resolved_api_NumericSeriesNode":
@@ -64101,6 +64666,10 @@ class scout_compute_resolved_api_FftNode(ConjureBeanType):
     @builtins.property
     def window(self) -> Optional["scout_compute_api_FftWindow"]:
         return self._window
+
+    @builtins.property
+    def summarization_strategy(self) -> Optional["scout_compute_api_FrequencySummarizationStrategy"]:
+        return self._summarization_strategy
 
 
 scout_compute_resolved_api_FftNode.__name__ = "FftNode"

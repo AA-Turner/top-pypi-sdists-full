@@ -42,17 +42,24 @@ class CreateDecryptionProfileDetails(object):
             The value to assign to the name property of this CreateDecryptionProfileDetails.
         :type name: str
 
+        :param description:
+            The value to assign to the description property of this CreateDecryptionProfileDetails.
+        :type description: str
+
         """
         self.swagger_types = {
             'type': 'str',
-            'name': 'str'
+            'name': 'str',
+            'description': 'str'
         }
         self.attribute_map = {
             'type': 'type',
-            'name': 'name'
+            'name': 'name',
+            'description': 'description'
         }
         self._type = None
         self._name = None
+        self._description = None
 
     @staticmethod
     def get_subtype(object_dictionary):
@@ -124,6 +131,30 @@ class CreateDecryptionProfileDetails(object):
         :type: str
         """
         self._name = name
+
+    @property
+    def description(self):
+        """
+        Gets the description of this CreateDecryptionProfileDetails.
+        The description of the decryption profile. This field can be used to add additional info.
+
+
+        :return: The description of this CreateDecryptionProfileDetails.
+        :rtype: str
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """
+        Sets the description of this CreateDecryptionProfileDetails.
+        The description of the decryption profile. This field can be used to add additional info.
+
+
+        :param description: The description of this CreateDecryptionProfileDetails.
+        :type: str
+        """
+        self._description = description
 
     def __repr__(self):
         return formatted_flat_dict(self)

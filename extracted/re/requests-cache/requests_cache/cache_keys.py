@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from contextlib import nullcontext
-from hashlib import blake2b
+from hashlib import blake2b, sha256
 from logging import getLogger
 from typing import (
     TYPE_CHECKING,
@@ -57,6 +57,7 @@ def create_key(
     ignored_parameters: ParamList = None,
     match_headers: Union[ParamList, bool] = False,
     serializer: Any = None,
+    content_root_key: Optional[str] = None,
     **request_kwargs,
 ) -> str:
     """Create a normalized cache key based on a request object
@@ -66,9 +67,10 @@ def create_key(
         ignored_parameters: Request parameters, headers, and/or JSON body params to exclude
         match_headers: Match only the specified headers, or ``True`` to match all headers
         request_kwargs: Additional keyword arguments for :py:func:`~requests.request`
+        content_root_key: root element in the request body to apply ignored_parameters to
     """
     # Normalize and gather all relevant request info to match against
-    request = normalize_request(request, ignored_parameters)
+    request = normalize_request(request, ignored_parameters, content_root_key)
     key_parts = [
         request.method or '',
         request.url,
@@ -79,7 +81,13 @@ def create_key(
     ]
 
     # Generate a hash based on this info
-    key = blake2b(digest_size=8)
+    try:
+        key = blake2b(digest_size=8)
+    except (TypeError, ValueError):
+        # OpenSSL 1.1.0 doesn't support the digest_size parameter for blake2b, resulting in a TypeError
+        # On FIPS-compliant systems, blake2b is not compliant algorithm, resulting in a ValueError
+        # In both cases, fallback to SHA-256
+        key = sha256()  # type: ignore
     for part in key_parts:
         key.update(encode(part))
     return key.hexdigest()
@@ -103,7 +111,9 @@ def get_matched_headers(
 
 
 def normalize_request(
-    request: AnyRequest, ignored_parameters: ParamList = None
+    request: AnyRequest,
+    ignored_parameters: ParamList = None,
+    content_root_key: Optional[str] = None,
 ) -> AnyPreparedRequest:
     """Normalize and remove ignored parameters from request URL, body, and headers.
     This is used for both:
@@ -114,6 +124,7 @@ def normalize_request(
     Args:
         request: Request object to normalize
         ignored_parameters: Request parameters, headers, and/or JSON body params to exclude
+        content_root_key: root element in the request body to apply ignored_parameters to
     """
     if isinstance(request, Request):
         # For a multipart POST request that hasn't been prepared, we need to patch the form boundary
@@ -126,7 +137,7 @@ def normalize_request(
     norm_request.method = (norm_request.method or '').upper()
     norm_request.url = normalize_url(norm_request.url or '', ignored_parameters)
     norm_request.headers = normalize_headers(norm_request.headers, ignored_parameters)
-    norm_request.body = normalize_body(norm_request, ignored_parameters)
+    norm_request.body = normalize_body(norm_request, ignored_parameters, content_root_key)
     return norm_request
 
 
@@ -152,12 +163,25 @@ def normalize_url(url: str, ignored_parameters: ParamList) -> str:
     return url_normalize(url)
 
 
-def normalize_body(request: AnyPreparedRequest, ignored_parameters: ParamList) -> bytes:
+def normalize_body(
+    request: AnyPreparedRequest,
+    ignored_parameters: ParamList,
+    content_root_key: Optional[str] = None,
+) -> bytes:
     """Normalize and filter a request body if possible, depending on Content-Type"""
     if not request.body:
         return b''
 
-    filtered_body: Union[str, bytes] = request.body
+    norm_body: Union[str, bytes] = request.body
+
+    # Handle the case where the request body is a file-like object
+    if hasattr(request.body, 'read'):
+        norm_body = request.body.read() or b''
+        try:
+            request.body.seek(0)  # type: ignore[union-attr]
+        except AttributeError as e:
+            logger.warning(f'Unable to reset original request body: {e}', exc_info=True)
+
     try:
         content_type = request.headers['Content-Type'].split(';')[0].lower()
     except (AttributeError, KeyError):
@@ -165,15 +189,17 @@ def normalize_body(request: AnyPreparedRequest, ignored_parameters: ParamList) -
 
     # Filter and sort params if possible
     if is_json_content_type(content_type):
-        filtered_body = normalize_json_body(request.body, ignored_parameters)
+        norm_body = normalize_json_body(norm_body, ignored_parameters, content_root_key)
     elif content_type == 'application/x-www-form-urlencoded':
-        filtered_body = normalize_params(request.body, ignored_parameters)
+        norm_body = normalize_params(norm_body, ignored_parameters)
 
-    return encode(filtered_body)
+    return encode(norm_body)
 
 
 def normalize_json_body(
-    original_body: Union[str, bytes], ignored_parameters: ParamList
+    original_body: Union[str, bytes],
+    ignored_parameters: ParamList,
+    content_root_key: Optional[str] = None,
 ) -> Union[str, bytes]:
     """Normalize and filter a request body with serialized JSON data"""
     if len(original_body) <= 2 or len(original_body) > MAX_NORM_BODY_SIZE:
@@ -181,7 +207,10 @@ def normalize_json_body(
 
     try:
         body = json.loads(decode(original_body))
-        body = filter_sort_json(body, ignored_parameters)
+        if content_root_key and isinstance(body, dict) and content_root_key in body:
+            body[content_root_key] = filter_sort_json(body[content_root_key], ignored_parameters)
+        else:
+            body = filter_sort_json(body, ignored_parameters)
         return json.dumps(body)
     # If it's invalid JSON, then don't mess with it
     except (AttributeError, TypeError, ValueError):

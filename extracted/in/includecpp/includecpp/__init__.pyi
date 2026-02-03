@@ -147,7 +147,7 @@ __version__: str
 # Dynamic module access via: from includecpp import <module_name>
 # Auto-generated module declarations
 # These allow: from includecpp import <module_name>
-fast_list: Fast_listModuleWrapper
+calculator: CalculatorModuleWrapper
 
 def __dir__() -> List[str]:
     """List available modules including dynamically loaded C++ modules."""

@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["CertificateSigningRequest", "CertificateSigningRequestSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "CertificateSigningRequest": False,
 }
 
-
 class CertificateSigningRequestSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the CertificateSigningRequest object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", unknown=EXCLUDE, data_key="_links", allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                unknown=EXCLUDE,
+                data_key="_links",
+                allow_none=True
+            )
     r""" The links field of the certificate_signing_request. """
 
     algorithm = marshmallow_fields.Str(data_key="algorithm", allow_none=True)
@@ -57,7 +60,12 @@ Valid choices:
     security_strength = Size(data_key="security_strength", allow_none=True)
     r""" Security strength of the certificate in bits. """
 
-    subject_alternatives = marshmallow_fields.Nested("netapp_ontap.models.subject_alternate_name.SubjectAlternateNameSchema", unknown=EXCLUDE, data_key="subject_alternatives", allow_none=True)
+    subject_alternatives = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.subject_alternate_name", "SubjectAlternateNameSchema"),
+                unknown=EXCLUDE,
+                data_key="subject_alternatives",
+                allow_none=True
+            )
     r""" The subject_alternatives field of the certificate_signing_request. """
 
     subject_name = marshmallow_fields.Str(data_key="subject_name", allow_none=True)

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -50,11 +50,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -68,7 +67,6 @@ __pdoc__ = {
     "ConfigurationBackupSchema.opts": False,
 }
 
-
 class ConfigurationBackupSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ConfigurationBackup object"""
 
@@ -79,6 +77,18 @@ class ConfigurationBackupSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     r""" The password field of the configuration_backup.
 
 Example: yourpassword"""
+
+    rest_method = marshmallow_fields.Str(
+        data_key="rest_method",
+        validate=enum_validation(['post', 'put']),
+        allow_none=True,
+    )
+    r""" The REST API HTTP method (POST/PUT).
+
+Valid choices:
+
+* post
+* put"""
 
     url = marshmallow_fields.Str(
         data_key="url",
@@ -107,26 +117,29 @@ Example: me"""
         return ConfigurationBackup
 
     gettable_fields = [
+        "rest_method",
         "url",
         "username",
         "validate_certificate",
     ]
-    """url,username,validate_certificate,"""
+    """rest_method,url,username,validate_certificate,"""
 
     patchable_fields = [
         "password",
+        "rest_method",
         "url",
         "username",
         "validate_certificate",
     ]
-    """password,url,username,validate_certificate,"""
+    """password,rest_method,url,username,validate_certificate,"""
 
     postable_fields = [
+        "rest_method",
         "url",
         "username",
         "validate_certificate",
     ]
-    """url,username,validate_certificate,"""
+    """rest_method,url,username,validate_certificate,"""
 
 class ConfigurationBackup(Resource):
     """Allows interaction with ConfigurationBackup objects on the host"""

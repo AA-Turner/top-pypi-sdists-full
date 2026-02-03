@@ -15,7 +15,7 @@ result = service.get_agent_spans(
             span_name="ChatBedrockConverse.chat",
         )
     ],
-    limit=1
+    limit=1,
 )
 
 print(f"has_error: {result.has_error}")
@@ -23,4 +23,3 @@ print(f"error: {result.error}")
 print(f"row_count: {result.row_count}")
 print(f"columns: {result.columns}")
 print(f"rows: {result.rows}")
-

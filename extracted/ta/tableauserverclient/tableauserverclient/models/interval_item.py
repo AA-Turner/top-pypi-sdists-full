@@ -305,6 +305,7 @@ class MonthlyInterval:
             "Fourth",
             "Fifth",
             "Last",
+            "Customized Monthly",
         ]
         for value in range(1, 32):
             VALID_INTERVALS.append(str(value))
@@ -318,4 +319,4 @@ class MonthlyInterval:
         self._interval = interval_values
 
     def _interval_type_pairs(self):
-        return [(IntervalItem.Occurrence.MonthDay, self.interval)]
+        return [(IntervalItem.Occurrence.MonthDay, str(day)) for day in self.interval]

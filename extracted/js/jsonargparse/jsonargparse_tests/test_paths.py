@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
-from jsonargparse import ArgumentError, Namespace
+from jsonargparse import ArgumentError, Namespace, set_parsing_settings
 from jsonargparse._optionals import fsspec_support, url_support
 from jsonargparse._paths import _current_path_dir, _parse_url
 from jsonargparse.typing import Path, Path_drw, Path_fc, Path_fr, path_type
@@ -21,6 +21,7 @@ from jsonargparse_tests.conftest import (
     is_posix,
     json_or_yaml_dump,
     json_or_yaml_load,
+    patch_parsing_settings,
     responses_activate,
     responses_available,
     skip_if_fsspec_unavailable,
@@ -524,6 +525,16 @@ def test_paths_dump(parser, tmp_cwd):
     assert json_or_yaml_load(parser.dump(cfg)) == {"paths": ["path1", "path2"]}
 
 
+def test_path_fr_default_stdin(parser):
+    parser.add_argument("--path", type=Path_fr, default="-")
+
+    defaults = parser.get_defaults()
+    assert defaults.path == Path_fr("-")
+
+    defaults = parser.parse_args([])
+    assert defaults.path == Path_fr("-")
+
+
 # enable_path tests
 
 
@@ -622,7 +633,10 @@ def test_enable_path_list_path_fr(parser, tmp_cwd, mock_stdin, subtests):
         ctx.match("Expected a path but no-such-file either not accessible or invalid")
 
 
-def test_enable_path_list_path_fr_default_stdin(parser, tmp_cwd, mock_stdin, subtests):
+@pytest.mark.parametrize("validate_defaults", [False, True])
+@patch_parsing_settings
+def test_enable_path_list_path_fr_default_stdin(parser, tmp_cwd, validate_defaults, mock_stdin, subtests):
+    set_parsing_settings(validate_defaults=validate_defaults)
     (tmp_cwd / "file1").touch()
     (tmp_cwd / "file2").touch()
 
@@ -632,6 +646,10 @@ def test_enable_path_list_path_fr_default_stdin(parser, tmp_cwd, mock_stdin, sub
         enable_path=True,
         default="-",
     )
+
+    with subtests.test("defaults"):
+        defaults = parser.get_defaults()
+        assert defaults.list == "-"
 
     with subtests.test("without args"):
         with mock_stdin("file1\nfile2\n"):
@@ -714,5 +732,21 @@ def test_sub_configs_union_subclass_and_pathlike(parser, tmp_cwd):
     assert cfg.data.path == str(data_path)
 
 
+def test_union_path_or_dict(parser, tmp_cwd):
+    arg_path = pathlib.Path("arg.json")
+    arg_path.touch()
+
+    parser.add_argument("--arg", type=Union[Path_fr, dict])
+
+    cfg = parser.parse_args([f"--arg={arg_path}"])
+    assert isinstance(cfg.arg, Path_fr)
+    assert str(arg_path) == str(cfg.arg)
+
+    cfg = parser.parse_args(['--arg={"key": "value"}'])
+    assert cfg.arg == {"key": "value"}
+
+
 def test_import_old_path_location():
-    from jsonargparse import Path  # noqa: F401
+    from jsonargparse import Path as path_old
+
+    assert path_old is Path

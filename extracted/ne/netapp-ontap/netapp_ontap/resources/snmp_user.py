@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,9 +28,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SnmpUser(
     {
-        "engine_id": "80000315056622e52625a9e911a981005056bb1dcb",
-        "scope": "cluster",
-        "owner": {"uuid": "26e52266-a925-11e9-a981-005056bb1dcb", "name": "cluster-1"},
         "_links": {
             "self": {
                 "href": "/api/support/snmp/users/80000315056622e52625a9e911a981005056bb1dcb/snmpv1user2"
@@ -38,6 +35,9 @@ SnmpUser(
         },
         "authentication_method": "community",
         "name": "snmpv1user2",
+        "engine_id": "80000315056622e52625a9e911a981005056bb1dcb",
+        "owner": {"name": "cluster-1", "uuid": "26e52266-a925-11e9-a981-005056bb1dcb"},
+        "scope": "cluster",
     }
 )
 
@@ -80,11 +80,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -98,11 +97,15 @@ __pdoc__ = {
     "SnmpUserSchema.opts": False,
 }
 
-
 class SnmpUserSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SnmpUser object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the snmp_user."""
 
     authentication_method = marshmallow_fields.Str(
@@ -144,7 +147,12 @@ Example: 80000315055415ab26d4aae811ac4d005056bb792e"""
 
 Example: snmpv3user2"""
 
-    owner = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="owner", unknown=EXCLUDE, allow_none=True)
+    owner = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="owner",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The owner field of the snmp_user."""
 
     scope = marshmallow_fields.Str(
@@ -159,7 +167,12 @@ Valid choices:
 * svm
 * cluster"""
 
-    snmpv3 = marshmallow_fields.Nested("netapp_ontap.models.usm.UsmSchema", data_key="snmpv3", unknown=EXCLUDE, allow_none=True)
+    snmpv3 = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.usm", "UsmSchema"),
+                data_key="snmpv3",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" User-based Security Model (USM) object defines SNMPv3-specific parameters required to configure an SNMPv3 user."""
 
     switch_address = marshmallow_fields.Str(

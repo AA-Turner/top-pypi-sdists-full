@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -577,11 +577,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -594,7 +593,6 @@ __pdoc__ = {
     "MediatorSchema.resource": False,
     "MediatorSchema.opts": False,
 }
-
 
 class MediatorSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Mediator object"""
@@ -617,7 +615,12 @@ class MediatorSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" CA certificate for ONTAP Mediator. This is optional if the certificate is already installed."""
 
-    dr_group = marshmallow_fields.Nested("netapp_ontap.resources.metrocluster_dr_group.MetroclusterDrGroupSchema", data_key="dr_group", unknown=EXCLUDE, allow_none=True)
+    dr_group = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.metrocluster_dr_group", "MetroclusterDrGroupSchema"),
+                data_key="dr_group",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The dr_group field of the mediator."""
 
     ip_address = marshmallow_fields.Str(
@@ -644,7 +647,12 @@ Example: connected"""
 
 Example: mypassword"""
 
-    peer_cluster = marshmallow_fields.Nested("netapp_ontap.resources.cluster_peer.ClusterPeerSchema", data_key="peer_cluster", unknown=EXCLUDE, allow_none=True)
+    peer_cluster = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.cluster_peer", "ClusterPeerSchema"),
+                data_key="peer_cluster",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The peer_cluster field of the mediator."""
 
     peer_mediator_connectivity = marshmallow_fields.Str(

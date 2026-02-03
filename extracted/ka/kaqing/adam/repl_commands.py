@@ -8,7 +8,7 @@ from adam.commands.cassandra.restart_cluster import RestartCluster
 from adam.commands.cassandra.restart_nodes import RestartNodes
 from adam.commands.cassandra.rollout import RollOut
 from adam.commands.cassandra.show_cassandra_repairs import ShowCassandraRepairs
-from adam.commands.cassandra.show_cassandra_ring import ShowCassandraRing
+from adam.commands.cassandra.show_tokens import ShowTokens
 from adam.commands.cassandra.show_cassandra_status import ShowCassandraStatus
 from adam.commands.cassandra.show_node_restartable import ShowNodeRestartable
 from adam.commands.cassandra.show_cassandra_version import ShowCassandraVersion
@@ -129,7 +129,7 @@ class ReplCommands:
                 ExportTables(), ExportXSelect(), ExportUse(),
                 GenerateReport(), ImportSession(), ImportCSVFiles(), Issues(), NodeTool(),
                 RestartNodes(), RestartCluster(), RollOut(),
-                ShowCassandraRing(), ShowCassandraStatus(), ShowNodeRestartable(), ShowCassandraVersion(),
+                ShowTokens(), ShowCassandraStatus(), ShowNodeRestartable(), ShowCassandraVersion(),
                 ShowCassandraRepairs(), ShowColumnCounts(), ShowJobs(), ShowStorage(), ShowExportDatabases(),
                 ShowExportSessions(), ShowExportSession(), ShowProcesses(),
                 Watch()] + \

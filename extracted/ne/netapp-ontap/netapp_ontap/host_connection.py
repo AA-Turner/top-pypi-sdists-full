@@ -1,6 +1,6 @@
 # pylint: disable=line-too-long
 """
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This module defines a host connection object which is used to communicate with

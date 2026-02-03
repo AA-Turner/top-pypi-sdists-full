@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ConsistencyGroupChildNamespaces", "ConsistencyGroupChildNamespacesSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "ConsistencyGroupChildNamespacesSchema.opts": False,
     "ConsistencyGroupChildNamespaces": False,
 }
-
 
 class ConsistencyGroupChildNamespacesSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ConsistencyGroupChildNamespaces object"""
@@ -62,16 +60,36 @@ Valid choices:
 * vmware
 * windows """
 
-    provisioning_options = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_vdisk_provisioning_options.ConsistencyGroupVdiskProvisioningOptionsSchema", unknown=EXCLUDE, data_key="provisioning_options", allow_none=True)
+    provisioning_options = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_vdisk_provisioning_options", "ConsistencyGroupVdiskProvisioningOptionsSchema"),
+                unknown=EXCLUDE,
+                data_key="provisioning_options",
+                allow_none=True
+            )
     r""" Options that are applied to the operation. """
 
-    space = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_namespace_space.ConsistencyGroupNamespaceSpaceSchema", unknown=EXCLUDE, data_key="space", allow_none=True)
+    space = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_namespace_space", "ConsistencyGroupNamespaceSpaceSchema"),
+                unknown=EXCLUDE,
+                data_key="space",
+                allow_none=True
+            )
     r""" The storage space related properties of the NVMe namespace. """
 
-    status = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_namespace_status.ConsistencyGroupNamespaceStatusSchema", unknown=EXCLUDE, data_key="status", allow_none=True)
+    status = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_namespace_status", "ConsistencyGroupNamespaceStatusSchema"),
+                unknown=EXCLUDE,
+                data_key="status",
+                allow_none=True
+            )
     r""" Status information about the NVMe namespace. """
 
-    subsystem_map = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_namespace_subsystem_map.ConsistencyGroupNamespaceSubsystemMapSchema", unknown=EXCLUDE, data_key="subsystem_map", allow_none=True)
+    subsystem_map = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_namespace_subsystem_map", "ConsistencyGroupNamespaceSubsystemMapSchema"),
+                unknown=EXCLUDE,
+                data_key="subsystem_map",
+                allow_none=True
+            )
     r""" The NVMe subsystem with which the NVMe namespace is associated. A namespace can be mapped to zero (0) or one (1) subsystems.<br/>
 There is an added computational cost to retrieving property values for `subsystem_map`.
 They are not populated for either a collection GET or an instance GET unless explicitly requested using the `fields` query parameter. """

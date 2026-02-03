@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rpaframework
-Version: 31.1.0
+Version: 31.1.1
 Summary: A collection of tools and libraries for RPA
 Project-URL: homepage, https://rpaframework.org/
 Project-URL: documentation, https://rpaframework.org/
@@ -64,7 +64,7 @@ Requires-Dist: robotframework-sapguilibrary>=1.1; sys_platform == 'win32'
 Requires-Dist: robotframework-seleniumlibrary>=6.7.1
 Requires-Dist: robotframework-seleniumtestability>=2.0.0
 Requires-Dist: rpaframework-core>=12.1.0
-Requires-Dist: rpaframework-pdf>=10.0.1
+Requires-Dist: rpaframework-pdf>=10.0.2
 Requires-Dist: rpaframework-windows>=10.0.2; sys_platform == 'win32'
 Requires-Dist: selenium==4.15.2
 Requires-Dist: simple-salesforce>=1.0.0
@@ -73,7 +73,7 @@ Requires-Dist: tenacity>=8.0.1
 Requires-Dist: tweepy>=3.8.0
 Requires-Dist: tzlocal>=4.2
 Requires-Dist: validators>=0.34.0
-Requires-Dist: wrapt<2.0.0,>=1.14.0
+Requires-Dist: wrapt>=1.14.0
 Requires-Dist: xlrd>=2.0.1
 Requires-Dist: xlutils>=2.0.0
 Requires-Dist: xlwt>=1.3.0

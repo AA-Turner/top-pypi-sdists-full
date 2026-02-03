@@ -1,0 +1,66 @@
+r"""
+Copyright &copy; 2026 NetApp Inc.
+All rights reserved.
+
+This file has been automatically generated based on the ONTAP REST API documentation.
+
+"""
+from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
+
+
+__all__ = ["DataEngineJobLink", "DataEngineJobLinkSchema"]
+__pdoc__ = {
+    "DataEngineJobLinkSchema.resource": False,
+    "DataEngineJobLinkSchema.opts": False,
+    "DataEngineJobLink": False,
+}
+
+class DataEngineJobLinkSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
+    """The fields of the DataEngineJobLink object"""
+
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                unknown=EXCLUDE,
+                data_key="_links",
+                allow_none=True
+            )
+    r""" The links field of the data_engine_job_link. """
+
+    name = marshmallow_fields.Str(data_key="name", allow_none=True)
+    r""" The name of the job.
+
+Example: create workspace job """
+
+    uuid = marshmallow_fields.Str(data_key="uuid", allow_none=True)
+    r""" The unique identifier of the job.
+
+Example: 4ea7a442-86d1-11e0-ae1c-123478563412 """
+
+    @property
+    def resource(self):
+        return DataEngineJobLink
+
+    gettable_fields = [
+        "links",
+        "name",
+        "uuid",
+    ]
+    """links,name,uuid,"""
+
+    patchable_fields = [
+        "name",
+        "uuid",
+    ]
+    """name,uuid,"""
+
+    postable_fields = [
+        "name",
+        "uuid",
+    ]
+    """name,uuid,"""
+
+
+class DataEngineJobLink(Resource):
+
+    _schema = DataEngineJobLinkSchema

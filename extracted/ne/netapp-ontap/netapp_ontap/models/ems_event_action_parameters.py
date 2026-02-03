@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["EmsEventActionParameters", "EmsEventActionParametersSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "EmsEventActionParameters": False,
 }
 
-
 class EmsEventActionParametersSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the EmsEventActionParameters object"""
 
-    description = marshmallow_fields.Nested("netapp_ontap.models.ems_ui_message.EmsUiMessageSchema", unknown=EXCLUDE, data_key="description", allow_none=True)
+    description = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ems_ui_message", "EmsUiMessageSchema"),
+                unknown=EXCLUDE,
+                data_key="description",
+                allow_none=True
+            )
     r""" Information to be displayed to the user. """
 
     enum = marshmallow_fields.List(marshmallow_fields.Str, data_key="enum", allow_none=True)
@@ -40,7 +43,12 @@ Example: ["value-1","value-2"] """
 
 Example: date-time """
 
-    help = marshmallow_fields.Nested("netapp_ontap.models.ems_ui_message.EmsUiMessageSchema", unknown=EXCLUDE, data_key="help", allow_none=True)
+    help = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ems_ui_message", "EmsUiMessageSchema"),
+                unknown=EXCLUDE,
+                data_key="help",
+                allow_none=True
+            )
     r""" Information to be displayed to the user. """
 
     in_ = marshmallow_fields.Str(data_key="in", allow_none=True)
@@ -95,7 +103,12 @@ Example: ["end-time"] """
 
 Example: [{"format":"date-time","name":"start-date","type":"string"},{"format":"date-time","name":"end-date","type":"string"}] """
 
-    title = marshmallow_fields.Nested("netapp_ontap.models.ems_ui_message.EmsUiMessageSchema", unknown=EXCLUDE, data_key="title", allow_none=True)
+    title = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ems_ui_message", "EmsUiMessageSchema"),
+                unknown=EXCLUDE,
+                data_key="title",
+                allow_none=True
+            )
     r""" Information to be displayed to the user. """
 
     type = marshmallow_fields.Str(data_key="type", allow_none=True)
@@ -113,7 +126,12 @@ Valid choices:
     unique_items = marshmallow_fields.Boolean(data_key="uniqueItems", allow_none=True)
     r""" Specifies whether the "maximum" value is excluded in the parameter value range. """
 
-    validation_error_message = marshmallow_fields.Nested("netapp_ontap.models.ems_ui_message.EmsUiMessageSchema", unknown=EXCLUDE, data_key="validation_error_message", allow_none=True)
+    validation_error_message = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ems_ui_message", "EmsUiMessageSchema"),
+                unknown=EXCLUDE,
+                data_key="validation_error_message",
+                allow_none=True
+            )
     r""" Information to be displayed to the user. """
 
     value = marshmallow_fields.Dict(data_key="value", allow_none=True)

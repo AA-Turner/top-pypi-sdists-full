@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -25,82 +25,82 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Switch(
         {
-            "serial_number": "Unknown",
-            "address": "172.26.207.77",
-            "snmp": {"user": "cshm1!", "version": "snmpv2c"},
-            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.2(3)",
             "role": "cluster",
-            "rcf_version": "RCF NX3232C v1.13 1-CLUSTER",
             "network": "cluster",
-            "discovered": True,
-            "model": "NX3232C",
+            "rcf_version": "RCF NX3232C v1.13 1-CLUSTER",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/switches/RTP-CS01-510R11%28FOC22092K12%29"
                 }
             },
-            "monitoring": {"reason": "None", "monitored": True, "enabled": True},
+            "serial_number": "Unknown",
+            "snmp": {"version": "snmpv2c", "user": "cshm1!"},
+            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.2(3)",
+            "discovered": True,
+            "monitoring": {"monitored": True, "reason": "None", "enabled": True},
             "name": "RTP-CS01-510R11(FOC22092K12)",
+            "model": "NX3232C",
+            "address": "172.26.207.77",
         }
     ),
     Switch(
         {
-            "serial_number": "FOC22373C3P",
-            "address": "172.26.207.82",
-            "snmp": {"user": "cshm1!", "version": "snmpv2c"},
-            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.2(3)",
             "role": "cluster",
-            "rcf_version": "RCF NX3232C v1.13 1-CLUSTER",
             "network": "cluster",
-            "discovered": True,
-            "model": "NX3232C",
+            "rcf_version": "RCF NX3232C v1.13 1-CLUSTER",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/switches/RTP-CS01-510R12%28FOC22373C3P%29"
                 }
             },
-            "monitoring": {"reason": "None", "monitored": True, "enabled": True},
+            "serial_number": "FOC22373C3P",
+            "snmp": {"version": "snmpv2c", "user": "cshm1!"},
+            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.2(3)",
+            "discovered": True,
+            "monitoring": {"monitored": True, "reason": "None", "enabled": True},
             "name": "RTP-CS01-510R12(FOC22373C3P)",
+            "model": "NX3232C",
+            "address": "172.26.207.82",
         }
     ),
     Switch(
         {
-            "serial_number": "FOC22170DFR",
-            "address": "172.26.207.65",
-            "snmp": {"user": "cshm1!", "version": "snmpv2c"},
-            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.3(3)",
             "role": "storage",
-            "rcf_version": "RCF NX3232C v1.13 1-STORAGE",
             "network": "storage",
-            "discovered": True,
-            "model": "NX3232C",
+            "rcf_version": "RCF NX3232C v1.13 1-STORAGE",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/switches/RTP-SS01-510R10%28FOC22170DFR%29"
                 }
             },
-            "monitoring": {"reason": "None", "monitored": True, "enabled": True},
+            "serial_number": "FOC22170DFR",
+            "snmp": {"version": "snmpv2c", "user": "cshm1!"},
+            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.3(3)",
+            "discovered": True,
+            "monitoring": {"monitored": True, "reason": "None", "enabled": True},
             "name": "RTP-SS01-510R10(FOC22170DFR)",
+            "model": "NX3232C",
+            "address": "172.26.207.65",
         }
     ),
     Switch(
         {
-            "serial_number": "FOC22131U6T",
-            "address": "172.26.207.66",
-            "snmp": {"user": "cshm1!", "version": "snmpv2c"},
-            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.3(3)",
             "role": "storage",
-            "rcf_version": "RCF NX3232C v1.13 1-STORAGE",
             "network": "storage",
-            "discovered": True,
-            "model": "NX3232C",
+            "rcf_version": "RCF NX3232C v1.13 1-STORAGE",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/switches/RTP-SS02-510R10%28FOC22131U6T%29"
                 }
             },
-            "monitoring": {"reason": "None", "monitored": True, "enabled": True},
+            "serial_number": "FOC22131U6T",
+            "snmp": {"version": "snmpv2c", "user": "cshm1!"},
+            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.3(3)",
+            "discovered": True,
+            "monitoring": {"monitored": True, "reason": "None", "enabled": True},
             "name": "RTP-SS02-510R10(FOC22131U6T)",
+            "model": "NX3232C",
+            "address": "172.26.207.66",
         }
     ),
 ]
@@ -128,22 +128,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Switch(
     {
-        "serial_number": "FOC22131U6T",
-        "address": "172.26.207.66",
-        "snmp": {"user": "cshm1!", "version": "snmpv2c"},
-        "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.3(3)",
         "role": "storage",
-        "rcf_version": "RCF NX3232C v1.13 1-STORAGE",
         "network": "storage",
-        "discovered": True,
-        "model": "NX3232C",
+        "rcf_version": "RCF NX3232C v1.13 1-STORAGE",
         "_links": {
             "self": {
                 "href": "/api/network/ethernet/switches/RTP-SS02-510R10(FOC22131U6T)"
             }
         },
-        "monitoring": {"reason": "None", "monitored": True, "enabled": True},
+        "serial_number": "FOC22131U6T",
+        "snmp": {"version": "snmpv2c", "user": "cshm1!"},
+        "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.3(3)",
+        "discovered": True,
+        "monitoring": {"monitored": True, "reason": "None", "enabled": True},
         "name": "RTP-SS02-510R10(FOC22131U6T)",
+        "model": "NX3232C",
+        "address": "172.26.207.66",
     }
 )
 
@@ -189,12 +189,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Switch(
     {
-        "address": "172.26.207.66",
-        "snmp": {"user": "cshm1!", "version": "snmpv2c"},
         "network": "storage",
-        "model": "NX3232C",
+        "snmp": {"version": "snmpv2c", "user": "cshm1!"},
         "monitoring": {"enabled": True},
         "name": "RTP-SS02-510R10(FOC22131U6T)",
+        "model": "NX3232C",
+        "address": "172.26.207.66",
     }
 )
 
@@ -219,11 +219,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -237,11 +236,15 @@ __pdoc__ = {
     "SwitchSchema.opts": False,
 }
 
-
 class SwitchSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Switch object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the switch."""
 
     address = marshmallow_fields.Str(
@@ -262,7 +265,12 @@ class SwitchSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Model Number."""
 
-    monitoring = marshmallow_fields.Nested("netapp_ontap.models.switch_monitoring.SwitchMonitoringSchema", data_key="monitoring", unknown=EXCLUDE, allow_none=True)
+    monitoring = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.switch_monitoring", "SwitchMonitoringSchema"),
+                data_key="monitoring",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The monitoring field of the switch."""
 
     name = marshmallow_fields.Str(
@@ -307,7 +315,12 @@ Example:"""
     )
     r""" Serial Number."""
 
-    snmp = marshmallow_fields.Nested("netapp_ontap.models.switch_snmp.SwitchSnmpSchema", data_key="snmp", unknown=EXCLUDE, allow_none=True)
+    snmp = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.switch_snmp", "SwitchSnmpSchema"),
+                data_key="snmp",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The snmp field of the switch."""
 
     version = marshmallow_fields.Str(

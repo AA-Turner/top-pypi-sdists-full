@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qwen-agent
-Version: 0.0.32
+Version: 0.0.33
 Summary: Qwen-Agent: Enhancing LLMs with Agent Workflows, RAG, Function Calling, and Code Interpreter.
 Home-page: https://github.com/QwenLM/Qwen-Agent
 Author: Qwen Team

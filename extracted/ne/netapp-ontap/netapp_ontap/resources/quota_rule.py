@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -40,58 +40,58 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     QuotaRule(
         {
-            "svm": {
-                "uuid": "038545f8-9ff8-11e8-bce6-005056a73bed",
-                "name": "svm1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/038545f8-9ff8-11e8-bce6-005056a73bed"
-                    }
-                },
-            },
-            "uuid": "66319cbe-b837-11e8-9c5a-005056a7e88c",
             "_links": {
                 "self": {
                     "href": "/api/storage/quota/rules/66319cbe-b837-11e8-9c5a-005056a7e88c"
                 }
             },
-            "volume": {
-                "uuid": "ab3df793-0f02-43c6-9514-4f142fc8cc92",
-                "name": "vol1",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/volumes/ab3df793-0f02-43c6-9514-4f142fc8cc92"
-                    }
-                },
-            },
-        }
-    ),
-    QuotaRule(
-        {
             "svm": {
-                "uuid": "038545f8-9ff8-11e8-bce6-005056a73bed",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/038545f8-9ff8-11e8-bce6-005056a73bed"
                     }
                 },
-            },
-            "uuid": "dbd5b443-b7a4-11e8-bc58-005056a7e88c",
-            "_links": {
-                "self": {
-                    "href": "/api/storage/quota/rules/dbd5b443-b7a4-11e8-bc58-005056a7e88c"
-                }
+                "uuid": "038545f8-9ff8-11e8-bce6-005056a73bed",
             },
             "volume": {
-                "uuid": "ab3df793-0f02-43c6-9514-4f142fc8cc92",
                 "name": "vol1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/ab3df793-0f02-43c6-9514-4f142fc8cc92"
                     }
                 },
+                "uuid": "ab3df793-0f02-43c6-9514-4f142fc8cc92",
             },
+            "uuid": "66319cbe-b837-11e8-9c5a-005056a7e88c",
+        }
+    ),
+    QuotaRule(
+        {
+            "_links": {
+                "self": {
+                    "href": "/api/storage/quota/rules/dbd5b443-b7a4-11e8-bc58-005056a7e88c"
+                }
+            },
+            "svm": {
+                "name": "svm1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/038545f8-9ff8-11e8-bce6-005056a73bed"
+                    }
+                },
+                "uuid": "038545f8-9ff8-11e8-bce6-005056a73bed",
+            },
+            "volume": {
+                "name": "vol1",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/volumes/ab3df793-0f02-43c6-9514-4f142fc8cc92"
+                    }
+                },
+                "uuid": "ab3df793-0f02-43c6-9514-4f142fc8cc92",
+            },
+            "uuid": "dbd5b443-b7a4-11e8-bc58-005056a7e88c",
         }
     ),
 ]
@@ -123,41 +123,41 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 QuotaRule(
     {
-        "files": {"soft_limit": 80, "hard_limit": 100},
-        "qtree": {
-            "id": 1,
-            "_links": {
-                "self": {
-                    "href": "/api/storage/qtrees/c1b64eea-ca8b-45ec-9397-ab489830d268/1"
-                }
-            },
-            "name": "qt1",
-        },
-        "user_mapping": True,
-        "space": {"soft_limit": 51200, "hard_limit": 1222800},
-        "users": [{"name": "fred"}],
-        "svm": {
-            "uuid": "fd5db15a-15b9-11e9-a6ad-005056a760e0",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/fd5db15a-15b9-11e9-a6ad-005056a760e0"}
-            },
-        },
-        "uuid": "264a9e0b-2e03-11e9-a610-005056a7b72d",
         "_links": {
             "self": {
                 "href": "/api/storage/quota/rules/264a9e0b-2e03-11e9-a610-005056a7b72d"
             }
         },
-        "type": "user",
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/fd5db15a-15b9-11e9-a6ad-005056a760e0"}
+            },
+            "uuid": "fd5db15a-15b9-11e9-a6ad-005056a760e0",
+        },
+        "files": {"soft_limit": 80, "hard_limit": 100},
         "volume": {
-            "uuid": "c1b64eea-ca8b-45ec-9397-ab489830d268",
             "name": "vol1",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/c1b64eea-ca8b-45ec-9397-ab489830d268"
                 }
             },
+            "uuid": "c1b64eea-ca8b-45ec-9397-ab489830d268",
+        },
+        "space": {"soft_limit": 51200, "hard_limit": 1222800},
+        "uuid": "264a9e0b-2e03-11e9-a610-005056a7b72d",
+        "type": "user",
+        "users": [{"name": "fred"}],
+        "user_mapping": True,
+        "qtree": {
+            "name": "qt1",
+            "_links": {
+                "self": {
+                    "href": "/api/storage/qtrees/c1b64eea-ca8b-45ec-9397-ab489830d268/1"
+                }
+            },
+            "id": 1,
         },
     }
 )
@@ -187,32 +187,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 QuotaRule(
     {
-        "files": {"soft_limit": 80, "hard_limit": 100},
-        "space": {"soft_limit": 51200, "hard_limit": 1222800},
-        "users": [{"name": "sam"}, {"name": "smith"}, {"id": "300010"}],
-        "svm": {
-            "uuid": "fd5db15a-15b9-11e9-a6ad-005056a760e0",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/fd5db15a-15b9-11e9-a6ad-005056a760e0"}
-            },
-        },
-        "uuid": "0ab84fba-19aa-11e9-a04d-005056a72f42",
         "_links": {
             "self": {
                 "href": "/api/storage/quota/rules/0ab84fba-19aa-11e9-a04d-005056a72f42"
             }
         },
-        "type": "user",
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/fd5db15a-15b9-11e9-a6ad-005056a760e0"}
+            },
+            "uuid": "fd5db15a-15b9-11e9-a6ad-005056a760e0",
+        },
+        "files": {"soft_limit": 80, "hard_limit": 100},
         "volume": {
-            "uuid": "c1b64eea-ca8b-45ec-9397-ab489830d268",
             "name": "vol1",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/c1b64eea-ca8b-45ec-9397-ab489830d268"
                 }
             },
+            "uuid": "c1b64eea-ca8b-45ec-9397-ab489830d268",
         },
+        "space": {"soft_limit": 51200, "hard_limit": 1222800},
+        "uuid": "0ab84fba-19aa-11e9-a04d-005056a72f42",
+        "type": "user",
+        "users": [{"name": "sam"}, {"name": "smith"}, {"id": "300010"}],
     }
 )
 
@@ -241,32 +241,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 QuotaRule(
     {
-        "files": {"soft_limit": 10, "hard_limit": 20},
-        "qtree": {"name": ""},
-        "space": {"soft_limit": 51200, "hard_limit": 1034000},
-        "svm": {
-            "uuid": "fd5db15a-15b9-11e9-a6ad-005056a760e0",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/fd5db15a-15b9-11e9-a6ad-005056a760e0"}
-            },
-        },
-        "uuid": "4a276b8c-1753-11e9-8101-005056a760e0",
         "_links": {
             "self": {
                 "href": "/api/storage/quota/rules/4a276b8c-1753-11e9-8101-005056a760e0"
             }
         },
-        "type": "tree",
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/fd5db15a-15b9-11e9-a6ad-005056a760e0"}
+            },
+            "uuid": "fd5db15a-15b9-11e9-a6ad-005056a760e0",
+        },
+        "files": {"soft_limit": 10, "hard_limit": 20},
         "volume": {
-            "uuid": "c1b64eea-ca8b-45ec-9397-ab489830d268",
             "name": "vol1",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/c1b64eea-ca8b-45ec-9397-ab489830d268"
                 }
             },
+            "uuid": "c1b64eea-ca8b-45ec-9397-ab489830d268",
         },
+        "space": {"soft_limit": 51200, "hard_limit": 1034000},
+        "uuid": "4a276b8c-1753-11e9-8101-005056a760e0",
+        "type": "tree",
+        "qtree": {"name": ""},
     }
 )
 
@@ -295,39 +295,39 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 QuotaRule(
     {
-        "files": {"soft_limit": 40, "hard_limit": 100},
-        "qtree": {
-            "id": 1,
-            "_links": {
-                "self": {
-                    "href": "/api/storage/qtrees/c1b64eea-ca8b-45ec-9397-ab489830d268/1"
-                }
-            },
-            "name": "qt1",
-        },
-        "space": {"soft_limit": 838861, "hard_limit": 1048576},
-        "svm": {
-            "uuid": "fd5db15a-15b9-11e9-a6ad-005056a760e0",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/fd5db15a-15b9-11e9-a6ad-005056a760e0"}
-            },
-        },
-        "uuid": "49b1134f-19ab-11e9-a04d-005056a72f42",
         "_links": {
             "self": {
                 "href": "/api/storage/quota/rules/49b1134f-19ab-11e9-a04d-005056a72f42"
             }
         },
-        "type": "tree",
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/fd5db15a-15b9-11e9-a6ad-005056a760e0"}
+            },
+            "uuid": "fd5db15a-15b9-11e9-a6ad-005056a760e0",
+        },
+        "files": {"soft_limit": 40, "hard_limit": 100},
         "volume": {
-            "uuid": "c1b64eea-ca8b-45ec-9397-ab489830d268",
             "name": "vol1",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/c1b64eea-ca8b-45ec-9397-ab489830d268"
                 }
             },
+            "uuid": "c1b64eea-ca8b-45ec-9397-ab489830d268",
+        },
+        "space": {"soft_limit": 838861, "hard_limit": 1048576},
+        "uuid": "49b1134f-19ab-11e9-a04d-005056a72f42",
+        "type": "tree",
+        "qtree": {
+            "name": "qt1",
+            "_links": {
+                "self": {
+                    "href": "/api/storage/qtrees/c1b64eea-ca8b-45ec-9397-ab489830d268/1"
+                }
+            },
+            "id": 1,
         },
     }
 )
@@ -357,41 +357,41 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 QuotaRule(
     {
-        "files": {"soft_limit": 200, "hard_limit": 250},
-        "qtree": {
-            "id": 1,
-            "_links": {
-                "self": {
-                    "href": "/api/storage/qtrees/c1b64eea-ca8b-45ec-9397-ab489830d268/1"
-                }
-            },
-            "name": "qt1",
-        },
-        "space": {"soft_limit": 1572864, "hard_limit": 2097152},
-        "svm": {
-            "uuid": "fd5db15a-15b9-11e9-a6ad-005056a760e0",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/fd5db15a-15b9-11e9-a6ad-005056a760e0"}
-            },
-        },
-        "uuid": "b9236852-19ab-11e9-a04d-005056a72f42",
         "_links": {
             "self": {
                 "href": "/api/storage/quota/rules/b9236852-19ab-11e9-a04d-005056a72f42"
             }
         },
-        "group": {"name": "group1"},
-        "type": "group",
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/fd5db15a-15b9-11e9-a6ad-005056a760e0"}
+            },
+            "uuid": "fd5db15a-15b9-11e9-a6ad-005056a760e0",
+        },
+        "files": {"soft_limit": 200, "hard_limit": 250},
         "volume": {
-            "uuid": "c1b64eea-ca8b-45ec-9397-ab489830d268",
             "name": "vol1",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/c1b64eea-ca8b-45ec-9397-ab489830d268"
                 }
             },
+            "uuid": "c1b64eea-ca8b-45ec-9397-ab489830d268",
         },
+        "space": {"soft_limit": 1572864, "hard_limit": 2097152},
+        "uuid": "b9236852-19ab-11e9-a04d-005056a72f42",
+        "type": "group",
+        "qtree": {
+            "name": "qt1",
+            "_links": {
+                "self": {
+                    "href": "/api/storage/qtrees/c1b64eea-ca8b-45ec-9397-ab489830d268/1"
+                }
+            },
+            "id": 1,
+        },
+        "group": {"name": "group1"},
     }
 )
 
@@ -430,20 +430,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 QuotaRule(
     {
-        "files": {"soft_limit": 10, "hard_limit": 20},
-        "qtree": {"name": "qt1"},
-        "user_mapping": True,
-        "space": {"soft_limit": 1024, "hard_limit": 8192},
-        "users": [{"name": "example_user"}],
-        "svm": {"name": "svm1"},
-        "uuid": "3220eea6-5049-11e9-bfb7-005056a7f717",
         "_links": {
             "self": {
                 "href": "/api/storage/quota/rules/3220eea6-5049-11e9-bfb7-005056a7f717"
             }
         },
-        "type": "user",
+        "svm": {"name": "svm1"},
+        "files": {"soft_limit": 10, "hard_limit": 20},
         "volume": {"name": "fv"},
+        "space": {"soft_limit": 1024, "hard_limit": 8192},
+        "uuid": "3220eea6-5049-11e9-bfb7-005056a7f717",
+        "type": "user",
+        "users": [{"name": "example_user"}],
+        "user_mapping": True,
+        "qtree": {"name": "qt1"},
     }
 )
 
@@ -479,19 +479,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 QuotaRule(
     {
-        "files": {"soft_limit": 10, "hard_limit": 20},
-        "qtree": {"name": "qt1"},
-        "space": {"soft_limit": 1024, "hard_limit": 8192},
-        "svm": {"name": "svm1"},
-        "uuid": "3b130f7d-504a-11e9-bfb7-005056a7f717",
         "_links": {
             "self": {
                 "href": "/api/storage/quota/rules/3b130f7d-504a-11e9-bfb7-005056a7f717"
             }
         },
-        "group": {"name": "test_group1"},
-        "type": "group",
+        "svm": {"name": "svm1"},
+        "files": {"soft_limit": 10, "hard_limit": 20},
         "volume": {"name": "fv"},
+        "space": {"soft_limit": 1024, "hard_limit": 8192},
+        "uuid": "3b130f7d-504a-11e9-bfb7-005056a7f717",
+        "type": "group",
+        "qtree": {"name": "qt1"},
+        "group": {"name": "test_group1"},
     }
 )
 
@@ -526,18 +526,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 QuotaRule(
     {
-        "files": {"soft_limit": 10, "hard_limit": 20},
-        "qtree": {"name": "qt1"},
-        "space": {"soft_limit": 1024, "hard_limit": 8192},
-        "svm": {"name": "svm1"},
-        "uuid": "e5eb03be-504a-11e9-bfb7-005056a7f717",
         "_links": {
             "self": {
                 "href": "/api/storage/quota/rules/e5eb03be-504a-11e9-bfb7-005056a7f717"
             }
         },
-        "type": "tree",
+        "svm": {"name": "svm1"},
+        "files": {"soft_limit": 10, "hard_limit": 20},
         "volume": {"name": "fv"},
+        "space": {"soft_limit": 1024, "hard_limit": 8192},
+        "uuid": "e5eb03be-504a-11e9-bfb7-005056a7f717",
+        "type": "tree",
+        "qtree": {"name": "qt1"},
     }
 )
 
@@ -605,88 +605,88 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     QuotaRule(
         {
-            "files": {"hard_limit": 15},
+            "_links": {
+                "self": {
+                    "href": "/api/storage/quota/rules/9abfdd9f-ede7-11ed-8b6b-005056acde94"
+                }
+            },
             "svm": {
-                "uuid": "2272378d-eab2-11ed-913b-005056ac10bf",
                 "name": "vs0",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/2272378d-eab2-11ed-913b-005056ac10bf"
                     }
                 },
+                "uuid": "2272378d-eab2-11ed-913b-005056ac10bf",
             },
-            "uuid": "9abfdd9f-ede7-11ed-8b6b-005056acde94",
-            "_links": {
-                "self": {
-                    "href": "/api/storage/quota/rules/9abfdd9f-ede7-11ed-8b6b-005056acde94"
-                }
-            },
+            "files": {"hard_limit": 15},
             "volume": {
-                "uuid": "6dc24682-edde-11ed-8b6b-005056acde94",
                 "name": "testVol",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/6dc24682-edde-11ed-8b6b-005056acde94"
                     }
                 },
+                "uuid": "6dc24682-edde-11ed-8b6b-005056acde94",
             },
+            "uuid": "9abfdd9f-ede7-11ed-8b6b-005056acde94",
         }
     ),
     QuotaRule(
         {
-            "files": {"hard_limit": 6},
+            "_links": {
+                "self": {
+                    "href": "/api/storage/quota/rules/a876601e-ede7-11ed-8b6b-005056acde94"
+                }
+            },
             "svm": {
-                "uuid": "2272378d-eab2-11ed-913b-005056ac10bf",
                 "name": "vs0",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/2272378d-eab2-11ed-913b-005056ac10bf"
                     }
                 },
+                "uuid": "2272378d-eab2-11ed-913b-005056ac10bf",
             },
-            "uuid": "a876601e-ede7-11ed-8b6b-005056acde94",
-            "_links": {
-                "self": {
-                    "href": "/api/storage/quota/rules/a876601e-ede7-11ed-8b6b-005056acde94"
-                }
-            },
+            "files": {"hard_limit": 6},
             "volume": {
-                "uuid": "83c865bd-edde-11ed-8b6b-005056acde94",
                 "name": "testVol2",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/83c865bd-edde-11ed-8b6b-005056acde94"
                     }
                 },
+                "uuid": "83c865bd-edde-11ed-8b6b-005056acde94",
             },
+            "uuid": "a876601e-ede7-11ed-8b6b-005056acde94",
         }
     ),
     QuotaRule(
         {
+            "_links": {
+                "self": {
+                    "href": "/api/storage/quota/rules/d66ff5ed-ede7-11ed-8b6b-005056acde94"
+                }
+            },
             "svm": {
-                "uuid": "2272378d-eab2-11ed-913b-005056ac10bf",
                 "name": "vs0",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/2272378d-eab2-11ed-913b-005056ac10bf"
                     }
                 },
-            },
-            "uuid": "d66ff5ed-ede7-11ed-8b6b-005056acde94",
-            "_links": {
-                "self": {
-                    "href": "/api/storage/quota/rules/d66ff5ed-ede7-11ed-8b6b-005056acde94"
-                }
+                "uuid": "2272378d-eab2-11ed-913b-005056ac10bf",
             },
             "volume": {
-                "uuid": "a44c8f5d-edde-11ed-8b6b-005056acde94",
                 "name": "testVol4",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/a44c8f5d-edde-11ed-8b6b-005056acde94"
                     }
                 },
+                "uuid": "a44c8f5d-edde-11ed-8b6b-005056acde94",
             },
+            "uuid": "d66ff5ed-ede7-11ed-8b6b-005056acde94",
         }
     ),
 ]
@@ -701,11 +701,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -719,26 +718,55 @@ __pdoc__ = {
     "QuotaRuleSchema.opts": False,
 }
 
-
 class QuotaRuleSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the QuotaRule object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the quota_rule."""
 
-    files = marshmallow_fields.Nested("netapp_ontap.models.quota_rule_files.QuotaRuleFilesSchema", data_key="files", unknown=EXCLUDE, allow_none=True)
+    files = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.quota_rule_files", "QuotaRuleFilesSchema"),
+                data_key="files",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The files field of the quota_rule."""
 
-    group = marshmallow_fields.Nested("netapp_ontap.models.quota_rule_group.QuotaRuleGroupSchema", data_key="group", unknown=EXCLUDE, allow_none=True)
+    group = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.quota_rule_group", "QuotaRuleGroupSchema"),
+                data_key="group",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" This parameter specifies the target group to which the group quota policy rule applies. This parameter takes a group name or identifier. This parameter is only valid for the POST operation of a group quota policy rule. The POST operation will fail with an appropriate error if this parameter is used as an input to create a user or a tree quota policy rule. This input parameter for POST takes either a group name or a group identifier, but not both. For default quota rules, the group name must be chosen and should be specified as "". For explicit group quota rules, this parameter can contain a UNIX group name or a UNIX group identifier."""
 
-    qtree = marshmallow_fields.Nested("netapp_ontap.models.quota_rule_qtree.QuotaRuleQtreeSchema", data_key="qtree", unknown=EXCLUDE, allow_none=True)
+    qtree = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.quota_rule_qtree", "QuotaRuleQtreeSchema"),
+                data_key="qtree",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The qtree field of the quota_rule."""
 
-    space = marshmallow_fields.Nested("netapp_ontap.models.quota_rule_space.QuotaRuleSpaceSchema", data_key="space", unknown=EXCLUDE, allow_none=True)
+    space = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.quota_rule_space", "QuotaRuleSpaceSchema"),
+                data_key="space",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The space field of the quota_rule."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the quota_rule."""
 
     type = marshmallow_fields.Str(
@@ -760,7 +788,15 @@ Valid choices:
     )
     r""" This parameter enables user mapping for user quota policy rules. This is valid in POST or PATCH for user quota policy rules only."""
 
-    users = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.quota_rule_users.QuotaRuleUsersSchema", unknown=EXCLUDE, allow_none=True), data_key="users", allow_none=True)
+    users = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.quota_rule_users", "QuotaRuleUsersSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="users",
+                allow_none=True
+            )
     r""" This parameter specifies the target user to which the user quota policy rule applies. This parameter takes single or multiple user names or identifiers. This parameter is valid only for the POST operation of a user quota policy rule. If this parameter is used as an input to create a group or a tree quota policy rule, the POST operation will fail with an appropriate error. For POST, this input parameter takes either a user name or a user identifier, not both. For default quota rules, the user name must be chosen and specified as "". For explicit user quota rules, this parameter can indicate either a user name or user identifier. The user name can be a UNIX user name or a Windows user name. If a name contains a space, enclose the entire value in quotes. A UNIX user name cannot include a backslash (\) or an @ sign; user names with these characters are treated as Windows names. The user identifier can be a UNIX user identifier or a Windows security identifier. For multi-user quota, this parameter can contain multiple user targets separated by a comma."""
 
     uuid = marshmallow_fields.Str(
@@ -771,7 +807,12 @@ Valid choices:
 
 Example: 5f1d13a7-f401-11e8-ac1a-005056a7c3b9"""
 
-    volume = marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", data_key="volume", unknown=EXCLUDE, allow_none=True)
+    volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                data_key="volume",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The volume field of the quota_rule."""
 
     @property

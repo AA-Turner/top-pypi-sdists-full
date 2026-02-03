@@ -79,6 +79,10 @@ class StorageWorkRequest(object):
     #: This constant has a value of "ENCRYPT_ARCHIVAL_DATA"
     OPERATION_TYPE_ENCRYPT_ARCHIVAL_DATA = "ENCRYPT_ARCHIVAL_DATA"
 
+    #: A constant which can be used with the operation_type property of a StorageWorkRequest.
+    #: This constant has a value of "ENCRYPT_ALL_DATA"
+    OPERATION_TYPE_ENCRYPT_ALL_DATA = "ENCRYPT_ALL_DATA"
+
     #: A constant which can be used with the key_type property of a StorageWorkRequest.
     #: This constant has a value of "ACTIVE_DATA"
     KEY_TYPE_ACTIVE_DATA = "ACTIVE_DATA"
@@ -174,7 +178,7 @@ class StorageWorkRequest(object):
 
         :param operation_type:
             The value to assign to the operation_type property of this StorageWorkRequest.
-            Allowed values for this property are: "OFFBOARD_TENANCY", "PURGE_STORAGE_DATA", "RECALL_ARCHIVED_STORAGE_DATA", "RELEASE_RECALLED_STORAGE_DATA", "PURGE_ARCHIVAL_DATA", "ARCHIVE_STORAGE_DATA", "CLEANUP_ARCHIVAL_STORAGE_DATA", "ENCRYPT_ACTIVE_DATA", "ENCRYPT_ARCHIVAL_DATA", 'UNKNOWN_ENUM_VALUE'.
+            Allowed values for this property are: "OFFBOARD_TENANCY", "PURGE_STORAGE_DATA", "RECALL_ARCHIVED_STORAGE_DATA", "RELEASE_RECALLED_STORAGE_DATA", "PURGE_ARCHIVAL_DATA", "ARCHIVE_STORAGE_DATA", "CLEANUP_ARCHIVAL_STORAGE_DATA", "ENCRYPT_ACTIVE_DATA", "ENCRYPT_ARCHIVAL_DATA", "ENCRYPT_ALL_DATA", 'UNKNOWN_ENUM_VALUE'.
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type operation_type: str
 
@@ -746,7 +750,7 @@ class StorageWorkRequest(object):
         **[Required]** Gets the operation_type of this StorageWorkRequest.
         This is the type of the work request.
 
-        Allowed values for this property are: "OFFBOARD_TENANCY", "PURGE_STORAGE_DATA", "RECALL_ARCHIVED_STORAGE_DATA", "RELEASE_RECALLED_STORAGE_DATA", "PURGE_ARCHIVAL_DATA", "ARCHIVE_STORAGE_DATA", "CLEANUP_ARCHIVAL_STORAGE_DATA", "ENCRYPT_ACTIVE_DATA", "ENCRYPT_ARCHIVAL_DATA", 'UNKNOWN_ENUM_VALUE'.
+        Allowed values for this property are: "OFFBOARD_TENANCY", "PURGE_STORAGE_DATA", "RECALL_ARCHIVED_STORAGE_DATA", "RELEASE_RECALLED_STORAGE_DATA", "PURGE_ARCHIVAL_DATA", "ARCHIVE_STORAGE_DATA", "CLEANUP_ARCHIVAL_STORAGE_DATA", "ENCRYPT_ACTIVE_DATA", "ENCRYPT_ARCHIVAL_DATA", "ENCRYPT_ALL_DATA", 'UNKNOWN_ENUM_VALUE'.
         Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
 
 
@@ -765,7 +769,7 @@ class StorageWorkRequest(object):
         :param operation_type: The operation_type of this StorageWorkRequest.
         :type: str
         """
-        allowed_values = ["OFFBOARD_TENANCY", "PURGE_STORAGE_DATA", "RECALL_ARCHIVED_STORAGE_DATA", "RELEASE_RECALLED_STORAGE_DATA", "PURGE_ARCHIVAL_DATA", "ARCHIVE_STORAGE_DATA", "CLEANUP_ARCHIVAL_STORAGE_DATA", "ENCRYPT_ACTIVE_DATA", "ENCRYPT_ARCHIVAL_DATA"]
+        allowed_values = ["OFFBOARD_TENANCY", "PURGE_STORAGE_DATA", "RECALL_ARCHIVED_STORAGE_DATA", "RELEASE_RECALLED_STORAGE_DATA", "PURGE_ARCHIVAL_DATA", "ARCHIVE_STORAGE_DATA", "CLEANUP_ARCHIVAL_STORAGE_DATA", "ENCRYPT_ACTIVE_DATA", "ENCRYPT_ARCHIVAL_DATA", "ENCRYPT_ALL_DATA"]
         if not value_allowed_none_or_none_sentinel(operation_type, allowed_values):
             operation_type = 'UNKNOWN_ENUM_VALUE'
         self._operation_type = operation_type

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -52,19 +52,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SnapshotPolicy(
     {
-        "comment": "This is a 5min schedule policy",
-        "enabled": True,
+        "svm": {"name": "vs0"},
+        "name": "new_policy",
         "copies": [
             {
-                "schedule": {"name": "5min"},
+                "snapmirror_label": "-",
                 "count": 5,
                 "retention_period": "PT20M",
-                "snapmirror_label": "-",
+                "schedule": {"name": "5min"},
             }
         ],
-        "svm": {"name": "vs0"},
         "uuid": "a69d8173-450c-11e9-aa44-005056bbc848",
-        "name": "new_policy",
+        "comment": "This is a 5min schedule policy",
+        "enabled": True,
     }
 )
 
@@ -90,46 +90,46 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SnapshotPolicy(
         {
-            "uuid": "0fa7a554-348d-11e9-b55e-005056bbf1c8",
             "_links": {
                 "self": {
                     "href": "/api/storage/snapshot-policies/0fa7a554-348d-11e9-b55e-005056bbf1c8"
                 }
             },
             "name": "spsv0",
+            "uuid": "0fa7a554-348d-11e9-b55e-005056bbf1c8",
         }
     ),
     SnapshotPolicy(
         {
-            "uuid": "3c112527-2fe8-11e9-b55e-005056bbf1c8",
             "_links": {
                 "self": {
                     "href": "/api/storage/snapshot-policies/3c112527-2fe8-11e9-b55e-005056bbf1c8"
                 }
             },
             "name": "default",
+            "uuid": "3c112527-2fe8-11e9-b55e-005056bbf1c8",
         }
     ),
     SnapshotPolicy(
         {
-            "uuid": "3c1c1656-2fe8-11e9-b55e-005056bbf1c8",
             "_links": {
                 "self": {
                     "href": "/api/storage/snapshot-policies/3c1c1656-2fe8-11e9-b55e-005056bbf1c8"
                 }
             },
             "name": "default-1weekly",
+            "uuid": "3c1c1656-2fe8-11e9-b55e-005056bbf1c8",
         }
     ),
     SnapshotPolicy(
         {
-            "uuid": "3c228b82-2fe8-11e9-b55e-005056bbf1c8",
             "_links": {
                 "self": {
                     "href": "/api/storage/snapshot-policies/3c228b82-2fe8-11e9-b55e-005056bbf1c8"
                 }
             },
             "name": "none",
+            "uuid": "3c228b82-2fe8-11e9-b55e-005056bbf1c8",
         }
     ),
 ]
@@ -157,21 +157,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SnapshotPolicy(
     {
-        "comment": "Default policy with hourly, daily & weekly schedules.",
-        "scope": "cluster",
-        "enabled": True,
-        "copies": [
-            {"schedule": {"name": "hourly"}, "prefix": "hourly", "count": 6},
-            {"schedule": {"name": "daily"}, "prefix": "daily", "count": 2},
-            {"schedule": {"name": "weekly"}, "prefix": "weekly", "count": 2},
-        ],
-        "uuid": "3c112527-2fe8-11e9-b55e-005056bbf1c8",
         "_links": {
             "self": {
                 "href": "/api/storage/snapshot-policies/3c112527-2fe8-11e9-b55e-005056bbf1c8"
             }
         },
         "name": "default",
+        "copies": [
+            {"count": 6, "schedule": {"name": "hourly"}, "prefix": "hourly"},
+            {"count": 2, "schedule": {"name": "daily"}, "prefix": "daily"},
+            {"count": 2, "schedule": {"name": "weekly"}, "prefix": "weekly"},
+        ],
+        "uuid": "3c112527-2fe8-11e9-b55e-005056bbf1c8",
+        "comment": "Default policy with hourly, daily & weekly schedules.",
+        "scope": "cluster",
+        "enabled": True,
     }
 )
 
@@ -209,11 +209,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -227,11 +226,15 @@ __pdoc__ = {
     "SnapshotPolicySchema.opts": False,
 }
 
-
 class SnapshotPolicySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SnapshotPolicy object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the snapshot_policy."""
 
     comment = marshmallow_fields.Str(
@@ -240,7 +243,15 @@ class SnapshotPolicySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" A comment associated with the snapshot policy."""
 
-    copies = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.snapshot_policy_copies.SnapshotPolicyCopiesSchema", unknown=EXCLUDE, allow_none=True), data_key="copies", allow_none=True)
+    copies = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.snapshot_policy_copies", "SnapshotPolicyCopiesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="copies",
+                allow_none=True
+            )
     r""" The copies field of the snapshot_policy."""
 
     enabled = marshmallow_fields.Boolean(
@@ -271,7 +282,12 @@ Valid choices:
 * svm
 * cluster"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the snapshot_policy."""
 
     uuid = marshmallow_fields.Str(

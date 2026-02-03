@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -45,17 +45,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SecurityJitPrivilegeUser(
         {
+            "account": {"name": "testUser"},
+            "application": "ssh",
             "owner": {
-                "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16",
                 "name": "Cserver",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/b009a9e7-4081-b576-7575-ada21efcaf16"
                     }
                 },
+                "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16",
             },
-            "application": "ssh",
-            "account": {"name": "testUser"},
         }
     )
 ]
@@ -69,11 +69,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -87,11 +86,15 @@ __pdoc__ = {
     "SecurityJitPrivilegeUserSchema.opts": False,
 }
 
-
 class SecurityJitPrivilegeUserSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SecurityJitPrivilegeUser object"""
 
-    account = marshmallow_fields.Nested("netapp_ontap.resources.account.AccountSchema", data_key="account", unknown=EXCLUDE, allow_none=True)
+    account = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.account", "AccountSchema"),
+                data_key="account",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The name of the user."""
 
     application = marshmallow_fields.Str(
@@ -147,10 +150,20 @@ Valid choices:
 
 Example: P90D"""
 
-    owner = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="owner", unknown=EXCLUDE, allow_none=True)
+    owner = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="owner",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The owner field of the security_jit_privilege_user."""
 
-    role = marshmallow_fields.Nested("netapp_ontap.resources.role.RoleSchema", data_key="role", unknown=EXCLUDE, allow_none=True)
+    role = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.role", "RoleSchema"),
+                data_key="role",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The role field of the security_jit_privilege_user."""
 
     session_validity = marshmallow_fields.Str(

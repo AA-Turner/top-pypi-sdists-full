@@ -333,7 +333,7 @@ class Rule(object):
     def lifecycle_state(self):
         """
         Gets the lifecycle_state of this Rule.
-        The current state of the logging analytics rule.
+        The current state of the Log Analytics rule.
 
         Allowed values for this property are: "ACTIVE", "DELETED"
 
@@ -347,7 +347,7 @@ class Rule(object):
     def lifecycle_state(self, lifecycle_state):
         """
         Sets the lifecycle_state of this Rule.
-        The current state of the logging analytics rule.
+        The current state of the Log Analytics rule.
 
 
         :param lifecycle_state: The lifecycle_state of this Rule.

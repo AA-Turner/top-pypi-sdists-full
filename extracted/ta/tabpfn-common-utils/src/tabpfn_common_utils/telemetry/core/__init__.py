@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .events import (
     BaseTelemetryEvent,
+    ModelLoadEvent,
     PingEvent,
     DatasetEvent,
     FitEvent,
@@ -25,6 +26,7 @@ __all__ = [
     "BaseTelemetryEvent",
     "PingEvent",
     "DatasetEvent",
+    "ModelLoadEvent",
     "FitEvent",
     "PredictEvent",
     "ProductTelemetry",

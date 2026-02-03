@@ -143,7 +143,7 @@ class BaseCacheTest:
         def get_json(url):
             return json.loads(session.get(url).text)
 
-        response_1 = get_json(httpbin('cookies/set/test1/test2'))
+        response_1 = get_json(httpbin('cookies/set?test1=test2'))
         with session.cache_disabled():
             assert get_json(httpbin('cookies')) == response_1
 
@@ -153,7 +153,7 @@ class BaseCacheTest:
 
         # Not from cache
         with session.cache_disabled():
-            response_3 = get_json(httpbin('cookies/set/test3/test4'))
+            response_3 = get_json(httpbin('cookies/set?test3=test4'))
             assert response_3 == get_json(httpbin('cookies'))
 
     @pytest.mark.parametrize(
@@ -357,11 +357,11 @@ class BaseCacheTest:
         # Cache a response and some redirects, which should be the only non-expired cache items
         session.get(httpbin('get'), expire_after=-1)
         session.get(httpbin('redirect/3'), expire_after=-1)
-        assert len(session.cache.redirects.keys()) == 4
+        assert len(session.cache.redirects) == 4
         session.cache.delete(expired=True)
 
-        assert len(session.cache.responses.keys()) == 2
-        assert len(session.cache.redirects.keys()) == 3
+        assert len(session.cache.responses) == 2
+        assert len(session.cache.redirects) == 3
         assert not session.cache.contains(url=httpbin('redirect/1'))
         assert not any(session.cache.contains(url=httpbin(f)) for f in HTTPBIN_FORMATS)
 

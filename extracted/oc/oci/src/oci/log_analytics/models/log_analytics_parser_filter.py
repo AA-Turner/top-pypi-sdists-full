@@ -147,7 +147,7 @@ class LogAnalyticsParserFilter(object):
     def is_in_use(self):
         """
         Gets the is_in_use of this LogAnalyticsParserFilter.
-        A flag idicating whether or not hte filter is currently being used.
+        A flag indicating whether or not the filter is currently being used.
 
 
         :return: The is_in_use of this LogAnalyticsParserFilter.
@@ -159,7 +159,7 @@ class LogAnalyticsParserFilter(object):
     def is_in_use(self, is_in_use):
         """
         Sets the is_in_use of this LogAnalyticsParserFilter.
-        A flag idicating whether or not hte filter is currently being used.
+        A flag indicating whether or not the filter is currently being used.
 
 
         :param is_in_use: The is_in_use of this LogAnalyticsParserFilter.

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,82 +28,82 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FirmwareHistory(
         {
-            "start_time": "1970-01-01T00:02:03+00:00",
-            "job": {"uuid": "adf700c2-b50e-11ea-a54f-005056bbec43"},
             "update_status": [
                 {
                     "worker": {
-                        "node": {
-                            "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
-                            "name": "node1",
-                        },
                         "error": {
                             "message": "A firmware file already exists.",
                             "code": 2228327,
+                        },
+                        "node": {
+                            "name": "node1",
+                            "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
                         },
                         "state": "failed",
                     }
                 },
                 {
                     "worker": {
-                        "node": {
-                            "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ef",
-                            "name": "node2",
-                        },
                         "error": {"message": "Success", "code": 0},
+                        "node": {
+                            "name": "node2",
+                            "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ef",
+                        },
                         "state": "complete",
                     }
                 },
             ],
-            "fw_update_state": "starting_workers",
-            "fw_file_name": "all_disk_fw.zip",
-            "node": {"uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee", "name": "node1"},
             "_links": {
                 "self": {
                     "href": "/api/cluster/firmware/history/1970-01-01T00%3A02%3A03-00%3A00/adf700c2-b50e-11ea-a54f-005056bbec43"
                 }
             },
+            "job": {"uuid": "adf700c2-b50e-11ea-a54f-005056bbec43"},
+            "start_time": "1970-01-01T00:02:03+00:00",
             "end_time": "1970-01-01T00:07:36+00:00",
+            "node": {"name": "node1", "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee"},
+            "fw_update_state": "starting_workers",
+            "fw_file_name": "all_disk_fw.zip",
         }
     ),
     FirmwareHistory(
         {
-            "start_time": "1970-01-01T00:02:03+00:00",
-            "job": {"uuid": "f84adabe-b50e-11ea-a54f-005056bbec43"},
             "update_status": [
                 {
                     "worker": {
-                        "node": {
-                            "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
-                            "name": "node1",
-                        },
                         "error": {
                             "message": "A firmware file already exists.",
                             "code": 2228327,
+                        },
+                        "node": {
+                            "name": "node1",
+                            "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
                         },
                         "state": "failed",
                     }
                 },
                 {
                     "worker": {
-                        "node": {
-                            "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ef",
-                            "name": "node2",
-                        },
                         "error": {"message": "Success", "code": 0},
+                        "node": {
+                            "name": "node2",
+                            "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ef",
+                        },
                         "state": "complete",
                     }
                 },
             ],
-            "fw_update_state": "completed",
-            "fw_file_name": "all_shelf_fw.zip",
-            "node": {"uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee", "name": "node1"},
             "_links": {
                 "self": {
                     "href": "/api/cluster/firmware/history/1970-01-01T00%3A02%3A03-00%3A00/f84adabe-b50e-11ea-a54f-005056bbec43"
                 }
             },
+            "job": {"uuid": "f84adabe-b50e-11ea-a54f-005056bbec43"},
+            "start_time": "1970-01-01T00:02:03+00:00",
             "end_time": "1970-01-01T00:07:36+00:00",
+            "node": {"name": "node1", "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee"},
+            "fw_update_state": "completed",
+            "fw_file_name": "all_shelf_fw.zip",
         }
     ),
 ]
@@ -118,11 +118,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -136,11 +135,15 @@ __pdoc__ = {
     "FirmwareHistorySchema.opts": False,
 }
 
-
 class FirmwareHistorySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the FirmwareHistory object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the firmware_history."""
 
     end_time = ImpreciseDateTime(
@@ -175,10 +178,20 @@ Valid choices:
 * completed
 * failed"""
 
-    job = marshmallow_fields.Nested("netapp_ontap.models.job_link.JobLinkSchema", data_key="job", unknown=EXCLUDE, allow_none=True)
+    job = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.job_link", "JobLinkSchema"),
+                data_key="job",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The job field of the firmware_history."""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the firmware_history."""
 
     start_time = ImpreciseDateTime(
@@ -189,7 +202,15 @@ Valid choices:
 
 Example: 2019-02-02T19:00:00.000+0000"""
 
-    update_status = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.firmware_history_update_state.FirmwareHistoryUpdateStateSchema", unknown=EXCLUDE, allow_none=True), data_key="update_status", allow_none=True)
+    update_status = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.firmware_history_update_state", "FirmwareHistoryUpdateStateSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="update_status",
+                allow_none=True
+            )
     r""" The update_status field of the firmware_history."""
 
     @property

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -23,30 +23,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ShadowcopySet(
         {
+            "keep_snapshots": True,
             "uuid": "27ed1b79-97f6-11ec-8ad1-0050568e57be",
-            "keep_snapshots": True,
-            "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
+            "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
         }
     ),
     ShadowcopySet(
         {
+            "keep_snapshots": False,
             "uuid": "388be551-97f6-11ec-8ad1-0050568e57be",
-            "keep_snapshots": False,
-            "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
+            "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
         }
     ),
     ShadowcopySet(
         {
+            "keep_snapshots": False,
             "uuid": "525104ef-9f96-11ec-82fd-0050568e57be",
-            "keep_snapshots": False,
-            "svm": {"uuid": "fdb5bd8b-9498-11ec-9f9d-0050568e57be", "name": "vs2"},
+            "svm": {"name": "vs2", "uuid": "fdb5bd8b-9498-11ec-9f9d-0050568e57be"},
         }
     ),
     ShadowcopySet(
         {
-            "uuid": "66f8f723-9f96-11ec-82fd-0050568e57be",
             "keep_snapshots": True,
-            "svm": {"uuid": "fdb5bd8b-9498-11ec-9f9d-0050568e57be", "name": "vs2"},
+            "uuid": "66f8f723-9f96-11ec-82fd-0050568e57be",
+            "svm": {"name": "vs2", "uuid": "fdb5bd8b-9498-11ec-9f9d-0050568e57be"},
         }
     ),
 ]
@@ -75,9 +75,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ShadowcopySet(
     {
-        "uuid": "525104ef-9f96-11ec-82fd-0050568e57be",
         "keep_snapshots": False,
-        "svm": {"uuid": "fdb5bd8b-9498-11ec-9f9d-0050568e57be", "name": "vs2"},
+        "uuid": "525104ef-9f96-11ec-82fd-0050568e57be",
+        "svm": {"name": "vs2", "uuid": "fdb5bd8b-9498-11ec-9f9d-0050568e57be"},
     }
 )
 
@@ -118,42 +118,42 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Shadowcopy(
         {
-            "share": {"name": "sh1"},
-            "volume": {"uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be", "name": "vol1"},
+            "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
+            "client_uuid": "(uuid)",
+            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
+            "volume": {"name": "vol1", "uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be"},
             "uuid": "919fbc80-a421-11ec-b82e-0050568e57be",
-            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
-            "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
-            "client_uuid": "(uuid)",
+            "share": {"name": "sh1"},
         }
     ),
     Shadowcopy(
         {
-            "share": {"name": "sh2"},
-            "volume": {"uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be", "name": "vol1"},
+            "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
+            "client_uuid": "(uuid)",
+            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
+            "volume": {"name": "vol1", "uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be"},
             "uuid": "91ac5a5f-a421-11ec-b82e-0050568e57be",
-            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
-            "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
-            "client_uuid": "(uuid)",
+            "share": {"name": "sh2"},
         }
     ),
     Shadowcopy(
         {
-            "share": {"name": "sh3"},
-            "volume": {"uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be", "name": "vol1"},
+            "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
+            "client_uuid": "(uuid)",
+            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
+            "volume": {"name": "vol1", "uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be"},
             "uuid": "91b14098-a421-11ec-b82e-0050568e57be",
-            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
-            "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
-            "client_uuid": "(uuid)",
+            "share": {"name": "sh3"},
         }
     ),
     Shadowcopy(
         {
-            "share": {"name": "sh4"},
-            "volume": {"uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be", "name": "vol1"},
-            "uuid": "91b63309-a421-11ec-b82e-0050568e57be",
-            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
-            "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
+            "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
             "client_uuid": "(uuid)",
+            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
+            "volume": {"name": "vol1", "uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be"},
+            "uuid": "91b63309-a421-11ec-b82e-0050568e57be",
+            "share": {"name": "sh4"},
         }
     ),
 ]
@@ -182,12 +182,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Shadowcopy(
     {
-        "share": {"name": "sh3"},
-        "volume": {"uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be", "name": "vol1"},
-        "uuid": "91b14098-a421-11ec-b82e-0050568e57be",
-        "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
-        "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
+        "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
         "client_uuid": "(uuid)",
+        "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
+        "volume": {"name": "vol1", "uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be"},
+        "uuid": "91b14098-a421-11ec-b82e-0050568e57be",
+        "share": {"name": "sh3"},
     }
 )
 
@@ -226,11 +226,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -244,11 +243,15 @@ __pdoc__ = {
     "ShadowcopySchema.opts": False,
 }
 
-
 class ShadowcopySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Shadowcopy object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the shadowcopy."""
 
     client_uuid = marshmallow_fields.Str(
@@ -276,10 +279,20 @@ slash as a directory separator. The path is relative to the root of the share.
 
 Example: ["/vhd1","/vhd2"]"""
 
-    shadowcopy_set = marshmallow_fields.Nested("netapp_ontap.resources.shadowcopy_set.ShadowcopySetSchema", data_key="shadowcopy_set", unknown=EXCLUDE, allow_none=True)
+    shadowcopy_set = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.shadowcopy_set", "ShadowcopySetSchema"),
+                data_key="shadowcopy_set",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The shadowcopy_set field of the shadowcopy."""
 
-    share = marshmallow_fields.Nested("netapp_ontap.resources.cifs_share.CifsShareSchema", data_key="share", unknown=EXCLUDE, allow_none=True)
+    share = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.cifs_share", "CifsShareSchema"),
+                data_key="share",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The share field of the shadowcopy."""
 
     source_dir = marshmallow_fields.Str(
@@ -292,7 +305,12 @@ as a directory separator. The path is relative to the root of the volume.
 
 Example: /dir1"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the shadowcopy."""
 
     uuid = marshmallow_fields.Str(
@@ -303,7 +321,12 @@ Example: /dir1"""
 
 Example: fef32805-1f19-40ba-9b82-ebf277517e7e"""
 
-    volume = marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", data_key="volume", unknown=EXCLUDE, allow_none=True)
+    volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                data_key="volume",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The volume field of the shadowcopy."""
 
     with_content = marshmallow_fields.Boolean(

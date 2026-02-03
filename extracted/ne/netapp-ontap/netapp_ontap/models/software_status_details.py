@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["SoftwareStatusDetails", "SoftwareStatusDetailsSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "SoftwareStatusDetails": False,
 }
 
-
 class SoftwareStatusDetailsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SoftwareStatusDetails object"""
 
-    action = marshmallow_fields.Nested("netapp_ontap.models.software_status_details_reference_action.SoftwareStatusDetailsReferenceActionSchema", unknown=EXCLUDE, data_key="action", allow_none=True)
+    action = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.software_status_details_reference_action", "SoftwareStatusDetailsReferenceActionSchema"),
+                unknown=EXCLUDE,
+                data_key="action",
+                allow_none=True
+            )
     r""" The action field of the software_status_details. """
 
     end_time = ImpreciseDateTime(data_key="end_time", allow_none=True)
@@ -29,7 +32,12 @@ class SoftwareStatusDetailsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 2019-02-02T19:00:00.000+0000 """
 
-    issue = marshmallow_fields.Nested("netapp_ontap.models.software_status_details_reference_issue.SoftwareStatusDetailsReferenceIssueSchema", unknown=EXCLUDE, data_key="issue", allow_none=True)
+    issue = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.software_status_details_reference_issue", "SoftwareStatusDetailsReferenceIssueSchema"),
+                unknown=EXCLUDE,
+                data_key="issue",
+                allow_none=True
+            )
     r""" The issue field of the software_status_details. """
 
     name = marshmallow_fields.Str(data_key="name", allow_none=True)
@@ -37,7 +45,12 @@ Example: 2019-02-02T19:00:00.000+0000 """
 
 Example: initialize """
 
-    node = marshmallow_fields.Nested("netapp_ontap.models.software_status_details_reference_node.SoftwareStatusDetailsReferenceNodeSchema", unknown=EXCLUDE, data_key="node", allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.software_status_details_reference_node", "SoftwareStatusDetailsReferenceNodeSchema"),
+                unknown=EXCLUDE,
+                data_key="node",
+                allow_none=True
+            )
     r""" The node field of the software_status_details. """
 
     start_time = ImpreciseDateTime(data_key="start_time", allow_none=True)

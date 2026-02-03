@@ -54,21 +54,17 @@ DEPRECATED_FIELDS = {
 
 # Field types mapping
 FIELD_TYPES = {
-    "status": "option",  # Enable/disable USB LTE/WIMAX device.   
-enable:Enable USB LT
+    "status": "option",  # Enable/disable USB LTE/WIMAX device.    enable:Enable USB LTE/WIMA device.    di
     "extra-init": "string",  # Extra initialization string for USB LTE/WIMAX devices.
-    "pdptype": "option",  # Packet Data Protocol (PDP) context type.   
-IPv4:Only IPv4.
-    "authtype": "option",  # Authentication type for PDP-IP packet data calls.   
-none:Us
+    "pdptype": "option",  # Packet Data Protocol (PDP) context type.    IPv4:Only IPv4.
+    "authtype": "option",  # Authentication type for PDP-IP packet data calls.    none:Username and password 
     "username": "string",  # Authentication username for PDP-IP packet data calls.
     "passwd": "string",  # Authentication password for PDP-IP packet data calls.
     "apn": "string",  # Login APN string for PDP-IP packet data calls.
     "modem-port": "integer",  # Modem port index (0 - 20).
-    "mode": "option",  # Modem operation mode.   
-standalone:Standalone modem operati
+    "mode": "option",  # Modem operation mode.    standalone:Standalone modem operation mode.    redundan
     "holddown-timer": "integer",  # Hold down timer (10 - 60 sec).
-    "interface": "string",  # The interface that the modem is acting as a redundant interf
+    "interface": "string",  # The interface that the modem is acting as a redundant interface for.
 }
 
 # Field descriptions (help text from FortiOS API)

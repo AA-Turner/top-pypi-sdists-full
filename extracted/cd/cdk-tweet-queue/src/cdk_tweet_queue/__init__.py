@@ -52,21 +52,22 @@ $ npm install cdk-tweet-queue
 Add a `TweetQueue` to your CDK stack:
 
 ```python
-import { TweetQueue } from 'cdk-tweet-queue';
+from cdk_tweet_queue import TweetQueue
 
-const queue = new TweetQueue(this, 'TweetStream', {
-  // this is the ARN of the secret you stored
-  secretArn: 'arn:aws:secretsmanager:us-east-1:1234567891234:secret:xxxxxxxxx'
 
-  // twitter search query
-  // see https://developer.twitter.com/en/docs/tweets/search/guides/standard-operators
-  query: '#awscdk',
+queue = TweetQueue(self, "TweetStream",
+    # this is the ARN of the secret you stored
+    secret_arn="arn:aws:secretsmanager:us-east-1:1234567891234:secret:xxxxxxxxx",
 
-  // optional properties
-  intervalMin: 60,          // optional: polling interval in minutes
-  retentionPeriodSec: 60,   // optional: queue retention period
-  visibilityTimeoutSec: 60, // optional: queue visilibity timeout
-});
+    # twitter search query
+    # see https://developer.twitter.com/en/docs/tweets/search/guides/standard-operators
+    query="#awscdk",
+
+    # optional properties
+    interval_min=60,  # optional: polling interval in minutes
+    retention_period_sec=60,  # optional: queue retention period
+    visibility_timeout_sec=60
+)
 ```
 
 Now, `queue` is an `sqs.Queue` object and can be used anywhere a queue is
@@ -149,7 +150,7 @@ class TweetQueue(
 ):
     def __init__(
         self,
-        parent: _constructs_77d1e7e8.Construct,
+        parent: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         query: builtins.str,

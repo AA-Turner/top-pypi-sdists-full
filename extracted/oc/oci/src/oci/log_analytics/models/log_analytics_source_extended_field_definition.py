@@ -392,7 +392,7 @@ class LogAnalyticsSourceExtendedFieldDefinition(object):
     def is_enabled(self):
         """
         Gets the is_enabled of this LogAnalyticsSourceExtendedFieldDefinition.
-        A flag inidcating whether or not the extended definition is enabled.
+        A flag indicating whether or not the extended definition is enabled.
 
 
         :return: The is_enabled of this LogAnalyticsSourceExtendedFieldDefinition.
@@ -404,7 +404,7 @@ class LogAnalyticsSourceExtendedFieldDefinition(object):
     def is_enabled(self, is_enabled):
         """
         Sets the is_enabled of this LogAnalyticsSourceExtendedFieldDefinition.
-        A flag inidcating whether or not the extended definition is enabled.
+        A flag indicating whether or not the extended definition is enabled.
 
 
         :param is_enabled: The is_enabled of this LogAnalyticsSourceExtendedFieldDefinition.

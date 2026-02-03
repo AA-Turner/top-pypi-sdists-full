@@ -44,6 +44,8 @@ def size2aspect_ratio(size):
         return "9:16"
 
     if 'x' in size:
+        if size in  {"21x9", "9x21"}:
+            return size
         w, h = size.split('x')
         w, h = calculate_min_resolution(w, h)
         return f"{w}:{h}"  # aspect_ratio
@@ -77,6 +79,7 @@ if __name__ == '__main__':
     print(size2aspect_ratio("16:9"))
     size = "1792x1024"
     size = "1280x720"
+    size = "21x9"
     print(size2aspect_ratio(size))
 
     # print(size2resolution("512x512"))

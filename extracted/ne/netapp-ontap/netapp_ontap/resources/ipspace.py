@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,35 +27,35 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Ipspace(
         {
-            "uuid": "dcc7e79c-5acc-11e8-b9de-005056b42b32",
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/dcc7e79c-5acc-11e8-b9de-005056b42b32"
                 }
             },
             "name": "Default",
+            "uuid": "dcc7e79c-5acc-11e8-b9de-005056b42b32",
         }
     ),
     Ipspace(
         {
-            "uuid": "dfd3c1b2-5acc-11e8-b9de-005056b42b32",
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/dfd3c1b2-5acc-11e8-b9de-005056b42b32"
                 }
             },
             "name": "Cluster",
+            "uuid": "dfd3c1b2-5acc-11e8-b9de-005056b42b32",
         }
     ),
     Ipspace(
         {
-            "uuid": "dedec1be-5aec-1eee-beee-0eee56be2b3e",
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/dedec1be-5aec-1eee-beee-0eee56be2b3e"
                 }
             },
             "name": "Ipspace1",
+            "uuid": "dedec1be-5aec-1eee-beee-0eee56be2b3e",
         }
     ),
 ]
@@ -86,13 +86,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Ipspace(
     {
-        "uuid": "dcc7e79c-5acc-11e8-b9de-005056b42b32",
         "_links": {
             "self": {
                 "href": "/api/network/ipspaces/dcc7e79c-5acc-11e8-b9de-005056b42b32"
             }
         },
         "name": "Default",
+        "uuid": "dcc7e79c-5acc-11e8-b9de-005056b42b32",
     }
 )
 
@@ -128,13 +128,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Ipspace(
     {
-        "uuid": "4165655e-0528-11e9-bd68-005056bb046a",
         "_links": {
             "self": {
                 "href": "/api/network/ipspaces/4165655e-0528-11e9-bd68-005056bb046a"
             }
         },
         "name": "ipspace2",
+        "uuid": "4165655e-0528-11e9-bd68-005056bb046a",
     }
 )
 
@@ -189,11 +189,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -207,11 +206,15 @@ __pdoc__ = {
     "IpspaceSchema.opts": False,
 }
 
-
 class IpspaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Ipspace object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the ipspace."""
 
     name = marshmallow_fields.Str(

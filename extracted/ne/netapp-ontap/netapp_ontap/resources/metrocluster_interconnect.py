@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -366,11 +366,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -384,11 +383,15 @@ __pdoc__ = {
     "MetroclusterInterconnectSchema.opts": False,
 }
 
-
 class MetroclusterInterconnectSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the MetroclusterInterconnect object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the metrocluster_interconnect."""
 
     adapter = marshmallow_fields.Str(
@@ -397,10 +400,23 @@ class MetroclusterInterconnectSchema(ResourceSchema, metaclass=ResourceSchemaMet
     )
     r""" Adapter"""
 
-    interfaces = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.ip_interface_and_gateway.IpInterfaceAndGatewaySchema", unknown=EXCLUDE, allow_none=True), data_key="interfaces", allow_none=True)
+    interfaces = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.ip_interface_and_gateway", "IpInterfaceAndGatewaySchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="interfaces",
+                allow_none=True
+            )
     r""" List of objects which contain interface information such as its IP address, netmask and gateway."""
 
-    mirror = marshmallow_fields.Nested("netapp_ontap.models.metrocluster_interconnect_mirror.MetroclusterInterconnectMirrorSchema", data_key="mirror", unknown=EXCLUDE, allow_none=True)
+    mirror = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.metrocluster_interconnect_mirror", "MetroclusterInterconnectMirrorSchema"),
+                data_key="mirror",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The mirror field of the metrocluster_interconnect."""
 
     multipath_policy = marshmallow_fields.Str(
@@ -417,7 +433,12 @@ Valid choices:
 * dynamic_map
 * round_robin"""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the metrocluster_interconnect."""
 
     partner_type = marshmallow_fields.Str(

@@ -6,6 +6,7 @@ from tabpfn_common_utils.telemetry.core.events import (
     BaseTelemetryEvent,
     DatasetEvent,
     FitEvent,
+    ModelLoadEvent,
     PingEvent,
     PredictEvent,
     _get_py_version,
@@ -360,6 +361,65 @@ class TestPingEvent:
         }
         for property in event.properties:
             assert property in expected_attrs
+
+
+class TestModelLoadEvent:
+    """Test ModelLoadEvent class"""
+
+    def test_model_load_event_initialization(self):
+        """Test ModelLoadEvent initialization with required status"""
+        event = ModelLoadEvent(status="success")
+
+        assert event.status == "success"
+        assert event.name == "model_load"
+        assert event.failure_reason is None
+        assert event.model_name is None
+
+    def test_model_load_event_with_failed_status(self):
+        """Test ModelLoadEvent with failed status"""
+        event = ModelLoadEvent(
+            status="failed", failure_reason="Network error", model_name="test-model"
+        )
+
+        assert event.status == "failed"
+        assert event.failure_reason == "Network error"
+        assert event.model_name == "test-model"
+
+    def test_model_load_event_post_init_clears_failure_reason_on_success(self):
+        """Test that __post_init__ clears failure_reason when status is success"""
+        # This tests the __post_init__ behavior
+        event = ModelLoadEvent(status="success", failure_reason="should be cleared")
+
+        assert event.status == "success"
+        assert event.failure_reason is None
+
+    def test_model_load_event_inherits_base_properties(self):
+        """Test that ModelLoadEvent inherits base telemetry properties"""
+        event = ModelLoadEvent(status="success")
+
+        assert isinstance(event.python_version, str)
+        assert isinstance(event.tabpfn_version, str)
+        assert isinstance(event.timestamp, datetime)
+        assert event.source == "sdk"
+        assert isinstance(event.install_id, str)
+
+    def test_model_load_event_properties_method(self):
+        """Test ModelLoadEvent properties method"""
+        event = ModelLoadEvent(
+            status="failed",
+            model_name="test-model",
+            failure_reason="Download timeout",
+        )
+
+        props = event.properties
+
+        assert "name" not in props
+        assert props["status"] == "failed"
+        assert props["model_name"] == "test-model"
+        assert props["failure_reason"] == "Download timeout"
+        assert "python_version" in props
+        assert "tabpfn_version" in props
+        assert "install_id" in props
 
 
 class TestEventIntegration:

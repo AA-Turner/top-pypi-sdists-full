@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,13 +27,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Job(
     {
         "message": "creating_node_backups",
-        "state": "running",
-        "code": 0,
-        "description": "Cluster Backup Job",
-        "uuid": "b5145e1d-b53b-11e8-8252-005056bbd8f5",
         "_links": {
             "self": {"href": "/api/cluster/jobs/b5145e1d-b53b-11e8-8252-005056bbd8f5"}
         },
+        "code": 0,
+        "state": "running",
+        "uuid": "b5145e1d-b53b-11e8-8252-005056bbd8f5",
+        "description": "Cluster Backup Job",
     }
 )
 
@@ -59,11 +59,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -77,11 +76,15 @@ __pdoc__ = {
     "JobSchema.opts": False,
 }
 
-
 class JobSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Job object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the job."""
 
     code = Size(
@@ -106,7 +109,12 @@ Example: App Snapshot Job"""
     )
     r""" The time the job ended."""
 
-    error = marshmallow_fields.Nested("netapp_ontap.models.error.ErrorSchema", data_key="error", unknown=EXCLUDE, allow_none=True)
+    error = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.error", "ErrorSchema"),
+                data_key="error",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The error field of the job."""
 
     message = marshmallow_fields.Str(
@@ -117,7 +125,12 @@ Example: App Snapshot Job"""
 
 Example: Complete: Successful"""
 
-    node = marshmallow_fields.Nested("netapp_ontap.models.job_node.JobNodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.job_node", "JobNodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node where this job was run"""
 
     start_time = ImpreciseDateTime(
@@ -141,7 +154,12 @@ Valid choices:
 * success
 * failure"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the job."""
 
     uuid = marshmallow_fields.Str(

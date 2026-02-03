@@ -674,7 +674,7 @@ class UpsertLogAnalyticsParserDetails(object):
     def is_parser_written_once(self):
         """
         Gets the is_parser_written_once of this UpsertLogAnalyticsParserDetails.
-        A flag indicating whther or not the parser is write once.
+        A flag indicating whether or not the parser is write once.
 
 
         :return: The is_parser_written_once of this UpsertLogAnalyticsParserDetails.
@@ -686,7 +686,7 @@ class UpsertLogAnalyticsParserDetails(object):
     def is_parser_written_once(self, is_parser_written_once):
         """
         Sets the is_parser_written_once of this UpsertLogAnalyticsParserDetails.
-        A flag indicating whther or not the parser is write once.
+        A flag indicating whether or not the parser is write once.
 
 
         :param is_parser_written_once: The is_parser_written_once of this UpsertLogAnalyticsParserDetails.

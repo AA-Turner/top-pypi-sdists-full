@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -45,10 +45,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Snapshot(
     {
-        "svm": {"uuid": "8139f958-3c6e-11e9-a45f-005056bbc848", "name": "vs0"},
-        "comment": "Store this copy.",
         "volume": {"name": "v2"},
         "name": "snapshot_copy",
+        "comment": "Store this copy.",
+        "svm": {"name": "vs0", "uuid": "8139f958-3c6e-11e9-a45f-005056bbc848"},
     }
 )
 
@@ -74,35 +74,35 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Snapshot(
         {
-            "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
             "name": "hourly.2019-03-13_1305",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/402b6c73-73a0-4e89-a58a-75ee0ab3e8c0"
                 }
             },
+            "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
         }
     ),
     Snapshot(
         {
-            "uuid": "f0dd497f-efe8-44b7-a4f4-bdd3890bc0c8",
             "name": "hourly.2019-03-13_1405",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/f0dd497f-efe8-44b7-a4f4-bdd3890bc0c8"
                 }
             },
+            "uuid": "f0dd497f-efe8-44b7-a4f4-bdd3890bc0c8",
         }
     ),
     Snapshot(
         {
-            "uuid": "02701900-51bd-46b8-9c77-47d9a9e2ce1d",
             "name": "hourly.2019-03-13_1522",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/02701900-51bd-46b8-9c77-47d9a9e2ce1d"
                 }
             },
+            "uuid": "02701900-51bd-46b8-9c77-47d9a9e2ce1d",
         }
     ),
 ]
@@ -173,35 +173,35 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Snapshot(
         {
-            "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
             "name": "hourly.2019-03-13_1305",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/402b6c73-73a0-4e89-a58a-75ee0ab3e8c0"
                 }
             },
+            "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
         }
     ),
     Snapshot(
         {
-            "uuid": "f0dd497f-efe8-44b7-a4f4-bdd3890bc0c8",
             "name": "hourly.2019-03-13_1405",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/f0dd497f-efe8-44b7-a4f4-bdd3890bc0c8"
                 }
             },
+            "uuid": "f0dd497f-efe8-44b7-a4f4-bdd3890bc0c8",
         }
     ),
     Snapshot(
         {
-            "uuid": "02701900-51bd-46b8-9c77-47d9a9e2ce1d",
             "name": "hourly.2019-03-13_1522",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/02701900-51bd-46b8-9c77-47d9a9e2ce1d"
                 }
             },
+            "uuid": "02701900-51bd-46b8-9c77-47d9a9e2ce1d",
         }
     ),
 ]
@@ -237,16 +237,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Snapshot(
         {
+            "name": "hourly.2022-06-29_1105",
             "uuid": "52a2247a-7735-4a92-bc3c-e51df1fe502f",
             "delta": {"time_elapsed": "PT3H27M45S", "size_consumed": 675840},
-            "name": "hourly.2022-06-29_1105",
         }
     ),
     Snapshot(
         {
+            "name": "hourly.2022-06-29_1205",
             "uuid": "b399eb34-44fe-4689-9fb5-c8f72162dd77",
             "delta": {"time_elapsed": "PT2H27M45S", "size_consumed": 507904},
-            "name": "hourly.2022-06-29_1205",
         }
     ),
 ]
@@ -277,30 +277,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Snapshot(
     {
-        "svm": {
-            "uuid": "8139f958-3c6e-11e9-a45f-005056bbc848",
-            "name": "vs0",
-            "_links": {
-                "self": {"href": "/api/svm/svms/8139f958-3c6e-11e9-a45f-005056bbc848"}
-            },
-        },
-        "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
         "volume": {
-            "uuid": "0353dc05-405f-11e9-acb6-005056bbc848",
             "name": "v2",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848"
                 }
             },
+            "uuid": "0353dc05-405f-11e9-acb6-005056bbc848",
         },
-        "create_time": "2019-03-13T13:05:00-04:00",
         "name": "hourly.2019-03-13_1305",
         "size": 122880,
         "_links": {
             "self": {
                 "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/402b6c73-73a0-4e89-a58a-75ee0ab3e8c0"
             }
+        },
+        "create_time": "2019-03-13T13:05:00-04:00",
+        "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
+        "svm": {
+            "name": "vs0",
+            "_links": {
+                "self": {"href": "/api/svm/svms/8139f958-3c6e-11e9-a45f-005056bbc848"}
+            },
+            "uuid": "8139f958-3c6e-11e9-a45f-005056bbc848",
         },
     }
 )
@@ -332,29 +332,29 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Snapshot(
     {
-        "svm": {
-            "uuid": "8139f958-3c6e-11e9-a45f-005056bbc848",
-            "name": "vs0",
-            "_links": {
-                "self": {"href": "/api/svm/svms/8139f958-3c6e-11e9-a45f-005056bbc848"}
-            },
-        },
-        "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
         "volume": {
-            "uuid": "0353dc05-405f-11e9-acb6-005056bbc848",
             "name": "v2",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848"
                 }
             },
+            "uuid": "0353dc05-405f-11e9-acb6-005056bbc848",
         },
-        "reclaimable_space": 167832,
         "name": "hourly.2019-03-13_1305",
+        "reclaimable_space": 167832,
         "_links": {
             "self": {
                 "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/402b6c73-73a0-4e89-a58a-75ee0ab3e8c0"
             }
+        },
+        "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
+        "svm": {
+            "name": "vs0",
+            "_links": {
+                "self": {"href": "/api/svm/svms/8139f958-3c6e-11e9-a45f-005056bbc848"}
+            },
+            "uuid": "8139f958-3c6e-11e9-a45f-005056bbc848",
         },
     }
 )
@@ -390,16 +390,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Snapshot(
         {
+            "name": "hourly.2022-06-29_1105",
             "uuid": "52a2247a-7735-4a92-bc3c-e51df1fe502f",
             "delta": {"time_elapsed": "PT3H27M45S", "size_consumed": 675840},
-            "name": "hourly.2022-06-29_1105",
         }
     ),
     Snapshot(
         {
+            "name": "hourly.2022-06-29_1205",
             "uuid": "b399eb34-44fe-4689-9fb5-c8f72162dd77",
             "delta": {"time_elapsed": "PT2H27M45S", "size_consumed": 507904},
-            "name": "hourly.2022-06-29_1205",
         }
     ),
 ]
@@ -426,30 +426,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Snapshot(
         {
+            "volume": {"name": "v1", "uuid": "966c285f-47f7-11ec-8407-005056bbc08f"},
+            "name": "daily.2021-11-18_0010",
             "uuid": "3edba912-5507-4535-adce-e12fe5c0e31c",
-            "volume": {"uuid": "966c285f-47f7-11ec-8407-005056bbc08f", "name": "v1"},
-            "name": "daily.2021-11-18_0010",
         }
     ),
     Snapshot(
         {
+            "volume": {"name": "v1", "uuid": "966c285f-47f7-11ec-8407-005056bbc08f"},
+            "name": "hourly.2021-11-18_0705",
             "uuid": "3ad61153-d5ef-495d-8e0e-5c3b8bbaf5e6",
-            "volume": {"uuid": "966c285f-47f7-11ec-8407-005056bbc08f", "name": "v1"},
-            "name": "hourly.2021-11-18_0705",
         }
     ),
     Snapshot(
         {
-            "uuid": "3dd0fa97-65d9-41ea-a99d-5ceb9d2f55c5",
-            "volume": {"uuid": "99c974e3-47f7-11ec-8407-005056bbc08f", "name": "v2"},
+            "volume": {"name": "v2", "uuid": "99c974e3-47f7-11ec-8407-005056bbc08f"},
             "name": "daily.2021-11-18_0010",
+            "uuid": "3dd0fa97-65d9-41ea-a99d-5ceb9d2f55c5",
         }
     ),
     Snapshot(
         {
-            "uuid": "6ca20a52-c342-4753-8865-3693fa9b7e23",
-            "volume": {"uuid": "99c974e3-47f7-11ec-8407-005056bbc08f", "name": "v2"},
+            "volume": {"name": "v2", "uuid": "99c974e3-47f7-11ec-8407-005056bbc08f"},
             "name": "hourly.2021-11-18_0705",
+            "uuid": "6ca20a52-c342-4753-8865-3693fa9b7e23",
         }
     ),
 ]
@@ -545,11 +545,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -563,11 +562,15 @@ __pdoc__ = {
     "SnapshotSchema.opts": False,
 }
 
-
 class SnapshotSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Snapshot object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the snapshot."""
 
     comment = marshmallow_fields.Str(
@@ -600,7 +603,12 @@ Example: 2019-02-04T19:00:00.000+0000"""
 
 Example: 1131223"""
 
-    delta = marshmallow_fields.Nested("netapp_ontap.models.snapshot_delta.SnapshotDeltaSchema", data_key="delta", unknown=EXCLUDE, allow_none=True)
+    delta = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.snapshot_delta", "SnapshotDeltaSchema"),
+                data_key="delta",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Reports the amount of space consumed between two WAFL file systems, in bytes. The two WAFL file systems should be specified in a comma-separated format using the "name" parameter. To determine the space consumed between a snapshot and the Active File System, only the snapshot name needs to be mentioned."""
 
     expiry_time = ImpreciseDateTime(
@@ -630,7 +638,12 @@ Example: this_snapshot"""
     owners = marshmallow_fields.List(marshmallow_fields.Str, data_key="owners", allow_none=True)
     r""" The owners field of the snapshot."""
 
-    provenance_volume = marshmallow_fields.Nested("netapp_ontap.models.snapshot_provenance_volume.SnapshotProvenanceVolumeSchema", data_key="provenance_volume", unknown=EXCLUDE, allow_none=True)
+    provenance_volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.snapshot_provenance_volume", "SnapshotProvenanceVolumeSchema"),
+                data_key="provenance_volume",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The provenance_volume field of the snapshot."""
 
     reclaimable_space = Size(
@@ -647,7 +660,12 @@ Example: this_snapshot"""
 
 Example: 122880"""
 
-    snaplock = marshmallow_fields.Nested("netapp_ontap.models.snapshot_snaplock.SnapshotSnaplockSchema", data_key="snaplock", unknown=EXCLUDE, allow_none=True)
+    snaplock = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.snapshot_snaplock", "SnapshotSnaplockSchema"),
+                data_key="snaplock",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The snaplock field of the snapshot."""
 
     snaplock_expiry_time = ImpreciseDateTime(
@@ -679,7 +697,12 @@ Valid choices:
 * unknown
 * pre_conversion"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the snapshot."""
 
     uuid = marshmallow_fields.Str(
@@ -706,7 +729,12 @@ Example: 1131223"""
 
 Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
 
-    volume = marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", data_key="volume", unknown=EXCLUDE, allow_none=True)
+    volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                data_key="volume",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The volume field of the snapshot."""
 
     @property

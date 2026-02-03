@@ -181,7 +181,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/add_packages_to_software_source.py.html>`__ to see an example of how to use add_packages_to_software_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/add_packages_to_software_source.py.html>`__ to see an example of how to use add_packages_to_software_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
@@ -298,7 +298,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/change_availability_of_software_sources.py.html>`__ to see an example of how to use change_availability_of_software_sources API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/change_availability_of_software_sources.py.html>`__ to see an example of how to use change_availability_of_software_sources API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -418,7 +418,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/change_software_source_compartment.py.html>`__ to see an example of how to use change_software_source_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/change_software_source_compartment.py.html>`__ to see an example of how to use change_software_source_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
@@ -535,7 +535,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/create_entitlement.py.html>`__ to see an example of how to use create_entitlement API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/create_entitlement.py.html>`__ to see an example of how to use create_entitlement API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -638,7 +638,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/create_software_source.py.html>`__ to see an example of how to use create_software_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/create_software_source.py.html>`__ to see an example of how to use create_software_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -745,7 +745,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/delete_software_source.py.html>`__ to see an example of how to use delete_software_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/delete_software_source.py.html>`__ to see an example of how to use delete_software_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
@@ -855,7 +855,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/get_erratum.py.html>`__ to see an example of how to use get_erratum API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/get_erratum.py.html>`__ to see an example of how to use get_erratum API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['name', 'compartmentId']
@@ -975,7 +975,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/get_module_stream.py.html>`__ to see an example of how to use get_module_stream API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/get_module_stream.py.html>`__ to see an example of how to use get_module_stream API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId', 'moduleName', 'streamName']
@@ -1099,7 +1099,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/get_module_stream_profile.py.html>`__ to see an example of how to use get_module_stream_profile API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/get_module_stream_profile.py.html>`__ to see an example of how to use get_module_stream_profile API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId', 'profileName', 'moduleName', 'streamName']
@@ -1218,7 +1218,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/get_package_group.py.html>`__ to see an example of how to use get_package_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/get_package_group.py.html>`__ to see an example of how to use get_package_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId', 'packageGroupId']
@@ -1329,7 +1329,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/get_software_package.py.html>`__ to see an example of how to use get_software_package API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/get_software_package.py.html>`__ to see an example of how to use get_software_package API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId', 'softwarePackageName']
@@ -1435,7 +1435,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/get_software_package_by_name.py.html>`__ to see an example of how to use get_software_package_by_name API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/get_software_package_by_name.py.html>`__ to see an example of how to use get_software_package_by_name API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwarePackageName']
@@ -1542,7 +1542,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/get_software_source.py.html>`__ to see an example of how to use get_software_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/get_software_source.py.html>`__ to see an example of how to use get_software_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
@@ -1649,7 +1649,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/get_software_source_manifest.py.html>`__ to see an example of how to use get_software_source_manifest API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/get_software_source_manifest.py.html>`__ to see an example of how to use get_software_source_manifest API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
@@ -1800,7 +1800,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/list_all_software_packages.py.html>`__ to see an example of how to use list_all_software_packages API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/list_all_software_packages.py.html>`__ to see an example of how to use list_all_software_packages API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1985,7 +1985,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/list_available_software_packages.py.html>`__ to see an example of how to use list_available_software_packages API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/list_available_software_packages.py.html>`__ to see an example of how to use list_available_software_packages API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
@@ -2163,7 +2163,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/list_entitlements.py.html>`__ to see an example of how to use list_entitlements API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/list_entitlements.py.html>`__ to see an example of how to use list_entitlements API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2363,7 +2363,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/list_errata.py.html>`__ to see an example of how to use list_errata API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/list_errata.py.html>`__ to see an example of how to use list_errata API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2573,7 +2573,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/list_module_stream_profiles.py.html>`__ to see an example of how to use list_module_stream_profiles API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/list_module_stream_profiles.py.html>`__ to see an example of how to use list_module_stream_profiles API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
@@ -2756,7 +2756,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/list_module_streams.py.html>`__ to see an example of how to use list_module_streams API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/list_module_streams.py.html>`__ to see an example of how to use list_module_streams API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
@@ -2940,7 +2940,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/list_package_groups.py.html>`__ to see an example of how to use list_package_groups API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/list_package_groups.py.html>`__ to see an example of how to use list_package_groups API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
@@ -3152,7 +3152,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/list_software_package_software_sources.py.html>`__ to see an example of how to use list_software_package_software_sources API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/list_software_package_software_sources.py.html>`__ to see an example of how to use list_software_package_software_sources API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwarePackageName', 'compartmentId']
@@ -3390,7 +3390,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/list_software_packages.py.html>`__ to see an example of how to use list_software_packages API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/list_software_packages.py.html>`__ to see an example of how to use list_software_packages API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
@@ -3545,7 +3545,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/list_software_source_vendors.py.html>`__ to see an example of how to use list_software_source_vendors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/list_software_source_vendors.py.html>`__ to see an example of how to use list_software_source_vendors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -3752,7 +3752,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/list_software_sources.py.html>`__ to see an example of how to use list_software_sources API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/list_software_sources.py.html>`__ to see an example of how to use list_software_sources API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3981,7 +3981,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/remove_packages_from_software_source.py.html>`__ to see an example of how to use remove_packages_from_software_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/remove_packages_from_software_source.py.html>`__ to see an example of how to use remove_packages_from_software_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
@@ -4114,7 +4114,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/replace_packages_in_software_source.py.html>`__ to see an example of how to use replace_packages_in_software_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/replace_packages_in_software_source.py.html>`__ to see an example of how to use replace_packages_in_software_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
@@ -4241,7 +4241,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/search_software_source_module_streams.py.html>`__ to see an example of how to use search_software_source_module_streams API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/search_software_source_module_streams.py.html>`__ to see an example of how to use search_software_source_module_streams API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -4363,7 +4363,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/search_software_source_modules.py.html>`__ to see an example of how to use search_software_source_modules API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/search_software_source_modules.py.html>`__ to see an example of how to use search_software_source_modules API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -4485,7 +4485,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/search_software_source_package_groups.py.html>`__ to see an example of how to use search_software_source_package_groups API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/search_software_source_package_groups.py.html>`__ to see an example of how to use search_software_source_package_groups API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -4606,7 +4606,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/software_source_generate_metadata.py.html>`__ to see an example of how to use software_source_generate_metadata API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/software_source_generate_metadata.py.html>`__ to see an example of how to use software_source_generate_metadata API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
@@ -4726,7 +4726,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/update_software_source.py.html>`__ to see an example of how to use update_software_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/update_software_source.py.html>`__ to see an example of how to use update_software_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
@@ -4862,7 +4862,7 @@ class SoftwareSourceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/update_software_source_manifest.py.html>`__ to see an example of how to use update_software_source_manifest API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/update_software_source_manifest.py.html>`__ to see an example of how to use update_software_source_manifest API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']

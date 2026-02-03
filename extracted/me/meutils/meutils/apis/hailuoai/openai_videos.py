@@ -65,7 +65,7 @@ class Tasks(object):
         self.api_key = api_key
 
     async def create(self, request: SoraVideoRequest):
-        if request.model.startswith(("image", "nano", "seedream", "gpt-image")):
+        if request.model.replace("async/", "").startswith(("image", "nano", "seedream", "gpt-image")):
             image_request = ImageRequest(
                 model=request.model,
                 prompt=request.prompt,
@@ -92,7 +92,9 @@ async def create_task(request: SoraVideoRequest, token: Optional[str] = None):
 
     if request.model.startswith("veo"):
         request.seconds = 8
-        request.aspect_ratio = request.aspect_ratio or "16:9"
+
+        if request.aspect_ratio not in {"16:9", "9:16"}:
+            request.aspect_ratio = "16:9"
 
         if image_urls := request.input_reference:
             request.input_reference = await to_image(image_urls)
@@ -347,22 +349,20 @@ if __name__ == '__main__':
     )
 
     data = {
-        "model": "veo3.1-i2v-fast",
-        "prompt": "第一人称视角ASMR视频，画幅比例9:16，沉浸式体验切割物体的声音。切割时，物体表面坚硬，需要用力才能切入，伴随清晰的开裂脆响。当工具穿透表层的瞬间，内部的金币猛地爆开飞溅，发出密集的金属碰撞声与清脆的掉落声。随着工具完全切开，物体裂成两半并重重砸落在桌面上，大量金币从切口处喷涌而出、散落四周，营造出充满惊喜与满足感的听觉体验",
+        "model": "veo3.1-t2v-fast",
+        "prompt": "[Cảnh 1: Sếp bước vào văn phòng, tay cầm một phong bì màu trắng, ánh mắt đầy bí ẩn.]\n[Cảnh 2: Anh chàng mũm mĩm ngồi ở bàn làm việc, mắt dõi theo sếp, lòng đầy hồi hộp. Anh thì thầm với đồng nghiệp bên cạnh:]\n\"Không biết năm nay có đổi đời không...\"\n[Cảnh 3: Sếp đứng trước mặt anh, trao phong bì với nụ cười bí ẩn. Anh chàng mở phong bì, ánh mắt sáng lên khi thấy bên trong là một voucher giảm giá mua chuột máy tính.]\n[Cảnh 4: Anh chàng giơ voucher lên cao, nụ cười hiện rõ trên khuôn mặt với hai lúm đồng tiền đáng yêu. Anh quay sang đồng nghiệp, hài hước nói:]",
         "seconds": 8,
-        "input_reference": [
-            "https://s3.ffire.cc/cdn/20260131/sNQLXjrfPFph26no3Jizvs.jpeg"
-        ],
-        "resolution": "720",
-        "size": "16:9"
-
+        # "size": "720p",
+        # "aspect_ratio": "16:9",
+        "resolution": "1080",
+        # "enhance_prompt": True
     }
 
     request = SoraVideoRequest(**data)
 
     # "图片上传失败，长宽比需在 5:2 和 2:5 之间"
 
-    r = arun(create_task(request, token=token))
+    # r = arun(create_task(request, token=token))
 
     # task_id = "hailuoai-469852272096808964"
 
@@ -404,5 +404,5 @@ if __name__ == '__main__':
     task_id = "472578691764686853"
     task_id = "472578758479253512"
     task_id = "472581277544718343"
-    task_id = "472752130559369221"
-    # arun(get_task(task_id=task_id, token=token))
+    task_id = "474208609112264706"
+    arun(get_task(task_id=task_id, token=token))

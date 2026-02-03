@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,17 +27,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SwitchPort(
         {
-            "roles": [{"zone": 1, "type": "cluster"}],
-            "identity": {"number": 1, "name": "Ethernet1/1", "index": 436207616},
-            "isl": False,
-            "mtu": 9216,
-            "statistics": {
-                "timestamp": "2024-11-08T19:51:12+00:00",
-                "transmit_raw": {"discards": 0, "errors": 0, "packets": 206717534},
-                "receive_raw": {"discards": 0, "errors": 0, "packets": 1616467751},
+            "mac_address": "00:be:75:ae:2a:d4",
+            "speed": 100000,
+            "_links": {
+                "self": {
+                    "href": "/api/network/ethernet/switch/ports/RTP-CS01-510R11%28FOC22092K12%29/Ethernet1%2F1/436207616"
+                }
             },
-            "duplex_type": "full_duplex",
-            "vlan_id": [1, 17, 18],
+            "identity": {"name": "Ethernet1/1", "number": 1, "index": 436207616},
+            "roles": [{"zone": 1, "type": "cluster"}],
             "switch": {
                 "_links": {
                     "self": {
@@ -46,48 +44,48 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 },
                 "name": "RTP-CS01-510R11(FOC22092K12)",
             },
-            "state": "up",
-            "mac_address": "00:be:75:ae:2a:d4",
             "remote_port": {
-                "functional_roles": ["cluster", "ha"],
                 "mtu": 9000,
                 "name": "e3a",
                 "device": {
                     "node": {
-                        "uuid": "54c0f036-8a3a-11ea-893d-00a098fd726d",
                         "name": "stiA400-311",
                         "_links": {
                             "self": {
                                 "href": "/api/cluster/nodes/54c0f036-8a3a-11ea-893d-00a098fd726d"
                             }
                         },
+                        "uuid": "54c0f036-8a3a-11ea-893d-00a098fd726d",
                     },
                     "discovered_name": "stiA400-311",
                 },
+                "functional_roles": ["cluster", "ha"],
             },
-            "vpc_peer_link": False,
+            "state": "up",
+            "statistics": {
+                "transmit_raw": {"errors": 0, "packets": 206717534, "discards": 0},
+                "receive_raw": {"errors": 0, "packets": 1616467751, "discards": 0},
+                "timestamp": "2024-11-08T19:51:12+00:00",
+            },
+            "isl": False,
+            "vlan_id": [1, 17, 18],
             "configured": "up",
-            "_links": {
-                "self": {
-                    "href": "/api/network/ethernet/switch/ports/RTP-CS01-510R11%28FOC22092K12%29/Ethernet1%2F1/436207616"
-                }
-            },
-            "speed": 100000,
+            "mtu": 9216,
+            "vpc_peer_link": False,
+            "duplex_type": "full_duplex",
         }
     ),
     SwitchPort(
         {
-            "roles": [{"zone": 1, "type": "cluster"}],
-            "identity": {"number": 11, "name": "Ethernet1/11", "index": 436212736},
-            "isl": False,
-            "mtu": 9216,
-            "statistics": {
-                "timestamp": "2024-11-08T19:51:12+00:00",
-                "transmit_raw": {"discards": 0, "errors": 0, "packets": 0},
-                "receive_raw": {"discards": 0, "errors": 0, "packets": 0},
+            "mac_address": "00be75ae2afc",
+            "speed": 100000,
+            "_links": {
+                "self": {
+                    "href": "/api/network/ethernet/switch/ports/RTP-CS01-510R11%28FOC22092K12%29/Ethernet1%2F11/436212736"
+                }
             },
-            "duplex_type": "unknown",
-            "vlan_id": [1, 17, 18],
+            "identity": {"name": "Ethernet1/11", "number": 11, "index": 436212736},
+            "roles": [{"zone": 1, "type": "cluster"}],
             "switch": {
                 "_links": {
                     "self": {
@@ -97,30 +95,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 "name": "RTP-CS01-510R11(FOC22092K12)",
             },
             "state": "down",
-            "mac_address": "00be75ae2afc",
-            "vpc_peer_link": False,
-            "configured": "up",
-            "_links": {
-                "self": {
-                    "href": "/api/network/ethernet/switch/ports/RTP-CS01-510R11%28FOC22092K12%29/Ethernet1%2F11/436212736"
-                }
+            "statistics": {
+                "transmit_raw": {"errors": 0, "packets": 0, "discards": 0},
+                "receive_raw": {"errors": 0, "packets": 0, "discards": 0},
+                "timestamp": "2024-11-08T19:51:12+00:00",
             },
-            "speed": 100000,
+            "isl": False,
+            "vlan_id": [1, 17, 18],
+            "configured": "up",
+            "mtu": 9216,
+            "vpc_peer_link": False,
+            "duplex_type": "unknown",
         }
     ),
     SwitchPort(
         {
-            "roles": [{"zone": 1, "type": "storage"}],
-            "identity": {"number": 10, "name": "Ethernet1/10", "index": 436212224},
-            "isl": False,
-            "mtu": 9216,
-            "statistics": {
-                "timestamp": "2024-11-08T19:51:12+00:00",
-                "transmit_raw": {"discards": 0, "errors": 0, "packets": 2429595607},
-                "receive_raw": {"discards": 0, "errors": 0, "packets": 332013844},
+            "mac_address": "00fcbaead548",
+            "speed": 100000,
+            "_links": {
+                "self": {
+                    "href": "/api/network/ethernet/switch/ports/RTP-SS01-510R10%28FOC22170DFR%29/Ethernet1%2F10/436212224"
+                }
             },
-            "duplex_type": "full_duplex",
-            "vlan_id": [1, 30],
+            "identity": {"name": "Ethernet1/10", "number": 10, "index": 436212224},
+            "roles": [{"zone": 1, "type": "storage"}],
             "switch": {
                 "_links": {
                     "self": {
@@ -129,10 +127,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 },
                 "name": "RTP-SS01-510R10(FOC22170DFR)",
             },
-            "state": "up",
-            "mac_address": "00fcbaead548",
             "remote_port": {
-                "functional_roles": ["storage_shelf"],
                 "mtu": 9000,
                 "name": "e0a",
                 "device": {
@@ -148,15 +143,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     },
                     "discovered_name": "1.1",
                 },
+                "functional_roles": ["storage_shelf"],
             },
-            "vpc_peer_link": False,
+            "state": "up",
+            "statistics": {
+                "transmit_raw": {"errors": 0, "packets": 2429595607, "discards": 0},
+                "receive_raw": {"errors": 0, "packets": 332013844, "discards": 0},
+                "timestamp": "2024-11-08T19:51:12+00:00",
+            },
+            "isl": False,
+            "vlan_id": [1, 30],
             "configured": "up",
-            "_links": {
-                "self": {
-                    "href": "/api/network/ethernet/switch/ports/RTP-SS01-510R10%28FOC22170DFR%29/Ethernet1%2F10/436212224"
-                }
-            },
-            "speed": 100000,
+            "mtu": 9216,
+            "vpc_peer_link": False,
+            "duplex_type": "full_duplex",
         }
     ),
 ]
@@ -187,17 +187,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SwitchPort(
     {
-        "roles": [{"zone": 1, "type": "storage"}],
-        "identity": {"number": 9, "name": "Ethernet1/9", "index": 436211712},
-        "isl": False,
-        "mtu": 9216,
-        "statistics": {
-            "timestamp": "2024-11-08T19:51:12+00:00",
-            "transmit_raw": {"discards": 0, "errors": 0, "packets": 337898026},
-            "receive_raw": {"discards": 0, "errors": 0, "packets": 4012559315},
+        "mac_address": "00fcbaea7228",
+        "speed": 100000,
+        "_links": {
+            "self": {
+                "href": "/api/network/ethernet/switch/ports/RTP-SS02-510R10%28FOC22131U6T%29/Ethernet1%2F9/436211712"
+            }
         },
-        "duplex_type": "full_duplex",
-        "vlan_id": [1, 30],
+        "identity": {"name": "Ethernet1/9", "number": 9, "index": 436211712},
+        "roles": [{"zone": 1, "type": "storage"}],
         "switch": {
             "_links": {
                 "self": {
@@ -206,10 +204,7 @@ SwitchPort(
             },
             "name": "RTP-SS02-510R10(FOC22131U6T)",
         },
-        "state": "up",
-        "mac_address": "00fcbaea7228",
         "remote_port": {
-            "functional_roles": ["storage_shelf"],
             "mtu": 9000,
             "name": "e0a",
             "device": {
@@ -223,15 +218,20 @@ SwitchPort(
                 },
                 "discovered_name": "SHFFG1234567890:A",
             },
+            "functional_roles": ["storage_shelf"],
         },
-        "vpc_peer_link": False,
+        "state": "up",
+        "statistics": {
+            "transmit_raw": {"errors": 0, "packets": 337898026, "discards": 0},
+            "receive_raw": {"errors": 0, "packets": 4012559315, "discards": 0},
+            "timestamp": "2024-11-08T19:51:12+00:00",
+        },
+        "isl": False,
+        "vlan_id": [1, 30],
         "configured": "up",
-        "_links": {
-            "self": {
-                "href": "/api/network/ethernet/switch/ports/RTP-SS02-510R10%28FOC22131U6T%29/Ethernet1%2F9/436211712"
-            }
-        },
-        "speed": 100000,
+        "mtu": 9216,
+        "vpc_peer_link": False,
+        "duplex_type": "full_duplex",
     }
 )
 
@@ -245,11 +245,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -263,11 +262,15 @@ __pdoc__ = {
     "SwitchPortSchema.opts": False,
 }
 
-
 class SwitchPortSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SwitchPort object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the switch_port."""
 
     configured = marshmallow_fields.Str(
@@ -296,7 +299,12 @@ Valid choices:
 * half_duplex
 * unknown"""
 
-    identity = marshmallow_fields.Nested("netapp_ontap.models.switch_port_identity.SwitchPortIdentitySchema", data_key="identity", unknown=EXCLUDE, allow_none=True)
+    identity = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.switch_port_identity", "SwitchPortIdentitySchema"),
+                data_key="identity",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The identity field of the switch_port."""
 
     isl = marshmallow_fields.Boolean(
@@ -317,10 +325,23 @@ Valid choices:
     )
     r""" MTU."""
 
-    remote_port = marshmallow_fields.Nested("netapp_ontap.models.switch_port_remote_port.SwitchPortRemotePortSchema", data_key="remote_port", unknown=EXCLUDE, allow_none=True)
+    remote_port = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.switch_port_remote_port", "SwitchPortRemotePortSchema"),
+                data_key="remote_port",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Remote port."""
 
-    roles = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.switch_port_roles.SwitchPortRolesSchema", unknown=EXCLUDE, allow_none=True), data_key="roles", allow_none=True)
+    roles = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.switch_port_roles", "SwitchPortRolesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="roles",
+                allow_none=True
+            )
     r""" Allowed use for this port."""
 
     speed = Size(
@@ -346,10 +367,20 @@ Valid choices:
 * unknown
 * up"""
 
-    statistics = marshmallow_fields.Nested("netapp_ontap.models.switch_port_statistics.SwitchPortStatisticsSchema", data_key="statistics", unknown=EXCLUDE, allow_none=True)
+    statistics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.switch_port_statistics", "SwitchPortStatisticsSchema"),
+                data_key="statistics",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" These are raw counters for the device associated with the Ethernet port."""
 
-    switch = marshmallow_fields.Nested("netapp_ontap.resources.switch.SwitchSchema", data_key="switch", unknown=EXCLUDE, allow_none=True)
+    switch = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.switch", "SwitchSchema"),
+                data_key="switch",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The switch field of the switch_port."""
 
     type = marshmallow_fields.Str(

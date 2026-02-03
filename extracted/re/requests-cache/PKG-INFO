@@ -1,66 +1,58 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: requests-cache
-Version: 1.2.1
+Version: 1.3.0
 Summary: A persistent cache for python requests
-Home-page: https://github.com/requests-cache/requests-cache
-License: BSD-2-Clause
-Keywords: requests,python-requests,cache,http,http-client,web,webscraping,performance,sqlite,redis,mongodb,gridfs,dynamodb
-Author: Roman Haritonov
-Requires-Python: >=3.8
+Project-URL: homepage, https://github.com/requests-cache/requests-cache
+Project-URL: repository, https://github.com/requests-cache/requests-cache
+Project-URL: documentation, https://requests-cache.readthedocs.io
+Author: Jordan Cook, Roman Haritonov
+License-Expression: BSD-2-Clause
+License-File: LICENSE
+Keywords: cache,dynamodb,http,http-client,mongodb,performance,python-requests,redis,requests,sqlite,web,webscraping
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
+Requires-Python: >=3.8
+Requires-Dist: attrs>=21.2
+Requires-Dist: cattrs>=22.2
+Requires-Dist: platformdirs>=2.5
+Requires-Dist: requests>=2.22
+Requires-Dist: url-normalize>=2.0
+Requires-Dist: urllib3>=1.25.5
 Provides-Extra: all
-Provides-Extra: bson
-Provides-Extra: docs
+Requires-Dist: boto3>=1.15; extra == 'all'
+Requires-Dist: botocore>=1.18; extra == 'all'
+Requires-Dist: itsdangerous>=2.0; extra == 'all'
+Requires-Dist: orjson>=3.0; extra == 'all'
+Requires-Dist: pymongo>=3; extra == 'all'
+Requires-Dist: pyyaml>=6.0.1; extra == 'all'
+Requires-Dist: redis>=3; extra == 'all'
+Requires-Dist: ujson>=5.4; extra == 'all'
 Provides-Extra: dynamodb
-Provides-Extra: json
+Requires-Dist: boto3>=1.15; extra == 'dynamodb'
+Requires-Dist: botocore>=1.18; extra == 'dynamodb'
 Provides-Extra: mongodb
+Requires-Dist: pymongo>=3; extra == 'mongodb'
 Provides-Extra: redis
+Requires-Dist: redis>=3; extra == 'redis'
 Provides-Extra: security
+Requires-Dist: itsdangerous>=2.0; extra == 'security'
 Provides-Extra: yaml
-Requires-Dist: attrs (>=21.2)
-Requires-Dist: boto3 (>=1.15) ; extra == "dynamodb" or extra == "all"
-Requires-Dist: botocore (>=1.18) ; extra == "dynamodb" or extra == "all"
-Requires-Dist: bson (>=0.5) ; extra == "bson"
-Requires-Dist: cattrs (>=22.2)
-Requires-Dist: furo (>=2023.3,<2024.0) ; extra == "docs"
-Requires-Dist: itsdangerous (>=2.0) ; extra == "security" or extra == "all"
-Requires-Dist: linkify-it-py (>=2.0,<3.0) ; extra == "docs"
-Requires-Dist: myst-parser (>=1.0,<2.0) ; extra == "docs"
-Requires-Dist: platformdirs (>=2.5)
-Requires-Dist: pymongo (>=3) ; extra == "mongodb" or extra == "all"
-Requires-Dist: pyyaml (>=6.0.1) ; extra == "yaml" or extra == "all"
-Requires-Dist: redis (>=3) ; extra == "redis" or extra == "all"
-Requires-Dist: requests (>=2.22)
-Requires-Dist: sphinx (>=5.0.2,<6.0.0) ; extra == "docs"
-Requires-Dist: sphinx-autodoc-typehints (>=1.19) ; extra == "docs"
-Requires-Dist: sphinx-automodapi (>=0.14) ; extra == "docs"
-Requires-Dist: sphinx-copybutton (>=0.5) ; extra == "docs"
-Requires-Dist: sphinx-design (>=0.2) ; extra == "docs"
-Requires-Dist: sphinx-notfound-page (>=0.8) ; extra == "docs"
-Requires-Dist: sphinxcontrib-apidoc (>=0.3) ; extra == "docs"
-Requires-Dist: sphinxext-opengraph (>=0.9) ; extra == "docs"
-Requires-Dist: ujson (>=5.4) ; extra == "json" or extra == "all"
-Requires-Dist: url-normalize (>=1.4)
-Requires-Dist: urllib3 (>=1.25.5)
-Project-URL: Changelog, https://requests-cache.readthedocs.io/en/stable/project_info/history.html
-Project-URL: Documentation, https://requests-cache.readthedocs.io
-Project-URL: Issues, https://github.com/requests-cache/requests-cache/issues
-Project-URL: Repository, https://github.com/requests-cache/requests-cache
+Requires-Dist: pyyaml>=6.0.1; extra == 'yaml'
 Description-Content-Type: text/markdown
 
 [![](docs/_static/requests-cache-logo-header.png)](https://requests-cache.readthedocs.io)
 
-[![Build](https://github.com/requests-cache/requests-cache/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/requests-cache/requests-cache/actions)
+[![Build](https://github.com/requests-cache/requests-cache/actions/workflows/build.yml/badge.svg)](https://github.com/requests-cache/requests-cache/actions)
 [![Codecov](https://codecov.io/gh/requests-cache/requests-cache/branch/main/graph/badge.svg?token=FnybzVWbt2)](https://codecov.io/gh/requests-cache/requests-cache)
 [![Documentation](https://img.shields.io/readthedocs/requests-cache/latest)](https://requests-cache.readthedocs.io/en/stable/)
 [![Code Shelter](https://www.codeshelter.co/static/badges/badge-flat.svg)](https://www.codeshelter.co/)
@@ -194,7 +186,7 @@ session = CachedSession(
     expire_after=timedelta(days=1),    # Otherwise expire responses after one day
     allowable_codes=[200, 400],        # Cache 400 responses as a solemn reminder of your failures
     allowable_methods=['GET', 'POST'], # Cache whatever HTTP methods you want
-    ignored_parameters=['api_key'],    # Don't match this request param, and redact if from the cache
+    ignored_parameters=['api_key'],    # Don't match this request param, and redact it from the cache
     match_headers=['Accept-Language'], # Cache a different response per language
     stale_if_error=True,               # In case of request errors, use stale cache data if possible
 )
@@ -209,4 +201,3 @@ To find out more about what you can do with requests-cache, see:
 * [API Reference](https://requests-cache.readthedocs.io/en/stable/reference.html)
 * [Project Info](https://requests-cache.readthedocs.io/en/stable/project_info.html)
 <!-- END-RTD-IGNORE -->
-

@@ -50,18 +50,19 @@ NON_DIMENSIONALIZED_LINE_ITEM_LINKROLES = frozenset((
     'https://www.nltaxonomie.nl/kvk/role/lineitems-nondimensional-usage',
 ))
 
-TAXONOMY_URLS_BY_YEAR = {
-    2024: {
+# Order chronologically.
+TAXONOMY_URLS_BY_YEAR = (
+    (2024, {
         'https://www.nltaxonomie.nl/kvk/2024-12-31/kvk-annual-report-nlgaap-ext.xsd',
         'https://www.nltaxonomie.nl/kvk/2024-12-31/kvk-annual-report-ifrs-ext.xsd',
         'https://www.nltaxonomie.nl/kvk/2024-12-31/kvk-annual-report-other-gaap.xsd',
-    },
-    2025: {
+    }),
+    (2025, {
         'https://www.nltaxonomie.nl/kvk/2025-12-31/kvk-annual-report-nlgaap-ext.xsd',
         'https://www.nltaxonomie.nl/kvk/2025-12-31/kvk-annual-report-ifrs-ext.xsd',
         'https://www.nltaxonomie.nl/kvk/2025-12-31/kvk-annual-report-other.xsd',
-    }
-}
+    }),
+)
 
 QN_DOMAIN_ITEM_TYPES = frozenset((
     qname("{http://www.xbrl.org/dtr/type/2022-03-31}nonnum:domainItemType"),
@@ -88,7 +89,8 @@ STANDARD_TAXONOMY_URL_PREFIXES = frozenset((
     'http://xbrl.org/2020/extensible-enumerations-2.0',
     'https://xbrl.org/2020/extensible-enumerations-2.0',
     'http://www.w3.org/1999/xlink',
-    'https://www.w3.org/1999/xlink'
+    'https://www.w3.org/1999/xlink',
+    'https://www.esma.europa.eu/taxonomy/',
 ))
 
 SUPPORTED_IMAGE_TYPES_BY_IS_FILE = {

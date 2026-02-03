@@ -1,4 +1,4 @@
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -220,6 +220,8 @@ packages = ["assistant"]
                     "assistant",
                     "--auto-approve",
                     "--skip-checks",
+                    "--cicd-runner",
+                    "skip",
                 ]
 
                 result = run_command(
@@ -309,6 +311,8 @@ agent_directory = "bot"
                     ".",
                     "--auto-approve",
                     "--skip-checks",
+                    "--cicd-runner",
+                    "skip",
                 ]
 
                 result = run_command(
@@ -388,6 +392,8 @@ instruction: You are a helpful assistant.
             deployment_target,
             "--auto-approve",
             "--skip-checks",
+            "--cicd-runner",
+            "skip",
         ]
 
         run_command(cmd, cwd=project_path, message="Running enhance command")

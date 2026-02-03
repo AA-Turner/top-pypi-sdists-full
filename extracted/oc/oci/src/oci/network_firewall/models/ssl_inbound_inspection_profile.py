@@ -34,6 +34,10 @@ class SslInboundInspectionProfile(DecryptionProfile):
             The value to assign to the parent_resource_id property of this SslInboundInspectionProfile.
         :type parent_resource_id: str
 
+        :param description:
+            The value to assign to the description property of this SslInboundInspectionProfile.
+        :type description: str
+
         :param is_unsupported_version_blocked:
             The value to assign to the is_unsupported_version_blocked property of this SslInboundInspectionProfile.
         :type is_unsupported_version_blocked: bool
@@ -51,6 +55,7 @@ class SslInboundInspectionProfile(DecryptionProfile):
             'type': 'str',
             'name': 'str',
             'parent_resource_id': 'str',
+            'description': 'str',
             'is_unsupported_version_blocked': 'bool',
             'is_unsupported_cipher_blocked': 'bool',
             'is_out_of_capacity_blocked': 'bool'
@@ -59,6 +64,7 @@ class SslInboundInspectionProfile(DecryptionProfile):
             'type': 'type',
             'name': 'name',
             'parent_resource_id': 'parentResourceId',
+            'description': 'description',
             'is_unsupported_version_blocked': 'isUnsupportedVersionBlocked',
             'is_unsupported_cipher_blocked': 'isUnsupportedCipherBlocked',
             'is_out_of_capacity_blocked': 'isOutOfCapacityBlocked'
@@ -66,6 +72,7 @@ class SslInboundInspectionProfile(DecryptionProfile):
         self._type = None
         self._name = None
         self._parent_resource_id = None
+        self._description = None
         self._is_unsupported_version_blocked = None
         self._is_unsupported_cipher_blocked = None
         self._is_out_of_capacity_blocked = None

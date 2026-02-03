@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -35,12 +35,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NameMapping(
     {
-        "pattern": "ENGCIFS_AD_USER",
+        "index": 1,
         "replacement": "unix_user1",
         "direction": "win_unix",
-        "svm": {"uuid": "f71d3640-0226-11e9-8526-000c290a8c4b", "name": "vs1"},
         "client_match": "10.254.101.111/28",
-        "index": 1,
+        "pattern": "ENGCIFS_AD_USER",
+        "svm": {"name": "vs1", "uuid": "f71d3640-0226-11e9-8526-000c290a8c4b"},
     }
 )
 
@@ -74,12 +74,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NameMapping(
     {
-        "pattern": "ENGCIFS_AD_USER",
+        "index": 2,
         "replacement": "unix_user1",
         "direction": "win_unix",
-        "svm": {"uuid": "f71d3640-0226-11e9-8526-000c290a8c4b", "name": "vs1"},
         "client_match": "google.com",
-        "index": 2,
+        "pattern": "ENGCIFS_AD_USER",
+        "svm": {"name": "vs1", "uuid": "f71d3640-0226-11e9-8526-000c290a8c4b"},
     }
 )
 
@@ -104,22 +104,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NameMapping(
         {
-            "pattern": "ENGCIFS_AD_USER",
+            "index": 1,
             "replacement": "unix_user1",
             "direction": "win_unix",
-            "svm": {"uuid": "f71d3640-0226-11e9-8526-000c290a8c4b", "name": "vs1"},
             "client_match": "10.254.101.111/28",
-            "index": 1,
+            "pattern": "ENGCIFS_AD_USER",
+            "svm": {"name": "vs1", "uuid": "f71d3640-0226-11e9-8526-000c290a8c4b"},
         }
     ),
     NameMapping(
         {
-            "pattern": "ENGCIFS_AD_USER",
+            "index": 2,
             "replacement": "unix_user1",
             "direction": "win_unix",
-            "svm": {"uuid": "f71d3640-0226-11e9-8526-000c290a8c4b", "name": "vs1"},
             "client_match": "google.com",
-            "index": 2,
+            "pattern": "ENGCIFS_AD_USER",
+            "svm": {"name": "vs1", "uuid": "f71d3640-0226-11e9-8526-000c290a8c4b"},
         }
     ),
 ]
@@ -151,12 +151,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NameMapping(
     {
-        "pattern": "ENGCIFS_AD_USER",
+        "index": 1,
         "replacement": "unix_user1",
         "direction": "win_unix",
-        "svm": {"uuid": "f71d3640-0226-11e9-8526-000c290a8c4b", "name": "vs1"},
         "client_match": "10.254.101.111/28",
-        "index": 1,
+        "pattern": "ENGCIFS_AD_USER",
+        "svm": {"name": "vs1", "uuid": "f71d3640-0226-11e9-8526-000c290a8c4b"},
     }
 )
 
@@ -207,11 +207,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -225,11 +224,15 @@ __pdoc__ = {
     "NameMappingSchema.opts": False,
 }
 
-
 class NameMappingSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the NameMapping object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the name_mapping."""
 
     client_match = marshmallow_fields.Str(
@@ -296,7 +299,12 @@ Example: ENGCIFS_AD_USER"""
 
 Example: unix_user1"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the name_mapping."""
 
     @property

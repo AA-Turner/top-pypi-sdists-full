@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -42,15 +42,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VolumeEfficiencyPolicy(
     {
-        "schedule": {"name": "daily"},
-        "qos_policy": "best_effort",
-        "comment": "schedule-policy",
-        "enabled": True,
-        "uuid": "a69d8173-450c-11e9-aa44-005056bbc848",
         "svm": {"name": "vs1"},
+        "name": "new_policy",
+        "uuid": "a69d8173-450c-11e9-aa44-005056bbc848",
+        "schedule": {"name": "daily"},
+        "comment": "schedule-policy",
         "duration": 2,
         "type": "scheduled",
-        "name": "new_policy",
+        "qos_policy": "best_effort",
+        "enabled": True,
     }
 )
 
@@ -76,35 +76,35 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     VolumeEfficiencyPolicy(
         {
-            "uuid": "3c112527-2fe8-11e9-b55e-005056bbf1c8",
             "_links": {
                 "self": {
                     "href": "/api/storage/volume-efficiency-policies/3c112527-2fe8-11e9-b55e-005056bbf1c8"
                 }
             },
             "name": "default",
+            "uuid": "3c112527-2fe8-11e9-b55e-005056bbf1c8",
         }
     ),
     VolumeEfficiencyPolicy(
         {
-            "uuid": "3c1c1656-2fe8-11e9-b55e-005056bbf1c8",
             "_links": {
                 "self": {
                     "href": "/api/storage/volume-efficiency-policies/3c1c1656-2fe8-11e9-b55e-005056bbf1c8"
                 }
             },
             "name": "default-1weekly",
+            "uuid": "3c1c1656-2fe8-11e9-b55e-005056bbf1c8",
         }
     ),
     VolumeEfficiencyPolicy(
         {
-            "uuid": "3c228b82-2fe8-11e9-b55e-005056bbf1c8",
             "_links": {
                 "self": {
                     "href": "/api/storage/volume-efficiency-policies/3c228b82-2fe8-11e9-b55e-005056bbf1c8"
                 }
             },
             "name": "none",
+            "uuid": "3c228b82-2fe8-11e9-b55e-005056bbf1c8",
         }
     ),
 ]
@@ -178,11 +178,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -196,11 +195,15 @@ __pdoc__ = {
     "VolumeEfficiencyPolicySchema.opts": False,
 }
 
-
 class VolumeEfficiencyPolicySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the VolumeEfficiencyPolicy object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the volume_efficiency_policy."""
 
     comment = marshmallow_fields.Str(
@@ -239,7 +242,12 @@ Valid choices:
 * background
 * best_effort"""
 
-    schedule = marshmallow_fields.Nested("netapp_ontap.models.volume_efficiency_policy_schedule.VolumeEfficiencyPolicyScheduleSchema", data_key="schedule", unknown=EXCLUDE, allow_none=True)
+    schedule = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_efficiency_policy_schedule", "VolumeEfficiencyPolicyScheduleSchema"),
+                data_key="schedule",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The schedule field of the volume_efficiency_policy."""
 
     start_threshold_percent = Size(
@@ -248,7 +256,12 @@ Valid choices:
     )
     r""" This field is used with the policy type "threshold" to indicate the threshold percentage for triggering the volume efficiency policy. It is mutually exclusive of the schedule."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the volume_efficiency_policy."""
 
     type = marshmallow_fields.Str(

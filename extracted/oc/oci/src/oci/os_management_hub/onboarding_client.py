@@ -177,7 +177,7 @@ class OnboardingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/attach_lifecycle_stage_to_profile.py.html>`__ to see an example of how to use attach_lifecycle_stage_to_profile API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/attach_lifecycle_stage_to_profile.py.html>`__ to see an example of how to use attach_lifecycle_stage_to_profile API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['profileId']
@@ -308,7 +308,7 @@ class OnboardingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/attach_managed_instance_group_to_profile.py.html>`__ to see an example of how to use attach_managed_instance_group_to_profile API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/attach_managed_instance_group_to_profile.py.html>`__ to see an example of how to use attach_managed_instance_group_to_profile API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['profileId']
@@ -439,7 +439,7 @@ class OnboardingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/attach_management_station_to_profile.py.html>`__ to see an example of how to use attach_management_station_to_profile API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/attach_management_station_to_profile.py.html>`__ to see an example of how to use attach_management_station_to_profile API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['profileId']
@@ -570,7 +570,7 @@ class OnboardingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/attach_software_sources_to_profile.py.html>`__ to see an example of how to use attach_software_sources_to_profile API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/attach_software_sources_to_profile.py.html>`__ to see an example of how to use attach_software_sources_to_profile API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['profileId']
@@ -701,7 +701,7 @@ class OnboardingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/change_profile_compartment.py.html>`__ to see an example of how to use change_profile_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/change_profile_compartment.py.html>`__ to see an example of how to use change_profile_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['profileId']
@@ -818,7 +818,7 @@ class OnboardingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/create_profile.py.html>`__ to see an example of how to use create_profile API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/create_profile.py.html>`__ to see an example of how to use create_profile API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -925,7 +925,7 @@ class OnboardingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/delete_profile.py.html>`__ to see an example of how to use delete_profile API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/delete_profile.py.html>`__ to see an example of how to use delete_profile API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['profileId']
@@ -1051,7 +1051,7 @@ class OnboardingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/detach_software_sources_from_profile.py.html>`__ to see an example of how to use detach_software_sources_from_profile API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/detach_software_sources_from_profile.py.html>`__ to see an example of how to use detach_software_sources_from_profile API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['profileId']
@@ -1163,7 +1163,7 @@ class OnboardingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/get_profile.py.html>`__ to see an example of how to use get_profile API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/get_profile.py.html>`__ to see an example of how to use get_profile API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['profileId']
@@ -1273,7 +1273,7 @@ class OnboardingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/get_profile_version.py.html>`__ to see an example of how to use get_profile_version API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/get_profile_version.py.html>`__ to see an example of how to use get_profile_version API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['profileId', 'profileVersion']
@@ -1418,7 +1418,7 @@ class OnboardingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/list_profile_available_software_sources.py.html>`__ to see an example of how to use list_profile_available_software_sources API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/list_profile_available_software_sources.py.html>`__ to see an example of how to use list_profile_available_software_sources API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['profileId']
@@ -1646,7 +1646,7 @@ class OnboardingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/list_profiles.py.html>`__ to see an example of how to use list_profiles API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/list_profiles.py.html>`__ to see an example of how to use list_profiles API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1845,7 +1845,7 @@ class OnboardingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/osmanagementhub/update_profile.py.html>`__ to see an example of how to use update_profile API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/osmanagementhub/update_profile.py.html>`__ to see an example of how to use update_profile API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['profileId']

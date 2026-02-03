@@ -81,7 +81,13 @@ def _handle_errors(return_value=None) -> wrapt.FunctionWrapper:
                     contrast_fireball.AuthenticationError,
                 ),
             ):
-                DisableReaction.run(instance.config)
+                DisableReaction.run(
+                    instance.config,
+                    reason="Error from Contrast UI",
+                    additional_info={
+                        "error_message": e.message,
+                    },
+                )
 
             return return_value
 

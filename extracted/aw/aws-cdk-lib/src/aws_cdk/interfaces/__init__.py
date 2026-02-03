@@ -359,6 +359,7 @@ __all__ = [
     "aws_mpa",
     "aws_msk",
     "aws_mwaa",
+    "aws_mwaaserverless",
     "aws_neptune",
     "aws_neptunegraph",
     "aws_networkfirewall",
@@ -634,6 +635,7 @@ from . import aws_memorydb
 from . import aws_mpa
 from . import aws_msk
 from . import aws_mwaa
+from . import aws_mwaaserverless
 from . import aws_neptune
 from . import aws_neptunegraph
 from . import aws_networkfirewall

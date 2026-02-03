@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -25,6 +25,7 @@ The API can sometimes fail to return the list of directories with the most I/O a
 * The NFS/CIFS client operations are being served by the client-side filesystem cache.
 * The NFS/CIFS client operations are being buffered by the client operating system.
 * On rare occasions, the incoming traffic pattern is not suitable to obtain the list of directories with the most I/O activity.
+* NFSv4 client read operations using Multi-Processor I/O (MPIO) are not tracked.
 ## Failure to return pathnames
 The API can sometimes fail to obtain filesystem pathnames for certain directories, either due to internal transient errors or if those directories have been recently deleted.
 In such cases, instead of the pathname, the API will return "{<volume_instance_uuid>.<fileid>}" for that directory.
@@ -55,68 +56,68 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsSvmDirectory(
         {
-            "path": "/vol/fv1/dir1/dir2",
-            "junction-path": "/fv1",
-            "iops": {"read": 1495, "error": {"upper_bound": 1505, "lower_bound": 1495}},
-            "svm": {"name": "vs1"},
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864/files/dir1%2Fdir2?return_metadata=true"
                 }
             },
             "volume": {
-                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef86",
                 "name": "fv1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef86"
                     }
                 },
+                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef86",
             },
+            "iops": {"error": {"lower_bound": 1495, "upper_bound": 1505}, "read": 1495},
+            "junction-path": "/fv1",
+            "path": "/vol/fv1/dir1/dir2",
+            "svm": {"name": "vs1"},
         }
     ),
     TopMetricsSvmDirectory(
         {
-            "path": "/vol/fv2/dir3/dir4",
-            "junction-path": "/fv2",
-            "iops": {"read": 1022, "error": {"upper_bound": 1032, "lower_bound": 1022}},
-            "svm": {"name": "vs1"},
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/11b293df-e9d7-46cc-a9ce-2df8e52ef811/files/dir3%2Fdir4?return_metadata=true"
                 }
             },
             "volume": {
-                "uuid": "11b293df-e9d7-46cc-a9ce-2df8e52ef811",
                 "name": "fv2",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/11b293df-e9d7-46cc-a9ce-2df8e52ef811"
                     }
                 },
+                "uuid": "11b293df-e9d7-46cc-a9ce-2df8e52ef811",
             },
+            "iops": {"error": {"lower_bound": 1022, "upper_bound": 1032}, "read": 1022},
+            "junction-path": "/fv2",
+            "path": "/vol/fv2/dir3/dir4",
+            "svm": {"name": "vs1"},
         }
     ),
     TopMetricsSvmDirectory(
         {
-            "path": "/vol/fv1/dir12",
-            "junction-path": "/fv1",
-            "iops": {"read": 345, "error": {"upper_bound": 355, "lower_bound": 345}},
-            "svm": {"name": "vs1"},
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864/files/dir12?return_metadata=true"
                 }
             },
             "volume": {
-                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef864",
                 "name": "fv1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864"
                     }
                 },
+                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef864",
             },
+            "iops": {"error": {"lower_bound": 345, "upper_bound": 355}, "read": 345},
+            "junction-path": "/fv1",
+            "path": "/vol/fv1/dir12",
+            "svm": {"name": "vs1"},
         }
     ),
 ]
@@ -147,53 +148,53 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsSvmDirectory(
         {
-            "path": "73b293df-e9d7-46cc-a9ce-2df8e52ef86.1232",
-            "junction-path": "/fv1",
-            "iops": {"read": 1495, "error": {"upper_bound": 1505, "lower_bound": 1495}},
-            "svm": {"name": "vs1"},
             "volume": {
-                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef86",
                 "name": "fv1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef86"
                     }
                 },
+                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef86",
             },
+            "iops": {"error": {"lower_bound": 1495, "upper_bound": 1505}, "read": 1495},
+            "junction-path": "/fv1",
+            "path": "73b293df-e9d7-46cc-a9ce-2df8e52ef86.1232",
+            "svm": {"name": "vs1"},
         }
     ),
     TopMetricsSvmDirectory(
         {
-            "path": "11b293df-e9d7-46cc-a9ce-2df8e52ef811.6574",
-            "junction-path": "/fv2",
-            "iops": {"read": 1022, "error": {"upper_bound": 1032, "lower_bound": 1022}},
-            "svm": {"name": "vs1"},
             "volume": {
-                "uuid": "11b293df-e9d7-46cc-a9ce-2df8e52ef811",
                 "name": "fv2",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/11b293df-e9d7-46cc-a9ce-2df8e52ef811"
                     }
                 },
+                "uuid": "11b293df-e9d7-46cc-a9ce-2df8e52ef811",
             },
+            "iops": {"error": {"lower_bound": 1022, "upper_bound": 1032}, "read": 1022},
+            "junction-path": "/fv2",
+            "path": "11b293df-e9d7-46cc-a9ce-2df8e52ef811.6574",
+            "svm": {"name": "vs1"},
         }
     ),
     TopMetricsSvmDirectory(
         {
-            "path": "73b293df-e9d7-46cc-a9ce-2df8e52ef864.7844",
-            "junction-path": "/fv1",
-            "iops": {"read": 345, "error": {"upper_bound": 355, "lower_bound": 345}},
-            "svm": {"name": "vs1"},
             "volume": {
-                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef864",
                 "name": "fv1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864"
                     }
                 },
+                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef864",
             },
+            "iops": {"error": {"lower_bound": 345, "upper_bound": 355}, "read": 345},
+            "junction-path": "/fv1",
+            "path": "73b293df-e9d7-46cc-a9ce-2df8e52ef864.7844",
+            "svm": {"name": "vs1"},
         }
     ),
 ]
@@ -235,11 +236,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -253,14 +253,23 @@ __pdoc__ = {
     "TopMetricsSvmDirectorySchema.opts": False,
 }
 
-
 class TopMetricsSvmDirectorySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the TopMetricsSvmDirectory object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.file_info_links.FileInfoLinksSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.file_info_links", "FileInfoLinksSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the top_metrics_svm_directory."""
 
-    iops = marshmallow_fields.Nested("netapp_ontap.models.top_metrics_directory_iops.TopMetricsDirectoryIopsSchema", data_key="iops", unknown=EXCLUDE, allow_none=True)
+    iops = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.top_metrics_directory_iops", "TopMetricsDirectoryIopsSchema"),
+                data_key="iops",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The iops field of the top_metrics_svm_directory."""
 
     junction_path = marshmallow_fields.Str(
@@ -279,13 +288,28 @@ Example: /fv"""
 
 Example: /vol/fv/dir_abc/dir_123/dir_20"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the top_metrics_svm_directory."""
 
-    throughput = marshmallow_fields.Nested("netapp_ontap.models.top_metrics_directory_throughput.TopMetricsDirectoryThroughputSchema", data_key="throughput", unknown=EXCLUDE, allow_none=True)
+    throughput = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.top_metrics_directory_throughput", "TopMetricsDirectoryThroughputSchema"),
+                data_key="throughput",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The throughput field of the top_metrics_svm_directory."""
 
-    volume = marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", data_key="volume", unknown=EXCLUDE, allow_none=True)
+    volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                data_key="volume",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The volume field of the top_metrics_svm_directory."""
 
     @property

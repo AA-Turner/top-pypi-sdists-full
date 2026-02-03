@@ -23,7 +23,7 @@ dynamic = ["version", "readme"]
 dependencies = [
   "attrs",
   "morecantile>=7.0",
-  "rio-tiler>=8.0,<9.0",
+  "rio-tiler>=8.0,<10.0",
   "shapely>=2.0,<3.0",
   "pydantic~=2.0",
   "pydantic-settings~=2.0",
@@ -157,7 +157,7 @@ max-complexity = 14
 "tests/*.py" = ["D1"]
 
 [tool.bumpversion]
-current_version = "9.0.2"
+current_version = "9.1.0"
 search = "{current_version}"
 replace = "{new_version}"
 regex = false

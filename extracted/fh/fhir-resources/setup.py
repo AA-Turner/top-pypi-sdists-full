@@ -18,7 +18,7 @@ with open("README.rst") as readme_file:
 with open("HISTORY.rst") as history_file:
     history = history_file.read()
 
-requirements = ["fhir-core>=1.1.3"]
+requirements = ["fhir-core>=1.1.5"]
 if PY_VERSION_9_OR_EARLIER:
     requirements.append("eval-type-backport")
 
@@ -32,12 +32,12 @@ test_requirements = [
     "coverage",
     "pytest>5.4.0;python_version>='3.6'",
     "pytest-cov>=2.10.0;python_version>='3.6'",
-    "flake8" + (PY_VERSION_10_OR_LATER and "==6.0" or "==5.0.4;python_version<'3.10'"),
+    "flake8" + (PY_VERSION_10_OR_LATER and "==7.3.0" or "==5.0.4;python_version<'3.10'"),
     "flake8-isort"
     + (PY_VERSION_10_OR_LATER and ">=6.0.0" or "==4.2.0;python_version<'3.10'"),
     "flake8-bugbear"
     + (PY_VERSION_10_OR_LATER and ">=22.12.6" or "==20.1.4;python_version<'3.10'"),
-    "requests==2.23.0;python_version<'3.10'",
+    "requests==2.32.4",
     "isort" + (PY_VERSION_10_OR_LATER and ">=5.11.4" or "==4.3.21"),
     "black>=23.0,<24.0; python_version >= '3.7'",
     "mypy",
@@ -48,8 +48,6 @@ test_requirements = [
 ]
 if PY_VERSION_10_OR_LATER:
     test_requirements.append("importlib-metadata>=5.2.0")
-if PY_VERSION_11_OR_LATER:
-    test_requirements.append("typed-ast>=1.5.4")
 
 development_requirements = [
     "Jinja2==3.1.6",
@@ -58,6 +56,7 @@ development_requirements = [
     "certifi",
     "fhirspec>=0.6.0",
     "zest-releaser[recommended]",
+    "twine==6.1.0",
 ]
 setup(
     author="Md Nazrul Islam",
@@ -120,7 +119,7 @@ setup(
         "all": (yaml_requirements + xml_requirements),
     },
     url="https://github.com/nazrulworld/fhir.resources",
-    version="8.1.0",
+    version="8.2.0",
     zip_safe=False,
     python_requires=">=3.8",
     project_urls={

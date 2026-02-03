@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["NasApplicationComponents", "NasApplicationComponentsSchema"]
@@ -17,20 +16,34 @@ __pdoc__ = {
     "NasApplicationComponents": False,
 }
 
-
 class NasApplicationComponentsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the NasApplicationComponents object"""
 
-    export_policy = marshmallow_fields.Nested("netapp_ontap.models.nas_application_components_export_policy.NasApplicationComponentsExportPolicySchema", unknown=EXCLUDE, data_key="export_policy", allow_none=True)
+    export_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nas_application_components_export_policy", "NasApplicationComponentsExportPolicySchema"),
+                unknown=EXCLUDE,
+                data_key="export_policy",
+                allow_none=True
+            )
     r""" The export_policy field of the nas_application_components. """
 
-    flexcache = marshmallow_fields.Nested("netapp_ontap.models.nas_application_components_flexcache.NasApplicationComponentsFlexcacheSchema", unknown=EXCLUDE, data_key="flexcache", allow_none=True)
+    flexcache = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nas_application_components_flexcache", "NasApplicationComponentsFlexcacheSchema"),
+                unknown=EXCLUDE,
+                data_key="flexcache",
+                allow_none=True
+            )
     r""" The flexcache field of the nas_application_components. """
 
     name = marshmallow_fields.Str(data_key="name", allow_none=True)
     r""" The name of the application component. """
 
-    qos = marshmallow_fields.Nested("netapp_ontap.models.nas_application_components_qos.NasApplicationComponentsQosSchema", unknown=EXCLUDE, data_key="qos", allow_none=True)
+    qos = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nas_application_components_qos", "NasApplicationComponentsQosSchema"),
+                unknown=EXCLUDE,
+                data_key="qos",
+                allow_none=True
+            )
     r""" The qos field of the nas_application_components. """
 
     scale_out = marshmallow_fields.Boolean(data_key="scale_out", allow_none=True)
@@ -39,16 +52,31 @@ class NasApplicationComponentsSchema(ResourceSchema, metaclass=ResourceSchemaMet
     share_count = Size(data_key="share_count", allow_none=True)
     r""" The number of shares in the application component. """
 
-    snaplock = marshmallow_fields.Nested("netapp_ontap.models.nas_application_components_snaplock.NasApplicationComponentsSnaplockSchema", unknown=EXCLUDE, data_key="snaplock", allow_none=True)
+    snaplock = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nas_application_components_snaplock", "NasApplicationComponentsSnaplockSchema"),
+                unknown=EXCLUDE,
+                data_key="snaplock",
+                allow_none=True
+            )
     r""" The snaplock field of the nas_application_components. """
 
     snapshot_locking_enabled = marshmallow_fields.Boolean(data_key="snapshot_locking_enabled", allow_none=True)
     r""" Indicates whether Snapshot copy locking is enabled on the volume. """
 
-    storage_service = marshmallow_fields.Nested("netapp_ontap.models.nas_application_components_storage_service.NasApplicationComponentsStorageServiceSchema", unknown=EXCLUDE, data_key="storage_service", allow_none=True)
+    storage_service = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nas_application_components_storage_service", "NasApplicationComponentsStorageServiceSchema"),
+                unknown=EXCLUDE,
+                data_key="storage_service",
+                allow_none=True
+            )
     r""" The storage_service field of the nas_application_components. """
 
-    tiering = marshmallow_fields.Nested("netapp_ontap.models.nas_application_components_tiering.NasApplicationComponentsTieringSchema", unknown=EXCLUDE, data_key="tiering", allow_none=True)
+    tiering = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nas_application_components_tiering", "NasApplicationComponentsTieringSchema"),
+                unknown=EXCLUDE,
+                data_key="tiering",
+                allow_none=True
+            )
     r""" application-components.tiering """
 
     total_size = Size(data_key="total_size", allow_none=True)

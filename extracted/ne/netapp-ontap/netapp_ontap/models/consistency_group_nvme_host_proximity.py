@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ConsistencyGroupNvmeHostProximity", "ConsistencyGroupNvmeHostProximitySchema"]
@@ -17,14 +16,21 @@ __pdoc__ = {
     "ConsistencyGroupNvmeHostProximity": False,
 }
 
-
 class ConsistencyGroupNvmeHostProximitySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ConsistencyGroupNvmeHostProximity object"""
 
     local_svm = marshmallow_fields.Boolean(data_key="local_svm", allow_none=True)
     r""" A boolean that indicates if the host is proximal to the SVM for which it is configured. """
 
-    peer_svms = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.consistency_group_nvme_host_proximity1_peer_svms.ConsistencyGroupNvmeHostProximity1PeerSvmsSchema", unknown=EXCLUDE, allow_none=True), data_key="peer_svms", allow_none=True)
+    peer_svms = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.consistency_group_nvme_host_proximity1_peer_svms", "ConsistencyGroupNvmeHostProximity1PeerSvmsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="peer_svms",
+                allow_none=True
+                )
     r""" An array of remote peer SVMs to which the host is proximal. """
 
     @property

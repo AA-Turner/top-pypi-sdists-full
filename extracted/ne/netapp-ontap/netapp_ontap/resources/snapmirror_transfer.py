@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -13,11 +13,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -31,11 +30,15 @@ __pdoc__ = {
     "SnapmirrorTransferSchema.opts": False,
 }
 
-
 class SnapmirrorTransferSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SnapmirrorTransfer object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the snapmirror_transfer."""
 
     bytes_transferred = Size(
@@ -58,10 +61,23 @@ class SnapmirrorTransferSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 2020-12-03T02:36:19.000+0000"""
 
-    error_info = marshmallow_fields.Nested("netapp_ontap.models.snapmirror_transfer_error_info.SnapmirrorTransferErrorInfoSchema", data_key="error_info", unknown=EXCLUDE, allow_none=True)
+    error_info = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.snapmirror_transfer_error_info", "SnapmirrorTransferErrorInfoSchema"),
+                data_key="error_info",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Error information for the transfer."""
 
-    files = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.snapmirror_transfer_files.SnapmirrorTransferFilesSchema", unknown=EXCLUDE, allow_none=True), data_key="files", allow_none=True)
+    files = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.snapmirror_transfer_files", "SnapmirrorTransferFilesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="files",
+                allow_none=True
+            )
     r""" This is supported for transfer of restore relationship only. This specifies the list of files or LUNs to be restored. Can contain up to eight files or LUNs."""
 
     last_updated_time = ImpreciseDateTime(
@@ -95,7 +111,12 @@ Valid choices:
     options = marshmallow_fields.List(marshmallow_fields.Dict, data_key="options", allow_none=True)
     r""" Options for snapmirror transfer."""
 
-    relationship = marshmallow_fields.Nested("netapp_ontap.models.snapmirror_transfer_relationship.SnapmirrorTransferRelationshipSchema", data_key="relationship", unknown=EXCLUDE, allow_none=True)
+    relationship = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.snapmirror_transfer_relationship", "SnapmirrorTransferRelationshipSchema"),
+                data_key="relationship",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The relationship field of the snapmirror_transfer."""
 
     snapshot = marshmallow_fields.Str(

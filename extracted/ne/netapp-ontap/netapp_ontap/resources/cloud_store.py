@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -10,11 +10,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -28,14 +27,23 @@ __pdoc__ = {
     "CloudStoreSchema.opts": False,
 }
 
-
 class CloudStoreSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the CloudStore object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the cloud_store."""
 
-    aggregate = marshmallow_fields.Nested("netapp_ontap.models.cloud_store_aggregate.CloudStoreAggregateSchema", data_key="aggregate", unknown=EXCLUDE, allow_none=True)
+    aggregate = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cloud_store_aggregate", "CloudStoreAggregateSchema"),
+                data_key="aggregate",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Aggregate"""
 
     availability = marshmallow_fields.Str(
@@ -80,10 +88,20 @@ Valid choices:
     )
     r""" Resync progress of the mirror object store in percentage."""
 
-    target = marshmallow_fields.Nested("netapp_ontap.resources.cloud_target.CloudTargetSchema", data_key="target", unknown=EXCLUDE, allow_none=True)
+    target = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.cloud_target", "CloudTargetSchema"),
+                data_key="target",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The target field of the cloud_store."""
 
-    unavailable_reason = marshmallow_fields.Nested("netapp_ontap.models.cloud_store_unavailable_reason.CloudStoreUnavailableReasonSchema", data_key="unavailable_reason", unknown=EXCLUDE, allow_none=True)
+    unavailable_reason = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cloud_store_unavailable_reason", "CloudStoreUnavailableReasonSchema"),
+                data_key="unavailable_reason",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The unavailable_reason field of the cloud_store."""
 
     unreclaimed_space_threshold = Size(

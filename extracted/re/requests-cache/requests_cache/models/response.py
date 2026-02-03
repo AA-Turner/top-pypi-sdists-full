@@ -154,7 +154,11 @@ class CachedResponse(RichMixin, BaseResponse):
     @property
     def is_expired(self) -> bool:
         """Determine if this cached response is expired"""
-        return self.expires is not None and utcnow() >= self.expires
+        try:
+            return self.expires is not None and utcnow() >= self.expires
+        except TypeError as e:
+            logger.warning(e)
+            return True
 
     def is_older_than(self, older_than: ExpirationTime) -> bool:
         """Determine if this cached response is older than the given time"""
@@ -188,9 +192,9 @@ class CachedResponse(RichMixin, BaseResponse):
     def __str__(self):
         return (
             f'<CachedResponse [{self.status_code}]: "'
-            f"created: {format_datetime(self.created_at)}, "
+            f'created: {format_datetime(self.created_at)}, '
             f'expires: {format_datetime(self.expires)} ({"stale" if self.is_expired else "fresh"}), '
-            f"size: {format_file_size(self.size)}, request: {self.request}>"
+            f'size: {format_file_size(self.size)}, request: {self.request}>'
         )
 
 

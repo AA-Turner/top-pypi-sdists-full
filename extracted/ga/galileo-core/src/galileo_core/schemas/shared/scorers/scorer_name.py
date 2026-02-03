@@ -26,6 +26,12 @@ class ScorerName(str, Enum):
 
     chunk_attribution_utilization = "chunk_attribution_utilization"
 
+    chunk_relevance = "chunk_relevance"
+
+    context_precision = "context_precision"
+
+    precision_at_k = "precision_at_k"
+
     completeness_luna = "completeness_luna"
 
     completeness = "completeness"

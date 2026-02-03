@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["VolumeConstituentsMovement", "VolumeConstituentsMovementSchema"]
@@ -17,7 +16,6 @@ __pdoc__ = {
     "VolumeConstituentsMovement": False,
 }
 
-
 class VolumeConstituentsMovementSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the VolumeConstituentsMovement object"""
 
@@ -26,7 +24,12 @@ class VolumeConstituentsMovementSchema(ResourceSchema, metaclass=ResourceSchemaM
 
 Example: 30 """
 
-    destination_aggregate = marshmallow_fields.Nested("netapp_ontap.resources.aggregate.AggregateSchema", unknown=EXCLUDE, data_key="destination_aggregate", allow_none=True)
+    destination_aggregate = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.aggregate", "AggregateSchema"),
+                unknown=EXCLUDE,
+                data_key="destination_aggregate",
+                allow_none=True
+            )
     r""" The destination_aggregate field of the volume_constituents_movement. """
 
     percent_complete = Size(data_key="percent_complete", allow_none=True)

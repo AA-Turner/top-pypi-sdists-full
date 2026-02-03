@@ -169,7 +169,7 @@ class SubscriptionClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/tenantmanagercontrolplane/create_subscription_mapping.py.html>`__ to see an example of how to use create_subscription_mapping API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/tenantmanagercontrolplane/create_subscription_mapping.py.html>`__ to see an example of how to use create_subscription_mapping API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -274,7 +274,7 @@ class SubscriptionClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/tenantmanagercontrolplane/delete_subscription_mapping.py.html>`__ to see an example of how to use delete_subscription_mapping API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/tenantmanagercontrolplane/delete_subscription_mapping.py.html>`__ to see an example of how to use delete_subscription_mapping API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriptionMappingId']
@@ -377,7 +377,7 @@ class SubscriptionClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/tenantmanagercontrolplane/get_assigned_subscription.py.html>`__ to see an example of how to use get_assigned_subscription API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/tenantmanagercontrolplane/get_assigned_subscription.py.html>`__ to see an example of how to use get_assigned_subscription API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['assignedSubscriptionId']
@@ -480,7 +480,7 @@ class SubscriptionClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/tenantmanagercontrolplane/get_subscription.py.html>`__ to see an example of how to use get_subscription API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/tenantmanagercontrolplane/get_subscription.py.html>`__ to see an example of how to use get_subscription API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriptionId']
@@ -583,7 +583,7 @@ class SubscriptionClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/tenantmanagercontrolplane/get_subscription_mapping.py.html>`__ to see an example of how to use get_subscription_mapping API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/tenantmanagercontrolplane/get_subscription_mapping.py.html>`__ to see an example of how to use get_subscription_mapping API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriptionMappingId']
@@ -705,7 +705,7 @@ class SubscriptionClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/tenantmanagercontrolplane/list_assigned_subscription_line_items.py.html>`__ to see an example of how to use list_assigned_subscription_line_items API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/tenantmanagercontrolplane/list_assigned_subscription_line_items.py.html>`__ to see an example of how to use list_assigned_subscription_line_items API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['assignedSubscriptionId']
@@ -865,7 +865,7 @@ class SubscriptionClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/tenantmanagercontrolplane/list_assigned_subscriptions.py.html>`__ to see an example of how to use list_assigned_subscriptions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/tenantmanagercontrolplane/list_assigned_subscriptions.py.html>`__ to see an example of how to use list_assigned_subscriptions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -999,7 +999,7 @@ class SubscriptionClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/tenantmanagercontrolplane/list_available_regions.py.html>`__ to see an example of how to use list_available_regions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/tenantmanagercontrolplane/list_available_regions.py.html>`__ to see an example of how to use list_available_regions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriptionId']
@@ -1129,7 +1129,7 @@ class SubscriptionClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/tenantmanagercontrolplane/list_subscription_line_items.py.html>`__ to see an example of how to use list_subscription_line_items API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/tenantmanagercontrolplane/list_subscription_line_items.py.html>`__ to see an example of how to use list_subscription_line_items API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriptionId']
@@ -1292,7 +1292,7 @@ class SubscriptionClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/tenantmanagercontrolplane/list_subscription_mappings.py.html>`__ to see an example of how to use list_subscription_mappings API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/tenantmanagercontrolplane/list_subscription_mappings.py.html>`__ to see an example of how to use list_subscription_mappings API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriptionId']
@@ -1452,7 +1452,7 @@ class SubscriptionClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/tenantmanagercontrolplane/list_subscriptions.py.html>`__ to see an example of how to use list_subscriptions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/tenantmanagercontrolplane/list_subscriptions.py.html>`__ to see an example of how to use list_subscriptions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []

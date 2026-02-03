@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: zai-sdk
-Version: 0.2.1
+Version: 0.2.2
 Summary: A SDK library for accessing big model apis from Z.ai
 Author: Z.ai
 Requires-Python: >=3.8, !=2.7.*, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*, !=3.6.*, !=3.7.*
@@ -17,6 +17,7 @@ Requires-Dist: httpx (>=0.23.0)
 Requires-Dist: pydantic (>=1.9.0,<3.0)
 Requires-Dist: pydantic-core (>=2.14.6)
 Requires-Dist: pyjwt (>=2.9.0,<3.0.0)
+Requires-Dist: sniffio (>=1.3.1)
 Description-Content-Type: text/markdown
 
 # Z.ai Open Platform Python SDK

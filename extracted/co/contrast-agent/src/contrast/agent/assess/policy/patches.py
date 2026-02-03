@@ -2,13 +2,13 @@
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 
 from functools import wraps
-from contrast_vendor import wrapt
 
 from contrast.agent import scope
-from contrast.agent.policy import patch_manager
 from contrast.agent.assess.policy.analysis import analyze
+from contrast.agent.policy import patch_manager
 from contrast.utils.patch_utils import add_watermark
 from contrast_vendor import structlog as logging
+from contrast_vendor import wrapt
 
 logger = logging.getLogger("contrast")
 
@@ -184,7 +184,7 @@ def apply_cached_property(cls_or_module, patch_policy, property_name, orig_prope
     return True
 
 
-class WerkzeugCachedPropertyProxy(wrapt.ObjectProxy):
+class WerkzeugCachedPropertyProxy(wrapt.BaseObjectProxy):
     cs__attr_name = None
     cs__patch_policy = None
 

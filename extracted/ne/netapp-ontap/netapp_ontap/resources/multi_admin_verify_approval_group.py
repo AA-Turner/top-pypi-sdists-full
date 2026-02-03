@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -37,15 +37,15 @@ with HostConnection(
 MultiAdminVerifyApprovalGroup(
     {
         "owner": {
-            "uuid": "52b75787-7011-11ec-a23d-005056a78fd5",
             "_links": {
                 "self": {"href": "/api/svm/svms/52b75787-7011-11ec-a23d-005056a78fd5"}
             },
             "name": "cluster1",
+            "uuid": "52b75787-7011-11ec-a23d-005056a78fd5",
         },
-        "email": ["group1.approvers@email.com"],
-        "approvers": ["admin"],
         "name": "group1",
+        "approvers": ["admin"],
+        "email": ["group1.approvers@email.com"],
     }
 )
 
@@ -99,11 +99,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -116,7 +115,6 @@ __pdoc__ = {
     "MultiAdminVerifyApprovalGroupSchema.resource": False,
     "MultiAdminVerifyApprovalGroupSchema.opts": False,
 }
-
 
 class MultiAdminVerifyApprovalGroupSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the MultiAdminVerifyApprovalGroup object"""
@@ -133,7 +131,12 @@ class MultiAdminVerifyApprovalGroupSchema(ResourceSchema, metaclass=ResourceSche
     )
     r""" Name of the approval group."""
 
-    owner = marshmallow_fields.Nested("netapp_ontap.models.multi_admin_verify_approval_group_owner.MultiAdminVerifyApprovalGroupOwnerSchema", data_key="owner", unknown=EXCLUDE, allow_none=True)
+    owner = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.multi_admin_verify_approval_group_owner", "MultiAdminVerifyApprovalGroupOwnerSchema"),
+                data_key="owner",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The owner of the approval group. The only valid owner is currently the cluster."""
 
     @property

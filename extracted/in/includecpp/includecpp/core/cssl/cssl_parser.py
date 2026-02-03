@@ -149,6 +149,7 @@ KEYWORDS = {
     'int', 'string', 'float', 'bool', 'void', 'json', 'array', 'vector', 'stack',
     'list', 'dictionary', 'dict', 'instance', 'map', 'queue',  # Python-like types + queue (v4.7)
     'bit', 'byte', 'address', 'ptr', 'pointer',  # v4.9.0: Binary types, address, ptr/pointer
+    'auto', 'python',  # v4.9.8: auto type inference, python:: namespace types
     'local',  # v4.9.2: Hook local variable access (local::varname)
     'freezed',  # v4.9.4: Immutable variable (cannot be reassigned)
     'dynamic',      # No type declaration (slow but flexible)
@@ -862,6 +863,23 @@ class CSSLParser:
             return self.source_lines[line_num - 1]
         return ""
 
+    def _skip_to_next_statement(self):
+        """Skip tokens until we find a safe synchronization point (next statement boundary).
+        Used for error recovery in undefined functions."""
+        depth = 0
+        while not self._is_at_end():
+            tok = self._current()
+            if tok.type == TokenType.BLOCK_START:
+                depth += 1
+            elif tok.type == TokenType.BLOCK_END:
+                if depth == 0:
+                    return  # Don't consume the closing brace
+                depth -= 1
+            elif depth == 0 and tok.type == TokenType.SEMICOLON:
+                self._advance()  # consume the ;
+                return
+            self._advance()
+
     def error(self, message: str, token: Token = None):
         """Raise a syntax error with location info"""
         if token is None:
@@ -915,7 +933,8 @@ class CSSLParser:
                         'list', 'dictionary', 'dict', 'instance', 'map', 'openquote', 'parameter',
                         'dynamic', 'datastruct', 'dataspace', 'shuffled', 'iterator', 'combo', 'structure',
                         'queue',  # v4.7: Thread-safe queue
-                        'bit', 'byte', 'address', 'ptr', 'pointer')  # v4.9.0: Binary types, address, ptr/pointer
+                        'bit', 'byte', 'address', 'ptr', 'pointer',  # v4.9.0: Binary types, address, ptr/pointer
+                        'auto', 'python')  # v4.9.8: auto type, python:: namespace types
 
     def _parse_generic_type_content(self) -> str:
         """Parse generic type content including nested generics.
@@ -1010,6 +1029,11 @@ class CSSLParser:
                self._check(TokenType.TYPE_LITERAL):
                 self._advance()
                 has_type = True
+                # v4.9.8: Skip python::type composite (3 tokens)
+                if self._check(TokenType.DOUBLE_COLON):
+                    self._advance()
+                    if self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD) or self._check(TokenType.TYPE_LITERAL):
+                        self._advance()
 
                 # Skip generic type parameters <T> or <T, U>
                 if self._check(TokenType.COMPARE_LT):
@@ -1109,6 +1133,11 @@ class CSSLParser:
                          (self._check(TokenType.TYPE_LITERAL) and self._current().value in ('list', 'dict')))
         if is_type_token:
             self._advance()
+            # v4.9.8: Skip python::type composite
+            if self._check(TokenType.DOUBLE_COLON):
+                self._advance()
+                if self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD) or self._check(TokenType.TYPE_LITERAL):
+                    self._advance()
 
             # Skip generic type parameters <T>
             if self._check(TokenType.COMPARE_LT):
@@ -1191,6 +1220,13 @@ class CSSLParser:
             if ((self._check(TokenType.KEYWORD) and self._is_type_keyword(self._current().value)) or
                 self._check(TokenType.TYPE_LITERAL)) and return_type is None:
                 return_type = self._advance().value
+                # v4.9.8: Handle python::type composite return types
+                if return_type == 'python' and self._check(TokenType.DOUBLE_COLON):
+                    self._advance()
+                    if self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD) or self._check(TokenType.TYPE_LITERAL):
+                        return_type = 'python::' + self._advance().value
+                    else:
+                        return_type = 'python::object'
 
                 # Check for generic type <T> or <T, U>
                 if self._check(TokenType.COMPARE_LT):
@@ -1267,7 +1303,10 @@ class CSSLParser:
         # Phase 2: Get function name
         if not self._check(TokenType.IDENTIFIER):
             self.error(f"Expected function name, got {self._current().type.name}")
-        name = self._advance().value
+        name_token = self._advance()
+        name = name_token.value
+        func_line = name_token.line
+        func_column = name_token.column
 
         # Phase 3: Parse parameters
         params = []
@@ -1288,7 +1327,15 @@ class CSSLParser:
             # v4.8: Also handle TYPE_LITERAL (dict, list) which are tokenized differently
             if (self._check(TokenType.KEYWORD) and self._is_type_keyword(self._current().value)) or \
                self._check(TokenType.TYPE_LITERAL):
-                param_info['type'] = self._advance().value
+                type_val = self._advance().value
+                # v4.9.8: Handle python::type composite types
+                if type_val == 'python' and self._check(TokenType.DOUBLE_COLON):
+                    self._advance()
+                    if self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD) or self._check(TokenType.TYPE_LITERAL):
+                        type_val = 'python::' + self._advance().value
+                    else:
+                        type_val = 'python::object'
+                param_info['type'] = type_val
 
                 # Check for generic type parameter <T>
                 if self._check(TokenType.COMPARE_LT):
@@ -1471,14 +1518,23 @@ class CSSLParser:
             'append_ref_member': append_ref_member,
             # v4.3.2: Also disable strict return type enforcement for 'shuffled' modifier (returns tuple)
             'enforce_return_type': return_type is not None and 'meta' not in modifiers and 'shuffled' not in modifiers and return_type != 'shuffled'
-        }, children=[])
+        }, children=[], line=func_line, column=func_column)
 
         self._expect(TokenType.BLOCK_START)
 
+        is_undefined = 'undefined' in modifiers
         while not self._check(TokenType.BLOCK_END) and not self._is_at_end():
-            stmt = self._parse_statement()
-            if stmt:
-                node.children.append(stmt)
+            if is_undefined:
+                try:
+                    stmt = self._parse_statement()
+                    if stmt:
+                        node.children.append(stmt)
+                except (CSSLSyntaxError, Exception):
+                    self._skip_to_next_statement()
+            else:
+                stmt = self._parse_statement()
+                if stmt:
+                    node.children.append(stmt)
 
         self._expect(TokenType.BLOCK_END)
         return node
@@ -1531,12 +1587,18 @@ class CSSLParser:
                         'iterator', 'combo', 'array', 'openquote', 'json',
                         'list', 'dictionary', 'dict', 'instance', 'map',
                         'queue',  # v4.7: Added queue
-                        'bit', 'byte', 'address', 'ptr', 'pointer'}  # v4.9.0: Binary types, address, ptr/pointer
+                        'bit', 'byte', 'address', 'ptr', 'pointer',  # v4.9.0: Binary types, address, ptr/pointer
+                        'auto', 'python'}  # v4.9.8: auto type, python:: namespace types
         if type_name not in type_keywords:
             self.pos = saved_pos
             return False
 
         self._advance()
+        # v4.9.8: Skip python::type composite (3 tokens)
+        if type_name == 'python' and self._check(TokenType.DOUBLE_COLON):
+            self._advance()
+            if self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD) or self._check(TokenType.TYPE_LITERAL):
+                self._advance()
 
         # Check for optional generic <T>
         if self._match(TokenType.COMPARE_LT):
@@ -2834,7 +2896,10 @@ class CSSLParser:
             self._advance()  # consume @
             is_global = True
 
-        class_name = self._advance().value
+        class_name_token = self._advance()
+        class_name = class_name_token.value
+        class_line = class_name_token.line
+        class_column = class_name_token.column
 
         # Check for class-level constructor parameters: class MyClass (int x, string y) { ... }
         class_params = []
@@ -2983,7 +3048,7 @@ class CSSLParser:
             'append_ref_class': append_ref_class,  # v4.2.5: &target class reference
             'append_ref_member': append_ref_member,  # v4.2.5: &target member reference
             'uses_memory': uses_memory  # v4.9.0: Memory binding for deferred execution
-        }, children=[])
+        }, children=[], line=class_line, column=class_column)
 
         # v4.2.0: If we have raw_body for language transformation, skip regular parsing
         if raw_body is not None:
@@ -3110,7 +3175,10 @@ class CSSLParser:
         # Get constructor/destructor name
         if not self._check(TokenType.IDENTIFIER):
             raise CSSLSyntaxError("Expected constructor name after 'constr'" + (" ~" if is_destructor else ""))
-        constr_name = self._advance().value
+        constr_token = self._advance()
+        constr_name = constr_token.value
+        constr_line = constr_token.line
+        constr_column = constr_token.column
 
         # v4.8.8: Destructor name should match class name
         if is_destructor:
@@ -3211,7 +3279,7 @@ class CSSLParser:
             'append_mode': append_mode,
             'append_ref_class': append_ref_class,
             'append_ref_member': append_ref_member
-        }, children=body)
+        }, children=body, line=constr_line, column=constr_column)
 
     def _parse_qualified_method_ref(self) -> str:
         """Parse a qualified method reference like 'ParentClass::methodName' or just 'methodName'.
@@ -3253,9 +3321,17 @@ class CSSLParser:
             if self._match_keyword('open'):
                 param_info['open'] = True
 
-            # Handle type annotations (e.g., string, int, dynamic, etc.)
+            # Handle type annotations (e.g., string, int, dynamic, python::list, etc.)
             if self._check(TokenType.KEYWORD):
-                param_info['type'] = self._advance().value
+                type_val = self._advance().value
+                # v4.9.8: Handle python::type composite types (python::list, python::dict, etc.)
+                if type_val == 'python' and self._check(TokenType.DOUBLE_COLON):
+                    self._advance()  # consume ::
+                    if self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD) or self._check(TokenType.TYPE_LITERAL):
+                        type_val = 'python::' + self._advance().value
+                    else:
+                        type_val = 'python::object'
+                param_info['type'] = type_val
 
             # Handle reference operator &
             if self._match(TokenType.AMPERSAND):
@@ -3320,7 +3396,10 @@ class CSSLParser:
             self._advance()  # consume @
             is_global = True
 
-        name = self._advance().value
+        name_token = self._advance()
+        name = name_token.value
+        func_line = name_token.line
+        func_column = name_token.column
 
         # Parse parameters FIRST (before :extends/:overwrites/:supports)
         # Syntax: define funcName(params) : extends/overwrites/supports { }
@@ -3332,11 +3411,19 @@ class CSSLParser:
                 # Handle 'open' keyword for open parameters
                 if self._match_keyword('open'):
                     param_info['open'] = True
-                # Handle type annotations (e.g., string, int, dynamic, etc.)
+                # Handle type annotations (e.g., string, int, dynamic, python::list, etc.)
                 # v4.9.2: Also handle TYPE_LITERAL (dict, list) which are tokenized differently
                 if (self._check(TokenType.KEYWORD) and self._is_type_keyword(self._current().value)) or \
                    self._check(TokenType.TYPE_LITERAL):
-                    param_info['type'] = self._advance().value
+                    type_val = self._advance().value
+                    # v4.9.8: Handle python::type composite types
+                    if type_val == 'python' and self._check(TokenType.DOUBLE_COLON):
+                        self._advance()  # consume ::
+                        if self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD) or self._check(TokenType.TYPE_LITERAL):
+                            type_val = 'python::' + self._advance().value
+                        else:
+                            type_val = 'python::object'
+                    param_info['type'] = type_val
                 # Handle reference operator &
                 if self._match(TokenType.AMPERSAND):
                     param_info['ref'] = True
@@ -3575,10 +3662,19 @@ class CSSLParser:
         elif modifiers and 'bytearrayed' in modifiers:
             children = self._parse_bytearrayed_body()
         else:
+            is_undefined = modifiers and 'undefined' in modifiers
             while not self._check(TokenType.BLOCK_END) and not self._is_at_end():
-                stmt = self._parse_statement()
-                if stmt:
-                    children.append(stmt)
+                if is_undefined:
+                    try:
+                        stmt = self._parse_statement()
+                        if stmt:
+                            children.append(stmt)
+                    except (CSSLSyntaxError, Exception):
+                        self._skip_to_next_statement()
+                else:
+                    stmt = self._parse_statement()
+                    if stmt:
+                        children.append(stmt)
 
         self._expect(TokenType.BLOCK_END)
 
@@ -3616,7 +3712,7 @@ class CSSLParser:
             'copies_memory': copies_memory_target,
             # v4.9.9: Overwrite another function's local scope
             'overwrites_memory': overwrites_memory_target
-        }, children=children)
+        }, children=children, line=func_line, column=func_column)
 
         return node
 
@@ -5915,6 +6011,11 @@ class CSSLParser:
                 self._check(TokenType.IDENTIFIER)):
                 potential_type = self._current().value
                 self._advance()  # consume type
+                # v4.9.8: Handle python::type composite
+                if potential_type == 'python' and self._check(TokenType.DOUBLE_COLON):
+                    self._advance()
+                    if self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD) or self._check(TokenType.TYPE_LITERAL):
+                        potential_type = 'python::' + self._advance().value
 
                 # Check for generic type like vector<int>
                 if self._check(TokenType.COMPARE_LT):

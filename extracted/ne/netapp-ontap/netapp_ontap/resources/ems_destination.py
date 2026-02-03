@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -44,6 +44,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 EmsDestination(
     {
+        "_links": {"self": {"href": "/api/support/ems/destinations/snmp-traphost"}},
+        "destination": "",
         "filters": [
             {
                 "_links": {
@@ -52,10 +54,8 @@ EmsDestination(
                 "name": "default-trap-events",
             }
         ],
-        "_links": {"self": {"href": "/api/support/ems/destinations/snmp-traphost"}},
-        "destination": "",
-        "type": "snmp",
         "name": "snmp-traphost",
+        "type": "snmp",
     }
 )
 
@@ -85,13 +85,13 @@ EmsDestination(
             "errors": [
                 {
                     "message": {
-                        "message": "Cannot reach host mail@mail.com.",
                         "arguments": [{"message": "mail@mail.com", "code": "5"}],
+                        "message": "Cannot reach host mail@mail.com.",
                         "code": "4",
                     },
                     "node": {
-                        "uuid": "1cd8a442-86d1-11e0-ae1c-123478563412",
                         "name": "node1",
+                        "uuid": "1cd8a442-86d1-11e0-ae1c-123478563412",
                     },
                 }
             ],
@@ -139,11 +139,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -157,20 +156,39 @@ __pdoc__ = {
     "EmsDestinationSchema.opts": False,
 }
 
-
 class EmsDestinationSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the EmsDestination object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the ems_destination."""
 
-    access_control_role = marshmallow_fields.Nested("netapp_ontap.resources.role.RoleSchema", data_key="access_control_role", unknown=EXCLUDE, allow_none=True)
+    access_control_role = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.role", "RoleSchema"),
+                data_key="access_control_role",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The access_control_role field of the ems_destination."""
 
-    certificate = marshmallow_fields.Nested("netapp_ontap.models.ems_certificate.EmsCertificateSchema", data_key="certificate", unknown=EXCLUDE, allow_none=True)
+    certificate = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ems_certificate", "EmsCertificateSchema"),
+                data_key="certificate",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Specifies the client-side certificate used by the ONTAP system when mutual authentication is required. This object is only applicable for __rest_api__ type destinations. Both the `ca` and `serial_number` fields must be specified when configuring a certificate in a PATCH or POST request. The `name` field is read-only and cannot be used to configure a client-side certificate."""
 
-    connectivity = marshmallow_fields.Nested("netapp_ontap.models.ems_destination_connectivity.EmsDestinationConnectivitySchema", data_key="connectivity", unknown=EXCLUDE, allow_none=True)
+    connectivity = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ems_destination_connectivity", "EmsDestinationConnectivitySchema"),
+                data_key="connectivity",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The connectivity field of the ems_destination."""
 
     destination = marshmallow_fields.Str(
@@ -181,7 +199,15 @@ class EmsDestinationSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: administrator@mycompany.com"""
 
-    filters = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.ems_filter.EmsFilterSchema", unknown=EXCLUDE, allow_none=True), data_key="filters", allow_none=True)
+    filters = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.ems_filter", "EmsFilterSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="filters",
+                allow_none=True
+            )
     r""" The filters field of the ems_destination."""
 
     name = marshmallow_fields.Str(
@@ -192,7 +218,12 @@ Example: administrator@mycompany.com"""
 
 Example: Admin_Email"""
 
-    syslog = marshmallow_fields.Nested("netapp_ontap.models.ems_syslog.EmsSyslogSchema", data_key="syslog", unknown=EXCLUDE, allow_none=True)
+    syslog = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ems_syslog", "EmsSyslogSchema"),
+                data_key="syslog",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The syslog field of the ems_destination."""
 
     system_defined = marshmallow_fields.Boolean(

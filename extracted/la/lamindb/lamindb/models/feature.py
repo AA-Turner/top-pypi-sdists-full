@@ -54,7 +54,8 @@ if TYPE_CHECKING:
 
     from .artifact import Artifact
     from .block import FeatureBlock
-    from .projects import Project
+    from .project import Project
+    from .query_manager import RelatedManager
     from .record import Record
     from .run import Run
     from .schema import Schema
@@ -913,8 +914,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         synonyms: `str | None = None` Bar-separated synonyms.
         nullable: `bool = True` Whether the feature can have null-like values (`None`, `pd.NA`, `NaN`, etc.), see :attr:`~lamindb.Feature.nullable`.
         default_value: `Any | None = None` Default value for the feature.
-        coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype
-            during validation, see :attr:`~lamindb.Feature.coerce`. Defaults to `False` unless `is_type` is `True`.
+        coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
+            Defaults to `False` unless `is_type` is `True`.
         cat_filters: `dict[str, str] | None = None` Subset a registry by additional filters to define valid categories.
 
     Note:
@@ -1092,17 +1093,17 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Whether dtypes should be coerced during validation. None for type-like features."""
     # we define the below ManyToMany on the Feature model because it parallels
     # how other registries (like Gene, Protein, etc.) relate to Schema
-    schemas: Schema = models.ManyToManyField(
+    schemas: RelatedManager[Schema] = models.ManyToManyField(
         "Schema", through="SchemaFeature", related_name="features"
     )
     """Schemas linked to this feature."""
     # backward fields
     values: JsonValue
     """Values for this feature."""
-    projects: Project
+    projects: RelatedManager[Project]
     """Annotating projects."""
     ablocks: FeatureBlock
-    """Blocks that annotate this feature."""
+    """Attached blocks ← :attr:`~lamindb.FeatureBlock.feature`."""
 
     @overload
     def __init__(
@@ -1282,7 +1283,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             type: Feature type of all created features
             mute: Whether to mute dtype inference and feature creation warnings
         """
-        from lamindb.models._feature_manager import infer_feature_type_convert_json
+        from lamindb.models._feature_manager import infer_convert_dtype_key_value
 
         field = Feature.name if field is None else field
         registry = field.field.model  # type: ignore
@@ -1291,7 +1292,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
         dtypes = {}
         for key, value in dictionary.items():
-            dtype, _, message = infer_feature_type_convert_json(key, value, mute=mute)
+            dtype, _, message = infer_convert_dtype_key_value(key, value, mute=mute)
             if dtype == "cat ? str":
                 dtype = "str"
             elif dtype == "list[cat ? str]":
@@ -1444,12 +1445,12 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
 
 class JsonValue(SQLRecord, TracksRun):
-    """Non-categorical features values.
+    """JSON values for annotating artifacts and runs.
 
-    Categorical feature values are stored in their respective registries:
+    Categorical values are stored in their respective registries:
     :class:`~lamindb.ULabel`, :class:`~bionty.CellType`, etc.
 
-    Unlike for ULabel, in `JsonValue`, values are grouped by features and
+    Unlike for `ULabel`, in `JsonValue`, values are grouped by features and
     not by an ontological hierarchy.
     """
 

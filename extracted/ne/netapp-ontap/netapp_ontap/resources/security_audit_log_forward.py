@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -50,7 +50,7 @@ with HostConnection(
 <label for="example0_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example0_result" class="try_it_out_content">
 ```
-[SecurityAuditLogForward({"address": "1.1.1.1", "port": 514})]
+[SecurityAuditLogForward({"port": 514, "address": "1.1.1.1"})]
 
 ```
 </div>
@@ -102,15 +102,15 @@ with HostConnection(
 ```
 SecurityAuditLogForward(
     {
-        "address": "1.1.1.1",
-        "timestamp_format_override": "no_override",
-        "port": 514,
-        "facility": "kern",
-        "message_format": "legacy_netapp",
+        "hostname_format_override": "no_override",
         "protocol": "udp_unencrypted",
         "verify_server": False,
-        "hostname_format_override": "no_override",
-        "ipspace": {"uuid": "a97a3549-f7ae-11ec-b6bc-005056a7c8ff", "name": "Default"},
+        "facility": "kern",
+        "timestamp_format_override": "no_override",
+        "port": 514,
+        "ipspace": {"name": "Default", "uuid": "a97a3549-f7ae-11ec-b6bc-005056a7c8ff"},
+        "address": "1.1.1.1",
+        "message_format": "legacy_netapp",
     }
 )
 
@@ -159,11 +159,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -176,7 +175,6 @@ __pdoc__ = {
     "SecurityAuditLogForwardSchema.resource": False,
     "SecurityAuditLogForwardSchema.opts": False,
 }
-
 
 class SecurityAuditLogForwardSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SecurityAuditLogForward object"""
@@ -222,7 +220,12 @@ Valid choices:
 * fqdn
 * hostname_only"""
 
-    ipspace = marshmallow_fields.Nested("netapp_ontap.resources.ipspace.IpspaceSchema", data_key="ipspace", unknown=EXCLUDE, allow_none=True)
+    ipspace = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.ipspace", "IpspaceSchema"),
+                data_key="ipspace",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The ipspace field of the security_audit_log_forward."""
 
     message_format = marshmallow_fields.Str(

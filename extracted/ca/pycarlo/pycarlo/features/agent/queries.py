@@ -31,3 +31,26 @@ query getAgentSpanSampleV2(
     }
 }
 """
+
+GET_AGENT_SPAN_COUNT = """
+query getAgentSpanCount(
+    $mcon: String!,
+    $agentSpanFilters: [AgentSpanFilterInput!],
+    $attributeFilters: [SpanAttributeFilterInput!],
+    $ingestionStartTime: DateTime,
+    $ingestionEndTime: DateTime
+) {
+    getAgentSpanSampleV2(
+        mcon: $mcon,
+        agentSpanFilters: $agentSpanFilters,
+        attributeFilters: $attributeFilters,
+        selectExpressionType: COUNT,
+        ingestionStartTime: $ingestionStartTime,
+        ingestionEndTime: $ingestionEndTime
+    ) {
+        hasError
+        error
+        rows
+    }
+}
+"""

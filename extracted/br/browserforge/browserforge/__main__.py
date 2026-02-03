@@ -1,38 +1,48 @@
 import click
 
-from browserforge.download import Download, Remove
+"""
+Stub cli for backwards compatibility to not break existing projects on <1.2.4
+"""
 
 
 class DownloadException(Exception):
-    """Raises when the download fails."""
+    """**DEPRECATED**"""
+
+
+def _deprecated() -> None:
+    click.secho(
+        'DEPRECATED: As of v1.2.4, BrowserForge model files are now bundled in their own Python package dependency.',
+        fg='red',
+    )
 
 
 @click.group()
 def cli() -> None:
+    """
+    NOTE: BrowserForge CLI is DEPRECATED!
+
+    BrowserForge: As of v1.2.4, model files are already bundled in their own package dependency.
+    Manual downloads are no longer required.
+    """
     pass
 
 
 @cli.command(name='update')
-@click.option('--headers', is_flag=True, help='Only update header definitions')
-@click.option('--fingerprints', is_flag=True, help='Only update fingerprint definitions')
+@click.option('--headers', is_flag=True)
+@click.option('--fingerprints', is_flag=True)
 def update(headers=False, fingerprints=False):
     """
-    Fetches header and fingerprint definitions
+    **DEPRECATED**
     """
-    # if no options passed, mark both as True
-    if not headers ^ fingerprints:
-        headers = fingerprints = True
-
-    Download(headers=headers, fingerprints=fingerprints)
+    _deprecated()
 
 
 @cli.command(name='remove')
 def remove():
     """
-    Remove all downloaded files
+    **DEPRECATED**
     """
-    Remove()
-    click.secho('Removed all files!', fg='bright_yellow')
+    _deprecated()
 
 
 if __name__ == '__main__':

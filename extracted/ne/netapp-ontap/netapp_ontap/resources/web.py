@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -49,28 +49,28 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Web(
     {
+        "_links": {"self": {"href": "/api/cluster/web"}},
+        "ocsp_enabled": False,
+        "csrf": {
+            "token": {"concurrent_limit": 500, "max_timeout": 650, "idle_timeout": 900},
+            "protection_enabled": True,
+        },
+        "http_port": 80,
         "https_port": 443,
         "http_enabled": False,
         "hsts": {"max_age": 31536000, "enabled": True},
-        "enabled": True,
-        "ocsp_enabled": False,
+        "state": "online",
+        "client_enabled": False,
         "certificate": {
-            "uuid": "a3bb219d-4382-1fe0-9c06-1070568ea23d",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/a3bb219d-4382-1fe0-9c06-1070568ea23d"
                 }
             },
             "name": "cert1",
+            "uuid": "a3bb219d-4382-1fe0-9c06-1070568ea23d",
         },
-        "csrf": {
-            "token": {"idle_timeout": 900, "max_timeout": 650, "concurrent_limit": 500},
-            "protection_enabled": True,
-        },
-        "state": "online",
-        "http_port": 80,
-        "client_enabled": False,
-        "_links": {"self": {"href": "/api/cluster/web"}},
+        "enabled": True,
     }
 )
 
@@ -96,11 +96,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -114,14 +113,23 @@ __pdoc__ = {
     "WebSchema.opts": False,
 }
 
-
 class WebSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Web object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the web."""
 
-    certificate = marshmallow_fields.Nested("netapp_ontap.models.web_certificate.WebCertificateSchema", data_key="certificate", unknown=EXCLUDE, allow_none=True)
+    certificate = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.web_certificate", "WebCertificateSchema"),
+                data_key="certificate",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Certificate used by cluster and node management interfaces for TLS connection requests."""
 
     client_enabled = marshmallow_fields.Boolean(
@@ -130,7 +138,12 @@ class WebSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Indicates whether client authentication is enabled."""
 
-    csrf = marshmallow_fields.Nested("netapp_ontap.models.web_csrf.WebCsrfSchema", data_key="csrf", unknown=EXCLUDE, allow_none=True)
+    csrf = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.web_csrf", "WebCsrfSchema"),
+                data_key="csrf",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The csrf field of the web."""
 
     enabled = marshmallow_fields.Boolean(
@@ -139,7 +152,12 @@ class WebSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Indicates whether remote clients can connect to the web services."""
 
-    hsts = marshmallow_fields.Nested("netapp_ontap.models.web_hsts.WebHstsSchema", data_key="hsts", unknown=EXCLUDE, allow_none=True)
+    hsts = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.web_hsts", "WebHstsSchema"),
+                data_key="hsts",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The hsts field of the web."""
 
     http_enabled = marshmallow_fields.Boolean(
@@ -260,6 +278,10 @@ class Web(Resource):
 
     def get(self, **kwargs) -> NetAppResponse:
         r"""Retrieves the web services configuration.
+### Related ONTAP commands
+* `system services web show`
+* `security ssl show`
+
 ### Learn more
 * [`DOC /cluster/web`](#docs-cluster-cluster_web)"""
         return super()._get(**kwargs)
@@ -278,6 +300,7 @@ class Web(Resource):
         r"""Updates the web services configuration.
 ### Related ONTAP commands
 * `system services web modify`
+* `security ssl modify`
 
 ### Learn more
 * [`DOC /cluster/web`](#docs-cluster-cluster_web)"""

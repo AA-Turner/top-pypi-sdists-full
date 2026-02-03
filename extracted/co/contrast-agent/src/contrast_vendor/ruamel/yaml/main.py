@@ -1,4 +1,5 @@
-# coding: utf-8
+
+from __future__ import annotations
 
 import sys
 import os
@@ -32,11 +33,13 @@ from contrast_vendor.ruamel.yaml.constructor import (
 )
 from contrast_vendor.ruamel.yaml.loader import Loader as UnsafeLoader  # NOQA
 from contrast_vendor.ruamel.yaml.comments import CommentedMap, CommentedSeq, C_PRE
+from contrast_vendor.ruamel.yaml.docinfo import DocInfo, version, Version
 
-from typing import List, Set, Dict, Union, Any, Callable, Optional, Text, Type  # NOQA
-from types import TracebackType
-from contrast_vendor.ruamel.yaml.compat import StreamType, StreamTextType, VersionType  # NOQA
-from pathlib import Path  # NOQA
+from typing import List, Set, Dict, Tuple, Union, Any, Callable, Optional, Text, Type  # NOQA
+if False:  # MYPY
+    from contrast_vendor.ruamel.yaml.compat import StreamType, StreamTextType, VersionType  # NOQA
+    from types import TracebackType
+    from pathlib import Path
 
 try:
     from _ruamel_yaml import CParser, CEmitter  # type: ignore
@@ -62,7 +65,9 @@ class YAML:
         """
         typ: 'rt'/None -> RoundTripLoader/RoundTripDumper,  (default)
              'safe'    -> SafeLoader/SafeDumper,
-             'unsafe'  -> normal/unsafe Loader/Dumper
+             'unsafe'  -> normal/unsafe Loader/Dumper (pending deprecation)
+             'full'    -> full Dumper only, including python built-ins that are
+                          potentially unsafe to load
              'base'    -> baseloader
         pure: if True only use Python modules
         input/output: needed to work as context manager
@@ -89,6 +94,7 @@ class YAML:
         self.Serializer: Any = None
         self.default_flow_style: Any = None
         self.comment_handling = None
+        self.max_depth = 0
         typ_found = 1
         setup_rt = False
         if 'rt' in self.typ:
@@ -108,6 +114,11 @@ class YAML:
             self.Composer = ruamel.yaml.composer.Composer
             self.Constructor = ruamel.yaml.constructor.BaseConstructor
         elif 'unsafe' in self.typ:
+            warnings.warn(
+                "\nyou should no longer specify 'unsafe'.\nFor **dumping only** use yaml=YAML(typ='full')\n",  # NOQA
+                PendingDeprecationWarning,
+                stacklevel=2,
+            )
             self.Emitter = (
                 ruamel.yaml.emitter.Emitter if pure or CEmitter is None else CEmitter
             )
@@ -115,6 +126,14 @@ class YAML:
             self.Parser = ruamel.yaml.parser.Parser if pure or CParser is None else CParser
             self.Composer = ruamel.yaml.composer.Composer
             self.Constructor = ruamel.yaml.constructor.Constructor
+        elif 'full' in self.typ:
+            self.Emitter = (
+                ruamel.yaml.emitter.Emitter if pure or CEmitter is None else CEmitter
+            )
+            self.Representer = ruamel.yaml.representer.Representer
+            self.Parser = ruamel.yaml.parser.Parser if pure or CParser is None else CParser
+            # self.Composer = ruamel.yaml.composer.Composer
+            # self.Constructor = ruamel.yaml.constructor.Constructor
         elif 'rtsc' in self.typ:
             self.default_flow_style = False
             # no optimized rt-dumper yet
@@ -163,7 +182,8 @@ class YAML:
         self.encoding = 'utf-8'
         self.explicit_start: Union[bool, None] = None
         self.explicit_end: Union[bool, None] = None
-        self.tags = None
+        self._tags = None
+        self.doc_infos: List[DocInfo] = []
         self.default_style = None
         self.top_level_block_style_scalar_no_indent_error_1_1 = False
         # directives end indicator with single scalar document
@@ -177,7 +197,7 @@ class YAML:
                 break
         if typ_found == 0:
             raise NotImplementedError(
-                f'typ "{self.typ}" not recognised (need to install plug-in?)'
+                f'typ "{self.typ}" not recognised (need to install plug-in?)',
             )
 
     @property
@@ -193,6 +213,8 @@ class YAML:
         try:
             return self._scanner  # type: ignore
         except AttributeError:
+            if self.Scanner is None:
+                raise
             self._scanner = self.Scanner(loader=self)
             return self._scanner
 
@@ -228,17 +250,25 @@ class YAML:
     def constructor(self) -> Any:
         attr = '_' + sys._getframe().f_code.co_name
         if not hasattr(self, attr):
-            cnst = self.Constructor(preserve_quotes=self.preserve_quotes, loader=self)
+            if self.Constructor is None:
+                if 'full' in self.typ:
+                    raise YAMLError(
+                        "\nyou can only use yaml=YAML(typ='full') for dumping\n",  # NOQA
+                    )
+            cnst = self.Constructor(preserve_quotes=self.preserve_quotes, loader=self)  # type: ignore # NOQA
             cnst.allow_duplicate_keys = self.allow_duplicate_keys
             setattr(self, attr, cnst)
         return getattr(self, attr)
 
     @property
     def resolver(self) -> Any:
-        attr = '_' + sys._getframe().f_code.co_name
-        if not hasattr(self, attr):
-            setattr(self, attr, self.Resolver(version=self.version, loader=self))
-        return getattr(self, attr)
+        try:
+            rslvr = self._resolver  # type: ignore
+        except AttributeError:
+            rslvr = None
+        if rslvr is None or rslvr._loader_version != self.version:
+            rslvr = self._resolver = self.Resolver(version=self.version, loader=self)
+        return rslvr
 
     @property
     def emitter(self) -> Any:
@@ -315,20 +345,19 @@ class YAML:
             # pathlib.Path() instance
             with stream.open('rb') as fp:
                 return self.scan(fp)
+        self.doc_infos.append(DocInfo(requested_version=version(self.version)))
+        self.tags = {}
         _, parser = self.get_constructor_parser(stream)
         try:
             while self.scanner.check_token():
                 yield self.scanner.get_token()
         finally:
             parser.dispose()
-            try:
-                self._reader.reset_reader()
-            except AttributeError:
-                pass
-            try:
-                self._scanner.reset_scanner()
-            except AttributeError:
-                pass
+            for comp in ('reader', 'scanner'):
+                try:
+                    getattr(getattr(self, '_' + comp), f'reset_{comp}')()
+                except AttributeError:
+                    pass
 
     def parse(self, stream: StreamTextType) -> Any:
         """
@@ -338,20 +367,19 @@ class YAML:
             # pathlib.Path() instance
             with stream.open('rb') as fp:
                 return self.parse(fp)
+        self.doc_infos.append(DocInfo(requested_version=version(self.version)))
+        self.tags = {}
         _, parser = self.get_constructor_parser(stream)
         try:
             while parser.check_event():
                 yield parser.get_event()
         finally:
             parser.dispose()
-            try:
-                self._reader.reset_reader()
-            except AttributeError:
-                pass
-            try:
-                self._scanner.reset_scanner()
-            except AttributeError:
-                pass
+            for comp in ('reader', 'scanner'):
+                try:
+                    getattr(getattr(self, '_' + comp), f'reset_{comp}')()
+                except AttributeError:
+                    pass
 
     def compose(self, stream: Union[Path, StreamTextType]) -> Any:
         """
@@ -362,39 +390,37 @@ class YAML:
             # pathlib.Path() instance
             with stream.open('rb') as fp:
                 return self.compose(fp)
+        self.doc_infos.append(DocInfo(requested_version=version(self.version)))
+        self.tags = {}
         constructor, parser = self.get_constructor_parser(stream)
         try:
             return constructor.composer.get_single_node()
         finally:
             parser.dispose()
-            try:
-                self._reader.reset_reader()
-            except AttributeError:
-                pass
-            try:
-                self._scanner.reset_scanner()
-            except AttributeError:
-                pass
+            for comp in ('reader', 'scanner'):
+                try:
+                    getattr(getattr(self, '_' + comp), f'reset_{comp}')()
+                except AttributeError:
+                    pass
 
     def compose_all(self, stream: Union[Path, StreamTextType]) -> Any:
         """
         Parse all YAML documents in a stream
         and produce corresponding representation trees.
         """
+        self.doc_infos.append(DocInfo(requested_version=version(self.version)))
+        self.tags = {}
         constructor, parser = self.get_constructor_parser(stream)
         try:
             while constructor.composer.check_node():
                 yield constructor.composer.get_node()
         finally:
             parser.dispose()
-            try:
-                self._reader.reset_reader()
-            except AttributeError:
-                pass
-            try:
-                self._scanner.reset_scanner()
-            except AttributeError:
-                pass
+            for comp in ('reader', 'scanner'):
+                try:
+                    getattr(getattr(self, '_' + comp), f'reset_{comp}')()
+                except AttributeError:
+                    pass
 
     # separate output resolver?
 
@@ -421,19 +447,18 @@ class YAML:
             # pathlib.Path() instance
             with stream.open('rb') as fp:
                 return self.load(fp)
+        self.doc_infos.append(DocInfo(requested_version=version(self.version)))
+        self.tags = {}
         constructor, parser = self.get_constructor_parser(stream)
         try:
             return constructor.get_single_data()
         finally:
             parser.dispose()
-            try:
-                self._reader.reset_reader()
-            except AttributeError:
-                pass
-            try:
-                self._scanner.reset_scanner()
-            except AttributeError:
-                pass
+            for comp in ('reader', 'scanner'):
+                try:
+                    getattr(getattr(self, '_' + comp), f'reset_{comp}')()
+                except AttributeError:
+                    pass
 
     def load_all(self, stream: Union[Path, StreamTextType]) -> Any:  # *, skip=None):
         if not hasattr(stream, 'read') and hasattr(stream, 'open'):
@@ -446,25 +471,30 @@ class YAML:
         #     skip = []
         # elif isinstance(skip, int):
         #     skip = [skip]
+        self.doc_infos.append(DocInfo(requested_version=version(self.version)))
+        self.tags = {}
         constructor, parser = self.get_constructor_parser(stream)
         try:
             while constructor.check_data():
                 yield constructor.get_data()
+                self.doc_infos.append(DocInfo(requested_version=version(self.version)))
         finally:
             parser.dispose()
-            try:
-                self._reader.reset_reader()
-            except AttributeError:
-                pass
-            try:
-                self._scanner.reset_scanner()
-            except AttributeError:
-                pass
+            for comp in ('reader', 'scanner'):
+                try:
+                    getattr(getattr(self, '_' + comp), f'reset_{comp}')()
+                except AttributeError:
+                    pass
 
     def get_constructor_parser(self, stream: StreamTextType) -> Any:
         """
         the old cyaml needs special setup, and therefore the stream
         """
+        if self.Constructor is None:
+            if 'full' in self.typ:
+                raise YAMLError(
+                     "\nyou can only use yaml=YAML(typ='full') for dumping\n",  # NOQA
+                )
         if self.Parser is not CParser:
             if self.Reader is None:
                 self.Reader = ruamel.yaml.reader.Reader
@@ -485,7 +515,7 @@ class YAML:
             else:
                 # combined C level reader>scanner>parser
                 # does some calls to the resolver, e.g. BaseResolver.descend_resolver
-                # if you just initialise the CParser, to much of resolver.py
+                # if you just initialise the CParser, too much of resolver.py
                 # is actually used
                 rslvr = self.Resolver
                 # if rslvr is ruamel.yaml.resolver.VersionedResolver:
@@ -507,6 +537,7 @@ class YAML:
 
                 self._stream = stream
                 loader = XLoader(stream)
+                self._scanner = loader
                 return loader, loader
         return self.constructor, self.parser
 
@@ -550,7 +581,7 @@ class YAML:
                 raise
 
     def dump(
-        self: Any, data: Union[Path, StreamType], stream: Any = None, *, transform: Any = None
+        self: Any, data: Union[Path, StreamType], stream: Any = None, *, transform: Any = None,
     ) -> Any:
         if self._context_manager:
             if not self._output:
@@ -558,7 +589,7 @@ class YAML:
             if transform is not None:
                 x = self.__class__.__name__
                 raise TypeError(
-                    f'{x}.dump() in the context manager cannot have transform keyword'
+                    f'{x}.dump() in the context manager cannot have transform keyword',
                 )
             self._context_manager.dump(data)
         else:  # old style
@@ -567,7 +598,7 @@ class YAML:
             return self.dump_all([data], stream, transform=transform)
 
     def dump_all(
-        self, documents: Any, stream: Union[Path, StreamType], *, transform: Any = None
+        self, documents: Any, stream: Union[Path, StreamType], *, transform: Any = None,
     ) -> Any:
         if self._context_manager:
             raise NotImplementedError
@@ -599,7 +630,7 @@ class YAML:
             else:
                 stream = BytesIO()
         serializer, representer, emitter = self.get_serializer_representer_emitter(
-            stream, tlca
+            stream, tlca,
         )
         try:
             self.serializer.open()
@@ -616,8 +647,8 @@ class YAML:
             except AttributeError:
                 raise
                 # self.dumper.dispose()  # cyaml
-            delattr(self, '_serializer')
-            delattr(self, '_emitter')
+            delattr(self, '_serializer')  # NOQA
+            delattr(self, '_emitter')  # NOQA
         if transform:
             val = stream.getvalue()
             if self.encoding:
@@ -691,7 +722,7 @@ class YAML:
                 )
                 selfx._emitter = selfx._serializer = selfx._representer = selfx
                 self.Representer.__init__(
-                    selfx, default_style=default_style, default_flow_style=default_flow_style
+                    selfx, default_style=default_style, default_flow_style=default_flow_style,
                 )
                 rslvr.__init__(selfx)
 
@@ -705,6 +736,7 @@ class YAML:
             width=self.width,
             allow_unicode=self.allow_unicode,
             line_break=self.line_break,
+            encoding=self.encoding,
             explicit_start=self.explicit_start,
             explicit_end=self.explicit_end,
             version=self.version,
@@ -756,7 +788,7 @@ class YAML:
 
             def t_y(representer: Any, data: Any) -> Any:
                 return representer.represent_yaml_object(
-                    tag, data, cls, flow_style=representer.default_flow_style
+                    tag, data, cls, flow_style=representer.default_flow_style,
                 )
 
             self.representer.add_representer(cls, t_y)
@@ -798,22 +830,34 @@ class YAML:
             self.sequence_dash_offset = offset
 
     @property
-    def version(self) -> Optional[Any]:
+    def version(self) -> Optional[Tuple[int, int]]:
         return self._version
 
     @version.setter
-    def version(self, val: Optional[VersionType]) -> None:
+    def version(self, val: VersionType) -> None:
         if val is None:
             self._version = val
             return
-        if isinstance(val, str):
+        elif isinstance(val, str):
             sval = tuple(int(x) for x in val.split('.'))
-        else:
+        elif isinstance(val, (list, tuple)):
             sval = tuple(int(x) for x in val)
+        elif isinstance(val, Version):
+            sval = (val.major, val.minor)
+        else:
+            raise TypeError(f'unknown version type {type(val)}')
         assert len(sval) == 2, f'version can only have major.minor, got {val}'
         assert sval[0] == 1, f'version major part can only be 1, got {val}'
         assert sval[1] in [1, 2], f'version minor part can only be 2 or 1, got {val}'
         self._version = sval
+
+    @property
+    def tags(self) -> Any:
+        return self._tags
+
+    @tags.setter
+    def tags(self, val: Any) -> None:
+        self._tags = val
 
     @property
     def indent(self) -> Any:
@@ -880,8 +924,8 @@ class YAMLContextManager:
             raise
             # self.dumper.dispose()  # cyaml
         try:
-            delattr(self._yaml, '_serializer')
-            delattr(self._yaml, '_emitter')
+            delattr(self._yaml, '_serializer')  # NOQA
+            delattr(self._yaml, '_emitter')  # NOQA
         except AttributeError:
             raise
         if self._transform:
@@ -956,7 +1000,7 @@ def yaml_object(yml: Any) -> Any:
 
             def t_y(representer: Any, data: Any) -> Any:
                 return representer.represent_yaml_object(
-                    tag, data, cls, flow_style=representer.default_flow_style
+                    tag, data, cls, flow_style=representer.default_flow_style,
                 )
 
             yml.representer.add_representer(cls, t_y)
@@ -982,14 +1026,25 @@ def warn_deprecation(fun: Any, method: Any, arg: str = '') -> None:
     )
 
 
-def error_deprecation(fun: Any, method: Any, arg: str = '') -> None:
-    warnings.warn(
-        f'\n{fun} has been removed, use\n\n  yaml=YAML({arg})\n  yaml.{method}(...)\n\ninstead',  # NOQA
-        DeprecationWarning,
-        stacklevel=3,
-    )
-    sys.exit(1)
+def error_deprecation(fun: Any, method: Any, arg: str = '', comment: str = 'instead of') -> None:  # NOQA
+    import inspect
 
+    s = f'\n"{fun}()" has been removed, use\n\n  yaml = YAML({arg})\n  yaml.{method}(...)\n\n{comment}'  # NOQA
+    try:
+        info = inspect.getframeinfo(inspect.stack()[2][0])
+        context = '' if info.code_context is None else "".join(info.code_context)
+        s += f' file "{info.filename}", line {info.lineno}\n\n{context}'
+    except Exception as e:
+        _ = e
+    s += '\n'
+    if sys.version_info < (3, 10):
+        raise AttributeError(s)
+    else:
+        raise AttributeError(s, name=None)
+
+
+_error_dep_arg = "typ='rt'"
+_error_dep_comment = "and register any classes that you use, or check the tag attribute on the loaded data,\ninstead of"  # NOQA
 
 ########################################################################################
 
@@ -998,26 +1053,14 @@ def scan(stream: StreamTextType, Loader: Any = Loader) -> Any:
     """
     Scan a YAML stream and produce scanning tokens.
     """
-    warn_deprecation('scan', 'scan', arg="typ='unsafe', pure=True")
-    loader = Loader(stream)
-    try:
-        while loader.scanner.check_token():
-            yield loader.scanner.get_token()
-    finally:
-        loader._parser.dispose()
+    error_deprecation('scan', 'scan', arg=_error_dep_arg, comment=_error_dep_comment)
 
 
 def parse(stream: StreamTextType, Loader: Any = Loader) -> Any:
     """
     Parse a YAML stream and produce parsing events.
     """
-    warn_deprecation('parse', 'parse', arg="typ='unsafe', pure=True")
-    loader = Loader(stream)
-    try:
-        while loader._parser.check_event():
-            yield loader._parser.get_event()
-    finally:
-        loader._parser.dispose()
+    error_deprecation('parse', 'parse', arg=_error_dep_arg, comment=_error_dep_comment)
 
 
 def compose(stream: StreamTextType, Loader: Any = Loader) -> Any:
@@ -1025,12 +1068,7 @@ def compose(stream: StreamTextType, Loader: Any = Loader) -> Any:
     Parse the first YAML document in a stream
     and produce the corresponding representation tree.
     """
-    warn_deprecation('compose', 'compose', arg="typ='unsafe', pure=True")
-    loader = Loader(stream)
-    try:
-        return loader.get_single_node()
-    finally:
-        loader.dispose()
+    error_deprecation('compose', 'compose', arg=_error_dep_arg, comment=_error_dep_comment)
 
 
 def compose_all(stream: StreamTextType, Loader: Any = Loader) -> Any:
@@ -1038,67 +1076,28 @@ def compose_all(stream: StreamTextType, Loader: Any = Loader) -> Any:
     Parse all YAML documents in a stream
     and produce corresponding representation trees.
     """
-    warn_deprecation('compose', 'compose', arg="typ='unsafe', pure=True")
-    loader = Loader(stream)
-    try:
-        while loader.check_node():
-            yield loader._composer.get_node()
-    finally:
-        loader._parser.dispose()
+    error_deprecation('compose', 'compose', arg=_error_dep_arg, comment=_error_dep_comment)
 
 
 def load(
-    stream: Any, Loader: Any = None, version: Any = None, preserve_quotes: Any = None
+    stream: Any, Loader: Any = None, version: Any = None, preserve_quotes: Any = None,
 ) -> Any:
     """
     Parse the first YAML document in a stream
     and produce the corresponding Python object.
     """
-    warn_deprecation('load', 'load', arg="typ='unsafe', pure=True")
-    if Loader is None:
-        warnings.warn(UnsafeLoaderWarning.text, UnsafeLoaderWarning, stacklevel=2)
-        Loader = UnsafeLoader
-    loader = Loader(stream, version, preserve_quotes=preserve_quotes)  # type: Any
-    try:
-        return loader._constructor.get_single_data()
-    finally:
-        loader._parser.dispose()
-        try:
-            loader._reader.reset_reader()
-        except AttributeError:
-            pass
-        try:
-            loader._scanner.reset_scanner()
-        except AttributeError:
-            pass
+    error_deprecation('load', 'load', arg=_error_dep_arg, comment=_error_dep_comment)
 
 
 def load_all(
-    stream: Any, Loader: Any = None, version: Any = None, preserve_quotes: Any = None
+    stream: Any, Loader: Any = None, version: Any = None, preserve_quotes: Any = None,
 ) -> Any:
     # NOQA
     """
     Parse all YAML documents in a stream
     and produce corresponding Python objects.
     """
-    warn_deprecation('load_all', 'load_all', arg="typ='unsafe', pure=True")
-    if Loader is None:
-        warnings.warn(UnsafeLoaderWarning.text, UnsafeLoaderWarning, stacklevel=2)
-        Loader = UnsafeLoader
-    loader = Loader(stream, version, preserve_quotes=preserve_quotes)  # type: Any
-    try:
-        while loader._constructor.check_data():
-            yield loader._constructor.get_data()
-    finally:
-        loader._parser.dispose()
-        try:
-            loader._reader.reset_reader()
-        except AttributeError:
-            pass
-        try:
-            loader._scanner.reset_scanner()
-        except AttributeError:
-            pass
+    error_deprecation('load_all', 'load_all', arg=_error_dep_arg, comment=_error_dep_comment)
 
 
 def safe_load(stream: StreamTextType, version: Optional[VersionType] = None) -> Any:
@@ -1107,8 +1106,7 @@ def safe_load(stream: StreamTextType, version: Optional[VersionType] = None) -> 
     and produce the corresponding Python object.
     Resolve only basic YAML tags.
     """
-    warn_deprecation('safe_load', 'load', arg="typ='safe', pure=True")
-    return load(stream, SafeLoader, version)
+    error_deprecation('safe_load', 'load', arg="typ='safe', pure=True")
 
 
 def safe_load_all(stream: StreamTextType, version: Optional[VersionType] = None) -> Any:
@@ -1117,8 +1115,7 @@ def safe_load_all(stream: StreamTextType, version: Optional[VersionType] = None)
     and produce corresponding Python objects.
     Resolve only basic YAML tags.
     """
-    warn_deprecation('safe_load_all', 'load_all', arg="typ='safe', pure=True")
-    return load_all(stream, SafeLoader, version)
+    error_deprecation('safe_load_all', 'load_all', arg="typ='safe', pure=True")
 
 
 def round_trip_load(
@@ -1131,8 +1128,7 @@ def round_trip_load(
     and produce the corresponding Python object.
     Resolve only basic YAML tags.
     """
-    warn_deprecation('round_trip_load_all', 'load')
-    return load(stream, RoundTripLoader, version, preserve_quotes=preserve_quotes)
+    error_deprecation('round_trip_load_all', 'load')
 
 
 def round_trip_load_all(
@@ -1145,8 +1141,7 @@ def round_trip_load_all(
     and produce corresponding Python objects.
     Resolve only basic YAML tags.
     """
-    warn_deprecation('round_trip_load_all', 'load_all')
-    return load_all(stream, RoundTripLoader, version, preserve_quotes=preserve_quotes)
+    error_deprecation('round_trip_load_all', 'load_all')
 
 
 def emit(
@@ -1164,30 +1159,7 @@ def emit(
     Emit YAML parsing events into a stream.
     If stream is None, return the produced string instead.
     """
-    warn_deprecation('emit', 'emit', arg="typ='safe', pure=True")
-    getvalue = None
-    if stream is None:
-        stream = StringIO()
-        getvalue = stream.getvalue
-    dumper = Dumper(
-        stream,
-        canonical=canonical,
-        indent=indent,
-        width=width,
-        allow_unicode=allow_unicode,
-        line_break=line_break,
-    )
-    try:
-        for event in events:
-            dumper.emit(event)
-    finally:
-        try:
-            dumper._emitter.dispose()
-        except AttributeError:
-            raise
-            dumper.dispose()  # cyaml
-    if getvalue is not None:
-        return getvalue()
+    error_deprecation('emit', 'emit', arg="typ='safe', pure=True")
 
 
 enc = None
@@ -1213,51 +1185,17 @@ def serialize_all(
     Serialize a sequence of representation trees into a YAML stream.
     If stream is None, return the produced string instead.
     """
-    warn_deprecation('serialize_all', 'serialize_all', arg="typ='safe', pure=True")
-    getvalue = None
-    if stream is None:
-        if encoding is None:
-            stream = StringIO()
-        else:
-            stream = BytesIO()
-        getvalue = stream.getvalue
-    dumper = Dumper(
-        stream,
-        canonical=canonical,
-        indent=indent,
-        width=width,
-        allow_unicode=allow_unicode,
-        line_break=line_break,
-        encoding=encoding,
-        version=version,
-        tags=tags,
-        explicit_start=explicit_start,
-        explicit_end=explicit_end,
-    )
-    try:
-        dumper._serializer.open()
-        for node in nodes:
-            dumper.serialize(node)
-        dumper._serializer.close()
-    finally:
-        try:
-            dumper._emitter.dispose()
-        except AttributeError:
-            raise
-            dumper.dispose()  # cyaml
-    if getvalue is not None:
-        return getvalue()
+    error_deprecation('serialize_all', 'serialize_all', arg="typ='safe', pure=True")
 
 
 def serialize(
-    node: Any, stream: Optional[StreamType] = None, Dumper: Any = Dumper, **kwds: Any
+    node: Any, stream: Optional[StreamType] = None, Dumper: Any = Dumper, **kwds: Any,
 ) -> Any:
     """
     Serialize a representation tree into a YAML stream.
     If stream is None, return the produced string instead.
     """
-    warn_deprecation('serialize', 'serialize', arg="typ='safe', pure=True")
-    return serialize_all([node], stream, Dumper=Dumper, **kwds)
+    error_deprecation('serialize', 'serialize', arg="typ='safe', pure=True")
 
 
 def dump_all(
@@ -1285,52 +1223,7 @@ def dump_all(
     Serialize a sequence of Python objects into a YAML stream.
     If stream is None, return the produced string instead.
     """
-    warn_deprecation('dump_all', 'dump_all', arg="typ='unsafe', pure=True")
-    getvalue = None
-    if top_level_colon_align is True:
-        top_level_colon_align = max([len(str(x)) for x in documents[0]])
-    if stream is None:
-        if encoding is None:
-            stream = StringIO()
-        else:
-            stream = BytesIO()
-        getvalue = stream.getvalue
-    dumper = Dumper(
-        stream,
-        default_style=default_style,
-        default_flow_style=default_flow_style,
-        canonical=canonical,
-        indent=indent,
-        width=width,
-        allow_unicode=allow_unicode,
-        line_break=line_break,
-        encoding=encoding,
-        explicit_start=explicit_start,
-        explicit_end=explicit_end,
-        version=version,
-        tags=tags,
-        block_seq_indent=block_seq_indent,
-        top_level_colon_align=top_level_colon_align,
-        prefix_colon=prefix_colon,
-    )
-    try:
-        dumper._serializer.open()
-        for data in documents:
-            try:
-                dumper._representer.represent(data)
-            except AttributeError:
-                # nprint(dir(dumper._representer))
-                raise
-        dumper._serializer.close()
-    finally:
-        try:
-            dumper._emitter.dispose()
-        except AttributeError:
-            raise
-            dumper.dispose()  # cyaml
-    if getvalue is not None:
-        return getvalue()
-    return None
+    error_deprecation('dump_all', 'dump_all', arg="typ='unsafe', pure=True")
 
 
 def dump(
@@ -1359,25 +1252,7 @@ def dump(
     default_style ∈ None, '', '"', "'", '|', '>'
 
     """
-    warn_deprecation('dump', 'dump', arg="typ='unsafe', pure=True")
-    return dump_all(
-        [data],
-        stream,
-        Dumper=Dumper,
-        default_style=default_style,
-        default_flow_style=default_flow_style,
-        canonical=canonical,
-        indent=indent,
-        width=width,
-        allow_unicode=allow_unicode,
-        line_break=line_break,
-        encoding=encoding,
-        explicit_start=explicit_start,
-        explicit_end=explicit_end,
-        version=version,
-        tags=tags,
-        block_seq_indent=block_seq_indent,
-    )
+    error_deprecation('dump', 'dump', arg="typ='unsafe', pure=True")
 
 
 def safe_dump(data: Any, stream: Optional[StreamType] = None, **kwds: Any) -> Any:
@@ -1386,8 +1261,7 @@ def safe_dump(data: Any, stream: Optional[StreamType] = None, **kwds: Any) -> An
     Produce only basic YAML tags.
     If stream is None, return the produced string instead.
     """
-    warn_deprecation('safe_dump', 'dump', arg="typ='safe', pure=True")
-    return dump_all([data], stream, Dumper=SafeDumper, **kwds)
+    error_deprecation('safe_dump', 'dump', arg="typ='safe', pure=True")
 
 
 def round_trip_dump(
@@ -1411,27 +1285,7 @@ def round_trip_dump(
     prefix_colon: Any = None,
 ) -> Any:
     allow_unicode = True if allow_unicode is None else allow_unicode
-    warn_deprecation('round_trip_dump', 'dump')
-    return dump_all(
-        [data],
-        stream,
-        Dumper=Dumper,
-        default_style=default_style,
-        default_flow_style=default_flow_style,
-        canonical=canonical,
-        indent=indent,
-        width=width,
-        allow_unicode=allow_unicode,
-        line_break=line_break,
-        encoding=encoding,
-        explicit_start=explicit_start,
-        explicit_end=explicit_end,
-        version=version,
-        tags=tags,
-        block_seq_indent=block_seq_indent,
-        top_level_colon_align=top_level_colon_align,
-        prefix_colon=prefix_colon,
-    )
+    error_deprecation('round_trip_dump', 'dump')
 
 
 # Loader/Dumper are no longer composites, to get to the associated
@@ -1459,7 +1313,7 @@ def add_implicit_resolver(
         if hasattr(Loader, 'add_implicit_resolver'):
             Loader.add_implicit_resolver(tag, regexp, first)
         elif issubclass(
-            Loader, (BaseLoader, SafeLoader, ruamel.yaml.loader.Loader, RoundTripLoader)
+            Loader, (BaseLoader, SafeLoader, ruamel.yaml.loader.Loader, RoundTripLoader),
         ):
             Resolver.add_implicit_resolver(tag, regexp, first)
         else:
@@ -1468,7 +1322,7 @@ def add_implicit_resolver(
         if hasattr(Dumper, 'add_implicit_resolver'):
             Dumper.add_implicit_resolver(tag, regexp, first)
         elif issubclass(
-            Dumper, (BaseDumper, SafeDumper, ruamel.yaml.dumper.Dumper, RoundTripDumper)
+            Dumper, (BaseDumper, SafeDumper, ruamel.yaml.dumper.Dumper, RoundTripDumper),
         ):
             Resolver.add_implicit_resolver(tag, regexp, first)
         else:
@@ -1497,7 +1351,7 @@ def add_path_resolver(
         if hasattr(Loader, 'add_path_resolver'):
             Loader.add_path_resolver(tag, path, kind)
         elif issubclass(
-            Loader, (BaseLoader, SafeLoader, ruamel.yaml.loader.Loader, RoundTripLoader)
+            Loader, (BaseLoader, SafeLoader, ruamel.yaml.loader.Loader, RoundTripLoader),
         ):
             Resolver.add_path_resolver(tag, path, kind)
         else:
@@ -1506,7 +1360,7 @@ def add_path_resolver(
         if hasattr(Dumper, 'add_path_resolver'):
             Dumper.add_path_resolver(tag, path, kind)
         elif issubclass(
-            Dumper, (BaseDumper, SafeDumper, ruamel.yaml.dumper.Dumper, RoundTripDumper)
+            Dumper, (BaseDumper, SafeDumper, ruamel.yaml.dumper.Dumper, RoundTripDumper),
         ):
             Resolver.add_path_resolver(tag, path, kind)
         else:
@@ -1514,7 +1368,7 @@ def add_path_resolver(
 
 
 def add_constructor(
-    tag: Any, object_constructor: Any, Loader: Any = None, constructor: Any = Constructor
+    tag: Any, object_constructor: Any, Loader: Any = None, constructor: Any = Constructor,
 ) -> None:
     """
     Add an object constructor for the given tag.
@@ -1540,7 +1394,7 @@ def add_constructor(
 
 
 def add_multi_constructor(
-    tag_prefix: Any, multi_constructor: Any, Loader: Any = None, constructor: Any = Constructor
+    tag_prefix: Any, multi_constructor: Any, Loader: Any = None, constructor: Any = Constructor,  # NOQA
 ) -> None:
     """
     Add a multi-constructor for the given tag prefix.
@@ -1567,7 +1421,7 @@ def add_multi_constructor(
 
 
 def add_representer(
-    data_type: Any, object_representer: Any, Dumper: Any = None, representer: Any = Representer
+    data_type: Any, object_representer: Any, Dumper: Any = None, representer: Any = Representer,  # NOQA
 ) -> None:
     """
     Add a representer for the given type.
@@ -1595,7 +1449,7 @@ def add_representer(
 
 # this code currently not tested
 def add_multi_representer(
-    data_type: Any, multi_representer: Any, Dumper: Any = None, representer: Any = Representer
+    data_type: Any, multi_representer: Any, Dumper: Any = None, representer: Any = Representer,
 ) -> None:
     """
     Add a representer for the given type.
@@ -1660,5 +1514,5 @@ class YAMLObject(with_metaclass(YAMLObjectMetaclass)):  # type: ignore
         Convert a Python object to a representation node.
         """
         return representer.represent_yaml_object(
-            cls.yaml_tag, data, cls, flow_style=cls.yaml_flow_style
+            cls.yaml_tag, data, cls, flow_style=cls.yaml_flow_style,
         )

@@ -62,26 +62,33 @@ class TunnelInspectionRuleSummary(object):
             The value to assign to the parent_resource_id property of this TunnelInspectionRuleSummary.
         :type parent_resource_id: str
 
+        :param description:
+            The value to assign to the description property of this TunnelInspectionRuleSummary.
+        :type description: str
+
         """
         self.swagger_types = {
             'name': 'str',
             'protocol': 'str',
             'action': 'str',
             'priority_order': 'int',
-            'parent_resource_id': 'str'
+            'parent_resource_id': 'str',
+            'description': 'str'
         }
         self.attribute_map = {
             'name': 'name',
             'protocol': 'protocol',
             'action': 'action',
             'priority_order': 'priorityOrder',
-            'parent_resource_id': 'parentResourceId'
+            'parent_resource_id': 'parentResourceId',
+            'description': 'description'
         }
         self._name = None
         self._protocol = None
         self._action = None
         self._priority_order = None
         self._parent_resource_id = None
+        self._description = None
 
     @staticmethod
     def get_subtype(object_dictionary):
@@ -237,6 +244,30 @@ class TunnelInspectionRuleSummary(object):
         :type: str
         """
         self._parent_resource_id = parent_resource_id
+
+    @property
+    def description(self):
+        """
+        Gets the description of this TunnelInspectionRuleSummary.
+        The description of the tunnel inspect rule. This field can be used to add additional info.
+
+
+        :return: The description of this TunnelInspectionRuleSummary.
+        :rtype: str
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """
+        Sets the description of this TunnelInspectionRuleSummary.
+        The description of the tunnel inspect rule. This field can be used to add additional info.
+
+
+        :param description: The description of this TunnelInspectionRuleSummary.
+        :type: str
+        """
+        self._description = description
 
     def __repr__(self):
         return formatted_flat_dict(self)

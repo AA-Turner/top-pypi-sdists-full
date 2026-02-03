@@ -16,9 +16,7 @@ def _extract_response(messages: list[dict]) -> str:
             content = msg.get("content", "")
             if isinstance(content, list):
                 return " ".join(
-                    block.get("text", "")
-                    for block in content
-                    if block.get("type") == "text"
+                    block.get("text", "") for block in content if block.get("type") == "text"
                 )
             return content
     return ""

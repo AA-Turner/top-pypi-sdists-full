@@ -4938,11 +4938,23 @@ class CSSLInstance:
         return name in all_methods
 
     def __getattr__(self, name: str) -> Any:
-        """Allow direct attribute access for members"""
+        """Allow direct attribute access for members and methods"""
         if name.startswith('_'):
             raise AttributeError(name)
         if name in self._members:
             return self._members[name]
+        # Also check methods so CSSL instances work from Python without pythonize
+        if self.has_method(name):
+            method_node = self.get_method(name)
+            if isinstance(method_node, tuple) and method_node[0] == 'python_method':
+                python_method = method_node[1]
+                return lambda *args, **kwargs: python_method(*args, **kwargs)
+            # Need runtime to call CSSL methods - check if available
+            runtime = getattr(self, '_runtime_ref', None)
+            if runtime is not None:
+                return lambda *args, **kwargs: runtime._call_method(self, method_node, list(args), kwargs)
+            # Fallback: return method node info so caller knows it exists
+            return method_node
         raise AttributeError(f"'{self._class.name}' has no member '{name}'")
 
     def __setattr__(self, name: str, value: Any) -> None:

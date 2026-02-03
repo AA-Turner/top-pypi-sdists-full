@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -31,111 +31,111 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NetworkRoute(
         {
-            "gateway": "10.4.3.1",
-            "scope": "svm",
-            "svm": {
-                "uuid": "3243312c-62f8-11e8-853d-005056b4c971",
-                "name": "vs1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/3243312c-62f8-11e8-853d-005056b4c971"
-                    }
-                },
+            "destination": {"netmask": "18", "family": "ipv4", "address": "10.4.3.14"},
+            "_links": {
+                "self": {
+                    "href": "/api/network/ip/routes/5fdffb0b-62f8-11e8-853d-005056b4c971"
+                }
             },
+            "gateway": "10.4.3.1",
             "uuid": "5fdffb0b-62f8-11e8-853d-005056b4c971",
             "ipspace": {
-                "uuid": "84f4beb2-616c-11e8-a4df-005056b4c971",
                 "_links": {
                     "self": {
                         "href": "/api/network/ipspaces/84f4beb2-616c-11e8-a4df-005056b4c971"
                     }
                 },
                 "name": "Default",
+                "uuid": "84f4beb2-616c-11e8-a4df-005056b4c971",
             },
-            "_links": {
-                "self": {
-                    "href": "/api/network/ip/routes/5fdffb0b-62f8-11e8-853d-005056b4c971"
-                }
+            "scope": "svm",
+            "svm": {
+                "name": "vs1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/3243312c-62f8-11e8-853d-005056b4c971"
+                    }
+                },
+                "uuid": "3243312c-62f8-11e8-853d-005056b4c971",
             },
-            "destination": {"address": "10.4.3.14", "netmask": "18", "family": "ipv4"},
         }
     ),
     NetworkRoute(
         {
+            "destination": {"netmask": "0", "family": "ipv6", "address": "::"},
+            "_links": {
+                "self": {
+                    "href": "/api/network/ip/routes/84c128d2-62f9-11e8-853d-005056b4c971"
+                }
+            },
             "gateway": "fd20:8b1e:b255:814e::1",
-            "scope": "cluster",
             "uuid": "84c128d2-62f9-11e8-853d-005056b4c971",
             "ipspace": {
-                "uuid": "cc71aadc-62f7-11e8-853d-005056b4c971",
                 "_links": {
                     "self": {
                         "href": "/api/network/ipspaces/cc71aadc-62f7-11e8-853d-005056b4c971"
                     }
                 },
                 "name": "ips1",
+                "uuid": "cc71aadc-62f7-11e8-853d-005056b4c971",
             },
-            "_links": {
-                "self": {
-                    "href": "/api/network/ip/routes/84c128d2-62f9-11e8-853d-005056b4c971"
-                }
-            },
-            "destination": {"address": "::", "netmask": "0", "family": "ipv6"},
+            "scope": "cluster",
         }
     ),
     NetworkRoute(
         {
-            "gateway": "10.224.64.1",
-            "scope": "cluster",
-            "uuid": "8cc72bcd-616c-11e8-a4df-005056b4c971",
-            "ipspace": {
-                "uuid": "84f4beb2-616c-11e8-a4df-005056b4c971",
-                "_links": {
-                    "self": {
-                        "href": "/api/network/ipspaces/84f4beb2-616c-11e8-a4df-005056b4c971"
-                    }
-                },
-                "name": "Default",
-            },
+            "destination": {"netmask": "0", "family": "ipv4", "address": "0.0.0.0"},
             "_links": {
                 "self": {
                     "href": "/api/network/ip/routes/8cc72bcd-616c-11e8-a4df-005056b4c971"
                 }
             },
-            "destination": {"address": "0.0.0.0", "netmask": "0", "family": "ipv4"},
-        }
-    ),
-    NetworkRoute(
-        {
-            "gateway": "fd20:8b1e:b255:814e::1",
-            "scope": "svm",
-            "svm": {
-                "uuid": "3243312c-62f8-11e8-853d-005056b4c971",
-                "name": "vs1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/3243312c-62f8-11e8-853d-005056b4c971"
-                    }
-                },
-            },
-            "uuid": "d63b6eee-62f9-11e8-853d-005056b4c971",
+            "gateway": "10.224.64.1",
+            "uuid": "8cc72bcd-616c-11e8-a4df-005056b4c971",
             "ipspace": {
-                "uuid": "84f4beb2-616c-11e8-a4df-005056b4c971",
                 "_links": {
                     "self": {
                         "href": "/api/network/ipspaces/84f4beb2-616c-11e8-a4df-005056b4c971"
                     }
                 },
                 "name": "Default",
+                "uuid": "84f4beb2-616c-11e8-a4df-005056b4c971",
+            },
+            "scope": "cluster",
+        }
+    ),
+    NetworkRoute(
+        {
+            "destination": {
+                "netmask": "64",
+                "family": "ipv6",
+                "address": "fd20:8b1e:b255:814e::",
             },
             "_links": {
                 "self": {
                     "href": "/api/network/ip/routes/d63b6eee-62f9-11e8-853d-005056b4c971"
                 }
             },
-            "destination": {
-                "address": "fd20:8b1e:b255:814e::",
-                "netmask": "64",
-                "family": "ipv6",
+            "gateway": "fd20:8b1e:b255:814e::1",
+            "uuid": "d63b6eee-62f9-11e8-853d-005056b4c971",
+            "ipspace": {
+                "_links": {
+                    "self": {
+                        "href": "/api/network/ipspaces/84f4beb2-616c-11e8-a4df-005056b4c971"
+                    }
+                },
+                "name": "Default",
+                "uuid": "84f4beb2-616c-11e8-a4df-005056b4c971",
+            },
+            "scope": "svm",
+            "svm": {
+                "name": "vs1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/3243312c-62f8-11e8-853d-005056b4c971"
+                    }
+                },
+                "uuid": "3243312c-62f8-11e8-853d-005056b4c971",
             },
         }
     ),
@@ -167,24 +167,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NetworkRoute(
     {
+        "destination": {"netmask": "0", "family": "ipv6", "address": "::"},
+        "_links": {
+            "self": {
+                "href": "/api/network/ip/routes/84c128d2-62f9-11e8-853d-005056b4c971"
+            }
+        },
         "gateway": "fd20:8b1e:b255:814e::1",
-        "scope": "cluster",
         "uuid": "84c128d2-62f9-11e8-853d-005056b4c971",
         "ipspace": {
-            "uuid": "cc71aadc-62f7-11e8-853d-005056b4c971",
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/cc71aadc-62f7-11e8-853d-005056b4c971"
                 }
             },
             "name": "ips1",
+            "uuid": "cc71aadc-62f7-11e8-853d-005056b4c971",
         },
-        "_links": {
-            "self": {
-                "href": "/api/network/ip/routes/84c128d2-62f9-11e8-853d-005056b4c971"
-            }
-        },
-        "destination": {"address": "::", "netmask": "0", "family": "ipv6"},
+        "scope": "cluster",
     }
 )
 
@@ -214,34 +214,34 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NetworkRoute(
     {
-        "gateway": "fd20:8b1e:b255:814e::1",
-        "scope": "svm",
-        "svm": {
-            "uuid": "3243312c-62f8-11e8-853d-005056b4c971",
-            "name": "vs1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/3243312c-62f8-11e8-853d-005056b4c971"}
-            },
-        },
-        "uuid": "d63b6eee-62f9-11e8-853d-005056b4c971",
-        "ipspace": {
-            "uuid": "84f4beb2-616c-11e8-a4df-005056b4c971",
-            "_links": {
-                "self": {
-                    "href": "/api/network/ipspaces/84f4beb2-616c-11e8-a4df-005056b4c971"
-                }
-            },
-            "name": "Default",
+        "destination": {
+            "netmask": "64",
+            "family": "ipv6",
+            "address": "fd20:8b1e:b255:814e::",
         },
         "_links": {
             "self": {
                 "href": "/api/network/ip/routes/d63b6eee-62f9-11e8-853d-005056b4c971"
             }
         },
-        "destination": {
-            "address": "fd20:8b1e:b255:814e::",
-            "netmask": "64",
-            "family": "ipv6",
+        "gateway": "fd20:8b1e:b255:814e::1",
+        "uuid": "d63b6eee-62f9-11e8-853d-005056b4c971",
+        "ipspace": {
+            "_links": {
+                "self": {
+                    "href": "/api/network/ipspaces/84f4beb2-616c-11e8-a4df-005056b4c971"
+                }
+            },
+            "name": "Default",
+            "uuid": "84f4beb2-616c-11e8-a4df-005056b4c971",
+        },
+        "scope": "svm",
+        "svm": {
+            "name": "vs1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/3243312c-62f8-11e8-853d-005056b4c971"}
+            },
+            "uuid": "3243312c-62f8-11e8-853d-005056b4c971",
         },
     }
 )
@@ -312,8 +312,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 NetworkRoute(
     {
         "gateway": "10.10.10.1",
-        "svm": {"name": "vs0"},
         "uuid": "38805a91-9ac9-11e8-8bc9-005056bbd531",
+        "svm": {"name": "vs0"},
     }
 )
 
@@ -343,11 +343,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -361,14 +360,23 @@ __pdoc__ = {
     "NetworkRouteSchema.opts": False,
 }
 
-
 class NetworkRouteSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the NetworkRoute object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the network_route."""
 
-    destination = marshmallow_fields.Nested("netapp_ontap.models.ip_info.IpInfoSchema", data_key="destination", unknown=EXCLUDE, allow_none=True)
+    destination = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ip_info", "IpInfoSchema"),
+                data_key="destination",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" IP information"""
 
     gateway = marshmallow_fields.Str(
@@ -379,10 +387,23 @@ class NetworkRouteSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 10.1.1.1"""
 
-    interfaces = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.ip_interface.IpInterfaceSchema", unknown=EXCLUDE, allow_none=True), data_key="interfaces", allow_none=True)
+    interfaces = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.ip_interface", "IpInterfaceSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="interfaces",
+                allow_none=True
+            )
     r""" IP interfaces on the same subnet as the gateway."""
 
-    ipspace = marshmallow_fields.Nested("netapp_ontap.resources.ipspace.IpspaceSchema", data_key="ipspace", unknown=EXCLUDE, allow_none=True)
+    ipspace = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.ipspace", "IpspaceSchema"),
+                data_key="ipspace",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The ipspace field of the network_route."""
 
     metric = Size(
@@ -397,7 +418,12 @@ Example: 10.1.1.1"""
     )
     r""" The scope field of the network_route."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the network_route."""
 
     uuid = marshmallow_fields.Str(

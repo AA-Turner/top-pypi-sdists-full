@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any, Optional, Union
 
-from ._common import Action, NonParsingAction, is_not_subclass_type, is_subclass, parser_context, parsing_defaults
+from ._common import Action, NonParsingAction, is_subclass, is_subclasses_disabled, parser_context, parsing_defaults
 from ._loaders_dumpers import get_loader_exceptions, load_value
 from ._namespace import Namespace, NSKeyError, split_key, split_key_root
 from ._optionals import _get_config_read_mode, ruamel_support
@@ -365,13 +365,13 @@ class _ActionHelpClassPath(NonParsingAction):
         self._typehint = kwargs.pop("_typehint")
         self._help_types = self.get_help_types(self._typehint)
         assert self._help_types and all(isinstance(b, type) for b in self._help_types)
-        self._not_subclass = len(self._help_types) == 1 and is_not_subclass_type(self._help_types[0])
+        self._single_class = len(self._help_types) == 1 and is_subclasses_disabled(self._help_types[0])
         self._basename = iter_to_set_str(t.__name__ for t in self._help_types)
 
         if len(self._help_types) == 1:
-            kwargs["nargs"] = 0 if self._not_subclass else "?"
+            kwargs["nargs"] = 0 if self._single_class else "?"
 
-        if self._not_subclass:
+        if self._single_class:
             msg = ""
         else:
             kwargs["metavar"] = "CLASS_PATH_OR_NAME"
@@ -442,7 +442,7 @@ class ActionFail(Action):
         """Initializer for ActionFail instance.
 
         Args:
-            message: Text for the error to show. Use `%(option)s`/`%(value)s` to include the option and/or value.
+            message: Text for the error to show. Use ``%(option)s``/``%(value)s`` to include the option and/or value.
         """
         if len(kwargs) == 0:
             self._message = message
@@ -464,7 +464,7 @@ class ActionFail(Action):
 
 
 class ActionYesNo(Action):
-    """Paired options --[yes_prefix]opt, --[no_prefix]opt to set True or False respectively."""
+    """Paired options ``--[yes_prefix]opt``, ``--[no_prefix]opt`` to set ``True`` or ``False`` respectively."""
 
     def __init__(self, yes_prefix: str = "", no_prefix: str = "no_", **kwargs):
         """Initializer for ActionYesNo instance.
@@ -547,12 +547,12 @@ class ActionParser:
 
     def __init__(
         self,
-        parser: Optional[ArgumentParser] = None,
+        parser: ArgumentParser,
     ):
         """Initializer for ActionParser instance.
 
         Args:
-            parser (Optional[ArgumentParser]): A parser to parse the option with.
+            parser: A parser to parse the option with.
 
         Raises:
             ValueError: If the parser parameter is invalid.
@@ -643,7 +643,7 @@ class _ActionSubCommands(_SubParsersAction):
         raise NotImplementedError("In jsonargparse subcommands are added using the add_subcommand method.")
 
     def add_subcommand(self, name, parser, **kwargs):
-        """Adds a parser as a sub-command parser.
+        """Adds a parser as a subcommand parser.
 
         In contrast to `argparse.ArgumentParser.add_subparsers
         <https://docs.python.org/3/library/argparse.html#argparse.ArgumentParser.add_subparsers>`_
@@ -680,7 +680,7 @@ class _ActionSubCommands(_SubParsersAction):
         return parser
 
     def __call__(self, parser, namespace, values, option_string=None):
-        """Adds sub-command dest and parses sub-command arguments."""
+        """Adds subcommand dest and parses subcommand arguments."""
         subcommand = values[0]
         arg_strings = values[1:]
 

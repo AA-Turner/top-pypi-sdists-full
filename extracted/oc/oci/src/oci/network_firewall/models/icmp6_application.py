@@ -34,6 +34,10 @@ class Icmp6Application(Application):
             The value to assign to the parent_resource_id property of this Icmp6Application.
         :type parent_resource_id: str
 
+        :param description:
+            The value to assign to the description property of this Icmp6Application.
+        :type description: str
+
         :param icmp_type:
             The value to assign to the icmp_type property of this Icmp6Application.
         :type icmp_type: int
@@ -47,6 +51,7 @@ class Icmp6Application(Application):
             'type': 'str',
             'name': 'str',
             'parent_resource_id': 'str',
+            'description': 'str',
             'icmp_type': 'int',
             'icmp_code': 'int'
         }
@@ -54,12 +59,14 @@ class Icmp6Application(Application):
             'type': 'type',
             'name': 'name',
             'parent_resource_id': 'parentResourceId',
+            'description': 'description',
             'icmp_type': 'icmpType',
             'icmp_code': 'icmpCode'
         }
         self._type = None
         self._name = None
         self._parent_resource_id = None
+        self._description = None
         self._icmp_type = None
         self._icmp_code = None
         self._type = 'ICMP_V6'

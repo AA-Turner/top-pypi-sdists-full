@@ -5,18 +5,18 @@
 # but it is not part of the install-requires.
 requires = [
     'setuptools >= 77.0.0',
-    'passagemath-conf ~= 10.6.47.0 ; sys_platform != "win32"',
-    'passagemath-setup ~= 10.6.47.0',
+    'passagemath-conf ~= 10.6.48.0 ; sys_platform != "win32"',
+    'passagemath-setup ~= 10.6.48.0',
     'jinja2',
     'pkgconfig',
-    'passagemath-environment ~= 10.6.47.0',
-    'passagemath-categories ~= 10.6.47.0',
+    'passagemath-environment ~= 10.6.48.0',
+    'passagemath-categories ~= 10.6.48.0',
     'mpmath >=1.1.0, <1.4',
     'cython >=3.0.8, <3.3.0', 'cython >=3.0.8,<3.3.0',
     'gmpy2 ~=2.1.b999',
     'numpy >=1.19', 'numpy >=1.22.4',
     'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
-    'memory_allocator',
+    'memory_allocator <0.2',
 ]
 build-backend = "setuptools.build_meta"
 
@@ -26,9 +26,9 @@ description = "passagemath: Vectors, matrices, tensors, vector spaces, affine sp
 dependencies = [
     'gmpy2 ~=2.1.b999',
     'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
-    'memory_allocator',
-    'passagemath-categories ~= 10.6.47.0',
-    'passagemath-environment ~= 10.6.47.0',
+    'memory_allocator <0.2',
+    'passagemath-categories ~= 10.6.48.0',
+    'passagemath-environment ~= 10.6.48.0',
     'mpmath >=1.1.0, <1.4',
 ]
 dynamic = ["version"]
@@ -79,7 +79,7 @@ flint   = ["passagemath-flint"]
 fpylll  = ['fpylll >=0.5.9',]
 gsl     = []  # No extra needed
 linbox  = ["passagemath-linbox"]
-m4ri    = ['passagemath-m4ri-m4rie ~= 10.6.47.0',]
+m4ri    = ['passagemath-m4ri-m4rie ~= 10.6.48.0',]
 m4rie   = ["passagemath-modules[m4ri,pari]"]
 meataxe = ["passagemath-meataxe"]
 mpfi    = ["passagemath-modules[flint]"]

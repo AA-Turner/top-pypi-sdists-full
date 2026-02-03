@@ -7,10 +7,15 @@ from collections.abc import Generator, Mapping
 from typing import TYPE_CHECKING
 
 import contrast_agent_lib
-from contrast_fireball import OtelAttributes
+from contrast_fireball import (
+    AttackInputType,
+    OtelAttributes,
+)
 
 from contrast.agent import scope
-from contrast.agent.agent_lib.input_tracing import evaluate_input_by_type
+from contrast.agent.agent_lib.input_tracing import (
+    evaluate_input_by_type,
+)
 from contrast.agent.policy.handlers import EventDict, EventHandler
 from contrast.agent.protect.input_analysis import agentlib_rules_mask
 from contrast.agent.settings import Settings
@@ -179,6 +184,12 @@ def protect_handler_builder(event_dict: EventDict) -> EventHandler:
         logger.debug(
             "Analyzing GraphQL values", values=value_collector.values_to_analyze
         )
+
+        # remove json document value for "query". If we got this far, we must have
+        # parsed the query successfully, so we should be able to safely remove this
+        # input analysis result.
+        _filter_previous_input_analysis_results(context)
+
         for path, value in value_collector.values_to_analyze:
             context.user_input_analysis.extend(
                 evaluate_input_by_type(
@@ -191,3 +202,42 @@ def protect_handler_builder(event_dict: EventDict) -> EventHandler:
             )
 
     return protect_handler
+
+
+GRAPHQL_QUERY_JSON_DOCUMENT_PATH = "$['query']"
+"""
+A graphql query sent in an HTTP request body with JSON encoding should be located under
+a top-level key named "query". The current spec on this is here:
+
+https://graphql.github.io/graphql-over-http/draft/#sec-JSON-Encoding
+
+NOTE: if this is ever modified to contain uppercase characters, references to it likely
+require an update too.
+"""
+
+
+def _filter_previous_input_analysis_results(context: RequestContext) -> None:
+    """
+    Input analysis for graphql queries occurs independently from the general input
+    analysis we perform on every request. If we are able to run graphql-specific input
+    analysis, we no longer need the less-specific results from generic input analysis.
+
+    This function discards results from previous input analysis for the raw graphql
+    query. We look specifically for JSON values whose document patch matches the
+    expected location of the raw graphql query. This is essentially a best-effort to
+    remove duplicate input analysis results.
+    """
+    for index, result in enumerate(context.user_input_analysis):
+        if (
+            result.input.input_type == AttackInputType.JSON_VALUE
+            and result.input.document_path is not None
+            # lower() _shouldn't_ be needed, but adds a bit of a safety net
+            and result.input.document_path.lower() == GRAPHQL_QUERY_JSON_DOCUMENT_PATH
+        ):
+            logger.debug(
+                "Filtering out JSON GraphQL query input analysis result",
+                value=result.input.value[:100] + "..."
+                if result.input.value and len(result.input.value) > 100
+                else result.input.value,
+            )
+            context.user_input_analysis.pop(index)

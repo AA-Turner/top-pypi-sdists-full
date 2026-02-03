@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,52 +26,56 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3Service(
         {
-            "min_lock_retention_period": "none",
-            "svm": {"uuid": "cf90b8f2-8071-11e9-8190-0050568eae21", "name": "vs2"},
-            "comment": "S3 server",
-            "max_lock_retention_period": "none",
             "name": "vs1",
+            "min_lock_retention_period": "none",
+            "max_lock_retention_period": "none",
             "enabled": False,
+            "comment": "S3 server",
+            "svm": {"name": "vs2", "uuid": "cf90b8f2-8071-11e9-8190-0050568eae21"},
         }
     ),
     S3Service(
         {
-            "min_lock_retention_period": "none",
-            "svm": {"uuid": "d7f1219c-7f8e-11e9-9124-0050568eae21", "name": "vs1"},
-            "comment": "S3 server",
             "buckets": [
                 {
-                    "uuid": "e08665af-8114-11e9-8190-0050568eae21",
-                    "comment": "s3 bucket",
                     "volume": {
-                        "uuid": "de146bff-8114-11e9-8190-0050568eae21",
                         "name": "fg_oss_1559026220",
+                        "uuid": "de146bff-8114-11e9-8190-0050568eae21",
                     },
                     "name": "bucket-1",
-                    "encryption": {"enabled": False},
+                    "size": 107374182400,
                     "logical_used_size": 157286400,
-                    "size": 209715200,
+                    "comment": "s3 bucket",
+                    "uuid": "e08665af-8114-11e9-8190-0050568eae21",
+                    "encryption": {"enabled": False},
                 },
                 {
-                    "uuid": "fb1912ef-8114-11e9-8190-0050568eae21",
-                    "comment": "s3 bucket",
                     "volume": {
-                        "uuid": "f9b1cdd0-8114-11e9-8190-0050568eae21",
                         "name": "fg_oss_1559026269",
+                        "uuid": "f9b1cdd0-8114-11e9-8190-0050568eae21",
                     },
                     "name": "bucket-2",
-                    "encryption": {"enabled": False},
+                    "size": 107374182400,
                     "logical_used_size": 78643200,
-                    "size": 1048576000,
+                    "comment": "s3 bucket",
+                    "uuid": "fb1912ef-8114-11e9-8190-0050568eae21",
+                    "encryption": {"enabled": False},
                 },
             ],
-            "users": [
-                {"comment": "S3 user", "access_key": "(token)", "name": "user-1"},
-                {"comment": "", "access_key": "(token)", "name": "user-2"},
-            ],
-            "max_lock_retention_period": "none",
             "name": "Server-1",
+            "min_lock_retention_period": "none",
+            "max_lock_retention_period": "none",
+            "users": [
+                {
+                    "access_key": "<AWS-ACCESS-KEY-ID>",
+                    "name": "user-1",
+                    "comment": "S3 user",
+                },
+                {"access_key": "<AWS-ACCESS-KEY-ID>", "name": "user-2", "comment": ""},
+            ],
             "enabled": True,
+            "comment": "S3 server",
+            "svm": {"name": "vs1", "uuid": "d7f1219c-7f8e-11e9-9124-0050568eae21"},
         }
     ),
 ]
@@ -98,75 +102,79 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Service(
     {
-        "min_lock_retention_period": "none",
-        "svm": {"uuid": "d7f1219c-7f8e-11e9-9124-0050568eae21", "name": "vs1"},
-        "comment": "S3 server",
         "buckets": [
             {
-                "uuid": "e08665af-8114-11e9-8190-0050568eae21",
-                "comment": "s3 bucket",
-                "cors": {
-                    "rules": [
-                        {
-                            "id": "string",
-                            "allowed_origins": ["http://www.example.com"],
-                            "allowed_headers": ["x-amz-request-id"],
-                            "max_age_seconds": 1024,
-                            "allowed_methods": ["PUT", "DELETE"],
-                            "expose_headers": ["http://www.example.com"],
-                        }
-                    ]
-                },
                 "volume": {
-                    "uuid": "de146bff-8114-11e9-8190-0050568eae21",
                     "name": "fg_oss_1559026220",
+                    "uuid": "de146bff-8114-11e9-8190-0050568eae21",
                 },
                 "name": "bucket-1",
-                "encryption": {"enabled": False},
+                "size": 107374182400,
                 "policy": {
                     "statements": [
                         {
                             "effect": "deny",
-                            "sid": "DenyAccessToGetPutDeleteObjectForMike",
-                            "actions": ["*Object"],
                             "resources": [
                                 "bucket-1/policy-docs/*",
                                 "bucket-1/confidential-*",
                             ],
+                            "actions": ["*Object"],
                             "principals": ["mike"],
+                            "sid": "DenyAccessToGetPutDeleteObjectForMike",
                         },
                         {
                             "effect": "allow",
-                            "sid": "AccessToGetObjectForAnonymousUser",
-                            "actions": ["GetObject"],
                             "resources": ["bucket-1/readme"],
+                            "actions": ["GetObject"],
                             "principals": ["*"],
+                            "sid": "AccessToGetObjectForAnonymousUser",
                         },
                     ]
                 },
                 "logical_used_size": 157286400,
-                "size": 209715200,
+                "comment": "s3 bucket",
+                "uuid": "e08665af-8114-11e9-8190-0050568eae21",
+                "encryption": {"enabled": False},
+                "cors": {
+                    "rules": [
+                        {
+                            "allowed_methods": ["PUT", "DELETE"],
+                            "max_age_seconds": 1024,
+                            "allowed_headers": ["x-amz-request-id"],
+                            "id": "string",
+                            "allowed_origins": ["http://www.example.com"],
+                            "expose_headers": ["http://www.example.com"],
+                        }
+                    ]
+                },
             },
             {
-                "uuid": "fb1912ef-8114-11e9-8190-0050568eae21",
-                "comment": "s3 bucket",
                 "volume": {
-                    "uuid": "f9b1cdd0-8114-11e9-8190-0050568eae21",
                     "name": "fg_oss_1559026269",
+                    "uuid": "f9b1cdd0-8114-11e9-8190-0050568eae21",
                 },
                 "name": "bucket-2",
-                "encryption": {"enabled": False},
+                "size": 107374182400,
                 "logical_used_size": 1075838976,
-                "size": 1677721600,
+                "comment": "s3 bucket",
+                "uuid": "fb1912ef-8114-11e9-8190-0050568eae21",
+                "encryption": {"enabled": False},
             },
         ],
-        "users": [
-            {"comment": "s3 user", "access_key": "(token)", "name": "user-1"},
-            {"comment": "", "access_key": "(token)", "name": "user-2"},
-        ],
-        "max_lock_retention_period": "none",
         "name": "Server-1",
+        "min_lock_retention_period": "none",
+        "max_lock_retention_period": "none",
+        "users": [
+            {
+                "access_key": "<AWS-ACCESS-KEY-ID>",
+                "name": "user-1",
+                "comment": "s3 user",
+            },
+            {"access_key": "<AWS-ACCESS-KEY-ID>", "name": "user-2", "comment": ""},
+        ],
         "enabled": True,
+        "comment": "S3 server",
+        "svm": {"name": "vs1", "uuid": "d7f1219c-7f8e-11e9-9124-0050568eae21"},
     }
 )
 
@@ -199,14 +207,14 @@ S3Service(
     {
         "users": [
             {
-                "access_key": "(token)",
-                "secret_key": "<secret_key_here>",
+                "access_key": "<AWS-ACCESS-KEY-ID>",
                 "name": "user-1",
+                "secret_key": "<AWS-SECRET-ACCESS-KEY>",
             },
             {
-                "access_key": "(token)",
-                "secret_key": "<secret_key_here>",
+                "access_key": "<AWS-ACCESS-KEY-ID>",
                 "name": "user-2",
+                "secret_key": "<AWS-SECRET-ACCESS-KEY>",
             },
         ],
         "_links": {"self": {"href": "/api/protocols/s3/services/"}},
@@ -231,7 +239,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
             ],
             "constituents_per_aggregate": 4,
             "name": "bucket-1",
-            "size": "209715200",
+            "size": "107374182400",
             "policy": {
                 "statements": [
                     {
@@ -276,14 +284,14 @@ S3Service(
     {
         "users": [
             {
-                "access_key": "(token)",
-                "secret_key": "<secret_key_here>",
+                "access_key": "<AWS-ACCESS-KEY-ID>",
                 "name": "user-1",
+                "secret_key": "<AWS-SECRET-ACCESS-KEY>",
             },
             {
-                "access_key": "(token)",
-                "secret_key": "<secret_key_here>",
+                "access_key": "<AWS-ACCESS-KEY-ID>",
                 "name": "user-2",
+                "secret_key": "<AWS-SECRET-ACCESS-KEY>",
             },
         ],
         "_links": {"self": {"href": "/api/protocols/s3/services/"}},
@@ -294,17 +302,35 @@ S3Service(
 </div>
 </div>
 
-### Creating an S3 server configuration
+### Creating an S3 server configuration (HTTPS)
 ```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import S3Service
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
     resource = S3Service()
-    resource.comment = "S3 server"
+    resource.comment = "http S3 server"
     resource.enabled = True
     resource.name = "Server-1"
     resource.svm = {"name": "vs1", "uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9"}
+    resource.is_https_enabled = False
+    resource.post(hydrate=True)
+    print(resource)
+
+```
+
+### Creating an S3 server configuration (HTTP)
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import S3Service
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = S3Service()
+    resource.comment = "https S3 server"
+    resource.enabled = True
+    resource.name = "Server-1"
+    resource.svm = {"name": "vs1", "uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9"}
+    resource.certificate = {"uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9"}
     resource.post(hydrate=True)
     print(resource)
 
@@ -349,11 +375,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -367,17 +392,34 @@ __pdoc__ = {
     "S3ServiceSchema.opts": False,
 }
 
-
 class S3ServiceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the S3Service object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the s3_service."""
 
-    buckets = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.s3_bucket.S3BucketSchema", unknown=EXCLUDE, allow_none=True), data_key="buckets", allow_none=True)
+    buckets = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.s3_bucket", "S3BucketSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="buckets",
+                allow_none=True
+            )
     r""" This field cannot be specified in a PATCH method."""
 
-    certificate = marshmallow_fields.Nested("netapp_ontap.resources.security_certificate.SecurityCertificateSchema", data_key="certificate", unknown=EXCLUDE, allow_none=True)
+    certificate = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.security_certificate", "SecurityCertificateSchema"),
+                data_key="certificate",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The certificate field of the s3_service."""
 
     comment = marshmallow_fields.Str(
@@ -439,7 +481,12 @@ Example: PT6H3M"""
 
 Example: P10Y"""
 
-    metric = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_svm.PerformanceMetricSvmSchema", data_key="metric", unknown=EXCLUDE, allow_none=True)
+    metric = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_svm", "PerformanceMetricSvmSchema"),
+                data_key="metric",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The metric field of the s3_service."""
 
     min_lock_retention_period = marshmallow_fields.Str(
@@ -477,13 +524,31 @@ Example: 80"""
 
 Example: 443"""
 
-    statistics = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_raw_svm.PerformanceMetricRawSvmSchema", data_key="statistics", unknown=EXCLUDE, allow_none=True)
+    statistics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_raw_svm", "PerformanceMetricRawSvmSchema"),
+                data_key="statistics",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The statistics field of the s3_service."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the s3_service."""
 
-    users = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.s3_user.S3UserSchema", unknown=EXCLUDE, allow_none=True), data_key="users", allow_none=True)
+    users = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.s3_user", "S3UserSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="users",
+                allow_none=True
+            )
     r""" This field cannot be specified in a PATCH method."""
 
     @property
@@ -664,6 +729,7 @@ There is an added computational cost to retrieving values for these properties. 
         r"""Creates an S3 server, users, and buckets configurations.
 ### Important notes
 - Each SVM can have one S3 server configuration.
+- By default, HTTPS is enabled on the S3 server, so a valid certificate must be provided when creating a S3 Server for the SVM.
 - One or more buckets and users can also be created using this end-point.
 - If creating a user configuration fails, buckets are not created either and already created users are not saved.
 - If creating a bucket configuration fails, all buckets already created are saved with no new buckets created.
@@ -675,6 +741,7 @@ There is an added computational cost to retrieving values for these properties. 
 ### Default property values
 * `comment` - ""
 * `enabled` - _true_
+* `is_https_enabled` - _true_
 ### Related ONTAP commands
 * `vserver object-store-server create`
 * `vserver object-store-server bucket create`
@@ -755,6 +822,7 @@ There is an added computational cost to retrieving values for these properties. 
         r"""Creates an S3 server, users, and buckets configurations.
 ### Important notes
 - Each SVM can have one S3 server configuration.
+- By default, HTTPS is enabled on the S3 server, so a valid certificate must be provided when creating a S3 Server for the SVM.
 - One or more buckets and users can also be created using this end-point.
 - If creating a user configuration fails, buckets are not created either and already created users are not saved.
 - If creating a bucket configuration fails, all buckets already created are saved with no new buckets created.
@@ -766,6 +834,7 @@ There is an added computational cost to retrieving values for these properties. 
 ### Default property values
 * `comment` - ""
 * `enabled` - _true_
+* `is_https_enabled` - _true_
 ### Related ONTAP commands
 * `vserver object-store-server create`
 * `vserver object-store-server bucket create`

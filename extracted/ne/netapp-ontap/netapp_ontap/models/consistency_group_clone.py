@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ConsistencyGroupClone", "ConsistencyGroupCloneSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "ConsistencyGroupClone": False,
 }
 
-
 class ConsistencyGroupCloneSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ConsistencyGroupClone object"""
 
-    guarantee = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_clone1_guarantee.ConsistencyGroupClone1GuaranteeSchema", unknown=EXCLUDE, data_key="guarantee", allow_none=True)
+    guarantee = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_clone1_guarantee", "ConsistencyGroupClone1GuaranteeSchema"),
+                unknown=EXCLUDE,
+                data_key="guarantee",
+                allow_none=True
+            )
     r""" The guarantee field of the consistency_group_clone. """
 
     has_unsplit_flexclones = marshmallow_fields.Boolean(data_key="has_unsplit_flexclones", allow_none=True)
@@ -30,13 +33,28 @@ class ConsistencyGroupCloneSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     is_flexclone = marshmallow_fields.Boolean(data_key="is_flexclone", allow_none=True)
     r""" Specifies if this consistency group is a FlexClone of a consistency group. """
 
-    parent_consistency_group = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_clone1_parent_consistency_group.ConsistencyGroupClone1ParentConsistencyGroupSchema", unknown=EXCLUDE, data_key="parent_consistency_group", allow_none=True)
+    parent_consistency_group = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_clone1_parent_consistency_group", "ConsistencyGroupClone1ParentConsistencyGroupSchema"),
+                unknown=EXCLUDE,
+                data_key="parent_consistency_group",
+                allow_none=True
+            )
     r""" The parent_consistency_group field of the consistency_group_clone. """
 
-    parent_snapshot = marshmallow_fields.Nested("netapp_ontap.resources.snapshot.SnapshotSchema", unknown=EXCLUDE, data_key="parent_snapshot", allow_none=True)
+    parent_snapshot = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.snapshot", "SnapshotSchema"),
+                unknown=EXCLUDE,
+                data_key="parent_snapshot",
+                allow_none=True
+            )
     r""" The parent_snapshot field of the consistency_group_clone. """
 
-    parent_svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", unknown=EXCLUDE, data_key="parent_svm", allow_none=True)
+    parent_svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                unknown=EXCLUDE,
+                data_key="parent_svm",
+                allow_none=True
+            )
     r""" The parent_svm field of the consistency_group_clone. """
 
     snaplock_type = marshmallow_fields.Str(data_key="snaplock_type", allow_none=True)
@@ -57,13 +75,23 @@ Valid choices:
     split_initiated = marshmallow_fields.Boolean(data_key="split_initiated", allow_none=True)
     r""" Splits volumes after cloning. Defaults to false during POST. Only accepts true during a PATCH. """
 
-    storage_unit = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_clone1_storage_unit.ConsistencyGroupClone1StorageUnitSchema", unknown=EXCLUDE, data_key="storage_unit", allow_none=True)
+    storage_unit = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_clone1_storage_unit", "ConsistencyGroupClone1StorageUnitSchema"),
+                unknown=EXCLUDE,
+                data_key="storage_unit",
+                allow_none=True
+            )
     r""" The storage_unit field of the consistency_group_clone. """
 
     unsplit_flexclones = marshmallow_fields.List(marshmallow_fields.Str, data_key="unsplit_flexclones", allow_none=True)
     r""" A list of unsplit FlexClone storage units in the consistency group. """
 
-    volume = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_clone1_volume.ConsistencyGroupClone1VolumeSchema", unknown=EXCLUDE, data_key="volume", allow_none=True)
+    volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_clone1_volume", "ConsistencyGroupClone1VolumeSchema"),
+                unknown=EXCLUDE,
+                data_key="volume",
+                allow_none=True
+            )
     r""" The volume field of the consistency_group_clone. """
 
     @property

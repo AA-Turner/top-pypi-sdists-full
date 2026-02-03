@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["Rfc2307bis", "Rfc2307bisSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "Rfc2307bisSchema.opts": False,
     "Rfc2307bis": False,
 }
-
 
 class Rfc2307bisSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Rfc2307bis object"""

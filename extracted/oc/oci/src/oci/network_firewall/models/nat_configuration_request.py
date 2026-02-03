@@ -12,7 +12,9 @@ from oci.decorators import init_model_state_from_kwargs
 @init_model_state_from_kwargs
 class NatConfigurationRequest(object):
     """
-    Nat Configuration request to use Nat feature on firewall.
+    Request to configure Network Address Translation (NAT) on a firewall.
+
+    To perform NAT on traffic passing the private NAT IPs to the firewall, the attached network firewall policy must also have NAT rules and NAT configuration must be enabled. If NAT configuration is enabled and the attached firewall policy does not contain NAT rule then NAT IPs will get allocated but NAT will not be performed on any traffic.
     """
 
     def __init__(self, **kwargs):
@@ -37,7 +39,9 @@ class NatConfigurationRequest(object):
     def must_enable_private_nat(self):
         """
         **[Required]** Gets the must_enable_private_nat of this NatConfigurationRequest.
-        To allocate private NAT IPs to the firewall. The attached network firewall policy must also have NAT rules to enable NAT on any traffic passing through the firewall. The value of this field can not be false to release the NAT IPs given that the attached network firewall policy does not contains any NAT rules. The value of this field should be set to true if the network firewall policy being applied contains NAT rules.
+        The value of this field must be set to true if the network firewall policy being applied contains NAT rules.
+
+        The value of this field can be set to false if the network firewall policy being applied or the currently attached firewall policy doesn't contain NAT rules.
 
 
         :return: The must_enable_private_nat of this NatConfigurationRequest.
@@ -49,7 +53,9 @@ class NatConfigurationRequest(object):
     def must_enable_private_nat(self, must_enable_private_nat):
         """
         Sets the must_enable_private_nat of this NatConfigurationRequest.
-        To allocate private NAT IPs to the firewall. The attached network firewall policy must also have NAT rules to enable NAT on any traffic passing through the firewall. The value of this field can not be false to release the NAT IPs given that the attached network firewall policy does not contains any NAT rules. The value of this field should be set to true if the network firewall policy being applied contains NAT rules.
+        The value of this field must be set to true if the network firewall policy being applied contains NAT rules.
+
+        The value of this field can be set to false if the network firewall policy being applied or the currently attached firewall policy doesn't contain NAT rules.
 
 
         :param must_enable_private_nat: The must_enable_private_nat of this NatConfigurationRequest.

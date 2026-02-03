@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,27 +28,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LocalCifsUser(
         {
-            "membership": [{"sid": "S-1-5-32-544", "name": "BUILTIN\\Administrators"}],
             "full_name": "",
-            "sid": "S-1-5-21-256008430-3394229847-3930036330-500",
-            "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
-            "description": "Built-in administrator account",
-            "account_disabled": False,
             "name": "CIFS_SERVER1\\Administrator",
+            "account_disabled": False,
+            "sid": "S-1-5-21-256008430-3394229847-3930036330-500",
+            "description": "Built-in administrator account",
+            "membership": [{"sid": "S-1-5-32-544", "name": "BUILTIN\\Administrators"}],
+            "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
         }
     ),
     LocalCifsUser(
         {
             "full_name": "local user1",
-            "sid": "S-1-5-21-256008430-3394229847-3930036330-1001",
-            "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
-            "description": "This is CIFS local user",
-            "account_disabled": False,
             "name": "CIFS_SERVER1\\user1",
+            "account_disabled": False,
+            "sid": "S-1-5-21-256008430-3394229847-3930036330-1001",
+            "description": "This is CIFS local user",
+            "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
         }
     ),
     LocalCifsUser(
         {
+            "full_name": "local user2",
+            "name": "CIFS_SERVER1\\user2",
+            "account_disabled": False,
+            "sid": "S-1-5-21-256008430-3394229847-3930036330-1002",
+            "description": "This is CIFS local user",
             "membership": [
                 {
                     "sid": "S-1-5-21-256008430-3394229847-3930036330-1001",
@@ -59,33 +64,28 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "name": "CIFS_SERVER1\\grp2",
                 },
             ],
-            "full_name": "local user2",
-            "sid": "S-1-5-21-256008430-3394229847-3930036330-1002",
-            "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
-            "description": "This is CIFS local user",
-            "account_disabled": False,
-            "name": "CIFS_SERVER1\\user2",
+            "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
         }
     ),
     LocalCifsUser(
         {
-            "membership": [{"sid": "S-1-5-32-544", "name": "BUILTIN\\Administrators"}],
             "full_name": "",
-            "sid": "S-1-5-21-1625922807-3304708894-3529444428-500",
-            "svm": {"uuid": "3f479a01-2971-11eb-88e1-0050568eefd4", "name": "vs2"},
-            "description": "Built-in administrator account",
-            "account_disabled": False,
             "name": "CIFS_SERVER2\\Administrator",
+            "account_disabled": False,
+            "sid": "S-1-5-21-1625922807-3304708894-3529444428-500",
+            "description": "Built-in administrator account",
+            "membership": [{"sid": "S-1-5-32-544", "name": "BUILTIN\\Administrators"}],
+            "svm": {"name": "vs2", "uuid": "3f479a01-2971-11eb-88e1-0050568eefd4"},
         }
     ),
     LocalCifsUser(
         {
             "full_name": "local user1",
-            "sid": "S-1-5-21-1625922807-3304708894-3529444428-1001",
-            "svm": {"uuid": "3f479a01-2971-11eb-88e1-0050568eefd4", "name": "vs2"},
-            "description": "This is CIFS local user",
-            "account_disabled": False,
             "name": "CIFS_SERVER2\\user1",
+            "account_disabled": False,
+            "sid": "S-1-5-21-1625922807-3304708894-3529444428-1001",
+            "description": "This is CIFS local user",
+            "svm": {"name": "vs2", "uuid": "3f479a01-2971-11eb-88e1-0050568eefd4"},
         }
     ),
 ]
@@ -119,27 +119,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LocalCifsUser(
         {
-            "membership": [{"sid": "S-1-5-32-544", "name": "BUILTIN\\Administrators"}],
             "full_name": "",
-            "sid": "S-1-5-21-256008430-3394229847-3930036330-500",
-            "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
-            "description": "Built-in administrator account",
-            "account_disabled": False,
             "name": "CIFS_SERVER1\\Administrator",
+            "account_disabled": False,
+            "sid": "S-1-5-21-256008430-3394229847-3930036330-500",
+            "description": "Built-in administrator account",
+            "membership": [{"sid": "S-1-5-32-544", "name": "BUILTIN\\Administrators"}],
+            "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
         }
     ),
     LocalCifsUser(
         {
             "full_name": "local user1",
-            "sid": "S-1-5-21-256008430-3394229847-3930036330-1001",
-            "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
-            "description": "This is CIFS local user",
-            "account_disabled": False,
             "name": "CIFS_SERVER1\\user1",
+            "account_disabled": False,
+            "sid": "S-1-5-21-256008430-3394229847-3930036330-1001",
+            "description": "This is CIFS local user",
+            "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
         }
     ),
     LocalCifsUser(
         {
+            "full_name": "local user2",
+            "name": "CIFS_SERVER1\\user2",
+            "account_disabled": False,
+            "sid": "S-1-5-21-256008430-3394229847-3930036330-1002",
+            "description": "This is CIFS local user",
             "membership": [
                 {
                     "sid": "S-1-5-21-256008430-3394229847-3930036330-1001",
@@ -150,12 +155,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "name": "CIFS_SERVER1\\grp2",
                 },
             ],
-            "full_name": "local user2",
-            "sid": "S-1-5-21-256008430-3394229847-3930036330-1002",
-            "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
-            "description": "This is CIFS local user",
-            "account_disabled": False,
-            "name": "CIFS_SERVER1\\user2",
+            "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
         }
     ),
 ]
@@ -188,11 +188,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 LocalCifsUser(
     {
         "full_name": "local user1",
-        "sid": "S-1-5-21-256008430-3394229847-3930036330-1001",
-        "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
-        "description": "This is CIFS local user",
-        "account_disabled": False,
         "name": "CIFS_SERVER1\\user1",
+        "account_disabled": False,
+        "sid": "S-1-5-21-256008430-3394229847-3930036330-1001",
+        "description": "This is CIFS local user",
+        "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
     }
 )
 
@@ -282,11 +282,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -300,11 +299,15 @@ __pdoc__ = {
     "LocalCifsUserSchema.opts": False,
 }
 
-
 class LocalCifsUserSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LocalCifsUser object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the local_cifs_user."""
 
     account_disabled = marshmallow_fields.Boolean(
@@ -333,7 +336,15 @@ Example: This is local user."""
 
 Example: user name"""
 
-    membership = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.local_user_membership.LocalUserMembershipSchema", unknown=EXCLUDE, allow_none=True), data_key="membership", allow_none=True)
+    membership = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.local_user_membership", "LocalUserMembershipSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="membership",
+                allow_none=True
+            )
     r""" Specifies local groups of which this local user is a member."""
 
     name = marshmallow_fields.Str(
@@ -362,7 +373,12 @@ Example: SMB_SERVER01\user"""
 
 Example: S-1-5-21-256008430-3394229847-3930036330-1001"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the local_cifs_user."""
 
     @property

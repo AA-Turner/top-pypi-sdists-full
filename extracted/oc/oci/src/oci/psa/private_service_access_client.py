@@ -167,7 +167,7 @@ class PrivateServiceAccessClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/psa/cancel_psa_work_request.py.html>`__ to see an example of how to use cancel_psa_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/psa/cancel_psa_work_request.py.html>`__ to see an example of how to use cancel_psa_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -296,7 +296,7 @@ class PrivateServiceAccessClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/psa/change_private_service_access_compartment.py.html>`__ to see an example of how to use change_private_service_access_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/psa/change_private_service_access_compartment.py.html>`__ to see an example of how to use change_private_service_access_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privateServiceAccessId']
@@ -417,7 +417,7 @@ class PrivateServiceAccessClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/psa/create_private_service_access.py.html>`__ to see an example of how to use create_private_service_access API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/psa/create_private_service_access.py.html>`__ to see an example of how to use create_private_service_access API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -526,7 +526,7 @@ class PrivateServiceAccessClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/psa/delete_private_service_access.py.html>`__ to see an example of how to use delete_private_service_access API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/psa/delete_private_service_access.py.html>`__ to see an example of how to use delete_private_service_access API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privateServiceAccessId']
@@ -636,7 +636,7 @@ class PrivateServiceAccessClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/psa/get_private_service_access.py.html>`__ to see an example of how to use get_private_service_access API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/psa/get_private_service_access.py.html>`__ to see an example of how to use get_private_service_access API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privateServiceAccessId']
@@ -746,7 +746,7 @@ class PrivateServiceAccessClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/psa/get_psa_work_request.py.html>`__ to see an example of how to use get_psa_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/psa/get_psa_work_request.py.html>`__ to see an example of how to use get_psa_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -906,7 +906,7 @@ class PrivateServiceAccessClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/psa/list_private_service_accesses.py.html>`__ to see an example of how to use list_private_service_accesses API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/psa/list_private_service_accesses.py.html>`__ to see an example of how to use list_private_service_accesses API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1076,7 +1076,7 @@ class PrivateServiceAccessClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/psa/list_psa_services.py.html>`__ to see an example of how to use list_psa_services API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/psa/list_psa_services.py.html>`__ to see an example of how to use list_psa_services API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1230,7 +1230,7 @@ class PrivateServiceAccessClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/psa/list_psa_work_request_errors.py.html>`__ to see an example of how to use list_psa_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/psa/list_psa_work_request_errors.py.html>`__ to see an example of how to use list_psa_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1392,7 +1392,7 @@ class PrivateServiceAccessClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/psa/list_psa_work_request_logs.py.html>`__ to see an example of how to use list_psa_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/psa/list_psa_work_request_logs.py.html>`__ to see an example of how to use list_psa_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1569,7 +1569,7 @@ class PrivateServiceAccessClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/psa/list_psa_work_requests.py.html>`__ to see an example of how to use list_psa_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/psa/list_psa_work_requests.py.html>`__ to see an example of how to use list_psa_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1719,7 +1719,7 @@ class PrivateServiceAccessClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/psa/update_private_service_access.py.html>`__ to see an example of how to use update_private_service_access API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/psa/update_private_service_access.py.html>`__ to see an example of how to use update_private_service_access API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privateServiceAccessId']

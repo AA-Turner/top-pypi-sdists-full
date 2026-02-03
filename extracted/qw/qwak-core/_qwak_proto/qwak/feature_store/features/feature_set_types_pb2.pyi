@@ -138,6 +138,7 @@ class BatchFeatureSetV1(google.protobuf.message.Message):
     TRANSFORMATION_FIELD_NUMBER: builtins.int
     QWAK_INTERNAL_PROTOCOL_VERSION_FIELD_NUMBER: builtins.int
     REAL_TIME_FEATURE_EXTRACTOR_FIELD_NUMBER: builtins.int
+    DATA_RETENTION_OPTIONS_FIELD_NUMBER: builtins.int
     scheduling_policy: builtins.str
     """Scheduling policy of batch feature set. Can be a cron string format or @annotation: @daily, @monthly, @yearly"""
     @property
@@ -168,6 +169,8 @@ class BatchFeatureSetV1(google.protobuf.message.Message):
     """Qwak featureset version"""
     @property
     def real_time_feature_extractor(self) -> qwak.feature_store.features.real_time_feature_extractor_pb2.RealTimeFeatureExtractor: ...
+    @property
+    def data_retention_options(self) -> global___DataRetentionOptions: ...
     def __init__(
         self,
         *,
@@ -183,12 +186,28 @@ class BatchFeatureSetV1(google.protobuf.message.Message):
         transformation: global___Transformation | None = ...,
         qwak_internal_protocol_version: builtins.int = ...,
         real_time_feature_extractor: qwak.feature_store.features.real_time_feature_extractor_pb2.RealTimeFeatureExtractor | None = ...,
+        data_retention_options: global___DataRetentionOptions | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["backfill", b"backfill", "execution_spec", b"execution_spec", "feature_extractor", b"feature_extractor", "function", b"function", "monitoring_configurations", b"monitoring_configurations", "real_time_feature_extractor", b"real_time_feature_extractor", "transformation", b"transformation"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["backfill", b"backfill", "execution_spec", b"execution_spec", "feature_extractor", b"feature_extractor", "feature_set_batch_sources", b"feature_set_batch_sources", "function", b"function", "monitoring_configurations", b"monitoring_configurations", "offline_sink", b"offline_sink", "online_sink", b"online_sink", "qwak_internal_protocol_version", b"qwak_internal_protocol_version", "real_time_feature_extractor", b"real_time_feature_extractor", "scheduling_policy", b"scheduling_policy", "timestamp_column_name", b"timestamp_column_name", "transformation", b"transformation"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["backfill", b"backfill", "data_retention_options", b"data_retention_options", "execution_spec", b"execution_spec", "feature_extractor", b"feature_extractor", "function", b"function", "monitoring_configurations", b"monitoring_configurations", "real_time_feature_extractor", b"real_time_feature_extractor", "transformation", b"transformation"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["backfill", b"backfill", "data_retention_options", b"data_retention_options", "execution_spec", b"execution_spec", "feature_extractor", b"feature_extractor", "feature_set_batch_sources", b"feature_set_batch_sources", "function", b"function", "monitoring_configurations", b"monitoring_configurations", "offline_sink", b"offline_sink", "online_sink", b"online_sink", "qwak_internal_protocol_version", b"qwak_internal_protocol_version", "real_time_feature_extractor", b"real_time_feature_extractor", "scheduling_policy", b"scheduling_policy", "timestamp_column_name", b"timestamp_column_name", "transformation", b"transformation"]) -> None: ...
     def WhichOneof(self, oneof_group: typing_extensions.Literal["feature_extractor", b"feature_extractor"]) -> typing_extensions.Literal["real_time_feature_extractor"] | None: ...
 
 global___BatchFeatureSetV1 = BatchFeatureSetV1
+
+class DataRetentionOptions(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    ONLINE_TIME_TO_LIVE_SECONDS_FIELD_NUMBER: builtins.int
+    online_time_to_live_seconds: builtins.int
+    """Time to live per entity after event-time in the online store, in seconds."""
+    def __init__(
+        self,
+        *,
+        online_time_to_live_seconds: builtins.int = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["online_time_to_live_seconds", b"online_time_to_live_seconds"]) -> None: ...
+
+global___DataRetentionOptions = DataRetentionOptions
 
 class FeatureSetBatchSource(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

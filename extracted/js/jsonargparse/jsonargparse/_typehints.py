@@ -53,12 +53,13 @@ from ._common import (
     get_unaliased_type,
     is_generic_class,
     is_instance,
-    is_not_subclass_type,
     is_subclass,
+    is_subclasses_disabled,
     lenient_check,
     nested_links,
     parent_parser,
     parser_context,
+    validating_defaults,
 )
 from ._loaders_dumpers import (
     get_loader_exceptions,
@@ -296,6 +297,8 @@ class ActionTypeHint(Action):
             if sub_add_kwargs:
                 help_action.sub_add_kwargs = sub_add_kwargs
         kwargs["action"] = ActionTypeHint(typehint=typehint, enable_path=enable_path, logger=logger)
+        if kwargs.get("choices"):
+            kwargs["type"] = lambda v: adapt_typehints(v, typehint)
         return args
 
     @staticmethod
@@ -311,7 +314,7 @@ class ActionTypeHint(Action):
             or get_typehint_origin(typehint) in root_types
             or get_registered_type(typehint) is not None
             or is_subclass(typehint, Enum)
-            or is_not_subclass_type(typehint)
+            or is_subclasses_disabled(typehint)
             or ActionTypeHint.is_subclass_typehint(typehint)
         )
         if full and supported:
@@ -895,6 +898,8 @@ def adapt_typehints(
             prev_val = prev_val + [None] * (len(val) - len(prev_val) if val_is_list else 1)
         list_path = None
         if enable_path and type(val) is str:
+            if validating_defaults.get():
+                return val
             with suppress(TypeError):
                 from ._optionals import _get_config_read_mode
 
@@ -1061,11 +1066,15 @@ def adapt_typehints(
                     prev_implicit_defaults = True
 
         if isinstance(prev_val, (dict, Namespace)) and "class_path" not in prev_val:
-            # implicit prev_val class_path and init_args
-            prev_val = Namespace(class_path=get_import_path(typehint), init_args=Namespace(prev_val))
+            # implicit prev_val init_args
+            prev_val = Namespace(class_path=None, init_args=Namespace(prev_val))
 
         val_input = val
-        val = subclass_spec_as_namespace(val, prev_val)
+        if isinstance(prev_val, (dict, Namespace)) and prev_val["class_path"] is None:
+            type_class_path = Namespace(class_path=get_import_path(typehint))
+            val = subclass_spec_as_namespace(val, type_class_path)
+        else:
+            val = subclass_spec_as_namespace(val, prev_val)
         if val and not is_subclass_spec(val) and "init_args" not in val:
             # implicit val class_path
             val = Namespace(class_path=get_import_path(typehint), init_args=val)
@@ -1088,15 +1097,15 @@ def adapt_typehints(
                 return val_class  # importable instance
             if is_protocol(val_class):
                 raise_unexpected_value(f"Expected an instantiatable class, but {val['class_path']} is a protocol")
-            not_subclass = False
+            subclass = True
             if not is_subclass_or_implements_protocol(val_class, typehint):
-                not_subclass = True
+                subclass = False
                 if not inspect.isclass(val_class) and callable(val_class):
                     from ._postponed_annotations import get_return_type
 
                     return_type = get_return_type(val_class, logger)
                     if is_subclass_or_implements_protocol(return_type, typehint):
-                        not_subclass = False
+                        subclass = True
             elif prev_implicit_defaults:
                 inner_parser = ActionTypeHint.get_class_parser(typehint, sub_add_kwargs)
                 prev_val.init_args = inner_parser.get_defaults()
@@ -1104,7 +1113,7 @@ def adapt_typehints(
                     inner_parser = ActionTypeHint.get_class_parser(val_class, sub_add_kwargs)
                     for key in inner_parser.get_defaults().keys():
                         prev_val.init_args.pop(key, None)
-            if not_subclass:
+            if not subclass:
                 msg = "implement protocol" if is_protocol(typehint) else "correspond to a subclass of"
                 raise_unexpected_value(f"Import path {val['class_path']} does not {msg} {typehint.__name__}")
             val["class_path"] = class_path
@@ -1267,7 +1276,7 @@ def is_single_class_type(typehint, typehint_origin, closed_class):
     ):
         return False
     if not closed_class:
-        return not is_not_subclass_type(typehint)
+        return not is_subclasses_disabled(typehint)
     return True
 
 
@@ -1513,7 +1522,7 @@ def adapt_class_type(
             namespace=prev_init_args,
             defaults=sub_defaults.get(),
         )
-        return value
+        return _subclasses_disabled_remove_class_path(value, typehint)
 
     if serialize:
         if init_args:
@@ -1539,9 +1548,12 @@ def adapt_class_type(
                     val = load_value(val, simple_types=True)
             value["dict_kwargs"][key] = val
 
-    if is_not_subclass_type(typehint) and value.class_path == get_import_path(typehint):
-        value = Namespace({**value.get("init_args", {}), **value.get("dict_kwargs", {})})
+    return _subclasses_disabled_remove_class_path(value, typehint)
 
+
+def _subclasses_disabled_remove_class_path(value, typehint):
+    if is_subclasses_disabled(typehint) and value.class_path == get_import_path(typehint):
+        value = Namespace({**value.get("init_args", {}), **value.get("dict_kwargs", {})})
     return value
 
 
@@ -1738,7 +1750,7 @@ class LazyInitBaseClass:
 def lazy_instance(class_type: type[ClassType], **kwargs) -> ClassType:
     """Instantiates a lazy instance of the given type.
 
-    By lazy it is meant that the __init__ is delayed unit the first time that a
+    By lazy it is meant that the ``__init__`` is delayed until the first time that a
     method of the instance is called. It also provides a `lazy_get_init_data` method
     useful for serializing.
 

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,28 +28,28 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     VscanScannerPool(
         {
-            "cluster": {
-                "uuid": "3af387d8-6131-11ef-92d9-005056bbd354",
-                "name": "clus1",
-            },
-            "privileged_users": ["cifs\\u1", "cifs\\u2"],
-            "servers": ["1.1.1.1", "10.72.204.27"],
-            "svm": {"uuid": "1ccbefd6-6132-11ef-92d9-005056bbd354", "name": "vs1"},
             "role": "primary",
+            "privileged_users": ["cifs\\u1", "cifs\\u2"],
             "name": "scanner-1",
+            "cluster": {
+                "name": "clus1",
+                "uuid": "3af387d8-6131-11ef-92d9-005056bbd354",
+            },
+            "servers": ["1.1.1.1", "10.72.204.27"],
+            "svm": {"name": "vs1", "uuid": "1ccbefd6-6132-11ef-92d9-005056bbd354"},
         }
     ),
     VscanScannerPool(
         {
-            "cluster": {
-                "uuid": "3af387d8-6131-11ef-92d9-005056bbd354",
-                "name": "clus1",
-            },
-            "privileged_users": ["cifs\\u1", "cifs\\u2"],
-            "servers": ["1.1.1.1", "10.72.204.27"],
-            "svm": {"uuid": "1ccbefd6-6132-11ef-92d9-005056bbd354", "name": "vs1"},
             "role": "secondary",
+            "privileged_users": ["cifs\\u1", "cifs\\u2"],
             "name": "scanner-2",
+            "cluster": {
+                "name": "clus1",
+                "uuid": "3af387d8-6131-11ef-92d9-005056bbd354",
+            },
+            "servers": ["1.1.1.1", "10.72.204.27"],
+            "svm": {"name": "vs1", "uuid": "1ccbefd6-6132-11ef-92d9-005056bbd354"},
         }
     ),
 ]
@@ -81,15 +81,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     VscanScannerPool(
         {
-            "cluster": {
-                "uuid": "0933f9b5-f226-11e8-9601-0050568ecc06",
-                "name": "Cluster3",
-            },
-            "privileged_users": ["cifs\\u1", "cifs\\u2"],
-            "servers": ["1.1.1.1", "10.72.204.27"],
-            "svm": {"uuid": "0e2f7c91-f227-11e8-9601-0050568ecc06", "name": "vs1"},
             "role": "secondary",
+            "privileged_users": ["cifs\\u1", "cifs\\u2"],
             "name": "scanner-2",
+            "cluster": {
+                "name": "Cluster3",
+                "uuid": "0933f9b5-f226-11e8-9601-0050568ecc06",
+            },
+            "servers": ["1.1.1.1", "10.72.204.27"],
+            "svm": {"name": "vs1", "uuid": "0e2f7c91-f227-11e8-9601-0050568ecc06"},
         }
     )
 ]
@@ -118,12 +118,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VscanScannerPool(
     {
-        "cluster": {"uuid": "0933f9b5-f226-11e8-9601-0050568ecc06", "name": "Cluster3"},
-        "privileged_users": ["cifs\\u1", "cifs\\u2"],
-        "servers": ["1.1.1.1", "10.72.204.27"],
-        "svm": {"uuid": "0e2f7c91-f227-11e8-9601-0050568ecc06", "name": "vs1"},
         "role": "primary",
+        "privileged_users": ["cifs\\u1", "cifs\\u2"],
         "name": "scanner-1",
+        "cluster": {"name": "Cluster3", "uuid": "0933f9b5-f226-11e8-9601-0050568ecc06"},
+        "servers": ["1.1.1.1", "10.72.204.27"],
+        "svm": {"name": "vs1", "uuid": "0e2f7c91-f227-11e8-9601-0050568ecc06"},
     }
 )
 
@@ -157,11 +157,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VscanScannerPool(
     {
-        "cluster": {"uuid": "ab746d77-17b7-11e9-b450-0050568ecd85", "name": "Cluster1"},
-        "privileged_users": ["cifs\\u1", "cifs\\u2"],
-        "servers": ["1.1.1.1", "10.72.204.27"],
         "role": "primary",
+        "privileged_users": ["cifs\\u1", "cifs\\u2"],
         "name": "test-scanner",
+        "cluster": {"name": "Cluster1", "uuid": "ab746d77-17b7-11e9-b450-0050568ecd85"},
+        "servers": ["1.1.1.1", "10.72.204.27"],
     }
 )
 
@@ -191,8 +191,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 VscanScannerPool(
     {
         "privileged_users": ["cifs\\u1", "cifs\\u2"],
-        "servers": ["1.1.1.1", "10.72.204.27"],
         "name": "test-scanner-1",
+        "servers": ["1.1.1.1", "10.72.204.27"],
     }
 )
 
@@ -256,11 +256,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -274,11 +273,15 @@ __pdoc__ = {
     "VscanScannerPoolSchema.opts": False,
 }
 
-
 class VscanScannerPoolSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the VscanScannerPool object"""
 
-    cluster = marshmallow_fields.Nested("netapp_ontap.resources.cluster.ClusterSchema", data_key="cluster", unknown=EXCLUDE, allow_none=True)
+    cluster = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.cluster", "ClusterSchema"),
+                data_key="cluster",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The cluster field of the vscan_scanner_pool."""
 
     name = marshmallow_fields.Str(
@@ -318,7 +321,12 @@ Valid choices:
 
 Example: ["1.1.1.1","10.72.204.27","vmwin204-27.fsct.nb"]"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the vscan_scanner_pool."""
 
     @property

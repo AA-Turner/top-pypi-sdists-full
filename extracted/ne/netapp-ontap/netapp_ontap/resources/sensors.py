@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -25,30 +25,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Sensors(
     {
-        "value": 831,
-        "warning_high_threshold": 1485,
-        "value_units": "mV",
-        "name": "PVCCSA CPU FD",
-        "type": "voltage",
-        "warning_low_threshold": 396,
-        "threshold_state": "normal",
-        "critical_high_threshold": 1683,
-        "node": {
-            "uuid": "19ec0b4a-4a4d-11ec-9036-d039ea4a991a",
-            "name": "node1",
-            "_links": {
-                "self": {
-                    "href": "/api/cluster/nodes/19ec0b4a-4a4d-11ec-9036-d039ea4a991a"
-                }
-            },
-        },
+        "critical_low_threshold": 297,
         "_links": {
             "self": {
                 "href": "/api/cluster/sensors/19ec0b4a-4a4d-11ec-9036-d039ea4a991a/1"
             }
         },
         "index": 1,
-        "critical_low_threshold": 297,
+        "value_units": "mV",
+        "warning_high_threshold": 1485,
+        "warning_low_threshold": 396,
+        "critical_high_threshold": 1683,
+        "value": 831,
+        "name": "PVCCSA CPU FD",
+        "threshold_state": "normal",
+        "node": {
+            "name": "node1",
+            "_links": {
+                "self": {
+                    "href": "/api/cluster/nodes/19ec0b4a-4a4d-11ec-9036-d039ea4a991a"
+                }
+            },
+            "uuid": "19ec0b4a-4a4d-11ec-9036-d039ea4a991a",
+        },
+        "type": "voltage",
     }
 )
 
@@ -61,11 +61,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -79,11 +78,15 @@ __pdoc__ = {
     "SensorsSchema.opts": False,
 }
 
-
 class SensorsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Sensors object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the sensors."""
 
     critical_high_threshold = Size(
@@ -147,7 +150,12 @@ Example: ok"""
 
 Example: PVCCSA CPU FD"""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the sensors."""
 
     threshold_state = marshmallow_fields.Str(

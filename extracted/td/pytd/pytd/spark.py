@@ -9,7 +9,11 @@ TD_SPARK_BASE_URL = "https://s3.amazonaws.com/td-spark/"
 logger = logging.getLogger(__name__)
 
 
-def download_td_spark(spark_binary_version="3.0.1", version="latest", destination=None):
+def download_td_spark(
+    spark_binary_version: str = "3.0.1",
+    version: str = "latest",
+    destination: str | None = None,
+) -> None:
     """Download a td-spark jar file from S3.
 
     Parameters
@@ -33,8 +37,10 @@ def download_td_spark(spark_binary_version="3.0.1", version="latest", destinatio
     download_url = urljoin(TD_SPARK_BASE_URL, td_spark_jar_name)
     try:
         response = urlopen(download_url)
-    except HTTPError:
-        raise RuntimeError("failed to access to the download URL: " + download_url)
+    except HTTPError as e:
+        raise RuntimeError(
+            "failed to access to the download URL: " + download_url
+        ) from e
 
     logger.info("Downloading td-spark...")
     try:
@@ -49,12 +55,12 @@ def download_td_spark(spark_binary_version="3.0.1", version="latest", destinatio
 
 
 def fetch_td_spark_context(
-    apikey=None,
-    endpoint=None,
-    td_spark_path=None,
-    download_if_missing=True,
-    spark_configs=None,
-):
+    apikey: str | None = None,
+    endpoint: str | None = None,
+    td_spark_path: str | None = None,
+    download_if_missing: bool = True,
+    spark_configs: dict[str, str] | None = None,
+) -> "TDSparkContext":  # type: ignore[name-defined]  # noqa: F821
     """Build TDSparkContext via td-pyspark.
 
     Parameters
@@ -66,7 +72,7 @@ def fetch_td_spark_context(
     endpoint : str, optional
         Treasure Data API server. If not given, ``https://api.treasuredata.com`` is
         used by default. List of available endpoints is:
-        https://docs.treasuredata.com/display/public/PD/Sites+and+Endpoints
+        https://api-docs.treasuredata.com/en/overview/aboutendpoints#treasure-data-api-baseurls
 
     td_spark_path : str, optional
         Path to td-spark-assembly-{td-spark-version}_spark{spark-version}.jar.
@@ -89,8 +95,8 @@ def fetch_td_spark_context(
         from pyspark.conf import SparkConf
         from pyspark.sql import SparkSession
         from td_pyspark import TDSparkContextBuilder
-    except ImportError:
-        raise RuntimeError("td_pyspark is not installed")
+    except ImportError as e:
+        raise RuntimeError("td_pyspark is not installed") from e
 
     apikey = apikey or os.environ.get("TD_API_KEY")
     if apikey is None:
@@ -124,7 +130,7 @@ def fetch_td_spark_context(
     if not available and download_if_missing:
         download_td_spark(version=td_pyspark.__version__, destination=td_spark_path)
     elif not available:
-        raise IOError("td-spark is not found and `download_if_missing` is False")
+        raise OSError("td-spark is not found and `download_if_missing` is False")
 
     builder.jars(td_spark_path)
 
@@ -149,4 +155,4 @@ def fetch_td_spark_context(
     try:
         return builder.build()
     except Exception as e:
-        raise RuntimeError("failed to connect to td-spark: " + str(e))
+        raise RuntimeError("failed to connect to td-spark: " + str(e)) from e

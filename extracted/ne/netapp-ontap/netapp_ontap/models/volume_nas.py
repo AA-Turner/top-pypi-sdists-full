@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["VolumeNas", "VolumeNasSchema"]
@@ -17,17 +16,26 @@ __pdoc__ = {
     "VolumeNas": False,
 }
 
-
 class VolumeNasSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the VolumeNas object"""
 
-    export_policy = marshmallow_fields.Nested("netapp_ontap.resources.export_policy.ExportPolicySchema", unknown=EXCLUDE, data_key="export_policy", allow_none=True)
+    export_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.export_policy", "ExportPolicySchema"),
+                unknown=EXCLUDE,
+                data_key="export_policy",
+                allow_none=True
+            )
     r""" The export_policy field of the volume_nas. """
 
     gid = Size(data_key="gid", allow_none=True)
     r""" The UNIX group ID of the volume. Valid in POST or PATCH. """
 
-    junction_parent = marshmallow_fields.Nested("netapp_ontap.models.volume_nas_junction_parent.VolumeNasJunctionParentSchema", unknown=EXCLUDE, data_key="junction_parent", allow_none=True)
+    junction_parent = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_nas_junction_parent", "VolumeNasJunctionParentSchema"),
+                unknown=EXCLUDE,
+                data_key="junction_parent",
+                allow_none=True
+            )
     r""" The junction_parent field of the volume_nas. """
 
     path = marshmallow_fields.Str(data_key="path", allow_none=True)

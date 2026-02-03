@@ -5,7 +5,7 @@ import os
 import sys
 from pathlib import Path
 
-__version__ = "4.9.8"
+__version__ = "4.9.9"
 __all__ = ["CppApi", "CSSL"]
 
 # Module-level cache for C++ modules

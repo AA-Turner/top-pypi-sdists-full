@@ -126,6 +126,8 @@ pub struct LineInfo {
     pub in_content_tab: bool,
     /// Whether this line is a definition list item (: definition)
     pub in_definition_list: bool,
+    /// Whether this line is inside an Obsidian comment (%%...%% syntax, Obsidian flavor only)
+    pub in_obsidian_comment: bool,
 }
 
 impl LineInfo {
@@ -573,6 +575,7 @@ pub struct LintContext<'a> {
     citation_ranges: Vec<crate::utils::skip_context::ByteRange>, // Pre-computed Pandoc/Quarto citation ranges (Quarto: @key, [@key])
     shortcode_ranges: Vec<(usize, usize)>, // Pre-computed Hugo/Quarto shortcode ranges ({{< ... >}} and {{% ... %}})
     inline_config: InlineConfig,           // Parsed inline configuration comments for rule disabling
+    obsidian_comment_ranges: Vec<(usize, usize)>, // Pre-computed Obsidian comment ranges (%%...%%)
 }
 
 /// Detailed blockquote parse result with all components
@@ -707,6 +710,13 @@ impl<'a> LintContext<'a> {
             "MkDocs constructs",
             profile,
             Self::detect_mkdocs_line_info(content, &mut lines, flavor)
+        );
+
+        // Detect Obsidian comments (%%...%%) in Obsidian flavor
+        let obsidian_comment_ranges = profile_section!(
+            "Obsidian comments",
+            profile,
+            Self::detect_obsidian_comments(content, &mut lines, flavor, &code_span_ranges)
         );
 
         // Collect link byte ranges early for heading detection (to skip lines inside link syntax)
@@ -844,6 +854,7 @@ impl<'a> LintContext<'a> {
             citation_ranges,
             shortcode_ranges,
             inline_config,
+            obsidian_comment_ranges,
         }
     }
 
@@ -882,6 +893,35 @@ impl<'a> LintContext<'a> {
     /// Get HTML comment ranges - pre-computed during LintContext construction
     pub fn html_comment_ranges(&self) -> &[crate::utils::skip_context::ByteRange] {
         &self.html_comment_ranges
+    }
+
+    /// Get Obsidian comment ranges - pre-computed during LintContext construction
+    /// Returns empty slice for non-Obsidian flavors
+    pub fn obsidian_comment_ranges(&self) -> &[(usize, usize)] {
+        &self.obsidian_comment_ranges
+    }
+
+    /// Check if a byte position is inside an Obsidian comment
+    ///
+    /// Returns false for non-Obsidian flavors.
+    pub fn is_in_obsidian_comment(&self, byte_pos: usize) -> bool {
+        self.obsidian_comment_ranges
+            .iter()
+            .any(|(start, end)| byte_pos >= *start && byte_pos < *end)
+    }
+
+    /// Check if a line/column position is inside an Obsidian comment
+    ///
+    /// Line number is 1-indexed, column is 1-indexed.
+    /// Returns false for non-Obsidian flavors.
+    pub fn is_position_in_obsidian_comment(&self, line_num: usize, col: usize) -> bool {
+        if self.obsidian_comment_ranges.is_empty() {
+            return false;
+        }
+
+        // Convert line/column (1-indexed, char-based) to byte position
+        let byte_pos = self.line_index.line_col_to_byte_range(line_num, col).start;
+        self.is_in_obsidian_comment(byte_pos)
     }
 
     /// Get HTML tags - computed lazily on first access
@@ -2498,13 +2538,14 @@ impl<'a> LintContext<'a> {
                 is_horizontal_rule: is_hr,
                 in_math_block,
                 in_quarto_div,
-                in_jsx_expression: false,  // Will be populated for MDX files
-                in_mdx_comment: false,     // Will be populated for MDX files
-                in_jsx_component: false,   // Will be populated for MDX files
-                in_jsx_fragment: false,    // Will be populated for MDX files
-                in_admonition: false,      // Will be populated for MkDocs files
-                in_content_tab: false,     // Will be populated for MkDocs files
-                in_definition_list: false, // Will be populated for MkDocs files
+                in_jsx_expression: false,   // Will be populated for MDX files
+                in_mdx_comment: false,      // Will be populated for MDX files
+                in_jsx_component: false,    // Will be populated for MDX files
+                in_jsx_fragment: false,     // Will be populated for MDX files
+                in_admonition: false,       // Will be populated for MkDocs files
+                in_content_tab: false,      // Will be populated for MkDocs files
+                in_definition_list: false,  // Will be populated for MkDocs files
+                in_obsidian_comment: false, // Will be populated for Obsidian files
             });
         }
 
@@ -3307,6 +3348,157 @@ impl<'a> LintContext<'a> {
                 }
             }
         }
+    }
+
+    /// Detect Obsidian comment blocks (%%...%%) in Obsidian flavor
+    ///
+    /// Obsidian comments use `%%` as delimiters:
+    /// - Inline: `text %%hidden%% text`
+    /// - Block: `%%\nmulti-line\n%%`
+    ///
+    /// Comments do NOT nest - the first `%%` after an opening `%%` closes the comment.
+    /// Comments are NOT detected inside code blocks or HTML comments.
+    ///
+    /// Returns the computed comment ranges for use by rules that need position-level checking.
+    fn detect_obsidian_comments(
+        content: &str,
+        lines: &mut [LineInfo],
+        flavor: MarkdownFlavor,
+        code_span_ranges: &[(usize, usize)],
+    ) -> Vec<(usize, usize)> {
+        // Only process Obsidian files
+        if flavor != MarkdownFlavor::Obsidian {
+            return Vec::new();
+        }
+
+        // Compute Obsidian comment ranges (byte ranges)
+        let comment_ranges = Self::compute_obsidian_comment_ranges(content, lines, code_span_ranges);
+
+        // Mark lines that fall within comment ranges
+        for range in &comment_ranges {
+            for line in lines.iter_mut() {
+                // Skip lines in code blocks or HTML comments - they take precedence
+                if line.in_code_block || line.in_html_comment {
+                    continue;
+                }
+
+                let line_start = line.byte_offset;
+                let line_end = line.byte_offset + line.byte_len;
+
+                // Check if this line is entirely within a comment
+                // A line is "in" a comment if it starts within or after the comment start
+                // AND ends within or before the comment end
+                if line_start >= range.0 && line_end <= range.1 {
+                    line.in_obsidian_comment = true;
+                } else if line_start < range.1 && line_end > range.0 {
+                    // Line partially overlaps with comment - check if the overlap is significant
+                    // For inline comments on a line, we still mark the line if any part is in comment
+                    // However, for the filtered_lines API, we only skip lines entirely within comments
+                    // This matches the behavior of HTML comments
+
+                    // Check if the ENTIRE line content (excluding leading/trailing whitespace)
+                    // is within the comment range
+                    let line_content_start = line_start;
+                    let line_content_end = line_end;
+
+                    if line_content_start >= range.0 && line_content_end <= range.1 {
+                        line.in_obsidian_comment = true;
+                    }
+                }
+            }
+        }
+
+        comment_ranges
+    }
+
+    /// Compute byte ranges for all Obsidian comments in the content
+    ///
+    /// Returns a vector of (start, end) byte offset pairs for each comment.
+    /// Comments do not nest - first `%%` after an opening `%%` closes it.
+    fn compute_obsidian_comment_ranges(
+        content: &str,
+        lines: &[LineInfo],
+        code_span_ranges: &[(usize, usize)],
+    ) -> Vec<(usize, usize)> {
+        let mut ranges = Vec::new();
+
+        // Quick check - if no %% at all, no comments
+        if !content.contains("%%") {
+            return ranges;
+        }
+
+        // Build skip ranges for code blocks, HTML comments, and inline code spans
+        // to avoid detecting %% inside those regions.
+        let mut skip_ranges: Vec<(usize, usize)> = Vec::new();
+        for line in lines {
+            if line.in_code_block || line.in_html_comment {
+                skip_ranges.push((line.byte_offset, line.byte_offset + line.byte_len));
+            }
+        }
+        skip_ranges.extend(code_span_ranges.iter().copied());
+
+        if !skip_ranges.is_empty() {
+            // Sort and merge overlapping ranges for efficient scanning
+            skip_ranges.sort_by_key(|(start, _)| *start);
+            let mut merged: Vec<(usize, usize)> = Vec::with_capacity(skip_ranges.len());
+            for (start, end) in skip_ranges {
+                if let Some((_, last_end)) = merged.last_mut()
+                    && start <= *last_end
+                {
+                    *last_end = (*last_end).max(end);
+                    continue;
+                }
+                merged.push((start, end));
+            }
+            skip_ranges = merged;
+        }
+
+        let content_bytes = content.as_bytes();
+        let len = content.len();
+        let mut i = 0;
+        let mut in_comment = false;
+        let mut comment_start = 0;
+        let mut skip_idx = 0;
+
+        while i < len.saturating_sub(1) {
+            // Fast-skip any ranges we should ignore (code blocks, HTML comments, code spans)
+            if skip_idx < skip_ranges.len() {
+                let (skip_start, skip_end) = skip_ranges[skip_idx];
+                if i >= skip_end {
+                    skip_idx += 1;
+                    continue;
+                }
+                if i >= skip_start {
+                    i = skip_end;
+                    continue;
+                }
+            }
+
+            // Check for %%
+            if content_bytes[i] == b'%' && content_bytes[i + 1] == b'%' {
+                if !in_comment {
+                    // Opening %%
+                    in_comment = true;
+                    comment_start = i;
+                    i += 2;
+                } else {
+                    // Closing %%
+                    let comment_end = i + 2;
+                    ranges.push((comment_start, comment_end));
+                    in_comment = false;
+                    i += 2;
+                }
+            } else {
+                i += 1;
+            }
+        }
+
+        // Handle unclosed comment - extends to end of document
+        if in_comment {
+            ranges.push((comment_start, len));
+        }
+
+        ranges
     }
 
     /// Helper to mark lines within a byte range

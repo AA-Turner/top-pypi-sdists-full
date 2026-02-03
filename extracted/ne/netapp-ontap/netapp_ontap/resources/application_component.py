@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -10,11 +10,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -28,20 +27,42 @@ __pdoc__ = {
     "ApplicationComponentSchema.opts": False,
 }
 
-
 class ApplicationComponentSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ApplicationComponent object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the application_component."""
 
-    application = marshmallow_fields.Nested("netapp_ontap.models.application_component_application.ApplicationComponentApplicationSchema", data_key="application", unknown=EXCLUDE, allow_none=True)
+    application = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.application_component_application", "ApplicationComponentApplicationSchema"),
+                data_key="application",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The application field of the application_component."""
 
-    backing_storage = marshmallow_fields.Nested("netapp_ontap.models.application_backing_storage.ApplicationBackingStorageSchema", data_key="backing_storage", unknown=EXCLUDE, allow_none=True)
+    backing_storage = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.application_backing_storage", "ApplicationBackingStorageSchema"),
+                data_key="backing_storage",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The backing_storage field of the application_component."""
 
-    cifs_access = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.application_cifs_properties.ApplicationCifsPropertiesSchema", unknown=EXCLUDE, allow_none=True), data_key="cifs_access", allow_none=True)
+    cifs_access = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.application_cifs_properties", "ApplicationCifsPropertiesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="cifs_access",
+                allow_none=True
+            )
     r""" The cifs_access field of the application_component."""
 
     file_system = marshmallow_fields.Str(
@@ -75,22 +96,64 @@ Valid choices:
     )
     r""" Application component name"""
 
-    nfs_access = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.application_nfs_properties.ApplicationNfsPropertiesSchema", unknown=EXCLUDE, allow_none=True), data_key="nfs_access", allow_none=True)
+    nfs_access = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.application_nfs_properties", "ApplicationNfsPropertiesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="nfs_access",
+                allow_none=True
+            )
     r""" The nfs_access field of the application_component."""
 
-    nvme_access = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.application_nvme_access.ApplicationNvmeAccessSchema", unknown=EXCLUDE, allow_none=True), data_key="nvme_access", allow_none=True)
+    nvme_access = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.application_nvme_access", "ApplicationNvmeAccessSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="nvme_access",
+                allow_none=True
+            )
     r""" Application NVME access"""
 
-    protection_groups = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.application_protection_groups.ApplicationProtectionGroupsSchema", unknown=EXCLUDE, allow_none=True), data_key="protection_groups", allow_none=True)
+    protection_groups = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.application_protection_groups", "ApplicationProtectionGroupsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="protection_groups",
+                allow_none=True
+            )
     r""" The protection_groups field of the application_component."""
 
-    san_access = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.application_san_access.ApplicationSanAccessSchema", unknown=EXCLUDE, allow_none=True), data_key="san_access", allow_none=True)
+    san_access = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.application_san_access", "ApplicationSanAccessSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="san_access",
+                allow_none=True
+            )
     r""" The san_access field of the application_component."""
 
-    storage_service = marshmallow_fields.Nested("netapp_ontap.models.application_component_storage_service.ApplicationComponentStorageServiceSchema", data_key="storage_service", unknown=EXCLUDE, allow_none=True)
+    storage_service = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.application_component_storage_service", "ApplicationComponentStorageServiceSchema"),
+                data_key="storage_service",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The storage_service field of the application_component."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.models.application_component_svm.ApplicationComponentSvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.application_component_svm", "ApplicationComponentSvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the application_component."""
 
     uuid = marshmallow_fields.Str(

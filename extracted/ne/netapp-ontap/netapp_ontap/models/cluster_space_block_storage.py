@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ClusterSpaceBlockStorage", "ClusterSpaceBlockStorageSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "ClusterSpaceBlockStorageSchema.opts": False,
     "ClusterSpaceBlockStorage": False,
 }
-
 
 class ClusterSpaceBlockStorageSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ClusterSpaceBlockStorage object"""
@@ -36,7 +34,15 @@ class ClusterSpaceBlockStorageSchema(ResourceSchema, metaclass=ResourceSchemaMet
     log_and_recovery_metadata = Size(data_key="log_and_recovery_metadata", allow_none=True)
     r""" The total space consumed by system logs and cores in the cluster. """
 
-    medias = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.cluster_space_block_storage_medias.ClusterSpaceBlockStorageMediasSchema", unknown=EXCLUDE, allow_none=True), data_key="medias", allow_none=True)
+    medias = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.cluster_space_block_storage_medias", "ClusterSpaceBlockStorageMediasSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="medias",
+                allow_none=True
+                )
     r""" Configuration information based on type of media. For example, SSD media type information includes the sum of all the SSD storage across the cluster. """
 
     nearly_full_threshold_percent = Size(data_key="nearly_full_threshold_percent", allow_none=True)

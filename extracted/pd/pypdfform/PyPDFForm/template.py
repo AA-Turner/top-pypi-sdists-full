@@ -10,21 +10,25 @@ types of widgets.
 
 from functools import lru_cache
 from io import BytesIO
-from typing import Dict, List, Tuple, Union, cast
+from typing import Dict, List, Union, cast
 
 from pypdf import PdfReader, PdfWriter
-from pypdf.generic import DictionaryObject
+from pypdf.generic import (ArrayObject, DictionaryObject, FloatObject,
+                           NameObject, TextStringObject)
 
-from .constants import WIDGET_TYPES, Annots, MaxLen, Parent, T
+from .annotations import AnnotationTypes
+from .constants import (COMB, MULTILINE, READ_ONLY, REQUIRED, WIDGET_TYPES,
+                        Annot, Annots, Contents, Rect, Subtype, Type)
 from .middleware.checkbox import Checkbox
 from .middleware.dropdown import Dropdown
 from .middleware.radio import Radio
 from .middleware.text import Text
-from .patterns import (DROPDOWN_CHOICE_PATTERNS, WIDGET_DESCRIPTION_PATTERNS,
-                       WIDGET_KEY_PATTERNS, WIDGET_TYPE_PATTERNS,
-                       get_checkbox_value, get_dropdown_value, get_field_rect,
-                       get_radio_value, get_text_field_multiline,
-                       get_text_value, update_annotation_name)
+from .patterns import (WIDGET_DESCRIPTION_PATTERNS, WIDGET_TYPE_PATTERNS,
+                       check_field_flag, get_checkbox_value,
+                       get_dropdown_choices, get_dropdown_value,
+                       get_field_hidden, get_field_rect, get_radio_value,
+                       get_text_field_alignment, get_text_field_max_length,
+                       get_text_value, get_widget_key, update_annotation_name)
 from .utils import extract_widget_property, find_pattern_match, stream_to_io
 
 
@@ -96,18 +100,22 @@ def build_widgets(
             key = get_widget_key(widget, use_full_widget_name)
             _widget = construct_widget(widget, key)
             if _widget is not None:
+                # widget property extractions don't trigger hooks in this function
                 _widget.__dict__["tooltip"] = extract_widget_property(
                     widget, WIDGET_DESCRIPTION_PATTERNS, None, str
                 )
+                _widget.__dict__["readonly"] = check_field_flag(widget, READ_ONLY)
+                _widget.__dict__["required"] = check_field_flag(widget, REQUIRED)
+                _widget.__dict__["hidden"] = get_field_hidden(widget)
 
                 field_rect = get_field_rect(widget)
                 _widget.x, _widget.y, _widget.width, _widget.height = field_rect
 
                 if isinstance(_widget, Text):
-                    # mostly for schema for now
-                    # doesn't trigger hook
+                    _widget.__dict__["comb"] = check_field_flag(widget, COMB)
+                    _widget.__dict__["alignment"] = get_text_field_alignment(widget)
+                    _widget.__dict__["multiline"] = check_field_flag(widget, MULTILINE)
                     _widget.__dict__["max_length"] = get_text_field_max_length(widget)
-                    _widget.__dict__["multiline"] = get_text_field_multiline(widget)
                     get_text_value(widget, _widget)
 
                 if type(_widget) is Checkbox:
@@ -182,41 +190,6 @@ def get_widgets_by_page(pdf: bytes) -> Dict[int, List[dict]]:
     return result
 
 
-def get_widget_key(widget: dict, use_full_widget_name: bool) -> str:
-    """
-    Extracts the widget key from a widget dictionary.
-
-    This function extracts the widget key from a widget dictionary based on
-    predefined patterns. If `use_full_widget_name` is True, it recursively
-    constructs the full widget name by concatenating the parent widget keys.
-
-    Args:
-        widget (dict): The widget dictionary to extract the key from.
-        use_full_widget_name (bool): Whether to use the full widget name
-            (including parent names) as the widget key.
-
-    Returns:
-        str: The extracted widget key.
-    """
-    if not use_full_widget_name:
-        return extract_widget_property(widget, WIDGET_KEY_PATTERNS, None, str)
-
-    key = widget.get(T)
-    if (
-        Parent in widget
-        and T in widget[Parent].get_object()
-        and widget[Parent].get_object()[T] != key  # sejda case
-    ):
-        if key is None:
-            return get_widget_key(widget[Parent].get_object(), use_full_widget_name)
-
-        return (
-            f"{get_widget_key(widget[Parent].get_object(), use_full_widget_name)}.{key}"
-        )
-
-    return key or ""
-
-
 def construct_widget(widget: dict, key: str) -> Union[WIDGET_TYPES, None]:
     """
     Constructs a widget object based on the widget dictionary and key.
@@ -244,42 +217,73 @@ def construct_widget(widget: dict, key: str) -> Union[WIDGET_TYPES, None]:
     return result
 
 
-def get_text_field_max_length(widget: dict) -> Union[int, None]:
+def create_annotations(
+    template: bytes,
+    annotations: List[AnnotationTypes],
+) -> bytes:
     """
-    Extracts the maximum length of a text field from a widget dictionary.
+    Creates and adds annotations to a PDF template.
+
+    This function takes a PDF template and a list of annotation objects, and
+    renders each annotation onto its specified page in the PDF. It supports
+    various annotation types defined in the `PyPDFForm.annotations` package.
 
     Args:
-        widget (dict): The widget dictionary to extract the max length from.
+        template (bytes): The PDF template to add annotations to.
+        annotations (List[AnnotationTypes]): A list of annotation objects to be
+            added to the PDF.
 
     Returns:
-        Union[int, None]: The maximum length of the text field, or None
-            if the max length is not specified.
+        bytes: The updated PDF stream with the added annotations.
     """
-    return int(widget[MaxLen]) or None if MaxLen in widget else None
+    reader = PdfReader(stream_to_io(template))
+    writer = PdfWriter(clone_from=reader)
 
+    annotations_by_page = {}
+    for annotation in annotations:
+        if annotation.page_number not in annotations_by_page:
+            annotations_by_page[annotation.page_number] = []
+        annotations_by_page[annotation.page_number].append(annotation)
 
-def get_dropdown_choices(widget: dict) -> Union[Tuple[str, ...], None]:
-    """
-    Extracts the choices from a dropdown widget dictionary.
+    for i, page in enumerate(writer.pages):
+        page_num = i + 1
+        if page_num not in annotations_by_page:
+            continue
 
-    This function extracts the choices from a dropdown widget dictionary.
+        page_annotations = ArrayObject([])
+        for annotation in annotations_by_page[page_num]:
+            annot = DictionaryObject(
+                {
+                    NameObject(Type): NameObject(Annot),
+                    NameObject(Subtype): NameObject(
+                        getattr(annotation, "_annotation_type")
+                    ),
+                    NameObject(Rect): ArrayObject(
+                        [
+                            FloatObject(annotation.x),
+                            FloatObject(annotation.y),
+                            FloatObject(annotation.x + annotation.width),
+                            FloatObject(annotation.y + annotation.height),
+                        ]
+                    ),
+                    NameObject(Contents): TextStringObject(annotation.contents),
+                }
+            )
+            for k, v in getattr(annotation, "_additional_properties", ()):
+                val = getattr(annotation, v[1])
+                if val is not None:
+                    annot[k] = v[0](val)
+            page_annotations.append(annot)
 
-    Args:
-        widget (dict): The widget dictionary to extract the choices from.
+        if Annots in page:
+            page[NameObject(Annots)] += page_annotations
+        else:
+            page[NameObject(Annots)] = page_annotations
 
-    Returns:
-        Union[Tuple[str, ...], None]: A tuple of strings representing the choices in the dropdown, or None if the choices are not specified.
-    """
-    return tuple(
-        (
-            each.get_object()
-            if isinstance(each.get_object(), str)
-            else str(each.get_object()[1])
-        )
-        for each in extract_widget_property(
-            widget, DROPDOWN_CHOICE_PATTERNS, None, None
-        )
-    )
+    with BytesIO() as f:
+        writer.write(f)
+        f.seek(0)
+        return f.read()
 
 
 def update_widget_keys(

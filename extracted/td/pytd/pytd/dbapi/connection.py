@@ -1,7 +1,14 @@
+from types import TracebackType
+from typing import TYPE_CHECKING
+
 from .error import NotSupportedError
 
+if TYPE_CHECKING:
+    from ..client import Client
+    from ..query_engine import Cursor
 
-class Connection(object):
+
+class Connection:
     """The DBAPI interface to Treasure Data.
 
     https://www.python.org/dev/peps/pep-0249/
@@ -17,23 +24,28 @@ class Connection(object):
         A client used to connect to Treasure Data.
     """
 
-    def __init__(self, client):
-        self.client = client
+    def __init__(self, client: "Client") -> None:
+        self.client: "Client" = client  # noqa: UP037  # TYPE_CHECKING import
 
-    def close(self):
+    def close(self) -> None:
         self.client.close()
 
-    def commit(self):
+    def commit(self) -> None:
         raise NotSupportedError
 
-    def rollback(self):
+    def rollback(self) -> None:
         raise NotSupportedError
 
-    def cursor(self):
+    def cursor(self) -> "Cursor":
         return self.client.default_engine.cursor()
 
-    def __enter__(self):
+    def __enter__(self) -> "Connection":
         return self
 
-    def __exit__(self, exception_type, exception_value, traceback):
+    def __exit__(
+        self,
+        exception_type: type[BaseException] | None,
+        exception_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         self.close()

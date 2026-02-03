@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["VolumeAnalytics", "VolumeAnalyticsSchema"]
@@ -17,14 +16,23 @@ __pdoc__ = {
     "VolumeAnalytics": False,
 }
 
-
 class VolumeAnalyticsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the VolumeAnalytics object"""
 
-    by_accessed_time = marshmallow_fields.Nested("netapp_ontap.models.analytics_info_by_accessed_time.AnalyticsInfoByAccessedTimeSchema", unknown=EXCLUDE, data_key="by_accessed_time", allow_none=True)
+    by_accessed_time = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.analytics_info_by_accessed_time", "AnalyticsInfoByAccessedTimeSchema"),
+                unknown=EXCLUDE,
+                data_key="by_accessed_time",
+                allow_none=True
+            )
     r""" File system analytics information, broken down by date of last access. """
 
-    by_modified_time = marshmallow_fields.Nested("netapp_ontap.models.analytics_info_by_modified_time.AnalyticsInfoByModifiedTimeSchema", unknown=EXCLUDE, data_key="by_modified_time", allow_none=True)
+    by_modified_time = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.analytics_info_by_modified_time", "AnalyticsInfoByModifiedTimeSchema"),
+                unknown=EXCLUDE,
+                data_key="by_modified_time",
+                allow_none=True
+            )
     r""" File system analytics information, broken down by date of last modification. """
 
     bytes_used = Size(data_key="bytes_used", allow_none=True)
@@ -45,7 +53,12 @@ Example: 43002 """
     incomplete_data = marshmallow_fields.Boolean(data_key="incomplete_data", allow_none=True)
     r""" Returns true if data collection is incomplete for this directory tree. """
 
-    initialization = marshmallow_fields.Nested("netapp_ontap.models.volume_analytics_initialization.VolumeAnalyticsInitializationSchema", unknown=EXCLUDE, data_key="initialization", allow_none=True)
+    initialization = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_analytics_initialization", "VolumeAnalyticsInitializationSchema"),
+                unknown=EXCLUDE,
+                data_key="initialization",
+                allow_none=True
+            )
     r""" The initialization field of the volume_analytics. """
 
     report_time = ImpreciseDateTime(data_key="report_time", allow_none=True)
@@ -58,7 +71,12 @@ Example: 2024-11-06T18:57:15.000+0000 """
 
 Example: 17 """
 
-    scan_throttle_reason = marshmallow_fields.Nested("netapp_ontap.models.volume_analytics_scan_throttle_reason.VolumeAnalyticsScanThrottleReasonSchema", unknown=EXCLUDE, data_key="scan_throttle_reason", allow_none=True)
+    scan_throttle_reason = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_analytics_scan_throttle_reason", "VolumeAnalyticsScanThrottleReasonSchema"),
+                unknown=EXCLUDE,
+                data_key="scan_throttle_reason",
+                allow_none=True
+            )
     r""" The scan_throttle_reason field of the volume_analytics. """
 
     state = marshmallow_fields.Str(data_key="state", allow_none=True)
@@ -85,7 +103,12 @@ Example: 35 """
 
 Example: 101890 """
 
-    unsupported_reason = marshmallow_fields.Nested("netapp_ontap.models.volume_analytics_unsupported_reason.VolumeAnalyticsUnsupportedReasonSchema", unknown=EXCLUDE, data_key="unsupported_reason", allow_none=True)
+    unsupported_reason = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_analytics_unsupported_reason", "VolumeAnalyticsUnsupportedReasonSchema"),
+                unknown=EXCLUDE,
+                data_key="unsupported_reason",
+                allow_none=True
+            )
     r""" The unsupported_reason field of the volume_analytics. """
 
     @property

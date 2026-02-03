@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: synkro
-Version: 0.5.32
+Version: 0.5.36
 Summary: Curate, evaluate, and ship LLM datasets from any document
 Author: Murtaza Meerza
 License-Expression: Apache-2.0

@@ -12,7 +12,7 @@ from pycarlo.features.agent import (
     SpanAttributeFilter,
     SpanQueryResult,
 )
-from pycarlo.features.agent.queries import GET_AGENT_SPAN_SAMPLE_V2
+from pycarlo.features.agent.queries import GET_AGENT_SPAN_COUNT, GET_AGENT_SPAN_SAMPLE_V2
 
 
 class AgentServiceTests(TestCase):
@@ -311,6 +311,130 @@ class AgentServiceTests(TestCase):
                 "attributeFilters": [{"key": "env", "value": "prod"}],
             },
         )
+
+    def test_get_agent_span_count_basic(self) -> None:
+        """Test basic get_agent_span_count call."""
+        self._mock_client.return_value = Box(
+            {
+                "get_agent_span_sample_v2": {
+                    "rows": [["150"]],
+                    "has_error": False,
+                    "error": None,
+                }
+            }
+        )
+
+        count = self._service.get_agent_span_count(mcon="MCON++test++table")
+
+        self._mock_client.assert_called_once()
+        call_kwargs = self._mock_client.call_args
+        self.assertEqual(call_kwargs.kwargs["query"], GET_AGENT_SPAN_COUNT)
+        self.assertEqual(call_kwargs.kwargs["variables"], {"mcon": "MCON++test++table"})
+        self._assert_telemetry_headers(call_kwargs.kwargs["additional_headers"])
+        self.assertEqual(count, 150)
+
+    def test_get_agent_span_count_with_filters(self) -> None:
+        """Test get_agent_span_count with attribute filters."""
+        self._mock_client.return_value = Box(
+            {
+                "get_agent_span_sample_v2": {
+                    "rows": [["42"]],
+                    "has_error": False,
+                    "error": None,
+                }
+            }
+        )
+
+        count = self._service.get_agent_span_count(
+            mcon="MCON++test++table",
+            attribute_filters=[
+                SpanAttributeFilter(key="montecarlo.ci_build_id", value="build-123")
+            ],
+        )
+
+        call_kwargs = self._mock_client.call_args
+        self.assertEqual(
+            call_kwargs.kwargs["variables"],
+            {
+                "mcon": "MCON++test++table",
+                "attributeFilters": [{"key": "montecarlo.ci_build_id", "value": "build-123"}],
+            },
+        )
+        self.assertEqual(count, 42)
+
+    def test_get_agent_span_count_with_agent_span_filters(self) -> None:
+        """Test get_agent_span_count with agent span filters."""
+        self._mock_client.return_value = Box(
+            {
+                "get_agent_span_sample_v2": {
+                    "rows": [["25"]],
+                    "has_error": False,
+                    "error": None,
+                }
+            }
+        )
+
+        count = self._service.get_agent_span_count(
+            mcon="MCON++test++table",
+            agent_span_filters=[AgentSpanFilter(agent="my-agent")],
+        )
+
+        call_kwargs = self._mock_client.call_args
+        self.assertEqual(
+            call_kwargs.kwargs["variables"],
+            {
+                "mcon": "MCON++test++table",
+                "agentSpanFilters": [{"agent": {"value": "my-agent"}}],
+            },
+        )
+        self.assertEqual(count, 25)
+
+    def test_get_agent_span_count_zero(self) -> None:
+        """Test get_agent_span_count returns 0 for empty results."""
+        self._mock_client.return_value = Box(
+            {
+                "get_agent_span_sample_v2": {
+                    "rows": [["0"]],
+                    "has_error": False,
+                    "error": None,
+                }
+            }
+        )
+
+        count = self._service.get_agent_span_count(mcon="MCON++test++table")
+        self.assertEqual(count, 0)
+
+    def test_get_agent_span_count_empty_rows(self) -> None:
+        """Test get_agent_span_count returns 0 for empty rows."""
+        self._mock_client.return_value = Box(
+            {
+                "get_agent_span_sample_v2": {
+                    "rows": [],
+                    "has_error": False,
+                    "error": None,
+                }
+            }
+        )
+
+        count = self._service.get_agent_span_count(mcon="MCON++test++table")
+        self.assertEqual(count, 0)
+
+    def test_get_agent_span_count_with_error(self) -> None:
+        """Test get_agent_span_count raises ValueError on error."""
+        self._mock_client.return_value = Box(
+            {
+                "get_agent_span_sample_v2": {
+                    "rows": [],
+                    "has_error": True,
+                    "error": "Query execution failed",
+                }
+            }
+        )
+
+        with self.assertRaises(ValueError) as context:
+            self._service.get_agent_span_count(mcon="MCON++test++table")
+
+        self.assertIn("Query execution failed", str(context.exception))
 
     def _assert_telemetry_headers(self, headers: dict[str, str]) -> None:
         self.assertEqual(headers["x-mcd-telemetry-reason"], "service")

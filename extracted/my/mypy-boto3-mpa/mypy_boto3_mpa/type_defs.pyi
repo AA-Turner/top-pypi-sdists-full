@@ -3,7 +3,7 @@ Type annotations for mpa service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mpa/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -27,6 +27,7 @@ from .literals import (
     IdentitySourceStatusCodeType,
     IdentitySourceStatusType,
     IdentityStatusType,
+    MfaSyncStatusType,
     OperatorType,
     PolicyStatusType,
     PolicyTypeType,
@@ -96,6 +97,7 @@ __all__ = (
     "ListSessionsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "MfaMethodTypeDef",
     "MofNApprovalStrategyTypeDef",
     "PaginatorConfigTypeDef",
     "PendingUpdateTypeDef",
@@ -147,12 +149,13 @@ class FilterTypeDef(TypedDict):
 class GetApprovalTeamRequestTypeDef(TypedDict):
     Arn: str
 
-class GetApprovalTeamResponseApproverTypeDef(TypedDict):
-    ApproverId: NotRequired[str]
-    ResponseTime: NotRequired[datetime]
-    PrimaryIdentityId: NotRequired[str]
-    PrimaryIdentitySourceArn: NotRequired[str]
-    PrimaryIdentityStatus: NotRequired[IdentityStatusType]
+MfaMethodTypeDef = TypedDict(
+    "MfaMethodTypeDef",
+    {
+        "Type": Literal["EMAIL_OTP"],
+        "SyncStatus": MfaSyncStatusType,
+    },
+)
 
 class GetIdentitySourceRequestTypeDef(TypedDict):
     IdentitySourceArn: str
@@ -268,6 +271,7 @@ class ListSessionsResponseSessionTypeDef(TypedDict):
     StatusCode: NotRequired[SessionStatusCodeType]
     StatusMessage: NotRequired[str]
     ActionCompletionStrategy: NotRequired[Literal["AUTO_COMPLETION_UPON_APPROVAL"]]
+    AdditionalSecurityRequirements: NotRequired[list[Literal["APPROVER_VERIFICATION_REQUIRED"]]]
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
@@ -332,6 +336,14 @@ class ListSessionsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
     Filters: NotRequired[Sequence[FilterTypeDef]]
+
+class GetApprovalTeamResponseApproverTypeDef(TypedDict):
+    ApproverId: NotRequired[str]
+    ResponseTime: NotRequired[datetime]
+    PrimaryIdentityId: NotRequired[str]
+    PrimaryIdentitySourceArn: NotRequired[str]
+    PrimaryIdentityStatus: NotRequired[IdentityStatusType]
+    MfaMethods: NotRequired[list[MfaMethodTypeDef]]
 
 class GetPolicyVersionResponseTypeDef(TypedDict):
     PolicyVersion: PolicyVersionTypeDef
@@ -412,6 +424,7 @@ class GetSessionResponseTypeDef(TypedDict):
     RequesterComment: str
     ActionCompletionStrategy: Literal["AUTO_COMPLETION_UPON_APPROVAL"]
     ApproverResponses: list[GetSessionResponseApproverResponseTypeDef]
+    AdditionalSecurityRequirements: list[Literal["APPROVER_VERIFICATION_REQUIRED"]]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListApprovalTeamsResponseApprovalTeamTypeDef(TypedDict):
@@ -424,17 +437,6 @@ class ListApprovalTeamsResponseApprovalTeamTypeDef(TypedDict):
     Status: NotRequired[ApprovalTeamStatusType]
     StatusCode: NotRequired[ApprovalTeamStatusCodeType]
     StatusMessage: NotRequired[str]
-
-class PendingUpdateTypeDef(TypedDict):
-    VersionId: NotRequired[str]
-    Description: NotRequired[str]
-    ApprovalStrategy: NotRequired[ApprovalStrategyResponseTypeDef]
-    NumberOfApprovers: NotRequired[int]
-    Status: NotRequired[ApprovalTeamStatusType]
-    StatusCode: NotRequired[ApprovalTeamStatusCodeType]
-    StatusMessage: NotRequired[str]
-    Approvers: NotRequired[list[GetApprovalTeamResponseApproverTypeDef]]
-    UpdateInitiationTime: NotRequired[datetime]
 
 class CreateApprovalTeamRequestTypeDef(TypedDict):
     ApprovalStrategy: ApprovalStrategyTypeDef
@@ -450,6 +452,18 @@ class UpdateApprovalTeamRequestTypeDef(TypedDict):
     ApprovalStrategy: NotRequired[ApprovalStrategyTypeDef]
     Approvers: NotRequired[Sequence[ApprovalTeamRequestApproverTypeDef]]
     Description: NotRequired[str]
+    UpdateActions: NotRequired[Sequence[Literal["SYNCHRONIZE_MFA_DEVICES"]]]
+
+class PendingUpdateTypeDef(TypedDict):
+    VersionId: NotRequired[str]
+    Description: NotRequired[str]
+    ApprovalStrategy: NotRequired[ApprovalStrategyResponseTypeDef]
+    NumberOfApprovers: NotRequired[int]
+    Status: NotRequired[ApprovalTeamStatusType]
+    StatusCode: NotRequired[ApprovalTeamStatusCodeType]
+    StatusMessage: NotRequired[str]
+    Approvers: NotRequired[list[GetApprovalTeamResponseApproverTypeDef]]
+    UpdateInitiationTime: NotRequired[datetime]
 
 class GetIdentitySourceResponseTypeDef(TypedDict):
     IdentitySourceType: Literal["IAM_IDENTITY_CENTER"]

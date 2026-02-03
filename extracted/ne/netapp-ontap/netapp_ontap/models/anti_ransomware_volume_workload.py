@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["AntiRansomwareVolumeWorkload", "AntiRansomwareVolumeWorkloadSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "AntiRansomwareVolumeWorkloadSchema.opts": False,
     "AntiRansomwareVolumeWorkload": False,
 }
-
 
 class AntiRansomwareVolumeWorkloadSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the AntiRansomwareVolumeWorkload object"""
@@ -31,19 +29,47 @@ Example: 3 """
 
 Example: ["pdf","jpeg","txt"] """
 
-    historical_statistics = marshmallow_fields.Nested("netapp_ontap.models.anti_ransomware_volume_workload_historical_statistics.AntiRansomwareVolumeWorkloadHistoricalStatisticsSchema", unknown=EXCLUDE, data_key="historical_statistics", allow_none=True)
+    historical_statistics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.anti_ransomware_volume_workload_historical_statistics", "AntiRansomwareVolumeWorkloadHistoricalStatisticsSchema"),
+                unknown=EXCLUDE,
+                data_key="historical_statistics",
+                allow_none=True
+            )
     r""" Typical usage values of volume workload. """
 
-    newly_observed_file_extensions = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.anti_ransomware_volume_workload_newly_observed_file_extensions.AntiRansomwareVolumeWorkloadNewlyObservedFileExtensionsSchema", unknown=EXCLUDE, allow_none=True), data_key="newly_observed_file_extensions", allow_none=True)
+    newly_observed_file_extensions = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.anti_ransomware_volume_workload_newly_observed_file_extensions", "AntiRansomwareVolumeWorkloadNewlyObservedFileExtensionsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="newly_observed_file_extensions",
+                allow_none=True
+                )
     r""" New file extensions observed in the volume during surge. """
 
-    surge_statistics = marshmallow_fields.Nested("netapp_ontap.models.anti_ransomware_volume_workload_surge_statistics.AntiRansomwareVolumeWorkloadSurgeStatisticsSchema", unknown=EXCLUDE, data_key="surge_statistics", allow_none=True)
+    surge_statistics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.anti_ransomware_volume_workload_surge_statistics", "AntiRansomwareVolumeWorkloadSurgeStatisticsSchema"),
+                unknown=EXCLUDE,
+                data_key="surge_statistics",
+                allow_none=True
+            )
     r""" Usage values of the volume's workload during surge. """
 
-    surge_usage = marshmallow_fields.Nested("netapp_ontap.models.anti_ransomware_volume_workload_surge_usage.AntiRansomwareVolumeWorkloadSurgeUsageSchema", unknown=EXCLUDE, data_key="surge_usage", allow_none=True)
+    surge_usage = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.anti_ransomware_volume_workload_surge_usage", "AntiRansomwareVolumeWorkloadSurgeUsageSchema"),
+                unknown=EXCLUDE,
+                data_key="surge_usage",
+                allow_none=True
+            )
     r""" Usage values of the volume's workload during surge. This object is no longer supported use surge_statistics instead. """
 
-    typical_usage = marshmallow_fields.Nested("netapp_ontap.models.anti_ransomware_volume_typical_usage.AntiRansomwareVolumeTypicalUsageSchema", unknown=EXCLUDE, data_key="typical_usage", allow_none=True)
+    typical_usage = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.anti_ransomware_volume_typical_usage", "AntiRansomwareVolumeTypicalUsageSchema"),
+                unknown=EXCLUDE,
+                data_key="typical_usage",
+                allow_none=True
+            )
     r""" Typical usage values of volume workload. This object is no longer supported use historical_statistics instead. """
 
     @property

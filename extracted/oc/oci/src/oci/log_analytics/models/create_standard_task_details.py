@@ -48,6 +48,10 @@ class CreateStandardTaskDetails(CreateScheduledTaskDetails):
             The value to assign to the display_name property of this CreateStandardTaskDetails.
         :type display_name: str
 
+        :param description:
+            The value to assign to the description property of this CreateStandardTaskDetails.
+        :type description: str
+
         :param freeform_tags:
             The value to assign to the freeform_tags property of this CreateStandardTaskDetails.
         :type freeform_tags: dict(str, str)
@@ -74,6 +78,7 @@ class CreateStandardTaskDetails(CreateScheduledTaskDetails):
             'kind': 'str',
             'compartment_id': 'str',
             'display_name': 'str',
+            'description': 'str',
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))',
             'task_type': 'str',
@@ -84,6 +89,7 @@ class CreateStandardTaskDetails(CreateScheduledTaskDetails):
             'kind': 'kind',
             'compartment_id': 'compartmentId',
             'display_name': 'displayName',
+            'description': 'description',
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags',
             'task_type': 'taskType',
@@ -93,6 +99,7 @@ class CreateStandardTaskDetails(CreateScheduledTaskDetails):
         self._kind = None
         self._compartment_id = None
         self._display_name = None
+        self._description = None
         self._freeform_tags = None
         self._defined_tags = None
         self._task_type = None

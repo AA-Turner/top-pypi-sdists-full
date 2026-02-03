@@ -48,6 +48,7 @@ from hfortix_core import (
 
 from .client import FortiOS
 from .formatting import to_csv, to_dict, to_json, to_multiline, to_quoted
+from .transaction import Transaction, TransactionError
 from .help import help
 from .models import FortiObject, FortiObjectList, ContentResponse, CONTENT_ENDPOINTS, is_content_endpoint, parse_fortios_config
 
@@ -85,6 +86,9 @@ __all__ = [
     "is_content_endpoint",
     "parse_fortios_config",
     "configure_logging",
+    # Transaction support
+    "Transaction",
+    "TransactionError",
     # FortiManager proxy
     "FortiManagerProxy",
     "ProxiedFortiOS",

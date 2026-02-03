@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["MccipPortL3Config", "MccipPortL3ConfigSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "MccipPortL3Config": False,
 }
 
-
 class MccipPortL3ConfigSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the MccipPortL3Config object"""
 
-    ipv4_interface = marshmallow_fields.Nested("netapp_ontap.models.ip_interface_and_gateway.IpInterfaceAndGatewaySchema", unknown=EXCLUDE, data_key="ipv4_interface", allow_none=True)
+    ipv4_interface = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ip_interface_and_gateway", "IpInterfaceAndGatewaySchema"),
+                unknown=EXCLUDE,
+                data_key="ipv4_interface",
+                allow_none=True
+            )
     r""" Object to setup an interface along with its default router. """
 
     @property

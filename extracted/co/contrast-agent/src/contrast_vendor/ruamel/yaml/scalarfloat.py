@@ -1,9 +1,11 @@
-# coding: utf-8
+
+from __future__ import annotations
 
 import sys
 from contrast_vendor.ruamel.yaml.anchor import Anchor
 
-from typing import Text, Any, Dict, List  # NOQA
+if False:  # MYPY
+    from typing import Text, Any, Dict, List  # NOQA
 
 __all__ = ['ScalarFloat', 'ExponentialFloat', 'ExponentialCapsFloat']
 
@@ -89,7 +91,7 @@ class ScalarFloat(float):
         out.write(
             f'ScalarFloat({self}| w:{self._width}, p:{self._prec}, '  # type: ignore
             f's:{self._m_sign}, lz:{self._m_lead0}, _:{self._underscore}|{self._exp}'
-            f', w:{self._e_width}, s:{self._e_sign})\n'
+            f', w:{self._e_width}, s:{self._e_sign})\n',
         )
 
 

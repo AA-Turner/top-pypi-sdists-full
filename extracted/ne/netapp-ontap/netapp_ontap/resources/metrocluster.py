@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -495,11 +495,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -513,11 +512,15 @@ __pdoc__ = {
     "MetroclusterSchema.opts": False,
 }
 
-
 class MetroclusterSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Metrocluster object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the metrocluster."""
 
     configuration_type = marshmallow_fields.Str(
@@ -537,7 +540,15 @@ Valid choices:
 * ip_two_node_fabric
 * mixed_fabric"""
 
-    dr_pairs = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.dr_pair.DrPairSchema", unknown=EXCLUDE, allow_none=True), data_key="dr_pairs", allow_none=True)
+    dr_pairs = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.dr_pair", "DrPairSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="dr_pairs",
+                allow_none=True
+            )
     r""" DR Pairs to create as part of a MetroCluster configure."""
 
     encryption_enabled = marshmallow_fields.Boolean(
@@ -546,19 +557,47 @@ Valid choices:
     )
     r""" Indicates if the encryption for NVLog and storage traffic is enabled."""
 
-    local = marshmallow_fields.Nested("netapp_ontap.models.metrocluster_local.MetroclusterLocalSchema", data_key="local", unknown=EXCLUDE, allow_none=True)
+    local = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.metrocluster_local", "MetroclusterLocalSchema"),
+                data_key="local",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The local field of the metrocluster."""
 
-    mccip_ports = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.mccip_port.MccipPortSchema", unknown=EXCLUDE, allow_none=True), data_key="mccip_ports", allow_none=True)
+    mccip_ports = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.mccip_port", "MccipPortSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="mccip_ports",
+                allow_none=True
+            )
     r""" List of Port specifications."""
 
-    mediator = marshmallow_fields.Nested("netapp_ontap.resources.mediator.MediatorSchema", data_key="mediator", unknown=EXCLUDE, allow_none=True)
+    mediator = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.mediator", "MediatorSchema"),
+                data_key="mediator",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Mediator information"""
 
-    partner_cluster = marshmallow_fields.Nested("netapp_ontap.resources.cluster.ClusterSchema", data_key="partner_cluster", unknown=EXCLUDE, allow_none=True)
+    partner_cluster = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.cluster", "ClusterSchema"),
+                data_key="partner_cluster",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The partner_cluster field of the metrocluster."""
 
-    remote = marshmallow_fields.Nested("netapp_ontap.models.metrocluster_remote.MetroclusterRemoteSchema", data_key="remote", unknown=EXCLUDE, allow_none=True)
+    remote = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.metrocluster_remote", "MetroclusterRemoteSchema"),
+                data_key="remote",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The remote field of the metrocluster."""
 
     @property

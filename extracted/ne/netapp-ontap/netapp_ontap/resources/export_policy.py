@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -189,11 +189,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -207,12 +206,22 @@ __pdoc__ = {
     "ExportPolicySchema.opts": False,
 }
 
-
 class ExportPolicySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ExportPolicy object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the export_policy."""
+
+    are_rules_truncated = marshmallow_fields.Boolean(
+        data_key="are_rules_truncated",
+        allow_none=True,
+    )
+    r""" Indicates whether or not export-policy rules are truncated."""
 
     id = Size(
         data_key="id",
@@ -227,10 +236,23 @@ class ExportPolicySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Export Policy Name"""
 
-    rules = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.export_rules.ExportRulesSchema", unknown=EXCLUDE, allow_none=True), data_key="rules", allow_none=True)
+    rules = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.export_rules", "ExportRulesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="rules",
+                allow_none=True
+            )
     r""" Rules of the Export Policy."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the export_policy."""
 
     @property
@@ -239,6 +261,7 @@ class ExportPolicySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
     gettable_fields = [
         "links",
+        "are_rules_truncated",
         "id",
         "name",
         "rules",
@@ -246,7 +269,7 @@ class ExportPolicySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
         "svm.name",
         "svm.uuid",
     ]
-    """links,id,name,rules,svm.links,svm.name,svm.uuid,"""
+    """links,are_rules_truncated,id,name,rules,svm.links,svm.name,svm.uuid,"""
 
     patchable_fields = [
         "name",
@@ -285,6 +308,8 @@ class ExportPolicy(Resource):
 * `vserver export-policy rule show`
 ### Learn more
 * [`DOC /protocols/nfs/export-policies`](#docs-NAS-protocols_nfs_export-policies)
+####
+Note: `are_rules_truncated` is set to 'true' if the total number of export-policy rules is greater than 500. If set to 'true', rules after 500 will be truncated. Use GET /api/protocols/nfs/export-policies/{id}/rules to retrieve all rules for truncated policies.
 """
         return super()._get_collection(*args, connection=connection, max_records=max_records, **kwargs)
 
@@ -410,6 +435,8 @@ class ExportPolicy(Resource):
 * `vserver export-policy rule show`
 ### Learn more
 * [`DOC /protocols/nfs/export-policies`](#docs-NAS-protocols_nfs_export-policies)
+####
+Note: `are_rules_truncated` is set to 'true' if the total number of export-policy rules is greater than 500. If set to 'true', rules after 500 will be truncated. Use GET /api/protocols/nfs/export-policies/{id}/rules to retrieve all rules for truncated policies.
 """
         return super()._find(*args, connection=connection, **kwargs)
 

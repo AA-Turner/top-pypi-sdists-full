@@ -1053,6 +1053,53 @@ class CreateOfflineQueryJobResponse(BaseModel):
     errors: Optional[List[ChalkError]] = None
 
 
+@dataclasses.dataclass
+class NamedQueryMetadata:
+    """Metadata for a named query returned from the API."""
+
+    name: str
+    input: List[str]
+    output: List[str]
+    query_version: Optional[str] = None
+    tags: Optional[List[str]] = None
+    description: Optional[str] = None
+    owner: Optional[str] = None
+    meta: Optional[Dict[str, str]] = None
+    staleness: Optional[Dict[str, timedelta]] = None
+    planner_options: Optional[Dict[str, str]] = None
+    additional_logged_features: Optional[List[str]] = None
+    valid_plan_not_required: Optional[bool] = None
+
+    @staticmethod
+    def from_proto(proto_nq: Any) -> "NamedQueryMetadata":
+        """Convert a proto NamedQuery to the dataclass version."""
+        # Convert proto Duration to timedelta
+        staleness = None
+        if proto_nq.staleness:
+            staleness = {
+                k: timedelta(seconds=v.seconds, microseconds=v.nanos / 1000) for k, v in proto_nq.staleness.items()
+            }
+
+        return NamedQueryMetadata(
+            name=proto_nq.name,
+            query_version=proto_nq.query_version if proto_nq.HasField("query_version") else None,
+            input=list(proto_nq.input),
+            output=list(proto_nq.output),
+            tags=list(proto_nq.tags) if proto_nq.tags else None,
+            description=proto_nq.description if proto_nq.HasField("description") else None,
+            owner=proto_nq.owner if proto_nq.HasField("owner") else None,
+            meta=dict(proto_nq.meta) if proto_nq.meta else None,
+            staleness=staleness,
+            planner_options=dict(proto_nq.planner_options) if proto_nq.planner_options else None,
+            additional_logged_features=list(proto_nq.additional_logged_features)
+            if proto_nq.additional_logged_features
+            else None,
+            valid_plan_not_required=proto_nq.valid_plan_not_required
+            if proto_nq.HasField("valid_plan_not_required")
+            else None,
+        )
+
+
 class CreateBranchResponse(BaseModel):
     branch_already_exists: bool
     errors: Optional[List[ChalkError]] = None

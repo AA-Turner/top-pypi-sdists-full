@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -37,19 +37,19 @@ with HostConnection(
 ```
 MultiAdminVerifyRule(
     {
-        "operation": "volume delete",
+        "required_approvers": 1,
+        "query": "-vserver vs0",
         "system_defined": False,
         "owner": {
-            "uuid": "52b75787-7011-11ec-a23d-005056a78fd5",
             "_links": {
                 "self": {"href": "/api/svm/svms/52b75787-7011-11ec-a23d-005056a78fd5"}
             },
             "name": "cluster1",
+            "uuid": "52b75787-7011-11ec-a23d-005056a78fd5",
         },
         "create_time": "2022-01-07T22:14:03-05:00",
-        "query": "-vserver vs0",
         "auto_request_create": True,
-        "required_approvers": 1,
+        "operation": "volume delete",
     }
 )
 
@@ -104,11 +104,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -122,7 +121,6 @@ __pdoc__ = {
     "MultiAdminVerifyRuleSchema.opts": False,
 }
 
-
 class MultiAdminVerifyRuleSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the MultiAdminVerifyRule object"""
 
@@ -132,7 +130,15 @@ class MultiAdminVerifyRuleSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Time for requests to be approved, in ISO-8601 duration format. If not set, the global setting is used."""
 
-    approval_groups = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.multi_admin_verify_approval_group.MultiAdminVerifyApprovalGroupSchema", unknown=EXCLUDE, allow_none=True), data_key="approval_groups", allow_none=True)
+    approval_groups = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.multi_admin_verify_approval_group", "MultiAdminVerifyApprovalGroupSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="approval_groups",
+                allow_none=True
+            )
     r""" List of approval groups that are allowed to approve requests for rules that don't have approval groups."""
 
     auto_request_create = marshmallow_fields.Boolean(
@@ -159,7 +165,12 @@ class MultiAdminVerifyRuleSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Command that requires one or more approvals."""
 
-    owner = marshmallow_fields.Nested("netapp_ontap.models.multi_admin_verify_rule_owner.MultiAdminVerifyRuleOwnerSchema", data_key="owner", unknown=EXCLUDE, allow_none=True)
+    owner = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.multi_admin_verify_rule_owner", "MultiAdminVerifyRuleOwnerSchema"),
+                data_key="owner",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The owner of the rule. The only valid owner is currently the cluster."""
 
     query = marshmallow_fields.Str(

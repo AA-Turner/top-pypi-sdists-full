@@ -12,7 +12,9 @@ from oci.decorators import init_model_state_from_kwargs
 @init_model_state_from_kwargs
 class UpdateNatV4RuleDetails(UpdateNatRuleDetails):
     """
-    Request for updating NATV4 type Nat Rule used in the firewall policy.
+    Request for updating NATv4 type `NAT rule`__ used in the firewall policy.
+
+    __ https://docs.cloud.oracle.com/iaas/Content/network-firewall/policies.htm#network-firewall-policies__nat
     """
 
     #: A constant which can be used with the action property of a UpdateNatV4RuleDetails.

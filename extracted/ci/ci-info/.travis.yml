@@ -1,0 +1,13 @@
+# vim ft=yaml
+language: python
+python:
+  - 3.5
+  - 3.6
+  - 3.7
+  - 3.8
+
+install:
+  - pip install -e .[test]
+
+script:
+  - pytest -v --doctest-modules ci_info/tests/test_travis.py

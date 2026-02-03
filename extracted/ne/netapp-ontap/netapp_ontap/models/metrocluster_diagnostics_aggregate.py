@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["MetroclusterDiagnosticsAggregate", "MetroclusterDiagnosticsAggregateSchema"]
@@ -17,11 +16,18 @@ __pdoc__ = {
     "MetroclusterDiagnosticsAggregate": False,
 }
 
-
 class MetroclusterDiagnosticsAggregateSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the MetroclusterDiagnosticsAggregate object"""
 
-    details = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.metrocluster_diag_details.MetroclusterDiagDetailsSchema", unknown=EXCLUDE, allow_none=True), data_key="details", allow_none=True)
+    details = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.metrocluster_diag_details", "MetroclusterDiagDetailsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="details",
+                allow_none=True
+                )
     r""" Display details of the MetroCluster check for aggregates. """
 
     state = marshmallow_fields.Str(data_key="state", allow_none=True)
@@ -34,7 +40,12 @@ Valid choices:
 * not_run
 * not_applicable """
 
-    summary = marshmallow_fields.Nested("netapp_ontap.models.error_arguments.ErrorArgumentsSchema", unknown=EXCLUDE, data_key="summary", allow_none=True)
+    summary = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.error_arguments", "ErrorArgumentsSchema"),
+                unknown=EXCLUDE,
+                data_key="summary",
+                allow_none=True
+            )
     r""" The summary field of the metrocluster_diagnostics_aggregate. """
 
     timestamp = ImpreciseDateTime(data_key="timestamp", allow_none=True)

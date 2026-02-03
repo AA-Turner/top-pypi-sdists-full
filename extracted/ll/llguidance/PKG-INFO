@@ -1,14 +1,20 @@
 Metadata-Version: 2.4
 Name: llguidance
-Version: 1.4.0
+Version: 1.5.0
 License-File: LICENSE
 Summary: Bindings for the Low-level Guidance (llguidance) Rust library for use within Guidance
 Author: Michal Moskal
 License-Expression: MIT
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: repository, https://github.com/microsoft/llguidance
 Project-URL: issue_tracker, https://github.com/microsoft/llguidance/issues
+Project-URL: repository, https://github.com/microsoft/llguidance
+
+<div align="right">
+  <a href="https://discord.gg/cjPfAK43dz"><img src="https://img.shields.io/badge/Discord-Join%20Us-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
+  <a href="mailto:guidanceai@microsoft.com"><img src="https://img.shields.io/badge/Email-guidanceai%40microsoft.com-0078D4?logo=microsoft-outlook&logoColor=white" alt="Email"></a>
+  <img src="https://img.shields.io/badge/Hours-10am--2pm%20Pacific-gray" alt="Hours">
+</div>
 
 # Low-level Guidance (llguidance)
 
@@ -35,7 +41,7 @@ Project-URL: issue_tracker, https://github.com/microsoft/llguidance/issues
 ## About
 
 This library implements constrained decoding (also called constrained sampling or
-structured outputs) for Large Langauge Models (LLMs).
+structured outputs) for Large Language Models (LLMs).
 It can enforce arbitrary context-free grammar on the output of LLM
 and is fast - on the order of 50μs of CPU time per token
 (for 128k tokenizer) with negligible startup costs.

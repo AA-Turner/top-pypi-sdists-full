@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -32,35 +32,35 @@ with HostConnection(
 [
     CifsConnection(
         {
-            "identifier": 91842,
             "server_ip": "10.140.70.197",
+            "identifier": 91842,
+            "svm": {"name": "vs1", "uuid": "fc824aa8-4e60-11ea-afb1-0050568ec4e4"},
             "network_context_id": 3,
-            "svm": {"uuid": "fc824aa8-4e60-11ea-afb1-0050568ec4e4", "name": "vs1"},
             "sessions": [{"identifier": 625718873227788312}],
-            "client_ip": "10.74.7.182",
             "node": {
-                "uuid": "85d46998-4e5d-11ea-afb1-0050568ec4e4",
                 "name": "example_node_name",
+                "uuid": "85d46998-4e5d-11ea-afb1-0050568ec4e4",
             },
             "client_port": 12345,
+            "client_ip": "10.74.7.182",
         }
     ),
     CifsConnection(
         {
-            "identifier": 92080,
             "server_ip": "10.140.70.197",
+            "identifier": 92080,
+            "svm": {"name": "vs1", "uuid": "fc824aa8-4e60-11ea-afb1-0050568ec4e4"},
             "network_context_id": 5,
-            "svm": {"uuid": "fc824aa8-4e60-11ea-afb1-0050568ec4e4", "name": "vs1"},
             "sessions": [
                 {"identifier": 625718873227788579},
                 {"identifier": 625718873227788577},
             ],
-            "client_ip": "10.140.133.97",
             "node": {
-                "uuid": "85d46998-4e5d-11ea-afb1-0050568ec4e4",
                 "name": "example_node_name",
+                "uuid": "85d46998-4e5d-11ea-afb1-0050568ec4e4",
             },
             "client_port": 23413,
+            "client_ip": "10.140.133.97",
         }
     ),
 ]
@@ -75,11 +75,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -92,7 +91,6 @@ __pdoc__ = {
     "CifsConnectionSchema.resource": False,
     "CifsConnectionSchema.opts": False,
 }
-
 
 class CifsConnectionSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the CifsConnection object"""
@@ -133,7 +131,12 @@ Example: 22802"""
 
 Example: 22802"""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the cifs_connection."""
 
     server_ip = marshmallow_fields.Str(
@@ -145,10 +148,23 @@ Example: 22802"""
 
 Example: 10.140.78.248"""
 
-    sessions = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.cifs_connection_sessions.CifsConnectionSessionsSchema", unknown=EXCLUDE, allow_none=True), data_key="sessions", allow_none=True)
+    sessions = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.cifs_connection_sessions", "CifsConnectionSessionsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="sessions",
+                allow_none=True
+            )
     r""" The sessions field of the cifs_connection."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the cifs_connection."""
 
     @property

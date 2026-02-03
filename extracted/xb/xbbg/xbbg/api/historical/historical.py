@@ -7,25 +7,33 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Any
 
+import narwhals as nw
 import pandas as pd
+import pyarrow as pa
 
 from xbbg import const
 from xbbg.api.reference import bds
+from xbbg.backend import Backend, Format
 from xbbg.core import process
 from xbbg.core.utils import utils
+from xbbg.io.convert import _convert_backend, is_empty
+from xbbg.options import get_backend
 
 logger = logging.getLogger(__name__)
 
-__all__ = ['bdh', 'dividend', 'earning', 'turnover', 'abdh']
+__all__ = ["bdh", "dividend", "earning", "turnover", "abdh"]
 
 
 def bdh(
     tickers: str | list[str],
     flds: str | list[str] | None = None,
     start_date: str | pd.Timestamp | None = None,
-    end_date: str | pd.Timestamp = 'today',
+    end_date: str | pd.Timestamp = "today",
     adjust: str | None = None,
+    backend: Backend | None = None,
+    format: Format | None = None,
     **kwargs,
 ) -> pd.DataFrame:
     """Bloomberg historical data.
@@ -41,6 +49,8 @@ def bdh(
             - `split`: Adjust for splits and ignore all dividends
             - `all` == `dvd|split`: Adjust for all
             - None: Bloomberg default OR use kwargs
+        backend: Output backend (e.g., Backend.PANDAS, Backend.POLARS). Defaults to None.
+        format: Output format (e.g., Format.WIDE, Format.LONG). Defaults to None.
         **kwargs: Additional overrides and infrastructure options.
 
     Returns:
@@ -58,12 +68,12 @@ def bdh(
 
     # Build request - use first ticker as primary, store all in request_opts
     if flds is None:
-        flds = ['Last_Price']
+        flds = ["Last_Price"]
 
-    e_dt = utils.fmt_dt(end_date, fmt='%Y%m%d')
+    e_dt = utils.fmt_dt(end_date, fmt="%Y%m%d")
     if start_date is None:
         start_date = pd.Timestamp(e_dt) - pd.Timedelta(weeks=8)
-    s_dt = utils.fmt_dt(start_date, fmt='%Y%m%d')
+    s_dt = utils.fmt_dt(start_date, fmt="%Y%m%d")
 
     request = (
         RequestBuilder()
@@ -79,6 +89,7 @@ def bdh(
             adjust=adjust,
         )
         .override_kwargs(**split.override_like)
+        .with_output(backend, format)
         .build()
     )
 
@@ -89,12 +100,15 @@ def bdh(
 
 def earning(
     ticker: str,
-    by: str = 'Geo',
-    typ: str = 'Revenue',
+    by: str = "Geo",
+    typ: str = "Revenue",
     ccy: str | None = None,
     level: int | None = None,
+    *,
+    backend: Backend | None = None,
+    format: Format | None = None,
     **kwargs,
-) -> pd.DataFrame:
+) -> Any:
     """Earning exposures by Geo or Products.
 
     Args:
@@ -108,50 +122,69 @@ def earning(
             `Capital_Expenditures` - Capital expenditures of the company
         ccy: currency of earnings
         level: hierarchy level of earnings
+        backend: Output backend (e.g., Backend.PANDAS, Backend.POLARS). Defaults to global setting.
+        format: Output format (e.g., Format.WIDE, Format.LONG). Defaults to global setting.
         **kwargs: Additional overrides such as fiscal year and periods.
 
     Returns:
-        pd.DataFrame.
+        DataFrame.
     """
-    kwargs.pop('raw', None)
-    ovrd = 'G' if by[0].upper() == 'G' else 'P'
-    new_kw = {'Product_Geo_Override': ovrd}
+    kwargs.pop("raw", None)
+    ovrd = "G" if by[0].upper() == "G" else "P"
+    new_kw = {"Product_Geo_Override": ovrd}
 
-    year = kwargs.pop('year', None)
-    periods = kwargs.pop('periods', None)
-    if year: kwargs['Eqy_Fund_Year'] = year
-    if periods: kwargs['Number_Of_Periods'] = periods
+    year = kwargs.pop("year", None)
+    periods = kwargs.pop("periods", None)
+    if year:
+        kwargs["Eqy_Fund_Year"] = year
+    if periods:
+        kwargs["Number_Of_Periods"] = periods
 
-    header = bds(tickers=ticker, flds='PG_Bulk_Header', use_port=False, **new_kw, **kwargs)
-    if ccy: kwargs['Eqy_Fund_Crncy'] = ccy
-    if level: kwargs['PG_Hierarchy_Level'] = level
-    data = bds(tickers=ticker, flds=f'PG_{typ}', use_port=False, **new_kw, **kwargs)
+    # Use WIDE format for internal calls since this function expects ticker as index
+    header = bds(tickers=ticker, flds="PG_Bulk_Header", use_port=False, format=Format.WIDE, **new_kw, **kwargs)
+    if ccy:
+        kwargs["Eqy_Fund_Crncy"] = ccy
+    if level:
+        kwargs["PG_Hierarchy_Level"] = level
+    data = bds(tickers=ticker, flds=f"PG_{typ}", use_port=False, format=Format.WIDE, **new_kw, **kwargs)
 
-    if data.empty or header.empty: return pd.DataFrame()
+    if is_empty(data) or is_empty(header):
+        actual_backend = backend if backend is not None else get_backend()
+        return _convert_backend(nw.from_native(pa.table({})), actual_backend)
     if data.shape[1] != header.shape[1]:
-        raise ValueError('Inconsistent shape of data and header')
-    data.columns = (
-        header.iloc[0]
-        .str.lower()
-        .str.replace(' ', '_')
-        .str.replace('_20', '20')
-        .tolist()
-    )
+        raise ValueError("Inconsistent shape of data and header")
+    data.columns = header.iloc[0].str.lower().str.replace(" ", "_").str.replace("_20", "20").tolist()
 
-    if 'level' not in data: raise KeyError('Cannot find [level] in data')
-    for yr in data.columns[data.columns.str.startswith('fy')]:
+    if "level" not in data:
+        raise KeyError("Cannot find [level] in data")
+
+    # Ensure level column is numeric (may come as string from pipeline)
+    data["level"] = pd.to_numeric(data["level"], errors="coerce").fillna(0).astype(int)
+
+    # Ensure fiscal year columns are numeric
+    for col in data.columns:
+        if col.startswith("fy") and not col.endswith("_pct"):
+            data[col] = pd.to_numeric(data[col], errors="coerce")
+
+    for yr in data.columns[data.columns.str.startswith("fy")]:
         process.earning_pct(data=data, yr=yr)
 
-    return data
+    # Convert to requested backend
+    actual_backend = backend if backend is not None else get_backend()
+    arrow_table = pa.Table.from_pandas(data)
+    return _convert_backend(nw.from_native(arrow_table), actual_backend)
 
 
 def dividend(
     tickers: str | list[str],
-    typ: str = 'all',
+    typ: str = "all",
     start_date: str | pd.Timestamp | None = None,
     end_date: str | pd.Timestamp | None = None,
+    *,
+    backend: Backend | None = None,
+    format: Format | None = None,
     **kwargs,
-) -> pd.DataFrame:
+) -> Any:
     """Bloomberg dividend / split history.
 
     Args:
@@ -169,36 +202,41 @@ def dividend(
             `projected`: `BDVD_Pr_Ex_Dts_DVD_Amts_w_Ann`
         start_date: start date
         end_date: end date
+        backend: Output backend (e.g., Backend.PANDAS, Backend.POLARS). Defaults to global setting.
+        format: Output format (e.g., Format.WIDE, Format.LONG). Defaults to global setting.
         **kwargs: overrides
 
     Returns:
-        pd.DataFrame
+        DataFrame
     """
-    kwargs.pop('raw', None)
+    kwargs.pop("raw", None)
     tickers = utils.normalize_tickers(tickers)
-    tickers = [t for t in tickers if ('Equity' in t) and ('=' not in t)]
+    tickers = [t for t in tickers if ("Equity" in t) and ("=" not in t)]
 
     fld = const.DVD_TPYES.get(typ, typ)
 
-    if (fld == 'Eqy_DVD_Adjust_Fact') and ('Corporate_Actions_Filter' not in kwargs):
-        kwargs['Corporate_Actions_Filter'] = 'NORMAL_CASH|ABNORMAL_CASH|CAPITAL_CHANGE'
+    if (fld == "Eqy_DVD_Adjust_Fact") and ("Corporate_Actions_Filter" not in kwargs):
+        kwargs["Corporate_Actions_Filter"] = "NORMAL_CASH|ABNORMAL_CASH|CAPITAL_CHANGE"
 
     if start_date:
-        kwargs['DVD_Start_Dt'] = utils.fmt_dt(start_date, fmt='%Y%m%d')
+        kwargs["DVD_Start_Dt"] = utils.fmt_dt(start_date, fmt="%Y%m%d")
     if end_date:
-        kwargs['DVD_End_Dt'] = utils.fmt_dt(end_date, fmt='%Y%m%d')
+        kwargs["DVD_End_Dt"] = utils.fmt_dt(end_date, fmt="%Y%m%d")
 
-    return bds(tickers=tickers, flds=fld, col_maps=const.DVD_COLS, **kwargs)
+    return bds(tickers=tickers, flds=fld, col_maps=const.DVD_COLS, backend=backend, format=format, **kwargs)
 
 
 def turnover(
     tickers: str | list[str],
-    flds: str = 'Turnover',
+    flds: str = "Turnover",
     start_date: str | pd.Timestamp | None = None,
     end_date: str | pd.Timestamp | None = None,
-    ccy: str = 'USD',
+    ccy: str = "USD",
     factor: float = 1e6,
-) -> pd.DataFrame:
+    *,
+    backend: Backend | None = None,
+    **kwargs,
+) -> Any:
     """Currency adjusted turnover (in million).
 
     Args:
@@ -208,44 +246,56 @@ def turnover(
         end_date: end date, default T - 1.
         ccy: currency - 'USD' (default), any currency, or 'local' (no adjustment).
         factor: adjustment factor, default 1e6 - return values in millions.
+        backend: Output backend (e.g., Backend.PANDAS, Backend.POLARS). Defaults to global setting.
+        **kwargs: Additional options.
 
     Returns:
-        pd.DataFrame.
+        DataFrame.
     """
     if end_date is None:
-        end_date = pd.bdate_range(end='today', periods=2)[0]
+        end_date = pd.bdate_range(end="today", periods=2)[0]
     if start_date is None:
-        start_date = pd.bdate_range(end=end_date, periods=2, freq='M')[0]
+        start_date = pd.bdate_range(end=end_date, periods=2, freq="M")[0]
     tickers = utils.normalize_tickers(tickers)
 
-    data = bdh(tickers=tickers, flds=flds, start_date=start_date, end_date=end_date)
+    # Use WIDE format for internal calls since this function expects MultiIndex columns
+    data = bdh(tickers=tickers, flds=flds, start_date=start_date, end_date=end_date, format=Format.WIDE)
     cols = data.columns.get_level_values(level=0).unique()
     use_volume = pd.DataFrame()
-    if isinstance(flds, str) and (flds.lower() == 'turnover'):
+    if isinstance(flds, str) and (flds.lower() == "turnover"):
         vol_tcks = [t for t in tickers if t not in cols]
         if vol_tcks:
             vol_data = bdh(
                 tickers=vol_tcks,
-                flds=['eqy_weighted_avg_px', 'volume'],
+                flds=["eqy_weighted_avg_px", "volume"],
                 start_date=start_date,
                 end_date=end_date,
+                format=Format.WIDE,
             )
-            if not vol_data.empty:
+            if not is_empty(vol_data):
                 # Calculate turnover = volume * VWAP
-                use_volume = vol_data.xs('eqy_weighted_avg_px', axis=1, level=1) * \
-                           vol_data.xs('volume', axis=1, level=1)
+                use_volume = vol_data.xs("eqy_weighted_avg_px", axis=1, level=1) * vol_data.xs(
+                    "volume", axis=1, level=1
+                )
 
-    if data.empty and use_volume.empty: return pd.DataFrame()
+    actual_backend = backend if backend is not None else get_backend()
+    if is_empty(data) and is_empty(use_volume):
+        return _convert_backend(nw.from_native(pa.table({})), actual_backend)
     from xbbg.api.helpers import adjust_ccy  # noqa: PLC0415
-    return pd.concat([adjust_ccy(data=data, ccy=ccy).div(factor), use_volume], axis=1)
+
+    result = pd.concat([adjust_ccy(data=data, ccy=ccy).div(factor), use_volume], axis=1)
+    arrow_table = pa.Table.from_pandas(result)
+    return _convert_backend(nw.from_native(arrow_table), actual_backend)
 
 
 async def abdh(
     tickers: str | list[str],
     flds: str | list[str] | None = None,
     start_date: str | pd.Timestamp | None = None,
-    end_date: str | pd.Timestamp = 'today',
+    end_date: str | pd.Timestamp = "today",
     adjust: str | None = None,
+    backend: Backend | None = None,
+    format: Format | None = None,
     **kwargs,
 ) -> pd.DataFrame:
     """Async Bloomberg historical data.
@@ -264,6 +314,8 @@ async def abdh(
             - `split`: Adjust for splits and ignore all dividends
             - `all` == `dvd|split`: Adjust for all
             - None: Bloomberg default OR use kwargs
+        backend: Output backend (e.g., Backend.PANDAS, Backend.POLARS). Defaults to None.
+        format: Output format (e.g., Format.WIDE, Format.LONG). Defaults to None.
         **kwargs: Additional overrides and infrastructure options.
 
     Returns:
@@ -287,6 +339,7 @@ async def abdh(
         start_date=start_date,
         end_date=end_date,
         adjust=adjust,
+        backend=backend,
+        format=format,
         **kwargs,
     )
-

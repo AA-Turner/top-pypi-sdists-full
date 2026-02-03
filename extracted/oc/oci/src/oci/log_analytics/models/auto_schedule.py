@@ -35,20 +35,34 @@ class AutoSchedule(Schedule):
             The value to assign to the time_of_first_execution property of this AutoSchedule.
         :type time_of_first_execution: datetime
 
+        :param query_offset_secs:
+            The value to assign to the query_offset_secs property of this AutoSchedule.
+        :type query_offset_secs: int
+
+        :param time_end:
+            The value to assign to the time_end property of this AutoSchedule.
+        :type time_end: datetime
+
         """
         self.swagger_types = {
             'type': 'str',
             'misfire_policy': 'str',
-            'time_of_first_execution': 'datetime'
+            'time_of_first_execution': 'datetime',
+            'query_offset_secs': 'int',
+            'time_end': 'datetime'
         }
         self.attribute_map = {
             'type': 'type',
             'misfire_policy': 'misfirePolicy',
-            'time_of_first_execution': 'timeOfFirstExecution'
+            'time_of_first_execution': 'timeOfFirstExecution',
+            'query_offset_secs': 'queryOffsetSecs',
+            'time_end': 'timeEnd'
         }
         self._type = None
         self._misfire_policy = None
         self._time_of_first_execution = None
+        self._query_offset_secs = None
+        self._time_end = None
         self._type = 'AUTO'
 
     def __repr__(self):

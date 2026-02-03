@@ -32,6 +32,22 @@ class CreateVmClusterDetails(object):
     #: This constant has a value of "DEVELOPER"
     VM_CLUSTER_TYPE_DEVELOPER = "DEVELOPER"
 
+    #: A constant which can be used with the vm_file_system_storage_type property of a CreateVmClusterDetails.
+    #: This constant has a value of "LOCAL"
+    VM_FILE_SYSTEM_STORAGE_TYPE_LOCAL = "LOCAL"
+
+    #: A constant which can be used with the vm_file_system_storage_type property of a CreateVmClusterDetails.
+    #: This constant has a value of "EXASCALE"
+    VM_FILE_SYSTEM_STORAGE_TYPE_EXASCALE = "EXASCALE"
+
+    #: A constant which can be used with the vm_backup_storage_type property of a CreateVmClusterDetails.
+    #: This constant has a value of "LOCAL"
+    VM_BACKUP_STORAGE_TYPE_LOCAL = "LOCAL"
+
+    #: A constant which can be used with the vm_backup_storage_type property of a CreateVmClusterDetails.
+    #: This constant has a value of "EXASCALE"
+    VM_BACKUP_STORAGE_TYPE_EXASCALE = "EXASCALE"
+
     def __init__(self, **kwargs):
         """
         Initializes a new CreateVmClusterDetails object with values from keyword arguments.
@@ -139,6 +155,16 @@ class CreateVmClusterDetails(object):
             The value to assign to the exascale_db_storage_vault_id property of this CreateVmClusterDetails.
         :type exascale_db_storage_vault_id: str
 
+        :param vm_file_system_storage_type:
+            The value to assign to the vm_file_system_storage_type property of this CreateVmClusterDetails.
+            Allowed values for this property are: "LOCAL", "EXASCALE"
+        :type vm_file_system_storage_type: str
+
+        :param vm_backup_storage_type:
+            The value to assign to the vm_backup_storage_type property of this CreateVmClusterDetails.
+            Allowed values for this property are: "LOCAL", "EXASCALE"
+        :type vm_backup_storage_type: str
+
         """
         self.swagger_types = {
             'compartment_id': 'str',
@@ -165,7 +191,9 @@ class CreateVmClusterDetails(object):
             'file_system_configuration_details': 'list[FileSystemConfigurationDetail]',
             'vm_cluster_type': 'str',
             'cloud_automation_update_details': 'CloudAutomationUpdateDetails',
-            'exascale_db_storage_vault_id': 'str'
+            'exascale_db_storage_vault_id': 'str',
+            'vm_file_system_storage_type': 'str',
+            'vm_backup_storage_type': 'str'
         }
         self.attribute_map = {
             'compartment_id': 'compartmentId',
@@ -192,7 +220,9 @@ class CreateVmClusterDetails(object):
             'file_system_configuration_details': 'fileSystemConfigurationDetails',
             'vm_cluster_type': 'vmClusterType',
             'cloud_automation_update_details': 'cloudAutomationUpdateDetails',
-            'exascale_db_storage_vault_id': 'exascaleDbStorageVaultId'
+            'exascale_db_storage_vault_id': 'exascaleDbStorageVaultId',
+            'vm_file_system_storage_type': 'vmFileSystemStorageType',
+            'vm_backup_storage_type': 'vmBackupStorageType'
         }
         self._compartment_id = None
         self._display_name = None
@@ -219,6 +249,8 @@ class CreateVmClusterDetails(object):
         self._vm_cluster_type = None
         self._cloud_automation_update_details = None
         self._exascale_db_storage_vault_id = None
+        self._vm_file_system_storage_type = None
+        self._vm_backup_storage_type = None
 
     @property
     def compartment_id(self):
@@ -861,6 +893,68 @@ class CreateVmClusterDetails(object):
         :type: str
         """
         self._exascale_db_storage_vault_id = exascale_db_storage_vault_id
+
+    @property
+    def vm_file_system_storage_type(self):
+        """
+        Gets the vm_file_system_storage_type of this CreateVmClusterDetails.
+        Specifies the type of file system storage and supported values are LOCAL and EXASCALE. - LOCAL if selected then file system storage will be on DB Servers. - EXASCALE if selected then file system storage will be on Exascale Storage Servers. Default Value is LOCAL
+
+        Allowed values for this property are: "LOCAL", "EXASCALE"
+
+
+        :return: The vm_file_system_storage_type of this CreateVmClusterDetails.
+        :rtype: str
+        """
+        return self._vm_file_system_storage_type
+
+    @vm_file_system_storage_type.setter
+    def vm_file_system_storage_type(self, vm_file_system_storage_type):
+        """
+        Sets the vm_file_system_storage_type of this CreateVmClusterDetails.
+        Specifies the type of file system storage and supported values are LOCAL and EXASCALE. - LOCAL if selected then file system storage will be on DB Servers. - EXASCALE if selected then file system storage will be on Exascale Storage Servers. Default Value is LOCAL
+
+
+        :param vm_file_system_storage_type: The vm_file_system_storage_type of this CreateVmClusterDetails.
+        :type: str
+        """
+        allowed_values = ["LOCAL", "EXASCALE"]
+        if not value_allowed_none_or_none_sentinel(vm_file_system_storage_type, allowed_values):
+            raise ValueError(
+                f"Invalid value for `vm_file_system_storage_type`, must be None or one of {allowed_values}"
+            )
+        self._vm_file_system_storage_type = vm_file_system_storage_type
+
+    @property
+    def vm_backup_storage_type(self):
+        """
+        Gets the vm_backup_storage_type of this CreateVmClusterDetails.
+        Specifies the type of VM Backups Storage and supported values are LOCAL and EXASCALE. - LOCAL if selected then VM Backups storage will be on DB Servers. - EXASCALE if selected then VM Backups storage will be on Exascale Storage Servers. Default Value is LOCAL
+
+        Allowed values for this property are: "LOCAL", "EXASCALE"
+
+
+        :return: The vm_backup_storage_type of this CreateVmClusterDetails.
+        :rtype: str
+        """
+        return self._vm_backup_storage_type
+
+    @vm_backup_storage_type.setter
+    def vm_backup_storage_type(self, vm_backup_storage_type):
+        """
+        Sets the vm_backup_storage_type of this CreateVmClusterDetails.
+        Specifies the type of VM Backups Storage and supported values are LOCAL and EXASCALE. - LOCAL if selected then VM Backups storage will be on DB Servers. - EXASCALE if selected then VM Backups storage will be on Exascale Storage Servers. Default Value is LOCAL
+
+
+        :param vm_backup_storage_type: The vm_backup_storage_type of this CreateVmClusterDetails.
+        :type: str
+        """
+        allowed_values = ["LOCAL", "EXASCALE"]
+        if not value_allowed_none_or_none_sentinel(vm_backup_storage_type, allowed_values):
+            raise ValueError(
+                f"Invalid value for `vm_backup_storage_type`, must be None or one of {allowed_values}"
+            )
+        self._vm_backup_storage_type = vm_backup_storage_type
 
     def __repr__(self):
         return formatted_flat_dict(self)

@@ -84,6 +84,7 @@ from .port import (
 )
 from .ports import DCreatePort, DPorts, ICreatePort, Ports, ProtoPorts
 from .serialization import (
+    cell_name_hash,
     clean_name,
     deserialize_setting,
     serialize_setting,
@@ -801,7 +802,7 @@ class ProtoTKCell(ProtoKCell[TUnit, TKCell], Generic[TUnit], ABC):  # noqa: PYI0
 
         c._base.settings = self.settings.model_copy()
         c._base.info = self.info.model_copy()
-        c._base.vinsts = self._base.vinsts.copy()
+        c._base.vinsts = self._base.vinsts.dup()
 
         return c
 
@@ -3859,6 +3860,14 @@ def show(
             name = clean_name(mf)
         except ImportError:
             name = "shell"
+
+    # Append name (and hash) for unique file paths
+    if isinstance(layout, KCLayout) and layout.name:
+        name += f"_{clean_name(layout.name)}"
+    elif isinstance(layout, ProtoKCell) and layout.name:
+        if basename := layout.basename or layout.function_name:
+            name += f"_{clean_name(basename)}"
+        name += f"_{cell_name_hash(layout.name)}"
 
     kcl_paths: list[dict[str, str]] = []
 

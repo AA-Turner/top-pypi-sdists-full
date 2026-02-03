@@ -13,6 +13,7 @@ from adam.utils_cassandra.node_restartability import NodeRestartability
 from adam.utils_context import Context
 from adam.repl_state import ReplState
 from adam.utils_k8s.pod_exec_result import PodExecResult
+from adam.utils_k8s.statefulsets import StatefulSets
 from adam.utils_tabulize import tabulize
 
 class CassandraStatus:
@@ -22,56 +23,21 @@ class CassandraStatus:
 
         statuses: list[list[dict]] = []
 
-        with cassandra(state) as pods:
-            pod_names = pods.pod_names()
-            cluster_size = len(pod_names)
-
-            # 1. If 3 samples are requested out of 96 nodes, first 32 pods are examined concurrently.
-            # 2. If at least 3 samples are acquired, the method returns with the first 3 samples.
-            # 3. If not all 3 samples are acquired, the next 32 pods are examined concurrently, and so on.
-            # 4. After all 96 nodes are examined, if the number of samples is less than 3, the samples are returned.
-            s = min(len(pod_names), max(samples * 3, int(len(pod_names) / 3)))
-
-            pns = pod_names[:s]
-            pod_names = pod_names[s:]
-
-            while samples and pns:
-                rs = pods.nodetool('status', status=True, pods=pns, ctx=ctx.copy(background=False, show_out=False))
-                for r in rs:
-                    status = NodeTools.parse_nodetool_status(r.stdout)
-                    if status:
-                        statuses.append(status)
-                        samples -= 1
-                        if not samples:
-                            break
-
-                if s < len(pod_names):
-                    pns = pod_names[:s]
-                    pod_names = pod_names[s:]
-                else:
-                    pns = pod_names
-                    pod_names = []
-
-        # following block is for serialized naive pod runnings
-
-        # pod_names = StatefulSets.pod_names(state.sts, state.namespace)
-        # for pod_name in pod_names:
-        #     pod_name = pod_name.split('(')[0]
-
-        #     with log_exc(True):
-        #         with cassandra(state, pod=pod_name) as pods:
-        #             result = pods.nodetool('status', ctx=ctx.copy(background=False, show_out=False))
-        #             status = NodeTools.parse_nodetool_status(result.stdout)
-        #             if status:
-        #                 statuses.append(status)
-        #             if samples <= len(statuses) and len(pod_names) != len(statuses):
-        #                 break
+        with cassandra(state.with_no_pod()) as pods:
+            rs = pods.nodetool('status', status=True, samples=samples, ctx=ctx.copy(background=False, show_out=False))
+            for r in rs:
+                status = NodeTools.parse_nodetool_status(r.stdout)
+                if status:
+                    statuses.append(status)
 
         combined_status = CassandraStatus._merge_status(statuses)
 
-        return combined_status, len(statuses), cluster_size
+        return combined_status, len(statuses), len(pods.pod_names())
 
     def _merge_status(statuses: list[list[dict]]):
+        if not statuses:
+            return []
+
         combined = statuses[0]
 
         status_by_host = {}
@@ -88,6 +54,15 @@ class CassandraStatus:
 
         return combined
 
+    def get_pod(self, state: ReplState, pod_name: str):
+        pod = None
+        for p in StatefulSets.pods(state.sts, state.namespace):
+            if p.metadata.name == pod_name:
+                pod = p
+                break
+
+        return pod
+
     def restartable(state: ReplState, pod: str, in_restartings: list, ctx: Context = Context.NULL):
         if (pod, state.namespace) in in_restartings:
             return NodeRestartability(pod, err=f'{pod} is already in restart.')
@@ -101,13 +76,16 @@ class CassandraStatus:
             return NodeRestartability(pod, host_ids_by_pod=nat._host_ids_by_pod, err=str(e))
 
         # find pod that's up
+        running_pods = StatefulSets.running_pods(state.sts, state.namespace)
         pod_to_run_on: str = None
+        statuses = nat.status_by_host_id(state)
         for p, host_id in nat._host_ids_by_pod.items():
-            if host_id in nat.status_by_host_id(state):
-               status = nat.status_by_host_id(state)[host_id]
-               if 'status' in status and status['status'] == 'UN':
-                  pod_to_run_on = p
-                  break
+            if not running_pods or p in running_pods:
+                if host_id in statuses:
+                    status = statuses[host_id]
+                    if 'status' in status and status['status'] == 'UN':
+                        pod_to_run_on = p
+                        break
 
         if not pod_to_run_on:
             return NodeRestartability(pod, host_ids_by_pod=nat._host_ids_by_pod, err=f'[DOWN] Cannot locate any pod that works at the moment.')
@@ -185,6 +163,7 @@ class CassandraStatus:
 
          return tokens, my_tokens
 
+    # TODO remove this; used only by a test
     def pod_status(pod: client.V1Pod):
         s = 'Unknown'
 
@@ -224,10 +203,11 @@ class CassandraNAT:
         host_ids_by_ip = {}
 
         try:
-            with cassandra(state) as pods:
+            with cassandra(state.with_no_pod()) as pods:
                 cql = 'select broadcast_address, host_id from system.local; select peer, host_id from system.peers'
                 result: PodExecResult = pods.cql(cql, ctx=ctx.copy(show_out=ctx.debug), no_color=True, on_any=True)
-                result = result[0]
+                if isinstance(result, list):
+                    result = result[0]
 
                 for line in result.stdout.splitlines():
                     if line:
@@ -278,6 +258,12 @@ class CassandraNAT:
         return {s['host_id']: s for s in self._status}
 
     def status_by_ip(self, state: ReplState):
+        if not self._status:
+            self._status, samples, nodes = CassandraStatus.merged_nodetool_status(state)
+
+        return {s['address']: s for s in self._status}
+
+    def status_by_pod_name(self, state: ReplState):
         if not self._status:
             self._status, samples, nodes = CassandraStatus.merged_nodetool_status(state)
 

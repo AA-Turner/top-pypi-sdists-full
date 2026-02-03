@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,66 +28,66 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     CapacityPool(
         {
+            "serial_number": "390000100",
+            "_links": {
+                "self": {"href": "/api/cluster/licensing/capacity-pools/390000100"}
+            },
+            "nodes": [
+                {
+                    "node": {
+                        "name": "node-1",
+                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563411",
+                    },
+                    "used_size": 1099511627776,
+                },
+                {
+                    "node": {
+                        "name": "node-2",
+                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563412",
+                    },
+                    "used_size": 1099511627776,
+                },
+            ],
             "license_manager": {
-                "uuid": "4ea7a442-86d1-11e0-ae1c-112233445566",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/licensing/license-managers/4ea7a442-86d1-11e0-ae1c-112233445566"
                     }
                 },
+                "uuid": "4ea7a442-86d1-11e0-ae1c-112233445566",
             },
-            "nodes": [
-                {
-                    "node": {
-                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563411",
-                        "name": "node-1",
-                    },
-                    "used_size": 1099511627776,
-                },
-                {
-                    "node": {
-                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563412",
-                        "name": "node-2",
-                    },
-                    "used_size": 1099511627776,
-                },
-            ],
-            "_links": {
-                "self": {"href": "/api/cluster/licensing/capacity-pools/390000100"}
-            },
-            "serial_number": "390000100",
         }
     ),
     CapacityPool(
         {
+            "serial_number": "390000101",
+            "_links": {
+                "self": {"href": "/api/cluster/licensing/capacity-pools/390000101"}
+            },
+            "nodes": [
+                {
+                    "node": {
+                        "name": "node-3",
+                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563413",
+                    },
+                    "used_size": 2199023255552,
+                },
+                {
+                    "node": {
+                        "name": "node-4",
+                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563414",
+                    },
+                    "used_size": 2199023255552,
+                },
+            ],
             "license_manager": {
-                "uuid": "4ea7a442-86d1-11e0-ae1c-112233445566",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/licensing/license-managers/4ea7a442-86d1-11e0-ae1c-112233445566"
                     }
                 },
+                "uuid": "4ea7a442-86d1-11e0-ae1c-112233445566",
             },
-            "nodes": [
-                {
-                    "node": {
-                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563413",
-                        "name": "node-3",
-                    },
-                    "used_size": 2199023255552,
-                },
-                {
-                    "node": {
-                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563414",
-                        "name": "node-4",
-                    },
-                    "used_size": 2199023255552,
-                },
-            ],
-            "_links": {
-                "self": {"href": "/api/cluster/licensing/capacity-pools/390000101"}
-            },
-            "serial_number": "390000101",
         }
     ),
 ]
@@ -116,32 +116,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CapacityPool(
     {
+        "serial_number": "390000100",
+        "_links": {"self": {"href": "/api/cluster/licensing/capacity-pools/390000100"}},
+        "nodes": [
+            {
+                "node": {
+                    "name": "node-1",
+                    "uuid": "4ea7a442-86d1-11e0-ae1c-123478563411",
+                },
+                "used_size": 1099511627776,
+            },
+            {
+                "node": {
+                    "name": "node-2",
+                    "uuid": "4ea7a442-86d1-11e0-ae1c-123478563412",
+                },
+                "used_size": 1099511627776,
+            },
+        ],
         "license_manager": {
-            "uuid": "4ea7a442-86d1-11e0-ae1c-112233445566",
             "_links": {
                 "self": {
                     "href": "/api/cluster/licensing/license-managers/4ea7a442-86d1-11e0-ae1c-112233445566"
                 }
             },
+            "uuid": "4ea7a442-86d1-11e0-ae1c-112233445566",
         },
-        "nodes": [
-            {
-                "node": {
-                    "uuid": "4ea7a442-86d1-11e0-ae1c-123478563411",
-                    "name": "node-1",
-                },
-                "used_size": 1099511627776,
-            },
-            {
-                "node": {
-                    "uuid": "4ea7a442-86d1-11e0-ae1c-123478563412",
-                    "name": "node-2",
-                },
-                "used_size": 1099511627776,
-            },
-        ],
-        "_links": {"self": {"href": "/api/cluster/licensing/capacity-pools/390000100"}},
-        "serial_number": "390000100",
     }
 )
 
@@ -154,11 +154,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -172,17 +171,34 @@ __pdoc__ = {
     "CapacityPoolSchema.opts": False,
 }
 
-
 class CapacityPoolSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the CapacityPool object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the capacity_pool."""
 
-    license_manager = marshmallow_fields.Nested("netapp_ontap.resources.license_manager.LicenseManagerSchema", data_key="license_manager", unknown=EXCLUDE, allow_none=True)
+    license_manager = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.license_manager", "LicenseManagerSchema"),
+                data_key="license_manager",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The license_manager field of the capacity_pool."""
 
-    nodes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.capacity_pool_node.CapacityPoolNodeSchema", unknown=EXCLUDE, allow_none=True), data_key="nodes", allow_none=True)
+    nodes = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.capacity_pool_node", "CapacityPoolNodeSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="nodes",
+                allow_none=True
+            )
     r""" Nodes in the cluster associated with this capacity pool."""
 
     serial_number = marshmallow_fields.Str(

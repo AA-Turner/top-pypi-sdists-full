@@ -1,6 +1,6 @@
 # pylint: disable=line-too-long
 """
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This module defines the base Resource class. This class is implemented by each
@@ -17,6 +17,8 @@ import operator
 import re
 import string
 import time
+from collections import defaultdict
+import importlib
 from typing import (  # pylint: disable=unused-import
     Any,
     Dict,
@@ -55,6 +57,20 @@ __all__ = ["Resource"]
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
 
+_schema_module_cache = {}
+
+
+def lazy_import_schema(module_name, schema_attr):  # type: ignore
+    """Import a schema module lazily."""
+    if module_name not in _schema_module_cache:
+        try:
+            _schema_module_cache[module_name] = importlib.import_module(module_name)
+        except Exception as exc:  # pylint: disable=bare-except
+            raise NetAppRestError(
+                f"Could not import {schema_attr} from {module_name}", cause=exc
+            ) from exc
+    return getattr(_schema_module_cache[module_name], schema_attr)
+
 
 class ResourceSchemaMeta(SchemaMeta, type):
     """This meta class sets __annotations__ on the schema instance that is created
@@ -71,7 +87,7 @@ class ResourceSchemaMeta(SchemaMeta, type):
         instance.__annotations__ = instance.__annotations__ = dict(
             instance._declared_fields.items()
         )  # pylint: disable=protected-access
-        return instance
+        return instance  # type: ignore[return-value]
 
     def get_short_type_name(cls, field_name: str) -> str:
         """Return the short string representation of the type of the provided field"""
@@ -82,7 +98,9 @@ class ResourceSchemaMeta(SchemaMeta, type):
             )
 
         def _get_nested_name(field) -> str:
-            return field.nested.split(".")[-1].replace("Schema", "")
+            if isinstance(field.nested, str):
+                return field.nested.split(".")[-1].replace("Schema", "")
+            return field.nested.__name__.split(".")[-1].replace("Schema", "")
 
         def _get_scalar_name(type_) -> str:
             type_name = type_.__name__
@@ -101,10 +119,10 @@ class ResourceSchemaMeta(SchemaMeta, type):
         if type_ is marshmallow_fields.Nested:
             type_name = _get_nested_name(field)
         elif type_ is marshmallow_fields.List:
-            if isinstance(field.inner, marshmallow_fields.Nested):
-                type_name = f"List[{_get_nested_name(field.inner)}]"
+            if isinstance(field.inner, marshmallow_fields.Nested):  # type: ignore[attr-defined]
+                type_name = f"List[{_get_nested_name(field.inner)}]"  # type: ignore[attr-defined]
             else:
-                type_name = f"List[{_get_scalar_name(type(field.inner))}]"
+                type_name = f"List[{_get_scalar_name(type(field.inner))}]"  # type: ignore[attr-defined]
         else:
             type_name = _get_scalar_name(type_)
 
@@ -648,6 +666,38 @@ class Resource:  # pylint: disable=too-many-instance-attributes
         except Exception as exc:
             raise NetAppRestError(cause=exc) from None
 
+    def validate_schema(self) -> None:
+        """Validates the type of fields of Resource object against its schema
+
+        Returns:
+            None
+
+        Raises:
+            `netapp_ontap.error.NetAppRestError`: If the current values stored in
+                the resource don't match the schema defined for the resource, then
+                an error will be raised. For example, if a field is supposed to
+                be an integer and a non-integer value is set on it.
+        """
+
+        schema_to_validate = {}
+        # avoid_keys are a list of keys that are not well defined in the schema and so we should not validate them
+        avoid_keys = {"svm", "self_", "links", "class_", "junction_path", "from_"}
+        # suppressed_errors are a list of errors that we should not raise if they occur
+        # "Not a valid datetime." is handled elsewhere so we don't need to validate it here
+        suppressed_errors = {"Not a valid datetime."}
+        for key in set(self._schema_instance.fields) - avoid_keys:
+            value = getattr(self, key, missing)
+            if value is not None and value != missing:
+                schema_to_validate[key] = value
+        # Starting in marshmallow 3.0.0rc9, schema.dump() no longer returns a validation error. So we are manually calling it to validate the schema.
+        validation_errors = defaultdict(list)
+        for field, errors in self._schema_instance.validate(schema_to_validate).items():
+            for error in errors:
+                if error not in suppressed_errors:
+                    validation_errors[field].append(error)
+        if validation_errors:
+            raise NetAppRestError(f"Validation errors: {validation_errors}")
+
     def get_connection(self) -> HostConnection:
         """Returns the `netapp_ontap.host_connection.HostConnection` for this object.
 
@@ -836,6 +886,7 @@ class Resource:  # pylint: disable=too-many-instance-attributes
             return -1
 
     # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-locals
     @classmethod
     @utils.api
     def _patch_collection(
@@ -886,6 +937,12 @@ class Resource:  # pylint: disable=too-many-instance-attributes
                 code >= 400
         """
 
+        if config.STRICT_SCHEMA_TYPE_CHECK:
+            if records:
+                for record in records:
+                    if not isinstance(record, Resource):
+                        record = cls.from_dict(record, *args)
+                    record.validate_schema()
         sample = cls.from_dict({}, *args)
         params = dict(kwargs)
         url = sample.get_collection_url(connection=connection)
@@ -967,6 +1024,12 @@ class Resource:  # pylint: disable=too-many-instance-attributes
                 code >= 400
         """
 
+        if config.STRICT_SCHEMA_TYPE_CHECK:
+            if records:
+                for record in records:
+                    if not isinstance(record, Resource):
+                        record = cls.from_dict(record, *args)
+                    record.validate_schema()
         sample = cls.from_dict({}, *args)
         params = dict(kwargs)
         url = sample.get_collection_url(connection=connection)
@@ -1076,6 +1139,12 @@ class Resource:  # pylint: disable=too-many-instance-attributes
                 code >= 400
         """
 
+        if config.STRICT_SCHEMA_TYPE_CHECK:
+            if records:
+                for record in records:
+                    if not isinstance(record, Resource):
+                        record = cls.from_dict(record, *args)
+                    record.validate_schema()
         sample = cls.from_dict({}, *args)
         body_data = {
             "records": [
@@ -1400,6 +1469,9 @@ class Resource:  # pylint: disable=too-many-instance-attributes
             or if not all of the keys required are present and config.STRICT_GET has been set to True.
         """
 
+        if config.STRICT_SCHEMA_TYPE_CHECK:
+            self.validate_schema()
+
         url = f"{self.get_connection().origin}{self.instance_location}"
 
         # If ONTAP returned query parameters in the Location header from a post(),
@@ -1464,7 +1536,8 @@ class Resource:  # pylint: disable=too-many-instance-attributes
             `netapp_ontap.error.NetAppRestError`: If the API call returned a status
                 code >= 400
         """
-
+        if config.STRICT_SCHEMA_TYPE_CHECK:
+            self.validate_schema()
         my_connection = connection if connection is not None else self.get_connection()
         url = f"{my_connection.origin}{self._location}"
         body_data = self._get_postable_data()
@@ -1509,7 +1582,7 @@ class Resource:  # pylint: disable=too-many-instance-attributes
             )
         response.raise_for_status()
 
-        if not "Location" in response.headers:
+        if "Location" not in response.headers:
             # if a resource wasn't created, this must be some sort of action
             if poll:
                 return utils.poll(
@@ -1574,6 +1647,8 @@ class Resource:  # pylint: disable=too-many-instance-attributes
                 code >= 400
         """
 
+        if config.STRICT_SCHEMA_TYPE_CHECK:
+            self.validate_schema()
         my_connection = connection if connection is not None else self.get_connection()
         url = f"{my_connection.origin}{self.instance_location}"
 
@@ -1659,6 +1734,8 @@ class Resource:  # pylint: disable=too-many-instance-attributes
                 code >= 400
         """
 
+        if config.STRICT_SCHEMA_TYPE_CHECK:
+            self.validate_schema()
         my_connection = connection if connection is not None else self.get_connection()
 
         url = f"{my_connection.origin}{self.instance_location}"
@@ -1712,6 +1789,8 @@ class Resource:  # pylint: disable=too-many-instance-attributes
                 code >= 400
         """
 
+        if config.STRICT_SCHEMA_TYPE_CHECK:
+            self.validate_schema()
         url = f"{self.get_connection().origin}{self.instance_location}/{path}"
 
         # holds a list of valid formdata parameters that the user passed in - if user tries to pass parameters that aren't valid they will just be ignored
@@ -2220,7 +2299,7 @@ class Resource:  # pylint: disable=too-many-instance-attributes
             if not [f for f in action_fields if f.split(".")[0] == field]:
                 LOGGER.debug(warning, self.__class__.__name__, field, action)
                 return True
-        elif not field in ref_fields:
+        elif field not in ref_fields:
             LOGGER.debug(warning, self.__class__.__name__, field, action)
             return True
         return False
@@ -2298,6 +2377,13 @@ class Resource:  # pylint: disable=too-many-instance-attributes
         If any of these properties are set on the current resource, an error is thrown.
         """
         # pylint: disable=protected-access
+
+        # if the resource object has a records property set, it should not be used with post
+        if hasattr(self, "records"):
+            raise NetAppRestError(
+                message="post() cannot be used when 'records' is set on the object since it is used to create multiple records. Use post_collection() instead."
+            )
+
         for prop_name in config._TREAT_AS_POST_COLLECTION.get(self.__module__, []):
             sub_probs = prop_name.split(".")
             current_prop: Optional[Resource] = self
@@ -2428,7 +2514,7 @@ def _cluster_software_fix(input_dict: dict) -> dict:
     """
 
     for obj in ["validation_results", "status_details"]:
-        if not obj in input_dict:
+        if obj not in input_dict:
             continue
         items = input_dict[obj]
         for item in items:

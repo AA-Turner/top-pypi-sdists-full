@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -30,36 +30,36 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3User(
         {
-            "comment": "S3 user",
             "key_expiry_time": "2023-11-13T23:28:03+05:30",
-            "access_key": "(token)",
+            "access_key": "<AWS-ACCESS-KEY-ID>",
+            "name": "user-1",
             "key_time_to_live": "PT3H5M",
+            "comment": "S3 user",
             "svm": {
-                "uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/db2ec036-8375-11e9-99e1-0050568e3ed9"
                     }
                 },
+                "uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9",
             },
-            "name": "user-1",
         }
     ),
     S3User(
         {
+            "access_key": "<AWS-ACCESS-KEY-ID>",
+            "name": "user-2",
             "comment": "s3-user",
-            "access_key": "(token)",
             "svm": {
-                "uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/db2ec036-8375-11e9-99e1-0050568e3ed9"
                     }
                 },
+                "uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9",
             },
-            "name": "user-2",
         }
     ),
 ]
@@ -86,18 +86,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3User(
     {
-        "comment": "s3-user",
         "key_expiry_time": "2023-02-20T10:04:31+00:00",
-        "access_key": "(token)",
+        "access_key": "<AWS-ACCESS-KEY-ID>",
+        "name": "user-1",
         "key_time_to_live": "P6DT1H5M",
+        "comment": "s3-user",
         "svm": {
-            "uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9",
             "name": "vs1",
             "_links": {
                 "self": {"href": "/api/svm/svms/db2ec036-8375-11e9-99e1-0050568e3ed9"}
             },
+            "uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9",
         },
-        "name": "user-1",
     }
 )
 
@@ -122,7 +122,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example2_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example2_result" class="try_it_out_content">
 ```
-S3User({"access_key": "(token)", "secret_key": "<secret_key_here>", "name": "user-1"})
+S3User(
+    {
+        "access_key": "<AWS-ACCESS-KEY-ID>",
+        "name": "user-1",
+        "secret_key": "<AWS-SECRET-ACCESS-KEY>",
+    }
+)
 
 ```
 </div>
@@ -150,9 +156,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 S3User(
     {
         "key_expiry_time": "2023-06-16T12:08:38+00:00",
-        "access_key": "(token)",
-        "secret_key": "OXx6J_GkTc94Xx91cYrNBar_OT3BY6lWOHI_HSR5",
+        "access_key": "<AWS-ACCESS-KEY-ID>",
         "name": "user-3",
+        "secret_key": "<AWS-SECRET-ACCESS-KEY>",
     }
 )
 
@@ -167,11 +173,11 @@ from netapp_ontap.resources import S3User
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
     resource = S3User("db2ec036-8375-11e9-99e1-0050568e3ed9")
-    resource.access_key = "DUMMYACCESSKEY123456ACV"
+    resource.access_key = "<AWS-ACCESS-KEY-ID>"
     resource.comment = "S3 user"
     resource.key_time_to_live = "PT6H3M"
     resource.name = "user-test"
-    resource.secret_key = "<secret_key_here>"
+    resource.secret_key = "<AWS-SECRET-ACCESS-KEY>"
     resource.post(hydrate=True)
     print(resource)
 
@@ -184,9 +190,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 S3User(
     {
         "key_expiry_time": "2024-02-12T22:36:29+05:30",
-        "access_key": "DUMMYACCESSKEY123456ACV",
-        "secret_key": "<secret_key_here>",
+        "access_key": "<AWS-ACCESS-KEY-ID>",
         "name": "user-test",
+        "secret_key": "<AWS-SECRET-ACCESS-KEY>",
     }
 )
 
@@ -216,9 +222,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 S3User(
     {
         "key_expiry_time": "2023-06-16T12:08:38+00:00",
-        "access_key": "(token)",
-        "secret_key": "OXx6J_GkTc94Xx91cYrNBar_OT3BY6lWOHI_HSR5",
+        "access_key": "<AWS-ACCESS-KEY-ID>",
         "name": "user-3@domain1.com",
+        "secret_key": "<AWS-SECRET-ACCESS-KEY>",
     }
 )
 
@@ -258,10 +264,10 @@ from netapp_ontap.resources import S3User
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
     resource = S3User("db2ec036-8375-11e9-99e1-0050568e3ed9", name="user-2")
-    resource.access_key = "DUMMYACCESSKEY123456ACV"
+    resource.access_key = "<AWS-ACCESS-KEY-ID>"
     resource.comment = "S3 user"
     resource.key_time_to_live = "PT6H3M"
-    resource.secret_key = "<secret_key_here>"
+    resource.secret_key = "<AWS-SECRET-ACCESS-KEY>"
     resource.patch(hydrate=True, regenerate_keys=True)
 
 ```
@@ -296,11 +302,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -314,7 +319,6 @@ __pdoc__ = {
     "S3UserSchema.opts": False,
 }
 
-
 class S3UserSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the S3User object"""
 
@@ -324,7 +328,7 @@ class S3UserSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Specifies the access key for the user.
 
-Example: HJAKU28M3SXTE2UXUACV"""
+Example: <AWS-ACCESS-KEY-ID>"""
 
     comment = marshmallow_fields.Str(
         data_key="comment",
@@ -372,9 +376,14 @@ Example: user-1"""
     )
     r""" Specifies the secret key for the user.
 
-Example: dummy_secret_key_1234_abcd_ldjf"""
+Example: <AWS-SECRET-ACCESS-KEY>"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the s3_user."""
 
     @property

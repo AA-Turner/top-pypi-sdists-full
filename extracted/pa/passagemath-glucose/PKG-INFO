@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-glucose
-Version: 10.6.47
+Version: 10.6.48
 Summary: passagemath: Interface to the SAT solver glucose
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors

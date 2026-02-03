@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -20,10 +20,45 @@ A role can comprise of multiple tuples and each tuple consists of a REST API pat
 * <i>/api/svm/svms/{svm.uuid}/top-metrics/directories</i>
 * <i>/api/svm/svms/{svm.uuid}/top-metrics/files</i>
 * <i>/api/svm/svms/{svm.uuid}/top-metrics/users</i><br/>
-#### Ontap S3 APIs
+#### ONTAP S3 APIs
 
-* <i>/api/protocols/s3/services/{svm.uuid}/users</i><p/>
-In the above APIs, wildcard character &#42; could be used in place of <i>{volume.uuid}</i> or <i>{svm.uuid}</i> to denote <i>all</i> volumes or <i>all</i> SVMs, depending upon whether the REST endpoint references volumes or SVMs. The <i>{volume.uuid}</i> refers to the <i>-instance-uuid</i> field value in the \"volume show\" command output at diagnostic privilege level. It can also be fetched through REST endpoint <i>/api/storage/volumes</i>.<p/>
+* <i>/api/protocols/s3/services/{svm.uuid}/users</i><br/>
+<personalities supports=aiml>
+#### Artificial Intelligence Data Engine (AIDE) APIs
+##### Data Compute Node (DCN) APIs
+
+* <i>/api/dcn/cluster/nodes/{node.uuid}/metrics</i>
+* <i>/api/dcn/network/ports/{port.uuid}/metrics</i><br/>
+##### Data-Engine APIs
+
+* <i>/api/data-engine/policies/{policy.uuid}/versions</i>
+* <i>/api/data-engine/workspaces/{workspace.uuid}/acls</i>
+* <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections</i>
+* <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/acls</i>
+* <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{entity.uuid}/entities</i>
+* <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/search</i>
+* <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/versions</i>
+* <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/versions/{version.uuid}/diffs</i>
+* <i>/api/data-engine/workspaces/{workspace.uuid}/data-sources</i>
+* <i>/api/data-engine/workspaces/{workspace.uuid}/entities</i>
+* <i>/api/data-engine/workspaces/{workspace.uuid}/entities/{entity.uuid}/custom-attributes</i>
+* <i>/api/data-engine/workspaces/{workspace.uuid}/queries</i>
+* <i>/api/data-engine/workspaces/{workspace.uuid}/queries/{query.uuid}/entities</i>
+* <i>/api/data-engine/workspaces/{workspace.uuid}/versions</i>
+* <i>/api/data-engine/workspaces/{workspace.uuid}/versions/{version.uuid}/diffs</i><br/>
+When used in the context of data collection APIs, <i>{version.uuid}</i> refers to a data collection version. In the context of workspace APIs, it refers to a workspace version.<br/>
+</personalities>
+In the APIs above, and in the context of REST roles, the wildcard character &#42; can be used in place of <i>{volume.uuid}</i> or <i>{svm.uuid}</i> to represent <i>all</i> volumes or <i>all</i> SVMs, depending on whether the REST endpoint references volumes or SVMs. The <i>{volume.uuid}</i> corresponds to the <i>-instance-uuid</i> field in the output of the \"volume show\" command at the diagnostic privilege level. It can also be retrieved through the REST endpoint <i>/api/storage/volumes</i>.<br/>
+<personalities supports=aiml>
+In the AIDE APIs described above, and in the context of REST roles, the wildcard character &#42; can be used in place of variable components in the Uniform Resource Identifier (URI) path, such as <i>{node.uuid}</i>, <i>{port.uuid}</i>, <i>{policy.uuid}</i>, <i>{workspace.uuid}</i>, <i>{datacollection.uuid}</i>, <i>{entity.uuid}</i>, <i>{version.uuid}</i>, or <i>{query.uuid}</i>. The specific variable to be replaced depends on whether the REST endpoint references nodes, ports, policies, workspaces, data collections, entities, versions, or queries.<br/>
+However, when using the wildcard character &#42; in place of a variable component in a URI path, it must replace <b>all</b> variable components in that path. Mixing wildcards and specific values for different variable components within the same URI path is not supported in REST roles. For example, a URI path such as <i>/api/data-engine/workspaces/c6e1b325-4125-11f0-abb5-bc2411f6fd43/data-collections/*/search</i> is not supported.<br/>
+In summary, only the following two types of resource-qualified endpoints are supported in a REST role:
+<ul>
+  <li>All variable components in the URI path are specific values. Example: <i>/api/data-engine/workspaces/c6e1b325-4125-11f0-abb5-bc2411f6fd43/data-collections/b09b6d25-4126-11f0-abb5-bc2411f6fd43/search</i></li>
+  <li>All variable components in the URI path are wildcards. Example: <i>/api/data-engine/workspaces/*/data-collections/*/search</i></li>
+</ul><br/>
+AIDE APIs are supported only in cluster-scoped REST roles, not in SVM-scoped REST roles.<br/>
+</personalities>
 The role can be SVM-scoped or cluster-scoped.<p/>
 Specify the owner UUID and the role name in the URI path. The owner UUID corresponds to the UUID of the SVM for which the role has been created and can be obtained from the response body of a GET request performed on one of the following APIs&#58;
 <i>/api/security/roles</i> for all roles
@@ -78,6 +113,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 
+<personalities supports=aiml>
+### Updating the access level for an AIDE resource-qualified endpoint in the privilege tuple of an existing role
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import RolePrivilege
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = RolePrivilege(
+        "aaef7c38-4bd3-11e9-b238-0050568e2e25",
+        "cluster_role1",
+        path="/api/data-engine/policies/*/versions",
+    )
+    resource.access = "readonly"
+    resource.patch()
+
+```
+
+</personalities>
 ### Retrieving the access level for a REST API path in the privilege tuple of an existing role
 ```python
 from netapp_ontap import HostConnection
@@ -92,19 +145,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 <div class="try_it_out">
-<input id="example3_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example3_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example3_result" class="try_it_out_content">
+<input id="example4_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example4_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example4_result" class="try_it_out_content">
 ```
 RolePrivilege(
     {
         "access": "all",
-        "path": "/api/protocols",
         "_links": {
             "self": {
                 "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/svm_role1/privileges/%2Fapi%2Fprotocols"
             }
         },
+        "path": "/api/protocols",
     }
 )
 
@@ -126,20 +179,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 <div class="try_it_out">
-<input id="example4_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example4_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example4_result" class="try_it_out_content">
+<input id="example5_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example5_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example5_result" class="try_it_out_content">
 ```
 RolePrivilege(
     {
-        "access": "readonly",
-        "path": "net port",
         "query": "-type if-group|vlan",
+        "access": "readonly",
         "_links": {
             "self": {
                 "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/svm_role1/privileges/net%20port"
             }
         },
+        "path": "net port",
     }
 )
 
@@ -163,19 +216,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 <div class="try_it_out">
-<input id="example5_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example5_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example5_result" class="try_it_out_content">
+<input id="example6_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example6_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example6_result" class="try_it_out_content">
 ```
 RolePrivilege(
     {
         "access": "all",
-        "path": "/api/storage/volumes/d0f3b91a-4ce7-4de4-afb9-7eda668659dd/snapshots",
         "_links": {
             "self": {
                 "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/svm_role1/privileges/%2Fapi%2Fstorage%2Fvolumes%2Fd0f3b91a-4ce7-4de4-afb9-7eda668659dd%2Fsnapshots"
             }
         },
+        "path": "/api/storage/volumes/d0f3b91a-4ce7-4de4-afb9-7eda668659dd/snapshots",
     }
 )
 
@@ -183,6 +236,44 @@ RolePrivilege(
 </div>
 </div>
 
+<personalities supports=aiml>
+### Retrieving the access level for an AIDE resource-qualified endpoint in the privilege tuple of an existing role
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import RolePrivilege
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = RolePrivilege(
+        "223e4567-e89b-12d3-a456-426614174000",
+        "cluster_role1",
+        path="/api/data-engine/workspaces/d0f3b91a-4ce7-4de4-afb9-7eda668659dd/entities",
+    )
+    resource.get()
+    print(resource)
+
+```
+<div class="try_it_out">
+<input id="example7_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example7_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example7_result" class="try_it_out_content">
+```
+RolePrivilege(
+    {
+        "access": "readonly",
+        "_links": {
+            "self": {
+                "href": "/api/security/roles/223e4567-e89b-12d3-a456-426614174000/cluster_role1/privileges/%2Fapi%2Fdata-engine%2Fworkspaces%2Fd0f3b91a-4ce7-4de4-afb9-7eda668659dd%2Fentities"
+            }
+        },
+        "path": "/api/data-engine/workspaces/d0f3b91a-4ce7-4de4-afb9-7eda668659dd/entities",
+    }
+)
+
+```
+</div>
+</div>
+
+</personalities>
 ### Deleting a privilege tuple, containing a REST API path, from an existing role
 ```python
 from netapp_ontap import HostConnection
@@ -223,17 +314,33 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource.delete()
 
 ```
-"""
+
+<personalities supports=aiml>
+### Deleting a privilege tuple, containing an AIDE resource-qualified endpoint, from an existing role
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import RolePrivilege
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = RolePrivilege(
+        "a6786ae5-93a0-411c-bcfd-16c53ecff612",
+        "cluster_role1",
+        path="/api/dcn/network/ports/91796b96-5207-4d0b-93fb-7a2062b8358e/metrics",
+    )
+    resource.delete()
+
+```
+
+</personalities>"""
 
 import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -247,11 +354,15 @@ __pdoc__ = {
     "RolePrivilegeSchema.opts": False,
 }
 
-
 class RolePrivilegeSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the RolePrivilege object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the role_privilege."""
 
     access = marshmallow_fields.Str(
@@ -395,13 +506,46 @@ In the above APIs, wildcard character &#42; could be used in place of <i>{volume
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/directories</i>
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/files</i>
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/users</i><br/>
-#### Ontap S3 APIs
-&ndash; <i>/api/protocols/s3/services/{svm.uuid}/users</i><p/>
-In the above APIs, wildcard character &#42; could be used in place of <i>{volume.uuid}</i> or <i>{svm.uuid}</i> to denote <i>all</i> volumes or <i>all</i> SVMs, depending upon whether the REST endpoint references volumes or SVMs. The <i>{volume.uuid}</i> refers to the <i>-instance-uuid</i> field value in the \"volume show\" command output at diagnostic privilege level. It can also be fetched through REST endpoint <i>/api/storage/volumes</i>.<br/>
+#### ONTAP S3 APIs
+&ndash; <i>/api/protocols/s3/services/{svm.uuid}/users</i><br/>
+<personalities supports=aiml>
+#### Artificial Intelligence Data Engine (AIDE) APIs
+##### Data Compute Node (DCN) APIs
+&ndash; <i>/api/dcn/cluster/nodes/{node.uuid}/metrics</i>
+&ndash; <i>/api/dcn/network/ports/{port.uuid}/metrics</i><br/>
+##### Data-Engine APIs
+&ndash; <i>/api/data-engine/policies/{policy.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/acls</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/acls</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{entity.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/search</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/versions/{version.uuid}/diffs</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-sources</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/entities/{entity.uuid}/custom-attributes</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/queries</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/queries/{query.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/versions/{version.uuid}/diffs</i><br/>
+When used in the context of data collection APIs, <i>{version.uuid}</i> refers to a data collection version. In the context of workspace APIs, it refers to a workspace version.<br/>
+</personalities>
+In the APIs above, and in the context of REST roles, the wildcard character &#42; can be used in place of <i>{volume.uuid}</i> or <i>{svm.uuid}</i> to represent <i>all</i> volumes or <i>all</i> SVMs, depending on whether the REST endpoint references volumes or SVMs. The <i>{volume.uuid}</i> corresponds to the <i>-instance-uuid</i> field in the output of the \"volume show\" command at the diagnostic privilege level. It can also be retrieved through the REST endpoint <i>/api/storage/volumes</i>.<br/>
+<personalities supports=aiml>
+In the AIDE APIs described above, and in the context of REST roles, the wildcard character &#42; can be used in place of variable components in the Uniform Resource Identifier (URI) path, such as <i>{node.uuid}</i>, <i>{port.uuid}</i>, <i>{policy.uuid}</i>, <i>{workspace.uuid}</i>, <i>{datacollection.uuid}</i>, <i>{entity.uuid}</i>, <i>{version.uuid}</i>, or <i>{query.uuid}</i>. The specific variable to be replaced depends on whether the REST endpoint references nodes, ports, policies, workspaces, data collections, entities, versions, or queries.<br/>
+However, when using the wildcard character &#42; in place of a variable component in a URI path, it must replace <b>all</b> variable components in that path. Mixing wildcards and specific values for different variable components within the same URI path is not supported in REST roles. For example, a URI path such as <i>/api/data-engine/workspaces/c6e1b325-4125-11f0-abb5-bc2411f6fd43/data-collections/*/search</i> is not supported.<br/>
+In summary, only the following two types of resource-qualified endpoints are supported in a REST role:
+<ul>
+  <li>All variable components in the URI path are specific values. Example: <i>/api/data-engine/workspaces/c6e1b325-4125-11f0-abb5-bc2411f6fd43/data-collections/b09b6d25-4126-11f0-abb5-bc2411f6fd43/search</i></li>
+  <li>All variable components in the URI path are wildcards. Example: <i>/api/data-engine/workspaces/*/data-collections/*/search</i></li>
+</ul><br/>
+AIDE APIs are supported only in cluster-scoped REST roles, not in SVM-scoped REST roles.<br/>
+</personalities>
 ### Required parameters
 * `owner.uuid` - UUID of the SVM that houses this role.
 * `name` - Name of the role to be updated.
-* `path` - Constituent REST API path or command/command directory path, whose access level and/or query are/is to be updated. Can be a resource-qualified endpoint (example: <i>/api/storage/volumes/43256a71-be02-474d-a2a9-9642e12a6a2c/snapshots</i>). Currently, resource-qualified endpoints are limited to the <i>Snapshots</i> and <i>File System Analytics</i> endpoints listed above in the description.
+* `path` - Constituent REST API path or command/command directory path, whose access level and/or query are/is to be updated. Can be a resource-qualified endpoint (example: <i>/api/storage/volumes/43256a71-be02-474d-a2a9-9642e12a6a2c/snapshots</i>). Currently, resource-qualified endpoints are limited to the <i>Snapshots</i>, <i>File System Analytics</i><personalities supports=aiml><i>, Artificial Intelligence Data Engine (AIDE)</i></personalities> and <i>ONTAP S3</i> endpoints listed above in the description.
 ### Optional parameters
 * `access` - Access level for the path.
 * `query` - Optional query, if the path refers to a command/command directory path.
@@ -447,8 +591,41 @@ In the above APIs, wildcard character &#42; could be used in place of <i>{volume
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/clients</i>
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/directories</i>
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/files</i>
-&ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/users</i><p/>
-In the above APIs, wildcard character &#42; could be used in place of <i>{volume.uuid}</i> or <i>{svm.uuid}</i> to denote <i>all</i> volumes or <i>all</i> SVMs, depending upon whether the REST endpoint references volumes or SVMs. The <i>{volume.uuid}</i> refers to the <i>-instance-uuid</i> field value in the \"volume show\" command output at diagnostic privilege level. It can also be fetched through REST endpoint <i>/api/storage/volumes</i>.<br/>
+&ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/users</i><br/>
+<personalities supports=aiml>
+#### Artificial Intelligence Data Engine (AIDE) APIs
+##### Data Compute Node (DCN) APIs
+&ndash; <i>/api/dcn/cluster/nodes/{node.uuid}/metrics</i>
+&ndash; <i>/api/dcn/network/ports/{port.uuid}/metrics</i><br/>
+##### Data-Engine APIs
+&ndash; <i>/api/data-engine/policies/{policy.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/acls</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/acls</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{entity.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/search</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/versions/{version.uuid}/diffs</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-sources</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/entities/{entity.uuid}/custom-attributes</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/queries</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/queries/{query.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/versions/{version.uuid}/diffs</i><br/>
+When used in the context of data collection APIs, <i>{version.uuid}</i> refers to a data collection version. In the context of workspace APIs, it refers to a workspace version.<br/>
+</personalities>
+In the APIs above, and in the context of REST roles, the wildcard character &#42; can be used in place of <i>{volume.uuid}</i> or <i>{svm.uuid}</i> to represent <i>all</i> volumes or <i>all</i> SVMs, depending on whether the REST endpoint references volumes or SVMs. The <i>{volume.uuid}</i> corresponds to the <i>-instance-uuid</i> field in the output of the \"volume show\" command at the diagnostic privilege level. It can also be retrieved through the REST endpoint <i>/api/storage/volumes</i>.<br/>
+<personalities supports=aiml>
+In the AIDE APIs described above, and in the context of REST roles, the wildcard character &#42; can be used in place of variable components in the Uniform Resource Identifier (URI) path, such as <i>{node.uuid}</i>, <i>{port.uuid}</i>, <i>{policy.uuid}</i>, <i>{workspace.uuid}</i>, <i>{datacollection.uuid}</i>, <i>{entity.uuid}</i>, <i>{version.uuid}</i>, or <i>{query.uuid}</i>. The specific variable to be replaced depends on whether the REST endpoint references nodes, ports, policies, workspaces, data collections, entities, versions, or queries.<br/>
+However, when using the wildcard character &#42; in place of a variable component in a URI path, it must replace <b>all</b> variable components in that path. Mixing wildcards and specific values for different variable components within the same URI path is not supported in REST roles. For example, a URI path such as <i>/api/data-engine/workspaces/c6e1b325-4125-11f0-abb5-bc2411f6fd43/data-collections/*/search</i> is not supported.<br/>
+In summary, only the following two types of resource-qualified endpoints are supported in a REST role:
+<ul>
+  <li>All variable components in the URI path are specific values. Example: <i>/api/data-engine/workspaces/c6e1b325-4125-11f0-abb5-bc2411f6fd43/data-collections/b09b6d25-4126-11f0-abb5-bc2411f6fd43/search</i></li>
+  <li>All variable components in the URI path are wildcards. Example: <i>/api/data-engine/workspaces/*/data-collections/*/search</i></li>
+</ul><br/>
+AIDE APIs are supported only in cluster-scoped REST roles, not in SVM-scoped REST roles.<br/>
+</personalities>
 * `access` - Desired access level for the REST URI path or command/command directory.
 ### Related ONTAP commands
 * `security login rest-role create`
@@ -489,13 +666,46 @@ In the above APIs, wildcard character &#42; could be used in place of <i>{volume
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/directories</i>
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/files</i>
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/users</i><br/>
-#### Ontap S3 APIs
-&ndash; <i>/api/protocols/s3/services/{svm.uuid}/users</i><p/>
-In the above APIs, wildcard character &#42; could be used in place of <i>{volume.uuid}</i> or <i>{svm.uuid}</i> to denote <i>all</i> volumes or <i>all</i> SVMs, depending upon whether the REST endpoint references volumes or SVMs. The <i>{volume.uuid}</i> refers to the <i>-instance-uuid</i> field value in the \"volume show\" command output at diagnostic privilege level. It can also be fetched through REST endpoint <i>/api/storage/volumes</i>.<br/>
+#### ONTAP S3 APIs
+&ndash; <i>/api/protocols/s3/services/{svm.uuid}/users</i><br/>
+<personalities supports=aiml>
+#### Artificial Intelligence Data Engine (AIDE) APIs
+##### Data Compute Node (DCN) APIs
+&ndash; <i>/api/dcn/cluster/nodes/{node.uuid}/metrics</i>
+&ndash; <i>/api/dcn/network/ports/{port.uuid}/metrics</i><br/>
+##### Data-Engine APIs
+&ndash; <i>/api/data-engine/policies/{policy.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/acls</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/acls</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{entity.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/search</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/versions/{version.uuid}/diffs</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-sources</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/entities/{entity.uuid}/custom-attributes</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/queries</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/queries/{query.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/versions/{version.uuid}/diffs</i><br/>
+When used in the context of data collection APIs, <i>{version.uuid}</i> refers to a data collection version. In the context of workspace APIs, it refers to a workspace version.<br/>
+</personalities>
+In the APIs above, and in the context of REST roles, the wildcard character &#42; can be used in place of <i>{volume.uuid}</i> or <i>{svm.uuid}</i> to represent <i>all</i> volumes or <i>all</i> SVMs, depending on whether the REST endpoint references volumes or SVMs. The <i>{volume.uuid}</i> corresponds to the <i>-instance-uuid</i> field in the output of the \"volume show\" command at the diagnostic privilege level. It can also be retrieved through the REST endpoint <i>/api/storage/volumes</i>.<br/>
+<personalities supports=aiml>
+In the AIDE APIs described above, and in the context of REST roles, the wildcard character &#42; can be used in place of variable components in the Uniform Resource Identifier (URI) path, such as <i>{node.uuid}</i>, <i>{port.uuid}</i>, <i>{policy.uuid}</i>, <i>{workspace.uuid}</i>, <i>{datacollection.uuid}</i>, <i>{entity.uuid}</i>, <i>{version.uuid}</i>, or <i>{query.uuid}</i>. The specific variable to be replaced depends on whether the REST endpoint references nodes, ports, policies, workspaces, data collections, entities, versions, or queries.<br/>
+However, when using the wildcard character &#42; in place of a variable component in a URI path, it must replace <b>all</b> variable components in that path. Mixing wildcards and specific values for different variable components within the same URI path is not supported in REST roles. For example, a URI path such as <i>/api/data-engine/workspaces/c6e1b325-4125-11f0-abb5-bc2411f6fd43/data-collections/*/search</i> is not supported.<br/>
+In summary, only the following two types of resource-qualified endpoints are supported in a REST role:
+<ul>
+  <li>All variable components in the URI path are specific values. Example: <i>/api/data-engine/workspaces/c6e1b325-4125-11f0-abb5-bc2411f6fd43/data-collections/b09b6d25-4126-11f0-abb5-bc2411f6fd43/search</i></li>
+  <li>All variable components in the URI path are wildcards. Example: <i>/api/data-engine/workspaces/*/data-collections/*/search</i></li>
+</ul><br/>
+AIDE APIs are supported only in cluster-scoped REST roles, not in SVM-scoped REST roles.<br/>
+</personalities>
 ### Required parameters
 * `owner.uuid` - UUID of the SVM which houses this role.
 * `name` - Name of the role to be updated.
-* `path` - Constituent REST API path or command/command directory path to be deleted from this role. Can be a resource-qualified endpoint (example: <i>/api/svm/svms/43256a71-be02-474d-a2a9-9642e12a6a2c/top-metrics/users</i>). Currently, resource-qualified endpoints are limited to the <i>Snapshots</i> and <i>File System Analytics</i> endpoints listed above in the description.
+* `path` - Constituent REST API path or command/command directory path to be deleted from this role. Can be a resource-qualified endpoint (example: <i>/api/svm/svms/43256a71-be02-474d-a2a9-9642e12a6a2c/top-metrics/users</i>). Currently, resource-qualified endpoints are limited to the <i>Snapshots</i>, <i>File System Analytics</i><personalities supports=aiml><i>, Artificial Intelligence Data Engine (AIDE)</i></personalities> and <i>ONTAP S3</i> endpoints listed above in the description.
 ### Related ONTAP commands
 * `security login rest-role delete`
 * `security login role delete`
@@ -538,9 +748,42 @@ In the above APIs, wildcard character &#42; could be used in place of <i>{volume
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/directories</i>
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/files</i>
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/users</i><br/>
-#### Ontap S3 APIs
-&ndash; <i>/api/protocols/s3/services/{svm.uuid}/users</i><p/>
-In the above APIs, wildcard character &#42; could be used in place of <i>{volume.uuid}</i> or <i>{svm.uuid}</i> to denote <i>all</i> volumes or <i>all</i> SVMs, depending upon whether the REST endpoint references volumes or SVMs. The <i>{volume.uuid}</i> refers to the <i>-instance-uuid</i> field value in the \"volume show\" command output at diagnostic privilege level. It can also be fetched through REST endpoint <i>/api/storage/volumes</i>.<br/>
+#### ONTAP S3 APIs
+&ndash; <i>/api/protocols/s3/services/{svm.uuid}/users</i><br/>
+<personalities supports=aiml>
+#### Artificial Intelligence Data Engine (AIDE) APIs
+##### Data Compute Node (DCN) APIs
+&ndash; <i>/api/dcn/cluster/nodes/{node.uuid}/metrics</i>
+&ndash; <i>/api/dcn/network/ports/{port.uuid}/metrics</i><br/>
+##### Data-Engine APIs
+&ndash; <i>/api/data-engine/policies/{policy.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/acls</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/acls</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{entity.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/search</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/versions/{version.uuid}/diffs</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-sources</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/entities/{entity.uuid}/custom-attributes</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/queries</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/queries/{query.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/versions/{version.uuid}/diffs</i><br/>
+When used in the context of data collection APIs, <i>{version.uuid}</i> refers to a data collection version. In the context of workspace APIs, it refers to a workspace version.<br/>
+</personalities>
+In the APIs above, and in the context of REST roles, the wildcard character &#42; can be used in place of <i>{volume.uuid}</i> or <i>{svm.uuid}</i> to represent <i>all</i> volumes or <i>all</i> SVMs, depending on whether the REST endpoint references volumes or SVMs. The <i>{volume.uuid}</i> corresponds to the <i>-instance-uuid</i> field in the output of the \"volume show\" command at the diagnostic privilege level. It can also be retrieved through the REST endpoint <i>/api/storage/volumes</i>.<br/>
+<personalities supports=aiml>
+In the AIDE APIs described above, and in the context of REST roles, the wildcard character &#42; can be used in place of variable components in the Uniform Resource Identifier (URI) path, such as <i>{node.uuid}</i>, <i>{port.uuid}</i>, <i>{policy.uuid}</i>, <i>{workspace.uuid}</i>, <i>{datacollection.uuid}</i>, <i>{entity.uuid}</i>, <i>{version.uuid}</i>, or <i>{query.uuid}</i>. The specific variable to be replaced depends on whether the REST endpoint references nodes, ports, policies, workspaces, data collections, entities, versions, or queries.<br/>
+However, when using the wildcard character &#42; in place of a variable component in a URI path, it must replace <b>all</b> variable components in that path. Mixing wildcards and specific values for different variable components within the same URI path is not supported in REST roles. For example, a URI path such as <i>/api/data-engine/workspaces/c6e1b325-4125-11f0-abb5-bc2411f6fd43/data-collections/*/search</i> is not supported.<br/>
+In summary, only the following two types of resource-qualified endpoints are supported in a REST role:
+<ul>
+  <li>All variable components in the URI path are specific values. Example: <i>/api/data-engine/workspaces/c6e1b325-4125-11f0-abb5-bc2411f6fd43/data-collections/b09b6d25-4126-11f0-abb5-bc2411f6fd43/search</i></li>
+  <li>All variable components in the URI path are wildcards. Example: <i>/api/data-engine/workspaces/*/data-collections/*/search</i></li>
+</ul><br/>
+AIDE APIs are supported only in cluster-scoped REST roles, not in SVM-scoped REST roles.<br/>
+</personalities>
 ### Related ONTAP commands
 * `security login rest-role show`
 * `security login role show`
@@ -576,8 +819,41 @@ In the above APIs, wildcard character &#42; could be used in place of <i>{volume
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/clients</i>
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/directories</i>
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/files</i>
-&ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/users</i><p/>
-In the above APIs, wildcard character &#42; could be used in place of <i>{volume.uuid}</i> or <i>{svm.uuid}</i> to denote <i>all</i> volumes or <i>all</i> SVMs, depending upon whether the REST endpoint references volumes or SVMs. The <i>{volume.uuid}</i> refers to the <i>-instance-uuid</i> field value in the \"volume show\" command output at diagnostic privilege level. It can also be fetched through REST endpoint <i>/api/storage/volumes</i>.<br/>
+&ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/users</i><br/>
+<personalities supports=aiml>
+#### Artificial Intelligence Data Engine (AIDE) APIs
+##### Data Compute Node (DCN) APIs
+&ndash; <i>/api/dcn/cluster/nodes/{node.uuid}/metrics</i>
+&ndash; <i>/api/dcn/network/ports/{port.uuid}/metrics</i><br/>
+##### Data-Engine APIs
+&ndash; <i>/api/data-engine/policies/{policy.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/acls</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/acls</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{entity.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/search</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/versions/{version.uuid}/diffs</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-sources</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/entities/{entity.uuid}/custom-attributes</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/queries</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/queries/{query.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/versions/{version.uuid}/diffs</i><br/>
+When used in the context of data collection APIs, <i>{version.uuid}</i> refers to a data collection version. In the context of workspace APIs, it refers to a workspace version.<br/>
+</personalities>
+In the APIs above, and in the context of REST roles, the wildcard character &#42; can be used in place of <i>{volume.uuid}</i> or <i>{svm.uuid}</i> to represent <i>all</i> volumes or <i>all</i> SVMs, depending on whether the REST endpoint references volumes or SVMs. The <i>{volume.uuid}</i> corresponds to the <i>-instance-uuid</i> field in the output of the \"volume show\" command at the diagnostic privilege level. It can also be retrieved through the REST endpoint <i>/api/storage/volumes</i>.<br/>
+<personalities supports=aiml>
+In the AIDE APIs described above, and in the context of REST roles, the wildcard character &#42; can be used in place of variable components in the Uniform Resource Identifier (URI) path, such as <i>{node.uuid}</i>, <i>{port.uuid}</i>, <i>{policy.uuid}</i>, <i>{workspace.uuid}</i>, <i>{datacollection.uuid}</i>, <i>{entity.uuid}</i>, <i>{version.uuid}</i>, or <i>{query.uuid}</i>. The specific variable to be replaced depends on whether the REST endpoint references nodes, ports, policies, workspaces, data collections, entities, versions, or queries.<br/>
+However, when using the wildcard character &#42; in place of a variable component in a URI path, it must replace <b>all</b> variable components in that path. Mixing wildcards and specific values for different variable components within the same URI path is not supported in REST roles. For example, a URI path such as <i>/api/data-engine/workspaces/c6e1b325-4125-11f0-abb5-bc2411f6fd43/data-collections/*/search</i> is not supported.<br/>
+In summary, only the following two types of resource-qualified endpoints are supported in a REST role:
+<ul>
+  <li>All variable components in the URI path are specific values. Example: <i>/api/data-engine/workspaces/c6e1b325-4125-11f0-abb5-bc2411f6fd43/data-collections/b09b6d25-4126-11f0-abb5-bc2411f6fd43/search</i></li>
+  <li>All variable components in the URI path are wildcards. Example: <i>/api/data-engine/workspaces/*/data-collections/*/search</i></li>
+</ul><br/>
+AIDE APIs are supported only in cluster-scoped REST roles, not in SVM-scoped REST roles.<br/>
+</personalities>
 * `access` - Desired access level for the REST URI path or command/command directory.
 ### Related ONTAP commands
 * `security login rest-role create`
@@ -614,13 +890,46 @@ In the above APIs, wildcard character &#42; could be used in place of <i>{volume
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/directories</i>
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/files</i>
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/users</i><br/>
-#### Ontap S3 APIs
-&ndash; <i>/api/protocols/s3/services/{svm.uuid}/users</i><p/>
-In the above APIs, wildcard character &#42; could be used in place of <i>{volume.uuid}</i> or <i>{svm.uuid}</i> to denote <i>all</i> volumes or <i>all</i> SVMs, depending upon whether the REST endpoint references volumes or SVMs. The <i>{volume.uuid}</i> refers to the <i>-instance-uuid</i> field value in the \"volume show\" command output at diagnostic privilege level. It can also be fetched through REST endpoint <i>/api/storage/volumes</i>.<br/>
+#### ONTAP S3 APIs
+&ndash; <i>/api/protocols/s3/services/{svm.uuid}/users</i><br/>
+<personalities supports=aiml>
+#### Artificial Intelligence Data Engine (AIDE) APIs
+##### Data Compute Node (DCN) APIs
+&ndash; <i>/api/dcn/cluster/nodes/{node.uuid}/metrics</i>
+&ndash; <i>/api/dcn/network/ports/{port.uuid}/metrics</i><br/>
+##### Data-Engine APIs
+&ndash; <i>/api/data-engine/policies/{policy.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/acls</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/acls</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{entity.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/search</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/versions/{version.uuid}/diffs</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-sources</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/entities/{entity.uuid}/custom-attributes</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/queries</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/queries/{query.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/versions/{version.uuid}/diffs</i><br/>
+When used in the context of data collection APIs, <i>{version.uuid}</i> refers to a data collection version. In the context of workspace APIs, it refers to a workspace version.<br/>
+</personalities>
+In the APIs above, and in the context of REST roles, the wildcard character &#42; can be used in place of <i>{volume.uuid}</i> or <i>{svm.uuid}</i> to represent <i>all</i> volumes or <i>all</i> SVMs, depending on whether the REST endpoint references volumes or SVMs. The <i>{volume.uuid}</i> corresponds to the <i>-instance-uuid</i> field in the output of the \"volume show\" command at the diagnostic privilege level. It can also be retrieved through the REST endpoint <i>/api/storage/volumes</i>.<br/>
+<personalities supports=aiml>
+In the AIDE APIs described above, and in the context of REST roles, the wildcard character &#42; can be used in place of variable components in the Uniform Resource Identifier (URI) path, such as <i>{node.uuid}</i>, <i>{port.uuid}</i>, <i>{policy.uuid}</i>, <i>{workspace.uuid}</i>, <i>{datacollection.uuid}</i>, <i>{entity.uuid}</i>, <i>{version.uuid}</i>, or <i>{query.uuid}</i>. The specific variable to be replaced depends on whether the REST endpoint references nodes, ports, policies, workspaces, data collections, entities, versions, or queries.<br/>
+However, when using the wildcard character &#42; in place of a variable component in a URI path, it must replace <b>all</b> variable components in that path. Mixing wildcards and specific values for different variable components within the same URI path is not supported in REST roles. For example, a URI path such as <i>/api/data-engine/workspaces/c6e1b325-4125-11f0-abb5-bc2411f6fd43/data-collections/*/search</i> is not supported.<br/>
+In summary, only the following two types of resource-qualified endpoints are supported in a REST role:
+<ul>
+  <li>All variable components in the URI path are specific values. Example: <i>/api/data-engine/workspaces/c6e1b325-4125-11f0-abb5-bc2411f6fd43/data-collections/b09b6d25-4126-11f0-abb5-bc2411f6fd43/search</i></li>
+  <li>All variable components in the URI path are wildcards. Example: <i>/api/data-engine/workspaces/*/data-collections/*/search</i></li>
+</ul><br/>
+AIDE APIs are supported only in cluster-scoped REST roles, not in SVM-scoped REST roles.<br/>
+</personalities>
 ### Required parameters
 * `owner.uuid` - UUID of the SVM that houses this role.
 * `name` - Name of the role to be updated.
-* `path` - Constituent REST API path or command/command directory path, whose access level and/or query are/is to be updated. Can be a resource-qualified endpoint (example: <i>/api/storage/volumes/43256a71-be02-474d-a2a9-9642e12a6a2c/snapshots</i>). Currently, resource-qualified endpoints are limited to the <i>Snapshots</i> and <i>File System Analytics</i> endpoints listed above in the description.
+* `path` - Constituent REST API path or command/command directory path, whose access level and/or query are/is to be updated. Can be a resource-qualified endpoint (example: <i>/api/storage/volumes/43256a71-be02-474d-a2a9-9642e12a6a2c/snapshots</i>). Currently, resource-qualified endpoints are limited to the <i>Snapshots</i>, <i>File System Analytics</i><personalities supports=aiml><i>, Artificial Intelligence Data Engine (AIDE)</i></personalities> and <i>ONTAP S3</i> endpoints listed above in the description.
 ### Optional parameters
 * `access` - Access level for the path.
 * `query` - Optional query, if the path refers to a command/command directory path.
@@ -659,13 +968,46 @@ In the above APIs, wildcard character &#42; could be used in place of <i>{volume
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/directories</i>
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/files</i>
 &ndash; <i>/api/svm/svms/{svm.uuid}/top-metrics/users</i><br/>
-#### Ontap S3 APIs
-&ndash; <i>/api/protocols/s3/services/{svm.uuid}/users</i><p/>
-In the above APIs, wildcard character &#42; could be used in place of <i>{volume.uuid}</i> or <i>{svm.uuid}</i> to denote <i>all</i> volumes or <i>all</i> SVMs, depending upon whether the REST endpoint references volumes or SVMs. The <i>{volume.uuid}</i> refers to the <i>-instance-uuid</i> field value in the \"volume show\" command output at diagnostic privilege level. It can also be fetched through REST endpoint <i>/api/storage/volumes</i>.<br/>
+#### ONTAP S3 APIs
+&ndash; <i>/api/protocols/s3/services/{svm.uuid}/users</i><br/>
+<personalities supports=aiml>
+#### Artificial Intelligence Data Engine (AIDE) APIs
+##### Data Compute Node (DCN) APIs
+&ndash; <i>/api/dcn/cluster/nodes/{node.uuid}/metrics</i>
+&ndash; <i>/api/dcn/network/ports/{port.uuid}/metrics</i><br/>
+##### Data-Engine APIs
+&ndash; <i>/api/data-engine/policies/{policy.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/acls</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/acls</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{entity.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/search</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-collections/{datacollection.uuid}/versions/{version.uuid}/diffs</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/data-sources</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/entities/{entity.uuid}/custom-attributes</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/queries</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/queries/{query.uuid}/entities</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/versions</i>
+&ndash; <i>/api/data-engine/workspaces/{workspace.uuid}/versions/{version.uuid}/diffs</i><br/>
+When used in the context of data collection APIs, <i>{version.uuid}</i> refers to a data collection version. In the context of workspace APIs, it refers to a workspace version.<br/>
+</personalities>
+In the APIs above, and in the context of REST roles, the wildcard character &#42; can be used in place of <i>{volume.uuid}</i> or <i>{svm.uuid}</i> to represent <i>all</i> volumes or <i>all</i> SVMs, depending on whether the REST endpoint references volumes or SVMs. The <i>{volume.uuid}</i> corresponds to the <i>-instance-uuid</i> field in the output of the \"volume show\" command at the diagnostic privilege level. It can also be retrieved through the REST endpoint <i>/api/storage/volumes</i>.<br/>
+<personalities supports=aiml>
+In the AIDE APIs described above, and in the context of REST roles, the wildcard character &#42; can be used in place of variable components in the Uniform Resource Identifier (URI) path, such as <i>{node.uuid}</i>, <i>{port.uuid}</i>, <i>{policy.uuid}</i>, <i>{workspace.uuid}</i>, <i>{datacollection.uuid}</i>, <i>{entity.uuid}</i>, <i>{version.uuid}</i>, or <i>{query.uuid}</i>. The specific variable to be replaced depends on whether the REST endpoint references nodes, ports, policies, workspaces, data collections, entities, versions, or queries.<br/>
+However, when using the wildcard character &#42; in place of a variable component in a URI path, it must replace <b>all</b> variable components in that path. Mixing wildcards and specific values for different variable components within the same URI path is not supported in REST roles. For example, a URI path such as <i>/api/data-engine/workspaces/c6e1b325-4125-11f0-abb5-bc2411f6fd43/data-collections/*/search</i> is not supported.<br/>
+In summary, only the following two types of resource-qualified endpoints are supported in a REST role:
+<ul>
+  <li>All variable components in the URI path are specific values. Example: <i>/api/data-engine/workspaces/c6e1b325-4125-11f0-abb5-bc2411f6fd43/data-collections/b09b6d25-4126-11f0-abb5-bc2411f6fd43/search</i></li>
+  <li>All variable components in the URI path are wildcards. Example: <i>/api/data-engine/workspaces/*/data-collections/*/search</i></li>
+</ul><br/>
+AIDE APIs are supported only in cluster-scoped REST roles, not in SVM-scoped REST roles.<br/>
+</personalities>
 ### Required parameters
 * `owner.uuid` - UUID of the SVM which houses this role.
 * `name` - Name of the role to be updated.
-* `path` - Constituent REST API path or command/command directory path to be deleted from this role. Can be a resource-qualified endpoint (example: <i>/api/svm/svms/43256a71-be02-474d-a2a9-9642e12a6a2c/top-metrics/users</i>). Currently, resource-qualified endpoints are limited to the <i>Snapshots</i> and <i>File System Analytics</i> endpoints listed above in the description.
+* `path` - Constituent REST API path or command/command directory path to be deleted from this role. Can be a resource-qualified endpoint (example: <i>/api/svm/svms/43256a71-be02-474d-a2a9-9642e12a6a2c/top-metrics/users</i>). Currently, resource-qualified endpoints are limited to the <i>Snapshots</i>, <i>File System Analytics</i><personalities supports=aiml><i>, Artificial Intelligence Data Engine (AIDE)</i></personalities> and <i>ONTAP S3</i> endpoints listed above in the description.
 ### Related ONTAP commands
 * `security login rest-role delete`
 * `security login role delete`

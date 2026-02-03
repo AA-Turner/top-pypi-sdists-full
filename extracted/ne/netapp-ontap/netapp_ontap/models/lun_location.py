@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["LunLocation", "LunLocationSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "LunLocationSchema.opts": False,
     "LunLocation": False,
 }
-
 
 class LunLocationSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LunLocation object"""
@@ -30,16 +28,36 @@ A PATCH that modifies the base name of the LUN is considered a rename operation.
 
 Example: lun1 """
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", unknown=EXCLUDE, data_key="node", allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                unknown=EXCLUDE,
+                data_key="node",
+                allow_none=True
+            )
     r""" The node field of the lun_location. """
 
-    qtree = marshmallow_fields.Nested("netapp_ontap.resources.qtree.QtreeSchema", unknown=EXCLUDE, data_key="qtree", allow_none=True)
+    qtree = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.qtree", "QtreeSchema"),
+                unknown=EXCLUDE,
+                data_key="qtree",
+                allow_none=True
+            )
     r""" The qtree field of the lun_location. """
 
-    storage_availability_zone = marshmallow_fields.Nested("netapp_ontap.resources.storage_availability_zone.StorageAvailabilityZoneSchema", unknown=EXCLUDE, data_key="storage_availability_zone", allow_none=True)
+    storage_availability_zone = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.storage_availability_zone", "StorageAvailabilityZoneSchema"),
+                unknown=EXCLUDE,
+                data_key="storage_availability_zone",
+                allow_none=True
+            )
     r""" The storage_availability_zone field of the lun_location. """
 
-    volume = marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", unknown=EXCLUDE, data_key="volume", allow_none=True)
+    volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                unknown=EXCLUDE,
+                data_key="volume",
+                allow_none=True
+            )
     r""" The volume field of the lun_location. """
 
     @property

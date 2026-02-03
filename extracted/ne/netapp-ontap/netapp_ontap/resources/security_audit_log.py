@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -32,24 +32,24 @@ with HostConnection(
 [
     SecurityAuditLog(
         {
-            "timestamp": "2019-03-08T11:03:32-05:00",
-            "scope": "cluster",
-            "application": "http",
-            "state": "pending",
-            "location": "172.21.16.89",
             "role": "admin",
+            "application": "http",
+            "index": 4294967299,
+            "state": "pending",
+            "timestamp": "2019-03-08T11:03:32-05:00",
+            "user": "admin",
             "input": "GET /api/security/audit/destinations/",
+            "location": "172.21.16.89",
             "node": {
-                "uuid": "bc9af9da-41bb-11e9-a3db-005056bb27cf",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/bc9af9da-41bb-11e9-a3db-005056bb27cf"
                     }
                 },
+                "uuid": "bc9af9da-41bb-11e9-a3db-005056bb27cf",
             },
-            "user": "admin",
-            "index": 4294967299,
+            "scope": "cluster",
         }
     )
 ]
@@ -64,11 +64,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -82,11 +81,15 @@ __pdoc__ = {
     "SecurityAuditLogSchema.opts": False,
 }
 
-
 class SecurityAuditLogSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SecurityAuditLog object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the security_audit_log."""
 
     application = marshmallow_fields.Str(
@@ -139,7 +142,12 @@ Each command received on a CLI session is assigned a command ID. This enables yo
     )
     r""" This is an optional field that might contain "error" or "additional information" about the status of a command."""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the security_audit_log."""
 
     role = marshmallow_fields.Str(
@@ -180,7 +188,12 @@ Valid choices:
 * success
 * error"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.models.security_audit_log_svm.SecurityAuditLogSvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.security_audit_log_svm", "SecurityAuditLogSvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" This is the SVM through which the user connected."""
 
     timestamp = ImpreciseDateTime(

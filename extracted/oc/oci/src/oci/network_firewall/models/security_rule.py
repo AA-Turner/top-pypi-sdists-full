@@ -74,6 +74,10 @@ class SecurityRule(object):
             The value to assign to the parent_resource_id property of this SecurityRule.
         :type parent_resource_id: str
 
+        :param description:
+            The value to assign to the description property of this SecurityRule.
+        :type description: str
+
         """
         self.swagger_types = {
             'name': 'str',
@@ -81,7 +85,8 @@ class SecurityRule(object):
             'action': 'str',
             'inspection': 'str',
             'position': 'RulePosition',
-            'parent_resource_id': 'str'
+            'parent_resource_id': 'str',
+            'description': 'str'
         }
         self.attribute_map = {
             'name': 'name',
@@ -89,7 +94,8 @@ class SecurityRule(object):
             'action': 'action',
             'inspection': 'inspection',
             'position': 'position',
-            'parent_resource_id': 'parentResourceId'
+            'parent_resource_id': 'parentResourceId',
+            'description': 'description'
         }
         self._name = None
         self._condition = None
@@ -97,6 +103,7 @@ class SecurityRule(object):
         self._inspection = None
         self._position = None
         self._parent_resource_id = None
+        self._description = None
 
     @property
     def name(self):
@@ -261,6 +268,30 @@ class SecurityRule(object):
         :type: str
         """
         self._parent_resource_id = parent_resource_id
+
+    @property
+    def description(self):
+        """
+        Gets the description of this SecurityRule.
+        The description of the security rule. This field can be used to add additional info.
+
+
+        :return: The description of this SecurityRule.
+        :rtype: str
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """
+        Sets the description of this SecurityRule.
+        The description of the security rule. This field can be used to add additional info.
+
+
+        :param description: The description of this SecurityRule.
+        :type: str
+        """
+        self._description = description
 
     def __repr__(self):
         return formatted_flat_dict(self)

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -10,11 +10,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -28,14 +27,23 @@ __pdoc__ = {
     "PoliciesAndRulesToBeAppliedSchema.opts": False,
 }
 
-
 class PoliciesAndRulesToBeAppliedSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the PoliciesAndRulesToBeApplied object"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the policies_and_rules_to_be_applied."""
 
-    to_be_applied = marshmallow_fields.Nested("netapp_ontap.models.policies_and_rules_to_be_applied_to_be_applied.PoliciesAndRulesToBeAppliedToBeAppliedSchema", data_key="to_be_applied", unknown=EXCLUDE, allow_none=True)
+    to_be_applied = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.policies_and_rules_to_be_applied_to_be_applied", "PoliciesAndRulesToBeAppliedToBeAppliedSchema"),
+                data_key="to_be_applied",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The to_be_applied field of the policies_and_rules_to_be_applied."""
 
     @property

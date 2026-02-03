@@ -54,13 +54,11 @@ DEPRECATED_FIELDS = {
 
 # Field types mapping
 FIELD_TYPES = {
-    "dedicated-management-cpu": "option",  # Enable to dedicate one CPU for GUI and CLI connections when 
-    "dedicated-management-affinity": "string",  # Affinity setting for management daemons (hexadecimal value u
-    "capwap-offload": "option",  # Enable/disable offloading managed FortiAP and FortiLink CAPW
-    "ipsec-mtu-override": "option",  # Enable/disable NP6 IPsec MTU override.   
-disable:Disable NP
-    "ipsec-ordering": "option",  # Enable/disable IPsec ordering.   
-disable:Disable IPsec orde
+    "dedicated-management-cpu": "option",  # Enable to dedicate one CPU for GUI and CLI connections when NPs are busy.    ena
+    "dedicated-management-affinity": "string",  # Affinity setting for management daemons (hexadecimal value up to 256 bits in the
+    "capwap-offload": "option",  # Enable/disable offloading managed FortiAP and FortiLink CAPWAP sessions.    enab
+    "ipsec-mtu-override": "option",  # Enable/disable NP6 IPsec MTU override.    disable:Disable NP6 IPsec MTU override
+    "ipsec-ordering": "option",  # Enable/disable IPsec ordering.    disable:Disable IPsec ordering.    enable:Enab
     "ipsec-enc-subengine-mask": "string",  # IPsec encryption subengine mask (0x1 - 0x0f, default 0x0f).
     "ipsec-dec-subengine-mask": "string",  # IPsec decryption subengine mask (0x1 - 0x0f, default 0x0f).
     "priority-protocol": "table",  # Configure NPU priority protocol.

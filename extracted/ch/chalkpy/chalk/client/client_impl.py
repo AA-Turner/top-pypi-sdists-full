@@ -102,6 +102,7 @@ from chalk.client.models import (
     ManualTriggerScheduledQueryResponse,
     MultiUploadFeaturesRequest,
     MultiUploadFeaturesResponse,
+    NamedQueryMetadata,
     OfflineQueryContext,
     OfflineQueryDeadlineOptions,
     OfflineQueryInput,
@@ -2518,6 +2519,50 @@ https://docs.chalk.ai/cli/apply
             name=name,
             limit=limit,
         )
+
+    def get_named_query_metadata(
+        self,
+        name: str,
+        query_version: str | None = None,
+    ) -> List[NamedQueryMetadata]:
+        """
+        Get the metadata associated with named queries.
+
+        Parameters
+        ----------
+        name
+            The name of the named query.
+        query_version
+            The query version of the named query. Returns all versions of the named query by default.
+
+        Returns
+        -------
+        list[ScheduledQueryRun]
+            A response message containing the list of metadata of named queries.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> ChalkClient().get_named_query_metadata(
+        ...     name="my_named_query",
+        ...     query_version="1.1.0",
+        ... )
+        """
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=self._primary_environment,
+            api_server=self._api_server,
+        )
+
+        resp = client_grpc.get_named_query_metadata(
+            name=name,
+            query_version=query_version,
+        )
+
+        return resp
 
     def prompt_evaluation(
         self,

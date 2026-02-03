@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -10,11 +10,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -28,11 +27,15 @@ __pdoc__ = {
     "ApplicationSchema.opts": False,
 }
 
-
 class ApplicationSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Application object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.application_links.ApplicationLinksSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.application_links", "ApplicationLinksSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the application."""
 
     creation_timestamp = marshmallow_fields.Str(
@@ -53,7 +56,12 @@ class ApplicationSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" The generation number of the application. This indicates which features are supported on the application. For example, generation 1 applications do not support Snapshot copies. Support for Snapshot copies was added at generation 2. Any future generation numbers and their feature set will be documented."""
 
-    mongo_db_on_san = marshmallow_fields.Nested("netapp_ontap.models.mongo_db_on_san.MongoDbOnSanSchema", data_key="mongo_db_on_san", unknown=EXCLUDE, allow_none=True)
+    mongo_db_on_san = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.mongo_db_on_san", "MongoDbOnSanSchema"),
+                data_key="mongo_db_on_san",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" MongoDB using SAN."""
 
     name = marshmallow_fields.Str(
@@ -62,22 +70,52 @@ class ApplicationSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Application Name. This field is user supplied when the application is created."""
 
-    nas = marshmallow_fields.Nested("netapp_ontap.models.nas.NasSchema", data_key="nas", unknown=EXCLUDE, allow_none=True)
+    nas = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nas", "NasSchema"),
+                data_key="nas",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" A generic NAS application."""
 
-    nvme = marshmallow_fields.Nested("netapp_ontap.models.zapp_nvme.ZappNvmeSchema", data_key="nvme", unknown=EXCLUDE, allow_none=True)
+    nvme = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.zapp_nvme", "ZappNvmeSchema"),
+                data_key="nvme",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" An NVME application."""
 
-    oracle_on_nfs = marshmallow_fields.Nested("netapp_ontap.models.oracle_on_nfs.OracleOnNfsSchema", data_key="oracle_on_nfs", unknown=EXCLUDE, allow_none=True)
+    oracle_on_nfs = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.oracle_on_nfs", "OracleOnNfsSchema"),
+                data_key="oracle_on_nfs",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Oracle using NFS."""
 
-    oracle_on_san = marshmallow_fields.Nested("netapp_ontap.models.oracle_on_san.OracleOnSanSchema", data_key="oracle_on_san", unknown=EXCLUDE, allow_none=True)
+    oracle_on_san = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.oracle_on_san", "OracleOnSanSchema"),
+                data_key="oracle_on_san",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Oracle using SAN."""
 
-    oracle_rac_on_nfs = marshmallow_fields.Nested("netapp_ontap.models.oracle_rac_on_nfs.OracleRacOnNfsSchema", data_key="oracle_rac_on_nfs", unknown=EXCLUDE, allow_none=True)
+    oracle_rac_on_nfs = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.oracle_rac_on_nfs", "OracleRacOnNfsSchema"),
+                data_key="oracle_rac_on_nfs",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Oracle RAC using NFS."""
 
-    oracle_rac_on_san = marshmallow_fields.Nested("netapp_ontap.models.oracle_rac_on_san.OracleRacOnSanSchema", data_key="oracle_rac_on_san", unknown=EXCLUDE, allow_none=True)
+    oracle_rac_on_san = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.oracle_rac_on_san", "OracleRacOnSanSchema"),
+                data_key="oracle_rac_on_san",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Oracle RAC using SAN."""
 
     protection_granularity = marshmallow_fields.Str(
@@ -92,13 +130,28 @@ Valid choices:
 * application
 * component"""
 
-    rpo = marshmallow_fields.Nested("netapp_ontap.models.application_rpo.ApplicationRpoSchema", data_key="rpo", unknown=EXCLUDE, allow_none=True)
+    rpo = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.application_rpo", "ApplicationRpoSchema"),
+                data_key="rpo",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The rpo field of the application."""
 
-    s3_bucket = marshmallow_fields.Nested("netapp_ontap.models.zapp_s3_bucket.ZappS3BucketSchema", data_key="s3_bucket", unknown=EXCLUDE, allow_none=True)
+    s3_bucket = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.zapp_s3_bucket", "ZappS3BucketSchema"),
+                data_key="s3_bucket",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" A generic S3 bucket application."""
 
-    san = marshmallow_fields.Nested("netapp_ontap.models.san.SanSchema", data_key="san", unknown=EXCLUDE, allow_none=True)
+    san = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.san", "SanSchema"),
+                data_key="san",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" A generic SAN application."""
 
     smart_container = marshmallow_fields.Boolean(
@@ -107,10 +160,20 @@ Valid choices:
     )
     r""" Identifies if this is a smart container or not."""
 
-    sql_on_san = marshmallow_fields.Nested("netapp_ontap.models.sql_on_san.SqlOnSanSchema", data_key="sql_on_san", unknown=EXCLUDE, allow_none=True)
+    sql_on_san = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.sql_on_san", "SqlOnSanSchema"),
+                data_key="sql_on_san",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Microsoft SQL using SAN."""
 
-    sql_on_smb = marshmallow_fields.Nested("netapp_ontap.models.sql_on_smb.SqlOnSmbSchema", data_key="sql_on_smb", unknown=EXCLUDE, allow_none=True)
+    sql_on_smb = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.sql_on_smb", "SqlOnSmbSchema"),
+                data_key="sql_on_smb",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Microsoft SQL using SMB."""
 
     state = marshmallow_fields.Str(
@@ -128,13 +191,28 @@ Valid choices:
 * online
 * restoring"""
 
-    statistics = marshmallow_fields.Nested("netapp_ontap.models.application_statistics.ApplicationStatisticsSchema", data_key="statistics", unknown=EXCLUDE, allow_none=True)
+    statistics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.application_statistics", "ApplicationStatisticsSchema"),
+                data_key="statistics",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The statistics field of the application."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.models.application_svm.ApplicationSvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.application_svm", "ApplicationSvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the application."""
 
-    template = marshmallow_fields.Nested("netapp_ontap.models.application_template1.ApplicationTemplate1Schema", data_key="template", unknown=EXCLUDE, allow_none=True)
+    template = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.application_template1", "ApplicationTemplate1Schema"),
+                data_key="template",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The template field of the application."""
 
     uuid = marshmallow_fields.Str(
@@ -143,16 +221,36 @@ Valid choices:
     )
     r""" Application UUID. This field is generated when the application is created."""
 
-    vdi_on_nas = marshmallow_fields.Nested("netapp_ontap.models.vdi_on_nas.VdiOnNasSchema", data_key="vdi_on_nas", unknown=EXCLUDE, allow_none=True)
+    vdi_on_nas = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.vdi_on_nas", "VdiOnNasSchema"),
+                data_key="vdi_on_nas",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" A VDI application using NAS."""
 
-    vdi_on_san = marshmallow_fields.Nested("netapp_ontap.models.vdi_on_san.VdiOnSanSchema", data_key="vdi_on_san", unknown=EXCLUDE, allow_none=True)
+    vdi_on_san = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.vdi_on_san", "VdiOnSanSchema"),
+                data_key="vdi_on_san",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" A VDI application using SAN."""
 
-    vsi_on_nas = marshmallow_fields.Nested("netapp_ontap.models.vsi_on_nas.VsiOnNasSchema", data_key="vsi_on_nas", unknown=EXCLUDE, allow_none=True)
+    vsi_on_nas = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.vsi_on_nas", "VsiOnNasSchema"),
+                data_key="vsi_on_nas",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" A VSI application using NAS."""
 
-    vsi_on_san = marshmallow_fields.Nested("netapp_ontap.models.vsi_on_san.VsiOnSanSchema", data_key="vsi_on_san", unknown=EXCLUDE, allow_none=True)
+    vsi_on_san = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.vsi_on_san", "VsiOnSanSchema"),
+                data_key="vsi_on_san",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" A VSI application using SAN."""
 
     @property

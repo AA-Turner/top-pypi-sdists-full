@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["FcInterfaceSvm", "FcInterfaceSvmSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "FcInterfaceSvm": False,
 }
 
-
 class FcInterfaceSvmSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the FcInterfaceSvm object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", unknown=EXCLUDE, data_key="_links", allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                unknown=EXCLUDE,
+                data_key="_links",
+                allow_none=True
+            )
     r""" The links field of the fc_interface_svm. """
 
     data_protocol = marshmallow_fields.Str(data_key="data_protocol", allow_none=True)
@@ -32,7 +35,12 @@ Valid choices:
 * fcp
 * fc_nvme """
 
-    location = marshmallow_fields.Nested("netapp_ontap.models.fc_interface_svm_location.FcInterfaceSvmLocationSchema", unknown=EXCLUDE, data_key="location", allow_none=True)
+    location = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fc_interface_svm_location", "FcInterfaceSvmLocationSchema"),
+                unknown=EXCLUDE,
+                data_key="location",
+                allow_none=True
+            )
     r""" The location of the Fibre Channel interface is defined by the location of its port. """
 
     name = marshmallow_fields.Str(data_key="name", allow_none=True)

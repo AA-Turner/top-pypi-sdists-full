@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -49,20 +49,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     EmsEvent(
         {
-            "log_message": "app.log.emerg: iMac: iPad ipad3: (10001) handheld: TestLine1",
             "message": {"severity": "emergency", "name": "app.log.emerg"},
+            "_links": {"self": {"href": "/api/support/ems/events/node1/7865"}},
+            "index": 7865,
+            "log_message": "app.log.emerg: iMac: iPad ipad3: (10001) handheld: TestLine1",
             "time": "2021-09-17T09:36:28-04:00",
             "node": {
-                "uuid": "d96d5d8d-118a-11ec-aad8-005056bb974c",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/d96d5d8d-118a-11ec-aad8-005056bb974c"
                     }
                 },
+                "uuid": "d96d5d8d-118a-11ec-aad8-005056bb974c",
             },
-            "_links": {"self": {"href": "/api/support/ems/events/node1/7865"}},
-            "index": 7865,
         }
     )
 ]
@@ -76,11 +76,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -93,7 +92,6 @@ __pdoc__ = {
     "EmsApplicationLogSchema.resource": False,
     "EmsApplicationLogSchema.opts": False,
 }
-
 
 class EmsApplicationLogSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the EmsApplicationLog object"""

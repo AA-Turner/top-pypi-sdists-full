@@ -75,6 +75,22 @@ class VmClusterSummary(object):
     #: This constant has a value of "OCPU"
     COMPUTE_MODEL_OCPU = "OCPU"
 
+    #: A constant which can be used with the vm_file_system_storage_type property of a VmClusterSummary.
+    #: This constant has a value of "LOCAL"
+    VM_FILE_SYSTEM_STORAGE_TYPE_LOCAL = "LOCAL"
+
+    #: A constant which can be used with the vm_file_system_storage_type property of a VmClusterSummary.
+    #: This constant has a value of "EXASCALE"
+    VM_FILE_SYSTEM_STORAGE_TYPE_EXASCALE = "EXASCALE"
+
+    #: A constant which can be used with the vm_backup_storage_type property of a VmClusterSummary.
+    #: This constant has a value of "LOCAL"
+    VM_BACKUP_STORAGE_TYPE_LOCAL = "LOCAL"
+
+    #: A constant which can be used with the vm_backup_storage_type property of a VmClusterSummary.
+    #: This constant has a value of "EXASCALE"
+    VM_BACKUP_STORAGE_TYPE_EXASCALE = "EXASCALE"
+
     def __init__(self, **kwargs):
         """
         Initializes a new VmClusterSummary object with values from keyword arguments.
@@ -234,6 +250,18 @@ class VmClusterSummary(object):
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type compute_model: str
 
+        :param vm_file_system_storage_type:
+            The value to assign to the vm_file_system_storage_type property of this VmClusterSummary.
+            Allowed values for this property are: "LOCAL", "EXASCALE", 'UNKNOWN_ENUM_VALUE'.
+            Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
+        :type vm_file_system_storage_type: str
+
+        :param vm_backup_storage_type:
+            The value to assign to the vm_backup_storage_type property of this VmClusterSummary.
+            Allowed values for this property are: "LOCAL", "EXASCALE", 'UNKNOWN_ENUM_VALUE'.
+            Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
+        :type vm_backup_storage_type: str
+
         """
         self.swagger_types = {
             'id': 'str',
@@ -271,7 +299,9 @@ class VmClusterSummary(object):
             'cloud_automation_update_details': 'CloudAutomationUpdateDetails',
             'exascale_db_storage_vault_id': 'str',
             'storage_management_type': 'str',
-            'compute_model': 'str'
+            'compute_model': 'str',
+            'vm_file_system_storage_type': 'str',
+            'vm_backup_storage_type': 'str'
         }
         self.attribute_map = {
             'id': 'id',
@@ -309,7 +339,9 @@ class VmClusterSummary(object):
             'cloud_automation_update_details': 'cloudAutomationUpdateDetails',
             'exascale_db_storage_vault_id': 'exascaleDbStorageVaultId',
             'storage_management_type': 'storageManagementType',
-            'compute_model': 'computeModel'
+            'compute_model': 'computeModel',
+            'vm_file_system_storage_type': 'vmFileSystemStorageType',
+            'vm_backup_storage_type': 'vmBackupStorageType'
         }
         self._id = None
         self._compartment_id = None
@@ -347,6 +379,8 @@ class VmClusterSummary(object):
         self._exascale_db_storage_vault_id = None
         self._storage_management_type = None
         self._compute_model = None
+        self._vm_file_system_storage_type = None
+        self._vm_backup_storage_type = None
 
     @property
     def id(self):
@@ -1287,6 +1321,66 @@ class VmClusterSummary(object):
         if not value_allowed_none_or_none_sentinel(compute_model, allowed_values):
             compute_model = 'UNKNOWN_ENUM_VALUE'
         self._compute_model = compute_model
+
+    @property
+    def vm_file_system_storage_type(self):
+        """
+        Gets the vm_file_system_storage_type of this VmClusterSummary.
+        Specifies the type of file system storage and supported values are LOCAL and EXASCALE. - LOCAL if selected then file system storage will be on DB Servers. - EXASCALE if selected then file system storage will be on Exascale Storage Servers. Default Value is LOCAL
+
+        Allowed values for this property are: "LOCAL", "EXASCALE", 'UNKNOWN_ENUM_VALUE'.
+        Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
+
+
+        :return: The vm_file_system_storage_type of this VmClusterSummary.
+        :rtype: str
+        """
+        return self._vm_file_system_storage_type
+
+    @vm_file_system_storage_type.setter
+    def vm_file_system_storage_type(self, vm_file_system_storage_type):
+        """
+        Sets the vm_file_system_storage_type of this VmClusterSummary.
+        Specifies the type of file system storage and supported values are LOCAL and EXASCALE. - LOCAL if selected then file system storage will be on DB Servers. - EXASCALE if selected then file system storage will be on Exascale Storage Servers. Default Value is LOCAL
+
+
+        :param vm_file_system_storage_type: The vm_file_system_storage_type of this VmClusterSummary.
+        :type: str
+        """
+        allowed_values = ["LOCAL", "EXASCALE"]
+        if not value_allowed_none_or_none_sentinel(vm_file_system_storage_type, allowed_values):
+            vm_file_system_storage_type = 'UNKNOWN_ENUM_VALUE'
+        self._vm_file_system_storage_type = vm_file_system_storage_type
+
+    @property
+    def vm_backup_storage_type(self):
+        """
+        Gets the vm_backup_storage_type of this VmClusterSummary.
+        Specifies the type of VM Backups Storage and supported values are LOCAL and EXASCALE. - LOCAL if selected then VM Backups storage will be on DB Servers. - EXASCALE if selected then VM Backups storage will be on Exascale Storage Servers. Default Value is LOCAL.
+
+        Allowed values for this property are: "LOCAL", "EXASCALE", 'UNKNOWN_ENUM_VALUE'.
+        Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
+
+
+        :return: The vm_backup_storage_type of this VmClusterSummary.
+        :rtype: str
+        """
+        return self._vm_backup_storage_type
+
+    @vm_backup_storage_type.setter
+    def vm_backup_storage_type(self, vm_backup_storage_type):
+        """
+        Sets the vm_backup_storage_type of this VmClusterSummary.
+        Specifies the type of VM Backups Storage and supported values are LOCAL and EXASCALE. - LOCAL if selected then VM Backups storage will be on DB Servers. - EXASCALE if selected then VM Backups storage will be on Exascale Storage Servers. Default Value is LOCAL.
+
+
+        :param vm_backup_storage_type: The vm_backup_storage_type of this VmClusterSummary.
+        :type: str
+        """
+        allowed_values = ["LOCAL", "EXASCALE"]
+        if not value_allowed_none_or_none_sentinel(vm_backup_storage_type, allowed_values):
+            vm_backup_storage_type = 'UNKNOWN_ENUM_VALUE'
+        self._vm_backup_storage_type = vm_backup_storage_type
 
     def __repr__(self):
         return formatted_flat_dict(self)

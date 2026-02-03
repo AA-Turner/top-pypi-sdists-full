@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -165,312 +165,312 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FileMove(
         {
-            "source": {
-                "path": "test/file2.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
+            "destination": {
                 "volume": {
-                    "uuid": "4e919b6d-1c76-11ec-8e1b-005056acf2dd",
-                    "name": "fg2__0008",
+                    "name": "fg2__0005",
+                    "uuid": "4d14f2f6-1c76-11ec-8e1b-005056acf2dd",
                 },
+                "path": "test/file2.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
+            },
+            "index": 0,
+            "source": {
+                "volume": {
+                    "name": "fg2__0008",
+                    "uuid": "4e919b6d-1c76-11ec-8e1b-005056acf2dd",
+                },
+                "path": "test/file2.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
             },
             "uuid": "e12bc78d-36bb-4274-8163-fb8c21d59c9b",
             "node": {
-                "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/76bc12d1-10aa-11ec-a5b5-005056acf2dd"
                     }
                 },
+                "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
             },
-            "destination": {
-                "path": "test/file2.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
-                "volume": {
-                    "uuid": "4d14f2f6-1c76-11ec-8e1b-005056acf2dd",
-                    "name": "fg2__0005",
-                },
-            },
-            "index": 0,
         }
     ),
     FileMove(
         {
-            "source": {
-                "path": "dir1/f2.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
-                "volume": {
-                    "uuid": "18fd9110-26f1-11ec-bf0d-005056acf2dd",
-                    "name": "fv1",
-                },
-            },
-            "uuid": "ce2af347-586d-4b31-b728-1e925f51fdfc",
-            "node": {
-                "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
-                "name": "node1",
-                "_links": {
-                    "self": {
-                        "href": "/api/cluster/nodes/76bc12d1-10aa-11ec-a5b5-005056acf2dd"
-                    }
-                },
-            },
             "destination": {
+                "volume": {
+                    "name": "fv2",
+                    "uuid": "220bdb3a-26f1-11ec-bf0d-005056acf2dd",
+                },
                 "path": "dir2/f2.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
-                "volume": {
-                    "uuid": "220bdb3a-26f1-11ec-bf0d-005056acf2dd",
-                    "name": "fv2",
-                },
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
             },
             "index": 1,
-        }
-    ),
-    FileMove(
-        {
             "source": {
-                "path": "dir1/f1.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
                 "volume": {
-                    "uuid": "18fd9110-26f1-11ec-bf0d-005056acf2dd",
                     "name": "fv1",
+                    "uuid": "18fd9110-26f1-11ec-bf0d-005056acf2dd",
                 },
+                "path": "dir1/f2.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
             },
             "uuid": "ce2af347-586d-4b31-b728-1e925f51fdfc",
             "node": {
-                "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/76bc12d1-10aa-11ec-a5b5-005056acf2dd"
                     }
                 },
+                "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
             },
+        }
+    ),
+    FileMove(
+        {
             "destination": {
+                "volume": {
+                    "name": "fv2",
+                    "uuid": "220bdb3a-26f1-11ec-bf0d-005056acf2dd",
+                },
                 "path": "dir2/f1.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
-                "volume": {
-                    "uuid": "220bdb3a-26f1-11ec-bf0d-005056acf2dd",
-                    "name": "fv2",
-                },
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
             },
             "index": 0,
-        }
-    ),
-    FileMove(
-        {
             "source": {
-                "path": "dir1/f3.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
                 "volume": {
-                    "uuid": "18fd9110-26f1-11ec-bf0d-005056acf2dd",
                     "name": "fv1",
+                    "uuid": "18fd9110-26f1-11ec-bf0d-005056acf2dd",
                 },
+                "path": "dir1/f1.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
             },
-            "uuid": "6d12601b-5377-43bf-99f0-b4bec37565e2",
+            "uuid": "ce2af347-586d-4b31-b728-1e925f51fdfc",
             "node": {
-                "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/76bc12d1-10aa-11ec-a5b5-005056acf2dd"
                     }
                 },
+                "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
             },
+        }
+    ),
+    FileMove(
+        {
             "destination": {
+                "volume": {
+                    "name": "fv2",
+                    "uuid": "220bdb3a-26f1-11ec-bf0d-005056acf2dd",
+                },
                 "path": "dir2/f3.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
-                "volume": {
-                    "uuid": "220bdb3a-26f1-11ec-bf0d-005056acf2dd",
-                    "name": "fv2",
-                },
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
             },
             "index": 0,
-        }
-    ),
-    FileMove(
-        {
             "source": {
-                "path": "dir1/f4.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
                 "volume": {
-                    "uuid": "18fd9110-26f1-11ec-bf0d-005056acf2dd",
                     "name": "fv1",
+                    "uuid": "18fd9110-26f1-11ec-bf0d-005056acf2dd",
                 },
+                "path": "dir1/f3.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
             },
             "uuid": "6d12601b-5377-43bf-99f0-b4bec37565e2",
             "node": {
-                "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/76bc12d1-10aa-11ec-a5b5-005056acf2dd"
                     }
                 },
+                "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
             },
+        }
+    ),
+    FileMove(
+        {
             "destination": {
-                "path": "dir2/f4.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
                 "volume": {
-                    "uuid": "220bdb3a-26f1-11ec-bf0d-005056acf2dd",
                     "name": "fv2",
+                    "uuid": "220bdb3a-26f1-11ec-bf0d-005056acf2dd",
                 },
+                "path": "dir2/f4.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
             },
             "index": 1,
-        }
-    ),
-    FileMove(
-        {
             "source": {
-                "path": "dir1/f5.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
                 "volume": {
-                    "uuid": "18fd9110-26f1-11ec-bf0d-005056acf2dd",
                     "name": "fv1",
+                    "uuid": "18fd9110-26f1-11ec-bf0d-005056acf2dd",
                 },
+                "path": "dir1/f4.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
             },
-            "uuid": "bbfdface-0d46-4f5f-9624-72f4869eba81",
+            "uuid": "6d12601b-5377-43bf-99f0-b4bec37565e2",
             "node": {
-                "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/76bc12d1-10aa-11ec-a5b5-005056acf2dd"
                     }
                 },
+                "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
             },
+        }
+    ),
+    FileMove(
+        {
             "destination": {
-                "path": "dir2/f5.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
                 "volume": {
-                    "uuid": "220bdb3a-26f1-11ec-bf0d-005056acf2dd",
                     "name": "fv2",
+                    "uuid": "220bdb3a-26f1-11ec-bf0d-005056acf2dd",
                 },
+                "path": "dir2/f5.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
             },
             "index": 0,
-        }
-    ),
-    FileMove(
-        {
             "source": {
-                "path": "dir1/f7.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
                 "volume": {
-                    "uuid": "18fd9110-26f1-11ec-bf0d-005056acf2dd",
                     "name": "fv1",
+                    "uuid": "18fd9110-26f1-11ec-bf0d-005056acf2dd",
                 },
+                "path": "dir1/f5.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
             },
             "uuid": "bbfdface-0d46-4f5f-9624-72f4869eba81",
             "node": {
-                "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/76bc12d1-10aa-11ec-a5b5-005056acf2dd"
                     }
                 },
+                "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
             },
+        }
+    ),
+    FileMove(
+        {
             "destination": {
-                "path": "dir2/f700.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
                 "volume": {
-                    "uuid": "220bdb3a-26f1-11ec-bf0d-005056acf2dd",
                     "name": "fv2",
+                    "uuid": "220bdb3a-26f1-11ec-bf0d-005056acf2dd",
                 },
+                "path": "dir2/f700.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
             },
             "index": 2,
-        }
-    ),
-    FileMove(
-        {
             "source": {
-                "path": "dir1/f6.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
                 "volume": {
-                    "uuid": "18fd9110-26f1-11ec-bf0d-005056acf2dd",
                     "name": "fv1",
+                    "uuid": "18fd9110-26f1-11ec-bf0d-005056acf2dd",
                 },
+                "path": "dir1/f7.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
             },
             "uuid": "bbfdface-0d46-4f5f-9624-72f4869eba81",
             "node": {
-                "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/76bc12d1-10aa-11ec-a5b5-005056acf2dd"
                     }
                 },
+                "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
             },
-            "destination": {
-                "path": "dir2/f6.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
-                "volume": {
-                    "uuid": "220bdb3a-26f1-11ec-bf0d-005056acf2dd",
-                    "name": "fv2",
-                },
-            },
-            "index": 1,
         }
     ),
     FileMove(
         {
-            "source": {
-                "path": "test/file.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
+            "destination": {
                 "volume": {
-                    "uuid": "438731dd-1c76-11ec-8e1b-005056acf2dd",
-                    "name": "fg2__0001",
+                    "name": "fv2",
+                    "uuid": "220bdb3a-26f1-11ec-bf0d-005056acf2dd",
                 },
+                "path": "dir2/f6.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
+            },
+            "index": 1,
+            "source": {
+                "volume": {
+                    "name": "fv1",
+                    "uuid": "18fd9110-26f1-11ec-bf0d-005056acf2dd",
+                },
+                "path": "dir1/f6.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
+            },
+            "uuid": "bbfdface-0d46-4f5f-9624-72f4869eba81",
+            "node": {
+                "name": "node1",
+                "_links": {
+                    "self": {
+                        "href": "/api/cluster/nodes/76bc12d1-10aa-11ec-a5b5-005056acf2dd"
+                    }
+                },
+                "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
+            },
+        }
+    ),
+    FileMove(
+        {
+            "destination": {
+                "volume": {
+                    "name": "fg2__0008",
+                    "uuid": "4e919b6d-1c76-11ec-8e1b-005056acf2dd",
+                },
+                "path": "/test/file.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
+            },
+            "index": 0,
+            "source": {
+                "volume": {
+                    "name": "fg2__0001",
+                    "uuid": "438731dd-1c76-11ec-8e1b-005056acf2dd",
+                },
+                "path": "test/file.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
             },
             "uuid": "6591a42a-4ea2-4d40-bfb4-38959f6bd68e",
             "node": {
-                "uuid": "780255d2-10aa-11ec-a308-005056acf86d",
                 "name": "node2",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/780255d2-10aa-11ec-a308-005056acf86d"
                     }
                 },
+                "uuid": "780255d2-10aa-11ec-a308-005056acf86d",
             },
-            "destination": {
-                "path": "/test/file.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
-                "volume": {
-                    "uuid": "4e919b6d-1c76-11ec-8e1b-005056acf2dd",
-                    "name": "fg2__0008",
-                },
-            },
-            "index": 0,
         }
     ),
     FileMove(
         {
-            "source": {
-                "path": "test/file3.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
+            "destination": {
                 "volume": {
-                    "uuid": "438731dd-1c76-11ec-8e1b-005056acf2dd",
-                    "name": "fg2__0001",
+                    "name": "fg2__0008",
+                    "uuid": "4e919b6d-1c76-11ec-8e1b-005056acf2dd",
                 },
+                "path": "/test/file3.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
+            },
+            "index": 0,
+            "source": {
+                "volume": {
+                    "name": "fg2__0001",
+                    "uuid": "438731dd-1c76-11ec-8e1b-005056acf2dd",
+                },
+                "path": "test/file3.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
             },
             "uuid": "1a94e95a-346e-4eb3-969a-110e275cbf18",
             "node": {
-                "uuid": "780255d2-10aa-11ec-a308-005056acf86d",
                 "name": "node2",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/780255d2-10aa-11ec-a308-005056acf86d"
                     }
                 },
+                "uuid": "780255d2-10aa-11ec-a308-005056acf86d",
             },
-            "destination": {
-                "path": "/test/file3.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
-                "volume": {
-                    "uuid": "4e919b6d-1c76-11ec-8e1b-005056acf2dd",
-                    "name": "fg2__0008",
-                },
-            },
-            "index": 0,
         }
     ),
 ]
@@ -500,64 +500,64 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FileMove(
         {
-            "source": {
-                "path": "dir1/f2.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
+            "destination": {
                 "volume": {
-                    "uuid": "18fd9110-26f1-11ec-bf0d-005056acf2dd",
-                    "name": "fv1",
+                    "name": "fv2",
+                    "uuid": "220bdb3a-26f1-11ec-bf0d-005056acf2dd",
                 },
+                "path": "dir2/f2.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
+            },
+            "index": 1,
+            "source": {
+                "volume": {
+                    "name": "fv1",
+                    "uuid": "18fd9110-26f1-11ec-bf0d-005056acf2dd",
+                },
+                "path": "dir1/f2.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
             },
             "uuid": "ce2af347-586d-4b31-b728-1e925f51fdfc",
             "node": {
-                "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/76bc12d1-10aa-11ec-a5b5-005056acf2dd"
                     }
                 },
+                "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
             },
-            "destination": {
-                "path": "dir2/f2.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
-                "volume": {
-                    "uuid": "220bdb3a-26f1-11ec-bf0d-005056acf2dd",
-                    "name": "fv2",
-                },
-            },
-            "index": 1,
         }
     ),
     FileMove(
         {
-            "source": {
-                "path": "dir1/f1.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
+            "destination": {
                 "volume": {
-                    "uuid": "18fd9110-26f1-11ec-bf0d-005056acf2dd",
-                    "name": "fv1",
+                    "name": "fv2",
+                    "uuid": "220bdb3a-26f1-11ec-bf0d-005056acf2dd",
                 },
+                "path": "dir2/f1.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
+            },
+            "index": 0,
+            "source": {
+                "volume": {
+                    "name": "fv1",
+                    "uuid": "18fd9110-26f1-11ec-bf0d-005056acf2dd",
+                },
+                "path": "dir1/f1.txt",
+                "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
             },
             "uuid": "ce2af347-586d-4b31-b728-1e925f51fdfc",
             "node": {
-                "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/76bc12d1-10aa-11ec-a5b5-005056acf2dd"
                     }
                 },
+                "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
             },
-            "destination": {
-                "path": "dir2/f1.txt",
-                "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
-                "volume": {
-                    "uuid": "220bdb3a-26f1-11ec-bf0d-005056acf2dd",
-                    "name": "fv2",
-                },
-            },
-            "index": 0,
         }
     ),
 ]
@@ -586,27 +586,27 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FileMove(
     {
+        "destination": {
+            "volume": {"name": "fv2", "uuid": "220bdb3a-26f1-11ec-bf0d-005056acf2dd"},
+            "path": "dir2/f2.txt",
+            "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
+        },
+        "index": 1,
         "source": {
+            "volume": {"name": "fv1", "uuid": "18fd9110-26f1-11ec-bf0d-005056acf2dd"},
             "path": "dir1/f2.txt",
-            "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
-            "volume": {"uuid": "18fd9110-26f1-11ec-bf0d-005056acf2dd", "name": "fv1"},
+            "svm": {"name": "vs0", "uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd"},
         },
         "uuid": "ce2af347-586d-4b31-b728-1e925f51fdfc",
         "node": {
-            "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
             "name": "node1",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/76bc12d1-10aa-11ec-a5b5-005056acf2dd"
                 }
             },
+            "uuid": "76bc12d1-10aa-11ec-a5b5-005056acf2dd",
         },
-        "destination": {
-            "path": "dir2/f2.txt",
-            "svm": {"uuid": "5b2c8638-10bc-11ec-8e1b-005056acf2dd", "name": "vs0"},
-            "volume": {"uuid": "220bdb3a-26f1-11ec-bf0d-005056acf2dd", "name": "fv2"},
-        },
-        "index": 1,
     }
 )
 
@@ -619,11 +619,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -637,7 +636,6 @@ __pdoc__ = {
     "FileMoveSchema.opts": False,
 }
 
-
 class FileMoveSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the FileMove object"""
 
@@ -649,7 +647,12 @@ class FileMoveSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 8"""
 
-    destination = marshmallow_fields.Nested("netapp_ontap.models.file_move_file.FileMoveFileSchema", data_key="destination", unknown=EXCLUDE, allow_none=True)
+    destination = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.file_move_file", "FileMoveFileSchema"),
+                data_key="destination",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Path for file move operation."""
 
     elapsed_time = Size(
@@ -660,10 +663,20 @@ Example: 8"""
 
 Example: 100"""
 
-    failure = marshmallow_fields.Nested("netapp_ontap.models.error.ErrorSchema", data_key="failure", unknown=EXCLUDE, allow_none=True)
+    failure = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.error", "ErrorSchema"),
+                data_key="failure",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Contains the most recent failure reason for move operation."""
 
-    files_to_move = marshmallow_fields.Nested("netapp_ontap.models.file_move_files_to_move.FileMoveFilesToMoveSchema", data_key="files_to_move", unknown=EXCLUDE, allow_none=True)
+    files_to_move = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.file_move_files_to_move", "FileMoveFilesToMoveSchema"),
+                data_key="files_to_move",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" A list of source files along with the destination file they are moved to. If the terminal path component of the destination is a directory, then the source file's basename is replicated in that directory. This is only used for FlexVol volume file move operations."""
 
     index = Size(
@@ -710,19 +723,44 @@ Example: 10"""
 
 Example: 250000"""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the file_move."""
 
-    reference = marshmallow_fields.Nested("netapp_ontap.models.reference_file_move_file.ReferenceFileMoveFileSchema", data_key="reference", unknown=EXCLUDE, allow_none=True)
+    reference = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.reference_file_move_file", "ReferenceFileMoveFileSchema"),
+                data_key="reference",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Details for referenced file."""
 
-    scanner = marshmallow_fields.Nested("netapp_ontap.models.file_move_scanner.FileMoveScannerSchema", data_key="scanner", unknown=EXCLUDE, allow_none=True)
+    scanner = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.file_move_scanner", "FileMoveScannerSchema"),
+                data_key="scanner",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The scanner field of the file_move."""
 
-    source = marshmallow_fields.Nested("netapp_ontap.models.file_move_file.FileMoveFileSchema", data_key="source", unknown=EXCLUDE, allow_none=True)
+    source = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.file_move_file", "FileMoveFileSchema"),
+                data_key="source",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Path for file move operation."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the file_move."""
 
     uuid = marshmallow_fields.Str(
@@ -733,7 +771,12 @@ Example: 250000"""
 
 Example: 4fcb3159-a4ee-42b5-bb16-f752f2c430fc"""
 
-    volume = marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", data_key="volume", unknown=EXCLUDE, allow_none=True)
+    volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                data_key="volume",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The volume field of the file_move."""
 
     @property

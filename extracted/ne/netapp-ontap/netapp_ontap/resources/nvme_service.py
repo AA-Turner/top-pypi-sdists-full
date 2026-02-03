@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -33,18 +33,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NvmeService(
     {
-        "enabled": True,
-        "svm": {
-            "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/bfb1beb0-dc69-11e8-b29f-005056bb7341"}
-            },
-        },
         "_links": {
             "self": {
                 "href": "/api/protocols/nvme/services/bfb1beb0-dc69-11e8-b29f-005056bb7341"
             }
+        },
+        "enabled": True,
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/bfb1beb0-dc69-11e8-b29f-005056bb7341"}
+            },
+            "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
         },
     }
 )
@@ -71,37 +71,37 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NvmeService(
         {
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/nvme/services/ab60c350-dc68-11e8-9711-005056bbe408"
+                }
+            },
             "svm": {
-                "uuid": "ab60c350-dc68-11e8-9711-005056bbe408",
                 "name": "svm0",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/ab60c350-dc68-11e8-9711-005056bbe408"
                     }
                 },
-            },
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/nvme/services/ab60c350-dc68-11e8-9711-005056bbe408"
-                }
+                "uuid": "ab60c350-dc68-11e8-9711-005056bbe408",
             },
         }
     ),
     NvmeService(
         {
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/nvme/services/bfb1beb0-dc69-11e8-b29f-005056bb7341"
+                }
+            },
             "svm": {
-                "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/bfb1beb0-dc69-11e8-b29f-005056bb7341"
                     }
                 },
-            },
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/nvme/services/bfb1beb0-dc69-11e8-b29f-005056bb7341"
-                }
+                "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
             },
         }
     ),
@@ -132,18 +132,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NvmeService(
     {
-        "enabled": True,
-        "svm": {
-            "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/bfb1beb0-dc69-11e8-b29f-005056bb7341"}
-            },
-        },
         "_links": {
             "self": {
                 "href": "/api/protocols/nvme/services/bfb1beb0-dc69-11e8-b29f-005056bb7341"
             }
+        },
+        "enabled": True,
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/bfb1beb0-dc69-11e8-b29f-005056bb7341"}
+            },
+            "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
         },
     }
 )
@@ -188,18 +188,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NvmeService(
     {
-        "enabled": False,
-        "svm": {
-            "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/bfb1beb0-dc69-11e8-b29f-005056bb7341"}
-            },
-        },
         "_links": {
             "self": {
                 "href": "/api/protocols/nvme/services/bfb1beb0-dc69-11e8-b29f-005056bb7341"
             }
+        },
+        "enabled": False,
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/bfb1beb0-dc69-11e8-b29f-005056bb7341"}
+            },
+            "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
         },
     }
 )
@@ -228,11 +228,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -246,11 +245,15 @@ __pdoc__ = {
     "NvmeServiceSchema.opts": False,
 }
 
-
 class NvmeServiceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the NvmeService object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the nvme_service."""
 
     enabled = marshmallow_fields.Boolean(
@@ -260,13 +263,28 @@ class NvmeServiceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     r""" The administrative state of the NVMe service. The NVMe service can be disabled to block all NVMe connectivity to the SVM.<br/>
 This is optional in POST and PATCH. The default setting is _true_ (enabled) in POST."""
 
-    metric = marshmallow_fields.Nested("netapp_ontap.models.nvme_service_metric.NvmeServiceMetricSchema", data_key="metric", unknown=EXCLUDE, allow_none=True)
+    metric = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_service_metric", "NvmeServiceMetricSchema"),
+                data_key="metric",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Performance numbers, such as IOPS latency and throughput, for SVM protocols."""
 
-    statistics = marshmallow_fields.Nested("netapp_ontap.models.nvme_service_statistics.NvmeServiceStatisticsSchema", data_key="statistics", unknown=EXCLUDE, allow_none=True)
+    statistics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_service_statistics", "NvmeServiceStatisticsSchema"),
+                data_key="statistics",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" These are raw performance numbers, such as IOPS latency and throughput for SVM protocols. These numbers are aggregated across all nodes in the cluster and increase with the uptime of the cluster."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the nvme_service."""
 
     @property

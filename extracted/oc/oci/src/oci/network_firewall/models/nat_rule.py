@@ -12,7 +12,9 @@ from oci.decorators import init_model_state_from_kwargs
 @init_model_state_from_kwargs
 class NatRule(object):
     """
-    A Nat Rule is used to define to which traffic NAT should be applied by the firewall.
+    A `NAT rule`__ defines which traffic NAT should be applied to by the firewall.
+
+    __ https://docs.cloud.oracle.com/iaas/Content/network-firewall/policies.htm#network-firewall-policies__nat
     """
 
     #: A constant which can be used with the type property of a NatRule.
@@ -221,7 +223,9 @@ class NatRule(object):
     def parent_resource_id(self):
         """
         **[Required]** Gets the parent_resource_id of this NatRule.
-        OCID of the Network Firewall Policy this decryption profile belongs to.
+        The `OCID`__ of the Network Firewall policy this NAT rule belongs to.
+
+        __ https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm
 
 
         :return: The parent_resource_id of this NatRule.
@@ -233,7 +237,9 @@ class NatRule(object):
     def parent_resource_id(self, parent_resource_id):
         """
         Sets the parent_resource_id of this NatRule.
-        OCID of the Network Firewall Policy this decryption profile belongs to.
+        The `OCID`__ of the Network Firewall policy this NAT rule belongs to.
+
+        __ https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm
 
 
         :param parent_resource_id: The parent_resource_id of this NatRule.

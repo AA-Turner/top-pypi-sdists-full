@@ -26,6 +26,10 @@ class UpdateIcmp6ApplicationDetails(UpdateApplicationDetails):
             Allowed values for this property are: "ICMP", "ICMP_V6"
         :type type: str
 
+        :param description:
+            The value to assign to the description property of this UpdateIcmp6ApplicationDetails.
+        :type description: str
+
         :param icmp_type:
             The value to assign to the icmp_type property of this UpdateIcmp6ApplicationDetails.
         :type icmp_type: int
@@ -37,15 +41,18 @@ class UpdateIcmp6ApplicationDetails(UpdateApplicationDetails):
         """
         self.swagger_types = {
             'type': 'str',
+            'description': 'str',
             'icmp_type': 'int',
             'icmp_code': 'int'
         }
         self.attribute_map = {
             'type': 'type',
+            'description': 'description',
             'icmp_type': 'icmpType',
             'icmp_code': 'icmpCode'
         }
         self._type = None
+        self._description = None
         self._icmp_type = None
         self._icmp_code = None
         self._type = 'ICMP_V6'

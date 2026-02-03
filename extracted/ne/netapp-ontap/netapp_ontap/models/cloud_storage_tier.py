@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["CloudStorageTier", "CloudStorageTierSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "CloudStorageTier": False,
 }
 
-
 class CloudStorageTierSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the CloudStorageTier object"""
 
-    cloud_store = marshmallow_fields.Nested("netapp_ontap.resources.cloud_store.CloudStoreSchema", unknown=EXCLUDE, data_key="cloud_store", allow_none=True)
+    cloud_store = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.cloud_store", "CloudStoreSchema"),
+                unknown=EXCLUDE,
+                data_key="cloud_store",
+                allow_none=True
+            )
     r""" The cloud_store field of the cloud_storage_tier. """
 
     used = Size(data_key="used", allow_none=True)

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,43 +27,43 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     SecurityKeystore(
         {
             "configuration": {
-                "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
                 "name": "default",
+                "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
             },
+            "state": "active",
+            "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
+            "location": "onboard",
+            "type": "okm",
             "scope": "cluster",
             "enabled": True,
-            "state": "active",
-            "location": "onboard",
-            "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
-            "type": "okm",
         }
     ),
     SecurityKeystore(
         {
             "configuration": {
-                "uuid": "d81f43cd-4e9f-11ef-b477-005056bb677e",
                 "name": "default",
+                "uuid": "d81f43cd-4e9f-11ef-b477-005056bb677e",
             },
+            "uuid": "d81f43cd-4e9f-11ef-b477-005056bb677e",
+            "location": "external",
+            "type": "kmip",
             "scope": "cluster",
             "enabled": False,
-            "location": "external",
-            "uuid": "d81f43cd-4e9f-11ef-b477-005056bb677e",
-            "type": "kmip",
         }
     ),
     SecurityKeystore(
         {
+            "svm": {"name": "vs0", "uuid": "3cbe691b-4ea0-11ef-b477-005056bb677e"},
             "configuration": {
-                "uuid": "7da22185-4ea0-11ef-b477-005056bb677e",
                 "name": "default",
+                "uuid": "7da22185-4ea0-11ef-b477-005056bb677e",
             },
+            "state": "active",
+            "uuid": "7da22185-4ea0-11ef-b477-005056bb677e",
+            "location": "external",
+            "type": "kmip",
             "scope": "svm",
             "enabled": True,
-            "svm": {"uuid": "3cbe691b-4ea0-11ef-b477-005056bb677e", "name": "vs0"},
-            "state": "active",
-            "location": "external",
-            "uuid": "7da22185-4ea0-11ef-b477-005056bb677e",
-            "type": "kmip",
         }
     ),
 ]
@@ -93,15 +93,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 SecurityKeystore(
     {
         "configuration": {
-            "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
             "name": "default",
+            "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
         },
+        "state": "active",
+        "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
+        "location": "onboard",
+        "type": "okm",
         "scope": "cluster",
         "enabled": True,
-        "state": "active",
-        "location": "onboard",
-        "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
-        "type": "okm",
     }
 )
 
@@ -142,11 +142,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -160,11 +159,15 @@ __pdoc__ = {
     "SecurityKeystoreSchema.opts": False,
 }
 
-
 class SecurityKeystoreSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SecurityKeystore object"""
 
-    configuration = marshmallow_fields.Nested("netapp_ontap.models.security_keystore_configuration.SecurityKeystoreConfigurationSchema", data_key="configuration", unknown=EXCLUDE, allow_none=True)
+    configuration = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.security_keystore_configuration", "SecurityKeystoreConfigurationSchema"),
+                data_key="configuration",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Security keystore object reference."""
 
     enabled = marshmallow_fields.Boolean(
@@ -210,7 +213,12 @@ Valid choices:
 * initializing
 * disabling"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the security_keystore."""
 
     type = marshmallow_fields.Str(

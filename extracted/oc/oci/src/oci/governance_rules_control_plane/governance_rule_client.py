@@ -162,7 +162,7 @@ class GovernanceRuleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/governancerulescontrolplane/create_governance_rule.py.html>`__ to see an example of how to use create_governance_rule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/governancerulescontrolplane/create_governance_rule.py.html>`__ to see an example of how to use create_governance_rule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -265,7 +265,7 @@ class GovernanceRuleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/governancerulescontrolplane/create_inclusion_criterion.py.html>`__ to see an example of how to use create_inclusion_criterion API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/governancerulescontrolplane/create_inclusion_criterion.py.html>`__ to see an example of how to use create_inclusion_criterion API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -368,7 +368,7 @@ class GovernanceRuleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/governancerulescontrolplane/delete_governance_rule.py.html>`__ to see an example of how to use delete_governance_rule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/governancerulescontrolplane/delete_governance_rule.py.html>`__ to see an example of how to use delete_governance_rule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['governanceRuleId']
@@ -478,7 +478,7 @@ class GovernanceRuleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/governancerulescontrolplane/delete_inclusion_criterion.py.html>`__ to see an example of how to use delete_inclusion_criterion API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/governancerulescontrolplane/delete_inclusion_criterion.py.html>`__ to see an example of how to use delete_inclusion_criterion API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['inclusionCriterionId']
@@ -581,7 +581,7 @@ class GovernanceRuleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/governancerulescontrolplane/get_enforced_governance_rule.py.html>`__ to see an example of how to use get_enforced_governance_rule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/governancerulescontrolplane/get_enforced_governance_rule.py.html>`__ to see an example of how to use get_enforced_governance_rule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['enforcedGovernanceRuleId']
@@ -684,7 +684,7 @@ class GovernanceRuleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/governancerulescontrolplane/get_governance_rule.py.html>`__ to see an example of how to use get_governance_rule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/governancerulescontrolplane/get_governance_rule.py.html>`__ to see an example of how to use get_governance_rule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['governanceRuleId']
@@ -787,7 +787,7 @@ class GovernanceRuleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/governancerulescontrolplane/get_inclusion_criterion.py.html>`__ to see an example of how to use get_inclusion_criterion API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/governancerulescontrolplane/get_inclusion_criterion.py.html>`__ to see an example of how to use get_inclusion_criterion API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['inclusionCriterionId']
@@ -890,7 +890,7 @@ class GovernanceRuleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/governancerulescontrolplane/get_tenancy_attachment.py.html>`__ to see an example of how to use get_tenancy_attachment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/governancerulescontrolplane/get_tenancy_attachment.py.html>`__ to see an example of how to use get_tenancy_attachment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['tenancyAttachmentId']
@@ -1021,7 +1021,7 @@ class GovernanceRuleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/governancerulescontrolplane/list_enforced_governance_rules.py.html>`__ to see an example of how to use list_enforced_governance_rules API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/governancerulescontrolplane/list_enforced_governance_rules.py.html>`__ to see an example of how to use list_enforced_governance_rules API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1188,7 +1188,7 @@ class GovernanceRuleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/governancerulescontrolplane/list_governance_rules.py.html>`__ to see an example of how to use list_governance_rules API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/governancerulescontrolplane/list_governance_rules.py.html>`__ to see an example of how to use list_governance_rules API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1356,7 +1356,7 @@ class GovernanceRuleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/governancerulescontrolplane/list_inclusion_criteria.py.html>`__ to see an example of how to use list_inclusion_criteria API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/governancerulescontrolplane/list_inclusion_criteria.py.html>`__ to see an example of how to use list_inclusion_criteria API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['governanceRuleId']
@@ -1518,7 +1518,7 @@ class GovernanceRuleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/governancerulescontrolplane/list_tenancy_attachments.py.html>`__ to see an example of how to use list_tenancy_attachments API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/governancerulescontrolplane/list_tenancy_attachments.py.html>`__ to see an example of how to use list_tenancy_attachments API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1670,7 +1670,7 @@ class GovernanceRuleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/governancerulescontrolplane/retry_governance_rule.py.html>`__ to see an example of how to use retry_governance_rule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/governancerulescontrolplane/retry_governance_rule.py.html>`__ to see an example of how to use retry_governance_rule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['governanceRuleId']
@@ -1791,7 +1791,7 @@ class GovernanceRuleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/governancerulescontrolplane/retry_tenancy_attachment.py.html>`__ to see an example of how to use retry_tenancy_attachment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/governancerulescontrolplane/retry_tenancy_attachment.py.html>`__ to see an example of how to use retry_tenancy_attachment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['tenancyAttachmentId']
@@ -1907,7 +1907,7 @@ class GovernanceRuleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/governancerulescontrolplane/update_governance_rule.py.html>`__ to see an example of how to use update_governance_rule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/governancerulescontrolplane/update_governance_rule.py.html>`__ to see an example of how to use update_governance_rule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['governanceRuleId']

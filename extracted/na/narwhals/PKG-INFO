@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: narwhals
-Version: 2.15.0
+Version: 2.16.0
 Summary: Extremely lightweight compatibility layer between dataframe libraries
 Project-URL: Homepage, https://github.com/narwhals-dev/narwhals
 Project-URL: Documentation, https://narwhals-dev.github.io/narwhals/
@@ -44,7 +44,7 @@ Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Provides-Extra: cudf
-Requires-Dist: cudf>=24.10.0; extra == 'cudf'
+Requires-Dist: cudf-cu12>=24.10.0; extra == 'cudf'
 Provides-Extra: dask
 Requires-Dist: dask[dataframe]>=2024.8; extra == 'dask'
 Provides-Extra: duckdb
@@ -66,6 +66,9 @@ Provides-Extra: pyspark
 Requires-Dist: pyspark>=3.5.0; extra == 'pyspark'
 Provides-Extra: pyspark-connect
 Requires-Dist: pyspark[connect]>=3.5.0; extra == 'pyspark-connect'
+Provides-Extra: sql
+Requires-Dist: duckdb>=1.1; extra == 'sql'
+Requires-Dist: sqlparse; extra == 'sql'
 Provides-Extra: sqlframe
 Requires-Dist: sqlframe!=3.39.3,>=3.22.0; extra == 'sqlframe'
 Description-Content-Type: text/markdown

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -32,16 +32,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AutosupportMessage(
     {
+        "_links": {
+            "self": {
+                "href": "/api/support/autosupport/messages/092e0298-f250-11e8-9a05-005056bb6666/4/http"
+            }
+        },
+        "index": 4,
         "node": {
-            "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
             "name": "node1",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/092e0298-f250-11e8-9a05-005056bb6666"
                 }
             },
+            "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
         },
-        "index": 4,
     }
 )
 
@@ -74,16 +79,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AutosupportMessage(
     {
+        "_links": {
+            "self": {
+                "href": "/api/support/autosupport/messages/092e0298-f250-11e8-9a05-005056bb6666/8/http"
+            }
+        },
+        "index": 8,
         "node": {
-            "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
             "name": "node1",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/092e0298-f250-11e8-9a05-005056bb6666"
                 }
             },
+            "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
         },
-        "index": 8,
     }
 )
 
@@ -111,16 +121,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AutosupportMessage(
     {
+        "_links": {
+            "self": {
+                "href": "/api/support/autosupport/messages/e47d2630-f250-11e8-b186-005056bb5cab/4/http"
+            }
+        },
+        "index": 4,
         "node": {
-            "uuid": "e47d2630-f250-11e8-b186-005056bb5cab",
             "name": "node2",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/e47d2630-f250-11e8-b186-005056bb5cab"
                 }
             },
+            "uuid": "e47d2630-f250-11e8-b186-005056bb5cab",
         },
-        "index": 4,
     }
 )
 
@@ -148,16 +163,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AutosupportMessage(
     {
+        "_links": {
+            "self": {
+                "href": "/api/support/autosupport/messages/092e0298-f250-11e8-9a05-005056bb6666/5/http"
+            }
+        },
+        "index": 5,
         "node": {
-            "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
             "name": "node1",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/092e0298-f250-11e8-9a05-005056bb6666"
                 }
             },
+            "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
         },
-        "index": 5,
     }
 )
 
@@ -186,110 +206,140 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     AutosupportMessage(
         {
-            "subject": "USER_TRIGGERED (TEST:test_msg)",
+            "destination": "smtp",
+            "_links": {
+                "self": {
+                    "href": "/api/support/autosupport/messages/092e0298-f250-11e8-9a05-005056bb6666/1/smtp"
+                }
+            },
+            "index": 1,
             "state": "ignore",
             "generated_on": "2019-03-28T10:18:04-04:00",
+            "subject": "USER_TRIGGERED (TEST:test_msg)",
             "node": {
-                "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/092e0298-f250-11e8-9a05-005056bb6666"
                     }
                 },
+                "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
             },
-            "destination": "smtp",
-            "index": 1,
         }
     ),
     AutosupportMessage(
         {
-            "subject": "USER_TRIGGERED (TEST:test_msg)",
+            "destination": "http",
+            "_links": {
+                "self": {
+                    "href": "/api/support/autosupport/messages/092e0298-f250-11e8-9a05-005056bb6666/1/http"
+                }
+            },
+            "index": 1,
             "state": "sent_successful",
             "generated_on": "2019-03-28T10:18:04-04:00",
+            "subject": "USER_TRIGGERED (TEST:test_msg)",
             "node": {
-                "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/092e0298-f250-11e8-9a05-005056bb6666"
                     }
                 },
+                "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
             },
-            "destination": "http",
-            "index": 1,
         }
     ),
     AutosupportMessage(
         {
-            "subject": "USER_TRIGGERED (TEST:test_msg)",
+            "destination": "noteto",
+            "_links": {
+                "self": {
+                    "href": "/api/support/autosupport/messages/092e0298-f250-11e8-9a05-005056bb6666/1/noteto"
+                }
+            },
+            "index": 1,
             "state": "ignore",
             "generated_on": "2019-03-28T10:18:04-04:00",
+            "subject": "USER_TRIGGERED (TEST:test_msg)",
             "node": {
-                "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/092e0298-f250-11e8-9a05-005056bb6666"
                     }
                 },
+                "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
             },
-            "destination": "noteto",
-            "index": 1,
         }
     ),
     AutosupportMessage(
         {
-            "subject": "USER_TRIGGERED (TEST:test_msg)",
+            "destination": "smtp",
+            "_links": {
+                "self": {
+                    "href": "/api/support/autosupport/messages/e47d2630-f250-11e8-b186-005056bb5cab/1/smtp"
+                }
+            },
+            "index": 1,
             "state": "ignore",
             "generated_on": "2019-03-28T10:18:06-04:00",
+            "subject": "USER_TRIGGERED (TEST:test_msg)",
             "node": {
-                "uuid": "e47d2630-f250-11e8-b186-005056bb5cab",
                 "name": "node2",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/e47d2630-f250-11e8-b186-005056bb5cab"
                     }
                 },
+                "uuid": "e47d2630-f250-11e8-b186-005056bb5cab",
             },
-            "destination": "smtp",
-            "index": 1,
         }
     ),
     AutosupportMessage(
         {
-            "subject": "USER_TRIGGERED (TEST:test_msg)",
+            "destination": "http",
+            "_links": {
+                "self": {
+                    "href": "/api/support/autosupport/messages/e47d2630-f250-11e8-b186-005056bb5cab/1/http"
+                }
+            },
+            "index": 1,
             "state": "sent_successful",
             "generated_on": "2019-03-28T10:18:06-04:00",
+            "subject": "USER_TRIGGERED (TEST:test_msg)",
             "node": {
-                "uuid": "e47d2630-f250-11e8-b186-005056bb5cab",
                 "name": "node2",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/e47d2630-f250-11e8-b186-005056bb5cab"
                     }
                 },
+                "uuid": "e47d2630-f250-11e8-b186-005056bb5cab",
             },
-            "destination": "http",
-            "index": 1,
         }
     ),
     AutosupportMessage(
         {
-            "subject": "USER_TRIGGERED (TEST:test_msg)",
+            "destination": "noteto",
+            "_links": {
+                "self": {
+                    "href": "/api/support/autosupport/messages/e47d2630-f250-11e8-b186-005056bb5cab/1/noteto"
+                }
+            },
+            "index": 1,
             "state": "ignore",
             "generated_on": "2019-03-28T10:18:06-04:00",
+            "subject": "USER_TRIGGERED (TEST:test_msg)",
             "node": {
-                "uuid": "e47d2630-f250-11e8-b186-005056bb5cab",
                 "name": "node2",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/e47d2630-f250-11e8-b186-005056bb5cab"
                     }
                 },
+                "uuid": "e47d2630-f250-11e8-b186-005056bb5cab",
             },
-            "destination": "noteto",
-            "index": 1,
         }
     ),
 ]
@@ -328,20 +378,25 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     AutosupportMessage(
         {
-            "subject": "USER_TRIGGERED (TEST:test_msg)",
+            "destination": "http",
+            "_links": {
+                "self": {
+                    "href": "/api/support/autosupport/messages/092e0298-f250-11e8-9a05-005056bb6666/1/http"
+                }
+            },
+            "index": 1,
             "state": "sent_successful",
             "generated_on": "2019-03-28T10:18:04-04:00",
+            "subject": "USER_TRIGGERED (TEST:test_msg)",
             "node": {
-                "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/092e0298-f250-11e8-9a05-005056bb6666"
                     }
                 },
+                "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
             },
-            "destination": "http",
-            "index": 1,
         }
     )
 ]
@@ -356,11 +411,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -374,9 +428,16 @@ __pdoc__ = {
     "AutosupportMessageSchema.opts": False,
 }
 
-
 class AutosupportMessageSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the AutosupportMessage object"""
+
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
+    r""" The links field of the autosupport_message."""
 
     destination = marshmallow_fields.Str(
         data_key="destination",
@@ -392,7 +453,12 @@ Valid choices:
 * noteto
 * retransmit"""
 
-    error = marshmallow_fields.Nested("netapp_ontap.models.autosupport_message_error.AutosupportMessageErrorSchema", data_key="error", unknown=EXCLUDE, allow_none=True)
+    error = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.autosupport_message_error", "AutosupportMessageErrorSchema"),
+                data_key="error",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Last error during delivery attempt. Empty if "status=sent-successful"."""
 
     generated_on = ImpreciseDateTime(
@@ -419,7 +485,12 @@ Example: 9"""
 
 Example: invoked_test_autosupport_rest"""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the autosupport_message."""
 
     state = marshmallow_fields.Str(
@@ -477,6 +548,7 @@ Example: https://1.2.3.4/delivery_uri"""
         return AutosupportMessage
 
     gettable_fields = [
+        "links",
         "destination",
         "error",
         "generated_on",
@@ -487,7 +559,7 @@ Example: https://1.2.3.4/delivery_uri"""
         "state",
         "subject",
     ]
-    """destination,error,generated_on,index,node.links,node.name,node.uuid,state,subject,"""
+    """links,destination,error,generated_on,index,node.links,node.name,node.uuid,state,subject,"""
 
     patchable_fields = [
     ]

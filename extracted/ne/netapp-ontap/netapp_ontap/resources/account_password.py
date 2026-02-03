@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -18,7 +18,7 @@ from netapp_ontap.resources import AccountPassword
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
     resource = AccountPassword()
     resource.name = "cluster_user1"
-    resource.password = "hello@1234"
+    resource.password = "<USER-PASSWORD>"
     resource.post(hydrate=True)
     print(resource)
 
@@ -32,7 +32,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource = AccountPassword()
     resource.owner.name = "svm1"
     resource.name = "svm_user1"
-    resource.password = "hello@1234"
+    resource.password = "<USER-PASSWORD>"
     resource.post(hydrate=True)
     print(resource)
 
@@ -45,7 +45,7 @@ from netapp_ontap.resources import AccountPassword
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
     resource = AccountPassword()
     resource.name = "cluster_user1"
-    resource.password = "hello@1234"
+    resource.password = "<USER-PASSWORD>"
     resource.password_hash_algorithm = "sha256"
     resource.post(hydrate=True)
     print(resource)
@@ -60,7 +60,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource = AccountPassword()
     resource.owner.name = "svm1"
     resource.name = "svm_user1"
-    resource.password = "hello@1234"
+    resource.password = "<USER-PASSWORD>"
     resource.password_hash_algorithm = "sha256"
     resource.post(hydrate=True)
     print(resource)
@@ -76,7 +76,7 @@ from netapp_ontap.resources import AccountPassword
 with HostConnection("<svm-ip>", username="admin", password="password", verify=False):
     resource = AccountPassword()
     resource.name = "svm_user1"
-    resource.password = "new1@1234"
+    resource.password = "<USER-PASSWORD>"
     resource.post(hydrate=True)
     print(resource)
 
@@ -88,11 +88,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -106,7 +105,6 @@ __pdoc__ = {
     "AccountPasswordSchema.opts": False,
 }
 
-
 class AccountPasswordSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the AccountPassword object"""
 
@@ -116,7 +114,12 @@ class AccountPasswordSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" The user account name whose password is being modified."""
 
-    owner = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="owner", unknown=EXCLUDE, allow_none=True)
+    owner = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="owner",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The owner field of the account_password."""
 
     password = marshmallow_fields.Str(

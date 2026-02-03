@@ -39,7 +39,11 @@ from langgraph_api.encryption.shared import (
     get_encryption,
     strip_encryption_metadata,
 )
-from langgraph_api.schema import NESTED_ENCRYPTED_SUBFIELDS
+from langgraph_api.schema import (
+    NESTED_ENCRYPTED_SUBFIELDS,
+    NEVER_ENCRYPT_FIELDS_GLOBAL,
+    NEVER_ENCRYPT_PATHS,
+)
 from langgraph_api.serde import Fragment, json_loads
 
 if TYPE_CHECKING:
@@ -102,6 +106,47 @@ def _prepare_data_for_encryption(data: dict[str, Any]) -> dict[str, Any]:
             data["langgraph_auth_user"] = _serialize_user_for_encryption(user)
 
     return data
+
+
+def _should_skip_encryption(key: str, path: str) -> bool:
+    """Check if a field should be excluded from encryption at this path.
+
+    Args:
+        key: The field name to check
+        path: The current path context (e.g., "run.kwargs.config.configurable")
+
+    Returns:
+        True if the field should be excluded from encryption
+    """
+    if key in NEVER_ENCRYPT_FIELDS_GLOBAL:
+        return True
+    return f"{path}.{key}" in NEVER_ENCRYPT_PATHS
+
+
+def _extract_skip_fields(
+    data: Mapping[str, Any], path: str
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Extract fields that should be skipped from encryption.
+
+    Args:
+        data: The data dict to process
+        path: The current path context (e.g., "run.kwargs.config.configurable")
+
+    Returns:
+        Tuple of (data_to_encrypt, skipped_fields)
+        - data_to_encrypt: dict with skipped fields removed
+        - skipped_fields: dict of field_name -> value for skipped fields
+    """
+    skipped: dict[str, Any] = {}
+    to_encrypt: dict[str, Any] = {}
+
+    for key, value in data.items():
+        if _should_skip_encryption(key, path):
+            skipped[key] = value
+        else:
+            to_encrypt[key] = value
+
+    return to_encrypt, skipped
 
 
 def extract_encryption_context(request: Request) -> dict[str, Any]:
@@ -185,6 +230,7 @@ async def encrypt_json_if_needed(
     encryption_instance: JsonEncryptionWrapper | AesEncryptionInstance | None,
     model_type: ModelType,
     field: str | None = None,
+    path: str | None = None,
 ) -> dict[str, Any] | None:
     """Encrypt JSON data dict if encryption is configured.
 
@@ -192,11 +238,18 @@ async def encrypt_json_if_needed(
     implement the same encryptor interface (get_json_encryptor). The wrapper
     handles key validation and context storage internally.
 
+    For custom encryption only, certain system metadata fields are excluded from
+    encryption (see NEVER_ENCRYPT_FIELDS_GLOBAL and NEVER_ENCRYPT_PATHS). Fields
+    are extracted before encryption and merged back after, preserving plaintext.
+    AES encryption uses an explicit allowlist, so it doesn't need this exclusion logic.
+
     Args:
         data: The plaintext data dict
         encryption_instance: The encryption instance (wrapped custom, AES, or None)
         model_type: The type of model (e.g., "thread", "assistant", "run")
         field: The specific field being encrypted (e.g., "metadata", "context")
+        path: The full dot-separated path for path-based skip rules
+              (e.g., "run.kwargs.config.configurable")
 
     Returns:
         Encrypted data dict with stored context, or original if no encryption configured
@@ -229,6 +282,15 @@ async def encrypt_json_if_needed(
         # (e.g., BaseUser in langgraph_auth_user)
         data = _prepare_data_for_encryption(data)
 
+        # For custom encryption, extract fields that should never be encrypted.
+        # AES uses an allowlist so it doesn't need this exclusion logic.
+        skipped_fields: dict[str, Any] = {}
+        is_custom_encryption = isinstance(encryption_instance, JsonEncryptionWrapper)
+        if is_custom_encryption:
+            # Build path for skip field evaluation
+            effective_path = path if path else model_type
+            data, skipped_fields = _extract_skip_fields(data, effective_path)
+
         # Build context for SDK interface (AES ignores this, custom uses it)
         context_dict = get_encryption_context()
         if LANGGRAPH_ENCRYPTION:
@@ -241,6 +303,10 @@ async def encrypt_json_if_needed(
         # The encryptor handles key validation and context storage internally
         encrypted = await encryptor(ctx, data)
 
+        # Merge back skipped fields (for custom encryption)
+        if skipped_fields and isinstance(encrypted, dict):
+            encrypted = {**encrypted, **skipped_fields}
+
         await logger.adebug(
             "Encrypted JSON data",
             model_type=model_type,
@@ -248,6 +314,7 @@ async def encrypt_json_if_needed(
             encryption_type="aes_only"
             if isinstance(encryption_instance, AesEncryptionInstance)
             else "custom_with_aes_migration",
+            skipped_fields=list(skipped_fields.keys()) if skipped_fields else None,
         )
         return encrypted
 
@@ -515,6 +582,7 @@ async def _encrypt_field(
     field_name: str,
     encryption_instance: JsonEncryptionWrapper | AesEncryptionInstance | None,
     model_type: ModelType,
+    path: str | None = None,
 ) -> tuple[str, Any]:
     """Encrypt a single field, returning (field_name, encrypted_value).
 
@@ -522,12 +590,22 @@ async def _encrypt_field(
     and encrypted separately, then added back. This preserves the nested structure
     for SQL JSONB operations while encrypting each level individually.
 
+    Args:
+        data: The data mapping containing the field
+        field_name: Name of the field to encrypt
+        encryption_instance: The encryption instance to use
+        model_type: The model type (e.g., "run", "thread")
+        path: The current path for path-based skip rules (e.g., "run.kwargs")
+
     Returns (field_name, None) if field doesn't exist or is None.
     """
     if field_name not in data or data[field_name] is None:
         return (field_name, data.get(field_name))
 
     field_data = data[field_name]
+
+    # Build path for this field
+    current_path = f"{path}.{field_name}" if path else f"{model_type}.{field_name}"
 
     # Check if this field has subfields that need separate encryption
     nested_key = (model_type, field_name)
@@ -559,6 +637,7 @@ async def _encrypt_field(
         encryption_instance,
         model_type,
         field=field_name,
+        path=current_path,
     )
 
     # Recursively encrypt extracted subfields and add them back
@@ -570,6 +649,7 @@ async def _encrypt_field(
                     sf_name,
                     encryption_instance,
                     model_type,
+                    path=current_path,
                 )
                 for sf_name, sf_value in subfields_to_extract.items()
             ]

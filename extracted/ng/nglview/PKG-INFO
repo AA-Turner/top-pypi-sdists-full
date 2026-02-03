@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: nglview
-Version: 4.0
+Version: 4.0.1
 Summary: IPython widget to interactively view molecular structures and trajectories.
 Home-page: https://github.com/arose/nglview
 Author: Alexander S. Rose, Hai Nguyen
@@ -27,7 +27,7 @@ Requires-Dist: ipywidgets>=8
 Requires-Dist: notebook>=7
 Requires-Dist: jupyterlab>=3
 Requires-Dist: jupyterlab_widgets
-Requires-Dist: numpy<2.3
+Requires-Dist: numpy
 Provides-Extra: simpletraj
 Requires-Dist: simpletraj; extra == "simpletraj"
 Provides-Extra: mdtraj

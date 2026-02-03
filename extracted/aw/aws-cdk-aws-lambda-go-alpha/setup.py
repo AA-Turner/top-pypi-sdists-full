@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk.aws-lambda-go-alpha",
-    "version": "2.236.0.a0",
+    "version": "2.237.0.a0",
     "description": "The CDK Construct Library for AWS Lambda in Golang",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk.aws_lambda_go_alpha._jsii": [
-            "aws-lambda-go-alpha@2.236.0-alpha.0.jsii.tgz"
+            "aws-lambda-go-alpha@2.237.0-alpha.0.jsii.tgz"
         ],
         "aws_cdk.aws_lambda_go_alpha": [
             "py.typed"
@@ -34,7 +34,7 @@ kwargs = json.loads(
     },
     "python_requires": "~=3.9",
     "install_requires": [
-        "aws-cdk-lib>=2.236.0, <3.0.0",
+        "aws-cdk-lib>=2.237.0, <3.0.0",
         "constructs>=10.0.0, <11.0.0",
         "jsii>=1.125.0, <2.0.0",
         "publication>=0.0.3",

@@ -35,6 +35,14 @@ class FixedFrequencySchedule(Schedule):
             The value to assign to the time_of_first_execution property of this FixedFrequencySchedule.
         :type time_of_first_execution: datetime
 
+        :param query_offset_secs:
+            The value to assign to the query_offset_secs property of this FixedFrequencySchedule.
+        :type query_offset_secs: int
+
+        :param time_end:
+            The value to assign to the time_end property of this FixedFrequencySchedule.
+        :type time_end: datetime
+
         :param recurring_interval:
             The value to assign to the recurring_interval property of this FixedFrequencySchedule.
         :type recurring_interval: str
@@ -48,6 +56,8 @@ class FixedFrequencySchedule(Schedule):
             'type': 'str',
             'misfire_policy': 'str',
             'time_of_first_execution': 'datetime',
+            'query_offset_secs': 'int',
+            'time_end': 'datetime',
             'recurring_interval': 'str',
             'repeat_count': 'int'
         }
@@ -55,12 +65,16 @@ class FixedFrequencySchedule(Schedule):
             'type': 'type',
             'misfire_policy': 'misfirePolicy',
             'time_of_first_execution': 'timeOfFirstExecution',
+            'query_offset_secs': 'queryOffsetSecs',
+            'time_end': 'timeEnd',
             'recurring_interval': 'recurringInterval',
             'repeat_count': 'repeatCount'
         }
         self._type = None
         self._misfire_policy = None
         self._time_of_first_execution = None
+        self._query_offset_secs = None
+        self._time_end = None
         self._recurring_interval = None
         self._repeat_count = None
         self._type = 'FIXED_FREQUENCY'

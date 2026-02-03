@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["VolumeMovement", "VolumeMovementSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "VolumeMovementSchema.opts": False,
     "VolumeMovement": False,
 }
-
 
 class VolumeMovementSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the VolumeMovement object"""
@@ -29,7 +27,12 @@ class VolumeMovementSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 30 """
 
-    destination_aggregate = marshmallow_fields.Nested("netapp_ontap.resources.aggregate.AggregateSchema", unknown=EXCLUDE, data_key="destination_aggregate", allow_none=True)
+    destination_aggregate = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.aggregate", "AggregateSchema"),
+                unknown=EXCLUDE,
+                data_key="destination_aggregate",
+                allow_none=True
+            )
     r""" The destination_aggregate field of the volume_movement. """
 
     percent_complete = Size(data_key="percent_complete", allow_none=True)
@@ -71,6 +74,7 @@ Valid choices:
         return VolumeMovement
 
     gettable_fields = [
+        "capacity_tier_optimized",
         "cutover_window",
         "destination_aggregate.links",
         "destination_aggregate.name",
@@ -78,26 +82,23 @@ Valid choices:
         "percent_complete",
         "start_time",
         "state",
+        "tiering_policy",
     ]
-    """cutover_window,destination_aggregate.links,destination_aggregate.name,destination_aggregate.uuid,percent_complete,start_time,state,"""
+    """capacity_tier_optimized,cutover_window,destination_aggregate.links,destination_aggregate.name,destination_aggregate.uuid,percent_complete,start_time,state,tiering_policy,"""
 
     patchable_fields = [
+        "capacity_tier_optimized",
         "cutover_window",
         "destination_aggregate.name",
         "destination_aggregate.uuid",
         "state",
         "tiering_policy",
     ]
-    """cutover_window,destination_aggregate.name,destination_aggregate.uuid,state,tiering_policy,"""
+    """capacity_tier_optimized,cutover_window,destination_aggregate.name,destination_aggregate.uuid,state,tiering_policy,"""
 
     postable_fields = [
-        "capacity_tier_optimized",
-        "cutover_window",
-        "destination_aggregate.name",
-        "destination_aggregate.uuid",
-        "state",
     ]
-    """capacity_tier_optimized,cutover_window,destination_aggregate.name,destination_aggregate.uuid,state,"""
+    """"""
 
 
 class VolumeMovement(Resource):

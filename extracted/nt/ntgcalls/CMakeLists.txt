@@ -14,7 +14,7 @@ add_custom_target(clean_objects
     COMMENT "Removing all object (.o) files"
 )
 
-project(ntgcalls VERSION 2.0.7 LANGUAGES C CXX)
+project(ntgcalls VERSION 2.0.9 LANGUAGES C CXX)
 include(cmake/VersionUtil.cmake)
 
 if (MACOS)
@@ -42,10 +42,6 @@ if (IS_PYTHON)
     set(PYBIND11_FINDPYTHON "NEW")
     add_subdirectory(deps/pybind11)
 endif ()
-
-# nlohmann/json
-set(JSON_BuildTests OFF CACHE INTERNAL "")
-add_subdirectory(deps/json EXCLUDE_FROM_ALL)
 
 add_subdirectory(wrtc)
 add_subdirectory(ntgcalls)

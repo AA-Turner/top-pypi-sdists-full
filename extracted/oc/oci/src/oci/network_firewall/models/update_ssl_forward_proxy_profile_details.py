@@ -26,6 +26,10 @@ class UpdateSslForwardProxyProfileDetails(UpdateDecryptionProfileDetails):
             Allowed values for this property are: "SSL_INBOUND_INSPECTION", "SSL_FORWARD_PROXY"
         :type type: str
 
+        :param description:
+            The value to assign to the description property of this UpdateSslForwardProxyProfileDetails.
+        :type description: str
+
         :param is_expired_certificate_blocked:
             The value to assign to the is_expired_certificate_blocked property of this UpdateSslForwardProxyProfileDetails.
         :type is_expired_certificate_blocked: bool
@@ -65,6 +69,7 @@ class UpdateSslForwardProxyProfileDetails(UpdateDecryptionProfileDetails):
         """
         self.swagger_types = {
             'type': 'str',
+            'description': 'str',
             'is_expired_certificate_blocked': 'bool',
             'is_untrusted_issuer_blocked': 'bool',
             'is_revocation_status_timeout_blocked': 'bool',
@@ -77,6 +82,7 @@ class UpdateSslForwardProxyProfileDetails(UpdateDecryptionProfileDetails):
         }
         self.attribute_map = {
             'type': 'type',
+            'description': 'description',
             'is_expired_certificate_blocked': 'isExpiredCertificateBlocked',
             'is_untrusted_issuer_blocked': 'isUntrustedIssuerBlocked',
             'is_revocation_status_timeout_blocked': 'isRevocationStatusTimeoutBlocked',
@@ -88,6 +94,7 @@ class UpdateSslForwardProxyProfileDetails(UpdateDecryptionProfileDetails):
             'is_out_of_capacity_blocked': 'isOutOfCapacityBlocked'
         }
         self._type = None
+        self._description = None
         self._is_expired_certificate_blocked = None
         self._is_untrusted_issuer_blocked = None
         self._is_revocation_status_timeout_blocked = None

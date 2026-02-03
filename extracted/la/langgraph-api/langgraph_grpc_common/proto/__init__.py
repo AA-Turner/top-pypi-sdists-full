@@ -19,6 +19,8 @@ from . import engine_common_pb2
 from . import engine_common_pb2_grpc
 from . import checkpointer_pb2
 from . import checkpointer_pb2_grpc
+from . import encryption_pb2
+from . import encryption_pb2_grpc
 from . import errors_pb2
 from . import errors_pb2_grpc
 
@@ -33,6 +35,8 @@ __all__ = [
     "engine_common_pb2_grpc",
     "checkpointer_pb2",
     "checkpointer_pb2_grpc",
+    "encryption_pb2",
+    "encryption_pb2_grpc",
     "errors_pb2",
     "errors_pb2_grpc",
     "enum_cancel_run_action_pb2",

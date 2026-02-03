@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,9 +28,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LicenseManager(
         {
-            "uuid": "4ea7a442-86d1-11e0-ae1c-112233445566",
-            "uri": {"host": "10.1.1.1"},
             "default": True,
+            "uri": {"host": "10.1.1.1"},
+            "uuid": "4ea7a442-86d1-11e0-ae1c-112233445566",
         }
     )
 ]
@@ -56,11 +56,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -74,11 +73,15 @@ __pdoc__ = {
     "LicenseManagerSchema.opts": False,
 }
 
-
 class LicenseManagerSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LicenseManager object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the license_manager."""
 
     default = marshmallow_fields.Boolean(
@@ -88,7 +91,12 @@ class LicenseManagerSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     r""" Flag that indicates whether it's the default license manager instance used by the cluster.'
 When a capacity pool is created and if the license manager field is omitted, it is assumed that the license of the capacity pool is installed on the default license manager instance."""
 
-    uri = marshmallow_fields.Nested("netapp_ontap.models.license_manager_uri.LicenseManagerUriSchema", data_key="uri", unknown=EXCLUDE, allow_none=True)
+    uri = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.license_manager_uri", "LicenseManagerUriSchema"),
+                data_key="uri",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" License manager URI."""
 
     uuid = marshmallow_fields.Str(

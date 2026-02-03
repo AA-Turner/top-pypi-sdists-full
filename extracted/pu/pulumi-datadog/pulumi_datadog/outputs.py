@@ -618,6 +618,7 @@ __all__ = [
     'ObservabilityPipelineConfigDestinationMicrosoftSentinel',
     'ObservabilityPipelineConfigDestinationNewRelic',
     'ObservabilityPipelineConfigDestinationOpensearch',
+    'ObservabilityPipelineConfigDestinationOpensearchDataStream',
     'ObservabilityPipelineConfigDestinationRsyslog',
     'ObservabilityPipelineConfigDestinationRsyslogTls',
     'ObservabilityPipelineConfigDestinationSentinelOne',
@@ -645,7 +646,6 @@ __all__ = [
     'ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFile',
     'ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileEncoding',
     'ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileKey',
-    'ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileSchema',
     'ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableGeoip',
     'ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableReferenceTable',
     'ObservabilityPipelineConfigProcessorGroupProcessorFilter',
@@ -45920,6 +45920,8 @@ class ObservabilityPipelineConfigDestinationOpensearch(dict):
         suggest = None
         if key == "bulkIndex":
             suggest = "bulk_index"
+        elif key == "dataStream":
+            suggest = "data_stream"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationOpensearch. Access the value via the '{suggest}' property getter instead.")
@@ -45933,12 +45935,16 @@ class ObservabilityPipelineConfigDestinationOpensearch(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 bulk_index: Optional[_builtins.str] = None):
+                 bulk_index: Optional[_builtins.str] = None,
+                 data_stream: Optional['outputs.ObservabilityPipelineConfigDestinationOpensearchDataStream'] = None):
         """
         :param _builtins.str bulk_index: The index or datastream to write logs to.
+        :param 'ObservabilityPipelineConfigDestinationOpensearchDataStreamArgs' data_stream: Configuration options for writing to OpenSearch Data Streams instead of a fixed index.
         """
         if bulk_index is not None:
             pulumi.set(__self__, "bulk_index", bulk_index)
+        if data_stream is not None:
+            pulumi.set(__self__, "data_stream", data_stream)
 
     @_builtins.property
     @pulumi.getter(name="bulkIndex")
@@ -45947,6 +45953,57 @@ class ObservabilityPipelineConfigDestinationOpensearch(dict):
         The index or datastream to write logs to.
         """
         return pulumi.get(self, "bulk_index")
+
+    @_builtins.property
+    @pulumi.getter(name="dataStream")
+    def data_stream(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationOpensearchDataStream']:
+        """
+        Configuration options for writing to OpenSearch Data Streams instead of a fixed index.
+        """
+        return pulumi.get(self, "data_stream")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationOpensearchDataStream(dict):
+    def __init__(__self__, *,
+                 dataset: Optional[_builtins.str] = None,
+                 dtype: Optional[_builtins.str] = None,
+                 namespace: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str dataset: The data stream dataset for your logs. This groups logs by their source or application.
+        :param _builtins.str dtype: The data stream type for your logs. This determines how logs are categorized within the data stream.
+        :param _builtins.str namespace: The data stream namespace for your logs. This separates logs into different environments or domains.
+        """
+        if dataset is not None:
+            pulumi.set(__self__, "dataset", dataset)
+        if dtype is not None:
+            pulumi.set(__self__, "dtype", dtype)
+        if namespace is not None:
+            pulumi.set(__self__, "namespace", namespace)
+
+    @_builtins.property
+    @pulumi.getter
+    def dataset(self) -> Optional[_builtins.str]:
+        """
+        The data stream dataset for your logs. This groups logs by their source or application.
+        """
+        return pulumi.get(self, "dataset")
+
+    @_builtins.property
+    @pulumi.getter
+    def dtype(self) -> Optional[_builtins.str]:
+        """
+        The data stream type for your logs. This determines how logs are categorized within the data stream.
+        """
+        return pulumi.get(self, "dtype")
+
+    @_builtins.property
+    @pulumi.getter
+    def namespace(self) -> Optional[_builtins.str]:
+        """
+        The data stream namespace for your logs. This separates logs into different environments or domains.
+        """
+        return pulumi.get(self, "namespace")
 
 
 @pulumi.output_type
@@ -47322,12 +47379,10 @@ class ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFile(dict
     def __init__(__self__, *,
                  encoding: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileEncoding'] = None,
                  keys: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileKey']] = None,
-                 path: Optional[_builtins.str] = None,
-                 schemas: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileSchema']] = None):
+                 path: Optional[_builtins.str] = None):
         """
         :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileKeyArgs'] keys: Key fields used to look up enrichment values.
         :param _builtins.str path: Path to the CSV file.
-        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileSchemaArgs'] schemas: Schema defining column names and their types.
         """
         if encoding is not None:
             pulumi.set(__self__, "encoding", encoding)
@@ -47335,8 +47390,6 @@ class ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFile(dict
             pulumi.set(__self__, "keys", keys)
         if path is not None:
             pulumi.set(__self__, "path", path)
-        if schemas is not None:
-            pulumi.set(__self__, "schemas", schemas)
 
     @_builtins.property
     @pulumi.getter
@@ -47358,14 +47411,6 @@ class ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFile(dict
         Path to the CSV file.
         """
         return pulumi.get(self, "path")
-
-    @_builtins.property
-    @pulumi.getter
-    def schemas(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileSchema']]:
-        """
-        Schema defining column names and their types.
-        """
-        return pulumi.get(self, "schemas")
 
 
 @pulumi.output_type
@@ -47467,37 +47512,6 @@ class ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileKey(d
         The `items` `field`.
         """
         return pulumi.get(self, "field")
-
-
-@pulumi.output_type
-class ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileSchema(dict):
-    def __init__(__self__, *,
-                 column: Optional[_builtins.str] = None,
-                 type: Optional[_builtins.str] = None):
-        """
-        :param _builtins.str column: The `items` `column`.
-        :param _builtins.str type: The type of the column (e.g. string, boolean, integer, etc.).
-        """
-        if column is not None:
-            pulumi.set(__self__, "column", column)
-        if type is not None:
-            pulumi.set(__self__, "type", type)
-
-    @_builtins.property
-    @pulumi.getter
-    def column(self) -> Optional[_builtins.str]:
-        """
-        The `items` `column`.
-        """
-        return pulumi.get(self, "column")
-
-    @_builtins.property
-    @pulumi.getter
-    def type(self) -> Optional[_builtins.str]:
-        """
-        The type of the column (e.g. string, boolean, integer, etc.).
-        """
-        return pulumi.get(self, "type")
 
 
 @pulumi.output_type
@@ -50261,7 +50275,7 @@ class ObservabilityPipelineConfigSourceHttpClient(dict):
                  tls: Optional['outputs.ObservabilityPipelineConfigSourceHttpClientTls'] = None):
         """
         :param _builtins.str decoding: The decoding format used to interpret incoming logs.
-        :param _builtins.str auth_strategy: Optional authentication strategy for HTTP requests. Valid values are `none`, `basic`, `bearer`.
+        :param _builtins.str auth_strategy: Optional authentication strategy for HTTP requests. Valid values are `none`, `basic`, `bearer`, `custom`.
         :param _builtins.int scrape_interval_secs: The interval (in seconds) between HTTP scrape requests.
         :param _builtins.int scrape_timeout_secs: The timeout (in seconds) for each scrape request.
         :param 'ObservabilityPipelineConfigSourceHttpClientTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
@@ -50288,7 +50302,7 @@ class ObservabilityPipelineConfigSourceHttpClient(dict):
     @pulumi.getter(name="authStrategy")
     def auth_strategy(self) -> Optional[_builtins.str]:
         """
-        Optional authentication strategy for HTTP requests. Valid values are `none`, `basic`, `bearer`.
+        Optional authentication strategy for HTTP requests. Valid values are `none`, `basic`, `bearer`, `custom`.
         """
         return pulumi.get(self, "auth_strategy")
 

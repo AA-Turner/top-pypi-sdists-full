@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -53,24 +53,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConsistencyGroupSnapshot(
         {
-            "uuid": "92c6c770-17a1-11eb-b141-005056acd498",
             "name": "sa3s1",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/a8d0626a-17a0-11eb-b141-005056acd498/snapshots/92c6c770-17a1-11eb-b141-005056acd498"
                 }
             },
+            "uuid": "92c6c770-17a1-11eb-b141-005056acd498",
         }
     ),
     ConsistencyGroupSnapshot(
         {
-            "uuid": "c5a250ba-17a1-11eb-b141-005056acd498",
             "name": "sa3s2",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/a8d0626a-17a0-11eb-b141-005056acd498/snapshots/c5a250ba-17a1-11eb-b141-005056acd498"
                 }
             },
+            "uuid": "c5a250ba-17a1-11eb-b141-005056acd498",
         }
     ),
 ]
@@ -101,16 +101,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroupSnapshot(
     {
-        "svm": {
-            "uuid": "7379fecb-4195-11ec-8674-005056accf3f",
-            "name": "vs1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/7379fecb-4195-11ec-8674-005056accf3f"}
-            },
-        },
-        "uuid": "a175c021-4199-11ec-8674-005056accf3f",
-        "comment": "manually created snapshot",
-        "create_time": "2021-11-09T15:14:23-05:00",
         "name": "sa3s2",
         "consistency_type": "crash",
         "_links": {
@@ -118,14 +108,24 @@ ConsistencyGroupSnapshot(
                 "href": "/api/application/consistency-groups/ddabc6a5-4196-11ec-8674-005056accf3f/snapshots/a175c021-4199-11ec-8674-005056accf3f"
             }
         },
+        "comment": "manually created snapshot",
+        "create_time": "2021-11-09T15:14:23-05:00",
+        "uuid": "a175c021-4199-11ec-8674-005056accf3f",
         "consistency_group": {
-            "uuid": "ddabc6a5-4196-11ec-8674-005056accf3f",
             "name": "CG_1",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/ddabc6a5-4196-11ec-8674-005056accf3f"
                 }
             },
+            "uuid": "ddabc6a5-4196-11ec-8674-005056accf3f",
+        },
+        "svm": {
+            "name": "vs1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/7379fecb-4195-11ec-8674-005056accf3f"}
+            },
+            "uuid": "7379fecb-4195-11ec-8674-005056accf3f",
         },
     }
 )
@@ -152,61 +152,61 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConsistencyGroupSnapshot(
         {
-            "uuid": "7da4d364-c12e-11ee-bbfe-005056acb65e",
             "name": "cg3ss",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/1218f900-c124-11ee-bbfe-005056acb65e/snapshots/7da4d364-c12e-11ee-bbfe-005056acb65e"
                 }
             },
+            "uuid": "7da4d364-c12e-11ee-bbfe-005056acb65e",
             "consistency_group": {
-                "uuid": "1218f900-c124-11ee-bbfe-005056acb65e",
                 "name": "cg3",
                 "_links": {
                     "self": {
                         "href": "/api/application/consistency-groups/1218f900-c124-11ee-bbfe-005056acb65e"
                     }
                 },
+                "uuid": "1218f900-c124-11ee-bbfe-005056acb65e",
             },
         }
     ),
     ConsistencyGroupSnapshot(
         {
-            "uuid": "83595384-c12e-11ee-bbfe-005056acb65e",
             "name": "cg2ss",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/15a8f66e-c124-11ee-bbfe-005056acb65e/snapshots/83595384-c12e-11ee-bbfe-005056acb65e"
                 }
             },
+            "uuid": "83595384-c12e-11ee-bbfe-005056acb65e",
             "consistency_group": {
-                "uuid": "15a8f66e-c124-11ee-bbfe-005056acb65e",
                 "name": "cg2",
                 "_links": {
                     "self": {
                         "href": "/api/application/consistency-groups/15a8f66e-c124-11ee-bbfe-005056acb65e"
                     }
                 },
+                "uuid": "15a8f66e-c124-11ee-bbfe-005056acb65e",
             },
         }
     ),
     ConsistencyGroupSnapshot(
         {
-            "uuid": "87d0e49c-c12e-11ee-bbfe-005056acb65e",
             "name": "cg1ss",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/1c101d17-c124-11ee-bbfe-005056acb65e/snapshots/87d0e49c-c12e-11ee-bbfe-005056acb65e"
                 }
             },
+            "uuid": "87d0e49c-c12e-11ee-bbfe-005056acb65e",
             "consistency_group": {
-                "uuid": "1c101d17-c124-11ee-bbfe-005056acb65e",
                 "name": "cg1",
                 "_links": {
                     "self": {
                         "href": "/api/application/consistency-groups/1c101d17-c124-11ee-bbfe-005056acb65e"
                     }
                 },
+                "uuid": "1c101d17-c124-11ee-bbfe-005056acb65e",
             },
         }
     ),
@@ -302,11 +302,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -320,11 +319,15 @@ __pdoc__ = {
     "ConsistencyGroupSnapshotSchema.opts": False,
 }
 
-
 class ConsistencyGroupSnapshotSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ConsistencyGroupSnapshot object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the consistency_group_snapshot."""
 
     comment = marshmallow_fields.Str(
@@ -336,7 +339,12 @@ class ConsistencyGroupSnapshotSchema(ResourceSchema, metaclass=ResourceSchemaMet
 
 Example: My snapshot comment"""
 
-    consistency_group = marshmallow_fields.Nested("netapp_ontap.resources.consistency_group.ConsistencyGroupSchema", data_key="consistency_group", unknown=EXCLUDE, allow_none=True)
+    consistency_group = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.consistency_group", "ConsistencyGroupSchema"),
+                data_key="consistency_group",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The consistency_group field of the consistency_group_snapshot."""
 
     consistency_type = marshmallow_fields.Str(
@@ -370,16 +378,48 @@ Example: 2020-10-25T11:20:00.000+0000"""
 
 Example: false"""
 
-    luns = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.lun.LunSchema", unknown=EXCLUDE, allow_none=True), data_key="luns", allow_none=True)
+    luns = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.lun", "LunSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="luns",
+                allow_none=True
+            )
     r""" The list of LUNs in this snapshot."""
 
-    missing_luns = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.lun.LunSchema", unknown=EXCLUDE, allow_none=True), data_key="missing_luns", allow_none=True)
+    missing_luns = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.lun", "LunSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="missing_luns",
+                allow_none=True
+            )
     r""" List of LUNs that are not in the snapshot."""
 
-    missing_namespaces = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.nvme_namespace.NvmeNamespaceSchema", unknown=EXCLUDE, allow_none=True), data_key="missing_namespaces", allow_none=True)
+    missing_namespaces = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.nvme_namespace", "NvmeNamespaceSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="missing_namespaces",
+                allow_none=True
+            )
     r""" List of NVMe namespaces that are not in the snapshot."""
 
-    missing_volumes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", unknown=EXCLUDE, allow_none=True), data_key="missing_volumes", allow_none=True)
+    missing_volumes = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="missing_volumes",
+                allow_none=True
+            )
     r""" List of volumes which are not in the snapshot."""
 
     name = marshmallow_fields.Str(
@@ -388,7 +428,15 @@ Example: false"""
     )
     r""" Name of the snapshot."""
 
-    namespaces = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.nvme_namespace.NvmeNamespaceSchema", unknown=EXCLUDE, allow_none=True), data_key="namespaces", allow_none=True)
+    namespaces = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.nvme_namespace", "NvmeNamespaceSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="namespaces",
+                allow_none=True
+            )
     r""" The list of NVMe namespaces in this snapshot."""
 
     reclaimable_space = Size(
@@ -405,7 +453,12 @@ Example: false"""
 
 Example: 4096"""
 
-    snaplock = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_snapshot_snaplock.ConsistencyGroupSnapshotSnaplockSchema", data_key="snaplock", unknown=EXCLUDE, allow_none=True)
+    snaplock = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_snapshot_snaplock", "ConsistencyGroupSnapshotSnaplockSchema"),
+                data_key="snaplock",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" SnapLock Snapshot attributes."""
 
     snapmirror_label = marshmallow_fields.Str(
@@ -417,10 +470,23 @@ Example: 4096"""
 
 Example: sm_label"""
 
-    snapshot_volumes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.consistency_group_volume_snapshot.ConsistencyGroupVolumeSnapshotSchema", unknown=EXCLUDE, allow_none=True), data_key="snapshot_volumes", allow_none=True)
+    snapshot_volumes = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.consistency_group_volume_snapshot", "ConsistencyGroupVolumeSnapshotSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="snapshot_volumes",
+                allow_none=True
+            )
     r""" List of volume and snapshot identifiers for each volume in the snapshot."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The SVM in which the consistency group is located."""
 
     uuid = marshmallow_fields.Str(
@@ -581,6 +647,7 @@ This can also be used to modify the SnapLock expiry time of a locked snapshot in
   {
   }
   ```
+<personalities supports=asar2>
 ### Modifying the SnapLock expiry time of a snapshot in SnapLock for SnapVault
   The following example shows how to modify the SnapLock expiry time of a locked snapshot in SnapLock for SnapVault destination:
   ```
@@ -599,6 +666,7 @@ This can also be used to modify the SnapLock expiry time of a locked snapshot in
     }
   }
   ```
+  </personalities>
 
 
 ### Learn more
@@ -732,6 +800,7 @@ This can also be used to modify the SnapLock expiry time of a locked snapshot in
   {
   }
   ```
+<personalities supports=asar2>
 ### Modifying the SnapLock expiry time of a snapshot in SnapLock for SnapVault
   The following example shows how to modify the SnapLock expiry time of a locked snapshot in SnapLock for SnapVault destination:
   ```
@@ -750,6 +819,7 @@ This can also be used to modify the SnapLock expiry time of a locked snapshot in
     }
   }
   ```
+  </personalities>
 
 
 ### Learn more

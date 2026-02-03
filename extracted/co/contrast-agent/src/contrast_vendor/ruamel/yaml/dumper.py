@@ -1,4 +1,5 @@
-# coding: utf-8
+
+from __future__ import annotations
 
 from contrast_vendor.ruamel.yaml.emitter import Emitter
 from contrast_vendor.ruamel.yaml.serializer import Serializer
@@ -10,8 +11,9 @@ from contrast_vendor.ruamel.yaml.representer import (
 )
 from contrast_vendor.ruamel.yaml.resolver import Resolver, BaseResolver, VersionedResolver
 
-from typing import Any, Dict, List, Union, Optional  # NOQA
-from contrast_vendor.ruamel.yaml.compat import StreamType, VersionType  # NOQA
+if False:  # MYPY
+    from typing import Any, Dict, List, Union, Optional  # NOQA
+    from contrast_vendor.ruamel.yaml.compat import StreamType, VersionType  # NOQA
 
 __all__ = ['BaseDumper', 'SafeDumper', 'Dumper', 'RoundTripDumper']
 

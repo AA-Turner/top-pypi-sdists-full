@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -45,10 +45,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SnapshotPolicySchedule(
     {
-        "schedule": {"uuid": "7c985d80-818a-11e9-b4f4-005056bbab9c"},
-        "prefix": "new_monthly",
         "count": 5,
         "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
+        "schedule": {"uuid": "7c985d80-818a-11e9-b4f4-005056bbab9c"},
+        "prefix": "new_monthly",
     }
 )
 
@@ -80,38 +80,38 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SnapshotPolicySchedule(
         {
+            "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
             "schedule": {
-                "uuid": "63d017dc-818a-11e9-b4f4-005056bbab9c",
                 "name": "5min",
+                "uuid": "63d017dc-818a-11e9-b4f4-005056bbab9c",
             },
-            "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
         }
     ),
     SnapshotPolicySchedule(
         {
+            "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
             "schedule": {
-                "uuid": "64a5c5da-818a-11e9-b4f4-005056bbab9c",
                 "name": "8hour",
+                "uuid": "64a5c5da-818a-11e9-b4f4-005056bbab9c",
             },
-            "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
         }
     ),
     SnapshotPolicySchedule(
         {
+            "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
             "schedule": {
-                "uuid": "63e21a3e-818a-11e9-b4f4-005056bbab9c",
                 "name": "daily",
+                "uuid": "63e21a3e-818a-11e9-b4f4-005056bbab9c",
             },
-            "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
         }
     ),
     SnapshotPolicySchedule(
         {
-            "schedule": {
-                "uuid": "7c985d80-818a-11e9-b4f4-005056bbab9c",
-                "name": "monthly",
-            },
             "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
+            "schedule": {
+                "name": "monthly",
+                "uuid": "7c985d80-818a-11e9-b4f4-005056bbab9c",
+            },
         }
     ),
 ]
@@ -142,12 +142,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SnapshotPolicySchedule(
     {
-        "schedule": {"uuid": "7c985d80-818a-11e9-b4f4-005056bbab9c", "name": "monthly"},
-        "prefix": "new_monthly",
+        "snapmirror_label": "-",
         "count": 5,
         "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
         "retention_period": "PT20M",
-        "snapmirror_label": "-",
+        "schedule": {"name": "monthly", "uuid": "7c985d80-818a-11e9-b4f4-005056bbab9c"},
+        "prefix": "new_monthly",
     }
 )
 
@@ -191,11 +191,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -209,11 +208,15 @@ __pdoc__ = {
     "SnapshotPolicyScheduleSchema.opts": False,
 }
 
-
 class SnapshotPolicyScheduleSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SnapshotPolicySchedule object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the snapshot_policy_schedule."""
 
     count = Size(
@@ -234,7 +237,12 @@ class SnapshotPolicyScheduleSchema(ResourceSchema, metaclass=ResourceSchemaMeta)
     )
     r""" The retention period of snapshots for this schedule."""
 
-    schedule = marshmallow_fields.Nested("netapp_ontap.resources.schedule.ScheduleSchema", data_key="schedule", unknown=EXCLUDE, allow_none=True)
+    schedule = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.schedule", "ScheduleSchema"),
+                data_key="schedule",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The schedule field of the snapshot_policy_schedule."""
 
     snapmirror_label = marshmallow_fields.Str(
@@ -243,7 +251,12 @@ class SnapshotPolicyScheduleSchema(ResourceSchema, metaclass=ResourceSchemaMeta)
     )
     r""" Label for SnapMirror operations"""
 
-    snapshot_policy = marshmallow_fields.Nested("netapp_ontap.resources.snapshot_policy.SnapshotPolicySchema", data_key="snapshot_policy", unknown=EXCLUDE, allow_none=True)
+    snapshot_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.snapshot_policy", "SnapshotPolicySchema"),
+                data_key="snapshot_policy",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The snapshot_policy field of the snapshot_policy_schedule."""
 
     @property

@@ -40,10 +40,12 @@ class RequestContext:
         assess_enabled: bool = False,
         observe_enabled: bool = False,
         protect_enabled: bool = False,
+        first_request: bool = False,
     ):
         self.request = Request(environ)
         self.response = None
         self.response_exception: Exception | None = None
+        self.first_request = first_request
 
         # This contains any Observed Library Usage seen during the life of this request.
         self.observed_libraries = LibraryObservations([])

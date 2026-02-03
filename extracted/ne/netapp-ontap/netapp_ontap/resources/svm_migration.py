@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -412,11 +412,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -429,7 +428,6 @@ __pdoc__ = {
     "SvmMigrationSchema.resource": False,
     "SvmMigrationSchema.opts": False,
 }
-
 
 class SvmMigrationSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SvmMigration object"""
@@ -458,10 +456,20 @@ class SvmMigrationSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" The current_operation field of the svm_migration."""
 
-    destination = marshmallow_fields.Nested("netapp_ontap.models.svm_migration_destination.SvmMigrationDestinationSchema", data_key="destination", unknown=EXCLUDE, allow_none=True)
+    destination = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.svm_migration_destination", "SvmMigrationDestinationSchema"),
+                data_key="destination",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Destination cluster details for the SVM migration."""
 
-    ip_interface_placement = marshmallow_fields.Nested("netapp_ontap.models.svm_migration_ip_interface_placement.SvmMigrationIpInterfacePlacementSchema", data_key="ip_interface_placement", unknown=EXCLUDE, allow_none=True)
+    ip_interface_placement = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.svm_migration_ip_interface_placement", "SvmMigrationIpInterfacePlacementSchema"),
+                data_key="ip_interface_placement",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Optional property used to specify the IP interface placement in the destination. It is input only and is not returned by a subsequent GET."""
 
     last_failed_state = marshmallow_fields.Str(
@@ -486,7 +494,15 @@ Valid choices:
 * cleanup
 * cutover"""
 
-    messages = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.ems_ui_message_arguments.EmsUiMessageArgumentsSchema", unknown=EXCLUDE, allow_none=True), data_key="messages", allow_none=True)
+    messages = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.ems_ui_message_arguments", "EmsUiMessageArgumentsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="messages",
+                allow_none=True
+            )
     r""" Errors and warnings returned/displayed during migration."""
 
     point_of_no_return = marshmallow_fields.Boolean(
@@ -507,7 +523,12 @@ Valid choices:
     )
     r""" Number of times migrate restarted the transfer, for example, rollback to transfer after starting the cutover."""
 
-    source = marshmallow_fields.Nested("netapp_ontap.models.svm_migration_source.SvmMigrationSourceSchema", data_key="source", unknown=EXCLUDE, allow_none=True)
+    source = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.svm_migration_source", "SvmMigrationSourceSchema"),
+                data_key="source",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Source cluster details for the SVM migration."""
 
     state = marshmallow_fields.Str(
@@ -522,7 +543,12 @@ Valid choices:
     )
     r""" Optional property to specify a throttle value in KB/s for each individual volume transfer. Defaults to 0 if not set, which is interpreted as unlimited. The minimum throttle value is 4 KB/s, so if you specify a throttle value between 1 and 4, it will be treated as if you specified 4."""
 
-    time_metrics = marshmallow_fields.Nested("netapp_ontap.models.svm_migration_time_metrics.SvmMigrationTimeMetricsSchema", data_key="time_metrics", unknown=EXCLUDE, allow_none=True)
+    time_metrics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.svm_migration_time_metrics", "SvmMigrationTimeMetricsSchema"),
+                data_key="time_metrics",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Various time metrics details"""
 
     uuid = marshmallow_fields.Str(

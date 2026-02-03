@@ -57,7 +57,7 @@ class CheckpointerProtocol(Protocol):
 
     async def aget_tuple(self, config: RunnableConfig) -> CheckpointTuple | None: ...
 
-    async def alist(
+    def alist(
         self,
         config: RunnableConfig | None,
         *,

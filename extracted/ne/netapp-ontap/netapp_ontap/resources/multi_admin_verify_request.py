@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -34,24 +34,24 @@ with HostConnection(
 ```
 MultiAdminVerifyRequest(
     {
-        "operation": "security multi-admin-verify modify",
+        "index": 1,
+        "required_approvers": 1,
+        "user_requested": "admin",
+        "pending_approvers": 1,
         "execute_on_approval": False,
+        "state": "expired",
+        "permitted_users": ["example_user"],
         "owner": {
-            "uuid": "c1483186-6e73-11ec-bc92-005056a7ad04",
             "name": "cluster1",
             "_links": {
                 "self": {"href": "/api/svm/svms/c1483186-6e73-11ec-bc92-005056a7ad04"}
             },
+            "uuid": "c1483186-6e73-11ec-bc92-005056a7ad04",
         },
-        "create_time": "2022-01-05T20:07:09-05:00",
         "query": "",
-        "state": "expired",
-        "user_requested": "admin",
+        "create_time": "2022-01-05T20:07:09-05:00",
         "approve_expiry_time": "2022-01-05T21:07:09-05:00",
-        "required_approvers": 1,
-        "pending_approvers": 1,
-        "index": 1,
-        "permitted_users": ["example_user"],
+        "operation": "security multi-admin-verify modify",
     }
 )
 
@@ -84,11 +84,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -101,7 +100,6 @@ __pdoc__ = {
     "MultiAdminVerifyRequestSchema.resource": False,
     "MultiAdminVerifyRequestSchema.opts": False,
 }
-
 
 class MultiAdminVerifyRequestSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the MultiAdminVerifyRequest object"""
@@ -157,7 +155,12 @@ class MultiAdminVerifyRequestSchema(ResourceSchema, metaclass=ResourceSchemaMeta
     )
     r""" The command to execute."""
 
-    owner = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="owner", unknown=EXCLUDE, allow_none=True)
+    owner = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="owner",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The owner field of the multi_admin_verify_request."""
 
     pending_approvers = Size(

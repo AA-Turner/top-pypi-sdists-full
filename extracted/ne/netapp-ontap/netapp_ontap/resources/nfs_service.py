@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -20,20 +20,17 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import NfsService
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    print(
-        list(
-            NfsService.get_collection(
-                fields="*",
-                return_timeout=15,
-                **{
-                    "protocol_access_rules.volume": "testvol12",
-                    "protocol_access_rules.client_ip": "1.2.3.4",
-                    "protocol_access_rules.auth_type": "sys",
-                    "svm.uuid": "525928e9-9f84-11eb-a89f-005056bb70a8",
-                }
-            )
-        )
+    resource = NfsService(**{"svm.uuid": "{svm.uuid}"})
+    resource.get(
+        fields="protocol_access_rules",
+        return_timeout=15,
+        **{
+            "protocol_access_rules.volume": "testvol12",
+            "protocol_access_rules.client_ip": "1.2.3.4",
+            "protocol_access_rules.auth_type": "sys",
+        }
     )
+    print(resource)
 
 ```
 
@@ -83,11 +80,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -101,14 +97,23 @@ __pdoc__ = {
     "NfsServiceSchema.opts": False,
 }
 
-
 class NfsServiceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the NfsService object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the nfs_service."""
 
-    access_cache_config = marshmallow_fields.Nested("netapp_ontap.models.nfs_service_access_cache_config.NfsServiceAccessCacheConfigSchema", data_key="access_cache_config", unknown=EXCLUDE, allow_none=True)
+    access_cache_config = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nfs_service_access_cache_config", "NfsServiceAccessCacheConfigSchema"),
+                data_key="access_cache_config",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The access_cache_config field of the nfs_service."""
 
     auth_sys_extended_groups_enabled = marshmallow_fields.Boolean(
@@ -117,7 +122,12 @@ class NfsServiceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Specifies whether or not extended groups support over AUTH_SYS is enabled."""
 
-    credential_cache = marshmallow_fields.Nested("netapp_ontap.models.nfs_service_credential_cache.NfsServiceCredentialCacheSchema", data_key="credential_cache", unknown=EXCLUDE, allow_none=True)
+    credential_cache = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nfs_service_credential_cache", "NfsServiceCredentialCacheSchema"),
+                data_key="credential_cache",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The credential_cache field of the nfs_service."""
 
     enabled = marshmallow_fields.Boolean(
@@ -126,7 +136,12 @@ class NfsServiceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Specifies if the NFS service is administratively enabled."""
 
-    exports = marshmallow_fields.Nested("netapp_ontap.models.nfs_service_exports.NfsServiceExportsSchema", data_key="exports", unknown=EXCLUDE, allow_none=True)
+    exports = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nfs_service_exports", "NfsServiceExportsSchema"),
+                data_key="exports",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The exports field of the nfs_service."""
 
     extended_groups_limit = Size(
@@ -156,19 +171,44 @@ Example: 5000"""
 
 Example: 120"""
 
-    metric = marshmallow_fields.Nested("netapp_ontap.models.performance_svm_nfs_metric.PerformanceSvmNfsMetricSchema", data_key="metric", unknown=EXCLUDE, allow_none=True)
+    metric = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_svm_nfs_metric", "PerformanceSvmNfsMetricSchema"),
+                data_key="metric",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Historical performance numbers, such as IOPS latency and throughput, for SVM-NFS protocol."""
 
-    protocol = marshmallow_fields.Nested("netapp_ontap.models.nfs_service_protocol.NfsServiceProtocolSchema", data_key="protocol", unknown=EXCLUDE, allow_none=True)
+    protocol = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nfs_service_protocol", "NfsServiceProtocolSchema"),
+                data_key="protocol",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The protocol field of the nfs_service."""
 
-    protocol_access_rules = marshmallow_fields.Nested("netapp_ontap.models.nfs_service_protocol_access_rules.NfsServiceProtocolAccessRulesSchema", data_key="protocol_access_rules", unknown=EXCLUDE, allow_none=True)
+    protocol_access_rules = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nfs_service_protocol_access_rules", "NfsServiceProtocolAccessRulesSchema"),
+                data_key="protocol_access_rules",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The protocol_access_rules field of the nfs_service."""
 
-    qtree = marshmallow_fields.Nested("netapp_ontap.models.nfs_service_qtree.NfsServiceQtreeSchema", data_key="qtree", unknown=EXCLUDE, allow_none=True)
+    qtree = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nfs_service_qtree", "NfsServiceQtreeSchema"),
+                data_key="qtree",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The qtree field of the nfs_service."""
 
-    root = marshmallow_fields.Nested("netapp_ontap.models.nfs_service_root.NfsServiceRootSchema", data_key="root", unknown=EXCLUDE, allow_none=True)
+    root = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nfs_service_root", "NfsServiceRootSchema"),
+                data_key="root",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The root field of the nfs_service."""
 
     rquota_enabled = marshmallow_fields.Boolean(
@@ -177,7 +217,12 @@ Example: 120"""
     )
     r""" Specifies whether or not the remote quota feature is enabled."""
 
-    security = marshmallow_fields.Nested("netapp_ontap.models.nfs_service_security.NfsServiceSecuritySchema", data_key="security", unknown=EXCLUDE, allow_none=True)
+    security = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nfs_service_security", "NfsServiceSecuritySchema"),
+                data_key="security",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The security field of the nfs_service."""
 
     showmount_enabled = marshmallow_fields.Boolean(
@@ -202,13 +247,28 @@ Valid choices:
 * online
 * offline"""
 
-    statistics = marshmallow_fields.Nested("netapp_ontap.models.performance_svm_nfs_statistics.PerformanceSvmNfsStatisticsSchema", data_key="statistics", unknown=EXCLUDE, allow_none=True)
+    statistics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_svm_nfs_statistics", "PerformanceSvmNfsStatisticsSchema"),
+                data_key="statistics",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Realtime performance numbers, such as IOPS latency and throughput, for SVM-NFS protocol."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the nfs_service."""
 
-    transport = marshmallow_fields.Nested("netapp_ontap.models.nfs_service_transport.NfsServiceTransportSchema", data_key="transport", unknown=EXCLUDE, allow_none=True)
+    transport = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nfs_service_transport", "NfsServiceTransportSchema"),
+                data_key="transport",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The transport field of the nfs_service."""
 
     vstorage_enabled = marshmallow_fields.Boolean(
@@ -217,7 +277,12 @@ Valid choices:
     )
     r""" Specifies whether or not the VMware vstorage feature is enabled."""
 
-    windows = marshmallow_fields.Nested("netapp_ontap.models.nfs_service_windows.NfsServiceWindowsSchema", data_key="windows", unknown=EXCLUDE, allow_none=True)
+    windows = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nfs_service_windows", "NfsServiceWindowsSchema"),
+                data_key="windows",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The windows field of the nfs_service."""
 
     @property
@@ -353,6 +418,7 @@ There is an added computational cost to retrieving values for these properties. 
 ### Diagnostic properties
 * `credential_cache.transient_error_ttl`
 * `access_cache_config.ttl_failure`
+* `credential_cache.harvest_timeout`
 ### Related ONTAP commands
 * `vserver nfs show`
 * `vserver nfs status`
@@ -456,6 +522,7 @@ If not specified in POST, the following default property values are assigned:
 * `protocol.v41_features.read_delegation_enabled` - _false_
 * `protocol.v41_features.write_delegation_enabled` - _false_
 * `protocol.v41_features.pnfs_enabled` - _false_
+* `protocol.v4_features.subnet_filter_enabled` - _false_
 * `vstorage_enabled` - _false_
 * `rquota_enabled` - _false_
 * `showmount_enabled` - _true_
@@ -480,9 +547,10 @@ If not specified in POST, the following default property values are assigned:
 * `windows.v3_ms_dos_client_enabled` - _false_
 * `windows.default_user` - ""
 * `windows.map_unknown_uid_to_default_user` - _true_
-* `credential_cache.positive_ttl` - _86400000_
-* `credential_cache.negative_ttl` - _7200000_
+* `credential_cache.positive_ttl` - _3600000_
+* `credential_cache.negative_ttl` - _3600000_
 * `credential_cache.transient_error_ttl` - _30000_
+* `credential_cache.harvest_timeout` - _86400000_
 * `protocol.v40_features.acl_preserve` - _true_
 * `protocol.v41_features.implementation_domain` - 'netapp.com'
 * `protocol.v40_features.acl_max_aces` - _400_
@@ -583,6 +651,7 @@ There is an added computational cost to retrieving values for these properties. 
 ### Diagnostic properties
 * `credential_cache.transient_error_ttl`
 * `access_cache_config.ttl_failure`
+* `credential_cache.harvest_timeout`
 ### Related ONTAP commands
 * `vserver nfs show`
 * `vserver nfs status`
@@ -637,6 +706,7 @@ If not specified in POST, the following default property values are assigned:
 * `protocol.v41_features.read_delegation_enabled` - _false_
 * `protocol.v41_features.write_delegation_enabled` - _false_
 * `protocol.v41_features.pnfs_enabled` - _false_
+* `protocol.v4_features.subnet_filter_enabled` - _false_
 * `vstorage_enabled` - _false_
 * `rquota_enabled` - _false_
 * `showmount_enabled` - _true_
@@ -661,9 +731,10 @@ If not specified in POST, the following default property values are assigned:
 * `windows.v3_ms_dos_client_enabled` - _false_
 * `windows.default_user` - ""
 * `windows.map_unknown_uid_to_default_user` - _true_
-* `credential_cache.positive_ttl` - _86400000_
-* `credential_cache.negative_ttl` - _7200000_
+* `credential_cache.positive_ttl` - _3600000_
+* `credential_cache.negative_ttl` - _3600000_
 * `credential_cache.transient_error_ttl` - _30000_
+* `credential_cache.harvest_timeout` - _86400000_
 * `protocol.v40_features.acl_preserve` - _true_
 * `protocol.v41_features.implementation_domain` - 'netapp.com'
 * `protocol.v40_features.acl_max_aces` - _400_

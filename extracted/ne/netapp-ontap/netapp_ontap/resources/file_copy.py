@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -10,11 +10,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -28,7 +27,6 @@ __pdoc__ = {
     "FileCopySchema.opts": False,
 }
 
-
 class FileCopySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the FileCopy object"""
 
@@ -40,7 +38,15 @@ class FileCopySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 10"""
 
-    files_to_copy = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.file_copy_files_to_copy.FileCopyFilesToCopySchema", unknown=EXCLUDE, allow_none=True), data_key="files_to_copy", allow_none=True)
+    files_to_copy = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.file_copy_files_to_copy", "FileCopyFilesToCopySchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="files_to_copy",
+                allow_none=True
+            )
     r""" A list of source files along with the destinations they are copied to. If the terminal path component of the destination is a directory, then the source file's basename is replicated in that directory."""
 
     hold_quiescence = marshmallow_fields.Boolean(

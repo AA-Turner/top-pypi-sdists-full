@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["EmsFilterRules", "EmsFilterRulesSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "EmsFilterRules": False,
 }
 
-
 class EmsFilterRulesSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the EmsFilterRules object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", unknown=EXCLUDE, data_key="_links", allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                unknown=EXCLUDE,
+                data_key="_links",
+                allow_none=True
+            )
     r""" The links field of the ems_filter_rules. """
 
     index = Size(data_key="index", allow_none=True)
@@ -29,10 +32,23 @@ class EmsFilterRulesSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 1 """
 
-    message_criteria = marshmallow_fields.Nested("netapp_ontap.models.ems_filter_rules_message_criteria.EmsFilterRulesMessageCriteriaSchema", unknown=EXCLUDE, data_key="message_criteria", allow_none=True)
+    message_criteria = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ems_filter_rules_message_criteria", "EmsFilterRulesMessageCriteriaSchema"),
+                unknown=EXCLUDE,
+                data_key="message_criteria",
+                allow_none=True
+            )
     r""" Matching message definitions for the filter. A property must be specified. """
 
-    parameter_criteria = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.ems_parameter_criterion.EmsParameterCriterionSchema", unknown=EXCLUDE, allow_none=True), data_key="parameter_criteria", allow_none=True)
+    parameter_criteria = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.ems_parameter_criterion", "EmsParameterCriterionSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="parameter_criteria",
+                allow_none=True
+                )
     r""" Parameter criteria used to match against events' parameters. Each parameter consists of a name and a value. When multiple parameter criteria are provided in a rule, all must match for the rule to be considered matched. A pattern can include one or more wildcard '*' characters. """
 
     type = marshmallow_fields.Str(data_key="type", allow_none=True)

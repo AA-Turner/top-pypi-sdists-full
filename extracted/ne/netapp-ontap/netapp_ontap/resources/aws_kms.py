@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -24,8 +24,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource.svm = {"uuid": "f36ff553-e713-11ea-bd56-005056bb4222"}
     resource.region = "us-east-1"
     resource.key_id = "kmip-aws"
-    resource.access_key_id = "(token)"
-    resource.secret_access_key = "Ahrut-#ghty5-881Ht"
+    resource.access_key_id = "<AWS-ACCESS-KEY-ID>"
+    resource.secret_access_key = "<AWS-SECRET-ACCESS-KEY>"
     resource.post(hydrate=True)
     print(resource)
 
@@ -37,16 +37,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AwsKms(
     {
-        "svm": {"uuid": "f36ff553-e713-11ea-bd56-005056bb4222", "name": "vs0"},
-        "region": "us-east-1",
-        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
-        "key_id": "kmip-aws",
-        "access_key_id": "(token)",
         "_links": {
             "self": {
                 "href": "/api/security/aws-kms/f72098a2-e908-11ea-bd56-005056bb4222"
             }
         },
+        "region": "us-east-1",
+        "key_id": "kmip-aws",
+        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
+        "access_key_id": "<AWS-ACCESS-KEY-ID>",
+        "svm": {"name": "vs0", "uuid": "f36ff553-e713-11ea-bd56-005056bb4222"},
     }
 )
 
@@ -73,21 +73,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     AwsKms(
         {
-            "svm": {"uuid": "f36ff553-e713-11ea-bd56-005056bb4222", "name": "vs0"},
-            "region": "us-east-1",
-            "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
-            "key_id": "kmip-aws",
-            "access_key_id": "(token)",
-            "default_domain": "amazonaws.com",
-            "timeout": 10,
-            "polling_period": 60,
-            "scope": "svm",
             "service": "KMS",
+            "polling_period": 60,
+            "timeout": 10,
+            "default_domain": "amazonaws.com",
             "_links": {
                 "self": {
                     "href": "/api/security/aws-kms/f72098a2-e908-11ea-bd56-005056bb4222"
                 }
             },
+            "region": "us-east-1",
+            "key_id": "kmip-aws",
+            "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
+            "access_key_id": "<AWS-ACCESS-KEY-ID>",
+            "scope": "svm",
+            "svm": {"name": "vs0", "uuid": "f36ff553-e713-11ea-bd56-005056bb4222"},
         }
     )
 ]
@@ -116,21 +116,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AwsKms(
     {
-        "svm": {"uuid": "f36ff553-e713-11ea-bd56-005056bb4222", "name": "vs0"},
-        "region": "us-east-1",
-        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
-        "key_id": "kmip-aws",
-        "access_key_id": "(token)",
-        "default_domain": "amazonaws.com",
-        "timeout": 10,
-        "polling_period": 60,
-        "scope": "svm",
         "service": "KMS",
+        "polling_period": 60,
+        "timeout": 10,
+        "default_domain": "amazonaws.com",
         "_links": {
             "self": {
                 "href": "/api/security/aws-kms/f72098a2-e908-11ea-bd56-005056bb4222"
             }
         },
+        "region": "us-east-1",
+        "key_id": "kmip-aws",
+        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
+        "access_key_id": "<AWS-ACCESS-KEY-ID>",
+        "scope": "svm",
+        "svm": {"name": "vs0", "uuid": "f36ff553-e713-11ea-bd56-005056bb4222"},
     }
 )
 
@@ -159,44 +159,44 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AwsKms(
     {
-        "amazon_reachability": {"message": "", "reachable": True, "code": "0"},
-        "state": {"message": "", "cluster_state": True, "code": "0"},
+        "_links": {
+            "self": {
+                "href": "/api/security/aws-kms/d70efc34-aa13-11ec-a059-005056ac7c32"
+            }
+        },
+        "state": {"message": "", "code": "0", "cluster_state": True},
+        "amazon_reachability": {"message": "", "code": "0", "reachable": True},
         "uuid": "d70efc34-aa13-11ec-a059-005056ac7c32",
         "ekmip_reachability": [
             {
                 "message": "",
                 "node": {
-                    "uuid": "817f544f-a98d-11ec-ae20-005056ac7c32",
                     "name": "node1",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/817f544f-a98d-11ec-ae20-005056ac7c32"
                         }
                     },
+                    "uuid": "817f544f-a98d-11ec-ae20-005056ac7c32",
                 },
-                "reachable": True,
                 "code": "0",
+                "reachable": True,
             },
             {
                 "message": "",
                 "node": {
-                    "uuid": "84b3f5f3-a98d-11ec-9ff4-005056acfbfe",
                     "name": "node2",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/84b3f5f3-a98d-11ec-9ff4-005056acfbfe"
                         }
                     },
+                    "uuid": "84b3f5f3-a98d-11ec-9ff4-005056acfbfe",
                 },
-                "reachable": True,
                 "code": "0",
+                "reachable": True,
             },
         ],
-        "_links": {
-            "self": {
-                "href": "/api/security/aws-kms/d70efc34-aa13-11ec-a059-005056ac7c32"
-            }
-        },
     }
 )
 
@@ -213,8 +213,8 @@ from netapp_ontap.resources import AwsKms
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
     resource = AwsKms(uuid="f72098a2-e908-11ea-bd56-005056bb4222")
-    resource.access_key_id = "(token)"
-    resource.secret_access_key = "Ahrut-#ghty5-881Ht"
+    resource.access_key_id = "<AWS-ACCESS-KEY-ID>"
+    resource.secret_access_key = "<AWS-SECRET-ACCESS-KEY>"
     resource.patch()
 
 ```
@@ -270,11 +270,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -288,11 +287,15 @@ __pdoc__ = {
     "AwsKmsSchema.opts": False,
 }
 
-
 class AwsKmsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the AwsKms object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the aws_kms."""
 
     access_key_id = marshmallow_fields.Str(
@@ -301,9 +304,14 @@ class AwsKmsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" AWS Access Key ID of the user that has appropriate access to AWS KMS.
 
-Example: (token)"""
+Example: <AWS-ACCESS-KEY-ID>"""
 
-    amazon_reachability = marshmallow_fields.Nested("netapp_ontap.models.aws_connectivity.AwsConnectivitySchema", data_key="amazon_reachability", unknown=EXCLUDE, allow_none=True)
+    amazon_reachability = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.aws_connectivity", "AwsConnectivitySchema"),
+                data_key="amazon_reachability",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Indicates whether or not the Amazon KMS is reachable from all nodes in the cluster.
 This is an advanced property; there is an added computational cost to retrieving its value. The property is not populated for either a collection GET or an instance GET unless it is explicitly requested using the `fields` query parameter or GET for all advanced properties is enabled."""
 
@@ -315,7 +323,15 @@ This is an advanced property; there is an added computational cost to retrieving
 
 Example: domainName"""
 
-    ekmip_reachability = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.ekmip_server_connectivity.EkmipServerConnectivitySchema", unknown=EXCLUDE, allow_none=True), data_key="ekmip_reachability", allow_none=True)
+    ekmip_reachability = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.ekmip_server_connectivity", "EkmipServerConnectivitySchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="ekmip_reachability",
+                allow_none=True
+            )
     r""" Provides the connectivity status for the given SVM on the given node to all EKMIP servers configured on all nodes of the cluster.
 This is an advanced property; there is an added computational cost to retrieving its value. The property is not populated for either a collection GET or an instance GET unless it is explicitly requested using the `fields` query parameter or GET for all advanced properties is enabled."""
 
@@ -429,7 +445,7 @@ Valid choices:
     )
     r""" AWS Secret Access Key for the provided access key ID.
 
-Example: tyb1kA/bSr5654LncZNwNcvAOR7hu1vPo0nPrtoG"""
+Example: <AWS-SECRET-ACCESS-KEY>"""
 
     service = marshmallow_fields.Str(
         data_key="service",
@@ -450,10 +466,20 @@ provided but 'access_key_id' is not.
 
 Example: false"""
 
-    state = marshmallow_fields.Nested("netapp_ontap.models.aws_kms_state.AwsKmsStateSchema", data_key="state", unknown=EXCLUDE, allow_none=True)
+    state = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.aws_kms_state", "AwsKmsStateSchema"),
+                data_key="state",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Indicates whether or not the Amazon Web Services Key Management Service (AWS KMS) key protection is available cluster-wide."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the aws_kms."""
 
     timeout = Size(

@@ -13329,6 +13329,16 @@ class AddEtlConnectionMutation(sgqlc.types.Type):
     connection = sgqlc.types.Field("Connection", graphql_name="connection")
 
 
+class AddFavoriteAsset(sgqlc.types.Type):
+    """Add an asset to favorites"""
+
+    __schema__ = schema
+    __field_names__ = ("favorite", "success")
+    favorite = sgqlc.types.Field("FavoriteAsset", graphql_name="favorite")
+
+    success = sgqlc.types.Field(Boolean, graphql_name="success")
+
+
 class AddMonitorsLabels(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
@@ -14819,6 +14829,8 @@ class AudienceRoutingStats(sgqlc.types.Type):
         "uses_monitoring_filters_fallback",
         "mcons_new_routed_from_importance",
         "ignored_routing_rules",
+        "excludes_non_monitored_tables",
+        "name_only_tag_conflicts",
     )
     audience_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="audienceUuid")
 
@@ -14863,6 +14875,14 @@ class AudienceRoutingStats(sgqlc.types.Type):
     ignored_routing_rules = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("IgnoredRoutingRuleInfo"))),
         graphql_name="ignoredRoutingRules",
+    )
+
+    excludes_non_monitored_tables = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="excludesNonMonitoredTables"
+    )
+
+    name_only_tag_conflicts = sgqlc.types.Field(
+        sgqlc.types.non_null(GenericScalar), graphql_name="nameOnlyTagConflicts"
     )
 
 
@@ -17392,6 +17412,7 @@ class ConversionResult(sgqlc.types.Type):
         "mcons_excluded_by_unexpanded_regex",
         "sample_mcons_affected_by_unexpanded_regex",
         "all_unexpanded_regex_patterns",
+        "audiences_with_excluded_non_monitored_tables",
         "audience_routing_stats",
         "text_output",
         "summary_text",
@@ -17401,6 +17422,7 @@ class ConversionResult(sgqlc.types.Type):
         "warnings_text",
         "validation_errors",
         "full_output_text",
+        "mcon_filter",
     )
     account_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="accountName")
 
@@ -17562,6 +17584,11 @@ class ConversionResult(sgqlc.types.Type):
         graphql_name="allUnexpandedRegexPatterns",
     )
 
+    audiences_with_excluded_non_monitored_tables = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="audiencesWithExcludedNonMonitoredTables",
+    )
+
     audience_routing_stats = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceRoutingStats))),
         graphql_name="audienceRoutingStats",
@@ -17593,6 +17620,8 @@ class ConversionResult(sgqlc.types.Type):
     full_output_text = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="fullOutputText"
     )
+
+    mcon_filter = sgqlc.types.Field(String, graphql_name="mconFilter")
 
 
 class ConvertConfigTemplateToUiMonitors(sgqlc.types.Type):
@@ -23169,6 +23198,18 @@ class FacetResults(sgqlc.types.Type):
     """Facet entries"""
 
 
+class FavoriteAsset(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("id", "mcon", "added_at")
+    id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
+
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+    """MCON of the favorited asset"""
+
+    added_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="addedAt")
+    """Timestamp when the asset was added to favorites"""
+
+
 class FieldChange(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("field", "friendly_name", "scalar_change", "many_to_many_change")
@@ -26554,10 +26595,15 @@ class McSqlResult(sgqlc.types.Type):
 
 class MconCountPair(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("mcon", "count")
+    __field_names__ = ("mcon", "count", "monitor_names")
     mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
 
     count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
+
+    monitor_names = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="monitorNames",
+    )
 
 
 class MconMonitorPair(sgqlc.types.Type):
@@ -26585,10 +26631,19 @@ class MconRuleIdPair(sgqlc.types.Type):
 
 class MconsMonitorsCountPair(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("mcons_count", "monitors_count")
+    __field_names__ = ("mcons_count", "monitors_count", "sample_mcons", "sample_mcon_monitors")
     mcons_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="mconsCount")
 
     monitors_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="monitorsCount")
+
+    sample_mcons = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="sampleMcons",
+    )
+
+    sample_mcon_monitors = sgqlc.types.Field(
+        sgqlc.types.non_null(GenericScalar), graphql_name="sampleMconMonitors"
+    )
 
 
 class MergeAlerts(sgqlc.types.Type):
@@ -28226,11 +28281,12 @@ class Mutation(sgqlc.types.Type):
         "create_shared_query",
         "create_or_update_user_settings",
         "create_or_update_user_settings_batch",
+        "add_favorite_asset",
+        "remove_favorite_asset",
         "update_user_state",
         "update_user_persona",
         "update_account_display_assets_search_tags",
         "set_account_name",
-        "toggle_account_freeze",
         "set_account_billing_plan",
         "set_account_max_time_series",
         "set_warehouse_name",
@@ -42290,6 +42346,48 @@ class Mutation(sgqlc.types.Type):
       create or update
     """
 
+    add_favorite_asset = sgqlc.types.Field(
+        AddFavoriteAsset,
+        graphql_name="addFavoriteAsset",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Add an asset to favorites
+
+    Arguments:
+
+    * `mcon` (`String!`)None
+    """
+
+    remove_favorite_asset = sgqlc.types.Field(
+        "RemoveFavoriteAsset",
+        graphql_name="removeFavoriteAsset",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Remove an asset from favorites
+
+    Arguments:
+
+    * `mcon` (`String!`)None
+    """
+
     update_user_state = sgqlc.types.Field(
         "UpdateUserStatePayload",
         graphql_name="updateUserState",
@@ -42365,28 +42463,6 @@ class Mutation(sgqlc.types.Type):
     """Arguments:
 
     * `account_name` (`String!`)None
-    """
-
-    toggle_account_freeze = sgqlc.types.Field(
-        "ToggleAccountFreeze",
-        graphql_name="toggleAccountFreeze",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "freeze",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(Boolean), graphql_name="freeze", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) Freeze or unfreeze an account. System users only.
-
-    Arguments:
-
-    * `freeze` (`Boolean!`): True to freeze the account, False to
-      unfreeze
     """
 
     set_account_billing_plan = sgqlc.types.Field(
@@ -48760,6 +48836,8 @@ class Query(sgqlc.types.Type):
         "get_tsa_availability",
         "get_user_settings",
         "get_shared_query",
+        "favorite_assets",
+        "is_favorite",
         "get_user",
         "get_user_by_id",
         "get_warehouses",
@@ -64149,6 +64227,32 @@ class Query(sgqlc.types.Type):
     * `key` (`String!`): S3 object key of shared query file
     """
 
+    favorite_assets = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FavoriteAsset)), graphql_name="favoriteAssets"
+    )
+    """(experimental) Get all favorite assets for the current user"""
+
+    is_favorite = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean),
+        graphql_name="isFavorite",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Check if an asset is favorited
+
+    Arguments:
+
+    * `mcon` (`String!`)None
+    """
+
     get_user = sgqlc.types.Field("User", graphql_name="getUser")
 
     get_user_by_id = sgqlc.types.Field("User", graphql_name="getUserById")
@@ -67800,6 +67904,14 @@ class RemoveDataSamplingRestrictions(sgqlc.types.Type):
     """Whether the operation was successful."""
 
 
+class RemoveFavoriteAsset(sgqlc.types.Type):
+    """Remove an asset from favorites"""
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(Boolean, graphql_name="success")
+
+
 class RemoveFromCollectionBlockList(sgqlc.types.Type):
     """Removes from the list of entities for which metadata collection is
     not allowed on this account.
@@ -71004,6 +71116,9 @@ class TableMonitorSpec(sgqlc.types.Type):
         "uses_monitoring_filters_fallback",
         "ignored_routing_rules",
         "unexpanded_regex_patterns",
+        "excludes_non_monitored_tables",
+        "excluded_non_monitored_tables_count",
+        "name_only_tag_conflicts",
     )
     warehouse_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="warehouseUuid")
 
@@ -71057,6 +71172,18 @@ class TableMonitorSpec(sgqlc.types.Type):
     unexpanded_regex_patterns = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("UnexpandedRegexPattern"))),
         graphql_name="unexpandedRegexPatterns",
+    )
+
+    excludes_non_monitored_tables = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="excludesNonMonitoredTables"
+    )
+
+    excluded_non_monitored_tables_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="excludedNonMonitoredTablesCount"
+    )
+
+    name_only_tag_conflicts = sgqlc.types.Field(
+        sgqlc.types.non_null(GenericScalar), graphql_name="nameOnlyTagConflicts"
     )
 
 
@@ -72415,17 +72542,6 @@ class ToggleAccountFeature(sgqlc.types.Type):
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
     """Indicates whether the feature was enabled or disabled successfully"""
-
-
-class ToggleAccountFreeze(sgqlc.types.Type):
-    """Freeze or unfreeze an account. System users only."""
-
-    __schema__ = schema
-    __field_names__ = ("frozen", "account")
-    frozen = sgqlc.types.Field(Boolean, graphql_name="frozen")
-    """The resulting frozen state of the account"""
-
-    account = sgqlc.types.Field(Account, graphql_name="account")
 
 
 class ToggleAlertGrouping(sgqlc.types.Type):
@@ -76606,6 +76722,7 @@ class AuthUser(sgqlc.types.Type, Node):
         "dataexplorercomparisondashboardmodel_updated_by",
         "dataexplorerwidgetmodel_created_by",
         "dataexplorerwidgetmodel_updated_by",
+        "favorite_assets",
         "lineage_block_patterns",
         "lineage_repl_rules",
         "lineagenodecollapsingpatternmodel_created_by",
@@ -77949,6 +78066,12 @@ class AuthUser(sgqlc.types.Type, Node):
     * `first` (`Int`)None
     * `last` (`Int`)None
     """
+
+    favorite_assets = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(FavoriteAsset))),
+        graphql_name="favoriteAssets",
+    )
+    """User who favorited this asset"""
 
     lineage_block_patterns = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(LineageNodeBlockPattern))),
@@ -80606,6 +80729,7 @@ class DbtProject(sgqlc.types.Type, Node):
         "dbt_nodes",
         "dbt_edges",
         "dbt_runs",
+        "dbt_job_count",
         "generate_incidents_for_model_failures",
         "generate_incidents_for_test_failures",
         "generate_incidents_for_test_warnings",
@@ -80759,6 +80883,9 @@ class DbtProject(sgqlc.types.Type, Node):
     * `first` (`Int`)None
     * `last` (`Int`)None
     """
+
+    dbt_job_count = sgqlc.types.Field(Int, graphql_name="dbtJobCount")
+    """Number of dbt jobs for the project"""
 
     generate_incidents_for_model_failures = sgqlc.types.Field(
         Boolean, graphql_name="generateIncidentsForModelFailures"
@@ -83574,6 +83701,7 @@ class User(sgqlc.types.Type, Node):
         "dataexplorercomparisondashboardmodel_updated_by",
         "dataexplorerwidgetmodel_created_by",
         "dataexplorerwidgetmodel_updated_by",
+        "favorite_assets",
         "lineage_block_patterns",
         "lineage_repl_rules",
         "lineagenodecollapsingpatternmodel_created_by",
@@ -84921,6 +85049,12 @@ class User(sgqlc.types.Type, Node):
     * `first` (`Int`)None
     * `last` (`Int`)None
     """
+
+    favorite_assets = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(FavoriteAsset))),
+        graphql_name="favoriteAssets",
+    )
+    """User who favorited this asset"""
 
     lineage_block_patterns = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(LineageNodeBlockPattern))),

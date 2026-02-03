@@ -1330,12 +1330,15 @@ def _process_class(
                     error_builder=error_builder,
                 )
 
-                # copy over expressions for default version
+                # copy over expressions and metadata for default version
                 if i == f.version.default:
                     if f.underscore_expression is None and f_i.underscore_expression is not None:
                         f.underscore_expression = f_i.underscore_expression
                     if f.offline_underscore_expression is None and f_i.offline_underscore_expression is not None:
                         f.offline_underscore_expression = f_i.offline_underscore_expression
+                    # Copy description from the explicitly defined default version
+                    if f.description is None and f_i.description is not None:
+                        f.description = f_i.description
 
                 f.version.reference[i] = f_i
                 # The default feature already exists.

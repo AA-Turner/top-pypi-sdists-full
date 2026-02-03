@@ -1,6 +1,6 @@
 # pylint: disable=line-too-long
 """
-Copyright &copy; 2025 NetApp Inc. All rights reserved.
+Copyright &copy; 2026 NetApp Inc. All rights reserved.
 
 This module defines the custom exception type. All exceptions raised by
 the library descend from this type.

@@ -113,7 +113,8 @@ class module(Namespace):
     id: int | None = None
     settings: Settings | None = None
     reporting_client: Reporter | None = None
-    first_request: bool = True
+    first_request_lock: threading.Lock = threading.Lock()
+    first_request_claimed: bool = False
     assess_enabled: bool = False
     assess_tags = ""
     observe_enabled: bool = False
@@ -351,12 +352,22 @@ def get_server_name():
     return module.configured_server_name or _get_server_name(module.settings.config)
 
 
-def is_first_request():
-    return module.first_request
+def claim_first_request() -> bool:
+    """
+    Atomically claim the first request flag. Returns True if this call successfully
+    claimed the first request (i.e., this is the first request), False otherwise.
 
-
-def set_first_request(val: bool):
-    module.first_request = val
+    This ensures only one request context will ever be marked as the first request.
+    """
+    # Quick check without acquiring the lock
+    if module.first_request_claimed:
+        return False
+    with module.first_request_lock:
+        if module.first_request_claimed:
+            # Another thread claimed it while we were waiting for the lock
+            return False
+        module.first_request_claimed = True
+        return True
 
 
 def set_assess_enabled(config: Mapping):

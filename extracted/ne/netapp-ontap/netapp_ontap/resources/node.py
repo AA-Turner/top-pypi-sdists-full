@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -215,26 +215,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Node(
         {
-            "state": "up",
-            "uuid": "54440ec3-6127-11e9-a959-005056bb76f9",
             "name": "node2",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/54440ec3-6127-11e9-a959-005056bb76f9"
                 }
             },
+            "state": "up",
+            "uuid": "54440ec3-6127-11e9-a959-005056bb76f9",
         }
     ),
     Node(
         {
-            "state": "up",
-            "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4",
             "name": "node1",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/e02dbef1-6126-11e9-b8fb-005056bb9ce4"
                 }
             },
+            "state": "up",
+            "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4",
         }
     ),
 ]
@@ -261,24 +261,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Node(
         {
-            "uuid": "54440ec3-6127-11e9-a959-005056bb76f9",
             "name": "node2",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/54440ec3-6127-11e9-a959-005056bb76f9"
                 }
             },
+            "uuid": "54440ec3-6127-11e9-a959-005056bb76f9",
         }
     ),
     Node(
         {
-            "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4",
             "name": "node1",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/e02dbef1-6126-11e9-b8fb-005056bb9ce4"
                 }
             },
+            "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4",
         }
     ),
 ]
@@ -306,20 +306,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Node(
         {
+            "name": "example_node_name",
             "metric": {
                 "timestamp": "2019-12-19T15:50:45+00:00",
-                "status": "ok",
                 "processor_utilization": 3,
+                "status": "ok",
                 "duration": "PT15S",
             },
-            "uuid": "6b29327b-21ca-11ea-99aa-005056bb420b",
-            "name": "example_node_name",
             "statistics": {
-                "processor_utilization_raw": 6409411622,
-                "status": "ok",
                 "processor_utilization_base": 74330229886,
+                "status": "ok",
                 "timestamp": "2019-12-19T15:50:48+00:00",
+                "processor_utilization_raw": 6409411622,
             },
+            "uuid": "6b29327b-21ca-11ea-99aa-005056bb420b",
         }
     )
 ]
@@ -346,11 +346,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Node(
         {
-            "uuid": "54440ec3-6127-11e9-a959-005056bb76f9",
+            "name": "node2",
             "ha": {
-                "enabled": False,
+                "giveback": {"state": "nothing_to_giveback"},
+                "auto_giveback": False,
                 "partners": [
-                    {"uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4", "name": "node1"}
+                    {"name": "node1", "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4"}
                 ],
                 "takeover": {
                     "failure": {
@@ -359,25 +360,25 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     },
                     "state": "not_possible",
                 },
-                "giveback": {"state": "nothing_to_giveback"},
                 "ports": [{}, {}],
-                "auto_giveback": False,
+                "enabled": False,
             },
-            "name": "node2",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/54440ec3-6127-11e9-a959-005056bb76f9"
                 }
             },
+            "uuid": "54440ec3-6127-11e9-a959-005056bb76f9",
         }
     ),
     Node(
         {
-            "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4",
+            "name": "node1",
             "ha": {
-                "enabled": False,
+                "giveback": {"state": "nothing_to_giveback"},
+                "auto_giveback": False,
                 "partners": [
-                    {"uuid": "54440ec3-6127-11e9-a959-005056bb76f9", "name": "node2"}
+                    {"name": "node2", "uuid": "54440ec3-6127-11e9-a959-005056bb76f9"}
                 ],
                 "takeover": {
                     "failure": {
@@ -386,16 +387,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     },
                     "state": "not_possible",
                 },
-                "giveback": {"state": "nothing_to_giveback"},
                 "ports": [{}, {}],
-                "auto_giveback": False,
+                "enabled": False,
             },
-            "name": "node1",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/e02dbef1-6126-11e9-b8fb-005056bb9ce4"
                 }
             },
+            "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4",
         }
     ),
 ]
@@ -423,35 +423,35 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Node(
         {
-            "external_cache": {
-                "is_rewarm_enabled": False,
-                "is_hya_enabled": True,
-                "is_enabled": False,
-                "pcs_size": 256,
-            },
-            "uuid": "71af8235-bea9-11eb-874a-005056bbab13",
             "name": "node2",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/71af8235-bea9-11eb-874a-005056bbab13"
                 }
             },
+            "uuid": "71af8235-bea9-11eb-874a-005056bbab13",
+            "external_cache": {
+                "pcs_size": 256,
+                "is_enabled": False,
+                "is_rewarm_enabled": False,
+                "is_hya_enabled": True,
+            },
         }
     ),
     Node(
         {
-            "external_cache": {
-                "is_rewarm_enabled": False,
-                "is_hya_enabled": True,
-                "is_enabled": False,
-                "pcs_size": 256,
-            },
-            "uuid": "8c4cbf08-bea9-11eb-b8ae-005056bb16aa",
             "name": "node1",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/8c4cbf08-bea9-11eb-b8ae-005056bb16aa"
                 }
+            },
+            "uuid": "8c4cbf08-bea9-11eb-b8ae-005056bb16aa",
+            "external_cache": {
+                "pcs_size": 256,
+                "is_enabled": False,
+                "is_rewarm_enabled": False,
+                "is_hya_enabled": True,
             },
         }
     ),
@@ -466,11 +466,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -484,11 +483,15 @@ __pdoc__ = {
     "NodeSchema.opts": False,
 }
 
-
 class NodeSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Node object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the node."""
 
     anti_ransomware_version = marshmallow_fields.Str(
@@ -499,13 +502,31 @@ class NodeSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 1.0"""
 
-    cluster_interface = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_cluster_interface.ClusterNodesClusterInterfaceSchema", data_key="cluster_interface", unknown=EXCLUDE, allow_none=True)
+    cluster_interface = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_cluster_interface", "ClusterNodesClusterInterfaceSchema"),
+                data_key="cluster_interface",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The cluster network IP address of the node to be added."""
 
-    cluster_interfaces = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_management_interfaces.ClusterNodesManagementInterfacesSchema", unknown=EXCLUDE, allow_none=True), data_key="cluster_interfaces", allow_none=True)
+    cluster_interfaces = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_management_interfaces", "ClusterNodesManagementInterfacesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="cluster_interfaces",
+                allow_none=True
+            )
     r""" Network interface"""
 
-    controller = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_controller.ClusterNodesControllerSchema", data_key="controller", unknown=EXCLUDE, allow_none=True)
+    controller = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_controller", "ClusterNodesControllerSchema"),
+                data_key="controller",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Controller information"""
 
     date = ImpreciseDateTime(
@@ -518,16 +539,36 @@ The ISO-8601 date and time are localized based on the ONTAP cluster's timezone s
 
 Example: 2019-04-17T15:49:26.000+0000"""
 
-    external_cache = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_external_cache.ClusterNodesExternalCacheSchema", data_key="external_cache", unknown=EXCLUDE, allow_none=True)
+    external_cache = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_external_cache", "ClusterNodesExternalCacheSchema"),
+                data_key="external_cache",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Cache used for buffer management."""
 
-    external_cache_bypass = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_external_cache_bypass.ClusterNodesExternalCacheBypassSchema", data_key="external_cache_bypass", unknown=EXCLUDE, allow_none=True)
+    external_cache_bypass = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_external_cache_bypass", "ClusterNodesExternalCacheBypassSchema"),
+                data_key="external_cache_bypass",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" External cache bypass management."""
 
-    ha = marshmallow_fields.Nested("netapp_ontap.models.node_ha.NodeHaSchema", data_key="ha", unknown=EXCLUDE, allow_none=True)
+    ha = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.node_ha", "NodeHaSchema"),
+                data_key="ha",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The ha field of the node."""
 
-    hw_assist = marshmallow_fields.Nested("netapp_ontap.models.hw_assist.HwAssistSchema", data_key="hw_assist", unknown=EXCLUDE, allow_none=True)
+    hw_assist = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.hw_assist", "HwAssistSchema"),
+                data_key="hw_assist",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The hardware assist information."""
 
     is_spares_low = marshmallow_fields.Boolean(
@@ -544,10 +585,23 @@ Example: 2019-04-17T15:49:26.000+0000"""
 
 Example: rack 2 row 5"""
 
-    management_interface = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_management_interface.ClusterNodesManagementInterfaceSchema", data_key="management_interface", unknown=EXCLUDE, allow_none=True)
+    management_interface = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_management_interface", "ClusterNodesManagementInterfaceSchema"),
+                data_key="management_interface",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The management interface of the node to be added. The subnet mask is set based on the management interface of the cluster or the management interfaces of other nodes."""
 
-    management_interfaces = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_management_interfaces.ClusterNodesManagementInterfacesSchema", unknown=EXCLUDE, allow_none=True), data_key="management_interfaces", allow_none=True)
+    management_interfaces = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_management_interfaces", "ClusterNodesManagementInterfacesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="management_interfaces",
+                allow_none=True
+            )
     r""" Network interface"""
 
     membership = marshmallow_fields.Str(
@@ -568,10 +622,20 @@ Valid choices:
 * joining
 * member"""
 
-    metric = marshmallow_fields.Nested("netapp_ontap.resources.node_metrics.NodeMetricsSchema", data_key="metric", unknown=EXCLUDE, allow_none=True)
+    metric = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node_metrics", "NodeMetricsSchema"),
+                data_key="metric",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" CPU performance for the nodes."""
 
-    metrocluster = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_metrocluster.ClusterNodesMetroclusterSchema", data_key="metrocluster", unknown=EXCLUDE, allow_none=True)
+    metrocluster = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_metrocluster", "ClusterNodesMetroclusterSchema"),
+                data_key="metrocluster",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Metrocluster"""
 
     model = marshmallow_fields.Str(
@@ -590,10 +654,20 @@ Example: FAS3070"""
 
 Example: node-01"""
 
-    nvlog = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_nvlog.ClusterNodesNvlogSchema", data_key="nvlog", unknown=EXCLUDE, allow_none=True)
+    nvlog = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_nvlog", "ClusterNodesNvlogSchema"),
+                data_key="nvlog",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Non-volatile write log settings."""
 
-    nvram = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_nvram.ClusterNodesNvramSchema", data_key="nvram", unknown=EXCLUDE, allow_none=True)
+    nvram = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_nvram", "ClusterNodesNvramSchema"),
+                data_key="nvram",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The nvram field of the node."""
 
     owner = marshmallow_fields.Str(
@@ -612,10 +686,20 @@ Example: Example Corp"""
 
 Example: 4048820-60-9"""
 
-    service_processor = marshmallow_fields.Nested("netapp_ontap.models.service_processor.ServiceProcessorSchema", data_key="service_processor", unknown=EXCLUDE, allow_none=True)
+    service_processor = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.service_processor", "ServiceProcessorSchema"),
+                data_key="service_processor",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The service_processor field of the node."""
 
-    snaplock = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_snaplock.ClusterNodesSnaplockSchema", data_key="snaplock", unknown=EXCLUDE, allow_none=True)
+    snaplock = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_snaplock", "ClusterNodesSnaplockSchema"),
+                data_key="snaplock",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" SnapLock-related properties."""
 
     state = marshmallow_fields.Str(
@@ -644,10 +728,23 @@ Valid choices:
 * degraded
 * unknown"""
 
-    statistics = marshmallow_fields.Nested("netapp_ontap.models.node_statistics.NodeStatisticsSchema", data_key="statistics", unknown=EXCLUDE, allow_none=True)
+    statistics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.node_statistics", "NodeStatisticsSchema"),
+                data_key="statistics",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Raw CPU performance for the nodes."""
 
-    storage_availability_zones = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.storage_availability_zone.StorageAvailabilityZoneSchema", unknown=EXCLUDE, allow_none=True), data_key="storage_availability_zones", allow_none=True)
+    storage_availability_zones = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.storage_availability_zone", "StorageAvailabilityZoneSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="storage_availability_zones",
+                allow_none=True
+            )
     r""" Storage availability zones associated with the node."""
 
     storage_configuration = marshmallow_fields.Str(
@@ -686,7 +783,12 @@ Valid choices:
 * tri_path_ha
 * virtual"""
 
-    system_aggregate = marshmallow_fields.Nested("netapp_ontap.resources.aggregate.AggregateSchema", data_key="system_aggregate", unknown=EXCLUDE, allow_none=True)
+    system_aggregate = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.aggregate", "AggregateSchema"),
+                data_key="system_aggregate",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The system_aggregate field of the node."""
 
     system_id = marshmallow_fields.Str(
@@ -729,10 +831,20 @@ Example: 4ea7a442-86d1-11e0-ae1c-123478563412"""
 
 Example: 791603000068"""
 
-    version = marshmallow_fields.Nested("netapp_ontap.models.version.VersionSchema", data_key="version", unknown=EXCLUDE, allow_none=True)
+    version = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.version", "VersionSchema"),
+                data_key="version",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" This returns the cluster version information.  When the cluster has more than one node, the cluster version is equivalent to the lowest of generation, major, and minor versions on all nodes."""
 
-    vm = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_vm.ClusterNodesVmSchema", data_key="vm", unknown=EXCLUDE, allow_none=True)
+    vm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_vm", "ClusterNodesVmSchema"),
+                data_key="vm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The vm field of the node."""
 
     @property

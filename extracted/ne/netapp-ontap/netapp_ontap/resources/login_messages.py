@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,55 +27,55 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LoginMessages(
         {
-            "scope": "cluster",
-            "show_cluster_message": True,
             "message": "#### Welcome to Cluster X ####\n",
-            "uuid": "2581e5aa-9fe3-11e8-b309-005056bbef18",
             "_links": {
                 "self": {
                     "href": "/api/security/login/messages/2581e5aa-9fe3-11e8-b309-005056bbef18"
                 }
             },
+            "show_cluster_message": True,
+            "uuid": "2581e5aa-9fe3-11e8-b309-005056bbef18",
             "banner": "*** WARNING: DO NOT PROCEED IF YOU ARE NOT AUTHORIZED! ****\n",
+            "scope": "cluster",
         }
     ),
     LoginMessages(
         {
-            "scope": "svm",
-            "show_cluster_message": True,
             "message": "#### Welcome to SVM1 ####\n",
-            "svm": {"uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18", "name": "svm1"},
-            "uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18",
             "_links": {
                 "self": {
                     "href": "/api/security/login/messages/7b1b3715-9ffa-11e8-a5dd-005056bbef18"
                 }
             },
+            "show_cluster_message": True,
+            "uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18",
+            "scope": "svm",
+            "svm": {"name": "svm1", "uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18"},
         }
     ),
     LoginMessages(
         {
-            "scope": "svm",
-            "svm": {"uuid": "8ddee11e-a58c-11e8-85e0-005056bbef18", "name": "svm3"},
-            "uuid": "8ddee11e-a58c-11e8-85e0-005056bbef18",
             "_links": {
                 "self": {
                     "href": "/api/security/login/messages/8ddee11e-a58c-11e8-85e0-005056bbef18"
                 }
             },
+            "uuid": "8ddee11e-a58c-11e8-85e0-005056bbef18",
             "banner": "*** WARNING: This system is for the use of authorized users only. ****\n",
+            "scope": "svm",
+            "svm": {"name": "svm3", "uuid": "8ddee11e-a58c-11e8-85e0-005056bbef18"},
         }
     ),
     LoginMessages(
         {
-            "scope": "svm",
-            "svm": {"uuid": "f7e41c99-9ffa-11e8-a5dd-005056bbef18", "name": "svm2"},
-            "uuid": "f7e41c99-9ffa-11e8-a5dd-005056bbef18",
             "_links": {
                 "self": {
                     "href": "/api/security/login/messages/f7e41c99-9ffa-11e8-a5dd-005056bbef18"
                 }
             },
+            "uuid": "f7e41c99-9ffa-11e8-a5dd-005056bbef18",
+            "scope": "svm",
+            "svm": {"name": "svm2", "uuid": "f7e41c99-9ffa-11e8-a5dd-005056bbef18"},
         }
     ),
 ]
@@ -103,16 +103,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LoginMessages(
         {
-            "scope": "cluster",
-            "show_cluster_message": True,
             "message": "#### Welcome to Cluster X ####\n",
-            "uuid": "2581e5aa-9fe3-11e8-b309-005056bbef18",
             "_links": {
                 "self": {
                     "href": "/api/security/login/messages/2581e5aa-9fe3-11e8-b309-005056bbef18"
                 }
             },
+            "show_cluster_message": True,
+            "uuid": "2581e5aa-9fe3-11e8-b309-005056bbef18",
             "banner": "*** WARNING: DO NOT PROCEED IF YOU ARE NOT AUTHORIZED! ****\n",
+            "scope": "cluster",
         }
     )
 ]
@@ -140,14 +140,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LoginMessages(
         {
-            "scope": "cluster",
-            "uuid": "2581e5aa-9fe3-11e8-b309-005056bbef18",
             "_links": {
                 "self": {
                     "href": "/api/security/login/messages/2581e5aa-9fe3-11e8-b309-005056bbef18"
                 }
             },
+            "uuid": "2581e5aa-9fe3-11e8-b309-005056bbef18",
             "banner": "*** WARNING: DO NOT PROCEED IF YOU ARE NOT AUTHORIZED! ****\n",
+            "scope": "cluster",
         }
     )
 ]
@@ -175,16 +175,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LoginMessages(
         {
-            "scope": "svm",
-            "show_cluster_message": True,
             "message": "#### Welcome to SVM1 ####\n",
-            "svm": {"uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18", "name": "svm1"},
-            "uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18",
             "_links": {
                 "self": {
                     "href": "/api/security/login/messages/7b1b3715-9ffa-11e8-a5dd-005056bbef18"
                 }
             },
+            "show_cluster_message": True,
+            "uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18",
+            "scope": "svm",
+            "svm": {"name": "svm1", "uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18"},
         }
     )
 ]
@@ -213,16 +213,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 LoginMessages(
     {
-        "scope": "svm",
-        "show_cluster_message": True,
         "message": "#### Welcome to SVM1 ####\n",
-        "svm": {"uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18", "name": "svm1"},
-        "uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18",
         "_links": {
             "self": {
                 "href": "/api/security/login/messages/7b1b3715-9ffa-11e8-a5dd-005056bbef18"
             }
         },
+        "show_cluster_message": True,
+        "uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18",
+        "scope": "svm",
+        "svm": {"name": "svm1", "uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18"},
     }
 )
 
@@ -325,11 +325,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -343,11 +342,15 @@ __pdoc__ = {
     "LoginMessagesSchema.opts": False,
 }
 
-
 class LoginMessagesSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LoginMessages object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the login_messages."""
 
     banner = marshmallow_fields.Str(
@@ -397,7 +400,12 @@ when logging in as an SVM administrator.
 This setting can only be modified by cluster administrators.
 Optional in the PATCH body."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the login_messages."""
 
     uuid = marshmallow_fields.Str(

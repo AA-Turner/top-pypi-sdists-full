@@ -1,21 +1,20 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 import sys
+
 import contrast
 from contrast.agent import scope
 from contrast.agent.assess.policy.source_policy import apply_stream_source
-from contrast.agent.policy import patch_manager
 from contrast.agent.middlewares.route_coverage import common
-
+from contrast.agent.policy import patch_manager
+from contrast.utils.decorators import fail_quietly
 from contrast.utils.patch_utils import (
     build_and_apply_patch,
+    register_module_patcher,
     unregister_module_patcher,
     wrap_and_watermark,
-    register_module_patcher,
 )
-from contrast.utils.decorators import fail_quietly
 from contrast_vendor import structlog as logging
-
 
 FALCON_MULTIPART_MIDDLEWARE_MODULE = "falcon_multipart.middleware"
 FALCON_MULTIPART_MIDDLEWARE_CLASS = "MultipartMiddleware"
@@ -105,9 +104,9 @@ def do_falcon_first_request_analysis(falcon_instance):
         create_falcon_routes,
     )
 
-    from contrast.agent import agent_state
+    context = contrast.REQUEST_CONTEXT.get()
 
-    if not agent_state.is_first_request():
+    if context is None or not context.first_request or not context.assess_enabled:
         return
 
     common.handle_route_discovery("falcon", create_falcon_routes, (falcon_instance,))

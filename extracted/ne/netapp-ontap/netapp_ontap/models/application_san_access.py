@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ApplicationSanAccess", "ApplicationSanAccessSchema"]
@@ -17,17 +16,29 @@ __pdoc__ = {
     "ApplicationSanAccess": False,
 }
 
-
 class ApplicationSanAccessSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ApplicationSanAccess object"""
 
-    backing_storage = marshmallow_fields.Nested("netapp_ontap.models.application_san_access_backing_storage.ApplicationSanAccessBackingStorageSchema", unknown=EXCLUDE, data_key="backing_storage", allow_none=True)
+    backing_storage = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.application_san_access_backing_storage", "ApplicationSanAccessBackingStorageSchema"),
+                unknown=EXCLUDE,
+                data_key="backing_storage",
+                allow_none=True
+            )
     r""" The backing_storage field of the application_san_access. """
 
     is_clone = marshmallow_fields.Boolean(data_key="is_clone", allow_none=True)
     r""" Clone """
 
-    lun_mappings = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.application_lun_mapping_object.ApplicationLunMappingObjectSchema", unknown=EXCLUDE, allow_none=True), data_key="lun_mappings", allow_none=True)
+    lun_mappings = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.application_lun_mapping_object", "ApplicationLunMappingObjectSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="lun_mappings",
+                allow_none=True
+                )
     r""" The lun_mappings field of the application_san_access. """
 
     serial_number = marshmallow_fields.Str(data_key="serial_number", allow_none=True)

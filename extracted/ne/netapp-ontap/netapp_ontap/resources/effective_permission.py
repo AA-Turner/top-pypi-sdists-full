@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -10,7 +10,7 @@ This API displays the effective permission granted to a Windows or UNIX user on 
 ### Retrieving the effective permission for the specified Windows user on the specified path of an SVM.
 ```
 # The API:
-curl -X GET "https://10.63.26.252/api/protocols/file-security/effective-permissions/cf5f271a-1beb-11ea-8fad-005056bb645e/administrator/windows/%2F?share.name=sh1&return_records=true" -H "accept: application/json" -H "authorization: Basic YWRtaW46bmV0YXBwMSE="
+curl -X GET "https://10.63.26.252/api/protocols/file-security/effective-permissions/cf5f271a-1beb-11ea-8fad-005056bb645e/administrator/windows/%2F?share.name=sh1&return_records=true" -H "accept: application/json" -H "authorization: Basic <CREDENTIALS>"
 # The response:
 {
   "svm": {
@@ -54,11 +54,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -71,7 +70,6 @@ __pdoc__ = {
     "EffectivePermissionSchema.resource": False,
     "EffectivePermissionSchema.opts": False,
 }
-
 
 class EffectivePermissionSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the EffectivePermission object"""
@@ -89,13 +87,23 @@ The path is relative to the SVM root volume. If "-share-name" is specified then 
 
 Example: /dir1/dir2"""
 
-    share = marshmallow_fields.Nested("netapp_ontap.models.share.ShareSchema", data_key="share", unknown=EXCLUDE, allow_none=True)
+    share = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.share", "ShareSchema"),
+                data_key="share",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The share field of the effective_permission."""
 
     share_permissions = marshmallow_fields.List(marshmallow_fields.Str, data_key="share_permissions", allow_none=True)
     r""" Specifies the effective permission granted to a user on the specified file or folder path."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the effective_permission."""
 
     type = marshmallow_fields.Str(

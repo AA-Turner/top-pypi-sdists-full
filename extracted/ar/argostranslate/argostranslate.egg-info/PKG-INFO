@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: argostranslate
-Version: 1.10.0
+Version: 1.11.0
 Summary: Open-source neural machine translation library based on OpenNMT's CTranslate2
 Home-page: https://www.argosopentech.com
 Author: Argos Open Technologies, LLC

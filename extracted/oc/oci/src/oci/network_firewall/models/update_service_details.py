@@ -38,14 +38,21 @@ class UpdateServiceDetails(object):
             Allowed values for this property are: "TCP_SERVICE", "UDP_SERVICE"
         :type type: str
 
+        :param description:
+            The value to assign to the description property of this UpdateServiceDetails.
+        :type description: str
+
         """
         self.swagger_types = {
-            'type': 'str'
+            'type': 'str',
+            'description': 'str'
         }
         self.attribute_map = {
-            'type': 'type'
+            'type': 'type',
+            'description': 'description'
         }
         self._type = None
+        self._description = None
 
     @staticmethod
     def get_subtype(object_dictionary):
@@ -93,6 +100,30 @@ class UpdateServiceDetails(object):
                 f"Invalid value for `type`, must be None or one of {allowed_values}"
             )
         self._type = type
+
+    @property
+    def description(self):
+        """
+        Gets the description of this UpdateServiceDetails.
+        The description of the service. This field can be used to add additional info.
+
+
+        :return: The description of this UpdateServiceDetails.
+        :rtype: str
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """
+        Sets the description of this UpdateServiceDetails.
+        The description of the service. This field can be used to add additional info.
+
+
+        :param description: The description of this UpdateServiceDetails.
+        :type: str
+        """
+        self._description = description
 
     def __repr__(self):
         return formatted_flat_dict(self)

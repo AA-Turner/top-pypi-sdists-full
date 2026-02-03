@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["SecurityKeyManagerExternal", "SecurityKeyManagerExternalSchema"]
@@ -17,17 +16,37 @@ __pdoc__ = {
     "SecurityKeyManagerExternal": False,
 }
 
-
 class SecurityKeyManagerExternalSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SecurityKeyManagerExternal object"""
 
-    client_certificate = marshmallow_fields.Nested("netapp_ontap.resources.security_certificate.SecurityCertificateSchema", unknown=EXCLUDE, data_key="client_certificate", allow_none=True)
+    client_certificate = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.security_certificate", "SecurityCertificateSchema"),
+                unknown=EXCLUDE,
+                data_key="client_certificate",
+                allow_none=True
+            )
     r""" The client_certificate field of the security_key_manager_external. """
 
-    server_ca_certificates = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.security_certificate.SecurityCertificateSchema", unknown=EXCLUDE, allow_none=True), data_key="server_ca_certificates", allow_none=True)
+    server_ca_certificates = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.security_certificate", "SecurityCertificateSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="server_ca_certificates",
+                allow_none=True
+                )
     r""" The array of certificates that are common for all the keyservers per SVM. """
 
-    servers = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.key_server_readcreate.KeyServerReadcreateSchema", unknown=EXCLUDE, allow_none=True), data_key="servers", allow_none=True)
+    servers = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.key_server_readcreate", "KeyServerReadcreateSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="servers",
+                allow_none=True
+                )
     r""" The set of external key servers. """
 
     @property

@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["PerformanceMetricRawReducedThroughput", "PerformanceMetricRawReducedThroughputSchema"]
@@ -17,14 +16,23 @@ __pdoc__ = {
     "PerformanceMetricRawReducedThroughput": False,
 }
 
-
 class PerformanceMetricRawReducedThroughputSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the PerformanceMetricRawReducedThroughput object"""
 
-    iops_raw = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type.PerformanceMetricIoTypeSchema", unknown=EXCLUDE, data_key="iops_raw", allow_none=True)
+    iops_raw = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type", "PerformanceMetricIoTypeSchema"),
+                unknown=EXCLUDE,
+                data_key="iops_raw",
+                allow_none=True
+            )
     r""" The iops_raw field of the performance_metric_raw_reduced_throughput. """
 
-    latency_raw = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type.PerformanceMetricIoTypeSchema", unknown=EXCLUDE, data_key="latency_raw", allow_none=True)
+    latency_raw = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type", "PerformanceMetricIoTypeSchema"),
+                unknown=EXCLUDE,
+                data_key="latency_raw",
+                allow_none=True
+            )
     r""" The latency_raw field of the performance_metric_raw_reduced_throughput. """
 
     status = marshmallow_fields.Str(data_key="status", allow_none=True)
@@ -44,7 +52,12 @@ Valid choices:
 * inconsistent_old_data
 * partial_no_uuid """
 
-    throughput_raw = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type_rwt.PerformanceMetricIoTypeRwtSchema", unknown=EXCLUDE, data_key="throughput_raw", allow_none=True)
+    throughput_raw = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type_rwt", "PerformanceMetricIoTypeRwtSchema"),
+                unknown=EXCLUDE,
+                data_key="throughput_raw",
+                allow_none=True
+            )
     r""" The throughput_raw field of the performance_metric_raw_reduced_throughput. """
 
     timestamp = ImpreciseDateTime(data_key="timestamp", allow_none=True)

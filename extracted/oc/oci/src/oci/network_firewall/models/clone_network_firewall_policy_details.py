@@ -28,6 +28,10 @@ class CloneNetworkFirewallPolicyDetails(object):
             The value to assign to the compartment_id property of this CloneNetworkFirewallPolicyDetails.
         :type compartment_id: str
 
+        :param description:
+            The value to assign to the description property of this CloneNetworkFirewallPolicyDetails.
+        :type description: str
+
         :param freeform_tags:
             The value to assign to the freeform_tags property of this CloneNetworkFirewallPolicyDetails.
         :type freeform_tags: dict(str, str)
@@ -40,17 +44,20 @@ class CloneNetworkFirewallPolicyDetails(object):
         self.swagger_types = {
             'display_name': 'str',
             'compartment_id': 'str',
+            'description': 'str',
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))'
         }
         self.attribute_map = {
             'display_name': 'displayName',
             'compartment_id': 'compartmentId',
+            'description': 'description',
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags'
         }
         self._display_name = None
         self._compartment_id = None
+        self._description = None
         self._freeform_tags = None
         self._defined_tags = None
 
@@ -105,6 +112,30 @@ class CloneNetworkFirewallPolicyDetails(object):
         :type: str
         """
         self._compartment_id = compartment_id
+
+    @property
+    def description(self):
+        """
+        Gets the description of this CloneNetworkFirewallPolicyDetails.
+        The description of the network firewall policy. This field can be used to add additional info.
+
+
+        :return: The description of this CloneNetworkFirewallPolicyDetails.
+        :rtype: str
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """
+        Sets the description of this CloneNetworkFirewallPolicyDetails.
+        The description of the network firewall policy. This field can be used to add additional info.
+
+
+        :param description: The description of this CloneNetworkFirewallPolicyDetails.
+        :type: str
+        """
+        self._description = description
 
     @property
     def freeform_tags(self):

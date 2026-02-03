@@ -12,8 +12,10 @@ from oci.decorators import init_model_state_from_kwargs
 @init_model_state_from_kwargs
 class NatRuleSummary(object):
     """
-    Summary of NAT Rules used in the firewall policy.
-    A Nat Rule is used to define which traffic NAT should be applied by the firewall, and how it should do so.
+    Summary of NAT rules used in the firewall policy.
+    A `NAT rule`__ defines which traffic NAT should be applied to by the firewall, and how it should do so.
+
+    __ https://docs.cloud.oracle.com/iaas/Content/network-firewall/policies.htm#network-firewall-policies__nat
     """
 
     #: A constant which can be used with the type property of a NatRuleSummary.
@@ -89,7 +91,7 @@ class NatRuleSummary(object):
     def name(self):
         """
         **[Required]** Gets the name of this NatRuleSummary.
-        Name for the nat rule, must be unique within the policy.
+        Name for the NAT rule, must be unique within the policy.
 
 
         :return: The name of this NatRuleSummary.
@@ -101,7 +103,7 @@ class NatRuleSummary(object):
     def name(self, name):
         """
         Sets the name of this NatRuleSummary.
-        Name for the nat rule, must be unique within the policy.
+        Name for the NAT rule, must be unique within the policy.
 
 
         :param name: The name of this NatRuleSummary.
@@ -195,7 +197,9 @@ class NatRuleSummary(object):
     def parent_resource_id(self):
         """
         **[Required]** Gets the parent_resource_id of this NatRuleSummary.
-        OCID of the Network Firewall Policy this application belongs to.
+        The `OCID`__ of the Network Firewall Policy this NAT rule belongs to.
+
+        __ https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm
 
 
         :return: The parent_resource_id of this NatRuleSummary.
@@ -207,7 +211,9 @@ class NatRuleSummary(object):
     def parent_resource_id(self, parent_resource_id):
         """
         Sets the parent_resource_id of this NatRuleSummary.
-        OCID of the Network Firewall Policy this application belongs to.
+        The `OCID`__ of the Network Firewall Policy this NAT rule belongs to.
+
+        __ https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm
 
 
         :param parent_resource_id: The parent_resource_id of this NatRuleSummary.

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -31,15 +31,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Totp(
     {
-        "sha_fingerprint": "21364f5417600e3d9d6a7ac6c05dd244aed9f15dce6786a2c89399a41ff0fdb0",
-        "scope": "cluster",
-        "owner": {
-            "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16",
-            "name": "Default",
-            "_links": {
-                "self": {"href": "/api/svm/svms/b009a9e7-4081-b576-7575-ada21efcaf16"}
-            },
-        },
         "account": {
             "_links": {
                 "self": {
@@ -53,6 +44,15 @@ Totp(
                 "href": "/api/security/login/totps/b009a9e7-4081-b576-7575-ada21efcaf16/pubuser2"
             }
         },
+        "owner": {
+            "name": "Default",
+            "_links": {
+                "self": {"href": "/api/svm/svms/b009a9e7-4081-b576-7575-ada21efcaf16"}
+            },
+            "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16",
+        },
+        "sha_fingerprint": "21364f5417600e3d9d6a7ac6c05dd244aed9f15dce6786a2c89399a41ff0fdb0",
+        "scope": "cluster",
     }
 )
 
@@ -99,11 +99,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -117,14 +116,23 @@ __pdoc__ = {
     "TotpSchema.opts": False,
 }
 
-
 class TotpSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Totp object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the totp."""
 
-    account = marshmallow_fields.Nested("netapp_ontap.resources.account.AccountSchema", data_key="account", unknown=EXCLUDE, allow_none=True)
+    account = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.account", "AccountSchema"),
+                data_key="account",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The account field of the totp."""
 
     comment = marshmallow_fields.Str(
@@ -141,7 +149,12 @@ class TotpSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: false"""
 
-    owner = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="owner", unknown=EXCLUDE, allow_none=True)
+    owner = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="owner",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The owner field of the totp."""
 
     scope = marshmallow_fields.Str(

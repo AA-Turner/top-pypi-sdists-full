@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,16 +26,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 EmsFilter(
     {
+        "_links": {"self": {"href": "/api/support/ems/filters/aggregate-events"}},
+        "name": "aggregate-events",
         "rules": [
             {
+                "parameter_criteria": [
+                    {"name_pattern": "type", "value_pattern": "aggregate"}
+                ],
                 "message_criteria": {
-                    "name_pattern": "*",
                     "snmp_trap_types": "*",
                     "_links": {
                         "related": {
                             "href": "/api/support/ems/messages?name=*&severity=emergency,alert,error,notice&snmp_trap_type=*"
                         }
                     },
+                    "name_pattern": "*",
                     "severities": "emergency,alert,error,notice",
                 },
                 "_links": {
@@ -43,21 +48,19 @@ EmsFilter(
                         "href": "/api/support/ems/filters/aggregate-events/rules/1"
                     }
                 },
-                "parameter_criteria": [
-                    {"name_pattern": "type", "value_pattern": "aggregate"}
-                ],
-                "type": "include",
                 "index": 1,
+                "type": "include",
             },
             {
+                "parameter_criteria": [{"name_pattern": "*", "value_pattern": "*"}],
                 "message_criteria": {
-                    "name_pattern": "*",
                     "snmp_trap_types": "*",
                     "_links": {
                         "related": {
                             "href": "/api/support/ems/messages?name=*&severity=*&snmp_trap_type=*"
                         }
                     },
+                    "name_pattern": "*",
                     "severities": "*",
                 },
                 "_links": {
@@ -65,13 +68,10 @@ EmsFilter(
                         "href": "/api/support/ems/filters/aggregate-events/rules/2"
                     }
                 },
-                "parameter_criteria": [{"name_pattern": "*", "value_pattern": "*"}],
-                "type": "exclude",
                 "index": 2,
+                "type": "exclude",
             },
         ],
-        "_links": {"self": {"href": "/api/support/ems/filters/aggregate-events"}},
-        "name": "aggregate-events",
     }
 )
 
@@ -112,11 +112,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -130,14 +129,23 @@ __pdoc__ = {
     "EmsFilterSchema.opts": False,
 }
 
-
 class EmsFilterSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the EmsFilter object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the ems_filter."""
 
-    access_control_role = marshmallow_fields.Nested("netapp_ontap.resources.role.RoleSchema", data_key="access_control_role", unknown=EXCLUDE, allow_none=True)
+    access_control_role = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.role", "RoleSchema"),
+                data_key="access_control_role",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The access_control_role field of the ems_filter."""
 
     name = marshmallow_fields.Str(
@@ -148,7 +156,15 @@ class EmsFilterSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: wafl-critical-events"""
 
-    rules = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.ems_filter_rule.EmsFilterRuleSchema", unknown=EXCLUDE, allow_none=True), data_key="rules", allow_none=True)
+    rules = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.ems_filter_rule", "EmsFilterRuleSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="rules",
+                allow_none=True
+            )
     r""" Array of event filter rules on which to match."""
 
     system_defined = marshmallow_fields.Boolean(

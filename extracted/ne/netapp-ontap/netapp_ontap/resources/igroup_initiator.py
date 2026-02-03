@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -10,11 +10,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -28,11 +27,15 @@ __pdoc__ = {
     "IgroupInitiatorSchema.opts": False,
 }
 
-
 class IgroupInitiatorSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the IgroupInitiator object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the igroup_initiator."""
 
     comment = marshmallow_fields.Str(
@@ -42,10 +45,20 @@ class IgroupInitiatorSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" A comment available for use by the administrator. Valid in POST and PATCH."""
 
-    connectivity_tracking = marshmallow_fields.Nested("netapp_ontap.models.igroup_initiator_connectivity_tracking.IgroupInitiatorConnectivityTrackingSchema", data_key="connectivity_tracking", unknown=EXCLUDE, allow_none=True)
+    connectivity_tracking = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.igroup_initiator_connectivity_tracking", "IgroupInitiatorConnectivityTrackingSchema"),
+                data_key="connectivity_tracking",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Overview of the initiator's connections to ONTAP."""
 
-    igroup = marshmallow_fields.Nested("netapp_ontap.resources.igroup.IgroupSchema", data_key="igroup", unknown=EXCLUDE, allow_none=True)
+    igroup = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.igroup", "IgroupSchema"),
+                data_key="igroup",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The igroup field of the igroup_initiator."""
 
     name = marshmallow_fields.Str(
@@ -59,11 +72,24 @@ An FC WWPN consists of 16 hexadecimal digits grouped as 8 pairs separated by col
 
 Example: iqn.1998-01.com.corp.iscsi:name1"""
 
-    proximity = marshmallow_fields.Nested("netapp_ontap.models.igroup_initiator_proximity.IgroupInitiatorProximitySchema", data_key="proximity", unknown=EXCLUDE, allow_none=True)
+    proximity = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.igroup_initiator_proximity", "IgroupInitiatorProximitySchema"),
+                data_key="proximity",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Properties that define to what SVMs the initiator is proximal. This information is used to properly report active optimized and active non-optimized network paths via ALUA. If no configuration has been specified for an initiator, the sub-object will not be present in GET.<br/>
 These properties can be set via initiator group POST and PATCH and apply to all instances of the initiator in all initiator groups in the SVM and its peers. The `proximity` sub-object for an initiator is set in POST and PATCH in its entirety and replaces any previously set proximity for the initiator within the SVM for the initiator within the SVM. The `local_svm` property must always be set to `true` or `false` when setting the `proximity` property. To clear any previously set proximity, POST or PATCH the `proximity` object to `null`."""
 
-    records = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.igroup_initiator_no_records.IgroupInitiatorNoRecordsSchema", unknown=EXCLUDE, allow_none=True), data_key="records", allow_none=True)
+    records = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.igroup_initiator_no_records", "IgroupInitiatorNoRecordsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="records",
+                allow_none=True
+            )
     r""" An array of initiators specified to add multiple initiators to an initiator group in a single API call. Not allowed when the `name` property is used."""
 
     @property

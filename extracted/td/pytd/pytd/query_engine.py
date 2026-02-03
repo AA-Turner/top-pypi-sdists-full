@@ -2,45 +2,62 @@ import abc
 import importlib.metadata
 import logging
 import os
+from typing import Any, TypeAlias, TypedDict
 from urllib.parse import urlparse
 
 import tdclient
 import trino
+from tdclient.connection import Connection as TDClientConnection
+from tdclient.cursor import Cursor as TDClientCursor
 
 __version__ = importlib.metadata.version("pytd")
 
 logger = logging.getLogger(__name__)
 
 
+class QueryResult(TypedDict):
+    """Query execution result."""
+
+    data: list[list[Any]]
+    columns: list[str] | None
+
+
 class CustomTrinoCursor(trino.dbapi.Cursor):
     """Custom Trino cursor that supports user-agent override."""
 
-    def __init__(self, connection, request, user_agent, legacy_primitive_types=False):
-        super().__init__(connection, request, legacy_primitive_types)
+    def __init__(
+        self,
+        connection: trino.dbapi.Connection,
+        request: trino.client.TrinoRequest,
+        user_agent: str,
+        legacy_primitive_types: bool = False,
+    ) -> None:
+        super().__init__(connection, request, legacy_primitive_types)  # type: ignore[misc]
         self._custom_user_agent = user_agent
 
-    def execute(self, operation, params=None):
+    def execute(
+        self, operation: str, params: list[Any] | tuple[Any, ...] | None = None
+    ) -> "CustomTrinoCursor":
         # Prepare additional headers with custom user-agent
         additional_headers = {"User-Agent": self._custom_user_agent}
 
         if params:
-            assert isinstance(params, (list, tuple)), (
-                "params must be a list or tuple containing the query "
-                "parameter values"
+            assert isinstance(params, list | tuple), (
+                "params must be a list or tuple containing the query parameter values"
             )
 
-            if self.connection._use_legacy_prepared_statements():
+            if self.connection._use_legacy_prepared_statements():  # type: ignore[attr-defined]
                 statement_name = self._generate_unique_statement_name()
                 self._prepare_statement(operation, statement_name)
 
                 try:
                     # Send execute statement and assign the return value to `results`
                     # as it will be returned by the function
-                    self._query = self._execute_prepared_statement(
+                    self._query = self._execute_prepared_statement(  # type: ignore[misc]
                         statement_name, params
                     )
-                    self._iterator = iter(
-                        self._query.execute(additional_http_headers=additional_headers)
+                    self._iterator = iter(  # type: ignore[misc]
+                        self._query.execute(additional_http_headers=additional_headers)  # type: ignore[misc]
                     )
                 finally:
                     # Send deallocate statement
@@ -49,21 +66,25 @@ class CustomTrinoCursor(trino.dbapi.Cursor):
                     # TODO: Consider caching prepared statements if requested by caller
                     self._deallocate_prepared_statement(statement_name)
             else:
-                self._query = self._execute_immediate_statement(operation, params)
-                self._iterator = iter(
-                    self._query.execute(additional_http_headers=additional_headers)
+                self._query = self._execute_immediate_statement(operation, params)  # type: ignore[misc]
+                self._iterator = iter(  # type: ignore[misc]
+                    self._query.execute(additional_http_headers=additional_headers)  # type: ignore[misc]
                 )
 
         else:
             self._query = trino.client.TrinoQuery(
-                self._request,
+                self._request,  # type: ignore[misc]
                 query=operation,
                 legacy_primitive_types=self._legacy_primitive_types,
             )
-            self._iterator = iter(
-                self._query.execute(additional_http_headers=additional_headers)
+            self._iterator = iter(  # type: ignore[misc]
+                self._query.execute(additional_http_headers=additional_headers)  # type: ignore[misc]
             )
         return self
+
+
+# Type alias for cursor types returned by query engines
+Cursor: TypeAlias = CustomTrinoCursor | TDClientCursor
 
 
 class QueryEngine(metaclass=abc.ABCMeta):
@@ -84,21 +105,23 @@ class QueryEngine(metaclass=abc.ABCMeta):
         Prepend comment strings, in the form "-- comment", as a header of queries.
     """
 
-    def __init__(self, apikey, endpoint, database, header):
+    def __init__(
+        self, apikey: str, endpoint: str, database: str, header: str | bool
+    ) -> None:
         if len(urlparse(endpoint).scheme) == 0:
             endpoint = f"https://{endpoint}"
-        self.apikey = apikey
-        self.endpoint = endpoint
-        self.database = database
-        self.header = header
-        self.executed = None
+        self.apikey: str = apikey
+        self.endpoint: str = endpoint
+        self.database: str = database
+        self.header: str | bool = header
+        self.executed: str | trino.client.TrinoResult | None = None
 
     @property
-    def user_agent(self):
+    def user_agent(self) -> str:
         """User agent passed to a query engine connection."""
         return f"pytd/{__version__}"
 
-    def execute(self, query, **kwargs):
+    def execute(self, query: str, **kwargs: Any) -> QueryResult:
         """Execute a given SQL statement and return results.
 
         Executed result returned by Cursor object is stored in
@@ -129,7 +152,7 @@ class QueryEngine(metaclass=abc.ABCMeta):
             - ``wait_callback`` (function): called every interval against job itself
             - ``engine_version`` (str): run query with Hive 2 if this parameter
               is set to ``"stable"`` in ``HiveQueryEngine``.
-              https://docs.treasuredata.com/display/public/PD/Writing+Hive+Queries
+              https://api-docs.treasuredata.com/en/tools/hive/writing_hive_queries
 
             Meanwhile, when a following argument is set to ``True``, query is
             deterministically issued via ``tdclient``.
@@ -147,14 +170,16 @@ class QueryEngine(metaclass=abc.ABCMeta):
                 List of column names.
         """
         cur = self.cursor(**kwargs)
-        self.executed = cur.execute(query)
+        self.executed = cur.execute(query)  # type: ignore[assignment]
         rows = cur.fetchall()
         # cur.description is None for CREATE and DROP statements in recent version of
         # Trino
         columns = [desc[0] for desc in cur.description] if cur.description else None
         return {"data": rows, "columns": columns}
 
-    def create_header(self, extra_lines=[]):
+    def create_header(
+        self, extra_lines: str | list[str] | tuple[str, ...] | None = None
+    ) -> str:
         """Build header comments.
 
         Parameters
@@ -168,6 +193,9 @@ class QueryEngine(metaclass=abc.ABCMeta):
         -------
         str
         """
+        if extra_lines is None:
+            extra_lines = []
+
         if self.header is False:
             return ""
 
@@ -178,24 +206,26 @@ class QueryEngine(metaclass=abc.ABCMeta):
 
         if isinstance(extra_lines, str):
             header += f"-- {extra_lines}\n"
-        elif isinstance(extra_lines, (list, tuple)):
+        elif extra_lines:  # list or tuple
             header += "".join([f"-- {line}\n" for line in extra_lines])
 
         return header
 
     @abc.abstractmethod
-    def cursor(self, force_tdclient=False, **kwargs):
+    def cursor(self, force_tdclient: bool = False, **kwargs: Any) -> Cursor:
         pass
 
     @abc.abstractmethod
-    def close(self):
+    def close(self) -> None:
         pass
 
     @abc.abstractmethod
-    def _connect(self):
+    def _connect(self) -> Any:
         pass
 
-    def _get_tdclient_cursor(self, con, **kwargs):
+    def _get_tdclient_cursor(
+        self, con: TDClientConnection, **kwargs: Any
+    ) -> TDClientCursor:
         """Get DB-API cursor from tdclient Connection instance.
 
         ``kwargs`` are for setting specific parameters to Treasure Data REST
@@ -235,7 +265,7 @@ class QueryEngine(metaclass=abc.ABCMeta):
             - ``wait_callback`` (function): called every interval against job itself
             - ``engine_version`` (str): run query with Hive 2 if this parameter
               is set to ``"stable"`` in ``HiveQueryEngine``.
-              https://docs.treasuredata.com/display/public/PD/Writing+Hive+Queries
+              https://api-docs.treasuredata.com/en/tools/hive/writing_hive_queries
 
         Returns
         -------
@@ -261,7 +291,7 @@ class QueryEngine(metaclass=abc.ABCMeta):
             )
 
         # update a clone of the original params
-        cursor_kwargs = con._cursor_kwargs.copy()
+        cursor_kwargs = con._cursor_kwargs.copy()  # type: ignore[attr-defined]
         for k, v in kwargs.items():
             if k not in api_param_names:
                 raise RuntimeError(
@@ -271,17 +301,17 @@ class QueryEngine(metaclass=abc.ABCMeta):
             cursor_kwargs[k] = v
 
         # keep the original `_cursor_kwargs`
-        original_cursor_kwargs = con._cursor_kwargs.copy()
+        original_cursor_kwargs = con._cursor_kwargs.copy()  # type: ignore[attr-defined]
 
         # overwrite the original params
-        con._cursor_kwargs = cursor_kwargs
+        con._cursor_kwargs = cursor_kwargs  # type: ignore[attr-defined]
 
         # `Connection#cursor` internally refers the customized
         # ``_cursor_kwargs``
         cursor = con.cursor()
 
         # write the original params back to `_cursor_kwargs`
-        con._cursor_kwargs = original_cursor_kwargs
+        con._cursor_kwargs = original_cursor_kwargs  # type: ignore[attr-defined]
 
         logger.warning(
             "returning `tdclient.cursor.Cursor`. This cursor, `Cursor#fetchone` "
@@ -310,12 +340,14 @@ class PrestoQueryEngine(QueryEngine):
         Prepend comment strings, in the form "-- comment", as a header of queries.
     """
 
-    def __init__(self, apikey, endpoint, database, header):
-        super(PrestoQueryEngine, self).__init__(apikey, endpoint, database, header)
+    def __init__(
+        self, apikey: str, endpoint: str, database: str, header: str | bool
+    ) -> None:
+        super().__init__(apikey, endpoint, database, header)
         self.trino_connection, self.tdclient_connection = self._connect()
 
     @property
-    def user_agent(self):
+    def user_agent(self) -> str:
         """User agent passed to a Presto connection."""
         return (
             f"pytd/{__version__} "
@@ -324,7 +356,7 @@ class PrestoQueryEngine(QueryEngine):
         )
 
     @property
-    def presto_api_host(self):
+    def presto_api_host(self) -> str:
         """Presto API host obtained from ``TD_PRESTO_API`` env variable or
         inferred from Treasure Data REST API endpoint.
         """
@@ -332,7 +364,7 @@ class PrestoQueryEngine(QueryEngine):
             "TD_PRESTO_API", urlparse(self.endpoint).netloc.replace("api", "api-presto")
         )
 
-    def cursor(self, force_tdclient=False, **kwargs):
+    def cursor(self, force_tdclient: bool = False, **kwargs: Any) -> Cursor:
         """Get cursor defined by DB-API.
 
         Parameters
@@ -371,19 +403,23 @@ class PrestoQueryEngine(QueryEngine):
 
             # In production, return our custom cursor with the same request object
             return CustomTrinoCursor(
-                self.trino_connection, regular_cursor._request, self.user_agent
+                self.trino_connection,
+                regular_cursor._request,  # type: ignore[attr-defined]
+                self.user_agent,  # type: ignore[attr-defined]
             )
 
         return self._get_tdclient_cursor(self.tdclient_connection, **kwargs)
 
-    def close(self):
+    def close(self) -> None:
         """Close a connection to Presto."""
         self.trino_connection.close()
         self.tdclient_connection.close()
 
-    def _connect(self):
+    def _connect(
+        self,
+    ) -> tuple[trino.dbapi.Connection, TDClientConnection]:
         # Create trino connection
-        trino_connection = trino.dbapi.connect(
+        trino_connection = trino.dbapi.connect(  # type: ignore[misc]
             host=self.presto_api_host,
             port=443,
             http_scheme="https",
@@ -422,16 +458,18 @@ class HiveQueryEngine(QueryEngine):
         Prepend comment strings, in the form "-- comment", as a header of queries.
     """
 
-    def __init__(self, apikey, endpoint, database, header):
-        super(HiveQueryEngine, self).__init__(apikey, endpoint, database, header)
+    def __init__(
+        self, apikey: str, endpoint: str, database: str, header: str | bool
+    ) -> None:
+        super().__init__(apikey, endpoint, database, header)
         self.engine = self._connect()
 
     @property
-    def user_agent(self):
+    def user_agent(self) -> str:
         """User agent passed to a Hive connection."""
         return f"pytd/{__version__} (tdclient/{tdclient.__version__})"
 
-    def cursor(self, force_tdclient=True, **kwargs):
+    def cursor(self, force_tdclient: bool = True, **kwargs: Any) -> TDClientCursor:
         """Get cursor defined by DB-API.
 
         Parameters
@@ -462,7 +500,7 @@ class HiveQueryEngine(QueryEngine):
             - ``wait_callback`` (function): called every interval against job itself
             - ``engine_version`` (str): run query with Hive 2 if this parameter
               is set to ``"stable"``.
-              https://docs.treasuredata.com/display/public/PD/Writing+Hive+Queries
+              https://api-docs.treasuredata.com/en/tools/hive/writing_hive_queries
 
         Returns
         -------
@@ -470,11 +508,11 @@ class HiveQueryEngine(QueryEngine):
         """
         return self._get_tdclient_cursor(self.engine, **kwargs)
 
-    def close(self):
+    def close(self) -> None:
         """Close a connection to Hive."""
         self.engine.close()
 
-    def _connect(self):
+    def _connect(self) -> TDClientConnection:
         return tdclient.connect(
             apikey=self.apikey,
             endpoint=self.endpoint,

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -51,11 +51,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -69,17 +68,31 @@ __pdoc__ = {
     "LunMapReportingNodeSchema.opts": False,
 }
 
-
 class LunMapReportingNodeSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LunMapReportingNode object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.lun_map_reporting_nodes_links.LunMapReportingNodesLinksSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.lun_map_reporting_nodes_links", "LunMapReportingNodesLinksSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the lun_map_reporting_node."""
 
-    igroup = marshmallow_fields.Nested("netapp_ontap.models.lun_map_reporting_node_igroup.LunMapReportingNodeIgroupSchema", data_key="igroup", unknown=EXCLUDE, allow_none=True)
+    igroup = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.lun_map_reporting_node_igroup", "LunMapReportingNodeIgroupSchema"),
+                data_key="igroup",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The initiator group of the LUN map of the reporting node."""
 
-    lun = marshmallow_fields.Nested("netapp_ontap.models.lun_map_reporting_node_lun.LunMapReportingNodeLunSchema", data_key="lun", unknown=EXCLUDE, allow_none=True)
+    lun = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.lun_map_reporting_node_lun", "LunMapReportingNodeLunSchema"),
+                data_key="lun",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The LUN of the LUN map of the reporting node."""
 
     name = marshmallow_fields.Str(

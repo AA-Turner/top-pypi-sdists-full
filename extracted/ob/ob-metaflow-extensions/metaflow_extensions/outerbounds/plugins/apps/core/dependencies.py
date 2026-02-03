@@ -72,10 +72,10 @@ def bake_deployment_image(
         pypi_packages = parsed_packages.get("packages", {})
         python_version = parsed_packages.get("python_version", python_version)
 
-    elif "pypi" in dependencies:
+    elif dependencies.get("pypi"):
         pypi_packages = dependencies.get("pypi", {}) or {}
 
-    if "conda" in dependencies:
+    elif dependencies.get("conda"):
         conda_packages = dependencies.get("conda", {}) or {}
     if "python" in dependencies:
         python_version = dependencies.get("python", python_version) or python_version
@@ -93,7 +93,11 @@ def bake_deployment_image(
         )
 
     pinned_conda_libs = get_pinned_conda_libs(python_version, DEFAULT_DATASTORE)
-    pypi_packages.update(pinned_conda_libs)
+    if len(conda_packages) > 0:
+        conda_packages.update(pinned_conda_libs)
+    else:
+        pypi_packages.update(pinned_conda_libs)
+
     _reference = app_config.get("name", "default")
     # `image` cannot be None. If by chance it is none, FB will fart.
     fb_response = internal_bake_image(

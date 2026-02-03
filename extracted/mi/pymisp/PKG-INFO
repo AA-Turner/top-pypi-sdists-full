@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymisp
-Version: 2.5.32
+Version: 2.5.32.2
 Summary: Python API for MISP.
 License-Expression: BSD-2-Clause
 License-File: LICENSE
@@ -32,19 +32,19 @@ Provides-Extra: virustotal
 Requires-Dist: RTFDE (>=0.1.2.2) ; (python_version <= "3.10") and (extra == "email")
 Requires-Dist: beautifulsoup4 (>=4.13.5,<4.14) ; extra == "openioc"
 Requires-Dist: deprecated (>=1.3.1)
-Requires-Dist: docutils (<0.22) ; (python_version >= "3.12") and (extra == "docs")
+Requires-Dist: docutils (>=0.22.4) ; (python_version >= "3.12") and (extra == "docs")
 Requires-Dist: extract_msg (>=0.55.0) ; extra == "email"
-Requires-Dist: lief (>=0.17.2) ; extra == "fileobjects"
-Requires-Dist: myst-parser (>=4.0.1) ; (python_version >= "3.12") and (extra == "docs")
+Requires-Dist: lief (>=0.17.3) ; extra == "fileobjects"
+Requires-Dist: myst-parser (>=5.0.0) ; (python_version >= "3.12") and (extra == "docs")
 Requires-Dist: oletools (>=0.60.2) ; extra == "email"
-Requires-Dist: pure-magic-rs (>=0.2.4) ; extra == "fileobjects"
+Requires-Dist: pure-magic-rs (>=0.3.1) ; extra == "fileobjects"
 Requires-Dist: pydeep2 (>=0.5.1) ; extra == "fileobjects"
 Requires-Dist: pyfaup-rs (>=0.1.2,<0.2.0) ; extra == "url"
 Requires-Dist: python-dateutil (>=2.9.0.post0)
-Requires-Dist: reportlab (>=4.4.7) ; extra == "pdfexport"
+Requires-Dist: reportlab (>=4.4.9) ; extra == "pdfexport"
 Requires-Dist: requests (>=2.32.5)
-Requires-Dist: sphinx (<9) ; (python_version >= "3.12") and (extra == "docs")
-Requires-Dist: sphinx-autodoc-typehints (<3.6) ; (python_version >= "3.12") and (extra == "docs")
+Requires-Dist: sphinx (>=9.1.0) ; (python_version >= "3.12") and (extra == "docs")
+Requires-Dist: sphinx-autodoc-typehints (>=3.6.2) ; (python_version >= "3.12") and (extra == "docs")
 Requires-Dist: urllib3[broti] (>=2.6.3) ; extra == "brotli"
 Requires-Dist: validators (>=0.35.0) ; extra == "virustotal"
 Project-URL: Documentation, https://pymisp.readthedocs.io

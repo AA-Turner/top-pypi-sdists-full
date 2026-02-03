@@ -1,12 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 ## Overview
 This endpoint is used to retrieve or modify the SSH security configuration of a data SVM.<br/>
-The SSH security algorithms include key exchange algorithms, ciphers for payload encryption, MAC algorithms, host key algorithms and the maximum authentication retry attempts allowed before closing the connection. svm.uuid corresponds to the UUID of the SVM for which the SSH security setting is being retrieved or modified and it is obtained from the response body of a GET operation performed on the <i>api/security/ssh/svms</i> API.
+The SSH security algorithms include key exchange algorithms, ciphers for payload encryption, MAC algorithms, host key algorithms, SSH connection login grace time, and the maximum authentication retry attempts allowed before closing the connection. svm.uuid corresponds to the UUID of the SVM for which the SSH security setting is being retrieved or modified and it is obtained from the response body of a GET operation performed on the <i>api/security/ssh/svms</i> API.
 ## Examples
 ### Updating the SSH security parameters
 Specify the algorithms in the body of the PATCH request.
@@ -23,7 +23,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         "diffie_hellman_group16_sha512",
     ]
     resource.mac_algorithms = ["hmac_sha2_512_etm", "umac_128_etm"]
-    resource.host_key_algorithms = ["ecdsa_sha2_nistp256", "ssh_ed25519"]
+    resource.host_key_algorithms = [
+        "ecdsa_sha2_nistp256",
+        "ssh_ed25519",
+        "rsa_sha2_256",
+        "rsa_sha2_512",
+    ]
     resource.is_rsa_in_publickey_algorithms_enabled = False
     resource.max_authentication_retry_count = 3
     resource.patch()
@@ -48,28 +53,34 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SvmSshServer(
     {
-        "ciphers": ["aes256_ctr", "aes192_ctr"],
-        "max_authentication_retry_count": 3,
-        "is_rsa_in_publickey_algorithms_enabled": False,
-        "key_exchange_algorithms": [
-            "diffie_hellman_group_exchange_sha256",
-            "ecdh_sha2_nistp256",
-            "diffie_hellman_group16_sha512",
-        ],
-        "host_key_algorithms": ["ecdsa_sha2_nistp256", "ssh_ed25519"],
-        "svm": {
-            "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/02c9e252-41be-11e9-81d5-00a0986138f7"}
-            },
-        },
         "_links": {
             "self": {
                 "href": "/api/security/ssh/svms/02c9e252-41be-11e9-81d5-00a0986138f7"
             }
         },
+        "ciphers": ["aes256_ctr", "aes192_ctr"],
+        "login_grace_time": 30,
         "mac_algorithms": ["hmac_sha2_512_etm", "umac_128_etm"],
+        "max_authentication_retry_count": 3,
+        "key_exchange_algorithms": [
+            "diffie_hellman_group_exchange_sha256",
+            "ecdh_sha2_nistp256",
+            "diffie_hellman_group16_sha512",
+        ],
+        "is_rsa_in_publickey_algorithms_enabled": False,
+        "host_key_algorithms": [
+            "ecdsa_sha2_nistp256",
+            "ssh_ed25519",
+            "rsa_sha2_256",
+            "rsa_sha2_512",
+        ],
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/02c9e252-41be-11e9-81d5-00a0986138f7"}
+            },
+            "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7",
+        },
     }
 )
 
@@ -82,11 +93,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -100,11 +110,15 @@ __pdoc__ = {
     "SvmSshServerSchema.opts": False,
 }
 
-
 class SvmSshServerSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SvmSshServer object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the svm_ssh_server."""
 
     ciphers = marshmallow_fields.List(marshmallow_fields.Str, data_key="ciphers", allow_none=True)
@@ -113,9 +127,9 @@ class SvmSshServerSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 Example: ["aes256_ctr","aes192_ctr","aes128_ctr"]"""
 
     host_key_algorithms = marshmallow_fields.List(marshmallow_fields.Str, data_key="host_key_algorithms", allow_none=True)
-    r""" Host key algorithms. The host key algorithm 'ssh_ed25519' can be configured only in non-FIPS mode.
+    r""" Host key algorithms. The host key algorithms 'ssh_ed25519' and 'ssh_rsa' can be configured only in non-FIPS mode.
 
-Example: ["ecdsa_sha2_nistp256","ssh_ed25519","ssh_rsa"]"""
+Example: ["ecdsa_sha2_nistp256","ssh_ed25519","ssh_rsa","rsa_sha2_256","rsa_sha2_512"]"""
 
     is_rsa_in_publickey_algorithms_enabled = marshmallow_fields.Boolean(
         data_key="is_rsa_in_publickey_algorithms_enabled",
@@ -127,6 +141,12 @@ Example: ["ecdsa_sha2_nistp256","ssh_ed25519","ssh_rsa"]"""
     r""" Key exchange algorithms.
 
 Example: ["diffie_hellman_group_exchange_sha256","ecdh_sha2_nistp256"]"""
+
+    login_grace_time = Size(
+        data_key="login_grace_time",
+        allow_none=True,
+    )
+    r""" The login grace time allowed for SSH connection request timeout."""
 
     mac_algorithms = marshmallow_fields.List(marshmallow_fields.Str, data_key="mac_algorithms", allow_none=True)
     r""" MAC algorithms.
@@ -140,7 +160,12 @@ Example: ["hmac_sha2_512","hmac_sha2_512_etm"]"""
     )
     r""" Maximum authentication retries allowed before closing the connection."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the svm_ssh_server."""
 
     @property
@@ -153,37 +178,40 @@ Example: ["hmac_sha2_512","hmac_sha2_512_etm"]"""
         "host_key_algorithms",
         "is_rsa_in_publickey_algorithms_enabled",
         "key_exchange_algorithms",
+        "login_grace_time",
         "mac_algorithms",
         "max_authentication_retry_count",
         "svm.links",
         "svm.name",
         "svm.uuid",
     ]
-    """links,ciphers,host_key_algorithms,is_rsa_in_publickey_algorithms_enabled,key_exchange_algorithms,mac_algorithms,max_authentication_retry_count,svm.links,svm.name,svm.uuid,"""
+    """links,ciphers,host_key_algorithms,is_rsa_in_publickey_algorithms_enabled,key_exchange_algorithms,login_grace_time,mac_algorithms,max_authentication_retry_count,svm.links,svm.name,svm.uuid,"""
 
     patchable_fields = [
         "ciphers",
         "host_key_algorithms",
         "is_rsa_in_publickey_algorithms_enabled",
         "key_exchange_algorithms",
+        "login_grace_time",
         "mac_algorithms",
         "max_authentication_retry_count",
         "svm.name",
         "svm.uuid",
     ]
-    """ciphers,host_key_algorithms,is_rsa_in_publickey_algorithms_enabled,key_exchange_algorithms,mac_algorithms,max_authentication_retry_count,svm.name,svm.uuid,"""
+    """ciphers,host_key_algorithms,is_rsa_in_publickey_algorithms_enabled,key_exchange_algorithms,login_grace_time,mac_algorithms,max_authentication_retry_count,svm.name,svm.uuid,"""
 
     postable_fields = [
         "ciphers",
         "host_key_algorithms",
         "is_rsa_in_publickey_algorithms_enabled",
         "key_exchange_algorithms",
+        "login_grace_time",
         "mac_algorithms",
         "max_authentication_retry_count",
         "svm.name",
         "svm.uuid",
     ]
-    """ciphers,host_key_algorithms,is_rsa_in_publickey_algorithms_enabled,key_exchange_algorithms,mac_algorithms,max_authentication_retry_count,svm.name,svm.uuid,"""
+    """ciphers,host_key_algorithms,is_rsa_in_publickey_algorithms_enabled,key_exchange_algorithms,login_grace_time,mac_algorithms,max_authentication_retry_count,svm.name,svm.uuid,"""
 
 class SvmSshServer(Resource):
     """Allows interaction with SvmSshServer objects on the host"""
@@ -258,6 +286,7 @@ class SvmSshServer(Resource):
 * `mac_algorithms` - MAC algorithms
 * `max_authentication_retry_count` - Maximum authentication retries allowed before closing the connection
 * `is_rsa_in_publickey_algorithms_enabled` - _ssh-rsa_ enabled status for public key algorithms
+* `login_grace_time` - Login grace time allowed for SSH connection
 ### Related ONTAP commands
 * `security ssh`
 
@@ -312,6 +341,7 @@ class SvmSshServer(Resource):
 * `mac_algorithms` - MAC algorithms
 * `max_authentication_retry_count` - Maximum authentication retries allowed before closing the connection
 * `is_rsa_in_publickey_algorithms_enabled` - _ssh-rsa_ enabled status for public key algorithms
+* `login_grace_time` - Login grace time allowed for SSH connection
 ### Related ONTAP commands
 * `security ssh`
 

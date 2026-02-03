@@ -55,8 +55,7 @@ DEPRECATED_FIELDS = {
 # Field types mapping
 FIELD_TYPES = {
     "name": "string",  # Name.
-    "age-enable": "option",  # Enable/disable layer 2 age timer.   
-enable:Enable layer 2 a
+    "age-enable": "option",  # Enable/disable layer 2 age timer.    enable:Enable layer 2 ageing timer.    disa
     "age-val": "integer",  # Layer 2 table age timer value.
 }
 

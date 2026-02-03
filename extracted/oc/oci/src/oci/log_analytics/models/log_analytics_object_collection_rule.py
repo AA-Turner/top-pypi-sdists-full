@@ -556,7 +556,7 @@ class LogAnalyticsObjectCollectionRule(object):
     def log_group_id(self):
         """
         **[Required]** Gets the log_group_id of this LogAnalyticsObjectCollectionRule.
-        Logging Analytics Log group OCID to associate the processed logs with.
+        Log Analytics Log group OCID to associate the processed logs with.
 
 
         :return: The log_group_id of this LogAnalyticsObjectCollectionRule.
@@ -568,7 +568,7 @@ class LogAnalyticsObjectCollectionRule(object):
     def log_group_id(self, log_group_id):
         """
         Sets the log_group_id of this LogAnalyticsObjectCollectionRule.
-        Logging Analytics Log group OCID to associate the processed logs with.
+        Log Analytics Log group OCID to associate the processed logs with.
 
 
         :param log_group_id: The log_group_id of this LogAnalyticsObjectCollectionRule.
@@ -580,7 +580,7 @@ class LogAnalyticsObjectCollectionRule(object):
     def log_source_name(self):
         """
         **[Required]** Gets the log_source_name of this LogAnalyticsObjectCollectionRule.
-        Name of the Logging Analytics Source to use for the processing.
+        Name of the Log Analytics Source to use for the processing.
 
 
         :return: The log_source_name of this LogAnalyticsObjectCollectionRule.
@@ -592,7 +592,7 @@ class LogAnalyticsObjectCollectionRule(object):
     def log_source_name(self, log_source_name):
         """
         Sets the log_source_name of this LogAnalyticsObjectCollectionRule.
-        Name of the Logging Analytics Source to use for the processing.
+        Name of the Log Analytics Source to use for the processing.
 
 
         :param log_source_name: The log_source_name of this LogAnalyticsObjectCollectionRule.
@@ -604,7 +604,7 @@ class LogAnalyticsObjectCollectionRule(object):
     def entity_id(self):
         """
         Gets the entity_id of this LogAnalyticsObjectCollectionRule.
-        Logging Analytics entity OCID to associate the processed logs with.
+        Log Analytics entity OCID to associate the processed logs with.
 
 
         :return: The entity_id of this LogAnalyticsObjectCollectionRule.
@@ -616,7 +616,7 @@ class LogAnalyticsObjectCollectionRule(object):
     def entity_id(self, entity_id):
         """
         Sets the entity_id of this LogAnalyticsObjectCollectionRule.
-        Logging Analytics entity OCID to associate the processed logs with.
+        Log Analytics entity OCID to associate the processed logs with.
 
 
         :param entity_id: The entity_id of this LogAnalyticsObjectCollectionRule.
@@ -1010,7 +1010,7 @@ class LogAnalyticsObjectCollectionRule(object):
     def stream_id(self):
         """
         Gets the stream_id of this LogAnalyticsObjectCollectionRule.
-        A Stream OCID is required for Object Collection rules of type LIVE or HISTORIC_LIVE, which will be used by Logging Analytics while creating Event Rule and consume the event notifications created by the Object Storage.
+        A Stream OCID is required for Object Collection rules of type LIVE or HISTORIC_LIVE, which will be used by Log Analytics while creating Event Rule and consume the event notifications created by the Object Storage.
 
 
         :return: The stream_id of this LogAnalyticsObjectCollectionRule.
@@ -1022,7 +1022,7 @@ class LogAnalyticsObjectCollectionRule(object):
     def stream_id(self, stream_id):
         """
         Sets the stream_id of this LogAnalyticsObjectCollectionRule.
-        A Stream OCID is required for Object Collection rules of type LIVE or HISTORIC_LIVE, which will be used by Logging Analytics while creating Event Rule and consume the event notifications created by the Object Storage.
+        A Stream OCID is required for Object Collection rules of type LIVE or HISTORIC_LIVE, which will be used by Log Analytics while creating Event Rule and consume the event notifications created by the Object Storage.
 
 
         :param stream_id: The stream_id of this LogAnalyticsObjectCollectionRule.

@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["GivebackStatus", "GivebackStatusSchema"]
@@ -17,14 +16,23 @@ __pdoc__ = {
     "GivebackStatus": False,
 }
 
-
 class GivebackStatusSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the GivebackStatus object"""
 
-    aggregate = marshmallow_fields.Nested("netapp_ontap.resources.aggregate.AggregateSchema", unknown=EXCLUDE, data_key="aggregate", allow_none=True)
+    aggregate = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.aggregate", "AggregateSchema"),
+                unknown=EXCLUDE,
+                data_key="aggregate",
+                allow_none=True
+            )
     r""" The aggregate field of the giveback_status. """
 
-    error = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_ha_giveback_status_error.ClusterNodesHaGivebackStatusErrorSchema", unknown=EXCLUDE, data_key="error", allow_none=True)
+    error = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_ha_giveback_status_error", "ClusterNodesHaGivebackStatusErrorSchema"),
+                unknown=EXCLUDE,
+                data_key="error",
+                allow_none=True
+            )
     r""" Indicates the failed aggregate giveback code and message. """
 
     state = marshmallow_fields.Str(data_key="state", allow_none=True)

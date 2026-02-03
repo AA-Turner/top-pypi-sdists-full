@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["MetroclusterLocal", "MetroclusterLocalSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "MetroclusterLocalSchema.opts": False,
     "MetroclusterLocal": False,
 }
-
 
 class MetroclusterLocalSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the MetroclusterLocal object"""
@@ -41,7 +39,12 @@ Valid choices:
 * not_reachable
 * unknown """
 
-    cluster = marshmallow_fields.Nested("netapp_ontap.resources.cluster.ClusterSchema", unknown=EXCLUDE, data_key="cluster", allow_none=True)
+    cluster = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.cluster", "ClusterSchema"),
+                unknown=EXCLUDE,
+                data_key="cluster",
+                allow_none=True
+            )
     r""" The cluster field of the metrocluster_local. """
 
     configuration_state = marshmallow_fields.Str(data_key="configuration_state", allow_none=True)

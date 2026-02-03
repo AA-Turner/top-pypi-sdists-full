@@ -70,12 +70,12 @@ class ConnectorArguments(TypedDict, total=False):
     _success_exit_codes: Iterable[int]
     _timeout: int
     _get_pty: bool
-    _stdin: Union[str, Iterable[str]]
+    _stdin: Union[str, list[str], Iterable[str]]
 
     # Retry arguments
     _retries: int
     _retry_delay: Union[int, float]
-    _retry_until: Optional[Callable[[dict], bool]]
+    _retry_until: Callable[[dict], bool]
 
     # Temp directory argument
     _temp_dir: str

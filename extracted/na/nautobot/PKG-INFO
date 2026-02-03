@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: nautobot
-Version: 3.0.5
+Version: 3.0.6
 Summary: Source of truth and network automation platform.
 License: Apache-2.0
 Keywords: Nautobot
@@ -27,8 +27,8 @@ Requires-Dist: Jinja2 (>=3.1.6,<3.2.0)
 Requires-Dist: Markdown (>=3.8.2,<3.9.0)
 Requires-Dist: Pillow (>=12.0.0,<12.1.0)
 Requires-Dist: PyYAML (>=6.0.3,<6.1.0)
-Requires-Dist: celery (>=5.6.1,<5.7.0)
-Requires-Dist: cryptography (>=46.0.3,<46.1.0)
+Requires-Dist: celery (>=5.6.2,<5.7.0)
+Requires-Dist: cryptography (>=46.0.4,<46.1.0)
 Requires-Dist: django-ajax-tables (>=1.1.1,<1.2.0)
 Requires-Dist: django-auth-ldap (>=5.2.0,<5.3.0) ; extra == "all" or extra == "ldap"
 Requires-Dist: django-celery-beat (>=2.7.0,<2.8.0)

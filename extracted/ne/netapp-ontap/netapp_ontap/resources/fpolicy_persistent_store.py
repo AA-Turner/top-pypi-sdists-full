@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -35,7 +35,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <div id="example0_result" class="try_it_out_content">
 ```
 FpolicyPersistentStore(
-    {"autosize_mode": "off", "volume": "psvol", "size": 1073741824, "name": "ps1"}
+    {"volume": "psvol", "name": "ps1", "size": 1073741824, "autosize_mode": "off"}
 )
 
 ```
@@ -63,7 +63,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example1_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example1_result" class="try_it_out_content">
 ```
-FpolicyPersistentStore({"volume": "psvol", "size": 1073741824, "name": "ps1"})
+FpolicyPersistentStore({"volume": "psvol", "name": "ps1", "size": 1073741824})
 
 ```
 </div>
@@ -119,11 +119,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FpolicyPersistentStore(
     {
-        "autosize_mode": "off",
         "volume": "psvol",
-        "size": 1073741824,
-        "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
         "name": "ps1",
+        "size": 1073741824,
+        "autosize_mode": "off",
+        "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
     }
 )
 
@@ -169,11 +169,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -186,7 +185,6 @@ __pdoc__ = {
     "FpolicyPersistentStoreSchema.resource": False,
     "FpolicyPersistentStoreSchema.opts": False,
 }
-
 
 class FpolicyPersistentStoreSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the FpolicyPersistentStore object"""
@@ -220,7 +218,12 @@ Example: ps1"""
 
 Example: 100M"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.models.fpolicy_engine_svm.FpolicyEngineSvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fpolicy_engine_svm", "FpolicyEngineSvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the fpolicy_persistent_store."""
 
     volume = marshmallow_fields.Str(

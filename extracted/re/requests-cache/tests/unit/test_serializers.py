@@ -1,11 +1,10 @@
 # Note: Almost all serializer logic is covered by parametrized integration tests.
 # Any additional serializer-specific tests can go here.
 import gzip
-import json
 import pickle
 import sys
 from importlib import reload
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -20,60 +19,52 @@ from requests_cache import (
     json_serializer,
     safe_pickle_serializer,
     utf8_encoder,
+    init_serializer,
 )
 from tests.conftest import skip_missing_deps
 
 
-def test_stdlib_json():
-    import requests_cache.serializers.preconf
-
-    with patch.dict(sys.modules, {'ujson': None, 'cattr.preconf.ujson': None}):
-        reload(requests_cache.serializers.preconf)
-        from requests_cache.serializers.preconf import json as module_json
-
-        assert module_json is json
-
-    reload(requests_cache.serializers.preconf)
+@skip_missing_deps('orjson')
+@skip_missing_deps('ujson')
+def test_json_aliases():
+    assert init_serializer('json', decode_content=True).name == 'json'
+    assert init_serializer('orjson', decode_content=True).name == 'orjson'
+    assert init_serializer('ujson', decode_content=True).name == 'ujson'
 
 
 @skip_missing_deps('ujson')
-def test_ujson():
-    import ujson
+@skip_missing_deps('orjson')
+def test_json_explicit_lib():
+    from requests_cache.serializers.preconf import (
+        json_serializer,
+        orjson_serializer,
+        ujson_serializer,
+    )
 
-    from requests_cache.serializers.preconf import json as module_json
-
-    assert module_json is ujson
-
-
-@skip_missing_deps('bson')
-def test_standalone_bson():
-    """Handle different method names for standalone bson codec vs pymongo"""
-    import requests_cache.serializers.preconf
-
-    # Can't easily install both pymongo and bson (standalone) for tests;
-    # Using json module here since it has same functions as bson (standalone)
-    with patch.dict(sys.modules, {'bson': json, 'pymongo': None}):
-        reload(requests_cache.serializers.preconf)
-        bson_functions = requests_cache.serializers.preconf._get_bson_functions()
-
-        assert bson_functions == {'dumps': 'dumps', 'loads': 'loads'}
-
-    reload(requests_cache.serializers.preconf)
+    response = CachedResponse(status_code=200)
+    for obj in [json_serializer, ujson_serializer, orjson_serializer]:
+        assert obj.loads(obj.dumps(response)) == response
 
 
 def test_optional_dependencies():
     import requests_cache.serializers.preconf
 
-    with patch.dict(sys.modules, {'bson': None, 'itsdangerous': None, 'yaml': None}):
+    with patch.dict(
+        sys.modules,
+        {'bson': None, 'itsdangerous': None, 'yaml': None, 'orjson': None, 'ujson': None},
+    ):
         reload(requests_cache.serializers.preconf)
 
         from requests_cache.serializers.preconf import (
             bson_serializer,
+            orjson_serializer,
             safe_pickle_serializer,
+            ujson_serializer,
             yaml_serializer,
         )
 
-        for obj in [bson_serializer, yaml_serializer]:
+        for obj in [bson_serializer, yaml_serializer, orjson_serializer, ujson_serializer]:
+            print(f'Testing serializer {obj.name}')
             with pytest.raises(ImportError):
                 obj.dumps('')
             with pytest.raises(ImportError):
@@ -141,3 +132,20 @@ def test_cattrs_compat():
 
     stage_2 = CattrStage(factory=BaseConverter)
     assert isinstance(stage_2.converter, BaseConverter)
+
+
+def test_copy():
+    stage_1 = CattrStage()
+    stage_2 = Stage(MagicMock())
+    serializer_1 = SerializerPipeline([stage_1, stage_2], name='test_serializer', is_binary=True)
+    serializer_2 = serializer_1.copy()
+    serializer_1.set_decode_content(True)
+
+    assert serializer_1.name == serializer_2.name
+    assert serializer_1.is_binary == serializer_2.is_binary
+    for stage in serializer_1.stages:
+        print(stage)
+    for stage in serializer_2.stages:
+        print(stage)
+    assert serializer_1.stages[0].decode_content is True
+    assert serializer_2.stages[0].decode_content is False

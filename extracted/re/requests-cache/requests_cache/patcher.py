@@ -15,14 +15,14 @@ from typing import Optional, Type
 
 import requests
 
-from .backends import BackendSpecifier, BaseCache, init_backend
+from .backends import BackendSpecifier, BaseCache, init_backend, StrOrPath
 from .session import CachedSession, OriginalSession
 
 logger = getLogger(__name__)
 
 
 def install_cache(
-    cache_name: str = 'http_cache',
+    cache_name: StrOrPath = 'http_cache',
     backend: Optional[BackendSpecifier] = None,
     session_factory: Type[OriginalSession] = CachedSession,
     **kwargs,
@@ -42,9 +42,13 @@ def install_cache(
     """
     backend = init_backend(cache_name, backend, **kwargs)
 
+    # By default, don't close backend connections when the session is closed,
+    # since request.get(), etc. will create and close a new session object for each request
+    kwargs.setdefault('autoclose', False)
+
     class _ConfiguredCachedSession(session_factory):  # type: ignore  # See mypy issue #5865
         def __init__(self):
-            super().__init__(cache_name=cache_name, backend=backend, **kwargs)
+            super().__init__(backend=backend, **kwargs)
 
     _patch_session_factory(_ConfiguredCachedSession)
 

@@ -19,6 +19,7 @@ from os_vif import objects
 from os_vif.objects import fields
 
 from vif_plug_ovs import constants
+from vif_plug_ovs import exception
 from vif_plug_ovs import linux_net
 from vif_plug_ovs import ovs
 from vif_plug_ovs.ovsdb import ovsdb_lib
@@ -95,6 +96,13 @@ class PluginTest(testtools.TestCase):
             network=self.network_ovs,
             vif_name='tap-xxx-yyy-zzz',
             port_profile=self.profile_ovs)
+
+        self.vif_ovs_system = objects.vif.VIFOpenVSwitch(
+            id='b679325f-ca89-4ee0-a8be-6db1409b69ea',
+            address='ca:fe:de:ad:be:ef',
+            network=self.network_ovs,
+            vif_name='tap-xxx-yyy-zzz',
+            port_profile=self.profile_ovs_system)
 
         # This is used for ironic with vif_type=smartnic
         self.vif_ovs_smart_nic = objects.vif.VIFOpenVSwitch(
@@ -240,6 +248,88 @@ class PluginTest(testtools.TestCase):
                 self.vif_ovs.address, self.instance.uuid,
                 mtu=plugin.config.network_device_mtu,
                 interface_type=constants.OVS_VHOSTUSER_INTERFACE_TYPE)
+
+    @mock.patch.object(ovsdb_lib.BaseOVS, 'create_ovs_vif_port')
+    @mock.patch.object(ovsdb_lib.BaseOVS, 'port_exists')
+    def test_create_vif_port_qos_port_bridge_true_port_new(
+            self, mock_port_exists, mock_create_ovs_vif_port):
+        plugin = ovs.OvsPlugin.load(constants.PLUGIN_NAME)
+        mock_port_exists.return_value = False
+        port_bridge_name = "port-bridge-xxx"
+        # _create_vif_port as from _plug_port_bridge
+        plugin._create_vif_port(
+            self.vif_ovs_system, mock.sentinel.vif_name, self.instance,
+            bridge=port_bridge_name, set_ids=False)
+        # port existence should be checked on the per-port bridge
+        mock_port_exists.assert_called_once_with(
+            mock.sentinel.vif_name, port_bridge_name)
+        # qos_type should be set for the new port
+        mock_create_ovs_vif_port.assert_called_once_with(
+            port_bridge_name, mock.sentinel.vif_name,
+            self.vif_ovs_system.port_profile.interface_id,
+            self.vif_ovs_system.address, self.instance.uuid,
+            mtu=plugin.config.network_device_mtu,
+            set_ids=False,
+            qos_type="linux-noop")
+
+    @mock.patch.object(ovsdb_lib.BaseOVS, 'create_ovs_vif_port')
+    @mock.patch.object(ovsdb_lib.BaseOVS, 'port_exists')
+    def test_create_vif_port_qos_port_bridge_true_port_exists(
+            self, mock_port_exists, mock_create_ovs_vif_port):
+        plugin = ovs.OvsPlugin.load(constants.PLUGIN_NAME)
+        mock_port_exists.return_value = True
+        port_bridge_name = "port-bridge-xxx"
+        # _create_vif_port as from _plug_port_bridge
+        plugin._create_vif_port(
+            self.vif_ovs_system, mock.sentinel.vif_name, self.instance,
+            bridge=port_bridge_name, set_ids=False)
+        # port existence should be checked on the per-port bridge
+        mock_port_exists.assert_called_once_with(
+            mock.sentinel.vif_name, port_bridge_name)
+        # qos_type should not be set for the existing port
+        mock_create_ovs_vif_port.assert_called_once_with(
+            port_bridge_name, mock.sentinel.vif_name,
+            self.vif_ovs_system.port_profile.interface_id,
+            self.vif_ovs_system.address, self.instance.uuid,
+            mtu=plugin.config.network_device_mtu,
+            set_ids=False)
+
+    @mock.patch.object(ovsdb_lib.BaseOVS, 'create_ovs_vif_port')
+    @mock.patch.object(ovsdb_lib.BaseOVS, 'port_exists')
+    def test_create_vif_port_qos_port_bridge_false_port_new(
+            self, mock_port_exists, mock_create_ovs_vif_port):
+        plugin = ovs.OvsPlugin.load(constants.PLUGIN_NAME)
+        mock_port_exists.return_value = False
+        # _create_vif_port as from _plug_vif_generic
+        plugin._create_vif_port(
+            self.vif_ovs_system, mock.sentinel.vif_name, self.instance)
+        mock_port_exists.assert_called_once_with(
+            mock.sentinel.vif_name, self.vif_ovs_system.network.bridge)
+        # qos_type should be set for the new port
+        mock_create_ovs_vif_port.assert_called_once_with(
+            self.vif_ovs_system.network.bridge, mock.sentinel.vif_name,
+            self.vif_ovs_system.port_profile.interface_id,
+            self.vif_ovs_system.address, self.instance.uuid,
+            mtu=plugin.config.network_device_mtu,
+            qos_type="linux-noop")
+
+    @mock.patch.object(ovsdb_lib.BaseOVS, 'create_ovs_vif_port')
+    @mock.patch.object(ovsdb_lib.BaseOVS, 'port_exists')
+    def test_create_vif_port_qos_port_bridge_false_port_exists(
+            self, mock_port_exists, mock_create_ovs_vif_port):
+        plugin = ovs.OvsPlugin.load(constants.PLUGIN_NAME)
+        mock_port_exists.return_value = True
+        # _create_vif_port as from _plug_vif_generic
+        plugin._create_vif_port(
+            self.vif_ovs_system, mock.sentinel.vif_name, self.instance)
+        mock_port_exists.assert_called_once_with(
+            mock.sentinel.vif_name, self.vif_ovs_system.network.bridge)
+        # qos_type should not be set for the existing port
+        mock_create_ovs_vif_port.assert_called_once_with(
+            self.vif_ovs_system.network.bridge, mock.sentinel.vif_name,
+            self.vif_ovs_system.port_profile.interface_id,
+            self.vif_ovs_system.address, self.instance.uuid,
+            mtu=plugin.config.network_device_mtu)
 
     @mock.patch.object(ovs.OvsPlugin, '_plug_vif_generic')
     def test_plug_ovs_port_bridge_false(self, plug_vif_generic):
@@ -648,3 +738,179 @@ class PluginTest(testtools.TestCase):
         plugin = ovs.OvsPlugin.load(constants.PLUGIN_NAME)
         plugin.unplug(self.vif_ovs, self.instance)
         m_unplug_generic.assert_called_once()
+
+    @mock.patch.object(linux_net, 'create_tap')
+    @mock.patch.object(ovsdb_lib.BaseOVS, 'create_ovs_vif_port')
+    @mock.patch.object(ovsdb_lib.BaseOVS, 'port_exists')
+    def test_create_vif_port_with_tap_creation(
+            self, mock_port_exists, mock_create_ovs_vif_port, mock_create_tap):
+        """Test that create_tap is called when create_tap flag is set."""
+        # Create a profile with create_tap=True
+        profile_with_tap = objects.vif.VIFPortProfileOpenVSwitch(
+            interface_id='e65867e0-9340-4a7f-a256-09af6eb7a3aa',
+            create_tap=True)
+        vif_with_tap = objects.vif.VIFOpenVSwitch(
+            id='b679325f-ca89-4ee0-a8be-6db1409b69ea',
+            address='ca:fe:de:ad:be:ef',
+            network=self.network_ovs,
+            vif_name='tap-xxx-yyy-zzz',
+            port_profile=profile_with_tap)
+
+        plugin = ovs.OvsPlugin.load(constants.PLUGIN_NAME)
+        mock_port_exists.return_value = False
+        plugin._create_vif_port(
+            vif_with_tap, 'tap-xxx-yyy-zzz', self.instance)
+
+        # Verify create_tap was called with correct parameters
+        mock_create_tap.assert_called_once_with(
+            'tap-xxx-yyy-zzz',
+            plugin.config.network_device_mtu,
+            'ca:fe:de:ad:be:ef',
+            multiqueue=False)
+
+    @mock.patch.object(linux_net, 'create_tap')
+    @mock.patch.object(ovsdb_lib.BaseOVS, 'create_ovs_vif_port')
+    @mock.patch.object(ovsdb_lib.BaseOVS, 'port_exists')
+    def test_create_vif_port_with_tap_and_multiqueue(
+            self, mock_port_exists, mock_create_ovs_vif_port, mock_create_tap):
+        """Test that create_tap is called with multiqueue when both are set."""
+        # Create a profile with create_tap=True and multiqueue=True
+        profile_with_tap_mq = objects.vif.VIFPortProfileOpenVSwitch(
+            interface_id='e65867e0-9340-4a7f-a256-09af6eb7a3aa',
+            create_tap=True,
+            multiqueue=True)
+        vif_with_tap_mq = objects.vif.VIFOpenVSwitch(
+            id='b679325f-ca89-4ee0-a8be-6db1409b69ea',
+            address='ca:fe:de:ad:be:ef',
+            network=self.network_ovs,
+            vif_name='tap-xxx-yyy-zzz',
+            port_profile=profile_with_tap_mq)
+
+        plugin = ovs.OvsPlugin.load(constants.PLUGIN_NAME)
+        mock_port_exists.return_value = False
+        plugin._create_vif_port(
+            vif_with_tap_mq, 'tap-xxx-yyy-zzz', self.instance)
+
+        # Verify create_tap was called with multiqueue=True
+        mock_create_tap.assert_called_once_with(
+            'tap-xxx-yyy-zzz',
+            plugin.config.network_device_mtu,
+            'ca:fe:de:ad:be:ef',
+            multiqueue=True)
+
+    @mock.patch.object(ovsdb_lib.BaseOVS, 'create_ovs_vif_port')
+    @mock.patch.object(ovsdb_lib.BaseOVS, 'port_exists')
+    def test_create_vif_port_tap_not_supported_vhostuser(
+            self, mock_port_exists, mock_create_ovs_vif_port):
+        """Test that TapCreationNotSupported is raised for VIFVHostUser."""
+        # Create a VIFVHostUser with create_tap=True
+        profile_with_tap = objects.vif.VIFPortProfileOpenVSwitch(
+            interface_id='e65867e0-9340-4a7f-a256-09af6eb7a3aa',
+            create_tap=True)
+        vif_vhostuser_with_tap = objects.vif.VIFVHostUser(
+            id='b679325f-ca89-4ee0-a8be-6db1409b69ea',
+            address='ca:fe:de:ad:be:ef',
+            network=self.network_ovs,
+            path='/var/run/openvswitch/vhub679325f-ca',
+            mode='client',
+            port_profile=profile_with_tap)
+
+        plugin = ovs.OvsPlugin.load(constants.PLUGIN_NAME)
+        mock_port_exists.return_value = False
+
+        # Verify exception is raised
+        self.assertRaises(
+            exception.TapCreationNotSupported,
+            plugin._create_vif_port,
+            vif_vhostuser_with_tap, 'vhub679325f-ca', self.instance)
+
+    @mock.patch.object(ovsdb_lib.BaseOVS, 'create_ovs_vif_port')
+    @mock.patch.object(ovsdb_lib.BaseOVS, 'port_exists')
+    def test_create_vif_port_tap_not_supported_hostdevice(
+            self, mock_port_exists, mock_create_ovs_vif_port):
+        """Test that TapCreationNotSupported is raised for VIFHostDevice."""
+        # Create a VIFHostDevice with create_tap=True
+        profile_with_tap = objects.vif.VIFPortProfileOpenVSwitch(
+            interface_id='e65867e0-9340-4a7f-a256-09af6eb7a3aa',
+            create_tap=True)
+        vif_hostdevice_with_tap = objects.vif.VIFHostDevice(
+            id='b679325f-ca89-4ee0-a8be-6db1409b69ea',
+            address='ca:fe:de:ad:be:ef',
+            network=self.network_ovs,
+            dev_type=fields.VIFHostDeviceDevType.ETHERNET,
+            dev_address='0002:24:12.3',
+            port_profile=profile_with_tap)
+
+        plugin = ovs.OvsPlugin.load(constants.PLUGIN_NAME)
+        mock_port_exists.return_value = False
+
+        # Verify exception is raised
+        self.assertRaises(
+            exception.TapCreationNotSupported,
+            plugin._create_vif_port,
+            vif_hostdevice_with_tap, 'tap-xxx-yyy-zzz', self.instance)
+
+    @mock.patch.object(ip_lib, 'exists', return_value=True)
+    @mock.patch.object(linux_net, 'delete_net_dev')
+    @mock.patch.object(ovsdb_lib.BaseOVS, 'delete_ovs_vif_port')
+    def test_unplug_vif_generic_deletes_tap(
+            self, mock_delete_ovs_vif_port, mock_delete_net_dev,
+            mock_exists):
+        """Test that tap device is deleted when unplugging with
+        create_tap=True.
+        """
+        # Create a VIF with create_tap=True
+        profile_with_tap = objects.vif.VIFPortProfileOpenVSwitch(
+            interface_id='e65867e0-9340-4a7f-a256-09af6eb7a3aa',
+            create_tap=True)
+        vif_with_tap = objects.vif.VIFOpenVSwitch(
+            id='b679325f-ca89-4ee0-a8be-6db1409b69ea',
+            address='ca:fe:de:ad:be:ef',
+            network=self.network_ovs,
+            vif_name='tap-xxx-yyy-zzz',
+            port_profile=profile_with_tap)
+
+        plugin = ovs.OvsPlugin.load(constants.PLUGIN_NAME)
+        plugin._unplug_vif_generic(vif_with_tap, self.instance)
+
+        # Verify delete_net_dev was called with vif_name
+        mock_delete_net_dev.assert_called_once_with('tap-xxx-yyy-zzz')
+
+    @mock.patch.object(linux_net, 'delete_net_dev')
+    @mock.patch.object(ovsdb_lib.BaseOVS, 'delete_ovs_vif_port')
+    def test_unplug_vif_generic_no_tap_deletion_when_not_created(
+            self, mock_delete_ovs_vif_port, mock_delete_net_dev):
+        """Test that tap device is not deleted when create_tap=False."""
+        # Use default vif_ovs which has create_tap=False (or unset)
+        plugin = ovs.OvsPlugin.load(constants.PLUGIN_NAME)
+        plugin._unplug_vif_generic(self.vif_ovs, self.instance)
+
+        # Verify delete_net_dev was not called
+        mock_delete_net_dev.assert_not_called()
+
+    @mock.patch.object(ip_lib, 'exists', return_value=True)
+    @mock.patch.object(linux_net, 'delete_net_dev')
+    @mock.patch.object(ovsdb_lib.BaseOVS, 'delete_ovs_vif_port')
+    @mock.patch.object(ovsdb_lib.BaseOVS, 'delete_ovs_bridge')
+    def test_unplug_port_bridge_deletes_tap(
+            self, mock_delete_ovs_bridge, mock_delete_ovs_vif_port,
+            mock_delete_net_dev, mock_exists):
+        """Test that tap device is deleted when unplugging port bridge with
+        create_tap=True.
+        """
+        # Create a VIF with create_tap=True
+        profile_with_tap = objects.vif.VIFPortProfileOpenVSwitch(
+            interface_id='e65867e0-9340-4a7f-a256-09af6eb7a3aa',
+            create_tap=True)
+        vif_with_tap = objects.vif.VIFOpenVSwitch(
+            id='b679325f-ca89-4ee0-a8be-6db1409b69ea',
+            address='ca:fe:de:ad:be:ef',
+            network=self.network_ovs,
+            vif_name='tap-xxx-yyy-zzz',
+            port_profile=profile_with_tap)
+
+        plugin = ovs.OvsPlugin.load(constants.PLUGIN_NAME)
+        plugin._unplug_port_bridge(vif_with_tap, self.instance)
+
+        # Verify delete_net_dev was called with vif_name
+        mock_delete_net_dev.assert_called_once_with('tap-xxx-yyy-zzz')

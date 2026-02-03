@@ -1,0 +1,1 @@
+import{n as e,t}from"./Load3D-VlX1S7q2.js";e();export{t as default};

@@ -1,5 +1,6 @@
 import functools
 import re
+import sys
 from typing import Union
 
 from adam.commands.command import Command
@@ -69,8 +70,6 @@ def run_cql(state: ReplState,
             on_any = False,
             no_color = False,
             ctx: Context = Context.NULL) -> list[PodExecResult]:
-    # ctx.log2(cql) alter tables double outs
-
     command = None
     with log_timing('Secrets.get_user_pass'):
         user, pw = Secrets.get_user_pass(state.sts if state.sts else state.pod, state.namespace, secret_path='cql.secret')
@@ -82,11 +81,8 @@ def run_cql(state: ReplState,
             else:
                 command = f'cqlsh -u {user} -p {pw} {" ".join(opts)} -e "{cql}"'
 
-            # result: PodExecResult = CassandraNodes.exec(pod_name, ns, command, ctx=ctx.copy(show_out=ctx.debug))
-
     with log_timing(cql):
         with cassandra(state) as pods:
-            # return pods.exec(command, action='cql', on_any=on_any, ctx=ctx.copy(text_color='gray' if not ctx or ctx.background else None))
             return pods.exec(command, action='cql', on_any=on_any, ctx=ctx)
 
 def parse_cql_desc_tables(out: str):
@@ -316,7 +312,7 @@ class CassandraPodService:
             pod_names = [pod.metadata.name for pod in StatefulSets.pods(state.sts, state.namespace)]
             show_table(state, pod_names, cols, header, ctx)
 
-    def nodetool(self, args: str, status = False, pods: list[str] = None, ctx: Context = Context.NULL) -> Union[PodExecResult, list[PodExecResult]]:
+    def nodetool(self, args: str, status = False, samples = sys.maxsize, ctx: Context = Context.NULL) -> Union[PodExecResult, list[PodExecResult]]:
         state = self.handler.state
         pod = self.handler.pod
 
@@ -330,8 +326,7 @@ class CassandraPodService:
                                           state.namespace,
                                           command,
                                           action='nodetool.status' if status else 'nodetool',
-                                          pods=pods,
-                                        #   samples=samples,
+                                          samples=samples,
                                           ctx=ctx)
     def pod_names(self):
         state = self.handler.state

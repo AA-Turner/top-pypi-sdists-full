@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ZappNvmeRpo", "ZappNvmeRpoSchema"]
@@ -17,14 +16,23 @@ __pdoc__ = {
     "ZappNvmeRpo": False,
 }
 
-
 class ZappNvmeRpoSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ZappNvmeRpo object"""
 
-    local = marshmallow_fields.Nested("netapp_ontap.models.zapp_nvme_rpo_local.ZappNvmeRpoLocalSchema", unknown=EXCLUDE, data_key="local", allow_none=True)
+    local = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.zapp_nvme_rpo_local", "ZappNvmeRpoLocalSchema"),
+                unknown=EXCLUDE,
+                data_key="local",
+                allow_none=True
+            )
     r""" The local field of the zapp_nvme_rpo. """
 
-    remote = marshmallow_fields.Nested("netapp_ontap.models.zapp_nvme_rpo_remote.ZappNvmeRpoRemoteSchema", unknown=EXCLUDE, data_key="remote", allow_none=True)
+    remote = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.zapp_nvme_rpo_remote", "ZappNvmeRpoRemoteSchema"),
+                unknown=EXCLUDE,
+                data_key="remote",
+                allow_none=True
+            )
     r""" The remote field of the zapp_nvme_rpo. """
 
     @property

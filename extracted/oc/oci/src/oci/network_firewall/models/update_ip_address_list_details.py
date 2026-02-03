@@ -26,6 +26,10 @@ class UpdateIpAddressListDetails(UpdateAddressListDetails):
             Allowed values for this property are: "FQDN", "IP"
         :type type: str
 
+        :param description:
+            The value to assign to the description property of this UpdateIpAddressListDetails.
+        :type description: str
+
         :param addresses:
             The value to assign to the addresses property of this UpdateIpAddressListDetails.
         :type addresses: list[str]
@@ -33,13 +37,16 @@ class UpdateIpAddressListDetails(UpdateAddressListDetails):
         """
         self.swagger_types = {
             'type': 'str',
+            'description': 'str',
             'addresses': 'list[str]'
         }
         self.attribute_map = {
             'type': 'type',
+            'description': 'description',
             'addresses': 'addresses'
         }
         self._type = None
+        self._description = None
         self._addresses = None
         self._type = 'IP'
 

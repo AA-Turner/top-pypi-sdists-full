@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -30,22 +30,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3Group(
         {
-            "id": 5,
-            "comment": "Admin group",
             "policies": [{"name": "Policy1"}, {"name": "Policy2"}, {"name": "Policy3"}],
-            "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User3"}],
-            "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
             "name": "Admin-Group",
+            "comment": "Admin group",
+            "id": 5,
+            "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User3"}],
+            "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
         }
     ),
     S3Group(
         {
-            "id": 6,
-            "comment": "Admin group",
             "policies": [{"name": "Policy1"}, {"name": "Policy2"}, {"name": "Policy3"}],
-            "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User6"}],
-            "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
             "name": "Admin-Group1",
+            "comment": "Admin group",
+            "id": 6,
+            "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User6"}],
+            "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
         }
     ),
 ]
@@ -72,12 +72,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Group(
     {
-        "id": 5,
-        "comment": "Admin group",
         "policies": [{"name": "Policy1"}, {"name": "Policy2"}, {"name": "Policy3"}],
-        "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User3"}],
-        "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
         "name": "Admin-Group",
+        "comment": "Admin group",
+        "id": 5,
+        "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User3"}],
+        "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
     }
 )
 
@@ -107,12 +107,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Group(
     {
-        "id": 5,
-        "comment": "Admin group",
         "policies": [{"name": "Policy1"}, {"name": "Policy2"}, {"name": "Policy3"}],
-        "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User3"}],
-        "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
         "name": "Admin-Group",
+        "comment": "Admin group",
+        "id": 5,
+        "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User3"}],
+        "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
     }
 )
 
@@ -151,11 +151,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -168,7 +167,6 @@ __pdoc__ = {
     "S3GroupSchema.resource": False,
     "S3GroupSchema.opts": False,
 }
-
 
 class S3GroupSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the S3Group object"""
@@ -199,13 +197,34 @@ Example: 5"""
 
 Example: Admin-Group"""
 
-    policies = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.s3_policy.S3PolicySchema", unknown=EXCLUDE, allow_none=True), data_key="policies", allow_none=True)
+    policies = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.s3_policy", "S3PolicySchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="policies",
+                allow_none=True
+            )
     r""" Specifies a list of policies that are attached to the group. The wildcard character "*" is a valid value for specifying all policies."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the s3_group."""
 
-    users = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.s3_user.S3UserSchema", unknown=EXCLUDE, allow_none=True), data_key="users", allow_none=True)
+    users = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.s3_user", "S3UserSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="users",
+                allow_none=True
+            )
     r""" Specifies the list of users who belong to the group."""
 
     @property

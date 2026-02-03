@@ -30,6 +30,10 @@ class UpdateStandardTaskDetails(UpdateScheduledTaskDetails):
             The value to assign to the display_name property of this UpdateStandardTaskDetails.
         :type display_name: str
 
+        :param description:
+            The value to assign to the description property of this UpdateStandardTaskDetails.
+        :type description: str
+
         :param freeform_tags:
             The value to assign to the freeform_tags property of this UpdateStandardTaskDetails.
         :type freeform_tags: dict(str, str)
@@ -50,6 +54,7 @@ class UpdateStandardTaskDetails(UpdateScheduledTaskDetails):
         self.swagger_types = {
             'kind': 'str',
             'display_name': 'str',
+            'description': 'str',
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))',
             'schedules': 'list[Schedule]',
@@ -58,6 +63,7 @@ class UpdateStandardTaskDetails(UpdateScheduledTaskDetails):
         self.attribute_map = {
             'kind': 'kind',
             'display_name': 'displayName',
+            'description': 'description',
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags',
             'schedules': 'schedules',
@@ -65,6 +71,7 @@ class UpdateStandardTaskDetails(UpdateScheduledTaskDetails):
         }
         self._kind = None
         self._display_name = None
+        self._description = None
         self._freeform_tags = None
         self._defined_tags = None
         self._schedules = None

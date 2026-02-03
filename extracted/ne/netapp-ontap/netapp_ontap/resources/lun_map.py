@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -42,37 +42,37 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LunMap(
         {
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/lun-maps/a60d9862-9bee-49a6-8162-20d2421bb1a6/40d98b2c-24c5-11e9-9ec1-005056bba643"
+                }
+            },
             "igroup": {
-                "uuid": "40d98b2c-24c5-11e9-9ec1-005056bba643",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/san/igroups/40d98b2c-24c5-11e9-9ec1-005056bba643"
                     }
                 },
                 "name": "ig1",
-            },
-            "svm": {
-                "uuid": "03157e81-24c5-11e9-9ec1-005056bba643",
-                "name": "svm1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/03157e81-24c5-11e9-9ec1-005056bba643"
-                    }
-                },
-            },
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/lun-maps/a60d9862-9bee-49a6-8162-20d2421bb1a6/40d98b2c-24c5-11e9-9ec1-005056bba643"
-                }
+                "uuid": "40d98b2c-24c5-11e9-9ec1-005056bba643",
             },
             "lun": {
-                "uuid": "a60d9862-9bee-49a6-8162-20d2421bb1a6",
                 "_links": {
                     "self": {
                         "href": "/api/storage/luns/a60d9862-9bee-49a6-8162-20d2421bb1a6"
                     }
                 },
                 "name": "/vol/vol1/lun1",
+                "uuid": "a60d9862-9bee-49a6-8162-20d2421bb1a6",
+            },
+            "svm": {
+                "name": "svm1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/03157e81-24c5-11e9-9ec1-005056bba643"
+                    }
+                },
+                "uuid": "03157e81-24c5-11e9-9ec1-005056bba643",
             },
         }
     )
@@ -106,75 +106,75 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 LunMap(
     {
+        "_links": {
+            "self": {
+                "href": "/api/protocols/san/lun-maps/a60d9862-9bee-49a6-8162-20d2421bb1a6/40d98b2c-24c5-11e9-9ec1-005056bba643"
+            }
+        },
+        "reporting_nodes": [
+            {
+                "_links": {
+                    "self": {
+                        "href": "/api/protocols/san/lun-maps/a60d9862-9bee-49a6-8162-20d2421bb1a6/40d98b2c-24c5-11e9-9ec1-005056bba643/reporting-nodes/11a465f5-2ac0-11eb-a303-005056bb1e81"
+                    },
+                    "node": {
+                        "href": "/cluster/nodes/11a465f5-2ac0-11eb-a303-005056bb1e81"
+                    },
+                },
+                "name": "node1",
+                "uuid": "11a465f5-2ac0-11eb-a303-005056bb1e81",
+            },
+            {
+                "_links": {
+                    "self": {
+                        "href": "/api/protocols/san/lun-maps/a60d9862-9bee-49a6-8162-20d2421bb1a6/40d98b2c-24c5-11e9-9ec1-005056bba643/reporting-nodes/6c7cb50f-2abf-11eb-9840-005056bbd490"
+                    },
+                    "node": {
+                        "href": "/cluster/nodes/6c7cb50f-2abf-11eb-9840-005056bbd490"
+                    },
+                },
+                "name": "node2",
+                "uuid": "6c7cb50f-2abf-11eb-9840-005056bbd490",
+            },
+        ],
+        "logical_unit_number": 0,
         "igroup": {
-            "os_type": "linux",
             "protocol": "mixed",
-            "replicated": False,
-            "uuid": "40d98b2c-24c5-11e9-9ec1-005056bba643",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/igroups/40d98b2c-24c5-11e9-9ec1-005056bba643"
                 }
             },
             "name": "ig1",
+            "os_type": "linux",
+            "replicated": False,
+            "uuid": "40d98b2c-24c5-11e9-9ec1-005056bba643",
         },
-        "reporting_nodes": [
-            {
-                "uuid": "11a465f5-2ac0-11eb-a303-005056bb1e81",
-                "_links": {
-                    "node": {
-                        "href": "/cluster/nodes/11a465f5-2ac0-11eb-a303-005056bb1e81"
-                    },
-                    "self": {
-                        "href": "/api/protocols/san/lun-maps/a60d9862-9bee-49a6-8162-20d2421bb1a6/40d98b2c-24c5-11e9-9ec1-005056bba643/reporting-nodes/11a465f5-2ac0-11eb-a303-005056bb1e81"
-                    },
-                },
-                "name": "node1",
-            },
-            {
-                "uuid": "6c7cb50f-2abf-11eb-9840-005056bbd490",
-                "_links": {
-                    "node": {
-                        "href": "/cluster/nodes/6c7cb50f-2abf-11eb-9840-005056bbd490"
-                    },
-                    "self": {
-                        "href": "/api/protocols/san/lun-maps/a60d9862-9bee-49a6-8162-20d2421bb1a6/40d98b2c-24c5-11e9-9ec1-005056bba643/reporting-nodes/6c7cb50f-2abf-11eb-9840-005056bbd490"
-                    },
-                },
-                "name": "node2",
-            },
-        ],
-        "svm": {
-            "uuid": "03157e81-24c5-11e9-9ec1-005056bba643",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/03157e81-24c5-11e9-9ec1-005056bba643"}
-            },
-        },
-        "_links": {
-            "self": {
-                "href": "/api/protocols/san/lun-maps/a60d9862-9bee-49a6-8162-20d2421bb1a6/40d98b2c-24c5-11e9-9ec1-005056bba643"
-            }
-        },
-        "logical_unit_number": 0,
         "lun": {
-            "smbc": {"replicated": False},
-            "uuid": "a60d9862-9bee-49a6-8162-20d2421bb1a6",
-            "node": {
-                "uuid": "7d8607ea-24c1-11e9-9ec1-005056bba643",
-                "_links": {
-                    "self": {
-                        "href": "/api/cluster/nodes/7d8607ea-24c1-11e9-9ec1-005056bba643"
-                    }
-                },
-                "name": "node1",
-            },
             "_links": {
                 "self": {
                     "href": "/api/storage/luns/a60d9862-9bee-49a6-8162-20d2421bb1a6"
                 }
             },
             "name": "/vol/vol1/lun1",
+            "smbc": {"replicated": False},
+            "node": {
+                "_links": {
+                    "self": {
+                        "href": "/api/cluster/nodes/7d8607ea-24c1-11e9-9ec1-005056bba643"
+                    }
+                },
+                "name": "node1",
+                "uuid": "7d8607ea-24c1-11e9-9ec1-005056bba643",
+            },
+            "uuid": "a60d9862-9bee-49a6-8162-20d2421bb1a6",
+        },
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/03157e81-24c5-11e9-9ec1-005056bba643"}
+            },
+            "uuid": "03157e81-24c5-11e9-9ec1-005056bba643",
         },
     }
 )
@@ -205,11 +205,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -223,14 +222,23 @@ __pdoc__ = {
     "LunMapSchema.opts": False,
 }
 
-
 class LunMapSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LunMap object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the lun_map."""
 
-    igroup = marshmallow_fields.Nested("netapp_ontap.models.lun_map_igroup.LunMapIgroupSchema", data_key="igroup", unknown=EXCLUDE, allow_none=True)
+    igroup = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.lun_map_igroup", "LunMapIgroupSchema"),
+                data_key="igroup",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The initiator group to which the LUN is mapped. Required in POST by supplying either the `igroup.uuid`, `igroup.name`, or both."""
 
     logical_unit_number = Size(
@@ -243,15 +251,33 @@ class LunMapSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 1"""
 
-    lun = marshmallow_fields.Nested("netapp_ontap.models.lun_map_lun.LunMapLunSchema", data_key="lun", unknown=EXCLUDE, allow_none=True)
+    lun = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.lun_map_lun", "LunMapLunSchema"),
+                data_key="lun",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The LUN to which the initiator group is mapped. Required in POST by supplying either the `lun.uuid`, `lun.name`, or both."""
 
-    reporting_nodes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.lun_map_reporting_node.LunMapReportingNodeSchema", unknown=EXCLUDE, allow_none=True), data_key="reporting_nodes", allow_none=True)
+    reporting_nodes = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.lun_map_reporting_node", "LunMapReportingNodeSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="reporting_nodes",
+                allow_none=True
+            )
     r""" The cluster nodes from which network paths to the mapped LUNs are advertised via the SAN protocols as part of the Selective LUN Map (SLM) feature of ONTAP.<br/>
 When a LUN map is created, the cluster node hosting the LUN and its high availability (HA) partner are set as the default reporting node. In POST, the property `additional_reporting_node` may be used to add an additional node and its HA partner.<br/>
 For further information, see [`DOC /protocols/san/lun-maps/{lun.uuid}/{igroup.uuid}/reporting-nodes`](#docs-SAN-protocols_san_lun-maps_{lun.uuid}_{igroup.uuid}_reporting-nodes)."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the lun_map."""
 
     @property

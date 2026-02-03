@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -56,8 +56,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <div id="example1_result" class="try_it_out_content">
 ```
 [
-    S3BucketSnapshot({"uuid": "20837456-3c8b-405a-aa3a-5300c048f87d", "name": "ss1"}),
-    S3BucketSnapshot({"uuid": "c67cd056-d386-477a-8378-fcc06987bedf", "name": "ss2"}),
+    S3BucketSnapshot({"name": "ss1", "uuid": "20837456-3c8b-405a-aa3a-5300c048f87d"}),
+    S3BucketSnapshot({"name": "ss2", "uuid": "c67cd056-d386-477a-8378-fcc06987bedf"}),
 ]
 
 ```
@@ -88,18 +88,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3BucketSnapshot(
         {
+            "name": "ss1",
+            "uuid": "20837456-3c8b-405a-aa3a-5300c048f87d",
             "create_time": "2024-08-22T14:23:54-04:00",
             "svm": {"uuid": "148b9bbd-58d8-11ef-b7ca-005056ae1130"},
-            "uuid": "20837456-3c8b-405a-aa3a-5300c048f87d",
-            "name": "ss1",
         }
     ),
     S3BucketSnapshot(
         {
+            "name": "ss2",
+            "uuid": "c67cd056-d386-477a-8378-fcc06987bedf",
             "create_time": "2024-08-22T14:30:42-04:00",
             "svm": {"uuid": "148b9bbd-58d8-11ef-b7ca-005056ae1130"},
-            "uuid": "c67cd056-d386-477a-8378-fcc06987bedf",
-            "name": "ss2",
         }
     ),
 ]
@@ -127,10 +127,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3BucketSnapshot(
     {
+        "name": "ss2",
+        "uuid": "c67cd056-d386-477a-8378-fcc06987bedf",
         "create_time": "2024-08-22T14:30:42-04:00",
         "svm": {"uuid": "148b9bbd-58d8-11ef-b7ca-005056ae1130"},
-        "uuid": "c67cd056-d386-477a-8378-fcc06987bedf",
-        "name": "ss2",
     }
 )
 
@@ -155,11 +155,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -173,11 +172,15 @@ __pdoc__ = {
     "S3BucketSnapshotSchema.opts": False,
 }
 
-
 class S3BucketSnapshotSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the S3BucketSnapshot object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the s3_bucket_snapshot."""
 
     bucket_uuid = marshmallow_fields.Str(
@@ -204,7 +207,12 @@ Example: 2024-08-22T00:18:04.000+0000"""
 
 Example: snap1"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the s3_bucket_snapshot."""
 
     uuid = marshmallow_fields.Str(

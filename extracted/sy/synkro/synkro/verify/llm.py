@@ -9,7 +9,6 @@ from synkro.llm import LLM
 from synkro.models import Model
 from synkro.utils.model_detection import get_default_models
 
-
 ROUTE_PROMPT = """\
 You are a verification router. Given an AI response and a verifier, \
 decide if the verifier is relevant and extract the required parameters.
@@ -49,7 +48,7 @@ def _parse_json(text: str) -> dict:
     if text.startswith("```"):
         lines = text.split("\n")
         # Remove first line (```json) and last line (```)
-        lines = [l for l in lines if not l.strip().startswith("```")]
+        lines = [line for line in lines if not line.strip().startswith("```")]
         text = "\n".join(lines)
     return json.loads(text)
 
@@ -108,8 +107,7 @@ class VerifierLLM:
             {"trigger": bool, "params": {...}} or {"trigger": False}
         """
         user_msg = (
-            f"AI Response:\n{response_text}\n\n"
-            f"Verifier:\n{json.dumps(verifier_desc, indent=2)}"
+            f"AI Response:\n{response_text}\n\n" f"Verifier:\n{json.dumps(verifier_desc, indent=2)}"
         )
         prompt = f"{ROUTE_PROMPT}\n\n{user_msg}"
 

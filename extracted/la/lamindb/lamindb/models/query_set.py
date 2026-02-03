@@ -1,19 +1,3 @@
-"""Models library.
-
-...
-
-Query sets & managers
----------------------
-.. autoclass:: BasicQuerySet
-.. autoclass:: QuerySet
-.. autoclass:: ArtifactSet
-.. autoclass:: QueryManager
-.. autoclass:: lamindb.models.query_set.BiontyDB
-.. autoclass:: lamindb.models.query_set.WetlabDB
-
-...
-"""
-
 from __future__ import annotations
 
 import ast
@@ -44,7 +28,7 @@ from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
 from ..errors import DoesNotExist, MultipleResultsFound
-from ._is_versioned import IsVersioned
+from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .can_curate import CanCurate, _inspect, _standardize, _validate
 from .query_manager import _lookup, _search
 from .sqlrecord import Registry, SQLRecord
@@ -65,19 +49,14 @@ if TYPE_CHECKING:
         Protein,
         Tissue,
     )
-    from wetlab.models import (
+    from pertdb.models import (
         Biologic,
-        Biosample,
         CombinationPerturbation,
         Compound,
         CompoundPerturbation,
-        Donor,
         EnvironmentalPerturbation,
-        Experiment,
         GeneticPerturbation,
         PerturbationTarget,
-        Techsample,
-        Well,
     )
 
     from lamindb.base.types import ListLike, StrField
@@ -405,8 +384,10 @@ class SQLRecordList(UserList, Generic[T]):
         return self.to_dataframe()
 
     def to_list(
-        self, field: str
+        self, field: str | None = None
     ) -> list[str]:  # meaningful to be parallel with to_list() in QuerySet
+        if field is None:
+            return self.data
         return [getattr(record, field) for record in self.data]
 
     def one(self) -> T:
@@ -1199,8 +1180,27 @@ class BasicQuerySet(models.QuerySet):
         """
         from lamindb.models import Artifact, Collection, Run, Storage, Transform
 
-        # all these models have non-trivial delete behavior, hence we need to handle in a loop
-        if self.model in {Artifact, Collection, Transform, Run}:
+        if self.model is Run:
+            if permanent is True:
+                from .run import _permanent_delete_runs
+
+                _permanent_delete_runs(self)
+                return
+            if permanent is not True:
+                self.update(branch_id=-1)
+                return
+        if self.model is Transform:
+            if permanent is True:
+                from .transform import _permanent_delete_transforms
+
+                _permanent_delete_transforms(self)
+                return
+            if permanent is not True:
+                _adjust_is_latest_when_deleting_is_versioned(self)
+                self.update(branch_id=-1, is_latest=False)
+                return
+        # Artifact, Collection: non-trivial delete behavior, handle in a loop
+        if self.model in {Artifact, Collection}:
             for record in self:
                 record.delete(*args, permanent=permanent, **kwargs)
         elif self.model is Storage:  # storage does not have soft delete
@@ -1429,7 +1429,7 @@ class ModuleNamespace:
 
     Args:
         query_db: Parent DB instance.
-        module_name: Name of the schema module (e.g., 'bionty', 'wetlab').
+        module_name: Name of the schema module (e.g., 'bionty', 'pertdb').
     """
 
     def __init__(self, query_db: DB, module_name: str):
@@ -1461,7 +1461,7 @@ class ModuleNamespace:
             pass
 
         raise AttributeError(
-            f"Registry '{name}' not found in lamindb. Use .bt.{name} or .wl.{name} for schema-specific registries."
+            f"Registry '{name}' not found in lamindb. Use .bt.{name} or .pertdb.{name} for schema-specific registries."
         )
 
     def __dir__(self) -> list[str]:
@@ -1499,20 +1499,15 @@ class BiontyDB(ModuleNamespace):
     Ethnicity: QuerySet[Ethnicity]  # type: ignore[type-arg]
 
 
-class WetlabDB(ModuleNamespace):
-    """Namespace for wetlab registries (Experiment, Biosample, etc.)."""
+class PertdbDB(ModuleNamespace):
+    """Namespace for `PertDB` registries (Biologic, Compound, etc.)."""
 
-    Experiment: QuerySet[Experiment]  # type: ignore[type-arg]
-    Biosample: QuerySet[Biosample]  # type: ignore[type-arg]
-    Techsample: QuerySet[Techsample]  # type: ignore[type-arg]
-    Donor: QuerySet[Donor]  # type: ignore[type-arg]
-    GeneticPerturbation: QuerySet[GeneticPerturbation]  # type: ignore[type-arg]
     Biologic: QuerySet[Biologic]  # type: ignore[type-arg]
     Compound: QuerySet[Compound]  # type: ignore[type-arg]
     CompoundPerturbation: QuerySet[CompoundPerturbation]  # type: ignore[type-arg]
+    GeneticPerturbation: QuerySet[GeneticPerturbation]  # type: ignore[type-arg]
     EnvironmentalPerturbation: QuerySet[EnvironmentalPerturbation]  # type: ignore[type-arg]
     CombinationPerturbation: QuerySet[CombinationPerturbation]  # type: ignore[type-arg]
-    Well: QuerySet[Well]  # type: ignore[type-arg]
     PerturbationTarget: QuerySet[PerturbationTarget]  # type: ignore[type-arg]
 
 
@@ -1576,11 +1571,11 @@ class DB:
     Space: QuerySet[Space]  # type: ignore[type-arg]
 
     bionty: BiontyDB
-    wetlab: WetlabDB
+    pertdb: PertdbDB
 
     def __init__(self, instance: str):
         self._instance = instance
-        self._cache: dict[str, NonInstantiableQuerySet | BiontyDB | WetlabDB] = {}
+        self._cache: dict[str, NonInstantiableQuerySet | BiontyDB | PertdbDB] = {}
         self._available_registries: set[str] | None = None
 
         owner, instance_name = instance.split("/")
@@ -1589,11 +1584,11 @@ class DB:
         )
         self._modules = ["lamindb"] + list(instance_info.modules)
 
-    def __getattr__(self, name: str) -> NonInstantiableQuerySet | BiontyDB | WetlabDB:
+    def __getattr__(self, name: str) -> NonInstantiableQuerySet | BiontyDB | PertdbDB:
         """Access a registry class or schema namespace for this database instance.
 
         Args:
-            name: Registry class name (e.g., 'Artifact', 'Collection') or schema namespace ('bionty', 'wetlab').
+            name: Registry class name (e.g., 'Artifact', 'Collection') or schema namespace ('bionty', 'pertdb').
 
         Returns:
             QuerySet for the specified registry or schema namespace scoped to this instance.
@@ -1611,15 +1606,15 @@ class DB:
                 self._cache["bionty"] = namespace
             return self._cache["bionty"]
 
-        if name == "wetlab":
-            if "wetlab" not in self._modules:
+        if name == "pertdb":
+            if "pertdb" not in self._modules:
                 raise AttributeError(
-                    f"Schema 'wetlab' not available in instance '{self._instance}'."
+                    f"Schema 'pertdb' not available in instance '{self._instance}'."
                 )
-            if "wetlab" not in self._cache:
-                namespace = WetlabDB(self, "wetlab")  # type: ignore
-                self._cache["wetlab"] = namespace
-            return self._cache["wetlab"]
+            if "pertdb" not in self._cache:
+                namespace = PertdbDB(self, "pertdb")  # type: ignore
+                self._cache["pertdb"] = namespace
+            return self._cache["pertdb"]
 
         try:
             lamindb_module = import_module("lamindb")
@@ -1633,7 +1628,7 @@ class DB:
             pass
 
         raise AttributeError(
-            f"Registry '{name}' not found in lamindb core registries. Use .bionty.{name} or .wetlab.{name} for schema-specific registries."
+            f"Registry '{name}' not found in lamindb core registries. Use .bionty.{name} or .pertdb.{name} for schema-specific registries."
         )
 
     def __repr__(self) -> str:
@@ -1657,7 +1652,7 @@ class DB:
         module_namespaces = set()
         if "bionty" in self._modules:
             module_namespaces.add("bionty")
-        if "wetlab" in self._modules:
-            module_namespaces.add("wetlab")
+        if "pertdb" in self._modules:
+            module_namespaces.add("pertdb")
 
         return sorted(set(base_attrs) | lamindb_registries | module_namespaces)

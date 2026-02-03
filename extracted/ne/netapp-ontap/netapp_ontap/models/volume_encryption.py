@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["VolumeEncryption", "VolumeEncryptionSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "VolumeEncryptionSchema.opts": False,
     "VolumeEncryption": False,
 }
-
 
 class VolumeEncryptionSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the VolumeEncryption object"""
@@ -61,7 +59,12 @@ Valid choices:
 * rekeying
 * unencrypted """
 
-    status = marshmallow_fields.Nested("netapp_ontap.models.volume_encryption_status.VolumeEncryptionStatusSchema", unknown=EXCLUDE, data_key="status", allow_none=True)
+    status = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_encryption_status", "VolumeEncryptionStatusSchema"),
+                unknown=EXCLUDE,
+                data_key="status",
+                allow_none=True
+            )
     r""" The status field of the volume_encryption. """
 
     type = marshmallow_fields.Str(data_key="type", allow_none=True)

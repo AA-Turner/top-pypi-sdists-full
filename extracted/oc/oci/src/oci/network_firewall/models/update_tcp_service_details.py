@@ -26,6 +26,10 @@ class UpdateTcpServiceDetails(UpdateServiceDetails):
             Allowed values for this property are: "TCP_SERVICE", "UDP_SERVICE"
         :type type: str
 
+        :param description:
+            The value to assign to the description property of this UpdateTcpServiceDetails.
+        :type description: str
+
         :param port_ranges:
             The value to assign to the port_ranges property of this UpdateTcpServiceDetails.
         :type port_ranges: list[oci.network_firewall.models.PortRange]
@@ -33,13 +37,16 @@ class UpdateTcpServiceDetails(UpdateServiceDetails):
         """
         self.swagger_types = {
             'type': 'str',
+            'description': 'str',
             'port_ranges': 'list[PortRange]'
         }
         self.attribute_map = {
             'type': 'type',
+            'description': 'description',
             'port_ranges': 'portRanges'
         }
         self._type = None
+        self._description = None
         self._port_ranges = None
         self._type = 'TCP_SERVICE'
 

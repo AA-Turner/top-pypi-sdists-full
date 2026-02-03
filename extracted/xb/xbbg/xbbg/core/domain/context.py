@@ -14,27 +14,27 @@ from xbbg.core.config import overrides
 # Infrastructure kwargs that are safe to pass to internal Bloomberg API calls
 # These are connection/logging/caching options, not Bloomberg field overrides
 _INFRA_KWARGS = {
-    'sess',           # Bloomberg session
-    'port',           # Port number
-    'timeout',        # Timeout in milliseconds
-    'log',            # Logging level
-    'raw',            # Return raw response
-    'cache',          # Enable caching
-    'cache_days',     # Cache expiration days
-    'col_maps',       # Column mapping
-    'keep_one',       # Keep one result
-    'price_only',     # Price only flag
-    'has_date',       # Has date flag
-    'batch',          # Batch processing flag
-    'reload',         # Force reload flag
+    "sess",  # Bloomberg session
+    "port",  # Port number
+    "slow_warn_seconds",  # Threshold for warning about slow requests
+    "log",  # Logging level
+    "raw",  # Return raw response
+    "cache",  # Enable caching
+    "cache_days",  # Cache expiration days
+    "col_maps",  # Column mapping
+    "keep_one",  # Keep one result
+    "price_only",  # Price only flag
+    "has_date",  # Has date flag
+    "batch",  # Batch processing flag
+    "reload",  # Force reload flag
     # Exchange/session resolution context (safe for internal lookups)
-    'ref',            # Reference ticker/exchange
-    'original',       # Original ticker (for logging)
-    'config',         # Exchange config override
+    "ref",  # Reference ticker/exchange
+    "original",  # Original ticker (for logging)
+    "config",  # Exchange config override
     # Connection parameters (for B-Pipe and alternative connections)
-    'server_host',    # Server hostname
-    'server_port',    # Server port
-    'server',         # Alternative name for server_host
+    "server_host",  # Server hostname
+    "server_port",  # Server port
+    "server",  # Alternative name for server_host
 }
 
 
@@ -49,7 +49,7 @@ class BloombergContext:
     Attributes:
         sess: Bloomberg session (optional)
         port: Port number (optional)
-        timeout: Timeout in milliseconds (optional)
+        slow_warn_seconds: Threshold for warning about slow requests (optional)
         log: Logging level (optional)
         raw: Return raw response (optional)
         cache: Enable caching (optional)
@@ -68,9 +68,10 @@ class BloombergContext:
         server: Alternative name for server_host (optional)
         _extra: Additional safe kwargs not explicitly listed
     """
+
     sess: Any = None
     port: int | None = None
-    timeout: int | None = None
+    slow_warn_seconds: float | None = None
     log: str | int | None = None
     raw: bool = False
     cache: bool = True
@@ -153,20 +154,23 @@ def split_kwargs(**kwargs) -> KwargsSplit:
 
     Example:
         >>> split = split_kwargs(
-        ...     interval=5, typ='TRADE', sess=None, timeout=1000,
+        ...     interval=5, typ='TRADE', sess=None, slow_warn_seconds=30.0,
         ...     DVD_Start_Dt='20180101', Period='W'
         ... )
         >>> 'interval' in split.request_opts
         True
         >>> 'DVD_Start_Dt' in split.override_like
         True
-        >>> 'timeout' in split.infra.to_kwargs()
+        >>> 'slow_warn_seconds' in split.infra.to_kwargs()
         True
     """
     # Request-specific parameters (not Bloomberg overrides, not infrastructure)
     request_specific = {
-        'interval', 'typ', 'types', 'intervalHasSeconds', 'time_range',
-        'pmc_extended',  # PMC-specific flag
+        "interval",
+        "typ",
+        "types",
+        "intervalHasSeconds",
+        "time_range",
     }
 
     infra_dict = {}
@@ -175,8 +179,7 @@ def split_kwargs(**kwargs) -> KwargsSplit:
 
     # Get all keys that proc_ovrds excludes (won't be treated as overrides)
     excluded_by_overrides = set(
-        overrides.PRSV_COLS + list(overrides.ELEM_KEYS.keys()) +
-        list(overrides.ELEM_KEYS.values())
+        overrides.PRSV_COLS + list(overrides.ELEM_KEYS.keys()) + list(overrides.ELEM_KEYS.values())
     )
 
     for key, value in kwargs.items():
@@ -199,4 +202,3 @@ def split_kwargs(**kwargs) -> KwargsSplit:
         override_like=override_like,
         request_opts=request_opts,
     )
-

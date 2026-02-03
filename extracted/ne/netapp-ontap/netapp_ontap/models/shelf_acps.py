@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ShelfAcps", "ShelfAcpsSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "ShelfAcpsSchema.opts": False,
     "ShelfAcps": False,
 }
-
 
 class ShelfAcpsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ShelfAcps object"""
@@ -52,7 +50,12 @@ Valid choices:
     enabled = marshmallow_fields.Boolean(data_key="enabled", allow_none=True)
     r""" The enabled field of the shelf_acps. """
 
-    error = marshmallow_fields.Nested("netapp_ontap.models.shelf_acps_error.ShelfAcpsErrorSchema", unknown=EXCLUDE, data_key="error", allow_none=True)
+    error = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.shelf_acps_error", "ShelfAcpsErrorSchema"),
+                unknown=EXCLUDE,
+                data_key="error",
+                allow_none=True
+            )
     r""" Error object is populated when connection_state becomes non-optimal """
 
     netmask = marshmallow_fields.Str(data_key="netmask", allow_none=True)
@@ -60,7 +63,12 @@ Valid choices:
 
 Example: 255.255.252.0 """
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", unknown=EXCLUDE, data_key="node", allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                unknown=EXCLUDE,
+                data_key="node",
+                allow_none=True
+            )
     r""" The node field of the shelf_acps. """
 
     port = marshmallow_fields.Str(data_key="port", allow_none=True)

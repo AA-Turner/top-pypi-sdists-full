@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: arq
-Version: 0.26.3
+Version: 0.27.0
 Summary: Job queues in python with asyncio and redis
-Project-URL: Homepage, https://github.com/samuelcolvin/arq
+Project-URL: Homepage, https://github.com/python-arq/arq
 Project-URL: Documentation, https://arq-docs.helpmanual.io
 Project-URL: Funding, https://github.com/sponsors/samuelcolvin
-Project-URL: Source, https://github.com/samuelcolvin/arq
-Project-URL: Changelog, https://github.com/samuelcolvin/arq/releases
+Project-URL: Source, https://github.com/python-arq/arq
+Project-URL: Changelog, https://github.com/python-arq/arq/releases
 Author-email: Samuel Colvin <s@muelcolvin.com>
 License: MIT
 License-File: LICENSE
@@ -22,18 +22,18 @@ Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Clustering
 Classifier: Topic :: System :: Distributed Computing
 Classifier: Topic :: System :: Monitoring
 Classifier: Topic :: System :: Systems Administration
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: click>=8.0
 Requires-Dist: redis[hiredis]<6,>=4.2.0
 Provides-Extra: watch
@@ -48,6 +48,8 @@ Description-Content-Type: text/markdown
 [![pypi](https://img.shields.io/pypi/v/arq.svg)](https://pypi.python.org/pypi/arq)
 [![versions](https://img.shields.io/pypi/pyversions/arq.svg)](https://github.com/samuelcolvin/arq)
 [![license](https://img.shields.io/github/license/samuelcolvin/arq.svg)](https://github.com/samuelcolvin/arq/blob/main/LICENSE)
+
+**In maintenance only mode**: arq is in maintenance only mode, see [#510](https://github.com/python-arq/arq/issues/510).
 
 Job queues in python with asyncio and redis.
 

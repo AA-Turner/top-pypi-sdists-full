@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -24,85 +24,85 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3Bucket(
         {
-            "svm": {"uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123", "name": "vs1"},
-            "uuid": "527812ab-7c6d-11e9-97e8-0050568ea123",
-            "comment": "S3 bucket.",
             "volume": {
-                "uuid": "51276f5f-7c6d-11e9-97e8-0050568ea123",
                 "name": "fg_oss_1558514455",
-            },
-            "qos_policy": {
-                "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
-                "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
+                "uuid": "51276f5f-7c6d-11e9-97e8-0050568ea123",
             },
             "name": "bucket-2",
-            "encryption": {"enabled": False},
+            "size": 107374182400,
+            "qos_policy": {
+                "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
+                "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
+            },
             "logical_used_size": 157286400,
-            "size": 209715200,
+            "comment": "S3 bucket.",
+            "uuid": "527812ab-7c6d-11e9-97e8-0050568ea123",
+            "encryption": {"enabled": False},
+            "svm": {"name": "vs1", "uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123"},
         }
     ),
     S3Bucket(
         {
-            "svm": {"uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123", "name": "vs1"},
-            "uuid": "a8234aec-7e06-11e9-97e8-0050568ea123",
-            "comment": "bucket2",
             "volume": {
-                "uuid": "a36a1ea7-7e06-11e9-97e8-0050568ea123",
                 "name": "fg_oss_1558690256",
-            },
-            "qos_policy": {
-                "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
-                "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
+                "uuid": "a36a1ea7-7e06-11e9-97e8-0050568ea123",
             },
             "name": "bucket-1",
-            "encryption": {"enabled": False},
+            "size": 107374182400,
+            "qos_policy": {
+                "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
+                "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
+            },
             "logical_used_size": 0,
-            "size": 1677721600,
+            "comment": "bucket2",
+            "uuid": "a8234aec-7e06-11e9-97e8-0050568ea123",
+            "encryption": {"enabled": False},
+            "svm": {"name": "vs1", "uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123"},
         }
     ),
     S3Bucket(
         {
-            "svm": {"uuid": "ee30eb2d-7ae1-11e9-8abe-0050568ea123", "name": "vs2"},
-            "uuid": "19283b75-7ae2-11e9-8abe-0050568ea123",
-            "comment": "bucket3",
-            "cors": {
-                "rules": [
-                    {
-                        "id": "string",
-                        "allowed_origins": ["http://www.example.com"],
-                        "allowed_headers": ["x-amz-request-id"],
-                        "max_age_seconds": 1024,
-                        "allowed_methods": ["PUT", "DELETE"],
-                        "expose_headers": ["http://www.example.com"],
-                    }
-                ]
-            },
             "volume": {
-                "uuid": "a46a1ea7-7e06-11e9-97e8-0050568ea123",
                 "name": "fg_oss_1558690257",
-            },
-            "qos_policy": {
-                "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
-                "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
+                "uuid": "a46a1ea7-7e06-11e9-97e8-0050568ea123",
             },
             "name": "bucket-3",
-            "encryption": {"enabled": False},
+            "size": 107374182400,
+            "qos_policy": {
+                "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
+                "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
+            },
             "policy": {
                 "statements": [
                     {
                         "effect": "allow",
-                        "sid": "fullAccessForAliceToBucket",
-                        "actions": ["*"],
                         "resources": ["bucket-3", "bucket-3/*"],
-                        "conditions": [
-                            {"operator": "ip_address", "source_ips": ["1.1.1.1/10"]}
-                        ],
+                        "actions": ["*"],
                         "principals": ["Alice"],
+                        "sid": "fullAccessForAliceToBucket",
+                        "conditions": [
+                            {"source_ips": ["1.1.1.1/10"], "operator": "ip_address"}
+                        ],
                     }
                 ]
             },
             "logical_used_size": 1075838976,
-            "size": 1677721600,
+            "comment": "bucket3",
+            "uuid": "19283b75-7ae2-11e9-8abe-0050568ea123",
+            "encryption": {"enabled": False},
+            "cors": {
+                "rules": [
+                    {
+                        "allowed_methods": ["PUT", "DELETE"],
+                        "max_age_seconds": 1024,
+                        "allowed_headers": ["x-amz-request-id"],
+                        "id": "string",
+                        "allowed_origins": ["http://www.example.com"],
+                        "expose_headers": ["http://www.example.com"],
+                    }
+                ]
+            },
+            "svm": {"name": "vs2", "uuid": "ee30eb2d-7ae1-11e9-8abe-0050568ea123"},
         }
     ),
 ]
@@ -128,26 +128,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3Bucket(
         {
-            "svm": {"uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123", "name": "vs1"},
-            "uuid": "754389d0-7e13-11e9-bfdc-0050568ea123",
             "name": "bb1",
-            "size": 838860800,
+            "size": 107374182400,
+            "uuid": "754389d0-7e13-11e9-bfdc-0050568ea123",
+            "svm": {"name": "vs1", "uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123"},
         }
     ),
     S3Bucket(
         {
-            "svm": {"uuid": "ee30eb2d-7ae1-11e9-8abe-0050568ea123", "name": "vs2"},
-            "uuid": "19283b75-7ae2-11e9-8abe-0050568ea123",
             "name": "bb2",
-            "size": 838860800,
+            "size": 107374182400,
+            "uuid": "19283b75-7ae2-11e9-8abe-0050568ea123",
+            "svm": {"name": "vs2", "uuid": "ee30eb2d-7ae1-11e9-8abe-0050568ea123"},
         }
     ),
     S3Bucket(
         {
-            "svm": {"uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123", "name": "vs1"},
-            "uuid": "a8234aec-7e06-11e9-97e8-0050568ea123",
             "name": "bucket-1",
-            "size": 1677721600,
+            "size": 107374182400,
+            "uuid": "a8234aec-7e06-11e9-97e8-0050568ea123",
+            "svm": {"name": "vs1", "uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123"},
         }
     ),
 ]
@@ -173,16 +173,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3Bucket(
         {
-            "svm": {"uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123", "name": "vs1"},
-            "uuid": "087d940e-7e15-11e9-bfdc-0050568ea123",
             "name": "bb2",
+            "uuid": "087d940e-7e15-11e9-bfdc-0050568ea123",
+            "svm": {"name": "vs1", "uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123"},
         }
     ),
     S3Bucket(
         {
-            "svm": {"uuid": "ee30eb2d-7ae1-11e9-8abe-0050568ea123", "name": "vs2"},
-            "uuid": "19283b75-7ae2-11e9-8abe-0050568ea123",
             "name": "bb2",
+            "uuid": "19283b75-7ae2-11e9-8abe-0050568ea123",
+            "svm": {"name": "vs2", "uuid": "ee30eb2d-7ae1-11e9-8abe-0050568ea123"},
         }
     ),
 ]
@@ -212,21 +212,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Bucket(
     {
-        "svm": {"uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123", "name": "vs1"},
-        "uuid": "527812ab-7c6d-11e9-97e8-0050568ea123",
-        "comment": "S3 bucket.",
         "volume": {
-            "uuid": "51276f5f-7c6d-11e9-97e8-0050568ea123",
             "name": "fg_oss_1558514455",
-        },
-        "qos_policy": {
-            "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
-            "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
+            "uuid": "51276f5f-7c6d-11e9-97e8-0050568ea123",
         },
         "name": "bucket-2",
-        "encryption": {"enabled": False},
+        "size": 107374182400,
+        "qos_policy": {
+            "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
+            "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
+        },
         "logical_used_size": 157286400,
-        "size": 209715200,
+        "comment": "S3 bucket.",
+        "uuid": "527812ab-7c6d-11e9-97e8-0050568ea123",
+        "encryption": {"enabled": False},
+        "svm": {"name": "vs1", "uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123"},
     }
 )
 
@@ -257,7 +257,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="<password>", verify
 <label for="example4_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example4_result" class="try_it_out_content">
 ```
-S3Bucket({"comment": "S3 bucket.", "name": "bucket-3"})
+S3Bucket({"name": "bucket-3", "comment": "S3 bucket."})
 
 ```
 </div>
@@ -290,7 +290,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="<password>", verify
 <label for="example5_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example5_result" class="try_it_out_content">
 ```
-S3Bucket({"comment": "S3 bucket.", "name": "bucket-3"})
+S3Bucket({"name": "bucket-3", "comment": "S3 bucket."})
 
 ```
 </div>
@@ -349,7 +349,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="<password>", verify
 <label for="example6_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example6_result" class="try_it_out_content">
 ```
-S3Bucket({"comment": "S3 bucket.", "name": "bucket-3"})
+S3Bucket({"name": "bucket-3", "comment": "S3 bucket."})
 
 ```
 </div>
@@ -390,7 +390,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example7_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example7_result" class="try_it_out_content">
 ```
-S3Bucket({"comment": "S3 bucket.", "name": "bucket-3"})
+S3Bucket({"name": "bucket-3", "comment": "S3 bucket."})
 
 ```
 </div>
@@ -433,7 +433,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="<password>", verify
 <label for="example8_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example8_result" class="try_it_out_content">
 ```
-S3Bucket({"comment": "S3 bucket.", "name": "bucket-4"})
+S3Bucket({"name": "bucket-4", "comment": "S3 bucket."})
 
 ```
 </div>
@@ -464,13 +464,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="<password>", verify
 ```
 S3Bucket(
     {
-        "svm": {"uuid": "8c38f10b-4871-11ef-aab5-005056a7ceb6"},
-        "comment": "S3 snapshot policy bucket.",
-        "snapshot_policy": {
-            "uuid": "f9c5f090-4ac8-11ef-ba24-005056a7ceb6",
-            "name": "default-1weekly",
-        },
         "name": "bucket-7",
+        "snapshot_policy": {
+            "name": "default-1weekly",
+            "uuid": "f9c5f090-4ac8-11ef-ba24-005056a7ceb6",
+        },
+        "comment": "S3 snapshot policy bucket.",
+        "svm": {"uuid": "8c38f10b-4871-11ef-aab5-005056a7ceb6"},
     }
 )
 
@@ -592,11 +592,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -610,11 +609,18 @@ __pdoc__ = {
     "S3BucketSchema.opts": False,
 }
 
-
 class S3BucketSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the S3Bucket object"""
 
-    aggregates = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.flexcache_aggregates.FlexcacheAggregatesSchema", unknown=EXCLUDE, allow_none=True), data_key="aggregates", allow_none=True)
+    aggregates = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.flexcache_aggregates", "FlexcacheAggregatesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="aggregates",
+                allow_none=True
+            )
     r""" A list of aggregates for FlexGroup volume constituents where the bucket is hosted. If this option is not specified, the bucket is auto-provisioned as a FlexGroup volume."""
 
     allowed = marshmallow_fields.Boolean(
@@ -623,7 +629,12 @@ class S3BucketSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" If this is set to true, an SVM administrator can manage the S3 service. If it is false, only the cluster administrator can manage the service. This field cannot be specified in a POST method."""
 
-    audit_event_selector = marshmallow_fields.Nested("netapp_ontap.models.s3_audit_event_selector.S3AuditEventSelectorSchema", data_key="audit_event_selector", unknown=EXCLUDE, allow_none=True)
+    audit_event_selector = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.s3_audit_event_selector", "S3AuditEventSelectorSchema"),
+                data_key="audit_event_selector",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" S3 audit event selector per SVM per bucket.  Use to set access and permission type for S3 event audit."""
 
     comment = marshmallow_fields.Str(
@@ -644,10 +655,20 @@ Example: S3 bucket."""
 
 Example: 4"""
 
-    cors = marshmallow_fields.Nested("netapp_ontap.models.s3_bucket_cors.S3BucketCorsSchema", data_key="cors", unknown=EXCLUDE, allow_none=True)
+    cors = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.s3_bucket_cors", "S3BucketCorsSchema"),
+                data_key="cors",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Cross-origin resource sharing (CORS) specifies an object associated with a bucket. The CORS configuration enables the bucket to service the cross-origin requests. A request might typically come from an origin with a domain that is different to that of the bucket. By configuring a CORS rule, you can define a combination of allowed origins, HTTP headers and methods that a bucket can use to filter out the cross-origin requests that it can service successfully."""
 
-    encryption = marshmallow_fields.Nested("netapp_ontap.models.s3_bucket_encryption.S3BucketEncryptionSchema", data_key="encryption", unknown=EXCLUDE, allow_none=True)
+    encryption = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.s3_bucket_encryption", "S3BucketEncryptionSchema"),
+                data_key="encryption",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The encryption field of the s3_bucket."""
 
     is_consistent_etag = marshmallow_fields.Boolean(
@@ -662,7 +683,12 @@ Example: 4"""
     )
     r""" Specifies whether the NAS bucket mapping or association with a NAS volume can change according to the changes in the NAS volume junction-path due to volume operations like mount and unmount and therefore the NAS bucket will have access to any path in a NAS volume that matches the specified nas-path. Or is immutable and therefore the NAS bucket will always have access to the same nas-path that was specified during bucket creation even if the volume junction-path has undergone changes after the bucket creation."""
 
-    lifecycle_management = marshmallow_fields.Nested("netapp_ontap.models.s3_bucket_lifecycle_management.S3BucketLifecycleManagementSchema", data_key="lifecycle_management", unknown=EXCLUDE, allow_none=True)
+    lifecycle_management = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.s3_bucket_lifecycle_management", "S3BucketLifecycleManagementSchema"),
+                data_key="lifecycle_management",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Lifecycle management is implemented as an object associated with a bucket. It defines rules to be applied against objects within a bucket. These rules are applied in the background and can delete objects."""
 
     logical_used_size = Size(
@@ -688,16 +714,36 @@ Example: bucket1"""
 
 Example: /"""
 
-    policy = marshmallow_fields.Nested("netapp_ontap.models.s3_bucket_policy.S3BucketPolicySchema", data_key="policy", unknown=EXCLUDE, allow_none=True)
+    policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.s3_bucket_policy", "S3BucketPolicySchema"),
+                data_key="policy",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" A policy is an object associated with a bucket. It defines resource (bucket, folder, or object) permissions. These policies get evaluated when an S3 user makes a request by executing a specific command. The user must be part of the principal (user or group) specified in the policy. Permissions in the policies determine whether the request is allowed or denied."""
 
-    protection_status = marshmallow_fields.Nested("netapp_ontap.models.s3_bucket_protection_status.S3BucketProtectionStatusSchema", data_key="protection_status", unknown=EXCLUDE, allow_none=True)
+    protection_status = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.s3_bucket_protection_status", "S3BucketProtectionStatusSchema"),
+                data_key="protection_status",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Specifies attributes of bucket protection."""
 
-    qos_policy = marshmallow_fields.Nested("netapp_ontap.resources.qos_policy.QosPolicySchema", data_key="qos_policy", unknown=EXCLUDE, allow_none=True)
+    qos_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.qos_policy", "QosPolicySchema"),
+                data_key="qos_policy",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The qos_policy field of the s3_bucket."""
 
-    retention = marshmallow_fields.Nested("netapp_ontap.models.s3_bucket_retention.S3BucketRetentionSchema", data_key="retention", unknown=EXCLUDE, allow_none=True)
+    retention = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.s3_bucket_retention", "S3BucketRetentionSchema"),
+                data_key="retention",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Information about the retention-mode and default-retention-period configured on the bucket."""
 
     role = marshmallow_fields.Str(
@@ -715,15 +761,28 @@ Valid choices:
 
     size = Size(
         data_key="size",
-        validate=integer_validation(minimum=199229440, maximum=62672162783232000),
+        validate=integer_validation(minimum=107374182400, maximum=67553994410557440),
         allow_none=True,
     )
-    r""" Specifies the bucket size in bytes; ranges from 190MB to 62PB.
+    r""" Specifies the bucket size in bytes; ranges from 100GB to 60PB.
 
-Example: 1677721600"""
+Example: 214748364800"""
 
-    snapshot_policy = marshmallow_fields.Nested("netapp_ontap.models.s3_bucket_snapshot_policy.S3BucketSnapshotPolicySchema", data_key="snapshot_policy", unknown=EXCLUDE, allow_none=True)
+    snapshot_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.s3_bucket_snapshot_policy", "S3BucketSnapshotPolicySchema"),
+                data_key="snapshot_policy",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Specifies the bucket snapshot policy."""
+
+    snapshot_restore = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.s3_bucket_snapshot_restore", "S3BucketSnapshotRestoreSchema"),
+                data_key="snapshot_restore",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
+    r""" Specifies information regarding a snapshot restore operation on the bucket"""
 
     storage_service_level = marshmallow_fields.Str(
         data_key="storage_service_level",
@@ -738,7 +797,12 @@ Valid choices:
 * performance
 * extreme"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the s3_bucket."""
 
     type = marshmallow_fields.Str(
@@ -780,7 +844,12 @@ Valid choices:
 * enabled
 * suspended"""
 
-    volume = marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", data_key="volume", unknown=EXCLUDE, allow_none=True)
+    volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                data_key="volume",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The volume field of the s3_bucket."""
 
     @property
@@ -814,6 +883,7 @@ Valid choices:
         "role",
         "size",
         "snapshot_policy",
+        "snapshot_restore",
         "svm.links",
         "svm.name",
         "svm.uuid",
@@ -824,7 +894,7 @@ Valid choices:
         "volume.name",
         "volume.uuid",
     ]
-    """allowed,audit_event_selector,comment,cors,encryption,is_consistent_etag,is_nas_path_mutable,lifecycle_management,logical_used_size,name,nas_path,policy,protection_status,qos_policy.links,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,retention,role,size,snapshot_policy,svm.links,svm.name,svm.uuid,type,uuid,versioning_state,volume.links,volume.name,volume.uuid,"""
+    """allowed,audit_event_selector,comment,cors,encryption,is_consistent_etag,is_nas_path_mutable,lifecycle_management,logical_used_size,name,nas_path,policy,protection_status,qos_policy.links,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,retention,role,size,snapshot_policy,snapshot_restore,svm.links,svm.name,svm.uuid,type,uuid,versioning_state,volume.links,volume.name,volume.uuid,"""
 
     patchable_fields = [
         "allowed",
@@ -846,10 +916,11 @@ Valid choices:
         "retention",
         "size",
         "snapshot_policy",
+        "snapshot_restore",
         "type",
         "versioning_state",
     ]
-    """allowed,audit_event_selector,comment,cors,is_consistent_etag,nas_path,policy,protection_status,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,retention,size,snapshot_policy,type,versioning_state,"""
+    """allowed,audit_event_selector,comment,cors,is_consistent_etag,nas_path,policy,protection_status,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,retention,size,snapshot_policy,snapshot_restore,type,versioning_state,"""
 
     postable_fields = [
         "aggregates.name",
@@ -877,6 +948,7 @@ Valid choices:
         "retention",
         "size",
         "snapshot_policy",
+        "snapshot_restore",
         "storage_service_level",
         "svm.name",
         "svm.uuid",
@@ -884,7 +956,7 @@ Valid choices:
         "use_mirrored_aggregates",
         "versioning_state",
     ]
-    """aggregates.name,aggregates.uuid,allowed,audit_event_selector,comment,constituents_per_aggregate,cors,is_consistent_etag,is_nas_path_mutable,lifecycle_management,name,nas_path,policy,protection_status,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,retention,size,snapshot_policy,storage_service_level,svm.name,svm.uuid,type,use_mirrored_aggregates,versioning_state,"""
+    """aggregates.name,aggregates.uuid,allowed,audit_event_selector,comment,constituents_per_aggregate,cors,is_consistent_etag,is_nas_path_mutable,lifecycle_management,name,nas_path,policy,protection_status,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,retention,size,snapshot_policy,snapshot_restore,storage_service_level,svm.name,svm.uuid,type,use_mirrored_aggregates,versioning_state,"""
 
 class S3Bucket(Resource):
     r""" A bucket is a container of objects. Each bucket defines an object namespace. S3 requests specify objects using a bucket-name and object-name pair. An object resides within a bucket. """
@@ -968,12 +1040,14 @@ class S3Bucket(Resource):
   * `retention.default_period` - Specifies the duration of default-retention applicable for objects on the object store bucket.
   * `cors` - Specifying CORS rules enables the bucket to service the cross-origin requests. Note that the new CORS configuration specified will replace the existing one. If you need to retain any of the existing CORS rules, specify those rules again as part of the new CORS rules. To remove all the existing rules, specify an empty CORS configuration as input.
   * `snapshot_policy` - Snapshot policy for the bucket.
+  * `restore_to` - Start a snapshot restore operation for S3 bucket
 ### Related ONTAP commands
 * `vserver object-store-server bucket modify`
 * `vserver object-store-server bucket policy statement modify`
 * `vserver object-store-server bucket policy-statement-condition modify`
 * `vserver object-store-server bucket cors-rule create`
 * `vserver object-store-server bucket cors-rule delete`
+* `vserver object-store-server bucket snapshot restore start`
 ### Learn more
 * [`DOC /protocols/s3/buckets`](#docs-object-store-protocols_s3_buckets)
 """
@@ -1144,6 +1218,7 @@ class S3Bucket(Resource):
 * `vserver object-store-server bucket policy-statement-condition show`
 * `vserver object-store-server bucket lifecycle-management-rule show`
 * `vserver object-store-server bucket cors-rule show`
+* `vserver object-store-server bucket snapshot restore show`
 ### Learn more
 * [`DOC /protocols/s3/buckets`](#docs-object-store-protocols_s3_buckets)
 """
@@ -1275,12 +1350,14 @@ class S3Bucket(Resource):
   * `retention.default_period` - Specifies the duration of default-retention applicable for objects on the object store bucket.
   * `cors` - Specifying CORS rules enables the bucket to service the cross-origin requests. Note that the new CORS configuration specified will replace the existing one. If you need to retain any of the existing CORS rules, specify those rules again as part of the new CORS rules. To remove all the existing rules, specify an empty CORS configuration as input.
   * `snapshot_policy` - Snapshot policy for the bucket.
+  * `restore_to` - Start a snapshot restore operation for S3 bucket
 ### Related ONTAP commands
 * `vserver object-store-server bucket modify`
 * `vserver object-store-server bucket policy statement modify`
 * `vserver object-store-server bucket policy-statement-condition modify`
 * `vserver object-store-server bucket cors-rule create`
 * `vserver object-store-server bucket cors-rule delete`
+* `vserver object-store-server bucket snapshot restore start`
 ### Learn more
 * [`DOC /protocols/s3/buckets`](#docs-object-store-protocols_s3_buckets)
 """

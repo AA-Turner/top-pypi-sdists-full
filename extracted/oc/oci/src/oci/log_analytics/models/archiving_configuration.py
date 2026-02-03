@@ -28,17 +28,24 @@ class ArchivingConfiguration(object):
             The value to assign to the archival_storage_duration property of this ArchivingConfiguration.
         :type archival_storage_duration: str
 
+        :param time_oldest_active_bucket_ended:
+            The value to assign to the time_oldest_active_bucket_ended property of this ArchivingConfiguration.
+        :type time_oldest_active_bucket_ended: datetime
+
         """
         self.swagger_types = {
             'active_storage_duration': 'str',
-            'archival_storage_duration': 'str'
+            'archival_storage_duration': 'str',
+            'time_oldest_active_bucket_ended': 'datetime'
         }
         self.attribute_map = {
             'active_storage_duration': 'activeStorageDuration',
-            'archival_storage_duration': 'archivalStorageDuration'
+            'archival_storage_duration': 'archivalStorageDuration',
+            'time_oldest_active_bucket_ended': 'timeOldestActiveBucketEnded'
         }
         self._active_storage_duration = None
         self._archival_storage_duration = None
+        self._time_oldest_active_bucket_ended = None
 
     @property
     def active_storage_duration(self):
@@ -95,6 +102,30 @@ class ArchivingConfiguration(object):
         :type: str
         """
         self._archival_storage_duration = archival_storage_duration
+
+    @property
+    def time_oldest_active_bucket_ended(self):
+        """
+        Gets the time_oldest_active_bucket_ended of this ArchivingConfiguration.
+        end time of the oldest active CoreGroup
+
+
+        :return: The time_oldest_active_bucket_ended of this ArchivingConfiguration.
+        :rtype: datetime
+        """
+        return self._time_oldest_active_bucket_ended
+
+    @time_oldest_active_bucket_ended.setter
+    def time_oldest_active_bucket_ended(self, time_oldest_active_bucket_ended):
+        """
+        Sets the time_oldest_active_bucket_ended of this ArchivingConfiguration.
+        end time of the oldest active CoreGroup
+
+
+        :param time_oldest_active_bucket_ended: The time_oldest_active_bucket_ended of this ArchivingConfiguration.
+        :type: datetime
+        """
+        self._time_oldest_active_bucket_ended = time_oldest_active_bucket_ended
 
     def __repr__(self):
         return formatted_flat_dict(self)

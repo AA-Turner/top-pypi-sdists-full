@@ -168,7 +168,7 @@ class LogAnalyticsParserFunction(object):
     def is_enabled(self):
         """
         Gets the is_enabled of this LogAnalyticsParserFunction.
-        A flag inidcating whether or not the parser function is enabled.
+        A flag indicating whether or not the parser function is enabled.
 
 
         :return: The is_enabled of this LogAnalyticsParserFunction.
@@ -180,7 +180,7 @@ class LogAnalyticsParserFunction(object):
     def is_enabled(self, is_enabled):
         """
         Sets the is_enabled of this LogAnalyticsParserFunction.
-        A flag inidcating whether or not the parser function is enabled.
+        A flag indicating whether or not the parser function is enabled.
 
 
         :param is_enabled: The is_enabled of this LogAnalyticsParserFunction.

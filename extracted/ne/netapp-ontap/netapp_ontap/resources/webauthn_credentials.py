@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -25,22 +25,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     WebauthnCredentials(
         {
-            "relying_party": {"id": "ontap1.example.com", "name": "ontap1.example.com"},
-            "owner": {
-                "uuid": "389758ee-40cd-11ef-bb21-005056aeae31",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/389758ee-40cd-11ef-bb21-005056aeae31"
-                    }
-                },
-            },
-            "username": "user_1",
+            "relying_party": {"name": "ontap1.example.com", "id": "ontap1.example.com"},
             "_links": {
                 "self": {
                     "href": "/api/security/webauthn/credentials/389758ee-40cd-11ef-bb21-005056aeae31/user_1/0/ontap1.example.com"
                 }
             },
             "index": 0,
+            "username": "user_1",
+            "owner": {
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/389758ee-40cd-11ef-bb21-005056aeae31"
+                    }
+                },
+                "uuid": "389758ee-40cd-11ef-bb21-005056aeae31",
+            },
         }
     )
 ]
@@ -54,11 +54,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -72,11 +71,15 @@ __pdoc__ = {
     "WebauthnCredentialsSchema.opts": False,
 }
 
-
 class WebauthnCredentialsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the WebauthnCredentials object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the webauthn_credentials."""
 
     creation_time = ImpreciseDateTime(
@@ -87,7 +90,12 @@ class WebauthnCredentialsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 2024-08-06T02:38:55.000+0000"""
 
-    credential = marshmallow_fields.Nested("netapp_ontap.models.webauthn_credentials_credential.WebauthnCredentialsCredentialSchema", data_key="credential", unknown=EXCLUDE, allow_none=True)
+    credential = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.webauthn_credentials_credential", "WebauthnCredentialsCredentialSchema"),
+                data_key="credential",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The credential field of the webauthn_credentials."""
 
     display_name = marshmallow_fields.Str(
@@ -112,13 +120,28 @@ Example: admin"""
 
 Example: 2024-08-06T02:48:55.000+0000"""
 
-    owner = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="owner", unknown=EXCLUDE, allow_none=True)
+    owner = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="owner",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" WebAuthn credential owner. Used to identify a cluster or an SVM."""
 
-    public_key = marshmallow_fields.Nested("netapp_ontap.models.webauthn_credentials_public_key.WebauthnCredentialsPublicKeySchema", data_key="public_key", unknown=EXCLUDE, allow_none=True)
+    public_key = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.webauthn_credentials_public_key", "WebauthnCredentialsPublicKeySchema"),
+                data_key="public_key",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The public_key field of the webauthn_credentials."""
 
-    relying_party = marshmallow_fields.Nested("netapp_ontap.models.webauthn_credentials_relying_party.WebauthnCredentialsRelyingPartySchema", data_key="relying_party", unknown=EXCLUDE, allow_none=True)
+    relying_party = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.webauthn_credentials_relying_party", "WebauthnCredentialsRelyingPartySchema"),
+                data_key="relying_party",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The relying_party field of the webauthn_credentials."""
 
     scope = marshmallow_fields.Str(

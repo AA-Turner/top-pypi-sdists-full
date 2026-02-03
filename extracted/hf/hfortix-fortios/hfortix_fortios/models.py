@@ -72,6 +72,7 @@ class FortiObject:
         data: dict,
         raw_envelope: dict | None = None,
         response_time: float | None = None,
+        request_info: dict | None = None,
     ):
         """
         Initialize FortiObject with API response data.
@@ -80,10 +81,12 @@ class FortiObject:
             data: Dictionary containing the API response fields
             raw_envelope: Optional full API response envelope
             response_time: Optional response time in seconds (from HTTP request)
+            request_info: Optional HTTP request information (method, url, params, data)
         """
         self._data = data
         self._raw_envelope = raw_envelope
         self._response_time = response_time
+        self._request_info = request_info
 
     # ========================================================================
     # Explicit envelope properties (for autocomplete - these are common fields)
@@ -233,6 +236,83 @@ class FortiObject:
             Query took 45.2ms
         """
         return self._response_time * 1000 if self._response_time else None
+
+    @property
+    def http_api_request(self) -> dict[str, Any] | None:
+        """
+        HTTP API request information for this response.
+        
+        Returns dictionary with request details including:
+        - method: HTTP method (GET, POST, PUT, DELETE)
+        - url: Full URL that was requested
+        - endpoint: API endpoint path
+        - params: Query parameters sent
+        - data: Request body (for POST/PUT)
+        - timestamp: Unix timestamp when request was made
+        
+        Returns None if request information was not tracked.
+        
+        Examples:
+            >>> result = fgt.api.cmdb.firewall.address.get(filter='subnet==10.0.0.0/8')
+            >>> print(result.http_api_request)
+            {
+                'method': 'GET',
+                'url': 'https://192.168.1.99/api/v2/cmdb/firewall/address',
+                'endpoint': '/api/v2/cmdb/firewall/address',
+                'params': {'filter': 'subnet==10.0.0.0/8', 'vdom': 'root'},
+                'data': None,
+                'timestamp': 1706889600.123
+            }
+            
+            >>> policy = fgt.api.cmdb.firewall.policy.post(
+            ...     name="test",
+            ...     srcintf=[{"name": "wan1"}],
+            ...     dstintf=[{"name": "wan2"}]
+            ... )
+            >>> print(policy.http_api_request)
+            {
+                'method': 'POST',
+                'url': 'https://192.168.1.99/api/v2/cmdb/firewall/policy',
+                'endpoint': '/api/v2/cmdb/firewall/policy',
+                'params': {'vdom': 'root'},
+                'data': {'name': 'test', 'srcintf': [{'name': 'wan1'}], 'dstintf': [{'name': 'wan2'}]},
+                'timestamp': 1706889601.456
+            }
+        """
+        return self._request_info
+
+    @property
+    def fmg_api_request(self) -> dict[str, Any] | None:
+        """
+        Alias for http_api_request when using FortiManager proxy.
+        
+        This property provides the same information as http_api_request but with
+        a name that makes it clearer when working with FortiManager proxy connections.
+        
+        Returns dictionary with request details including:
+        - method: HTTP method (GET, POST, PUT, DELETE)
+        - url: Full FMG proxy URL that was requested
+        - endpoint: API endpoint path
+        - params: Query parameters sent
+        - data: Request body (for POST/PUT)
+        - timestamp: Unix timestamp when request was made
+        
+        Returns None if request information was not tracked.
+        
+        Examples:
+            >>> # Using FortiManager proxy to manage a device
+            >>> result = fmg.devices['FGT-01'].api.cmdb.firewall.address.get()
+            >>> print(result.fmg_api_request)
+            {
+                'method': 'GET',
+                'url': 'https://fmg.example.com/jsonrpc',
+                'endpoint': '/api/v2/cmdb/firewall/address',
+                'params': {'vdom': 'root'},
+                'data': {...},
+                'timestamp': 1706889600.123
+            }
+        """
+        return self._request_info
 
     # ========================================================================
     # FortiManager Proxy Metadata Properties
@@ -841,6 +921,7 @@ class FortiObjectList(list):
         items: list | None = None,
         raw_envelope: dict | None = None,
         response_time: float | None = None,
+        request_info: dict | None = None,
     ):
         """
         Initialize FortiObjectList.
@@ -849,10 +930,12 @@ class FortiObjectList(list):
             items: List of FortiObject instances or other items
             raw_envelope: The full API response envelope (optional)
             response_time: Response time in seconds for the HTTP request (optional)
+            request_info: HTTP request information (method, url, params, data) (optional)
         """
         super().__init__(items or [])
         self._raw_envelope = raw_envelope
         self._response_time = response_time
+        self._request_info = request_info
 
     # ========================================================================
     # Response timing properties
@@ -899,6 +982,68 @@ class FortiObjectList(list):
             "http_status": self.http_status,
             "vdom": self.vdom,
         }
+
+    @property
+    def http_api_request(self) -> dict[str, Any] | None:
+        """
+        HTTP API request information for this response.
+        
+        Returns dictionary with request details including:
+        - method: HTTP method (GET, POST, PUT, DELETE)
+        - url: Full URL that was requested
+        - endpoint: API endpoint path
+        - params: Query parameters sent
+        - data: Request body (for POST/PUT)
+        - timestamp: Unix timestamp when request was made
+        
+        Returns None if request information was not tracked.
+        
+        Examples:
+            >>> policies = fgt.api.cmdb.firewall.policy.get(filter='srcaddr==internal')
+            >>> print(policies.http_api_request)
+            {
+                'method': 'GET',
+                'url': 'https://192.168.1.99/api/v2/cmdb/firewall/policy',
+                'endpoint': '/api/v2/cmdb/firewall/policy',
+                'params': {'filter': 'srcaddr==internal', 'vdom': 'root'},
+                'data': None,
+                'timestamp': 1706889600.123
+            }
+        """
+        return self._request_info
+
+    @property
+    def fmg_api_request(self) -> dict[str, Any] | None:
+        """
+        Alias for http_api_request when using FortiManager proxy.
+        
+        This property provides the same information as http_api_request but with
+        a name that makes it clearer when working with FortiManager proxy connections.
+        
+        Returns dictionary with request details including:
+        - method: HTTP method (GET, POST, PUT, DELETE)
+        - url: Full FMG proxy URL that was requested
+        - endpoint: API endpoint path
+        - params: Query parameters sent
+        - data: Request body (for POST/PUT)
+        - timestamp: Unix timestamp when request was made
+        
+        Returns None if request information was not tracked.
+        
+        Examples:
+            >>> # Using FortiManager proxy to get policies
+            >>> policies = fmg.devices['FGT-01'].api.cmdb.firewall.policy.get()
+            >>> print(policies.fmg_api_request)
+            {
+                'method': 'GET',
+                'url': 'https://fmg.example.com/jsonrpc',
+                'endpoint': '/api/v2/cmdb/firewall/policy',
+                'params': {'vdom': 'root'},
+                'data': {...},
+                'timestamp': 1706889600.123
+            }
+        """
+        return self._request_info
 
     # ========================================================================
     # FortiManager Proxy Metadata Properties
@@ -1170,6 +1315,7 @@ class ContentResponse:
         raw_envelope: dict[str, Any] | None = None,
         response_time: float | None = None,
         endpoint_path: str | None = None,
+        request_info: dict | None = None,
     ):
         """
         Initialize ContentResponse.
@@ -1179,12 +1325,14 @@ class ContentResponse:
             raw_envelope: Full API response envelope
             response_time: Response time in seconds
             endpoint_path: Endpoint path for metadata lookup
+            request_info: HTTP request information (method, url, params, data)
         """
         self._data = data
         self._raw_envelope = raw_envelope or data
         self._response_time = response_time
         self._endpoint_path = endpoint_path
         self._endpoint_meta = CONTENT_ENDPOINTS.get(endpoint_path or "", {})
+        self._request_info = request_info
     
     # ========================================================================
     # Content Properties
@@ -1296,6 +1444,68 @@ class ContentResponse:
             "vdom": self.vdom,
             "content_type": self.content_type,
         }
+    
+    @property
+    def http_api_request(self) -> dict[str, Any] | None:
+        """
+        HTTP API request information for this response.
+        
+        Returns dictionary with request details including:
+        - method: HTTP method (GET, POST, PUT, DELETE)
+        - url: Full URL that was requested
+        - endpoint: API endpoint path
+        - params: Query parameters sent
+        - data: Request body (for POST/PUT)
+        - timestamp: Unix timestamp when request was made
+        
+        Returns None if request information was not tracked.
+        
+        Examples:
+            >>> config = fgt.api.monitor.system.config_revision.file.get(config_id=45)
+            >>> print(config.http_api_request)
+            {
+                'method': 'GET',
+                'url': 'https://192.168.1.99/api/v2/monitor/system/config/revision/file',
+                'endpoint': '/api/v2/monitor/system/config/revision/file',
+                'params': {'config_id': 45, 'vdom': 'root'},
+                'data': None,
+                'timestamp': 1706889600.123
+            }
+        """
+        return self._request_info
+    
+    @property
+    def fmg_api_request(self) -> dict[str, Any] | None:
+        """
+        Alias for http_api_request when using FortiManager proxy.
+        
+        This property provides the same information as http_api_request but with
+        a name that makes it clearer when working with FortiManager proxy connections.
+        
+        Returns dictionary with request details including:
+        - method: HTTP method (GET, POST, PUT, DELETE)
+        - url: Full FMG proxy URL that was requested
+        - endpoint: API endpoint path
+        - params: Query parameters sent
+        - data: Request body (for POST/PUT)
+        - timestamp: Unix timestamp when request was made
+        
+        Returns None if request information was not tracked.
+        
+        Examples:
+            >>> # Using FortiManager proxy for monitor endpoint
+            >>> config = fmg.devices['FGT-01'].api.monitor.system.config_revision.file.get(config_id=45)
+            >>> print(config.fmg_api_request)
+            {
+                'method': 'GET',
+                'url': 'https://fmg.example.com/jsonrpc',
+                'endpoint': '/api/v2/monitor/system/config/revision/file',
+                'params': {'config_id': 45, 'vdom': 'root'},
+                'data': {...},
+                'timestamp': 1706889600.123
+            }
+        """
+        return self._request_info
     
     @property
     def raw(self) -> dict[str, Any]:
@@ -1573,6 +1783,7 @@ def process_response(
     raw_envelope: dict | None = None,
     response_time: float | None = None,
     endpoint_path: str | None = None,
+    request_info: dict | None = None,
 ) -> Any:
     """
     Process API response - always returns FortiObject instances.
@@ -1585,6 +1796,7 @@ def process_response(
         raw_envelope: Optional full API envelope to attach to FortiObjectList
         response_time: Optional response time in seconds for the HTTP request
         endpoint_path: Optional endpoint path for content endpoint detection
+        request_info: Optional HTTP request information (method, url, params, data)
 
     Returns:
         Processed response - FortiObject, FortiObjectList, ContentResponse, or dict with FortiObjects
@@ -1627,7 +1839,7 @@ def process_response(
         # Direct list of results
         # Only wrap dict items in FortiObject; pass through non-dicts (strings, ints, etc.)
         wrapped = [
-            FortiObject(item, response_time=response_time) if isinstance(item, dict) else item
+            FortiObject(item, response_time=response_time, request_info=request_info) if isinstance(item, dict) else item
             for item in result
         ]
 
@@ -1637,13 +1849,13 @@ def process_response(
             return wrapped[0]
 
         # Return FortiObjectList with raw envelope for .raw property access
-        return FortiObjectList(wrapped, raw_envelope=raw_envelope, response_time=response_time)
+        return FortiObjectList(wrapped, raw_envelope=raw_envelope, response_time=response_time, request_info=request_info)
     
     elif isinstance(result, dict):
         # Check if this is a content response (file download endpoints)
         # Content responses have 'content' key without 'results' key
         if "content" in result and "results" not in result:
-            return ContentResponse(result, raw_envelope=result, response_time=response_time, endpoint_path=endpoint_path)
+            return ContentResponse(result, raw_envelope=result, response_time=response_time, endpoint_path=endpoint_path, request_info=request_info)
         
         # Check if this is a full response envelope with 'results' key
         if "results" in result:
@@ -1652,7 +1864,7 @@ def process_response(
             if isinstance(results_data, list):
                 # List of results: wrap each in FortiObject
                 wrapped_results = [
-                    FortiObject(item, raw_envelope=result, response_time=response_time) if isinstance(item, dict) else item
+                    FortiObject(item, raw_envelope=result, response_time=response_time, request_info=request_info) if isinstance(item, dict) else item
                     for item in results_data
                 ]
 
@@ -1661,21 +1873,21 @@ def process_response(
                     return wrapped_results[0]
 
                 # Return FortiObjectList with the full envelope as raw
-                return FortiObjectList(wrapped_results, raw_envelope=result, response_time=response_time)
+                return FortiObjectList(wrapped_results, raw_envelope=result, response_time=response_time, request_info=request_info)
             
             elif isinstance(results_data, dict):
                 # Singleton endpoint: results is a dict, not a list
                 # Wrap just the results content, store envelope for .raw
-                return FortiObject(results_data, raw_envelope=result, response_time=response_time)
+                return FortiObject(results_data, raw_envelope=result, response_time=response_time, request_info=request_info)
             
             else:
                 # results is some other type (string, int, etc.) - wrap envelope
-                return FortiObject(result, raw_envelope=result, response_time=response_time)
+                return FortiObject(result, raw_envelope=result, response_time=response_time, request_info=request_info)
         else:
             # Envelope-only response without 'results' key (e.g., DELETE, some POST/PUT)
             # Store envelope in raw_envelope, use empty dict for _data so object fields
             # don't collide with envelope fields like 'status'
-            return FortiObject({}, raw_envelope=result, response_time=response_time)
+            return FortiObject({}, raw_envelope=result, response_time=response_time, request_info=request_info)
 
     # Return as-is for any other type
     return result

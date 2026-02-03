@@ -1,9 +1,9 @@
 Metadata-Version: 2.1
 Name: cdk-tweet-queue
-Version: 2.0.936
+Version: 2.0.937
 Summary: Defines an SQS queue with tweet stream from a search
 Home-page: https://github.com/cdklabs/cdk-tweet-queue
-Author: Elad Ben-Israel<elad.benisrael@gmail.com>
+Author: Amazon Web Services<aws-cdk-dev@amazon.com>
 License: Apache-2.0
 Project-URL: Source, https://github.com/cdklabs/cdk-tweet-queue
 Classifier: Intended Audience :: Developers
@@ -19,11 +19,11 @@ Classifier: License :: OSI Approved
 Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.220.0
-Requires-Dist: constructs<11.0.0,>=10.4.2
-Requires-Dist: jsii<2.0.0,>=1.117.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.236.0
+Requires-Dist: constructs<11.0.0,>=10.0.5
+Requires-Dist: jsii<2.0.0,>=1.126.0
 Requires-Dist: publication>=0.0.3
-Requires-Dist: typeguard<4.3.0,>=2.13.3
+Requires-Dist: typeguard==2.13.3
 
 # Tweet Queue for AWS CDK
 
@@ -78,21 +78,22 @@ $ npm install cdk-tweet-queue
 Add a `TweetQueue` to your CDK stack:
 
 ```python
-import { TweetQueue } from 'cdk-tweet-queue';
+from cdk_tweet_queue import TweetQueue
 
-const queue = new TweetQueue(this, 'TweetStream', {
-  // this is the ARN of the secret you stored
-  secretArn: 'arn:aws:secretsmanager:us-east-1:1234567891234:secret:xxxxxxxxx'
 
-  // twitter search query
-  // see https://developer.twitter.com/en/docs/tweets/search/guides/standard-operators
-  query: '#awscdk',
+queue = TweetQueue(self, "TweetStream",
+    # this is the ARN of the secret you stored
+    secret_arn="arn:aws:secretsmanager:us-east-1:1234567891234:secret:xxxxxxxxx",
 
-  // optional properties
-  intervalMin: 60,          // optional: polling interval in minutes
-  retentionPeriodSec: 60,   // optional: queue retention period
-  visibilityTimeoutSec: 60, // optional: queue visilibity timeout
-});
+    # twitter search query
+    # see https://developer.twitter.com/en/docs/tweets/search/guides/standard-operators
+    query="#awscdk",
+
+    # optional properties
+    interval_min=60,  # optional: polling interval in minutes
+    retention_period_sec=60,  # optional: queue retention period
+    visibility_timeout_sec=60
+)
 ```
 
 Now, `queue` is an `sqs.Queue` object and can be used anywhere a queue is

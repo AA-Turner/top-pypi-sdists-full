@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["AutosupportIssues", "AutosupportIssuesSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "AutosupportIssuesSchema.opts": False,
     "AutosupportIssues": False,
 }
-
 
 class AutosupportIssuesSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the AutosupportIssues object"""
@@ -32,7 +30,12 @@ Valid choices:
 * mail_server
 * ondemand_server """
 
-    corrective_action = marshmallow_fields.Nested("netapp_ontap.models.autosupport_connectivity_corrective_action.AutosupportConnectivityCorrectiveActionSchema", unknown=EXCLUDE, data_key="corrective_action", allow_none=True)
+    corrective_action = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.autosupport_connectivity_corrective_action", "AutosupportConnectivityCorrectiveActionSchema"),
+                unknown=EXCLUDE,
+                data_key="corrective_action",
+                allow_none=True
+            )
     r""" The corrective_action field of the autosupport_issues. """
 
     destination = marshmallow_fields.Str(data_key="destination", allow_none=True)
@@ -40,10 +43,20 @@ Valid choices:
 
 Example: mailhost1.example.com """
 
-    issue = marshmallow_fields.Nested("netapp_ontap.models.autosupport_connectivity_issue.AutosupportConnectivityIssueSchema", unknown=EXCLUDE, data_key="issue", allow_none=True)
+    issue = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.autosupport_connectivity_issue", "AutosupportConnectivityIssueSchema"),
+                unknown=EXCLUDE,
+                data_key="issue",
+                allow_none=True
+            )
     r""" The issue field of the autosupport_issues. """
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", unknown=EXCLUDE, data_key="node", allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                unknown=EXCLUDE,
+                data_key="node",
+                allow_none=True
+            )
     r""" The node field of the autosupport_issues. """
 
     @property

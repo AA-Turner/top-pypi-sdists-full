@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -37,78 +37,78 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LdapSchema(
         {
-            "owner": {
-                "uuid": "eda950c6-0a0c-11ec-bfcf-0050568e9150",
-                "name": "athiraacluster-1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/eda950c6-0a0c-11ec-bfcf-0050568e9150"
-                    }
-                },
-            },
             "_links": {
                 "self": {
                     "href": "/api/name-services/ldap-schemas/eda950c6-0a0c-11ec-bfcf-0050568e9150/AD-IDMU"
                 }
             },
             "name": "AD-IDMU",
-        }
-    ),
-    LdapSchema(
-        {
             "owner": {
-                "uuid": "eda950c6-0a0c-11ec-bfcf-0050568e9150",
                 "name": "athiraacluster-1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/eda950c6-0a0c-11ec-bfcf-0050568e9150"
                     }
                 },
+                "uuid": "eda950c6-0a0c-11ec-bfcf-0050568e9150",
             },
+        }
+    ),
+    LdapSchema(
+        {
             "_links": {
                 "self": {
                     "href": "/api/name-services/ldap-schemas/eda950c6-0a0c-11ec-bfcf-0050568e9150/AD-SFU"
                 }
             },
             "name": "AD-SFU",
-        }
-    ),
-    LdapSchema(
-        {
             "owner": {
-                "uuid": "eda950c6-0a0c-11ec-bfcf-0050568e9150",
                 "name": "athiraacluster-1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/eda950c6-0a0c-11ec-bfcf-0050568e9150"
                     }
                 },
+                "uuid": "eda950c6-0a0c-11ec-bfcf-0050568e9150",
             },
+        }
+    ),
+    LdapSchema(
+        {
             "_links": {
                 "self": {
                     "href": "/api/name-services/ldap-schemas/eda950c6-0a0c-11ec-bfcf-0050568e9150/MS-AD-BIS"
                 }
             },
             "name": "MS-AD-BIS",
-        }
-    ),
-    LdapSchema(
-        {
             "owner": {
-                "uuid": "eda950c6-0a0c-11ec-bfcf-0050568e9150",
                 "name": "athiraacluster-1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/eda950c6-0a0c-11ec-bfcf-0050568e9150"
                     }
                 },
+                "uuid": "eda950c6-0a0c-11ec-bfcf-0050568e9150",
             },
+        }
+    ),
+    LdapSchema(
+        {
             "_links": {
                 "self": {
                     "href": "/api/name-services/ldap-schemas/eda950c6-0a0c-11ec-bfcf-0050568e9150/RFC-2307"
                 }
             },
             "name": "RFC-2307",
+            "owner": {
+                "name": "athiraacluster-1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/eda950c6-0a0c-11ec-bfcf-0050568e9150"
+                    }
+                },
+                "uuid": "eda950c6-0a0c-11ec-bfcf-0050568e9150",
+            },
         }
     ),
 ]
@@ -139,57 +139,57 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 LdapSchema(
     {
-        "global_schema": True,
-        "comment": "Schema based on RFC 2307 (read-only)",
-        "scope": "cluster",
-        "rfc2307": {
-            "posix": {"account": "posixAccount", "group": "posixGroup"},
-            "attribute": {
-                "gecos": "gecos",
-                "uid": "uid",
-                "user_password": "userPassword",
-                "uid_number": "uidNumber",
-                "login_shell": "loginShell",
-                "home_directory": "homeDirectory",
-                "gid_number": "gidNumber",
-            },
-            "nis": {
-                "mapname": "nisMapName",
-                "mapentry": "nisMapEntry",
-                "object": "nisObject",
-                "netgroup_triple": "nisNetgroupTriple",
-                "netgroup": "nisNetgroup",
-            },
-            "member": {"uid": "memberUid", "nis_netgroup": "memberNisNetgroup"},
-            "cn": {"group": "cn", "netgroup": "cn"},
-        },
-        "owner": {
-            "uuid": "eda950c6-0a0c-11ec-bfcf-0050568e9150",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/eda950c6-0a0c-11ec-bfcf-0050568e9150"}
-            },
-        },
-        "rfc2307bis": {
-            "maximum_groups": 256,
-            "unique_member": "uniqueMember",
-            "enabled": False,
-            "group_of_unique_names": "groupOfUniqueNames",
-        },
         "_links": {
             "self": {
                 "href": "/api/name-services/ldap-schemas/eda950c6-0a0c-11ec-bfcf-0050568e9150/RFC-2307"
             }
         },
+        "rfc2307bis": {
+            "maximum_groups": 256,
+            "group_of_unique_names": "groupOfUniqueNames",
+            "unique_member": "uniqueMember",
+            "enabled": False,
+        },
+        "name": "RFC-2307",
+        "global_schema": True,
+        "comment": "Schema based on RFC 2307 (read-only)",
         "name_mapping": {
             "account": {"windows": "windowsAccount", "unix": "unixAccount"},
             "windows_to_unix": {
+                "object_class": "posixAccount",
                 "no_domain_prefix": False,
                 "attribute": "windowsAccount",
-                "object_class": "posixAccount",
             },
         },
-        "name": "RFC-2307",
+        "owner": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/eda950c6-0a0c-11ec-bfcf-0050568e9150"}
+            },
+            "uuid": "eda950c6-0a0c-11ec-bfcf-0050568e9150",
+        },
+        "rfc2307": {
+            "posix": {"account": "posixAccount", "group": "posixGroup"},
+            "member": {"uid": "memberUid", "nis_netgroup": "memberNisNetgroup"},
+            "cn": {"netgroup": "cn", "group": "cn"},
+            "attribute": {
+                "login_shell": "loginShell",
+                "gecos": "gecos",
+                "home_directory": "homeDirectory",
+                "gid_number": "gidNumber",
+                "user_password": "userPassword",
+                "uid_number": "uidNumber",
+                "uid": "uid",
+            },
+            "nis": {
+                "netgroup": "nisNetgroup",
+                "mapentry": "nisMapEntry",
+                "object": "nisObject",
+                "mapname": "nisMapName",
+                "netgroup_triple": "nisNetgroupTriple",
+            },
+        },
+        "scope": "cluster",
     }
 )
 
@@ -251,11 +251,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -269,11 +268,15 @@ __pdoc__ = {
     "LdapSchemaSchema.opts": False,
 }
 
-
 class LdapSchemaSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LdapSchema object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the ldap_schema."""
 
     comment = marshmallow_fields.Str(
@@ -301,16 +304,36 @@ Example: true"""
 
 Example: AD-SFU-v1"""
 
-    name_mapping = marshmallow_fields.Nested("netapp_ontap.models.ldap_schema_name_mapping.LdapSchemaNameMappingSchema", data_key="name_mapping", unknown=EXCLUDE, allow_none=True)
+    name_mapping = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ldap_schema_name_mapping", "LdapSchemaNameMappingSchema"),
+                data_key="name_mapping",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The name_mapping field of the ldap_schema."""
 
-    owner = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="owner", unknown=EXCLUDE, allow_none=True)
+    owner = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="owner",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The owner field of the ldap_schema."""
 
-    rfc2307 = marshmallow_fields.Nested("netapp_ontap.models.rfc2307.Rfc2307Schema", data_key="rfc2307", unknown=EXCLUDE, allow_none=True)
+    rfc2307 = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.rfc2307", "Rfc2307Schema"),
+                data_key="rfc2307",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The rfc2307 field of the ldap_schema."""
 
-    rfc2307bis = marshmallow_fields.Nested("netapp_ontap.models.rfc2307bis.Rfc2307bisSchema", data_key="rfc2307bis", unknown=EXCLUDE, allow_none=True)
+    rfc2307bis = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.rfc2307bis", "Rfc2307bisSchema"),
+                data_key="rfc2307bis",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The rfc2307bis field of the ldap_schema."""
 
     scope = marshmallow_fields.Str(
@@ -325,7 +348,12 @@ Valid choices:
 * cluster
 * svm"""
 
-    template = marshmallow_fields.Nested("netapp_ontap.resources.ldap_schema.LdapSchemaSchema", data_key="template", unknown=EXCLUDE, allow_none=True)
+    template = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.ldap_schema", "LdapSchemaSchema"),
+                data_key="template",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The template field of the ldap_schema."""
 
     @property

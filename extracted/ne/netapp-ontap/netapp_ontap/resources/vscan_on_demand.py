@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,55 +26,55 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     VscanOnDemand(
         {
+            "log_path": "/vol0/report_dir",
+            "name": "on-demand-policy1",
+            "scan_paths": ["/vol1/", "/vol2/cifs/"],
             "schedule": {
-                "uuid": "f6d0843e-f159-11e8-8e22-0050568e0945",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/schedules/f6d0843e-f159-11e8-8e22-0050568e0945"
                     }
                 },
                 "name": "schedule",
+                "uuid": "f6d0843e-f159-11e8-8e22-0050568e0945",
             },
-            "scan_paths": ["/vol1/", "/vol2/cifs/"],
             "scope": {
-                "exclude_paths": ["/vol1/cold-files/", "/vol1/cifs/names"],
                 "scan_without_extension": False,
-                "include_extensions": ["vmdk", "mp*"],
                 "max_file_size": 10737418240,
+                "include_extensions": ["vmdk", "mp*"],
+                "exclude_paths": ["/vol1/cold-files/", "/vol1/cifs/names"],
                 "exclude_extensions": ["mp3", "mp4"],
             },
-            "log_path": "/vol0/report_dir",
             "svm": {
-                "uuid": "86fbc414-f140-11e8-8e22-0050568e0945",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/86fbc414-f140-11e8-8e22-0050568e0945"
                     }
                 },
+                "uuid": "86fbc414-f140-11e8-8e22-0050568e0945",
             },
-            "name": "on-demand-policy1",
         }
     ),
     VscanOnDemand(
         {
+            "log_path": "/report",
+            "name": "on-demand-policy2",
             "scan_paths": ["/vol1/", "/vol2/cifs/"],
             "scope": {
                 "scan_without_extension": True,
-                "include_extensions": ["mp*"],
                 "max_file_size": 10737418240,
+                "include_extensions": ["mp*"],
             },
-            "log_path": "/report",
             "svm": {
-                "uuid": "86fbc414-f140-11e8-8e22-0050568e0945",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/86fbc414-f140-11e8-8e22-0050568e0945"
                     }
                 },
+                "uuid": "86fbc414-f140-11e8-8e22-0050568e0945",
             },
-            "name": "on-demand-policy2",
         }
     ),
 ]
@@ -105,21 +105,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VscanOnDemand(
     {
+        "log_path": "/report",
+        "name": "on-demand-policy",
         "scan_paths": ["/vol1/cifs"],
         "scope": {
             "scan_without_extension": True,
-            "include_extensions": ["vmdk", "mp*"],
             "max_file_size": 10737418240,
+            "include_extensions": ["vmdk", "mp*"],
         },
-        "log_path": "/report",
         "svm": {
-            "uuid": "86fbc414-f140-11e8-8e22-0050568e0945",
             "name": "vs1",
             "_links": {
                 "self": {"href": "/api/svm/svms/86fbc414-f140-11e8-8e22-0050568e0945"}
             },
+            "uuid": "86fbc414-f140-11e8-8e22-0050568e0945",
         },
-        "name": "on-demand-policy",
     }
 )
 
@@ -162,18 +162,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VscanOnDemand(
     {
-        "schedule": {"name": "weekly"},
+        "log_path": "/vol0/report_dir",
+        "name": "on-demand-policy",
         "scan_paths": ["/vol1/", "/vol2/cifs/"],
+        "schedule": {"name": "weekly"},
         "scope": {
-            "exclude_paths": ["/vol/cold-files/"],
             "scan_without_extension": True,
-            "include_extensions": ["vmdk", "mp*"],
             "max_file_size": 1073741824,
+            "include_extensions": ["vmdk", "mp*"],
+            "exclude_paths": ["/vol/cold-files/"],
             "exclude_extensions": ["mp3"],
         },
-        "log_path": "/vol0/report_dir",
         "svm": {"name": "vs1"},
-        "name": "on-demand-policy",
     }
 )
 
@@ -205,15 +205,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VscanOnDemand(
     {
+        "log_path": "/report",
+        "name": "on-demand-policy",
         "scan_paths": ["vol1/cifs/"],
         "scope": {
             "scan_without_extension": True,
-            "include_extensions": ["vmdk", "mp*"],
             "max_file_size": 10737418240,
+            "include_extensions": ["vmdk", "mp*"],
         },
-        "log_path": "/report",
         "svm": {"name": "vs1"},
-        "name": "on-demand-policy",
     }
 )
 
@@ -266,11 +266,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -283,7 +282,6 @@ __pdoc__ = {
     "VscanOnDemandSchema.resource": False,
     "VscanOnDemandSchema.opts": False,
 }
-
 
 class VscanOnDemandSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the VscanOnDemand object"""
@@ -310,13 +308,28 @@ Example: task-1"""
 
 Example: ["/vol1/","/vol2/cifs/"]"""
 
-    schedule = marshmallow_fields.Nested("netapp_ontap.resources.schedule.ScheduleSchema", data_key="schedule", unknown=EXCLUDE, allow_none=True)
+    schedule = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.schedule", "ScheduleSchema"),
+                data_key="schedule",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The schedule field of the vscan_on_demand."""
 
-    scope = marshmallow_fields.Nested("netapp_ontap.models.vscan_on_demand_scope.VscanOnDemandScopeSchema", data_key="scope", unknown=EXCLUDE, allow_none=True)
+    scope = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.vscan_on_demand_scope", "VscanOnDemandScopeSchema"),
+                data_key="scope",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The scope field of the vscan_on_demand."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the vscan_on_demand."""
 
     @property

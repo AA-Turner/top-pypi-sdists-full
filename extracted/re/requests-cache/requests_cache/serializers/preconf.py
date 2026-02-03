@@ -5,6 +5,8 @@
    :nosignatures:
 """
 
+import base64
+import json
 import pickle
 from functools import partial
 from importlib import import_module
@@ -14,11 +16,24 @@ from .cattrs import CattrStage, _convert_floats, make_decimal_timedelta_converte
 from .pipeline import SerializerPipeline, Stage
 
 
-def make_stage(preconf_module: str, **kwargs):
-    """Create a preconf serializer stage from a module name, if dependencies are installed"""
+def make_stage(preconf_module: str, b64: bool = False, **kwargs):
+    """Create a preconf serializer stage from a module name, if dependencies are installed.
+
+    For JSON converters, force base64 encoding; cattrs defaults to base85, which
+    (in the cpython implementation) has poor memory performance with large objects.
+    """
     try:
         factory = import_module(preconf_module).make_converter
-        return CattrStage(factory, **kwargs)
+        stage = CattrStage(factory, **kwargs)
+        if b64:
+            # Override the default bytes hooks to use base64 encoding instead of base85
+            stage.converter.register_unstructure_hook(
+                bytes, lambda v: base64.b64encode(v).decode() if v else None
+            )
+            stage.converter.register_structure_hook(
+                bytes, lambda v, _: base64.b64decode(v.encode()) if v else b''
+            )
+        return stage
     except ImportError as e:
         return get_placeholder_class(e)
 
@@ -26,15 +41,16 @@ def make_stage(preconf_module: str, **kwargs):
 # Pre-serialization stages
 base_stage = CattrStage()  #: Base stage for all serializer pipelines
 utf8_encoder = Stage(dumps=str.encode, loads=lambda x: x.decode())  #: Encode to bytes
+utf8_serializer = SerializerPipeline([utf8_encoder], 'utf8', is_binary=True)  #: Encode to bytes
 bson_preconf_stage = make_stage(
     'cattr.preconf.bson', convert_datetime=False
-)  #: Pre-serialization steps for BSON
-json_preconf_stage = make_stage('cattr.preconf.json')  #: Pre-serialization steps for JSON
-msgpack_preconf_stage = make_stage('cattr.preconf.msgpack')  #: Pre-serialization steps for msgpack
-orjson_preconf_stage = make_stage('cattr.preconf.orjson')  #: Pre-serialization steps for orjson
-toml_preconf_stage = make_stage('cattr.preconf.tomlkit')  #: Pre-serialization steps for TOML
-ujson_preconf_stage = make_stage('cattr.preconf.ujson')  #: Pre-serialization steps for ultrajson
-yaml_preconf_stage = make_stage('cattr.preconf.pyyaml')  #: Pre-serialization steps for YAML
+)  #: Pre-serialization for BSON
+json_preconf_stage = make_stage('cattr.preconf.json', b64=True)  #: Pre-serialization for JSON
+msgpack_preconf_stage = make_stage('cattr.preconf.msgpack')  #: Pre-serialization for msgpack
+orjson_preconf_stage = make_stage('cattr.preconf.orjson', b64=True)  #: Pre-serialization for orjson
+toml_preconf_stage = make_stage('cattr.preconf.tomlkit')  #: Pre-serialization for TOML
+ujson_preconf_stage = make_stage('cattr.preconf.ujson', b64=True)  #: Pre-serialization for ujson
+yaml_preconf_stage = make_stage('cattr.preconf.pyyaml')  #: Pre-serialization for YAML
 
 # Basic serializers with no additional dependencies
 dict_serializer = SerializerPipeline(
@@ -78,25 +94,15 @@ except ImportError as e:
     safe_pickle_serializer = get_placeholder_class(e)  # noqa: F811
 
 
-# BSON/MongoDB document serializers
-def _get_bson_functions():
-    """Handle different function names between pymongo's bson and standalone bson"""
-    try:
-        import pymongo  # noqa: F401
-
-        return {'dumps': 'encode', 'loads': 'decode'}
-    except ImportError:
-        return {'dumps': 'dumps', 'loads': 'loads'}
-
-
+# BSON/MongoDB document serializer
 try:
     import bson
 
     bson_serializer = SerializerPipeline(
-        [bson_preconf_stage, Stage(bson, **_get_bson_functions())],
+        [bson_preconf_stage, Stage(bson, dumps='encode', loads='decode')],
         name='bson',
         is_binary=True,
-    )  #: Complete BSON serializer; uses pymongo's ``bson`` if installed, otherwise standalone ``bson`` codec
+    )  #: Complete BSON serializer
     bson_document_serializer = SerializerPipeline(
         [bson_preconf_stage],
         name='bson_document',
@@ -107,22 +113,41 @@ except ImportError as e:
     bson_document_serializer = get_placeholder_class(e)
 
 
-# JSON serializer
-try:
-    import ujson as json
-
-    _json_preconf_stage = ujson_preconf_stage
-except ImportError:
-    import json  # type: ignore
-
-    _json_preconf_stage = json_preconf_stage
-
-_json_stage = Stage(dumps=partial(json.dumps, indent=2), loads=json.loads)
+# JSON serializer: stdlib
 json_serializer = SerializerPipeline(
-    [_json_preconf_stage, _json_stage],
+    [json_preconf_stage, Stage(dumps=partial(json.dumps, indent=2), loads=json.loads)],
     name='json',
     is_binary=False,
-)  #: Complete JSON serializer; uses ultrajson if available
+)  #: Complete JSON serializer using stdlib json module
+
+
+# JSON serializer: ultrajson
+try:
+    import ujson
+
+    ujson_serializer = SerializerPipeline(
+        [ujson_preconf_stage, Stage(dumps=partial(ujson.dumps, indent=2), loads=ujson.loads)],
+        name='ujson',
+        is_binary=False,
+    )  #: Complete JSON serializer using ultrajson module
+except ImportError as e:
+    ujson_serializer = get_placeholder_class(e)
+
+
+# JSON serializer: orjson
+try:
+    import orjson
+
+    orjson_serializer = SerializerPipeline(
+        [
+            orjson_preconf_stage,
+            Stage(dumps=partial(orjson.dumps, option=orjson.OPT_INDENT_2), loads=orjson.loads),
+        ],
+        name='orjson',
+        is_binary=True,
+    )  #: Complete JSON serializer using orjson module
+except ImportError as e:
+    orjson_serializer = get_placeholder_class(e)
 
 
 # YAML serializer

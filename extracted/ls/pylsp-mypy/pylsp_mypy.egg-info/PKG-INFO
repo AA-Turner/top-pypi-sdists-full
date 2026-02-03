@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pylsp-mypy
-Version: 0.7.0
+Version: 0.7.1
 Summary: Mypy linter for the Python LSP Server
 Home-page: https://github.com/python-lsp/pylsp-mypy
 Author: Richard Kellnberger, Tom van Ommeren
@@ -14,10 +14,10 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: python-lsp-server>=1.7.0
+Requires-Dist: python-lsp-server>=1.13.1
 Requires-Dist: mypy>=0.981
 Requires-Dist: tomli>=1.1.0; python_version < "3.11"
 Provides-Extra: test
@@ -26,6 +26,7 @@ Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: coverage; extra == "test"
 Dynamic: description-content-type
+Dynamic: license-file
 
 Mypy plugin for PYLSP
 ======================
@@ -40,7 +41,7 @@ This is a plugin for the `Python LSP Server`_.
 
 .. _`Python LSP Server`: https://github.com/python-lsp/python-lsp-server
 
-It, like `mypy`_, requires Python 3.9 or newer.
+It, like `mypy`_, requires Python 3.10 or newer.
 
 .. _`mypy`: https://github.com/python/mypy
 

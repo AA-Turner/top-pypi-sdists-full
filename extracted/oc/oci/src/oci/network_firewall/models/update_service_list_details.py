@@ -24,14 +24,21 @@ class UpdateServiceListDetails(object):
             The value to assign to the services property of this UpdateServiceListDetails.
         :type services: list[str]
 
+        :param description:
+            The value to assign to the description property of this UpdateServiceListDetails.
+        :type description: str
+
         """
         self.swagger_types = {
-            'services': 'list[str]'
+            'services': 'list[str]',
+            'description': 'str'
         }
         self.attribute_map = {
-            'services': 'services'
+            'services': 'services',
+            'description': 'description'
         }
         self._services = None
+        self._description = None
 
     @property
     def services(self):
@@ -56,6 +63,30 @@ class UpdateServiceListDetails(object):
         :type: list[str]
         """
         self._services = services
+
+    @property
+    def description(self):
+        """
+        Gets the description of this UpdateServiceListDetails.
+        The description of the service list. This field can be used to add additional info.
+
+
+        :return: The description of this UpdateServiceListDetails.
+        :rtype: str
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """
+        Sets the description of this UpdateServiceListDetails.
+        The description of the service list. This field can be used to add additional info.
+
+
+        :param description: The description of this UpdateServiceListDetails.
+        :type: str
+        """
+        self._description = description
 
     def __repr__(self):
         return formatted_flat_dict(self)

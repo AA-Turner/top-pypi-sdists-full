@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["LicensePackageLicenses", "LicensePackageLicensesSchema"]
@@ -17,17 +16,26 @@ __pdoc__ = {
     "LicensePackageLicenses": False,
 }
 
-
 class LicensePackageLicensesSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LicensePackageLicenses object"""
 
     active = marshmallow_fields.Boolean(data_key="active", allow_none=True)
     r""" A flag indicating whether the license is currently being enforced. """
 
-    capacity = marshmallow_fields.Nested("netapp_ontap.models.license_capacity.LicenseCapacitySchema", unknown=EXCLUDE, data_key="capacity", allow_none=True)
+    capacity = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.license_capacity", "LicenseCapacitySchema"),
+                unknown=EXCLUDE,
+                data_key="capacity",
+                allow_none=True
+            )
     r""" The capacity field of the license_package_licenses. """
 
-    compliance = marshmallow_fields.Nested("netapp_ontap.models.license_compliance.LicenseComplianceSchema", unknown=EXCLUDE, data_key="compliance", allow_none=True)
+    compliance = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.license_compliance", "LicenseComplianceSchema"),
+                unknown=EXCLUDE,
+                data_key="compliance",
+                allow_none=True
+            )
     r""" The compliance field of the license_package_licenses. """
 
     evaluation = marshmallow_fields.Boolean(data_key="evaluation", allow_none=True)

@@ -13,36 +13,50 @@ from typing import Tuple, Union
 from pypdf.generic import (ArrayObject, DictionaryObject, NameObject,
                            NumberObject, TextStringObject)
 
-from .constants import (AP, AS, DV, FT, IMAGE_FIELD_IDENTIFIER, JS, MULTILINE,
-                        SLASH, TU, A, Btn, Ch, Ff, I, N, Off, Opt, Parent,
-                        Rect, Sig, T, Tx, V, Yes)
+from .constants import (AP, AS, DV, FT, HIDDEN, IMAGE_FIELD_IDENTIFIER, JS,
+                        SLASH, TU, A, Btn, Ch, F, Ff, I, MaxLen, N, Off, Opt,
+                        Parent, Q, Rect, Sig, Subtype, T, Tx, V, Widget, Yes)
 from .middleware.checkbox import Checkbox
 from .middleware.dropdown import Dropdown
 from .middleware.image import Image
 from .middleware.radio import Radio
 from .middleware.signature import Signature
 from .middleware.text import Text
+from .utils import extract_widget_property
 
 WIDGET_TYPE_PATTERNS = [
     (
-        ({A: {JS: IMAGE_FIELD_IDENTIFIER}},),
+        (
+            {Subtype: Widget},
+            {A: {JS: IMAGE_FIELD_IDENTIFIER}},
+        ),
         Image,
     ),
     (
-        ({FT: Sig},),
+        (
+            {Subtype: Widget},
+            {FT: Sig},
+        ),
         Signature,
     ),
     (
-        ({Parent: {FT: Sig}},),
+        (
+            {Subtype: Widget},
+            {Parent: {FT: Sig}},
+        ),
         Signature,
     ),
     (
-        ({FT: Tx},),
+        (
+            {Subtype: Widget},
+            {FT: Tx},
+        ),
         Text,
     ),
     (
         # reportlab creation pattern
         (
+            {Subtype: Widget},
             {FT: Btn},
             {Parent: {FT: Btn}},
             {AS: (Yes, Off, SLASH)},
@@ -51,25 +65,36 @@ WIDGET_TYPE_PATTERNS = [
     ),
     (
         (
+            {Subtype: Widget},
             {FT: Btn},
             {AS: (Yes, Off)},
         ),
         Checkbox,
     ),
     (
-        ({FT: Ch},),
+        (
+            {Subtype: Widget},
+            {FT: Ch},
+        ),
         Dropdown,
     ),
     (
-        ({Parent: {FT: Ch}},),
+        (
+            {Subtype: Widget},
+            {Parent: {FT: Ch}},
+        ),
         Dropdown,
     ),
     (
-        ({Parent: {FT: Tx}},),
+        (
+            {Subtype: Widget},
+            {Parent: {FT: Tx}},
+        ),
         Text,
     ),
     (
         (
+            {Subtype: Widget},
             {Parent: {FT: Btn}},
             {Parent: {DV: (Yes, Off)}},
             {AS: (Yes, Off)},
@@ -78,6 +103,7 @@ WIDGET_TYPE_PATTERNS = [
     ),
     (
         (
+            {Subtype: Widget},
             {Parent: {FT: Btn}},
             {AS: (Yes, Off, SLASH)},
         ),
@@ -96,6 +122,68 @@ DROPDOWN_CHOICE_PATTERNS = [
     {Opt: True},
     {Parent: {Opt: True}},
 ]
+
+
+def check_field_flag(annot: DictionaryObject, flag: int) -> bool:
+    """
+    Checks if a specific flag is set for a field annotation.
+
+    This function inspects the 'Ff' (field flags) entry of the annotation
+    dictionary (or its parent if it's a child annotation) to determine if the
+    provided flag is set.
+
+    Args:
+        annot (DictionaryObject): The annotation dictionary.
+        flag (int): The bit flag to check for.
+
+    Returns:
+        bool: True if the flag is set, False otherwise.
+    """
+    if Parent in annot and Ff not in annot:
+        return bool(
+            int(
+                annot[NameObject(Parent)][NameObject(Ff)]
+                if Ff in annot[NameObject(Parent)]
+                else 0
+            )
+            & flag
+        )
+    return bool(int(annot[NameObject(Ff)] if Ff in annot else 0) & flag)
+
+
+def get_widget_key(widget: dict, use_full_widget_name: bool) -> str:
+    """
+    Extracts the widget key from a widget dictionary.
+
+    This function extracts the widget key from a widget dictionary based on
+    predefined patterns. If `use_full_widget_name` is True, it recursively
+    constructs the full widget name by concatenating the parent widget keys.
+
+    Args:
+        widget (dict): The widget dictionary to extract the key from.
+        use_full_widget_name (bool): Whether to use the full widget name
+            (including parent names) as the widget key.
+
+    Returns:
+        str: The extracted widget key.
+    """
+    if not use_full_widget_name:
+        return extract_widget_property(widget, WIDGET_KEY_PATTERNS, None, str)
+
+    key = widget.get(T)
+    if (
+        Parent in widget
+        and T in widget[Parent].get_object()
+        and widget[Parent].get_object()[T] != key  # sejda case
+    ):
+        if key is None:
+            return get_widget_key(widget[Parent].get_object(), use_full_widget_name)
+
+        return (
+            f"{get_widget_key(widget[Parent].get_object(), use_full_widget_name)}.{key}"
+        )
+
+    return key or ""
 
 
 def update_checkbox_value(annot: DictionaryObject, check: bool = False) -> None:
@@ -271,6 +359,58 @@ def get_text_value(annot: DictionaryObject, widget: Text) -> None:
         widget.value = annot.get(V)
 
 
+def get_text_field_max_length(widget: dict) -> Union[int, None]:
+    """
+    Extracts the maximum length of a text field from a widget dictionary.
+
+    Args:
+        widget (dict): The widget dictionary to extract the max length from.
+
+    Returns:
+        Union[int, None]: The maximum length of the text field, or None
+            if the max length is not specified.
+    """
+    return int(widget[MaxLen]) or None if MaxLen in widget else None
+
+
+def get_text_field_alignment(widget: dict) -> Union[int, None]:
+    """
+    Extracts the alignment (quadding) of a text field from a widget dictionary.
+
+    Args:
+        widget (dict): The widget dictionary to extract the alignment from.
+
+    Returns:
+        Union[int, None]: The alignment of the text field, or None if the
+            alignment is not specified or is the default (left-justified).
+    """
+    return int(widget[Q]) if Q in widget else None
+
+
+def get_dropdown_choices(widget: dict) -> Union[Tuple[str, ...], None]:
+    """
+    Extracts the choices from a dropdown widget dictionary.
+
+    This function extracts the choices from a dropdown widget dictionary.
+
+    Args:
+        widget (dict): The widget dictionary to extract the choices from.
+
+    Returns:
+        Union[Tuple[str, ...], None]: A tuple of strings representing the choices in the dropdown, or None if the choices are not specified.
+    """
+    return tuple(
+        (
+            each.get_object()
+            if isinstance(each.get_object(), str)
+            else str(each.get_object()[1])
+        )
+        for each in extract_widget_property(
+            widget, DROPDOWN_CHOICE_PATTERNS, None, None
+        )
+    )
+
+
 def update_annotation_name(annot: DictionaryObject, val: str) -> None:
     """
     Updates the name of an annotation, setting the T (title) entry.
@@ -286,32 +426,6 @@ def update_annotation_name(annot: DictionaryObject, val: str) -> None:
         annot[NameObject(Parent)][NameObject(T)] = TextStringObject(val)
     else:
         annot[NameObject(T)] = TextStringObject(val)
-
-
-def get_text_field_multiline(annot: DictionaryObject) -> bool:
-    """
-    Checks if a text field annotation is multiline.
-
-    This function inspects the 'Ff' (field flags) entry of the text annotation
-    dictionary (or its parent if it's a child annotation) to determine if the
-    Multiline flag is set.
-
-    Args:
-        annot (DictionaryObject): The text annotation dictionary.
-
-    Returns:
-        bool: True if the text field is multiline, False otherwise.
-    """
-    if Parent in annot and Ff not in annot:
-        return bool(
-            int(
-                annot[NameObject(Parent)][NameObject(Ff)]
-                if Ff in annot[NameObject(Parent)]
-                else 0
-            )
-            & MULTILINE
-        )
-    return bool(int(annot[NameObject(Ff)] if Ff in annot else 0) & MULTILINE)
 
 
 def get_field_rect(annot: DictionaryObject) -> Tuple[float, float, float, float]:
@@ -335,3 +449,19 @@ def get_field_rect(annot: DictionaryObject) -> Tuple[float, float, float, float]
         float(abs(rect[2].get_object() - rect[0].get_object())),
         float(abs(rect[3].get_object() - rect[1].get_object())),
     )
+
+
+def get_field_hidden(annot: DictionaryObject) -> bool:
+    """
+    Checks if a field annotation is hidden.
+
+    This function inspects the 'F' (flags) entry of the annotation
+    dictionary to determine if the Hidden flag is set.
+
+    Args:
+        annot (DictionaryObject): The annotation dictionary.
+
+    Returns:
+        bool: True if the field is hidden, False otherwise.
+    """
+    return bool(int(annot[NameObject(F)] if F in annot else 0) & HIDDEN)

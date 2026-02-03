@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["SvmMigrationVolumePlacement", "SvmMigrationVolumePlacementSchema"]
@@ -17,14 +16,29 @@ __pdoc__ = {
     "SvmMigrationVolumePlacement": False,
 }
 
-
 class SvmMigrationVolumePlacementSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SvmMigrationVolumePlacement object"""
 
-    aggregates = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.svm_migration_destination_volume_placement_aggregates.SvmMigrationDestinationVolumePlacementAggregatesSchema", unknown=EXCLUDE, allow_none=True), data_key="aggregates", allow_none=True)
+    aggregates = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.svm_migration_destination_volume_placement_aggregates", "SvmMigrationDestinationVolumePlacementAggregatesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="aggregates",
+                allow_none=True
+                )
     r""" Optional property used to specify the list of desired aggregates to use for volume creation in the destination. """
 
-    volume_aggregate_pairs = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.svm_migration_destination_volume_placement_volume_aggregate_pairs.SvmMigrationDestinationVolumePlacementVolumeAggregatePairsSchema", unknown=EXCLUDE, allow_none=True), data_key="volume_aggregate_pairs", allow_none=True)
+    volume_aggregate_pairs = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.svm_migration_destination_volume_placement_volume_aggregate_pairs", "SvmMigrationDestinationVolumePlacementVolumeAggregatePairsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="volume_aggregate_pairs",
+                allow_none=True
+                )
     r""" Optional property used to specify the list of desired volume-aggregate pairs in the destination. """
 
     @property

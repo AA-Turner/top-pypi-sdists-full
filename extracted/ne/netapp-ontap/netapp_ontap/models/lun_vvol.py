@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["LunVvol", "LunVvolSchema"]
@@ -17,11 +16,18 @@ __pdoc__ = {
     "LunVvol": False,
 }
 
-
 class LunVvolSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LunVvol object"""
 
-    bindings = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.lun_vvol_bindings.LunVvolBindingsSchema", unknown=EXCLUDE, allow_none=True), data_key="bindings", allow_none=True)
+    bindings = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.lun_vvol_bindings", "LunVvolBindingsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="bindings",
+                allow_none=True
+                )
     r""" Bindings between the LUN, which must be of class `protocol_endpoint` or `vvol`, and LUNs of the opposite class.<br/>
 A class `vvol` LUN must be bound to a class `protocol_endpoint` LUN in order to be accessed. Class `protocol_endpoint` and `vvol` LUNs allow many-to-many bindings. A LUN of one class is allowed to be bound to zero or more LUNs of the opposite class. The binding between any two specific LUNs is reference counted. When a binding is created that already exists, the binding count is incremented. When a binding is deleted, the binding count is decremented, but the LUNs remain bound if the resultant reference count is greater than zero. When the binding count reaches zero, the binding is destroyed.<br/>
 The bindings array contains LUNs of the opposite class of the containing LUN object.<br/>

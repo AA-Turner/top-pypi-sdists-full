@@ -27,7 +27,8 @@ from PIL import Image
 def guess_mime_type(file, default: str = "application/octet-stream"):
     mime_type = None
     if isinstance(file, str):
-        mime_type, _ = mimetypes.guess_type(file.strip())
+        file = file.split("?", maxsplit=1)[0].strip()
+        mime_type, _ = mimetypes.guess_type(file)
     return mime_type or default
 
 
@@ -81,7 +82,7 @@ async def to_bytes(
                     headers=headers or {},
                     timeout=120,
                     verify=False
-            ) as cilent:  # todo: 缓存 根据大小 判断有效链接
+            ) as cilent:  # todo: 缓存 根据大小 判断有效链接  todo 无效链接 下载超时 等等
                 resp = await cilent.get(file)
                 file_bytes = resp.content
 
@@ -294,17 +295,24 @@ async def to_png(image: Union[bytes, List[bytes], str, List[str]], response_form
 async def to_image(
         image: Union[bytes, List[bytes], str, List[str]],
         to_image_format: str = 'JPEG',  # PNG JPEG
-        response_format: Literal["bytes", "base64", "url"] = "url"
+        response_format: Literal["bytes", "base64", "url"] = "url",
+        mini_aspect_ratio: Optional[str] = None
 ):
     """
     将 WebP 二进制数据无损转换为 PNG 二进制数据
     """
+    logger.debug(image)
 
     if isinstance(image, list):
         tasks = [to_image(_, to_image_format, response_format) for _ in image]
         return await asyncio.gather(*tasks)
 
     if isinstance(image, str):
+        # if guess_mime_type(image) == to_image_format.lower():  # 无需转换
+        #     return image
+
+        # logger.debug(image)
+
         image = await to_bytes(image)
         if not image:
             raise Exception(f"invalid image: {image}")
@@ -324,22 +332,33 @@ async def to_image(
         img = img.convert('RGB')
         img.save(out, format=to_image_format.upper())
 
+        image_bytes = out.getvalue()
+
+        if mini_aspect_ratio:
+            w, h = map(int, mini_aspect_ratio.split(':'))
+            if not (min(w / h, h / w) < img.width / img.height < max(w / h, h / w)):
+                logger.debug(f"resize: {mini_aspect_ratio}")
+                target_ratio = min(w / h, h / w) + 0.01 # mini_aspect_ratio
+                image_bytes = await image_resize(image_bytes, target_ratio=target_ratio, response_format="bytes")
+
         logger.debug(f"response_format: {response_format}")
 
         if response_format == "bytes":
-            return out.getvalue()
+            return image_bytes
 
         elif response_format == "url":
-            return await to_url(out.getvalue(), filename=f"{shortuuid.random()}.{to_image_format.lower()}")
+            return await to_url(image_bytes, filename=f"{shortuuid.random()}.{to_image_format.lower()}")
 
         else:
-            return await to_base64(out.getvalue(), content_type=f"image/{to_image_format.lower()}")
+            return await to_base64(image_bytes, content_type=f"image/{to_image_format.lower()}")
 
 
 async def do_file_data(
         file_or_str_list: Union[str, List[str], UploadFile, List[UploadFile]],
         input_reference_format: Optional[str] = None,
         content_type: Optional[str] = None,
+
+        # todo 图片格式
 ):
     file = file_or_str_list
 
@@ -366,6 +385,92 @@ async def do_file_data(
             file = await to_url_fal(await file.read(), content_type=content_type)
 
     return file  # 要返回 list?
+
+
+async def image_resize(image: Union[bytes, str], target_ratio: Union[float, str], response_format,
+                       fill_color=(0, 0, 0)):
+    """
+    将图片缩放到目标比例，保持完整内容，不足部分填充背景色
+
+    output_path
+
+    :param target_ratio: 目标宽高比 (width/height)，如 16/9
+    """
+    w = h = 1
+    if isinstance(target_ratio, str):
+
+        if 'x' in target_ratio:
+            w, h = map(int, target_ratio.split('x'))
+        elif ':' in target_ratio:
+            w, h = map(int, target_ratio.split(':'))
+
+        target_ratio = w / h
+
+    _ = await to_bytes(image)
+    img = Image.open(io.BytesIO(_))
+
+    img_ratio = img.width / img.height
+
+    # 计算缩放后的尺寸
+    if img_ratio > target_ratio:
+        # 原图更宽，以宽度为基准
+        new_width = img.width
+        new_height = int(img.width / target_ratio)
+    else:
+        # 原图更高或正好，以高度为基准
+        new_height = img.height
+        new_width = int(img.height * target_ratio)
+
+    if w > 32:
+        new_width, new_height = w, h
+
+    # 创建目标尺寸画布并居中粘贴
+    result = Image.new('RGB', (new_width, new_height), fill_color)
+
+    offset_x = (new_width - img.width) // 2
+    offset_y = (new_height - img.height) // 2
+    result.paste(img, (offset_x, offset_y))
+
+    if 'bytes' in response_format:
+        format = "JPEG"
+        # 创建一个字节流缓冲区
+        buffered = io.BytesIO()
+        # 将图像保存到缓冲区
+        result.save(buffered, format)
+        # 获取缓冲区的字节内容
+        img_bytes = buffered.getvalue()
+
+        return img_bytes
+
+    elif 'base64' in response_format:
+        format = "JPEG"
+        # 创建一个字节流缓冲区
+        buffered = io.BytesIO()
+        # 将图像保存到缓冲区
+        result.save(buffered, format)
+        # 获取缓冲区的字节内容
+        img_bytes = buffered.getvalue()
+        # 将字节内容编码为Base64字符串
+        img_base64 = base64.b64encode(img_bytes).decode("utf-8")
+        return f"data:image/{format.lower()};base64,{img_base64}"
+
+    elif response_format == 'url':
+        format = "JPEG"
+        # 创建一个字节流缓冲区
+        buffered = io.BytesIO()
+        # 将图像保存到缓冲区
+        result.save(buffered, format)
+        # 获取缓冲区的字节内容
+        img_bytes = buffered.getvalue()
+
+        return await to_url(img_bytes, f"{shortuuid.random()}.jpg")
+
+    else:
+        result.save(response_format)
+        print(f"✅ {image} -> {response_format}")
+        print(f"   原尺寸: {img.width}x{img.height} (比例: {img_ratio:.2f})")
+        print(f"   新尺寸: {new_width}x{new_height} (比例: {target_ratio:.2f})")
+        return result
 
 
 if __name__ == '__main__':
@@ -484,6 +589,8 @@ if __name__ == '__main__':
 
     image = "https://kimi-web-img.moonshot.cn/img/www.vhv.rs/50fef4f80227d1d7d2ae212599fc4a3d2fa91c81.png"
 
+    image = "https://cdnzjzai.m.nengshuohuihua.com/banana/refer/202602/02/20260202152544761374.jpeg?auth_key=1770017144-86e367a61b7a46a7894a1072dfe8a539-0-060089b876fb3c713bdafcfbb16ac844"
+    print(guess_mime_type(image))
     arun(to_image(image))
 
     # arun(to_url(image, content_type="image/jpeg"))

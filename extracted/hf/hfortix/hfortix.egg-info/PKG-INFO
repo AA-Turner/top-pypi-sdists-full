@@ -1,26 +1,47 @@
 Metadata-Version: 2.4
 Name: hfortix
-Version: 0.5.151
-Summary: Unified SDK for Fortinet products (FortiOS, FortiManager, FortiAnalyzer)
+Version: 0.5.154
+Summary: Fully-typed Python SDK for Fortinet products (FortiOS, FortiManager, FortiAnalyzer) with complete API coverage, async support, and type safety
 Author-email: "Herman W. Jacobsen" <herman@wjacobsen.fo>
+Maintainer-email: "Herman W. Jacobsen" <herman@wjacobsen.fo>
 License: Proprietary
 Project-URL: Homepage, https://github.com/hermanwjacobsen/hfortix
 Project-URL: Repository, https://github.com/hermanwjacobsen/hfortix
-Keywords: fortinet,fortigate,fortios,fortimanager,fortianalyzer,api,sdk
+Project-URL: Documentation, https://hfortix.readthedocs.io/
+Project-URL: Bug Tracker, https://github.com/hermanwjacobsen/hfortix/issues
+Project-URL: Changelog, https://github.com/hermanwjacobsen/hfortix/blob/main/CHANGELOG.md
+Project-URL: Source Code, https://github.com/hermanwjacobsen/hfortix
+Project-URL: Download, https://pypi.org/project/hfortix/#files
+Keywords: fortinet,fortigate,fortios,fortimanager,fortianalyzer,api,sdk,rest-api,automation,network-automation,firewall,security,network-security,typed,type-hints,pydantic,async,asyncio,configuration-management,infrastructure-as-code,iac,network-as-code,network-administration,devops,netops
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: Intended Audience :: Telecommunications Industry
+Classifier: Intended Audience :: Information Technology
+Classifier: License :: Other/Proprietary License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Networking
+Classifier: Topic :: System :: Networking :: Firewalls
+Classifier: Topic :: System :: Networking :: Monitoring
+Classifier: Topic :: System :: Systems Administration
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Framework :: AsyncIO
+Classifier: Framework :: Pydantic
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: hfortix-core>=0.5.151
-Requires-Dist: hfortix-fortios>=0.5.151
+Requires-Dist: hfortix-core>=0.5.154
+Requires-Dist: hfortix-fortios>=0.5.154
 Provides-Extra: fortios
-Requires-Dist: hfortix-fortios>=0.5.151; extra == "fortios"
+Requires-Dist: hfortix-fortios>=0.5.154; extra == "fortios"
 Provides-Extra: all
-Requires-Dist: hfortix-fortios>=0.5.151; extra == "all"
+Requires-Dist: hfortix-fortios>=0.5.154; extra == "all"
 
 # HFortix
 

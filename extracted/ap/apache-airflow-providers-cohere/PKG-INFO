@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-cohere
-Version: 1.6.1
+Version: 1.6.2
 Summary: Provider package apache-airflow-providers-cohere for Apache Airflow
 Keywords: airflow-provider,cohere,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -25,9 +25,10 @@ License-File: NOTICE
 Requires-Dist: apache-airflow>=2.11.0
 Requires-Dist: apache-airflow-providers-common-compat>=1.8.0
 Requires-Dist: cohere>=5.13.4
+Requires-Dist: fastavro>=1.10.0;python_version>="3.13"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-cohere/1.6.1/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-cohere/1.6.1
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-cohere/1.6.2/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-cohere/1.6.2
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -58,7 +59,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-cohere``
 
-Release: ``1.6.1``
+Release: ``1.6.2``
 
 
 `Cohere <https://docs.cohere.com/docs>`__
@@ -71,7 +72,7 @@ This is a provider package for ``cohere`` provider. All classes for this provide
 are in ``airflow.providers.cohere`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-cohere/1.6.1/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-cohere/1.6.2/>`_.
 
 Installation
 ------------
@@ -85,13 +86,14 @@ The package supports the following python versions: 3.10,3.11,3.12,3.13
 Requirements
 ------------
 
-==========================================  ==================
+==========================================  ======================================
 PIP package                                 Version required
-==========================================  ==================
+==========================================  ======================================
 ``apache-airflow``                          ``>=2.11.0``
 ``apache-airflow-providers-common-compat``  ``>=1.8.0``
 ``cohere``                                  ``>=5.13.4``
-==========================================  ==================
+``fastavro``                                ``>=1.10.0; python_version >= "3.13"``
+==========================================  ======================================
 
 Cross provider package dependencies
 -----------------------------------
@@ -113,5 +115,5 @@ Dependent package                                                               
 ==================================================================================================================  =================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-cohere/1.6.1/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-cohere/1.6.2/changelog.html>`_.
 

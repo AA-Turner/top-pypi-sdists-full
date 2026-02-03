@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -20,11 +20,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -38,11 +37,15 @@ __pdoc__ = {
     "SnapmirrorRelationshipSchema.opts": False,
 }
 
-
 class SnapmirrorRelationshipSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SnapmirrorRelationship object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the snapmirror_relationship."""
 
     backoff_level = marshmallow_fields.Str(
@@ -58,13 +61,28 @@ Valid choices:
 * medium
 * none"""
 
-    consistency_group_failover = marshmallow_fields.Nested("netapp_ontap.models.snapmirror_consistency_group_failover.SnapmirrorConsistencyGroupFailoverSchema", data_key="consistency_group_failover", unknown=EXCLUDE, allow_none=True)
+    consistency_group_failover = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.snapmirror_consistency_group_failover", "SnapmirrorConsistencyGroupFailoverSchema"),
+                data_key="consistency_group_failover",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" SnapMirror Consistency Group failover information. The SnapMirror Consistency Group failover can be a planned or an unplanned operation. Only active SnapMirror Consistency Group failover operation progress can be monitored using this object. In case of an error during the failover operation, the property "consistency_group_failover.error" holds the reason for the error. ONTAP automatically retries any failed SnapMirror Consistency Group failover operation."""
 
-    create_destination = marshmallow_fields.Nested("netapp_ontap.models.snapmirror_destination_creation.SnapmirrorDestinationCreationSchema", data_key="create_destination", unknown=EXCLUDE, allow_none=True)
+    create_destination = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.snapmirror_destination_creation", "SnapmirrorDestinationCreationSchema"),
+                data_key="create_destination",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Use this object to provision the destination endpoint when establishing a SnapMirror relationship for a FlexVol volume, FlexGroup volume, SVM, Consistency Group or ONTAP S3 Bucket. Given a source endpoint, the destination endpoint is provisioned in the SVM specified in the "destination.path" property. While protecting an SVM, the SVM destination endpoint can only be provisioned on the local cluster. To provision the SVM destination endpoint use the optional "source.cluster.name" property to specify the remote cluster name or use the optional "source.cluster.uuid" property to specify the remote cluster UUID. When "create_destination.enabled" option is specified while making a POST for a SnapMirror relationship, the relationship can be automatically initialized by setting the "state" either to "snapmirrored" when the policy is of type "async" or to "in_sync" when the policy is of type "sync". The "destination.path" property must specify the destination endpoint path. For example, for FlexVol volume and FlexGroup volume, the "destination.path" can be specified as <destination-SVM-name:dp-volume-name>, for SVM data protection, the "destination.path" must be specified as <destination-SVM-name:>, and for Consistency Group, the "destination.path" must be specified as <destination-SVM-name:/cg/consistency-group-name> along with the "destination.consistency_group_volumes" or "destination.luns" property to indicate the list of destination volumes or LUNs of type "DP" in the Consistency Group. For a FlexVol volume, a FlexGroup volume, Consistency Group or a Bucket destination endpoint, the properties in this object can be specified either from the source or the destination cluster. For an SVM destination endpoint, the properties in this object can be specified from the destination cluster only. This object is not supported for non ONTAP endpoints. While protecting a S3 Bucket, the optional "size" property can be used to create ONTAP S3 Bucket destination endpoint of the specified size."""
 
-    destination = marshmallow_fields.Nested("netapp_ontap.models.snapmirror_endpoint.SnapmirrorEndpointSchema", data_key="destination", unknown=EXCLUDE, allow_none=True)
+    destination = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.snapmirror_endpoint", "SnapmirrorEndpointSchema"),
+                data_key="destination",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" This property is the destination endpoint of the relationship. The destination endpoint can be a FlexVol volume, FlexGroup volume, Consistency Group, or SVM. For the POST request, the destination endpoint must be of type "DP" when the endpoint is a FlexVol volume or a FlexGroup volume. When specifying a Consistency Group as the destination endpoint, the "destination.consistency_group_volumes" or "destination.luns" property must be specified with the FlexVol volumes or LUNs of type "DP". The POST request for SVM must have a destination endpoint of type "dp-destination". The destination endpoint path name must be specified in the "destination.path" property. For relationships of type "async", the destination endpoint for FlexVol volume and FlexGroup volume will change to type "RW" when the relationship status is "broken_off" and will revert to type "DP" when the relationship status is "snapmirrored" or "in_sync" using the PATCH request. The destination endpoint for SVM will change from "dp-destination" to type "default" when the relationship status is "broken_off" and will revert to type "dp-destination" when the relationship status is "snapmirrored" using the PATCH request. When the destination endpoint is a Consistency Group, the Consistency Group FlexVol volumes will change to type "RW" when the relationship status is "broken_off" and will revert to type "DP" when the relationship status is "in_sync" using the PATCH request."""
 
     exported_snapshot = marshmallow_fields.Str(
@@ -152,7 +170,12 @@ Valid choices:
 
 Example: C1_sti85-vsim-ucs209a_cluster"""
 
-    policy = marshmallow_fields.Nested("netapp_ontap.models.snapmirror_relationship_policy.SnapmirrorRelationshipPolicySchema", data_key="policy", unknown=EXCLUDE, allow_none=True)
+    policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.snapmirror_relationship_policy", "SnapmirrorRelationshipPolicySchema"),
+                data_key="policy",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Basic policy information of the relationship."""
 
     preferred_site = marshmallow_fields.Str(
@@ -193,7 +216,12 @@ Example: C1_sti85-vsim-ucs209a_cluster"""
     )
     r""" Specifies the snapshot to restore to on the destination during the break operation. This property is applicable only for SnapMirror relationships with FlexVol volume endpoints and when the PATCH state is being changed to "broken_off"."""
 
-    source = marshmallow_fields.Nested("netapp_ontap.models.snapmirror_source_endpoint.SnapmirrorSourceEndpointSchema", data_key="source", unknown=EXCLUDE, allow_none=True)
+    source = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.snapmirror_source_endpoint", "SnapmirrorSourceEndpointSchema"),
+                data_key="source",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" This property is the source endpoint of the relationship. The source endpoint can be a FlexVol volume, FlexGroup volume, Consistency Group, or SVM. To establish a SnapMirror relationship with SVM as source endpoint, the SVM must have only FlexVol volumes. For a Consistency Group this property identifies the source Consistency Group name. When specifying a Consistency Group as the source endpoint, the "source.consistency_group_volumes" property must be specified with the FlexVol volumes of type "RW". FlexVol volumes of type "DP" cannot be specified in the "source.consistency_group_volumes" list. Optionally, "source.luns" property of source endpoint can be specified with source LUN names during SnapMirror Consistency Group LUN Restore Operation."""
 
     state = marshmallow_fields.Str(
@@ -215,7 +243,15 @@ Valid choices:
 * expanding
 * shrinking"""
 
-    svmdr_volumes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.snapmirror_relationship_svmdr_volumes.SnapmirrorRelationshipSvmdrVolumesSchema", unknown=EXCLUDE, allow_none=True), data_key="svmdr_volumes", allow_none=True)
+    svmdr_volumes = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.snapmirror_relationship_svmdr_volumes", "SnapmirrorRelationshipSvmdrVolumesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="svmdr_volumes",
+                allow_none=True
+            )
     r""" Specifies the list of constituent FlexVol volumes and FlexGroup volumes for an SVM DR SnapMirror relationship. FlexGroup constituents are not considered."""
 
     throttle = Size(
@@ -240,13 +276,31 @@ Example: 1098210312"""
 
 Example: PT3M21S"""
 
-    transfer = marshmallow_fields.Nested("netapp_ontap.models.snapmirror_relationship_transfer.SnapmirrorRelationshipTransferSchema", data_key="transfer", unknown=EXCLUDE, allow_none=True)
+    transfer = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.snapmirror_relationship_transfer", "SnapmirrorRelationshipTransferSchema"),
+                data_key="transfer",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Basic information on the current transfer or the last transfer if there is no active transfer at the time of the request."""
 
-    transfer_schedule = marshmallow_fields.Nested("netapp_ontap.resources.schedule.ScheduleSchema", data_key="transfer_schedule", unknown=EXCLUDE, allow_none=True)
+    transfer_schedule = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.schedule", "ScheduleSchema"),
+                data_key="transfer_schedule",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The transfer_schedule field of the snapmirror_relationship."""
 
-    unhealthy_reason = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.snapmirror_error.SnapmirrorErrorSchema", unknown=EXCLUDE, allow_none=True), data_key="unhealthy_reason", allow_none=True)
+    unhealthy_reason = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.snapmirror_error", "SnapmirrorErrorSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="unhealthy_reason",
+                allow_none=True
+            )
     r""" Reason the relationship is not healthy. It is a concatenation of up to four levels of error messages.
 
 Example: [{"arguments":[],"code":"6621444","message":"Failed to complete update operation on one or more item relationships."},{"arguments":[],"code":"6621445","message":"Group Update failed"}]"""

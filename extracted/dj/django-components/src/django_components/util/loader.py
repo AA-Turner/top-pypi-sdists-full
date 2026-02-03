@@ -1,6 +1,6 @@
 import os
 from pathlib import Path, PurePosixPath, PureWindowsPath
-from typing import List, NamedTuple, Optional, Set, Union
+from typing import NamedTuple
 
 from django.apps import apps
 from django.conf import settings
@@ -9,7 +9,7 @@ from django_components.app_settings import ComponentsSettings, app_settings
 from django_components.util.logger import logger
 
 
-def get_component_dirs(include_apps: bool = True) -> List[Path]:
+def get_component_dirs(include_apps: bool = True) -> list[Path]:
     """
     Get directories that may contain component files.
 
@@ -21,15 +21,15 @@ def get_component_dirs(include_apps: bool = True) -> List[Path]:
             Defaults to `True`.
 
     Returns:
-        List[Path]: A list of directories that may contain component files.
+        list[Path]: A list of directories that may contain component files.
 
     `get_component_dirs()` searches for dirs set in
-    [`COMPONENTS.dirs`](../settings#django_components.app_settings.ComponentsSettings.dirs)
+    [`COMPONENTS.dirs`](settings.md#django_components.app_settings.ComponentsSettings.dirs)
     settings. If none set, defaults to searching for a `"components"` app.
 
     In addition to that, also all installed Django apps are checked whether they contain
     directories as set in
-    [`COMPONENTS.app_dirs`](../settings#django_components.app_settings.ComponentsSettings.app_dirs)
+    [`COMPONENTS.app_dirs`](settings.md#django_components.app_settings.ComponentsSettings.app_dirs)
     (e.g. `[app]/components`).
 
     **Notes:**
@@ -38,7 +38,7 @@ def get_component_dirs(include_apps: bool = True) -> List[Path]:
 
     - `BASE_DIR` setting is required.
 
-    - The paths in [`COMPONENTS.dirs`](../settings#django_components.app_settings.ComponentsSettings.dirs)
+    - The paths in [`COMPONENTS.dirs`](settings.md#django_components.app_settings.ComponentsSettings.dirs)
         must be absolute paths.
 
     """
@@ -72,7 +72,7 @@ def get_component_dirs(include_apps: bool = True) -> List[Path]:
     )
 
     # Add `[app]/[APP_DIR]` to the directories. This is, by default `[app]/components`
-    app_paths: List[Path] = []
+    app_paths: list[Path] = []
     if include_apps:
         for conf in apps.get_app_configs():
             for app_dir in app_settings.APP_DIRS:
@@ -80,7 +80,7 @@ def get_component_dirs(include_apps: bool = True) -> List[Path]:
                 if comps_path.exists():
                     app_paths.append(comps_path)
 
-    directories: Set[Path] = set(app_paths)
+    directories: set[Path] = set(app_paths)
 
     # Validate and add other values from the config
     for component_dir in component_dirs:
@@ -108,7 +108,7 @@ def get_component_dirs(include_apps: bool = True) -> List[Path]:
 
 
 class ComponentFileEntry(NamedTuple):
-    """Result returned by [`get_component_files()`](../api#django_components.get_component_files)."""
+    """Result returned by [`get_component_files()`](api.md#django_components.get_component_files)."""
 
     dot_path: str
     """The python import path for the module. E.g. `app.components.mycomp`"""
@@ -116,21 +116,21 @@ class ComponentFileEntry(NamedTuple):
     """The filesystem path to the module. E.g. `/path/to/project/app/components/mycomp.py`"""
 
 
-def get_component_files(suffix: Optional[str] = None) -> List[ComponentFileEntry]:
+def get_component_files(suffix: str | None = None) -> list[ComponentFileEntry]:
     """
     Search for files within the component directories (as defined in
-    [`get_component_dirs()`](../api#django_components.get_component_dirs)).
+    [`get_component_dirs()`](api.md#django_components.get_component_dirs)).
 
     Requires `BASE_DIR` setting to be set.
 
     Subdirectories and files starting with an underscore `_` (except `__init__.py`) are ignored.
 
     Args:
-        suffix (Optional[str], optional): The suffix to search for. E.g. `.py`, `.js`, `.css`.\
+        suffix (str | None, optional): The suffix to search for. E.g. `.py`, `.js`, `.css`.\
             Defaults to `None`, which will search for all files.
 
     Returns:
-        List[ComponentFileEntry] A list of entries that contain both the filesystem path and \
+        list[ComponentFileEntry] A list of entries that contain both the filesystem path and \
             the python import path (dot path).
 
     **Example:**
@@ -154,7 +154,7 @@ def get_component_files(suffix: Optional[str] = None) -> List[ComponentFileEntry
         project_root = Path.cwd()
 
     # NOTE: We handle dirs from `COMPONENTS.dirs` and from individual apps separately.
-    modules: List[ComponentFileEntry] = []
+    modules: list[ComponentFileEntry] = []
 
     # First let's handle the dirs from `COMPONENTS.dirs`
     #
@@ -198,9 +198,9 @@ def get_component_files(suffix: Optional[str] = None) -> List[ComponentFileEntry
 
 
 def _filepath_to_python_module(
-    file_path: Union[Path, str],
-    root_fs_path: Union[str, Path],
-    root_module_path: Optional[str],
+    file_path: Path | str,
+    root_fs_path: str | Path,
+    root_module_path: str | None,
 ) -> str:
     """
     Derive python import path from the filesystem path.
@@ -220,18 +220,17 @@ def _filepath_to_python_module(
 
     # Combine with the base module path
     full_module_name = f"{root_module_path}.{module_name}" if root_module_path else module_name
-    if full_module_name.endswith(".__init__"):
-        full_module_name = full_module_name[:-9]  # Remove the trailing `.__init__`
+    full_module_name = full_module_name.removesuffix(".__init__")  # Remove the trailing `.__init__`
 
     return full_module_name
 
 
-def _search_dirs(dirs: List[Path], search_glob: str) -> List[Path]:
+def _search_dirs(dirs: list[Path], search_glob: str) -> list[Path]:
     """
     Search the directories for the given glob pattern. Glob search results are returned
     as a flattened list.
     """
-    matched_files: List[Path] = []
+    matched_files: list[Path] = []
     for directory in dirs:
         for path in Path(directory).rglob(search_glob):
             # Skip any subdirectory or file (under the top-level directory) that starts with an underscore
@@ -247,7 +246,7 @@ def _search_dirs(dirs: List[Path], search_glob: str) -> List[Path]:
     return matched_files
 
 
-def resolve_file(filepath: str, dirs: Optional[List[Path]] = None) -> Optional[Path]:
+def resolve_file(filepath: str, dirs: list[Path] | None = None) -> Path | None:
     dirs = dirs if dirs is not None else get_component_dirs()
     for directory in dirs:
         full_path = Path(directory) / filepath

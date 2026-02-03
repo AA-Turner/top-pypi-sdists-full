@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -29,11 +29,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -47,11 +46,15 @@ __pdoc__ = {
     "SnapmirrorPolicySchema.opts": False,
 }
 
-
 class SnapmirrorPolicySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SnapmirrorPolicy object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the snapmirror_policy."""
 
     comment = marshmallow_fields.Str(
@@ -111,7 +114,15 @@ Example: Asynchronous"""
     )
     r""" Specifies whether network compression is enabled for transfers. This is applicable only to the policies of type "async"."""
 
-    retention = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.snapmirror_policy_rule.SnapmirrorPolicyRuleSchema", unknown=EXCLUDE, allow_none=True), data_key="retention", allow_none=True)
+    retention = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.snapmirror_policy_rule", "SnapmirrorPolicyRuleSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="retention",
+                allow_none=True
+            )
     r""" Rules for snapshot retention."""
 
     rpo = Size(
@@ -132,10 +143,20 @@ Valid choices:
 * svm
 * cluster"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the snapmirror_policy."""
 
-    sync_common_snapshot_schedule = marshmallow_fields.Nested("netapp_ontap.resources.schedule.ScheduleSchema", data_key="sync_common_snapshot_schedule", unknown=EXCLUDE, allow_none=True)
+    sync_common_snapshot_schedule = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.schedule", "ScheduleSchema"),
+                data_key="sync_common_snapshot_schedule",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The sync_common_snapshot_schedule field of the snapmirror_policy."""
 
     sync_type = marshmallow_fields.Str(
@@ -158,7 +179,12 @@ Valid choices:
     )
     r""" Throttle in KB/s. Default to unlimited."""
 
-    transfer_schedule = marshmallow_fields.Nested("netapp_ontap.resources.schedule.ScheduleSchema", data_key="transfer_schedule", unknown=EXCLUDE, allow_none=True)
+    transfer_schedule = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.schedule", "ScheduleSchema"),
+                data_key="transfer_schedule",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The transfer_schedule field of the snapmirror_policy."""
 
     type = marshmallow_fields.Str(

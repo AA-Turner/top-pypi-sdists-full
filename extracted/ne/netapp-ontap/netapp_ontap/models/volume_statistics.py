@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["VolumeStatistics", "VolumeStatisticsSchema"]
@@ -17,26 +16,55 @@ __pdoc__ = {
     "VolumeStatistics": False,
 }
 
-
 class VolumeStatisticsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the VolumeStatistics object"""
 
-    cifs_ops_raw = marshmallow_fields.Nested("netapp_ontap.models.volume_protocol_raw_performance_stats.VolumeProtocolRawPerformanceStatsSchema", unknown=EXCLUDE, data_key="cifs_ops_raw", allow_none=True)
+    cifs_ops_raw = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_protocol_raw_performance_stats", "VolumeProtocolRawPerformanceStatsSchema"),
+                unknown=EXCLUDE,
+                data_key="cifs_ops_raw",
+                allow_none=True
+            )
     r""" The cifs_ops_raw field of the volume_statistics. """
 
-    cloud = marshmallow_fields.Nested("netapp_ontap.models.volume_statistics_cloud.VolumeStatisticsCloudSchema", unknown=EXCLUDE, data_key="cloud", allow_none=True)
+    cloud = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_statistics_cloud", "VolumeStatisticsCloudSchema"),
+                unknown=EXCLUDE,
+                data_key="cloud",
+                allow_none=True
+            )
     r""" These are raw performance numbers (IOPS and latency) for the cloud store. These numbers are aggregated across all nodes in the cluster and increase with the uptime of the cluster. These numbers are relevant only for volumes hosted on FabricPools. """
 
-    flexcache_raw = marshmallow_fields.Nested("netapp_ontap.models.volume_statistics_flexcache_raw.VolumeStatisticsFlexcacheRawSchema", unknown=EXCLUDE, data_key="flexcache_raw", allow_none=True)
+    flexcache_raw = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_statistics_flexcache_raw", "VolumeStatisticsFlexcacheRawSchema"),
+                unknown=EXCLUDE,
+                data_key="flexcache_raw",
+                allow_none=True
+            )
     r""" Performance numbers for FlexCache used to measure cache effectiveness. """
 
-    iops_raw = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type.PerformanceMetricIoTypeSchema", unknown=EXCLUDE, data_key="iops_raw", allow_none=True)
+    iops_raw = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type", "PerformanceMetricIoTypeSchema"),
+                unknown=EXCLUDE,
+                data_key="iops_raw",
+                allow_none=True
+            )
     r""" The iops_raw field of the volume_statistics. """
 
-    latency_raw = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type.PerformanceMetricIoTypeSchema", unknown=EXCLUDE, data_key="latency_raw", allow_none=True)
+    latency_raw = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type", "PerformanceMetricIoTypeSchema"),
+                unknown=EXCLUDE,
+                data_key="latency_raw",
+                allow_none=True
+            )
     r""" The latency_raw field of the volume_statistics. """
 
-    nfs_ops_raw = marshmallow_fields.Nested("netapp_ontap.models.volume_protocol_raw_performance_stats.VolumeProtocolRawPerformanceStatsSchema", unknown=EXCLUDE, data_key="nfs_ops_raw", allow_none=True)
+    nfs_ops_raw = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_protocol_raw_performance_stats", "VolumeProtocolRawPerformanceStatsSchema"),
+                unknown=EXCLUDE,
+                data_key="nfs_ops_raw",
+                allow_none=True
+            )
     r""" The nfs_ops_raw field of the volume_statistics. """
 
     status = marshmallow_fields.Str(data_key="status", allow_none=True)
@@ -55,7 +83,12 @@ Valid choices:
 * inconsistent_delta_time
 * inconsistent_old_data """
 
-    throughput_raw = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type.PerformanceMetricIoTypeSchema", unknown=EXCLUDE, data_key="throughput_raw", allow_none=True)
+    throughput_raw = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type", "PerformanceMetricIoTypeSchema"),
+                unknown=EXCLUDE,
+                data_key="throughput_raw",
+                allow_none=True
+            )
     r""" The throughput_raw field of the volume_statistics. """
 
     timestamp = ImpreciseDateTime(data_key="timestamp", allow_none=True)

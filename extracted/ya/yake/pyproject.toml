@@ -4,21 +4,21 @@ build-backend = "hatchling.build"
 
 [project]
 name = "yake"
-version = "0.6.0"
+version = "0.7.1"
 description = "Keyword extraction Python package"
 readme = "README.md"
 requires-python = ">=3.10" 
 license = {text = "LGPLv3"}
 authors = [
     {name = "Arian Pasquali", email = "arianpasquali@gmail.com"},
-    {name = "Ricadro Campos", email = "ricardo.campos@ubi.pt"},
-    {name = "Tiago Vaente", email = "tiago.leando.valente@ubi.com"},
+    {name = "Ricardo Campos", email = "ricardo.campos@ubi.pt"},
+    {name = "Tiago Valente", email = "tiago.leandro.valente@ubi.com"},
 ]
 dependencies = [
     "tabulate",
     "segtok",
     "networkx",
-    "numpy>=1.23.5", # This version requires Python >=3.8
+    "numpy>=1.24.0,<2.0.0",
     "click>=6.0",
     "jellyfish",
 ]
@@ -26,11 +26,10 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Programming Language :: Python :: 3",
-    # Remove Python 3.5, 3.6, 3.7 classifiers
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
     "Topic :: Scientific/Engineering :: Information Analysis",
     "Topic :: Software Development :: Libraries",
     "Topic :: Text Processing",
@@ -39,17 +38,29 @@ classifiers = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest",
-    "flake8",
-    "pytest-runner",  # Added from setup_requirements
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=22.0.0",
+    "ruff>=0.1.0",
+    "flake8>=6.0.0",
+    "pylint>=3.3.0",  # Python 3.13 support
+]
+benchmark = [
+    "pytest-benchmark>=4.0.0",
+    "memory-profiler>=0.60.0",
+    "matplotlib>=3.5.0",
+]
+lemmatization = [
+    "spacy>=3.7.0,<3.8.0",
+    "nltk>=3.8.0",
 ]
 
 [project.urls]
-Documentation = "https://tiagolv.github.io/yakerf/docs/--home"
-Source = "https://github.com/LIAAD/yake"
+Documentation = "https://inesctec.github.io/yake/docs/--home"
+Source = "https://github.com/INESCTEC/yake"
 
 [project.scripts]
-yake = "yake.cli:keywords"  
+yake = "yake.cli:keywords"
 
 [tool.hatch.build.targets.wheel]
 packages = ["yake", "StopwordsList"]  # Explicitly include these packages

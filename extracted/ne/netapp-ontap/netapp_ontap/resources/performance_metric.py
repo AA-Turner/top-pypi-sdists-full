@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -66,12 +66,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     PerformanceMetric(
         {
+            "latency": {"write": 216, "total": 199, "other": 0, "read": 148},
             "timestamp": "2019-01-01T23:33:00+00:00",
-            "throughput": {"read": 6826, "total": 212718, "other": 0, "write": 205892},
-            "iops": {"read": 1, "total": 6, "other": 0, "write": 5},
+            "iops": {"write": 5, "total": 6, "other": 0, "read": 1},
             "status": "ok",
-            "latency": {"read": 148, "total": 199, "other": 0, "write": 216},
             "duration": "PT15S",
+            "throughput": {"write": 205892, "total": 212718, "other": 0, "read": 6826},
         }
     )
 ]
@@ -109,62 +109,62 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     PerformanceMetric(
         {
+            "latency": {"write": 430, "total": 318, "other": 0, "read": 156},
             "timestamp": "2019-01-01T23:30:00+00:00",
+            "iops": {"write": 26, "total": 45, "other": 0, "read": 18},
+            "status": "ok",
+            "duration": "PT30M",
             "throughput": {
-                "read": 268328,
+                "write": 5556255,
                 "total": 5824584,
                 "other": 0,
-                "write": 5556255,
+                "read": 268328,
             },
-            "iops": {"read": 18, "total": 45, "other": 0, "write": 26},
-            "status": "ok",
-            "latency": {"read": 156, "total": 318, "other": 0, "write": 430},
-            "duration": "PT30M",
         }
     ),
     PerformanceMetric(
         {
+            "latency": {"write": 448, "total": 262, "other": 0, "read": 154},
             "timestamp": "2019-01-01T23:00:00+00:00",
+            "iops": {"write": 28, "total": 76, "other": 0, "read": 48},
+            "status": "ok",
+            "duration": "PT30M",
             "throughput": {
-                "read": 474266,
+                "write": 6121908,
                 "total": 6596175,
                 "other": 0,
-                "write": 6121908,
+                "read": 474266,
             },
-            "iops": {"read": 48, "total": 76, "other": 0, "write": 28},
-            "status": "ok",
-            "latency": {"read": 154, "total": 262, "other": 0, "write": 448},
-            "duration": "PT30M",
         }
     ),
     PerformanceMetric(
         {
+            "latency": {"write": 394, "total": 193, "other": 192, "read": 159},
             "timestamp": "2019-01-01T22:30:00+00:00",
+            "iops": {"write": 16, "total": 548, "other": 437, "read": 94},
+            "status": "ok",
+            "duration": "PT30M",
             "throughput": {
-                "read": 540164,
+                "write": 2411356,
                 "total": 29196206,
                 "other": 26244685,
-                "write": 2411356,
+                "read": 540164,
             },
-            "iops": {"read": 94, "total": 548, "other": 437, "write": 16},
-            "status": "ok",
-            "latency": {"read": 159, "total": 193, "other": 192, "write": 394},
-            "duration": "PT30M",
         }
     ),
     PerformanceMetric(
         {
+            "latency": {"write": 540, "total": 523, "other": 0, "read": 189},
             "timestamp": "2019-01-01T22:00:00+00:00",
+            "iops": {"write": 13, "total": 13, "other": 0, "read": 0},
+            "status": "ok",
+            "duration": "PT30M",
             "throughput": {
-                "read": 2842,
+                "write": 2765407,
                 "total": 2768249,
                 "other": 0,
-                "write": 2765407,
+                "read": 2842,
             },
-            "iops": {"read": 0, "total": 13, "other": 0, "write": 13},
-            "status": "ok",
-            "latency": {"read": 189, "total": 523, "other": 0, "write": 540},
-            "duration": "PT30M",
         }
     ),
 ]
@@ -181,11 +181,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -199,11 +198,15 @@ __pdoc__ = {
     "PerformanceMetricSchema.opts": False,
 }
 
-
 class PerformanceMetricSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the PerformanceMetric object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the performance_metric."""
 
     duration = marshmallow_fields.Str(
@@ -223,10 +226,20 @@ Valid choices:
 * P1D
 * PT5M"""
 
-    iops = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type.PerformanceMetricIoTypeSchema", data_key="iops", unknown=EXCLUDE, allow_none=True)
+    iops = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type", "PerformanceMetricIoTypeSchema"),
+                data_key="iops",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The iops field of the performance_metric."""
 
-    latency = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type.PerformanceMetricIoTypeSchema", data_key="latency", unknown=EXCLUDE, allow_none=True)
+    latency = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type", "PerformanceMetricIoTypeSchema"),
+                data_key="latency",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The latency field of the performance_metric."""
 
     status = marshmallow_fields.Str(
@@ -250,7 +263,12 @@ Valid choices:
 * inconsistent_old_data
 * partial_no_uuid"""
 
-    throughput = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type.PerformanceMetricIoTypeSchema", data_key="throughput", unknown=EXCLUDE, allow_none=True)
+    throughput = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type", "PerformanceMetricIoTypeSchema"),
+                data_key="throughput",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The throughput field of the performance_metric."""
 
     timestamp = ImpreciseDateTime(

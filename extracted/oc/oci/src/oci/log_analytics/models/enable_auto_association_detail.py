@@ -37,7 +37,7 @@ class EnableAutoAssociationDetail(object):
     def log_group_id(self):
         """
         Gets the log_group_id of this EnableAutoAssociationDetail.
-        The unique identifier of the log group to use when auto-associting the log source to
+        The unique identifier of the log group to use when auto-associating the log source to
         eligible entities.
 
 
@@ -50,7 +50,7 @@ class EnableAutoAssociationDetail(object):
     def log_group_id(self, log_group_id):
         """
         Sets the log_group_id of this EnableAutoAssociationDetail.
-        The unique identifier of the log group to use when auto-associting the log source to
+        The unique identifier of the log group to use when auto-associating the log source to
         eligible entities.
 
 

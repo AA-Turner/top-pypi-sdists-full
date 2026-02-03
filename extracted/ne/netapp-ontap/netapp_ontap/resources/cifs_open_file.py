@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -32,46 +32,46 @@ with HostConnection(
 [
     CifsOpenFile(
         {
-            "share": {"mode": "r", "name": "sh1"},
-            "path": "first_file.txt",
-            "identifier": 109,
-            "open_mode": "r",
-            "connection": {"count": 1, "identifier": 103985},
-            "continuously_available": "no",
-            "session": {"identifier": 10878444899913433090},
-            "svm": {"uuid": "80e795f4-3553-11ee-9f97-005056ae78de", "name": "vs0"},
-            "node": {
-                "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
-                "name": "sti220-vsim-sr050u",
-            },
             "range_locks_count": 0,
-            "type": "regular",
+            "identifier": 109,
+            "continuously_available": "no",
+            "open_mode": "r",
             "volume": {
-                "uuid": "8384f6ae-3553-11ee-a3c3-005056ae0dd5",
                 "name": "root_vs0",
+                "uuid": "8384f6ae-3553-11ee-a3c3-005056ae0dd5",
             },
+            "connection": {"identifier": 103985, "count": 1},
+            "session": {"identifier": 10878444899913433090},
+            "path": "first_file.txt",
+            "type": "regular",
+            "node": {
+                "name": "sti220-vsim-sr050u",
+                "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
+            },
+            "share": {"name": "sh1", "mode": "r"},
+            "svm": {"name": "vs0", "uuid": "80e795f4-3553-11ee-9f97-005056ae78de"},
         }
     ),
     CifsOpenFile(
         {
-            "share": {"mode": "r", "name": "sh1"},
-            "path": "second_file.txt",
-            "identifier": 110,
-            "open_mode": "r",
-            "connection": {"count": 1, "identifier": 103985},
-            "continuously_available": "no",
-            "session": {"identifier": 10878444899913433090},
-            "svm": {"uuid": "80e795f4-3553-11ee-9f97-005056ae78de", "name": "vs0"},
-            "node": {
-                "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
-                "name": "sti220-vsim-sr050u",
-            },
             "range_locks_count": 0,
-            "type": "regular",
+            "identifier": 110,
+            "continuously_available": "no",
+            "open_mode": "r",
             "volume": {
-                "uuid": "8384f6ae-3553-11ee-a3c3-005056ae0dd5",
                 "name": "root_vs0",
+                "uuid": "8384f6ae-3553-11ee-a3c3-005056ae0dd5",
             },
+            "connection": {"identifier": 103985, "count": 1},
+            "session": {"identifier": 10878444899913433090},
+            "path": "second_file.txt",
+            "type": "regular",
+            "node": {
+                "name": "sti220-vsim-sr050u",
+                "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
+            },
+            "share": {"name": "sh1", "mode": "r"},
+            "svm": {"name": "vs0", "uuid": "80e795f4-3553-11ee-9f97-005056ae78de"},
         }
     ),
 ]
@@ -110,21 +110,21 @@ with HostConnection(
 ```
 CifsOpenFile(
     {
-        "share": {"mode": "r", "name": "sh1"},
-        "path": "first_file.txt",
-        "identifier": 109,
-        "open_mode": "r",
-        "connection": {"count": 1, "identifier": 103985},
-        "continuously_available": "no",
-        "session": {"identifier": 10878444899913433000},
-        "svm": {"uuid": "80e795f4-3553-11ee-9f97-005056ae78de", "name": "vs0"},
-        "node": {
-            "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
-            "name": "sti220-vsim-sr050u",
-        },
         "range_locks_count": 0,
+        "identifier": 109,
+        "continuously_available": "no",
+        "open_mode": "r",
+        "volume": {"name": "root_vs0", "uuid": "8384f6ae-3553-11ee-a3c3-005056ae0dd5"},
+        "connection": {"identifier": 103985, "count": 1},
+        "session": {"identifier": 10878444899913433000},
+        "path": "first_file.txt",
         "type": "regular",
-        "volume": {"uuid": "8384f6ae-3553-11ee-a3c3-005056ae0dd5", "name": "root_vs0"},
+        "node": {
+            "name": "sti220-vsim-sr050u",
+            "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
+        },
+        "share": {"name": "sh1", "mode": "r"},
+        "svm": {"name": "vs0", "uuid": "80e795f4-3553-11ee-9f97-005056ae78de"},
     }
 )
 
@@ -160,11 +160,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -178,14 +177,23 @@ __pdoc__ = {
     "CifsOpenFileSchema.opts": False,
 }
 
-
 class CifsOpenFileSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the CifsOpenFile object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the cifs_open_file."""
 
-    connection = marshmallow_fields.Nested("netapp_ontap.models.cifs_open_file_connection.CifsOpenFileConnectionSchema", data_key="connection", unknown=EXCLUDE, allow_none=True)
+    connection = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cifs_open_file_connection", "CifsOpenFileConnectionSchema"),
+                data_key="connection",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The connection field of the cifs_open_file."""
 
     continuously_available = marshmallow_fields.Str(
@@ -213,25 +221,32 @@ Valid choices:
 
 Example: 17"""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the cifs_open_file."""
 
     open_mode = marshmallow_fields.Str(
         data_key="open_mode",
-        validate=enum_validation(['r', 'w', 'd']),
+        validate=enum_validation(['r', 'w', 'd', 'rw']),
         allow_none=True,
     )
     r""" Open mode corresponding to the opened file
 - r: Opened for read
 - w: Opened for write
-- d: Opened for Delete
+- d: Opened for delete
+- rw: Opened for read and write
 
 
 Valid choices:
 
 * r
 * w
-* d"""
+* d
+* rw"""
 
     path = marshmallow_fields.Str(
         data_key="path",
@@ -249,13 +264,28 @@ Example: sub1\sub2\f4"""
 
 Example: 4"""
 
-    session = marshmallow_fields.Nested("netapp_ontap.models.cifs_open_file_session.CifsOpenFileSessionSchema", data_key="session", unknown=EXCLUDE, allow_none=True)
+    session = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cifs_open_file_session", "CifsOpenFileSessionSchema"),
+                data_key="session",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The session field of the cifs_open_file."""
 
-    share = marshmallow_fields.Nested("netapp_ontap.models.cifs_open_file_share.CifsOpenFileShareSchema", data_key="share", unknown=EXCLUDE, allow_none=True)
+    share = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cifs_open_file_share", "CifsOpenFileShareSchema"),
+                data_key="share",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The share field of the cifs_open_file."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the cifs_open_file."""
 
     type = marshmallow_fields.Str(
@@ -274,7 +304,12 @@ Valid choices:
 * stream
 * symlink"""
 
-    volume = marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", data_key="volume", unknown=EXCLUDE, allow_none=True)
+    volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                data_key="volume",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The volume field of the cifs_open_file."""
 
     @property

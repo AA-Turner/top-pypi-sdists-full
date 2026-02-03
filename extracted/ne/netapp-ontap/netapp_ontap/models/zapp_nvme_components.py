@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ZappNvmeComponents", "ZappNvmeComponentsSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "ZappNvmeComponentsSchema.opts": False,
     "ZappNvmeComponents": False,
 }
-
 
 class ZappNvmeComponentsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ZappNvmeComponents object"""
@@ -37,16 +35,36 @@ Valid choices:
 * vmware
 * windows """
 
-    performance = marshmallow_fields.Nested("netapp_ontap.models.zapp_nvme_components_performance.ZappNvmeComponentsPerformanceSchema", unknown=EXCLUDE, data_key="performance", allow_none=True)
+    performance = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.zapp_nvme_components_performance", "ZappNvmeComponentsPerformanceSchema"),
+                unknown=EXCLUDE,
+                data_key="performance",
+                allow_none=True
+            )
     r""" The performance field of the zapp_nvme_components. """
 
-    qos = marshmallow_fields.Nested("netapp_ontap.models.nas_application_components_qos.NasApplicationComponentsQosSchema", unknown=EXCLUDE, data_key="qos", allow_none=True)
+    qos = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nas_application_components_qos", "NasApplicationComponentsQosSchema"),
+                unknown=EXCLUDE,
+                data_key="qos",
+                allow_none=True
+            )
     r""" The qos field of the zapp_nvme_components. """
 
-    subsystem = marshmallow_fields.Nested("netapp_ontap.models.zapp_nvme_components_subsystem.ZappNvmeComponentsSubsystemSchema", unknown=EXCLUDE, data_key="subsystem", allow_none=True)
+    subsystem = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.zapp_nvme_components_subsystem", "ZappNvmeComponentsSubsystemSchema"),
+                unknown=EXCLUDE,
+                data_key="subsystem",
+                allow_none=True
+            )
     r""" components.subsystem """
 
-    tiering = marshmallow_fields.Nested("netapp_ontap.models.zapp_nvme_components_tiering.ZappNvmeComponentsTieringSchema", unknown=EXCLUDE, data_key="tiering", allow_none=True)
+    tiering = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.zapp_nvme_components_tiering", "ZappNvmeComponentsTieringSchema"),
+                unknown=EXCLUDE,
+                data_key="tiering",
+                allow_none=True
+            )
     r""" application-components.tiering """
 
     total_size = Size(data_key="total_size", allow_none=True)

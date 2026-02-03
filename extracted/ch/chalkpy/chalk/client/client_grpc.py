@@ -74,6 +74,8 @@ from chalk._gen.chalk.server.v1.model_registry_pb2 import (
     GetModelVersionResponse,
 )
 from chalk._gen.chalk.server.v1.model_registry_pb2_grpc import ModelRegistryServiceStub
+from chalk._gen.chalk.server.v1.named_query_pb2 import GetNamedQueryByNameRequest
+from chalk._gen.chalk.server.v1.named_query_pb2_grpc import NamedQueryServiceStub
 from chalk._gen.chalk.server.v1.offline_queries_pb2_grpc import OfflineQueryMetadataServiceStub
 from chalk._gen.chalk.server.v1.scheduled_query_pb2_grpc import ScheduledQueryServiceStub
 from chalk._gen.chalk.server.v1.scheduled_query_run_pb2 import GetScheduledQueryRunsRequest
@@ -102,6 +104,7 @@ from chalk.client.models import (
 from chalk.client.models import ManualTriggerScheduledQueryResponse as ManualTriggerScheduledQueryResponseDataclass
 from chalk.client.models import (
     ModelUploadUrlResponse,
+    NamedQueryMetadata,
     OnlineQuery,
     OnlineQueryResponse,
     RegisterModelArtifactResponse,
@@ -309,6 +312,14 @@ class StubProvider:
                 "The GRPC engine service is not available. If you would like to set up a GRPC service, please contact Chalk."
             )
         return ScheduledQueryServiceStub(self._server_channel)
+
+    @cached_property
+    def named_query_stub(self) -> NamedQueryServiceStub:
+        if self._server_channel is None:
+            raise ValueError(
+                "The GRPC engine service is not available. If you would like to set up a GRPC service, please contact Chalk."
+            )
+        return NamedQueryServiceStub(self._server_channel)
 
     @cached_property
     def sql_stub(self) -> SqlServiceStub:
@@ -567,6 +578,9 @@ class StubRefresher:
 
     def call_scheduled_query_run_stub(self, fn: Callable[[ScheduledQueryServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.scheduled_query_run_stub)
+
+    def call_get_named_query_metadata(self, fn: Callable[[NamedQueryServiceStub], T]) -> T:
+        return self._retry_callable(fn, lambda: self._stub.named_query_stub)
 
     def call_sql_stub(self, fn: Callable[[SqlServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.sql_stub)
@@ -1375,6 +1389,45 @@ class ChalkGRPCClient:
             )
         )
         return [ScheduledQueryRun.from_proto(run) for run in proto_resp.runs]
+
+    def get_named_query_metadata(
+        self,
+        name: str,
+        query_version: str | None = None,
+    ) -> List[NamedQueryMetadata]:
+        """
+        Get the metadata associated with named queries.
+
+        Parameters
+        ----------
+        name
+            The name of the named query.
+        query_version
+            The query version of the named query. Returns all versions of the named query by default.
+
+        Returns
+        -------
+        list[ScheduledQueryRun]
+            A response message containing the list of metadata of named queries.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> ChalkClient().get_named_query_metadata(
+        ...     name="my_named_query",
+        ...     query_version="1.1.0",
+        ... )
+        """
+        proto_resp = self._stub_refresher.call_get_named_query_metadata(
+            lambda x: x.GetNamedQueryByName(
+                request=GetNamedQueryByNameRequest(
+                    name=name,
+                    query_version=query_version,
+                )
+            )
+        )
+
+        return [NamedQueryMetadata.from_proto(nq) for nq in proto_resp.named_queries]
 
     def get_graph(self, deployment: DeploymentId | None = None) -> Graph:
         """Get the graph for a given deployment.

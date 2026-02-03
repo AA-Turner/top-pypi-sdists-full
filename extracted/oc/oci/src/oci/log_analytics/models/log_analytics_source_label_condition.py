@@ -406,7 +406,7 @@ class LogAnalyticsSourceLabelCondition(object):
     def is_enabled(self):
         """
         Gets the is_enabled of this LogAnalyticsSourceLabelCondition.
-        A flag inidcating whether or not the condition is enabled.
+        A flag indicating whether or not the condition is enabled.
 
 
         :return: The is_enabled of this LogAnalyticsSourceLabelCondition.
@@ -418,7 +418,7 @@ class LogAnalyticsSourceLabelCondition(object):
     def is_enabled(self, is_enabled):
         """
         Sets the is_enabled of this LogAnalyticsSourceLabelCondition.
-        A flag inidcating whether or not the condition is enabled.
+        A flag indicating whether or not the condition is enabled.
 
 
         :param is_enabled: The is_enabled of this LogAnalyticsSourceLabelCondition.

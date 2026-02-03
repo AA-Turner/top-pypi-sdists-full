@@ -172,7 +172,7 @@ class RoverEntitlementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/rover/change_rover_entitlement_compartment.py.html>`__ to see an example of how to use change_rover_entitlement_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/rover/change_rover_entitlement_compartment.py.html>`__ to see an example of how to use change_rover_entitlement_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['roverEntitlementId']
@@ -289,7 +289,7 @@ class RoverEntitlementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/rover/create_rover_entitlement.py.html>`__ to see an example of how to use create_rover_entitlement API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/rover/create_rover_entitlement.py.html>`__ to see an example of how to use create_rover_entitlement API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -401,7 +401,7 @@ class RoverEntitlementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/rover/delete_rover_entitlement.py.html>`__ to see an example of how to use delete_rover_entitlement API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/rover/delete_rover_entitlement.py.html>`__ to see an example of how to use delete_rover_entitlement API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['roverEntitlementId']
@@ -519,7 +519,7 @@ class RoverEntitlementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/rover/get_rover_entitlement.py.html>`__ to see an example of how to use get_rover_entitlement API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/rover/get_rover_entitlement.py.html>`__ to see an example of how to use get_rover_entitlement API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['roverEntitlementId', 'compartmentId']
@@ -661,7 +661,7 @@ class RoverEntitlementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/rover/list_rover_entitlements.py.html>`__ to see an example of how to use list_rover_entitlements API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/rover/list_rover_entitlements.py.html>`__ to see an example of how to use list_rover_entitlements API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -806,7 +806,7 @@ class RoverEntitlementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/rover/update_rover_entitlement.py.html>`__ to see an example of how to use update_rover_entitlement API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/rover/update_rover_entitlement.py.html>`__ to see an example of how to use update_rover_entitlement API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['roverEntitlementId']

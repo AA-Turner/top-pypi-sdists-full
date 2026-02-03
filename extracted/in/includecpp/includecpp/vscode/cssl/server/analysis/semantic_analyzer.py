@@ -416,6 +416,38 @@ class SemanticAnalyzer:
 
         self._visit_children(node)
 
+    def _visit_for(self, node: Any) -> None:
+        """Extract loop variable from for (var in ...) loops."""
+        info = node.value if hasattr(node, 'value') else {}
+        if isinstance(info, dict):
+            var_name = info.get('var')
+            if var_name and isinstance(var_name, str):
+                if not self.current_scope.has_symbol(var_name):
+                    self.current_scope.add_symbol(Symbol(
+                        name=var_name,
+                        kind=SymbolKind.VARIABLE,
+                        type_info='dynamic',
+                        line=getattr(node, 'line', 1),
+                        column=getattr(node, 'column', 1)
+                    ))
+        self._visit_children(node)
+
+    def _visit_foreach(self, node: Any) -> None:
+        """Extract loop variable from foreach loops."""
+        info = node.value if hasattr(node, 'value') else {}
+        if isinstance(info, dict):
+            var_name = info.get('var') or info.get('variable')
+            if var_name and isinstance(var_name, str):
+                if not self.current_scope.has_symbol(var_name):
+                    self.current_scope.add_symbol(Symbol(
+                        name=var_name,
+                        kind=SymbolKind.VARIABLE,
+                        type_info='dynamic',
+                        line=getattr(node, 'line', 1),
+                        column=getattr(node, 'column', 1)
+                    ))
+        self._visit_children(node)
+
     def _visit_global_declaration(self, node: Any) -> None:
         """Extract global variable declaration."""
         info = node.value if hasattr(node, 'value') else {}

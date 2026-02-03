@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -34,23 +34,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Account(
     {
-        "scope": "svm",
-        "applications": [
-            {
-                "second_authentication_method": "none",
-                "application": "ssh",
-                "authentication_methods": ["password"],
-            }
-        ],
-        "password_hash_algorithm": "sha512",
-        "owner": {
-            "uuid": "aaef7c38-4bd3-11e9-b238-0050568e2e25",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/aaef7c38-4bd3-11e9-b238-0050568e2e25"}
-            },
-        },
-        "locked": False,
         "role": {
             "_links": {
                 "self": {
@@ -59,12 +42,29 @@ Account(
             },
             "name": "vsadmin",
         },
+        "locked": False,
         "_links": {
             "self": {
                 "href": "/api/security/accounts/aaef7c38-4bd3-11e9-b238-0050568e2e25/svm_user1"
             }
         },
         "name": "svm_user1",
+        "applications": [
+            {
+                "application": "ssh",
+                "second_authentication_method": "none",
+                "authentication_methods": ["password"],
+            }
+        ],
+        "owner": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/aaef7c38-4bd3-11e9-b238-0050568e2e25"}
+            },
+            "uuid": "aaef7c38-4bd3-11e9-b238-0050568e2e25",
+        },
+        "password_hash_algorithm": "sha512",
+        "scope": "svm",
     }
 )
 
@@ -137,11 +137,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -155,14 +154,26 @@ __pdoc__ = {
     "AccountSchema.opts": False,
 }
 
-
 class AccountSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Account object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the account."""
 
-    applications = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.account_application.AccountApplicationSchema", unknown=EXCLUDE, allow_none=True), data_key="applications", allow_none=True)
+    applications = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.account_application", "AccountApplicationSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="applications",
+                allow_none=True
+            )
     r""" The applications field of the account."""
 
     comment = marshmallow_fields.Str(
@@ -186,7 +197,12 @@ class AccountSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: joe.smith"""
 
-    owner = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="owner", unknown=EXCLUDE, allow_none=True)
+    owner = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="owner",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The owner field of the account."""
 
     password = marshmallow_fields.Str(
@@ -209,7 +225,12 @@ Valid choices:
 * sha256
 * md5"""
 
-    role = marshmallow_fields.Nested("netapp_ontap.resources.role.RoleSchema", data_key="role", unknown=EXCLUDE, allow_none=True)
+    role = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.role", "RoleSchema"),
+                data_key="role",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The role field of the account."""
 
     scope = marshmallow_fields.Str(

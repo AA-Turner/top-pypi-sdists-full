@@ -58,14 +58,10 @@ FIELD_TYPES = {
     "physical-switch": "string",  # Physical switch parent.
     "vlan": "integer",  # VLAN.
     "port": "table",  # Configure member ports.
-    "span": "option",  # Enable/disable SPAN.   
-disable:Disable SPAN.   
-enable:Enab
+    "span": "option",  # Enable/disable SPAN.    disable:Disable SPAN.    enable:Enable SPAN.
     "span-source-port": "string",  # SPAN source port.
     "span-dest-port": "string",  # SPAN destination port.
-    "span-direction": "option",  # SPAN direction.   
-rx:SPAN receive direction only.   
-tx:SPA
+    "span-direction": "option",  # SPAN direction.    rx:SPAN receive direction only.    tx:SPAN transmit direction
 }
 
 # Field descriptions (help text from FortiOS API)

@@ -8,10 +8,8 @@ from contrast.utils.patch_utils import (
     register_module_patcher,
     unregister_module_patcher,
 )
-
 from contrast_vendor import structlog as logging
-from contrast_vendor.wrapt import FunctionWrapper
-
+from contrast_vendor import wrapt
 
 logger = logging.getLogger("contrast")
 
@@ -77,7 +75,7 @@ def patch_sqlalchemy(sqlalchemy_engine_default):
 
     orig_method = sqlalchemy_engine_default.DefaultDialect.__init__
     module.unpatched_method = orig_method
-    wrapped_method = FunctionWrapper(orig_method, dialect_init_wrapper)
+    wrapped_method = wrapt.FunctionWrapper(orig_method, dialect_init_wrapper)
 
     sqlalchemy_engine_default.DefaultDialect.__init__ = wrapped_method
 

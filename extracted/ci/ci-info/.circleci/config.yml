@@ -1,0 +1,22 @@
+version: 2.1
+
+jobs:
+  test:
+    docker:
+    - image: cimg/python:3.14
+    steps:
+    - checkout
+    - run:
+        name: Install ci-info (+ pytest)
+        command: |
+          uv sync --all-extras --dev
+    - run:
+        name: Run test
+        command: |
+          uv run pytest tests/
+
+workflows:
+  version: 2
+  test:
+    jobs:
+    - test

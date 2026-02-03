@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -76,13 +76,16 @@ Container(
     {
         "volumes": [
             {
+                "scale_out": False,
+                "space": {"size": 104857600},
+                "name": "vol1",
                 "s3_bucket": {
                     "policy": {
                         "statements": [
                             {
                                 "effect": "allow",
-                                "actions": ["ListBucket"],
                                 "resources": ["vol1", "vol1/*"],
+                                "actions": ["ListBucket"],
                                 "principals": ["user1", "group/grp1"],
                             }
                         ]
@@ -91,7 +94,6 @@ Container(
                     "nas_path": "/vol1",
                 },
                 "nas": {
-                    "path": "/vol1",
                     "export_policy": {
                         "name": "vol1",
                         "rules": [
@@ -105,21 +107,19 @@ Container(
                     "cifs": {
                         "shares": [
                             {
+                                "name": "vol1",
                                 "acls": [
                                     {
-                                        "permission": "full_control",
                                         "user_or_group": "everyone",
+                                        "permission": "full_control",
                                         "type": "windows",
                                     }
                                 ],
-                                "name": "vol1",
                             }
                         ]
                     },
+                    "path": "/vol1",
                 },
-                "space": {"size": 104857600},
-                "scale_out": False,
-                "name": "vol1",
             }
         ],
         "svm": {"name": "vs0"},
@@ -135,11 +135,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -153,14 +152,40 @@ __pdoc__ = {
     "ContainerSchema.opts": False,
 }
 
-
 class ContainerSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Container object"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    provisioning_options = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.container_provisioning_options", "ContainerProvisioningOptionsSchema"),
+                data_key="provisioning_options",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
+    r""" Options that are applied to the operation."""
+
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the container."""
 
-    volumes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.container_volume.ContainerVolumeSchema", unknown=EXCLUDE, allow_none=True), data_key="volumes", allow_none=True)
+    use_mirrored_aggregates = marshmallow_fields.Boolean(
+        data_key="use_mirrored_aggregates",
+        allow_none=True,
+    )
+    r""" Specifies whether mirrored aggregates are selected when provisioning the volume. Only mirrored aggregates are used if this parameter is set to _true_ and only unmirrored aggregates are used if this parameter is set to _false_. The default value is _true_ for a MetroCluster configuration and is _false_ for a non-MetroCluster configuration."""
+
+    volumes = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.container_volume", "ContainerVolumeSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="volumes",
+                allow_none=True
+            )
     r""" A list of NAS volumes to provision.<br/>"""
 
     @property
@@ -178,11 +203,13 @@ class ContainerSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """volumes,"""
 
     postable_fields = [
+        "provisioning_options",
         "svm.name",
         "svm.uuid",
+        "use_mirrored_aggregates",
         "volumes",
     ]
-    """svm.name,svm.uuid,volumes,"""
+    """provisioning_options,svm.name,svm.uuid,use_mirrored_aggregates,volumes,"""
 
 class Container(Resource):
     """Allows interaction with Container objects on the host"""
@@ -204,10 +231,10 @@ class Container(Resource):
         connection: HostConnection = None,
         **kwargs
     ) -> Union[List["Container"], NetAppResponse]:
-        r"""<personalities supports=asar2,unified>
+        r"""<personalities supports=asar2>
 * POST is not supported
 </personalities>
-<personalities supports=aiml>
+<personalities supports=aiml,unified>
 Creates one or more of the following:
 * New NAS FlexVol or FlexGroup volumes
 * S3 buckets
@@ -242,10 +269,10 @@ Creates one or more of the following:
         poll_timeout: Optional[int] = None,
         **kwargs
     ) -> NetAppResponse:
-        r"""<personalities supports=asar2,unified>
+        r"""<personalities supports=asar2>
 * POST is not supported
 </personalities>
-<personalities supports=aiml>
+<personalities supports=aiml,unified>
 Creates one or more of the following:
 * New NAS FlexVol or FlexGroup volumes
 * S3 buckets

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: localstack
-Version: 4.13.0
+Version: 4.13.1
 Summary: LocalStack - A fully functional local Cloud stack
 Home-page: https://github.com/localstack/localstack
 Author: LocalStack Contributors
@@ -13,10 +13,10 @@ Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: System :: Emulators
 Description-Content-Type: text/markdown
 Requires-Dist: localstack-core
-Requires-Dist: localstack-ext==4.13.0
+Requires-Dist: localstack-ext==4.13.1
 Provides-Extra: runtime
 Requires-Dist: localstack-core[runtime]; extra == "runtime"
-Requires-Dist: localstack-ext[runtime]==4.13.0; extra == "runtime"
+Requires-Dist: localstack-ext[runtime]==4.13.1; extra == "runtime"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

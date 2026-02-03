@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -13,11 +13,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -30,7 +29,6 @@ __pdoc__ = {
     "SecurityAssociationSchema.resource": False,
     "SecurityAssociationSchema.opts": False,
 }
-
 
 class SecurityAssociationSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SecurityAssociation object"""
@@ -48,10 +46,20 @@ Valid choices:
 * suiteb_gcm256
 * suiteb_gmac256"""
 
-    ike = marshmallow_fields.Nested("netapp_ontap.models.security_association_ike.SecurityAssociationIkeSchema", data_key="ike", unknown=EXCLUDE, allow_none=True)
+    ike = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.security_association_ike", "SecurityAssociationIkeSchema"),
+                data_key="ike",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Objects containing parameters specific to IKE (Internet Key Exchange) security association."""
 
-    ipsec = marshmallow_fields.Nested("netapp_ontap.models.security_association_ipsec.SecurityAssociationIpsecSchema", data_key="ipsec", unknown=EXCLUDE, allow_none=True)
+    ipsec = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.security_association_ipsec", "SecurityAssociationIpsecSchema"),
+                data_key="ipsec",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Objects containing parameters specific to IPsec security association."""
 
     lifetime = Size(
@@ -66,7 +74,12 @@ Valid choices:
     )
     r""" Local address of the security association."""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the security_association."""
 
     policy_name = marshmallow_fields.Str(
@@ -87,7 +100,12 @@ Valid choices:
     )
     r""" The scope field of the security_association."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the security_association."""
 
     type = marshmallow_fields.Str(

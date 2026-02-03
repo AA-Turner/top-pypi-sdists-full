@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -61,16 +61,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NvmeSubsystem(
         {
-            "svm": {"uuid": "a009a9e7-4081-b576-7575-ada21efcaf16", "name": "svm1"},
-            "uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f",
             "name": "subsystem1",
+            "uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f",
+            "svm": {"name": "svm1", "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16"},
         }
     ),
     NvmeSubsystem(
         {
-            "svm": {"uuid": "a009a9e7-4081-b576-7575-ada21efcaf16", "name": "svm1"},
-            "uuid": "bcde901a-a379-4a91-9ea6-1b728ed6696f",
             "name": "subsystem2",
+            "uuid": "bcde901a-a379-4a91-9ea6-1b728ed6696f",
+            "svm": {"name": "svm1", "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16"},
         }
     ),
 ]
@@ -99,10 +99,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NvmeSubsystem(
         {
-            "os_type": "linux",
-            "svm": {"uuid": "a009a9e7-4081-b576-7575-ada21efcaf16", "name": "svm1"},
-            "uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f",
             "name": "subsystem1",
+            "os_type": "linux",
+            "uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f",
+            "svm": {"name": "svm1", "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16"},
         }
     )
 ]
@@ -131,12 +131,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 NvmeSubsystem(
     {
         "serial_number": "wtJNKNKD-uPLAAAAAAAD",
-        "os_type": "linux",
-        "io_queue": {"default": {"depth": 32, "count": 4}},
-        "svm": {"uuid": "a009a9e7-4081-b576-7575-ada21efcaf16", "name": "svm1"},
-        "target_nqn": "nqn.1992-08.com.netapp:sn.d04594ef915b4c73b642169e72e4c0b1:subsystem.subsystem1",
-        "uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f",
         "name": "subsystem1",
+        "os_type": "linux",
+        "uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f",
+        "target_nqn": "nqn.1992-08.com.netapp:sn.d04594ef915b4c73b642169e72e4c0b1:subsystem.subsystem1",
+        "svm": {"name": "svm1", "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16"},
     }
 )
 
@@ -165,27 +164,27 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NvmeSubsystem(
     {
-        "svm": {"uuid": "a009a9e7-4081-b576-7575-ada21efcaf16", "name": "svm1"},
+        "name": "subsystem1",
+        "uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f",
         "subsystem_maps": [
             {
                 "anagrpid": "00000001h",
                 "nsid": "00000001h",
                 "namespace": {
-                    "uuid": "eeaaca23-128d-4a7d-be4a-dc9106705799",
                     "name": "/vol/vol1/namespace1",
+                    "uuid": "eeaaca23-128d-4a7d-be4a-dc9106705799",
                 },
             },
             {
                 "anagrpid": "00000002h",
                 "nsid": "00000002h",
                 "namespace": {
-                    "uuid": "feaaca23-83a0-4a7d-beda-dc9106705799",
                     "name": "/vol/vol1/namespace2",
+                    "uuid": "feaaca23-83a0-4a7d-beda-dc9106705799",
                 },
             },
         ],
-        "uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f",
-        "name": "subsystem1",
+        "svm": {"name": "svm1", "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16"},
     }
 )
 
@@ -327,10 +326,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NvmeSubsystemHost(
     {
-        "priority": "regular",
         "dh_hmac_chap": {},
-        "subsystem": {"uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f"},
         "nqn": "nqn.1992-01.com.example:subsys1.host1",
+        "priority": "regular",
+        "subsystem": {"uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f"},
     }
 )
 
@@ -358,11 +357,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -376,11 +374,15 @@ __pdoc__ = {
     "NvmeSubsystemSchema.opts": False,
 }
 
-
 class NvmeSubsystemSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the NvmeSubsystem object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the nvme_subsystem."""
 
     comment = marshmallow_fields.Str(
@@ -396,10 +398,23 @@ class NvmeSubsystemSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" An option that causes the subsystem to be deleted when the last subsystem map associated with it is deleted. Optional in POST and PATCH. This property defaults to _false_ when the subsystem is created."""
 
-    hosts = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.nvme_subsystem_hosts.NvmeSubsystemHostsSchema", unknown=EXCLUDE, allow_none=True), data_key="hosts", allow_none=True)
+    hosts = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.nvme_subsystem_hosts", "NvmeSubsystemHostsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="hosts",
+                allow_none=True
+            )
     r""" The NVMe hosts configured for access to the NVMe subsystem. Optional in POST."""
 
-    io_queue = marshmallow_fields.Nested("netapp_ontap.models.nvme_subsystem_io_queue.NvmeSubsystemIoQueueSchema", data_key="io_queue", unknown=EXCLUDE, allow_none=True)
+    io_queue = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_subsystem_io_queue", "NvmeSubsystemIoQueueSchema"),
+                data_key="io_queue",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The properties of the submission queue used to submit I/O commands for execution by the NVMe controller."""
 
     name = marshmallow_fields.Str(
@@ -427,7 +442,12 @@ Valid choices:
 * vmware
 * windows"""
 
-    replication = marshmallow_fields.Nested("netapp_ontap.models.nvme_subsystem_replication.NvmeSubsystemReplicationSchema", data_key="replication", unknown=EXCLUDE, allow_none=True)
+    replication = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_subsystem_replication", "NvmeSubsystemReplicationSchema"),
+                data_key="replication",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Properties related to subsystem replication."""
 
     serial_number = marshmallow_fields.Str(
@@ -440,11 +460,24 @@ Valid choices:
 
 Example: wCVsgFMiuMhVAAAAAAAB"""
 
-    subsystem_maps = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.nvme_subsystem_subsystem_maps.NvmeSubsystemSubsystemMapsSchema", unknown=EXCLUDE, allow_none=True), data_key="subsystem_maps", allow_none=True)
+    subsystem_maps = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.nvme_subsystem_subsystem_maps", "NvmeSubsystemSubsystemMapsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="subsystem_maps",
+                allow_none=True
+            )
     r""" The NVMe namespaces mapped to the NVMe subsystem.<br/>
 There is an added computational cost to retrieving property values for `subsystem_maps`. They are not populated for a GET request unless explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the nvme_subsystem."""
 
     target_nqn = marshmallow_fields.Str(

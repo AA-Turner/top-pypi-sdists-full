@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["StorageSwitchPorts", "StorageSwitchPortsSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "StorageSwitchPortsSchema.opts": False,
     "StorageSwitchPorts": False,
 }
-
 
 class StorageSwitchPortsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the StorageSwitchPorts object"""
@@ -48,7 +46,12 @@ Valid choices:
     name = marshmallow_fields.Str(data_key="name", allow_none=True)
     r""" Storage switch port name """
 
-    sfp = marshmallow_fields.Nested("netapp_ontap.models.storage_switch_ports_sfp.StorageSwitchPortsSfpSchema", unknown=EXCLUDE, data_key="sfp", allow_none=True)
+    sfp = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_switch_ports_sfp", "StorageSwitchPortsSfpSchema"),
+                unknown=EXCLUDE,
+                data_key="sfp",
+                allow_none=True
+            )
     r""" The sfp field of the storage_switch_ports. """
 
     speed = Size(data_key="speed", allow_none=True)

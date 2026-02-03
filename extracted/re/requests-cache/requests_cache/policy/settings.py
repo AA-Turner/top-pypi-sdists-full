@@ -1,4 +1,4 @@
-from typing import Dict, Iterable, Union
+from typing import Dict, Iterable, Optional, Union
 
 from attrs import define, field
 
@@ -26,7 +26,9 @@ class CacheSettings(RichMixin):
     allowable_codes: Iterable[int] = field(default=DEFAULT_STATUS_CODES)
     allowable_methods: Iterable[str] = field(default=DEFAULT_METHODS)
     always_revalidate: bool = field(default=False)
+    autoclose: bool = field(default=True)
     cache_control: bool = field(default=False)
+    content_root_key: Optional[str] = field(default=None)
     disabled: bool = field(default=False)
     expire_after: ExpirationTime = field(default=None)
     filter_fn: FilterCallback = field(default=None)
@@ -34,6 +36,7 @@ class CacheSettings(RichMixin):
     key_fn: KeyCallback = field(default=None)
     match_headers: Union[Iterable[str], bool] = field(default=False)
     only_if_cached: bool = field(default=False)
+    read_only: bool = field(default=False)
     stale_if_error: Union[bool, ExpirationTime] = field(default=False)
     stale_while_revalidate: Union[bool, ExpirationTime] = field(default=False)
     urls_expire_after: Dict[ExpirationPattern, ExpirationTime] = field(factory=dict)

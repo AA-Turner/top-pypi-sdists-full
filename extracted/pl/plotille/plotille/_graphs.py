@@ -1,9 +1,6 @@
-# -*- coding: utf-8 -*-
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 # The MIT License
 
-# Copyright (c) 2017 - 2022 Tammo Ippen, tammo.ippen@posteo.de
+# Copyright (c) 2017 - 2025 Tammo Ippen, tammo.ippen@posteo.de
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,65 +20,149 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from math import log
 import os
+from collections.abc import Sequence
+from datetime import timedelta
+from math import log
+from typing import Literal
 
-from ._colors import color
+from ._colors import ColorDefinition, ColorMode, color
+from ._data_metadata import DataMetadata
 from ._figure import Figure
 from ._input_formatter import InputFormatter
+from ._util import DataValue, DataValues
 from ._util import hist as compute_hist
 
 
-def hist_aggregated(counts, bins, width=80, log_scale=False, linesep=os.linesep,
-                    lc=None, bg=None, color_mode='names'):
+def hist_aggregated(
+    counts: list[int],
+    bins: Sequence[float] | None = None,
+    labels: Sequence[str] | None = None,
+    width: int = 80,
+    log_scale: bool = False,
+    linesep: str = os.linesep,
+    lc: ColorDefinition = None,
+    bg: ColorDefinition = None,
+    color_mode: ColorMode = "names",
+    meta: DataMetadata | None = None,
+) -> str:
     """
     Create histogram for aggregated data.
 
+    **Either provide bins xor labels.**
+
     Parameters:
-        counts: List[int]    Counts for each bucket.
-        bins: List[float]    Limits for the bins for the provided counts: limits for
-                             bin `i` are `[bins[i], bins[i+1])`.
-                             Hence, `len(bins) == len(counts) + 1`.
-        width: int           The number of characters for the width (columns).
-        log_scale: bool      Scale the histogram with `log` function.
-        linesep: str         The requested line seperator. default: os.linesep
-        lc: multiple         Give the line color.
-        bg: multiple         Give the background color.
-        color_mode: str      Specify color input mode; 'names' (default), 'byte' or 'rgb'
-                             see plotille.color.__docs__
+        counts: List[int]         Counts for each bucket.
+        bins: List[float] | None  Limits for the bins for the provided counts: limits for
+                                  bin `i` are `[bins[i], bins[i+1])`.
+                                  Hence, `len(bins) == len(counts) + 1`.
+        labels: List[str] | None  Labels for the bins for the provided counts
+                                  Hence, `len(labels) == len(counts)`.
+        width: int                The number of characters for the width (columns).
+        log_scale: bool           Scale the histogram with `log` function.
+        linesep: str              The requested line separator. default: os.linesep
+        lc: ColorDefinition       Give the line color.
+        bg: ColorDefinition       Give the background color.
+        color_mode: ColorMode     Specify color input mode; 'names' (default), 'byte' or
+                                  'rgb' see plotille.color.__docs__
+        meta: DataMetadata | None For conversion of datetime values.
     Returns:
         str: histogram over `X` from left to right.
     """
-    def _scale(a):
+
+    def _scale(a: int) -> float | int:
         if log_scale and a > 0:
             return log(a)
         return a
 
-    h = counts
-    b = bins
+    if meta is None:
+        meta = DataMetadata(is_datetime=False)
+
+    assert not (bins is None and labels is None), (
+        "At least one of bins/labels has to be set"
+    )
+    assert not (bins is not None and labels is not None), (
+        "At most one of bins/labels has to be set"
+    )
 
     ipf = InputFormatter()
-    h_max = _scale(max(h)) or 1
-    delta = b[-1] - b[0]
+    h_max = _scale(max(counts)) or 1
+    delta_display = None
+    l_max = None
+    if bins:
+        max_ = bins[-1]
+        min_ = bins[0]
+        # bins are always normalized to float
+        delta = max_ - min_
+        delta_display = timedelta(seconds=delta) if meta.is_datetime else delta
+        canvas = ["        bucket       | {} {}".format("_" * width, "Total Counts")]
+    else:
+        assert labels
+        l_max = max(5, max(len(label) for label in labels))
+        canvas = [
+            "{}| {} {}".format("label".ljust(l_max + 1), "_" * width, "Total Counts")
+        ]
 
-    bins_count = len(h)
+    bins_count = len(counts)
 
-    canvas = ['        bucket       | {} {}'.format('_' * width, 'Total Counts')]
-    lasts = ['', '⠂', '⠆', '⠇', '⡇', '⡗', '⡷', '⡿']
+    lasts = ["", "⠂", "⠆", "⠇", "⡇", "⡗", "⡷", "⡿"]
     for i in range(bins_count):
-        hight = int(width * 8 * _scale(h[i]) / h_max)
-        canvas += ['[{}, {}) | {} {}'.format(
-            ipf.fmt(b[i], delta=delta, chars=8, left=True),
-            ipf.fmt(b[i + 1], delta=delta, chars=8, left=False),
-            color('⣿' * (hight // 8) + lasts[hight % 8], fg=lc, bg=bg, mode=color_mode)
-            + color('\u2800' * (width - (hight // 8) + int(hight % 8 == 0)), bg=bg, mode=color_mode),
-            h[i])]
-    canvas += ['‾' * (2 * 8 + 2 + 3 + width + 12)]
+        height = int(width * 8 * _scale(counts[i]) / h_max)
+        if bins:
+            assert delta_display is not None
+            line_start = "[{}, {})".format(
+                ipf.fmt(
+                    meta.convert_for_display(bins[i]),
+                    delta=delta_display,
+                    chars=8,
+                    left=True,
+                ),
+                ipf.fmt(
+                    meta.convert_for_display(bins[i + 1]),
+                    delta=delta_display,
+                    chars=8,
+                    left=False,
+                ),
+            )
+        else:
+            assert labels is not None
+            assert l_max is not None
+            line_start = ipf.fmt(labels[i], delta=None, chars=l_max, left=True)
+        canvas += [
+            "{} | {} {}".format(
+                line_start,
+                color(
+                    "⣿" * (height // 8) + lasts[height % 8],
+                    fg=lc,
+                    bg=bg,
+                    mode=color_mode,
+                )
+                + color(
+                    "\u2800" * (width - (height // 8) + int(height % 8 == 0)),
+                    bg=bg,
+                    mode=color_mode,
+                ),
+                counts[i],
+            )
+        ]
+    if bins:
+        canvas += ["‾" * (2 * 8 + 2 + 3 + width + 12)]
+    else:
+        assert l_max is not None
+        canvas += ["‾" * (l_max + 3 + width + 12)]
     return linesep.join(canvas)
 
 
-def hist(X, bins=40, width=80, log_scale=False, linesep=os.linesep,
-         lc=None, bg=None, color_mode='names'):
+def hist(
+    X: DataValues,
+    bins: int = 40,
+    width: int = 80,
+    log_scale: bool = False,
+    linesep: str = os.linesep,
+    lc: ColorDefinition = None,
+    bg: ColorDefinition = None,
+    color_mode: ColorMode = "names",
+) -> str:
     """Create histogram over `X` from left to right
 
     The values on the left are the center of the bucket, i.e. `(bin[i] + bin[i+1]) / 2`.
@@ -92,23 +173,52 @@ def hist(X, bins=40, width=80, log_scale=False, linesep=os.linesep,
         bins: int            The number of bins to put X entries in (rows).
         width: int           The number of characters for the width (columns).
         log_scale: bool      Scale the histogram with `log` function.
-        linesep: str         The requested line seperator. default: os.linesep
-        lc: multiple         Give the line color.
-        bg: multiple         Give the background color.
-        color_mode: str      Specify color input mode; 'names' (default), 'byte' or 'rgb'
-                             see plotille.color.__docs__
+        linesep: str         The requested line separator. default: os.linesep
+        lc: ColorDefinition         Give the line color.
+        bg: ColorDefinition         Give the background color.
+        color_mode: ColorMode      Specify color input mode; 'names' (default), 'byte' or
+                             'rgb' see plotille.color.__docs__
 
     Returns:
         str: histogram over `X` from left to right.
     """
-    counts, bins = compute_hist(X, bins)
-    return hist_aggregated(counts=counts, bins=bins, width=width, log_scale=log_scale,
-                           linesep=linesep, lc=lc, bg=bg, color_mode=color_mode)
+    # Normalize data to float before computing histogram
+    formatter = InputFormatter()
+    metadata = DataMetadata.from_sequence(X)
+    X_floats = [formatter.convert(x) for x in X]
+
+    counts, bins_list = compute_hist(X_floats, bins)
+
+    # bins_list are floats, use metadata for display
+    return hist_aggregated(
+        counts=counts,
+        bins=bins_list,
+        width=width,
+        log_scale=log_scale,
+        linesep=linesep,
+        lc=lc,
+        bg=bg,
+        color_mode=color_mode,
+        meta=metadata,
+    )
 
 
-def histogram(X, bins=160, width=80, height=40, X_label='X', Y_label='Counts', linesep=os.linesep,
-              x_min=None, x_max=None, y_min=None, y_max=None,
-              lc=None, bg=None, color_mode='names'):
+def histogram(
+    X: DataValues,
+    bins: int = 160,
+    width: int = 80,
+    height: int = 40,
+    X_label: str = "X",
+    Y_label: str = "Counts",
+    linesep: str = os.linesep,
+    x_min: DataValue | None = None,
+    x_max: DataValue | None = None,
+    y_min: DataValue | None = None,
+    y_max: DataValue | None = None,
+    lc: ColorDefinition = None,
+    bg: ColorDefinition = None,
+    color_mode: ColorMode = "names",
+) -> str:
     """Create histogram over `X`
 
     In contrast to `hist`, this is the more `usual` histogram from bottom
@@ -121,13 +231,13 @@ def histogram(X, bins=160, width=80, height=40, X_label='X', Y_label='Counts', l
         height: int          The number of characters for the height (rows).
         X_label: str         Label for X-axis.
         Y_label: str         Label for Y-axis. max 8 characters.
-        linesep: str         The requested line seperator. default: os.linesep
+        linesep: str         The requested line separator. default: os.linesep
         x_min, x_max: float  Limits for the displayed X values.
         y_min, y_max: float  Limits for the displayed Y values.
-        lc: multiple         Give the line color.
-        bg: multiple         Give the background color.
-        color_mode: str      Specify color input mode; 'names' (default), 'byte' or 'rgb'
-                             see plotille.color.__docs__
+        lc: ColorDefinition         Give the line color.
+        bg: ColorDefinition         Give the background color.
+        color_mode: ColorMode      Specify color input mode; 'names' (default), 'byte' or
+                             'rgb' see plotille.color.__docs__
 
     Returns:
         str: histogram over `X`.
@@ -157,10 +267,24 @@ def histogram(X, bins=160, width=80, height=40, X_label='X', Y_label='Counts', l
     return fig.show()
 
 
-def scatter(X, Y, width=80, height=40, X_label='X', Y_label='Y', linesep=os.linesep,
-            x_min=None, x_max=None, y_min=None, y_max=None,
-            lc=None, bg=None, color_mode='names', origin=True,
-            marker=None):
+def scatter(
+    X: DataValues,
+    Y: DataValues,
+    width: int = 80,
+    height: int = 40,
+    X_label: str = "X",
+    Y_label: str = "Y",
+    linesep: str = os.linesep,
+    x_min: DataValue | None = None,
+    x_max: DataValue | None = None,
+    y_min: DataValue | None = None,
+    y_max: DataValue | None = None,
+    lc: ColorDefinition = None,
+    bg: ColorDefinition = None,
+    color_mode: ColorMode = "names",
+    origin: bool = True,
+    marker: str | None = None,
+) -> str:
     """Create scatter plot with X , Y values
 
     Basically plotting without interpolation:
@@ -169,50 +293,87 @@ def scatter(X, Y, width=80, height=40, X_label='X', Y_label='Y', linesep=os.line
     Parameters:
         X: List[float]       X values.
         Y: List[float]       Y values. X and Y must have the same number of entries.
-        width: int           The number of characters for the width (columns) of the canvas.
-        hight: int           The number of characters for the hight (rows) of the canvas.
+        width: int           The number of characters for the width (columns) of the
+                             canvas.
+        height: int          The number of characters for the hight (rows) of the
+                             canvas.
         X_label: str         Label for X-axis.
         Y_label: str         Label for Y-axis. max 8 characters.
-        linesep: str         The requested line seperator. default: os.linesep
+        linesep: str         The requested line separator. default: os.linesep
         x_min, x_max: float  Limits for the displayed X values.
         y_min, y_max: float  Limits for the displayed Y values.
-        lc: multiple         Give the line color.
-        bg: multiple         Give the background color.
-        color_mode: str      Specify color input mode; 'names' (default), 'byte' or 'rgb'
-                             see plotille.color.__docs__
+        lc: ColorDefinition         Give the line color.
+        bg: ColorDefinition         Give the background color.
+        color_mode: ColorMode      Specify color input mode; 'names' (default), 'byte' or
+                             'rgb' see plotille.color.__docs__
         origin: bool         Whether to print the origin. default: True
         marker: str          Instead of braille dots set a marker char.
 
     Returns:
         str: scatter plot over `X`, `Y`.
     """
-    return plot(X, Y, width, height, X_label, Y_label, linesep, None,
-                x_min, x_max, y_min, y_max, lc, bg, color_mode, origin, marker)
+    return plot(
+        X,
+        Y,
+        width,
+        height,
+        X_label,
+        Y_label,
+        linesep,
+        None,
+        x_min,
+        x_max,
+        y_min,
+        y_max,
+        lc,
+        bg,
+        color_mode,
+        origin,
+        marker,
+    )
 
 
-def plot(X, Y, width=80, height=40, X_label='X', Y_label='Y', linesep=os.linesep, interp='linear',
-         x_min=None, x_max=None, y_min=None, y_max=None,
-         lc=None, bg=None, color_mode='names', origin=True,
-         marker=None):
+def plot(
+    X: DataValues,
+    Y: DataValues,
+    width: int = 80,
+    height: int = 40,
+    X_label: str = "X",
+    Y_label: str = "Y",
+    linesep: str = os.linesep,
+    interp: Literal["linear"] | None = "linear",
+    x_min: DataValue | None = None,
+    x_max: DataValue | None = None,
+    y_min: DataValue | None = None,
+    y_max: DataValue | None = None,
+    lc: ColorDefinition = None,
+    bg: ColorDefinition = None,
+    color_mode: ColorMode = "names",
+    origin: bool = True,
+    marker: str | None = None,
+) -> str:
     """Create plot with X , Y values and linear interpolation between points
 
     Parameters:
         X: List[float]         X values.
         Y: List[float]         Y values. X and Y must have the same number of entries.
-        width: int             The number of characters for the width (columns) of the canvas.
-        hight: int             The number of characters for the hight (rows) of the canvas.
+        width: int             The number of characters for the width (columns) of the
+                               canvas.
+        height: int            The number of characters for the hight (rows) of the
+                               canvas.
         X_label: str           Label for X-axis.
         Y_label: str           Label for Y-axis. max 8 characters.
-        linesep: str           The requested line seperator. default: os.linesep
+        linesep: str           The requested line separator. default: os.linesep
         interp: Optional[str]  Specify interpolation; values None, 'linear'
         x_min, x_max: float    Limits for the displayed X values.
         y_min, y_max: float    Limits for the displayed Y values.
-        lc: multiple           Give the line color.
-        bg: multiple           Give the background color.
-        color_mode: str        Specify color input mode; 'names' (default), 'byte' or 'rgb'
-                               see plotille.color.__docs__
+        lc: ColorDefinition           Give the line color.
+        bg: ColorDefinition           Give the background color.
+        color_mode: ColorMode        Specify color input mode; 'names' (default), 'byte' or
+                               'rgb' see plotille.color.__docs__
         origin: bool           Whether to print the origin. default: True
-        marker: str            Instead of braille dots set a marker char for actual values.
+        marker: str            Instead of braille dots set a marker char for actual
+                               values.
 
     Returns:
         str: plot over `X`, `Y`.

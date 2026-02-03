@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,64 +26,64 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsDomain(
     {
+        "server_discovery_mode": "all",
+        "password_schedule": {
+            "schedule_description": "Tue@1:00",
+            "schedule_randomized_minute": 120,
+            "schedule_enabled": False,
+            "schedule_weekly_interval": 4,
+        },
         "trust_relationships": [
             {
                 "home_domain": "SERVER02.COM",
                 "node": {
-                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
                     "name": "vsNode2",
+                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
                 },
                 "trusted_domains": ["SERVER02.COM"],
             }
         ],
-        "server_discovery_mode": "all",
-        "preferred_dcs": [{"fqdn": "server02.com", "server_ip": "192.168.20.1"}],
-        "password_schedule": {
-            "schedule_weekly_interval": 4,
-            "schedule_description": "Tue@1:00",
-            "schedule_enabled": False,
-            "schedule_randomized_minute": 120,
-        },
+        "name_mapping": {"trusted_domains": ["SERVER03.COM", "SERVER04.COM"]},
         "discovered_servers": [
             {
                 "server_ip": "192.168.20.1",
-                "domain": "server02.com",
-                "preference": "preferred",
                 "state": "undetermined",
-                "server_name": "scspb0659002001",
                 "server_type": "kerberos",
+                "preference": "preferred",
+                "server_name": "scspb0659002001",
                 "node": {
-                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
                     "name": "vsNode2",
+                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
                 },
+                "domain": "server02.com",
             },
             {
                 "server_ip": "192.168.20.1",
-                "domain": "server02.com",
-                "preference": "preferred",
                 "state": "undetermined",
-                "server_name": "scspb0659002001",
                 "server_type": "ms_ldap",
+                "preference": "preferred",
+                "server_name": "scspb0659002001",
                 "node": {
-                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
                     "name": "vsNode2",
+                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
                 },
+                "domain": "server02.com",
             },
             {
                 "server_ip": "192.168.20.1",
-                "domain": "server02.com",
-                "preference": "preferred",
                 "state": "undetermined",
-                "server_name": "scspb0659002001",
                 "server_type": "ms_dc",
+                "preference": "preferred",
+                "server_name": "scspb0659002001",
                 "node": {
-                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
                     "name": "vsNode2",
+                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
                 },
+                "domain": "server02.com",
             },
         ],
-        "svm": {"uuid": "6dd78167-c907-11eb-b2bf-0050568e7324", "name": "vs2"},
-        "name_mapping": {"trusted_domains": ["SERVER03.COM", "SERVER04.COM"]},
+        "preferred_dcs": [{"server_ip": "192.168.20.1", "fqdn": "server02.com"}],
+        "svm": {"name": "vs2", "uuid": "6dd78167-c907-11eb-b2bf-0050568e7324"},
     }
 )
 
@@ -111,72 +111,72 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsDomain(
     {
+        "server_discovery_mode": "all",
+        "password_schedule": {
+            "schedule_description": "Tue@1:00",
+            "schedule_randomized_minute": 120,
+            "schedule_enabled": False,
+            "schedule_weekly_interval": 4,
+        },
         "trust_relationships": [
             {
                 "home_domain": "SERVER02.COM",
                 "node": {
-                    "uuid": "a64c0906-c7dd-11eb-af15-0050568e403e",
                     "name": "vsNode1",
+                    "uuid": "a64c0906-c7dd-11eb-af15-0050568e403e",
                 },
                 "trusted_domains": ["SERVER02.COM"],
             },
             {
                 "home_domain": "SERVER02.COM",
                 "node": {
-                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
                     "name": "vsNode2",
+                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
                 },
                 "trusted_domains": ["SERVER02.COM"],
             },
         ],
-        "server_discovery_mode": "all",
-        "preferred_dcs": [{"fqdn": "server02.com", "server_ip": "192.168.20.1"}],
-        "password_schedule": {
-            "schedule_weekly_interval": 4,
-            "schedule_description": "Tue@1:00",
-            "schedule_enabled": False,
-            "schedule_randomized_minute": 120,
-        },
+        "name_mapping": {"trusted_domains": ["SERVER03.COM", "SERVER04.COM"]},
         "discovered_servers": [
             {
                 "server_ip": "192.168.20.1",
-                "domain": "server02.com",
-                "preference": "preferred",
                 "state": "undetermined",
-                "server_name": "scspb0659002001",
                 "server_type": "kerberos",
+                "preference": "preferred",
+                "server_name": "scspb0659002001",
                 "node": {
-                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
                     "name": "vsNode2",
+                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
                 },
+                "domain": "server02.com",
             },
             {
                 "server_ip": "192.168.20.1",
-                "domain": "server02.com",
-                "preference": "preferred",
                 "state": "undetermined",
-                "server_name": "scspb0659002001",
                 "server_type": "ms_ldap",
+                "preference": "preferred",
+                "server_name": "scspb0659002001",
                 "node": {
-                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
                     "name": "vsNode2",
+                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
                 },
+                "domain": "server02.com",
             },
             {
                 "server_ip": "192.168.20.1",
-                "domain": "server02.com",
-                "preference": "preferred",
                 "state": "undetermined",
-                "server_name": "scspb0659002001",
                 "server_type": "ms_dc",
+                "preference": "preferred",
+                "server_name": "scspb0659002001",
                 "node": {
-                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
                     "name": "vsNode2",
+                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
                 },
+                "domain": "server02.com",
             },
         ],
-        "svm": {"uuid": "6dd78167-c907-11eb-b2bf-0050568e7324", "name": "vs2"},
-        "name_mapping": {"trusted_domains": ["SERVER03.COM", "SERVER04.COM"]},
+        "preferred_dcs": [{"server_ip": "192.168.20.1", "fqdn": "server02.com"}],
+        "svm": {"name": "vs2", "uuid": "6dd78167-c907-11eb-b2bf-0050568e7324"},
     }
 )
 
@@ -261,11 +261,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -279,11 +278,15 @@ __pdoc__ = {
     "CifsDomainSchema.opts": False,
 }
 
-
 class CifsDomainSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the CifsDomain object"""
 
-    ad_domain = marshmallow_fields.Nested("netapp_ontap.models.cifs_ad_domain.CifsAdDomainSchema", data_key="ad_domain", unknown=EXCLUDE, allow_none=True)
+    ad_domain = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cifs_ad_domain", "CifsAdDomainSchema"),
+                data_key="ad_domain",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The ad_domain field of the cifs_domain."""
 
     client_certificate = marshmallow_fields.Str(
@@ -302,16 +305,42 @@ Example: PEM Cert"""
 
 Example: e959d1b5-5a63-4284-9268-851e30e3eceb"""
 
-    discovered_servers = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.cifs_domain_discovered_server.CifsDomainDiscoveredServerSchema", unknown=EXCLUDE, allow_none=True), data_key="discovered_servers", allow_none=True)
+    discovered_servers = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.cifs_domain_discovered_server", "CifsDomainDiscoveredServerSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="discovered_servers",
+                allow_none=True
+            )
     r""" Specifies the discovered servers records."""
 
-    name_mapping = marshmallow_fields.Nested("netapp_ontap.models.cifs_domain_name_mapping.CifsDomainNameMappingSchema", data_key="name_mapping", unknown=EXCLUDE, allow_none=True)
+    name_mapping = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cifs_domain_name_mapping", "CifsDomainNameMappingSchema"),
+                data_key="name_mapping",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The name_mapping field of the cifs_domain."""
 
-    password_schedule = marshmallow_fields.Nested("netapp_ontap.models.cifs_domain_password_schedule.CifsDomainPasswordScheduleSchema", data_key="password_schedule", unknown=EXCLUDE, allow_none=True)
+    password_schedule = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cifs_domain_password_schedule", "CifsDomainPasswordScheduleSchema"),
+                data_key="password_schedule",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The password_schedule field of the cifs_domain."""
 
-    preferred_dcs = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.preferred_dcs.PreferredDcsSchema", unknown=EXCLUDE, allow_none=True), data_key="preferred_dcs", allow_none=True)
+    preferred_dcs = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.preferred_dcs", "PreferredDcsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="preferred_dcs",
+                allow_none=True
+            )
     r""" Specifies the preferred DC records."""
 
     server_discovery_mode = marshmallow_fields.Str(
@@ -328,7 +357,12 @@ Valid choices:
 * site
 * none"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the cifs_domain."""
 
     tenant_id = marshmallow_fields.Str(
@@ -339,7 +373,15 @@ Valid choices:
 
 Example: c9f32fcb-4ab7-40fe-af1b-1850d46cfbbe"""
 
-    trust_relationships = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.cifs_domain_trust.CifsDomainTrustSchema", unknown=EXCLUDE, allow_none=True), data_key="trust_relationships", allow_none=True)
+    trust_relationships = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.cifs_domain_trust", "CifsDomainTrustSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="trust_relationships",
+                allow_none=True
+            )
     r""" Specifies the trusted domain records."""
 
     @property

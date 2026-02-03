@@ -8,28 +8,10 @@ allowing for flexible text markup based on keyword extraction results.
 
 import re
 import logging
-from dataclasses import dataclass
-from typing import List
 
 DEFAULT_HIGHLIGHT_PRE = "<kw>"
 DEFAULT_HIGHLIGHT_POST = "</kw>"
 
-
-@dataclass
-class NgramData:
-    """
-    Data structure to hold n-gram processing results.
-
-    This class stores the results of n-gram identification for highlighting,
-    including the list of words and how they are split within keywords.
-
-    Attributes:
-        word_list: List of words that form the n-gram
-        split_kw_list: List of lists containing the split keywords
-    """
-
-    word_list: List[str]
-    split_kw_list: List[List[str]]
 
 
 class TextHighlighter:
@@ -79,7 +61,8 @@ class TextHighlighter:
             The text with highlighted keywords.
         """
         n_text = ""
-        if len(keywords) > 0:
+        
+        if keywords:
             kw_list = keywords
             if isinstance(keywords[0], tuple):
                 kw_list = [x[0] for x in keywords]
@@ -308,10 +291,11 @@ class TextHighlighter:
 
         splited_one = n_gram_word_list[0].split()
 
-        for len_kw in range(len(splited_one)):
-            if position + len_kw < len(text_tokens):
+        
+        for idx in range(len(splited_one)):
+            if position + idx < len(text_tokens):
                 self._update_kw_list(
-                    position + len_kw,
+                    position + idx,
                     text_tokens,
                     relevant_words_array,
                     {

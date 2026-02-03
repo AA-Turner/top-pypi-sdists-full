@@ -2626,6 +2626,7 @@ class CfnAutoScalingGroup(
             context="context",
             cooldown="cooldown",
             default_instance_warmup=123,
+            deletion_protection="deletionProtection",
             desired_capacity="desiredCapacity",
             desired_capacity_type="desiredCapacityType",
             health_check_grace_period=123,
@@ -2811,6 +2812,7 @@ class CfnAutoScalingGroup(
         context: typing.Optional[builtins.str] = None,
         cooldown: typing.Optional[builtins.str] = None,
         default_instance_warmup: typing.Optional[jsii.Number] = None,
+        deletion_protection: typing.Optional[builtins.str] = None,
         desired_capacity: typing.Optional[builtins.str] = None,
         desired_capacity_type: typing.Optional[builtins.str] = None,
         health_check_grace_period: typing.Optional[jsii.Number] = None,
@@ -2852,6 +2854,7 @@ class CfnAutoScalingGroup(
         :param context: Reserved.
         :param cooldown: *Only needed if you use simple scaling policies.*. The amount of time, in seconds, between one scaling activity ending and another one starting due to simple scaling policies. For more information, see `Scaling cooldowns for Amazon EC2 Auto Scaling <https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-scaling-cooldowns.html>`_ in the *Amazon EC2 Auto Scaling User Guide* . Default: ``300`` seconds
         :param default_instance_warmup: The amount of time, in seconds, until a new instance is considered to have finished initializing and resource consumption to become stable after it enters the ``InService`` state. During an instance refresh, Amazon EC2 Auto Scaling waits for the warm-up period after it replaces an instance before it moves on to replacing the next instance. Amazon EC2 Auto Scaling also waits for the warm-up period before aggregating the metrics for new instances with existing instances in the Amazon CloudWatch metrics that are used for scaling, resulting in more reliable usage data. For more information, see `Set the default instance warmup for an Auto Scaling group <https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-default-instance-warmup.html>`_ in the *Amazon EC2 Auto Scaling User Guide* . .. epigraph:: To manage various warm-up settings at the group level, we recommend that you set the default instance warmup, *even if it is set to 0 seconds* . To remove a value that you previously set, include the property but specify ``-1`` for the value. However, we strongly recommend keeping the default instance warmup enabled by specifying a value of ``0`` or other nominal value. Default: None
+        :param deletion_protection: 
         :param desired_capacity: The desired capacity is the initial capacity of the Auto Scaling group at the time of its creation and the capacity it attempts to maintain. It can scale beyond this capacity if you configure automatic scaling. The number must be greater than or equal to the minimum size of the group and less than or equal to the maximum size of the group. If you do not specify a desired capacity when creating the stack, the default is the minimum size of the group. CloudFormation marks the Auto Scaling group as successful (by setting its status to CREATE_COMPLETE) when the desired capacity is reached. However, if a maximum Spot price is set in the launch template or launch configuration that you specified, then desired capacity is not used as a criteria for success. Whether your request is fulfilled depends on Spot Instance capacity and your maximum price.
         :param desired_capacity_type: The unit of measurement for the value specified for desired capacity. Amazon EC2 Auto Scaling supports ``DesiredCapacityType`` for attribute-based instance type selection only. For more information, see `Create a mixed instances group using attribute-based instance type selection <https://docs.aws.amazon.com/autoscaling/ec2/userguide/create-mixed-instances-group-attribute-based-instance-type-selection.html>`_ in the *Amazon EC2 Auto Scaling User Guide* . By default, Amazon EC2 Auto Scaling specifies ``units`` , which translates into number of instances. Valid values: ``units`` | ``vcpu`` | ``memory-mib``
         :param health_check_grace_period: The amount of time, in seconds, that Amazon EC2 Auto Scaling waits before checking the health status of an EC2 instance that has come into service and marking it unhealthy due to a failed health check. This is useful if your instances do not immediately pass their health checks after they enter the ``InService`` state. For more information, see `Set the health check grace period for an Auto Scaling group <https://docs.aws.amazon.com/autoscaling/ec2/userguide/health-check-grace-period.html>`_ in the *Amazon EC2 Auto Scaling User Guide* . Default: ``0`` seconds
@@ -2894,6 +2897,7 @@ class CfnAutoScalingGroup(
             context=context,
             cooldown=cooldown,
             default_instance_warmup=default_instance_warmup,
+            deletion_protection=deletion_protection,
             desired_capacity=desired_capacity,
             desired_capacity_type=desired_capacity_type,
             health_check_grace_period=health_check_grace_period,
@@ -3173,6 +3177,18 @@ class CfnAutoScalingGroup(
             type_hints = typing.get_type_hints(_typecheckingstub__c24bc5c20f9d70adfed9b74186ec848f6dd0942c25d9923785d13b0607bd2151)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "defaultInstanceWarmup", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deletionProtection")
+    def deletion_protection(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "deletionProtection"))
+
+    @deletion_protection.setter
+    def deletion_protection(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8d9cc80c7c716c333fc3cb8c30256c2b74418740c3737fa2363e8c98590e0f57)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="desiredCapacity")
@@ -6969,6 +6985,7 @@ class CfnAutoScalingGroup(
         "context": "context",
         "cooldown": "cooldown",
         "default_instance_warmup": "defaultInstanceWarmup",
+        "deletion_protection": "deletionProtection",
         "desired_capacity": "desiredCapacity",
         "desired_capacity_type": "desiredCapacityType",
         "health_check_grace_period": "healthCheckGracePeriod",
@@ -7011,6 +7028,7 @@ class CfnAutoScalingGroupProps:
         context: typing.Optional[builtins.str] = None,
         cooldown: typing.Optional[builtins.str] = None,
         default_instance_warmup: typing.Optional[jsii.Number] = None,
+        deletion_protection: typing.Optional[builtins.str] = None,
         desired_capacity: typing.Optional[builtins.str] = None,
         desired_capacity_type: typing.Optional[builtins.str] = None,
         health_check_grace_period: typing.Optional[jsii.Number] = None,
@@ -7050,6 +7068,7 @@ class CfnAutoScalingGroupProps:
         :param context: Reserved.
         :param cooldown: *Only needed if you use simple scaling policies.*. The amount of time, in seconds, between one scaling activity ending and another one starting due to simple scaling policies. For more information, see `Scaling cooldowns for Amazon EC2 Auto Scaling <https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-scaling-cooldowns.html>`_ in the *Amazon EC2 Auto Scaling User Guide* . Default: ``300`` seconds
         :param default_instance_warmup: The amount of time, in seconds, until a new instance is considered to have finished initializing and resource consumption to become stable after it enters the ``InService`` state. During an instance refresh, Amazon EC2 Auto Scaling waits for the warm-up period after it replaces an instance before it moves on to replacing the next instance. Amazon EC2 Auto Scaling also waits for the warm-up period before aggregating the metrics for new instances with existing instances in the Amazon CloudWatch metrics that are used for scaling, resulting in more reliable usage data. For more information, see `Set the default instance warmup for an Auto Scaling group <https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-default-instance-warmup.html>`_ in the *Amazon EC2 Auto Scaling User Guide* . .. epigraph:: To manage various warm-up settings at the group level, we recommend that you set the default instance warmup, *even if it is set to 0 seconds* . To remove a value that you previously set, include the property but specify ``-1`` for the value. However, we strongly recommend keeping the default instance warmup enabled by specifying a value of ``0`` or other nominal value. Default: None
+        :param deletion_protection: 
         :param desired_capacity: The desired capacity is the initial capacity of the Auto Scaling group at the time of its creation and the capacity it attempts to maintain. It can scale beyond this capacity if you configure automatic scaling. The number must be greater than or equal to the minimum size of the group and less than or equal to the maximum size of the group. If you do not specify a desired capacity when creating the stack, the default is the minimum size of the group. CloudFormation marks the Auto Scaling group as successful (by setting its status to CREATE_COMPLETE) when the desired capacity is reached. However, if a maximum Spot price is set in the launch template or launch configuration that you specified, then desired capacity is not used as a criteria for success. Whether your request is fulfilled depends on Spot Instance capacity and your maximum price.
         :param desired_capacity_type: The unit of measurement for the value specified for desired capacity. Amazon EC2 Auto Scaling supports ``DesiredCapacityType`` for attribute-based instance type selection only. For more information, see `Create a mixed instances group using attribute-based instance type selection <https://docs.aws.amazon.com/autoscaling/ec2/userguide/create-mixed-instances-group-attribute-based-instance-type-selection.html>`_ in the *Amazon EC2 Auto Scaling User Guide* . By default, Amazon EC2 Auto Scaling specifies ``units`` , which translates into number of instances. Valid values: ``units`` | ``vcpu`` | ``memory-mib``
         :param health_check_grace_period: The amount of time, in seconds, that Amazon EC2 Auto Scaling waits before checking the health status of an EC2 instance that has come into service and marking it unhealthy due to a failed health check. This is useful if your instances do not immediately pass their health checks after they enter the ``InService`` state. For more information, see `Set the health check grace period for an Auto Scaling group <https://docs.aws.amazon.com/autoscaling/ec2/userguide/health-check-grace-period.html>`_ in the *Amazon EC2 Auto Scaling User Guide* . Default: ``0`` seconds
@@ -7112,6 +7131,7 @@ class CfnAutoScalingGroupProps:
                 context="context",
                 cooldown="cooldown",
                 default_instance_warmup=123,
+                deletion_protection="deletionProtection",
                 desired_capacity="desiredCapacity",
                 desired_capacity_type="desiredCapacityType",
                 health_check_grace_period=123,
@@ -7293,6 +7313,7 @@ class CfnAutoScalingGroupProps:
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
             check_type(argname="argument cooldown", value=cooldown, expected_type=type_hints["cooldown"])
             check_type(argname="argument default_instance_warmup", value=default_instance_warmup, expected_type=type_hints["default_instance_warmup"])
+            check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument desired_capacity", value=desired_capacity, expected_type=type_hints["desired_capacity"])
             check_type(argname="argument desired_capacity_type", value=desired_capacity_type, expected_type=type_hints["desired_capacity_type"])
             check_type(argname="argument health_check_grace_period", value=health_check_grace_period, expected_type=type_hints["health_check_grace_period"])
@@ -7340,6 +7361,8 @@ class CfnAutoScalingGroupProps:
             self._values["cooldown"] = cooldown
         if default_instance_warmup is not None:
             self._values["default_instance_warmup"] = default_instance_warmup
+        if deletion_protection is not None:
+            self._values["deletion_protection"] = deletion_protection
         if desired_capacity is not None:
             self._values["desired_capacity"] = desired_capacity
         if desired_capacity_type is not None:
@@ -7523,6 +7546,14 @@ class CfnAutoScalingGroupProps:
         '''
         result = self._values.get("default_instance_warmup")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def deletion_protection(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-deletionprotection
+        '''
+        result = self._values.get("deletion_protection")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def desired_capacity(self) -> typing.Optional[builtins.str]:
@@ -22065,6 +22096,7 @@ def _typecheckingstub__d8ba2cee6007161ce4ac8e6f271353563746b8194e9da3c4517351b35
     context: typing.Optional[builtins.str] = None,
     cooldown: typing.Optional[builtins.str] = None,
     default_instance_warmup: typing.Optional[jsii.Number] = None,
+    deletion_protection: typing.Optional[builtins.str] = None,
     desired_capacity: typing.Optional[builtins.str] = None,
     desired_capacity_type: typing.Optional[builtins.str] = None,
     health_check_grace_period: typing.Optional[jsii.Number] = None,
@@ -22180,6 +22212,12 @@ def _typecheckingstub__00180c96190691ecfc2cce15cbbffd3a93e96f04098cb28287b5b1f2f
 
 def _typecheckingstub__c24bc5c20f9d70adfed9b74186ec848f6dd0942c25d9923785d13b0607bd2151(
     value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d9cc80c7c716c333fc3cb8c30256c2b74418740c3737fa2363e8c98590e0f57(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22618,6 +22656,7 @@ def _typecheckingstub__63de692030eb0bc729681a791501e2edd744cab3141e27cc9c9c8def2
     context: typing.Optional[builtins.str] = None,
     cooldown: typing.Optional[builtins.str] = None,
     default_instance_warmup: typing.Optional[jsii.Number] = None,
+    deletion_protection: typing.Optional[builtins.str] = None,
     desired_capacity: typing.Optional[builtins.str] = None,
     desired_capacity_type: typing.Optional[builtins.str] = None,
     health_check_grace_period: typing.Optional[jsii.Number] = None,

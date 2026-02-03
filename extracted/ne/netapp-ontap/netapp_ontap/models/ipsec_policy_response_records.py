@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["IpsecPolicyResponseRecords", "IpsecPolicyResponseRecordsSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "IpsecPolicyResponseRecordsSchema.opts": False,
     "IpsecPolicyResponseRecords": False,
 }
-
 
 class IpsecPolicyResponseRecordsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the IpsecPolicyResponseRecords object"""
@@ -40,16 +38,34 @@ Valid choices:
 * psk
 * pki """
 
-    certificate = marshmallow_fields.Nested("netapp_ontap.resources.security_certificate.SecurityCertificateSchema", unknown=EXCLUDE, data_key="certificate", allow_none=True)
+    certificate = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.security_certificate", "SecurityCertificateSchema"),
+                unknown=EXCLUDE,
+                data_key="certificate",
+                allow_none=True
+            )
     r""" The certificate field of the ipsec_policy_response_records. """
+
+    certificate_modify_keepsa = marshmallow_fields.Boolean(data_key="certificate_modify_keepsa", allow_none=True)
+    r""" Indicates whether old security associations are kept upon certificate modification. """
 
     enabled = marshmallow_fields.Boolean(data_key="enabled", allow_none=True)
     r""" Indicates whether or not the policy is enabled. """
 
-    ipspace = marshmallow_fields.Nested("netapp_ontap.resources.ipspace.IpspaceSchema", unknown=EXCLUDE, data_key="ipspace", allow_none=True)
+    ipspace = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.ipspace", "IpspaceSchema"),
+                unknown=EXCLUDE,
+                data_key="ipspace",
+                allow_none=True
+            )
     r""" The ipspace field of the ipsec_policy_response_records. """
 
-    local_endpoint = marshmallow_fields.Nested("netapp_ontap.models.ipsec_endpoint.IpsecEndpointSchema", unknown=EXCLUDE, data_key="local_endpoint", allow_none=True)
+    local_endpoint = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ipsec_endpoint", "IpsecEndpointSchema"),
+                unknown=EXCLUDE,
+                data_key="local_endpoint",
+                allow_none=True
+            )
     r""" Endpoint specification for the IPsec policy """
 
     local_identity = marshmallow_fields.Str(data_key="local_identity", allow_none=True)
@@ -58,7 +74,12 @@ Valid choices:
     name = marshmallow_fields.Str(data_key="name", allow_none=True)
     r""" IPsec policy name. """
 
-    ppk = marshmallow_fields.Nested("netapp_ontap.models.ppk.PpkSchema", unknown=EXCLUDE, data_key="ppk", allow_none=True)
+    ppk = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ppk", "PpkSchema"),
+                unknown=EXCLUDE,
+                data_key="ppk",
+                allow_none=True
+            )
     r""" Post-quantum pre-shared key information. """
 
     protocol = marshmallow_fields.Str(data_key="protocol", allow_none=True)
@@ -66,7 +87,12 @@ Valid choices:
 
 Example: 17 """
 
-    remote_endpoint = marshmallow_fields.Nested("netapp_ontap.models.ipsec_endpoint.IpsecEndpointSchema", unknown=EXCLUDE, data_key="remote_endpoint", allow_none=True)
+    remote_endpoint = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ipsec_endpoint", "IpsecEndpointSchema"),
+                unknown=EXCLUDE,
+                data_key="remote_endpoint",
+                allow_none=True
+            )
     r""" Endpoint specification for the IPsec policy """
 
     remote_identity = marshmallow_fields.Str(data_key="remote_identity", allow_none=True)
@@ -78,7 +104,12 @@ Example: 17 """
     secret_key = marshmallow_fields.Str(data_key="secret_key", allow_none=True)
     r""" Pre-shared key for IKE negotiation. """
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", unknown=EXCLUDE, data_key="svm", allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                unknown=EXCLUDE,
+                data_key="svm",
+                allow_none=True
+            )
     r""" The svm field of the ipsec_policy_response_records. """
 
     uuid = marshmallow_fields.Str(data_key="uuid", allow_none=True)
@@ -96,6 +127,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412 """
         "certificate.links",
         "certificate.name",
         "certificate.uuid",
+        "certificate_modify_keepsa",
         "enabled",
         "ipspace.links",
         "ipspace.name",
@@ -113,11 +145,12 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412 """
         "svm.uuid",
         "uuid",
     ]
-    """action,authentication_method,certificate.links,certificate.name,certificate.uuid,enabled,ipspace.links,ipspace.name,ipspace.uuid,local_endpoint,local_identity,name,ppk,protocol,remote_endpoint,remote_identity,scope,svm.links,svm.name,svm.uuid,uuid,"""
+    """action,authentication_method,certificate.links,certificate.name,certificate.uuid,certificate_modify_keepsa,enabled,ipspace.links,ipspace.name,ipspace.uuid,local_endpoint,local_identity,name,ppk,protocol,remote_endpoint,remote_identity,scope,svm.links,svm.name,svm.uuid,uuid,"""
 
     patchable_fields = [
         "certificate.name",
         "certificate.uuid",
+        "certificate_modify_keepsa",
         "enabled",
         "local_endpoint",
         "local_identity",
@@ -127,13 +160,14 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412 """
         "remote_identity",
         "scope",
     ]
-    """certificate.name,certificate.uuid,enabled,local_endpoint,local_identity,ppk,protocol,remote_endpoint,remote_identity,scope,"""
+    """certificate.name,certificate.uuid,certificate_modify_keepsa,enabled,local_endpoint,local_identity,ppk,protocol,remote_endpoint,remote_identity,scope,"""
 
     postable_fields = [
         "action",
         "authentication_method",
         "certificate.name",
         "certificate.uuid",
+        "certificate_modify_keepsa",
         "enabled",
         "ipspace.name",
         "ipspace.uuid",
@@ -149,7 +183,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412 """
         "svm.name",
         "svm.uuid",
     ]
-    """action,authentication_method,certificate.name,certificate.uuid,enabled,ipspace.name,ipspace.uuid,local_endpoint,local_identity,name,ppk,protocol,remote_endpoint,remote_identity,scope,secret_key,svm.name,svm.uuid,"""
+    """action,authentication_method,certificate.name,certificate.uuid,certificate_modify_keepsa,enabled,ipspace.name,ipspace.uuid,local_endpoint,local_identity,name,ppk,protocol,remote_endpoint,remote_identity,scope,secret_key,svm.name,svm.uuid,"""
 
 
 class IpsecPolicyResponseRecords(Resource):

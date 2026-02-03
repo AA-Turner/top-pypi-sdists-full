@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ShelfFrus", "ShelfFrusSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "ShelfFrusSchema.opts": False,
     "ShelfFrus": False,
 }
-
 
 class ShelfFrusSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ShelfFrus object"""
@@ -39,7 +37,12 @@ Example: true """
 
 Example: 111-00690+A2 """
 
-    psu = marshmallow_fields.Nested("netapp_ontap.models.shelf_frus_psu.ShelfFrusPsuSchema", unknown=EXCLUDE, data_key="psu", allow_none=True)
+    psu = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.shelf_frus_psu", "ShelfFrusPsuSchema"),
+                unknown=EXCLUDE,
+                data_key="psu",
+                allow_none=True
+            )
     r""" The psu field of the shelf_frus. """
 
     serial_number = marshmallow_fields.Str(data_key="serial_number", allow_none=True)

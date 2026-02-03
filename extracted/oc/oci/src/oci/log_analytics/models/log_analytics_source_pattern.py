@@ -430,7 +430,7 @@ class LogAnalyticsSourcePattern(object):
     def is_enabled(self):
         """
         Gets the is_enabled of this LogAnalyticsSourcePattern.
-        A flag inidcating whether or not the source pattern is enabled.
+        A flag indicating whether or not the source pattern is enabled.
 
 
         :return: The is_enabled of this LogAnalyticsSourcePattern.
@@ -442,7 +442,7 @@ class LogAnalyticsSourcePattern(object):
     def is_enabled(self, is_enabled):
         """
         Sets the is_enabled of this LogAnalyticsSourcePattern.
-        A flag inidcating whether or not the source pattern is enabled.
+        A flag indicating whether or not the source pattern is enabled.
 
 
         :param is_enabled: The is_enabled of this LogAnalyticsSourcePattern.

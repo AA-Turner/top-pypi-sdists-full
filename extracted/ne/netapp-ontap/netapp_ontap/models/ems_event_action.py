@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["EmsEventAction", "EmsEventActionSchema"]
@@ -17,14 +16,23 @@ __pdoc__ = {
     "EmsEventAction": False,
 }
 
-
 class EmsEventActionSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the EmsEventAction object"""
 
-    confirmation_message = marshmallow_fields.Nested("netapp_ontap.models.ems_ui_message.EmsUiMessageSchema", unknown=EXCLUDE, data_key="confirmation_message", allow_none=True)
+    confirmation_message = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ems_ui_message", "EmsUiMessageSchema"),
+                unknown=EXCLUDE,
+                data_key="confirmation_message",
+                allow_none=True
+            )
     r""" Information to be displayed to the user. """
 
-    description = marshmallow_fields.Nested("netapp_ontap.models.ems_ui_message.EmsUiMessageSchema", unknown=EXCLUDE, data_key="description", allow_none=True)
+    description = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ems_ui_message", "EmsUiMessageSchema"),
+                unknown=EXCLUDE,
+                data_key="description",
+                allow_none=True
+            )
     r""" Information to be displayed to the user. """
 
     href = marshmallow_fields.Str(data_key="href", allow_none=True)
@@ -42,7 +50,15 @@ Example: PATCH """
 
 Example: schedule """
 
-    parameters = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.ems_action_parameter.EmsActionParameterSchema", unknown=EXCLUDE, allow_none=True), data_key="parameters", allow_none=True)
+    parameters = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.ems_action_parameter", "EmsActionParameterSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="parameters",
+                allow_none=True
+                )
     r""" Parameter list for the action. """
 
     request_body_template = marshmallow_fields.Dict(data_key="request_body_template", allow_none=True)
@@ -72,7 +88,12 @@ The following table provides examples of when parameter substitutions must not b
 | {"name": "{{user-name}} is bad"}  | {"name": "{{user-name}} is bad"} |
 | {"name": "{{{{user-name}}}}"}     | {"name": "{{user-name}}"}        | """
 
-    title = marshmallow_fields.Nested("netapp_ontap.models.ems_ui_message.EmsUiMessageSchema", unknown=EXCLUDE, data_key="title", allow_none=True)
+    title = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ems_ui_message", "EmsUiMessageSchema"),
+                unknown=EXCLUDE,
+                data_key="title",
+                allow_none=True
+            )
     r""" Information to be displayed to the user. """
 
     @property

@@ -53,7 +53,12 @@ def sql(
     )
 
 
-@operation()
+@operation(
+    idempotent_notice=(
+        "This operation will always execute commands when a password is provided, "
+        "as pyinfra cannot reliably validate the current password."
+    ),
+)
 def role(
     role: str,
     present: bool = True,

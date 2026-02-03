@@ -2,7 +2,6 @@
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 import importlib.abc
 import importlib.util
-
 import sys
 from types import ModuleType
 
@@ -10,7 +9,7 @@ import contrast
 from contrast.agent import scope
 from contrast.agent.settings import Settings
 from contrast.applies.assess import unsafe_code_execution
-from contrast_vendor.wrapt.importer import _ImportHookChainedLoader
+from contrast_vendor.wrapt import importer as wrapt_importer
 
 
 def register_path_finder():
@@ -69,7 +68,7 @@ def analyze_for_unsafe_code_execution(module_name: str):
             )
 
 
-class _ContrastImportHookChainedLoader(_ImportHookChainedLoader):
+class _ContrastImportHookChainedLoader(wrapt_importer._ImportHookChainedLoader):
     @scope.contrast_scope()
     @scope.observe_scope()  # don't report file-open-create for imported source files
     def _self_exec_module(self, module: ModuleType) -> None:

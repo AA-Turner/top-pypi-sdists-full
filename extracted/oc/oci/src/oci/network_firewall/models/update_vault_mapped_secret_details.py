@@ -30,6 +30,10 @@ class UpdateVaultMappedSecretDetails(UpdateMappedSecretDetails):
             Allowed values for this property are: "SSL_INBOUND_INSPECTION", "SSL_FORWARD_PROXY"
         :type type: str
 
+        :param description:
+            The value to assign to the description property of this UpdateVaultMappedSecretDetails.
+        :type description: str
+
         :param vault_secret_id:
             The value to assign to the vault_secret_id property of this UpdateVaultMappedSecretDetails.
         :type vault_secret_id: str
@@ -42,17 +46,20 @@ class UpdateVaultMappedSecretDetails(UpdateMappedSecretDetails):
         self.swagger_types = {
             'source': 'str',
             'type': 'str',
+            'description': 'str',
             'vault_secret_id': 'str',
             'version_number': 'int'
         }
         self.attribute_map = {
             'source': 'source',
             'type': 'type',
+            'description': 'description',
             'vault_secret_id': 'vaultSecretId',
             'version_number': 'versionNumber'
         }
         self._source = None
         self._type = None
+        self._description = None
         self._vault_secret_id = None
         self._version_number = None
         self._source = 'OCI_VAULT'

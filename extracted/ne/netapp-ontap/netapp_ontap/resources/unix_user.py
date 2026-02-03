@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,38 +27,38 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     UnixUser(
         {
-            "id": 7,
             "full_name": "string",
-            "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
-            "primary_gid": 0,
             "name": "string",
+            "primary_gid": 0,
+            "id": 7,
+            "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
         }
     ),
     UnixUser(
         {
-            "id": 65535,
             "full_name": "",
-            "svm": {"uuid": "3f479a01-2971-11eb-88e1-0050568eefd4", "name": "vs2"},
-            "primary_gid": 65535,
             "name": "nobody",
+            "primary_gid": 65535,
+            "id": 65535,
+            "svm": {"name": "vs2", "uuid": "3f479a01-2971-11eb-88e1-0050568eefd4"},
         }
     ),
     UnixUser(
         {
-            "id": 65534,
             "full_name": "",
-            "svm": {"uuid": "3f479a01-2971-11eb-88e1-0050568eefd4", "name": "vs2"},
-            "primary_gid": 65534,
             "name": "pcuser",
+            "primary_gid": 65534,
+            "id": 65534,
+            "svm": {"name": "vs2", "uuid": "3f479a01-2971-11eb-88e1-0050568eefd4"},
         }
     ),
     UnixUser(
         {
-            "id": 0,
             "full_name": "",
-            "svm": {"uuid": "3f479a01-2971-11eb-88e1-0050568eefd4", "name": "vs2"},
-            "primary_gid": 1,
             "name": "root",
+            "primary_gid": 1,
+            "id": 0,
+            "svm": {"name": "vs2", "uuid": "3f479a01-2971-11eb-88e1-0050568eefd4"},
         }
     ),
 ]
@@ -92,11 +92,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     UnixUser(
         {
-            "id": 1,
             "full_name": "Full User Name for user1",
-            "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
-            "primary_gid": 1,
             "name": "user1",
+            "primary_gid": 1,
+            "id": 1,
+            "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
         }
     )
 ]
@@ -127,11 +127,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 UnixUser(
     {
-        "id": 1,
         "full_name": "Full User Name for user1",
-        "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
-        "primary_gid": 1,
         "name": "user1",
+        "primary_gid": 1,
+        "id": 1,
+        "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
     }
 )
 
@@ -219,11 +219,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -237,11 +236,15 @@ __pdoc__ = {
     "UnixUserSchema.opts": False,
 }
 
-
 class UnixUserSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the UnixUser object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the unix_user."""
 
     full_name = marshmallow_fields.Str(
@@ -280,7 +283,12 @@ Example: user1"""
     )
     r""" Indicates whether or not the validation for the specified UNIX user name is disabled."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the unix_user."""
 
     @property

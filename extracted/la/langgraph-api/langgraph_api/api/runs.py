@@ -683,6 +683,8 @@ async def create_cron(request: ApiRequest):
         CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
     )
 
+    enabled = payload.get("enabled", True)
+
     async with connect() as conn:
         cron = await Crons.put(
             conn,
@@ -692,6 +694,7 @@ async def create_cron(request: ApiRequest):
             schedule=payload.get("schedule"),
             payload=encrypted_payload,
             metadata=encrypted_payload.get("metadata"),
+            enabled=enabled,
         )
     cron_dict = await fetchone(cron)
     cron_dict = await decrypt_response(cron_dict, "cron", CRON_ENCRYPTION_FIELDS)
@@ -725,6 +728,7 @@ async def create_thread_cron(request: ApiRequest):
             schedule=payload.get("schedule"),
             payload=encrypted_payload,
             metadata=encrypted_payload.get("metadata"),
+            enabled=payload.get("enabled", True),
         )
     cron_dict = await fetchone(cron)
     cron_dict = await decrypt_response(cron_dict, "cron", CRON_ENCRYPTION_FIELDS)
@@ -765,6 +769,7 @@ async def search_crons(request: ApiRequest):
             conn,
             assistant_id=assistant_id,
             thread_id=thread_id,
+            enabled=payload.get("enabled", None),
             limit=int(payload.get("limit", 10)),
             offset=offset,
             sort_by=payload.get("sort_by"),

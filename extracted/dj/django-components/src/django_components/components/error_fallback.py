@@ -1,4 +1,4 @@
-from typing import Optional, cast
+from typing import cast
 
 from django.template import Context, Template
 from django.template.exceptions import TemplateSyntaxError
@@ -58,7 +58,7 @@ class ErrorFallback(Component):
     ```
 
     If you want to print the error, you can access the `error` variable
-    as [slot data](../../concepts/fundamentals/slots/#slot-data).
+    as [slot data](../concepts/fundamentals/slots.md#slot-data).
 
     ```django
     {% component "error_fallback" %}
@@ -116,17 +116,17 @@ class ErrorFallback(Component):
     """
 
     class Kwargs:
-        fallback: Optional[str] = None
+        fallback: str | None = None
 
     class Slots:
-        default: Optional[SlotInput] = None
-        content: Optional[SlotInput] = None
-        fallback: Optional[SlotInput] = None
+        default: "SlotInput | None" = None
+        content: "SlotInput | None" = None
+        fallback: "SlotInput | None" = None
 
     def on_render(
         self,
         context: Context,
-        template: Optional[Template],
+        template: Template | None,
     ) -> OnRenderGenerator:
         if template is None:
             raise TemplateSyntaxError("The 'error_fallback' component must have a template.")

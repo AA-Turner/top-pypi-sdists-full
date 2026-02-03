@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["MetroclusterDiagDetails", "MetroclusterDiagDetailsSchema"]
@@ -17,20 +16,42 @@ __pdoc__ = {
     "MetroclusterDiagDetails": False,
 }
 
-
 class MetroclusterDiagDetailsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the MetroclusterDiagDetails object"""
 
-    aggregate = marshmallow_fields.Nested("netapp_ontap.resources.aggregate.AggregateSchema", unknown=EXCLUDE, data_key="aggregate", allow_none=True)
+    aggregate = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.aggregate", "AggregateSchema"),
+                unknown=EXCLUDE,
+                data_key="aggregate",
+                allow_none=True
+            )
     r""" The aggregate field of the metrocluster_diag_details. """
 
-    checks = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.metrocluster_diag_check.MetroclusterDiagCheckSchema", unknown=EXCLUDE, allow_none=True), data_key="checks", allow_none=True)
+    checks = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.metrocluster_diag_check", "MetroclusterDiagCheckSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="checks",
+                allow_none=True
+                )
     r""" Collection of MetroCluster checks done for component. """
 
-    cluster = marshmallow_fields.Nested("netapp_ontap.resources.cluster.ClusterSchema", unknown=EXCLUDE, data_key="cluster", allow_none=True)
+    cluster = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.cluster", "ClusterSchema"),
+                unknown=EXCLUDE,
+                data_key="cluster",
+                allow_none=True
+            )
     r""" The cluster field of the metrocluster_diag_details. """
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", unknown=EXCLUDE, data_key="node", allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                unknown=EXCLUDE,
+                data_key="node",
+                allow_none=True
+            )
     r""" The node field of the metrocluster_diag_details. """
 
     timestamp = ImpreciseDateTime(data_key="timestamp", allow_none=True)
@@ -38,7 +59,12 @@ class MetroclusterDiagDetailsSchema(ResourceSchema, metaclass=ResourceSchemaMeta
 
 Example: 2016-03-10T22:35:16.000+0000 """
 
-    volume = marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", unknown=EXCLUDE, data_key="volume", allow_none=True)
+    volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                unknown=EXCLUDE,
+                data_key="volume",
+                allow_none=True
+            )
     r""" The volume field of the metrocluster_diag_details. """
 
     @property

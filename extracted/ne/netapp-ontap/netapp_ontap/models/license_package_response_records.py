@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["LicensePackageResponseRecords", "LicensePackageResponseRecordsSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "LicensePackageResponseRecords": False,
 }
 
-
 class LicensePackageResponseRecordsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LicensePackageResponseRecords object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", unknown=EXCLUDE, data_key="_links", allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                unknown=EXCLUDE,
+                data_key="_links",
+                allow_none=True
+            )
     r""" The links field of the license_package_response_records. """
 
     description = marshmallow_fields.Str(data_key="description", allow_none=True)
@@ -29,13 +32,26 @@ class LicensePackageResponseRecordsSchema(ResourceSchema, metaclass=ResourceSche
 
 Example: NFS License """
 
-    entitlement = marshmallow_fields.Nested("netapp_ontap.models.entitlement.EntitlementSchema", unknown=EXCLUDE, data_key="entitlement", allow_none=True)
+    entitlement = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.entitlement", "EntitlementSchema"),
+                unknown=EXCLUDE,
+                data_key="entitlement",
+                allow_none=True
+            )
     r""" The entitlement field of the license_package_response_records. """
 
     keys = marshmallow_fields.List(marshmallow_fields.Str, data_key="keys", allow_none=True)
     r""" The keys field of the license_package_response_records. """
 
-    licenses = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.license_package_licenses.LicensePackageLicensesSchema", unknown=EXCLUDE, allow_none=True), data_key="licenses", allow_none=True)
+    licenses = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.license_package_licenses", "LicensePackageLicensesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="licenses",
+                allow_none=True
+                )
     r""" Installed licenses of the package. """
 
     name = marshmallow_fields.Str(data_key="name", allow_none=True)

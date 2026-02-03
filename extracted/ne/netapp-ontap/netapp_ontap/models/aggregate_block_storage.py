@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["AggregateBlockStorage", "AggregateBlockStorageSchema"]
@@ -17,20 +16,42 @@ __pdoc__ = {
     "AggregateBlockStorage": False,
 }
 
-
 class AggregateBlockStorageSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the AggregateBlockStorage object"""
 
-    hybrid_cache = marshmallow_fields.Nested("netapp_ontap.models.aggregate_block_storage_hybrid_cache.AggregateBlockStorageHybridCacheSchema", unknown=EXCLUDE, data_key="hybrid_cache", allow_none=True)
+    hybrid_cache = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.aggregate_block_storage_hybrid_cache", "AggregateBlockStorageHybridCacheSchema"),
+                unknown=EXCLUDE,
+                data_key="hybrid_cache",
+                allow_none=True
+            )
     r""" Contains the configuration for the hybrid cache. The hybrid cache is made up of either whole SSDs or storage pool SSDs. """
 
-    mirror = marshmallow_fields.Nested("netapp_ontap.models.aggregate_block_storage_mirror.AggregateBlockStorageMirrorSchema", unknown=EXCLUDE, data_key="mirror", allow_none=True)
+    mirror = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.aggregate_block_storage_mirror", "AggregateBlockStorageMirrorSchema"),
+                unknown=EXCLUDE,
+                data_key="mirror",
+                allow_none=True
+            )
     r""" The mirror field of the aggregate_block_storage. """
 
-    plexes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.plex.PlexSchema", unknown=EXCLUDE, allow_none=True), data_key="plexes", allow_none=True)
+    plexes = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.plex", "PlexSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="plexes",
+                allow_none=True
+                )
     r""" Plex reference for each plex in the aggregate. """
 
-    primary = marshmallow_fields.Nested("netapp_ontap.models.aggregate_block_storage_primary.AggregateBlockStoragePrimarySchema", unknown=EXCLUDE, data_key="primary", allow_none=True)
+    primary = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.aggregate_block_storage_primary", "AggregateBlockStoragePrimarySchema"),
+                unknown=EXCLUDE,
+                data_key="primary",
+                allow_none=True
+            )
     r""" Configuration information for the primary storage portion of the aggregate. This excludes the hybrid cache details. """
 
     storage_type = marshmallow_fields.Str(data_key="storage_type", allow_none=True)

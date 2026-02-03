@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -42,40 +42,40 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NvmeNamespace(
     {
-        "status": {"read_only": False, "container_state": "online", "state": "online"},
-        "svm": {
-            "uuid": "6bf967fd-2a1c-11e9-b682-005056bbc17d",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/6bf967fd-2a1c-11e9-b682-005056bbc17d"}
-            },
-        },
-        "uuid": "dccdc3e6-cf4e-498f-bec6-f7897f945669",
-        "space": {
-            "block_size": 4096,
-            "used": 0,
-            "guarantee": {"reserved": False, "requested": False},
-            "size": 322122547200,
-        },
-        "os_type": "linux",
         "name": "/vol/vol1/namespace1",
-        "enabled": True,
+        "os_type": "linux",
+        "status": {"container_state": "online", "state": "online", "read_only": False},
         "location": {
             "namespace": "namespace1",
             "volume": {
-                "uuid": "71cd0dba-2a1c-11e9-b682-005056bbc17d",
                 "name": "vol1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/71cd0dba-2a1c-11e9-b682-005056bbc17d"
                     }
                 },
+                "uuid": "71cd0dba-2a1c-11e9-b682-005056bbc17d",
             },
         },
+        "enabled": True,
         "_links": {
             "self": {
                 "href": "/api/storage/namespaces/dccdc3e6-cf4e-498f-bec6-f7897f945669"
             }
+        },
+        "space": {
+            "used": 0,
+            "guarantee": {"reserved": False, "requested": False},
+            "size": 322122547200,
+            "block_size": 4096,
+        },
+        "uuid": "dccdc3e6-cf4e-498f-bec6-f7897f945669",
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/6bf967fd-2a1c-11e9-b682-005056bbc17d"}
+            },
+            "uuid": "6bf967fd-2a1c-11e9-b682-005056bbc17d",
         },
     }
 )
@@ -133,41 +133,41 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NvmeNamespace(
         {
-            "status": {"state": "online"},
-            "svm": {"name": "svm1"},
-            "uuid": "5c254d22-96a6-42ac-aad8-0cd9ebd126b6",
             "name": "/vol/vol1/namespace2",
+            "status": {"state": "online"},
             "_links": {
                 "self": {
                     "href": "/api/storage/namespaces/5c254d22-96a6-42ac-aad8-0cd9ebd126b6"
                 }
             },
+            "uuid": "5c254d22-96a6-42ac-aad8-0cd9ebd126b6",
+            "svm": {"name": "svm1"},
         }
     ),
     NvmeNamespace(
         {
-            "status": {"state": "online"},
-            "svm": {"name": "svm1"},
-            "uuid": "dccdc3e6-cf4e-498f-bec6-f7897f945669",
             "name": "/vol/vol1/namespace1",
+            "status": {"state": "online"},
             "_links": {
                 "self": {
                     "href": "/api/storage/namespaces/dccdc3e6-cf4e-498f-bec6-f7897f945669"
                 }
             },
+            "uuid": "dccdc3e6-cf4e-498f-bec6-f7897f945669",
+            "svm": {"name": "svm1"},
         }
     ),
     NvmeNamespace(
         {
-            "status": {"state": "online"},
-            "svm": {"name": "svm1"},
-            "uuid": "be732687-20cf-47d2-a0e2-2a989d15661d",
             "name": "/vol/vol2/namespace3",
+            "status": {"state": "online"},
             "_links": {
                 "self": {
                     "href": "/api/storage/namespaces/be732687-20cf-47d2-a0e2-2a989d15661d"
                 }
             },
+            "uuid": "be732687-20cf-47d2-a0e2-2a989d15661d",
+            "svm": {"name": "svm1"},
         }
     ),
 ]
@@ -197,80 +197,80 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NvmeNamespace(
     {
-        "status": {
-            "mapped": True,
-            "read_only": False,
-            "container_state": "online",
-            "state": "online",
-        },
-        "metric": {
-            "timestamp": "2019-04-09T05:50:15+00:00",
-            "throughput": {"read": 0, "total": 0, "write": 0},
-            "iops": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "status": "ok",
-            "latency": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "duration": "PT15S",
-        },
-        "svm": {
-            "uuid": "6bf967fd-2a1c-11e9-b682-005056bbc17d",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/6bf967fd-2a1c-11e9-b682-005056bbc17d"}
-            },
-        },
-        "uuid": "dccdc3e6-cf4e-498f-bec6-f7897f945669",
-        "space": {
-            "block_size": 4096,
-            "used": 0,
-            "guarantee": {"reserved": False, "requested": False},
-            "size": 322122547200,
-        },
-        "comment": "Data for the research department.",
-        "os_type": "linux",
-        "auto_delete": False,
-        "name": "/vol/vol1/namespace1",
-        "statistics": {
-            "timestamp": "2019-04-09T05:50:42+00:00",
-            "latency_raw": {"read": 0, "total": 38298, "other": 38298, "write": 0},
-            "iops_raw": {"read": 0, "total": 3, "other": 3, "write": 0},
-            "status": "ok",
-            "throughput_raw": {"read": 0, "total": 0, "write": 0},
-        },
-        "enabled": True,
         "subsystem_map": {
             "anagrpid": "00000001h",
             "subsystem": {
-                "uuid": "01f17d05-2be9-11e9-bed2-005056bbc17d",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/nvme/subsystems/01f17d05-2be9-11e9-bed2-005056bbc17d"
                     }
                 },
                 "name": "subsystem1",
+                "uuid": "01f17d05-2be9-11e9-bed2-005056bbc17d",
             },
+            "nsid": "00000001h",
             "_links": {
                 "self": {
                     "href": "/api/protocols/nvme/subsystem-maps/dccdc3e6-cf4e-498f-bec6-f7897f945669/01f17d05-2be9-11e9-bed2-005056bbc17d"
                 }
             },
-            "nsid": "00000001h",
+        },
+        "name": "/vol/vol1/namespace1",
+        "os_type": "linux",
+        "auto_delete": False,
+        "status": {
+            "container_state": "online",
+            "mapped": True,
+            "state": "online",
+            "read_only": False,
+        },
+        "metric": {
+            "latency": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "timestamp": "2019-04-09T05:50:15+00:00",
+            "iops": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "status": "ok",
+            "duration": "PT15S",
+            "throughput": {"write": 0, "total": 0, "read": 0},
         },
         "location": {
             "namespace": "namespace1",
             "volume": {
-                "uuid": "71cd0dba-2a1c-11e9-b682-005056bbc17d",
                 "name": "vol1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/71cd0dba-2a1c-11e9-b682-005056bbc17d"
                     }
                 },
+                "uuid": "71cd0dba-2a1c-11e9-b682-005056bbc17d",
             },
         },
+        "enabled": True,
         "_links": {
             "self": {
                 "href": "/api/storage/namespaces/dccdc3e6-cf4e-498f-bec6-f7897f945669?fields=**"
             }
+        },
+        "space": {
+            "used": 0,
+            "guarantee": {"reserved": False, "requested": False},
+            "size": 322122547200,
+            "block_size": 4096,
+        },
+        "statistics": {
+            "throughput_raw": {"write": 0, "total": 0, "read": 0},
+            "iops_raw": {"write": 0, "total": 3, "other": 3, "read": 0},
+            "timestamp": "2019-04-09T05:50:42+00:00",
+            "status": "ok",
+            "latency_raw": {"write": 0, "total": 38298, "other": 38298, "read": 0},
+        },
+        "comment": "Data for the research department.",
+        "uuid": "dccdc3e6-cf4e-498f-bec6-f7897f945669",
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/6bf967fd-2a1c-11e9-b682-005056bbc17d"}
+            },
+            "uuid": "6bf967fd-2a1c-11e9-b682-005056bbc17d",
         },
     }
 )
@@ -356,11 +356,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -374,11 +373,15 @@ __pdoc__ = {
     "NvmeNamespaceSchema.opts": False,
 }
 
-
 class NvmeNamespaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the NvmeNamespace object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the nvme_namespace."""
 
     auto_delete = marshmallow_fields.Boolean(
@@ -391,7 +394,12 @@ This property is optional in POST and PATCH. The default value for a new NVMe na
 There is an added computational cost to retrieving this property's value. It is not populated for a GET request unless it is explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.</personalities>
 <personalities supports=asar2>This property is not supported. It cannot be set in POST or PATCH and will not be returned by GET.</personalities>"""
 
-    clone = marshmallow_fields.Nested("netapp_ontap.models.nvme_namespace_clone.NvmeNamespaceCloneSchema", data_key="clone", unknown=EXCLUDE, allow_none=True)
+    clone = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_namespace_clone", "NvmeNamespaceCloneSchema"),
+                data_key="clone",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" <personalities supports=unified>This sub-object is used in POST to create a new NVMe namespace as a clone of an existing namespace, or PATCH to overwrite an existing namespace as a clone of another. Setting a property in this sub-object indicates that a namespace clone is desired.<br/>
 When used in a PATCH, the patched NVMe namespace's data is over-written as a clone of the source and the following properties are preserved from the patched namespace unless otherwise specified as part of the PATCH: `auto_delete` (unless specified in the request), `subsystem_map`, `status.state`, and `uuid`.</personalities>
 <personalities supports=asar2>This endpoint does not support clones. No properties in this sub-object can be set for POST or PATCH and none will be returned by GET.<br/>
@@ -404,12 +412,22 @@ Cloning is supported through the /api/storage/storage-units endpoint. See the [`
     )
     r""" A configurable comment available for use by the administrator. Valid in POST and PATCH."""
 
-    consistency_group = marshmallow_fields.Nested("netapp_ontap.models.nvme_namespace_consistency_group.NvmeNamespaceConsistencyGroupSchema", data_key="consistency_group", unknown=EXCLUDE, allow_none=True)
+    consistency_group = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_namespace_consistency_group", "NvmeNamespaceConsistencyGroupSchema"),
+                data_key="consistency_group",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The namespace's consistency group. This property is populated for namespaces that are members of a consistency group. If the namespace is a member of a child consistency group, the parent consistency group is reported.
 <personalities supports=unified>A namespace's consistency group is the consistency group of its containing volume.</personalities>
 <personalities supports=asar2>A namespace is optionally associated directly with a consistency group.</personalities>"""
 
-    convert = marshmallow_fields.Nested("netapp_ontap.models.nvme_namespace_convert.NvmeNamespaceConvertSchema", data_key="convert", unknown=EXCLUDE, allow_none=True)
+    convert = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_namespace_convert", "NvmeNamespaceConvertSchema"),
+                data_key="convert",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" This sub-object is used in POST to convert a valid in-place LUN to an NVMe namespace. Setting a property in this sub-object indicates that a conversion from the specified LUN to NVMe namespace is desired.<br/>"""
 
     create_time = ImpreciseDateTime(
@@ -426,15 +444,30 @@ Example: 2018-06-04T19:00:00.000+0000"""
     )
     r""" The enabled state of the NVMe namespace. Certain error conditions cause the namespace to become disabled. If the namespace is disabled, check the `status.state` property to determine what error disabled the namespace. An NVMe namespace is enabled automatically when it is created."""
 
-    encryption = marshmallow_fields.Nested("netapp_ontap.models.storage_unit_encryption.StorageUnitEncryptionSchema", data_key="encryption", unknown=EXCLUDE, allow_none=True)
+    encryption = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_unit_encryption", "StorageUnitEncryptionSchema"),
+                data_key="encryption",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The encryption field of the nvme_namespace."""
 
-    location = marshmallow_fields.Nested("netapp_ontap.models.nvme_namespace_location.NvmeNamespaceLocationSchema", data_key="location", unknown=EXCLUDE, allow_none=True)
+    location = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_namespace_location", "NvmeNamespaceLocationSchema"),
+                data_key="location",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The location of the NVMe namespace within the ONTAP cluster.
 <personalities supports=unified>NVMe namespaces do not support rename, or movement between volumes. Valid in POST.</personalities>
 <personalities supports=asar2>The NVMe namespace name can be changed by PATCHing the `name` property. The `location` properties are read-only.</personalities>"""
 
-    metric = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_reduced_throughput.PerformanceMetricReducedThroughputSchema", data_key="metric", unknown=EXCLUDE, allow_none=True)
+    metric = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_reduced_throughput", "PerformanceMetricReducedThroughputSchema"),
+                data_key="metric",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Performance numbers, such as IOPS latency and throughput"""
 
     name = marshmallow_fields.Str(
@@ -467,28 +500,64 @@ Valid choices:
 * vmware
 * windows"""
 
-    provisioning_options = marshmallow_fields.Nested("netapp_ontap.models.nvme_namespace_provisioning_options.NvmeNamespaceProvisioningOptionsSchema", data_key="provisioning_options", unknown=EXCLUDE, allow_none=True)
+    provisioning_options = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_namespace_provisioning_options", "NvmeNamespaceProvisioningOptionsSchema"),
+                data_key="provisioning_options",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Options that are applied to the operation."""
 
-    qos_policy = marshmallow_fields.Nested("netapp_ontap.models.nvme_namespace_qos_policy.NvmeNamespaceQosPolicySchema", data_key="qos_policy", unknown=EXCLUDE, allow_none=True)
+    qos_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_namespace_qos_policy", "NvmeNamespaceQosPolicySchema"),
+                data_key="qos_policy",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The QoS policy for the NVMe namespace. Both traditional and adaptive QoS policies are supported. If both property `qos_policy.uuid` and `qos_policy.name` are specified in the same request, they must refer to the same QoS policy. To remove the QoS policy from an NVMe namespace, leaving it with no QoS policy, set property `qos_policy.name` to an empty string ("") in a PATCH request. An NVMe namespace is optionally associated directly with a QoS policy. To remove the QoS policy, set it to `null` in a PATCH request. Valid in POST and PATCH."""
 
-    space = marshmallow_fields.Nested("netapp_ontap.models.nvme_namespace_space.NvmeNamespaceSpaceSchema", data_key="space", unknown=EXCLUDE, allow_none=True)
+    space = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_namespace_space", "NvmeNamespaceSpaceSchema"),
+                data_key="space",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The storage space related properties of the NVMe namespace."""
 
-    statistics = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_raw_reduced_throughput.PerformanceMetricRawReducedThroughputSchema", data_key="statistics", unknown=EXCLUDE, allow_none=True)
+    statistics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_raw_reduced_throughput", "PerformanceMetricRawReducedThroughputSchema"),
+                data_key="statistics",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" These are raw performance numbers, such as IOPS latency and throughput. These numbers are aggregated across all nodes in the cluster and increase with the uptime of the cluster."""
 
-    status = marshmallow_fields.Nested("netapp_ontap.models.nvme_namespace_status.NvmeNamespaceStatusSchema", data_key="status", unknown=EXCLUDE, allow_none=True)
+    status = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_namespace_status", "NvmeNamespaceStatusSchema"),
+                data_key="status",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Status information about the NVMe namespace."""
 
-    subsystem_map = marshmallow_fields.Nested("netapp_ontap.models.nvme_namespace_subsystem_map.NvmeNamespaceSubsystemMapSchema", data_key="subsystem_map", unknown=EXCLUDE, allow_none=True)
+    subsystem_map = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_namespace_subsystem_map", "NvmeNamespaceSubsystemMapSchema"),
+                data_key="subsystem_map",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The NVMe subsystem with which the NVMe namespace is associated. A namespace can be mapped to zero (0) or one (1) subsystems.<br/>
 There is an added computational cost to retrieving property values for `subsystem_map`. They are not populated for a GET request unless explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
-<personalities supports=unified>These properties are supported only for GET.</personalities>
+<personalities supports=unified>These properties are supported for GET and POST. During POST, it requires the `provisioning_options.auto` property to be set to true.
+See the `provisioning_options.auto` property for full details.</personalities>
 <personalities supports=asar2>These properties are supported for GET and POST. During POST, a new or existing subsystem can be referenced. When referencing an existing subsystem, only the `name` and `uuid` properties are supported.</personalities>"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the nvme_namespace."""
 
     uuid = marshmallow_fields.Str(
@@ -585,6 +654,7 @@ There is an added computational cost to retrieving values for these properties. 
 * `space.physical_used`
 * `space.physical_used_by_snapshots`
 * `space.efficiency_ratio`
+* `space.snapshot.*`
 * `subsystem_map.*`
 * `status.mapped`
 * `statistics.*`
@@ -735,6 +805,7 @@ There is an added computational cost to retrieving values for these properties. 
 * `space.physical_used`
 * `space.physical_used_by_snapshots`
 * `space.efficiency_ratio`
+* `space.snapshot.*`
 * `subsystem_map.*`
 * `status.mapped`
 * `statistics.*`
@@ -757,6 +828,7 @@ There is an added computational cost to retrieving values for these properties. 
 * `space.physical_used`
 * `space.physical_used_by_snapshots`
 * `space.efficiency_ratio`
+* `space.snapshot.*`
 * `subsystem_map.*`
 * `status.mapped`
 * `statistics.*`

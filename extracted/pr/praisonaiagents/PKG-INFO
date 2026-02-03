@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: praisonaiagents
-Version: 1.2.4
+Version: 1.4.1
 Summary: Praison AI agents for completing complex tasks with Self Reflection Agents
 Author: Mervin Praison
 Requires-Python: >=3.10
@@ -32,6 +32,10 @@ Requires-Dist: pydantic>=2.10.0; extra == "llm"
 Provides-Extra: api
 Requires-Dist: fastapi>=0.115.0; extra == "api"
 Requires-Dist: uvicorn>=0.34.0; extra == "api"
+Provides-Extra: os
+Requires-Dist: fastapi>=0.115.0; extra == "os"
+Requires-Dist: uvicorn>=0.34.0; extra == "os"
+Requires-Dist: PyJWT>=2.8.0; extra == "os"
 Provides-Extra: telemetry
 Requires-Dist: posthog>=3.0.0; extra == "telemetry"
 Provides-Extra: mongodb

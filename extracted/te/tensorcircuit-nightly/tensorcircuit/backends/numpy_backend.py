@@ -11,7 +11,7 @@ from typing import Any, Callable, Optional, Sequence, Tuple, Union
 import numpy as np
 
 try:
-    from numpy import ComplexWarning
+    from numpy import ComplexWarning  # type: ignore
 except ImportError:  # np2.0 compatibility
     from numpy.exceptions import ComplexWarning  # type: ignore
 
@@ -196,7 +196,7 @@ class NumpyBackend(numpy_backend.NumPyBackend, ExtendedBackend):  # type: ignore
         return np.std(a, axis=axis, keepdims=keepdims)
 
     def all(self, a: Tensor, axis: Optional[Sequence[int]] = None) -> Tensor:
-        return np.all(a, axis=axis)
+        return np.all(a, axis=axis)  # type: ignore
 
     def unique_with_counts(self, a: Tensor, **kws: Any) -> Tuple[Tensor, Tensor]:
         return np.unique(a, return_counts=True)  # type: ignore
@@ -256,8 +256,8 @@ class NumpyBackend(numpy_backend.NumPyBackend, ExtendedBackend):  # type: ignore
 
     def arange(self, start: int, stop: Optional[int] = None, step: int = 1) -> Tensor:
         if stop is None:
-            return np.arange(start=0, stop=start, step=step)
-        return np.arange(start=start, stop=stop, step=step)
+            return np.arange(0, start, step)
+        return np.arange(start, stop, step)
 
     def mod(self, x: Tensor, y: Tensor) -> Tensor:
         return np.mod(x, y)
@@ -356,9 +356,28 @@ class NumpyBackend(numpy_backend.NumPyBackend, ExtendedBackend):  # type: ignore
             shape = (shape,)
         return g.choice(a, size=shape, replace=True, p=p)
 
-    def scatter(self, operand: Tensor, indices: Tensor, updates: Tensor) -> Tensor:
+    def scatter(
+        self, operand: Tensor, indices: Tensor, updates: Tensor, mode: str = "update"
+    ) -> Tensor:
         operand_new = np.copy(operand)
-        operand_new[tuple([indices[:, i] for i in range(indices.shape[1])])] = updates
+        indices = np.asarray(indices)
+        updates = np.asarray(updates)
+        index_depth = indices.shape[-1]
+        indices_reshaped = indices.reshape(-1, index_depth)
+        updates_reshaped = updates.reshape((-1,) + operand.shape[index_depth:])
+
+        # Create a tuple of arrays for each dimension being indexed
+        idx_tuple = tuple(indices_reshaped[:, i] for i in range(index_depth))
+
+        if mode == "update":
+            operand_new[idx_tuple] = updates_reshaped
+        elif mode == "add":
+            np.add.at(operand_new, idx_tuple, updates_reshaped)
+        elif mode == "sub":
+            np.subtract.at(operand_new, idx_tuple, updates_reshaped)
+        else:
+            raise ValueError(f"Unsupported scatter mode: {mode}")
+
         return operand_new
 
     def coo_sparse_matrix(

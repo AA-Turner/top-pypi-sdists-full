@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ConsistencyGroupChildLuns", "ConsistencyGroupChildLunsSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "ConsistencyGroupChildLuns": False,
 }
 
-
 class ConsistencyGroupChildLunsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ConsistencyGroupChildLuns object"""
 
-    clone = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_consistency_groups_luns_clone.ConsistencyGroupConsistencyGroupsLunsCloneSchema", unknown=EXCLUDE, data_key="clone", allow_none=True)
+    clone = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_consistency_groups_luns_clone", "ConsistencyGroupConsistencyGroupsLunsCloneSchema"),
+                unknown=EXCLUDE,
+                data_key="clone",
+                allow_none=True
+            )
     r""" <personalities supports=unified>This sub-object is used in POST to create a new LUN as a clone of an existing LUN, or PATCH to overwrite an existing LUN as a clone of another. Setting a property in this sub-object indicates that a LUN clone is desired. Consider the following other properties when cloning a LUN: `auto_delete`, `qos_policy`, `space.guarantee.requested` and `space.scsi_thin_provisioning_support_enabled`.<br/>
 When used in a PATCH, the patched LUN's data is over-written as a clone of the source and the following properties are preserved from the patched LUN unless otherwise specified as part of the PATCH: `class`, `auto_delete`, `lun_maps`, `serial_number`, `status.state`, and `uuid`.<br/>
 Persistent reservations for the patched LUN are also preserved.</personalities>
@@ -39,7 +42,15 @@ Example: 2018-06-04T19:00:00.000+0000 """
     enabled = marshmallow_fields.Boolean(data_key="enabled", allow_none=True)
     r""" The enabled state of the LUN. LUNs can be disabled to prevent access to the LUN. Certain error conditions also cause the LUN to become disabled. If the LUN is disabled, you can consult the `state` property to determine if the LUN is administratively disabled (_offline_) or has become disabled as a result of an error. A LUN in an error condition can be brought online by setting the `enabled` property to _true_ or brought administratively offline by setting the `enabled` property to _false_. Upon creation, a LUN is enabled by default. Valid in PATCH. """
 
-    lun_maps = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.consistency_group_luns_lun_maps.ConsistencyGroupLunsLunMapsSchema", unknown=EXCLUDE, allow_none=True), data_key="lun_maps", allow_none=True)
+    lun_maps = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.consistency_group_luns_lun_maps", "ConsistencyGroupLunsLunMapsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="lun_maps",
+                allow_none=True
+                )
     r""" An array of LUN maps.<br/>
 A LUN map is an association between a LUN and an initiator group. When a LUN is mapped to an initiator group, the initiator group's initiators are granted access to the LUN. The relationship between a LUN and an initiator group is many LUNs to many initiator groups. """
 
@@ -70,16 +81,31 @@ Valid choices:
 * windows_gpt
 * xen """
 
-    provisioning_options = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_vdisk_provisioning_options.ConsistencyGroupVdiskProvisioningOptionsSchema", unknown=EXCLUDE, data_key="provisioning_options", allow_none=True)
+    provisioning_options = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_vdisk_provisioning_options", "ConsistencyGroupVdiskProvisioningOptionsSchema"),
+                unknown=EXCLUDE,
+                data_key="provisioning_options",
+                allow_none=True
+            )
     r""" Options that are applied to the operation. """
 
-    qos = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_qos.ConsistencyGroupQosSchema", unknown=EXCLUDE, data_key="qos", allow_none=True)
+    qos = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_qos", "ConsistencyGroupQosSchema"),
+                unknown=EXCLUDE,
+                data_key="qos",
+                allow_none=True
+            )
     r""" The qos field of the consistency_group_child_luns. """
 
     serial_number = marshmallow_fields.Str(data_key="serial_number", allow_none=True)
     r""" The LUN serial number. The serial number is generated by ONTAP when the LUN is created. """
 
-    space = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_lun_space.ConsistencyGroupLunSpaceSchema", unknown=EXCLUDE, data_key="space", allow_none=True)
+    space = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_lun_space", "ConsistencyGroupLunSpaceSchema"),
+                unknown=EXCLUDE,
+                data_key="space",
+                allow_none=True
+            )
     r""" The storage space related properties of the LUN. """
 
     uuid = marshmallow_fields.Str(data_key="uuid", allow_none=True)

@@ -300,6 +300,7 @@ class DocumentManager:
 
         analyzer = SemanticAnalyzer()
         analysis.symbol_table = analyzer.analyze(analysis.ast, analysis.tokens)
+        logger.debug(f"Symbol table has {len(analysis.symbol_table.get_all_symbols_flat())} symbols")
 
         # Extract /d docstrings from source text and attach to symbols
         self._extract_docstrings(analysis)
@@ -314,23 +315,27 @@ class DocumentManager:
             /d This is a docstring for the enclosing construct.
             /d Multiple /d lines are joined together.
         """
-        import re
         if not analysis.text or not analysis.symbol_table:
             return
 
+        try:
+            self._do_extract_docstrings(analysis)
+        except Exception as e:
+            logger.debug(f"Docstring extraction error: {e}")
+
+    def _do_extract_docstrings(self, analysis: DocumentAnalysis) -> None:
+        """Internal docstring extraction implementation."""
         lines = analysis.text.splitlines()
         all_symbols = analysis.symbol_table.get_all_symbols_flat()
         if not all_symbols:
             return
 
-        # Build a map of line_number -> symbol for quick lookup
-        # Symbols are classes, functions, constructors
         from ..utils.symbol_table import SymbolKind
         target_kinds = {SymbolKind.CLASS, SymbolKind.FUNCTION, SymbolKind.METHOD, SymbolKind.CONSTRUCTOR}
         declared_symbols = [s for s in all_symbols if s.kind in target_kinds and s.line > 0]
 
-        # Collect consecutive /d lines and their line numbers
-        docstring_blocks = []  # [(start_line, end_line, text)]
+        # Collect consecutive /d lines and their line numbers (1-indexed)
+        docstring_blocks = []  # [(start_line_1indexed, end_line_1indexed, text)]
         i = 0
         while i < len(lines):
             stripped = lines[i].strip()
@@ -350,6 +355,9 @@ class DocumentManager:
             else:
                 i += 1
 
+        if not docstring_blocks:
+            return
+
         # For each docstring block, find the enclosing symbol
         # The /d is inside a construct's body, so find the symbol whose
         # declaration line is the closest BEFORE the /d line
@@ -366,8 +374,72 @@ class DocumentManager:
             if best_symbol and not best_symbol.documentation:
                 best_symbol.documentation = doc_text
             elif best_symbol and best_symbol.documentation:
-                # Append if symbol already has docs (e.g. from registry)
                 best_symbol.documentation += '\n\n' + doc_text
+
+        # Also infer return types for define functions from return statements
+        self._infer_return_types(analysis, lines, declared_symbols)
+
+    def _infer_return_types(self, analysis: DocumentAnalysis, lines, declared_symbols) -> None:
+        """Infer return types for functions from return statements.
+
+        Rules:
+        - No return statement found → void
+        - return <expr> with inferrable type → int, float, string, bool
+        - return <expr> with unknown type → dynamic
+        - No explicit return type and no return → void
+        """
+        from ..utils.symbol_table import SymbolKind
+        for sym in declared_symbols:
+            if sym.kind != SymbolKind.FUNCTION:
+                continue
+            if sym.line <= 0:
+                continue
+            # Scan lines after function declaration for return statements
+            start = sym.line  # 1-indexed
+            found_return = False
+            brace_depth = 0
+            started = False
+            for j in range(start - 1, min(start + 100, len(lines))):
+                line_text = lines[j]
+                stripped = line_text.strip()
+                # Track brace depth to stay within this function's body
+                brace_depth += stripped.count('{') - stripped.count('}')
+                if '{' in stripped:
+                    started = True
+                if started and brace_depth <= 0:
+                    break  # Left the function body
+                if stripped.startswith('return ') or stripped.startswith('return;'):
+                    expr = stripped[7:].rstrip(';').strip() if stripped.startswith('return ') else ''
+                    if not expr or expr == 'null' or expr == 'None':
+                        found_return = True
+                        continue  # return; or return null → void-like
+                    found_return = True
+                    # Simple type inference from the expression
+                    inferred = None
+                    try:
+                        int(expr)
+                        inferred = 'int'
+                    except ValueError:
+                        pass
+                    if not inferred:
+                        try:
+                            float(expr)
+                            inferred = 'float'
+                        except ValueError:
+                            pass
+                    if not inferred:
+                        if (expr.startswith('"') and expr.endswith('"')) or \
+                           (expr.startswith("'") and expr.endswith("'")):
+                            inferred = 'string'
+                    if not inferred:
+                        if expr in ('true', 'false', 'True', 'False'):
+                            inferred = 'bool'
+                    if not inferred:
+                        inferred = 'dynamic'
+                    sym.return_type = inferred
+                    break
+            if not found_return and not sym.return_type:
+                sym.return_type = 'void'
 
     def get_all_documents(self) -> List[DocumentAnalysis]:
         """Get all open documents."""

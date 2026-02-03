@@ -1,11 +1,16 @@
 import re
+from typing import TYPE_CHECKING, Any, Literal
 
-import tdclient
+import pandas as pd
+from tdclient.errors import NotFoundError
 
 from .writer import Writer
 
+if TYPE_CHECKING:
+    from .client import Client
 
-class Table(object):
+
+class Table:
     """A table controller module.
 
     Parameters
@@ -31,21 +36,21 @@ class Table(object):
         Table name.
     """
 
-    def __init__(self, client, database, table):
+    def __init__(self, client: "Client", database: str, table: str) -> None:
         try:
             client.api_client.database(database)
-        except tdclient.errors.NotFoundError as e:
+        except NotFoundError as e:
             raise ValueError(
-                "faild to create pytd.table.Table instance for "
+                "failed to create pytd.table.Table instance for "
                 f"`{database}.{table}`: {e}"
-            )
+            ) from e
 
-        self.database = database
-        self.table = table
-        self.client = client
+        self.database: str = database
+        self.table: str = table
+        self.client: Client = client
 
     @property
-    def exists(self):
+    def exists(self) -> bool:
         """Check if a configured table exists.
 
         Returns
@@ -54,11 +59,15 @@ class Table(object):
         """
         try:
             self.client.api_client.table(self.database, self.table)
-        except tdclient.errors.NotFoundError:
+        except NotFoundError:
             return False
         return True
 
-    def create(self, column_names=[], column_types=[]):
+    def create(
+        self,
+        column_names: list[str] | None = None,
+        column_types: list[str] | None = None,
+    ) -> None:
         """Create a table named as configured.
 
         When ``column_names`` and ``column_types`` are given, table is created
@@ -72,13 +81,18 @@ class Table(object):
         column_types : list of str, optional
             Column types corresponding to the names. Note that Treasure Data
             supports limited amount of types as documented in:
-            https://docs.treasuredata.com/display/public/PD/Schema+Management
+            https://api-docs.treasuredata.com/en/tools/presto/sql_tips_for_hive_and_presto#treasure-data-native-data-types
         """
+        if column_names is None:
+            column_names = []
+        if column_types is None:
+            column_types = []
+
         if len(column_names) > 0:
             schema = ", ".join(
                 map(
                     lambda t: f"{t[0]} {t[1]}",
-                    zip(column_names, column_types),
+                    zip(column_names, column_types, strict=False),
                 )
             )
             q_create = f"CREATE TABLE {self.database}.{self.table} ({schema})"
@@ -86,11 +100,17 @@ class Table(object):
         else:
             self.client.api_client.create_log_table(self.database, self.table)
 
-    def delete(self):
+    def delete(self) -> None:
         """Delete a table from Treasure Data."""
         self.client.api_client.delete_table(self.database, self.table)
 
-    def import_dataframe(self, dataframe, writer, if_exists="error", **kwargs):
+    def import_dataframe(
+        self,
+        dataframe: pd.DataFrame,
+        writer: Literal["bulk_import", "insert_into", "spark"] | Writer,
+        if_exists: Literal["error", "overwrite", "append", "ignore"] = "error",
+        **kwargs: Any,
+    ) -> None:
         """Import a given DataFrame to a Treasure Data table.
 
         Parameters

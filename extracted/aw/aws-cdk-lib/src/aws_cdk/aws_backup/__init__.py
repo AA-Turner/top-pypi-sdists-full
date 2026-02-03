@@ -332,10 +332,12 @@ from ..interfaces.aws_backup import (
     IReportPlanRef as _IReportPlanRef_2eb6ea89,
     IRestoreTestingPlanRef as _IRestoreTestingPlanRef_3850185f,
     IRestoreTestingSelectionRef as _IRestoreTestingSelectionRef_f3800013,
+    ITieringConfigurationRef as _ITieringConfigurationRef_0738fe9f,
     LogicallyAirGappedBackupVaultReference as _LogicallyAirGappedBackupVaultReference_53a7ab81,
     ReportPlanReference as _ReportPlanReference_0a875581,
     RestoreTestingPlanReference as _RestoreTestingPlanReference_99f8c406,
     RestoreTestingSelectionReference as _RestoreTestingSelectionReference_05d8055b,
+    TieringConfigurationReference as _TieringConfigurationReference_e566af55,
 )
 from ..interfaces.aws_dynamodb import ITableRef as _ITableRef_4478f0ad
 from ..interfaces.aws_ec2 import IInstanceRef as _IInstanceRef_b97803cb
@@ -1815,6 +1817,10 @@ class CfnBackupPlan(
                     recovery_point_tags={
                         "recovery_point_tags_key": "recoveryPointTags"
                     },
+                    scan_actions=[backup.CfnBackupPlan.ScanActionResourceTypeProperty(
+                        malware_scanner="malwareScanner",
+                        scan_mode="scanMode"
+                    )],
                     schedule_expression="scheduleExpression",
                     schedule_expression_timezone="scheduleExpressionTimezone",
                     start_window_minutes=123,
@@ -1825,6 +1831,11 @@ class CfnBackupPlan(
                 advanced_backup_settings=[backup.CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty(
                     backup_options=backup_options,
                     resource_type="resourceType"
+                )],
+                scan_settings=[backup.CfnBackupPlan.ScanSettingResourceTypeProperty(
+                    malware_scanner="malwareScanner",
+                    resource_types=["resourceTypes"],
+                    scanner_role_arn="scannerRoleArn"
                 )]
             ),
         
@@ -2138,6 +2149,7 @@ class CfnBackupPlan(
             "backup_plan_name": "backupPlanName",
             "backup_plan_rule": "backupPlanRule",
             "advanced_backup_settings": "advancedBackupSettings",
+            "scan_settings": "scanSettings",
         },
     )
     class BackupPlanResourceTypeProperty:
@@ -2147,12 +2159,14 @@ class CfnBackupPlan(
             backup_plan_name: builtins.str,
             backup_plan_rule: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.BackupRuleResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]],
             advanced_backup_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            scan_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.ScanSettingResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Specifies an object containing properties used to create a backup plan.
 
             :param backup_plan_name: The display name of a backup plan.
             :param backup_plan_rule: An array of ``BackupRule`` objects, each of which specifies a scheduled task that is used to back up a selection of resources.
             :param advanced_backup_settings: A list of backup options for each resource type.
+            :param scan_settings: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupplanresourcetype.html
             :exampleMetadata: fixture=_generated
@@ -2195,6 +2209,10 @@ class CfnBackupPlan(
                         recovery_point_tags={
                             "recovery_point_tags_key": "recoveryPointTags"
                         },
+                        scan_actions=[backup.CfnBackupPlan.ScanActionResourceTypeProperty(
+                            malware_scanner="malwareScanner",
+                            scan_mode="scanMode"
+                        )],
                         schedule_expression="scheduleExpression",
                         schedule_expression_timezone="scheduleExpressionTimezone",
                         start_window_minutes=123,
@@ -2205,6 +2223,11 @@ class CfnBackupPlan(
                     advanced_backup_settings=[backup.CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty(
                         backup_options=backup_options,
                         resource_type="resourceType"
+                    )],
+                    scan_settings=[backup.CfnBackupPlan.ScanSettingResourceTypeProperty(
+                        malware_scanner="malwareScanner",
+                        resource_types=["resourceTypes"],
+                        scanner_role_arn="scannerRoleArn"
                     )]
                 )
             '''
@@ -2213,12 +2236,15 @@ class CfnBackupPlan(
                 check_type(argname="argument backup_plan_name", value=backup_plan_name, expected_type=type_hints["backup_plan_name"])
                 check_type(argname="argument backup_plan_rule", value=backup_plan_rule, expected_type=type_hints["backup_plan_rule"])
                 check_type(argname="argument advanced_backup_settings", value=advanced_backup_settings, expected_type=type_hints["advanced_backup_settings"])
+                check_type(argname="argument scan_settings", value=scan_settings, expected_type=type_hints["scan_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "backup_plan_name": backup_plan_name,
                 "backup_plan_rule": backup_plan_rule,
             }
             if advanced_backup_settings is not None:
                 self._values["advanced_backup_settings"] = advanced_backup_settings
+            if scan_settings is not None:
+                self._values["scan_settings"] = scan_settings
 
         @builtins.property
         def backup_plan_name(self) -> builtins.str:
@@ -2253,6 +2279,16 @@ class CfnBackupPlan(
             result = self._values.get("advanced_backup_settings")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty"]]]], result)
 
+        @builtins.property
+        def scan_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.ScanSettingResourceTypeProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupplanresourcetype.html#cfn-backup-backupplan-backupplanresourcetype-scansettings
+            '''
+            result = self._values.get("scan_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.ScanSettingResourceTypeProperty"]]]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -2276,6 +2312,7 @@ class CfnBackupPlan(
             "index_actions": "indexActions",
             "lifecycle": "lifecycle",
             "recovery_point_tags": "recoveryPointTags",
+            "scan_actions": "scanActions",
             "schedule_expression": "scheduleExpression",
             "schedule_expression_timezone": "scheduleExpressionTimezone",
             "start_window_minutes": "startWindowMinutes",
@@ -2294,6 +2331,7 @@ class CfnBackupPlan(
             index_actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.IndexActionsResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             lifecycle: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.LifecycleResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             recovery_point_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            scan_actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.ScanActionResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             schedule_expression: typing.Optional[builtins.str] = None,
             schedule_expression_timezone: typing.Optional[builtins.str] = None,
             start_window_minutes: typing.Optional[jsii.Number] = None,
@@ -2309,6 +2347,7 @@ class CfnBackupPlan(
             :param index_actions: There can up to one IndexAction in each BackupRule, as each backup can have 0 or 1 backup index associated with it. Within the array is ResourceTypes. Only 1 resource type will be accepted for each BackupRule. Valid values: - ``EBS`` for Amazon Elastic Block Store - ``S3`` for Amazon Simple Storage Service (Amazon S3)
             :param lifecycle: The lifecycle defines when a protected resource is transitioned to cold storage and when it expires. AWS Backup transitions and expires backups automatically according to the lifecycle that you define.
             :param recovery_point_tags: The tags to assign to the resources.
+            :param scan_actions: 
             :param schedule_expression: A CRON expression specifying when AWS Backup initiates a backup job.
             :param schedule_expression_timezone: This is the timezone in which the schedule expression is set. By default, ScheduleExpressions are in UTC. You can modify this to a specified timezone.
             :param start_window_minutes: An optional value that specifies a period of time in minutes after a backup is scheduled before a job is canceled if it doesn't start successfully. If this value is included, it must be at least 60 minutes to avoid errors.
@@ -2351,6 +2390,10 @@ class CfnBackupPlan(
                     recovery_point_tags={
                         "recovery_point_tags_key": "recoveryPointTags"
                     },
+                    scan_actions=[backup.CfnBackupPlan.ScanActionResourceTypeProperty(
+                        malware_scanner="malwareScanner",
+                        scan_mode="scanMode"
+                    )],
                     schedule_expression="scheduleExpression",
                     schedule_expression_timezone="scheduleExpressionTimezone",
                     start_window_minutes=123,
@@ -2367,6 +2410,7 @@ class CfnBackupPlan(
                 check_type(argname="argument index_actions", value=index_actions, expected_type=type_hints["index_actions"])
                 check_type(argname="argument lifecycle", value=lifecycle, expected_type=type_hints["lifecycle"])
                 check_type(argname="argument recovery_point_tags", value=recovery_point_tags, expected_type=type_hints["recovery_point_tags"])
+                check_type(argname="argument scan_actions", value=scan_actions, expected_type=type_hints["scan_actions"])
                 check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
                 check_type(argname="argument schedule_expression_timezone", value=schedule_expression_timezone, expected_type=type_hints["schedule_expression_timezone"])
                 check_type(argname="argument start_window_minutes", value=start_window_minutes, expected_type=type_hints["start_window_minutes"])
@@ -2387,6 +2431,8 @@ class CfnBackupPlan(
                 self._values["lifecycle"] = lifecycle
             if recovery_point_tags is not None:
                 self._values["recovery_point_tags"] = recovery_point_tags
+            if scan_actions is not None:
+                self._values["scan_actions"] = scan_actions
             if schedule_expression is not None:
                 self._values["schedule_expression"] = schedule_expression
             if schedule_expression_timezone is not None:
@@ -2488,6 +2534,16 @@ class CfnBackupPlan(
             '''
             result = self._values.get("recovery_point_tags")
             return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def scan_actions(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.ScanActionResourceTypeProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupruleresourcetype.html#cfn-backup-backupplan-backupruleresourcetype-scanactions
+            '''
+            result = self._values.get("scan_actions")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.ScanActionResourceTypeProperty"]]]], result)
 
         @builtins.property
         def schedule_expression(self) -> typing.Optional[builtins.str]:
@@ -2785,6 +2841,158 @@ class CfnBackupPlan(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_backup.CfnBackupPlan.ScanActionResourceTypeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"malware_scanner": "malwareScanner", "scan_mode": "scanMode"},
+    )
+    class ScanActionResourceTypeProperty:
+        def __init__(
+            self,
+            *,
+            malware_scanner: typing.Optional[builtins.str] = None,
+            scan_mode: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param malware_scanner: 
+            :param scan_mode: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-scanactionresourcetype.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_backup as backup
+                
+                scan_action_resource_type_property = backup.CfnBackupPlan.ScanActionResourceTypeProperty(
+                    malware_scanner="malwareScanner",
+                    scan_mode="scanMode"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3caec5202bdd7cb95e55dfb1f43dacffd638c970ca85da8f45e18ee7a135cfd2)
+                check_type(argname="argument malware_scanner", value=malware_scanner, expected_type=type_hints["malware_scanner"])
+                check_type(argname="argument scan_mode", value=scan_mode, expected_type=type_hints["scan_mode"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if malware_scanner is not None:
+                self._values["malware_scanner"] = malware_scanner
+            if scan_mode is not None:
+                self._values["scan_mode"] = scan_mode
+
+        @builtins.property
+        def malware_scanner(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-scanactionresourcetype.html#cfn-backup-backupplan-scanactionresourcetype-malwarescanner
+            '''
+            result = self._values.get("malware_scanner")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def scan_mode(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-scanactionresourcetype.html#cfn-backup-backupplan-scanactionresourcetype-scanmode
+            '''
+            result = self._values.get("scan_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScanActionResourceTypeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_backup.CfnBackupPlan.ScanSettingResourceTypeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "malware_scanner": "malwareScanner",
+            "resource_types": "resourceTypes",
+            "scanner_role_arn": "scannerRoleArn",
+        },
+    )
+    class ScanSettingResourceTypeProperty:
+        def __init__(
+            self,
+            *,
+            malware_scanner: typing.Optional[builtins.str] = None,
+            resource_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+            scanner_role_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param malware_scanner: 
+            :param resource_types: 
+            :param scanner_role_arn: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-scansettingresourcetype.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_backup as backup
+                
+                scan_setting_resource_type_property = backup.CfnBackupPlan.ScanSettingResourceTypeProperty(
+                    malware_scanner="malwareScanner",
+                    resource_types=["resourceTypes"],
+                    scanner_role_arn="scannerRoleArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__fc93fa1678199d79bf7b9fa988732c0f06e2ed4210f7217037d788d3f1b2607b)
+                check_type(argname="argument malware_scanner", value=malware_scanner, expected_type=type_hints["malware_scanner"])
+                check_type(argname="argument resource_types", value=resource_types, expected_type=type_hints["resource_types"])
+                check_type(argname="argument scanner_role_arn", value=scanner_role_arn, expected_type=type_hints["scanner_role_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if malware_scanner is not None:
+                self._values["malware_scanner"] = malware_scanner
+            if resource_types is not None:
+                self._values["resource_types"] = resource_types
+            if scanner_role_arn is not None:
+                self._values["scanner_role_arn"] = scanner_role_arn
+
+        @builtins.property
+        def malware_scanner(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-scansettingresourcetype.html#cfn-backup-backupplan-scansettingresourcetype-malwarescanner
+            '''
+            result = self._values.get("malware_scanner")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def resource_types(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-scansettingresourcetype.html#cfn-backup-backupplan-scansettingresourcetype-resourcetypes
+            '''
+            result = self._values.get("resource_types")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def scanner_role_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-scansettingresourcetype.html#cfn-backup-backupplan-scansettingresourcetype-scannerrolearn
+            '''
+            result = self._values.get("scanner_role_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScanSettingResourceTypeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_backup.CfnBackupPlanProps",
@@ -2845,6 +3053,10 @@ class CfnBackupPlanProps:
                         recovery_point_tags={
                             "recovery_point_tags_key": "recoveryPointTags"
                         },
+                        scan_actions=[backup.CfnBackupPlan.ScanActionResourceTypeProperty(
+                            malware_scanner="malwareScanner",
+                            scan_mode="scanMode"
+                        )],
                         schedule_expression="scheduleExpression",
                         schedule_expression_timezone="scheduleExpressionTimezone",
                         start_window_minutes=123,
@@ -2855,6 +3067,11 @@ class CfnBackupPlanProps:
                     advanced_backup_settings=[backup.CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty(
                         backup_options=backup_options,
                         resource_type="resourceType"
+                    )],
+                    scan_settings=[backup.CfnBackupPlan.ScanSettingResourceTypeProperty(
+                        malware_scanner="malwareScanner",
+                        resource_types=["resourceTypes"],
+                        scanner_role_arn="scannerRoleArn"
                     )]
                 ),
             
@@ -7378,6 +7595,429 @@ class CfnRestoreTestingSelectionProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _ITieringConfigurationRef_0738fe9f, _ITaggableV2_4e6798f8)
+class CfnTieringConfiguration(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_backup.CfnTieringConfiguration",
+):
+    '''Resource Type definition for AWS::Backup::TieringConfiguration.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-tieringconfiguration.html
+    :cloudformationResource: AWS::Backup::TieringConfiguration
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_backup as backup
+        
+        cfn_tiering_configuration = backup.CfnTieringConfiguration(self, "MyCfnTieringConfiguration",
+            backup_vault_name="backupVaultName",
+            resource_selection=[backup.CfnTieringConfiguration.ResourceSelectionProperty(
+                resources=["resources"],
+                resource_type="resourceType",
+                tiering_down_settings_in_days=123
+            )],
+            tiering_configuration_name="tieringConfigurationName",
+        
+            # the properties below are optional
+            tiering_configuration_tags={
+                "tiering_configuration_tags_key": "tieringConfigurationTags"
+            }
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        backup_vault_name: builtins.str,
+        resource_selection: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTieringConfiguration.ResourceSelectionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        tiering_configuration_name: builtins.str,
+        tiering_configuration_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Backup::TieringConfiguration``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param backup_vault_name: 
+        :param resource_selection: 
+        :param tiering_configuration_name: 
+        :param tiering_configuration_tags: 
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5ef5564320142f38c220daa137edb04c22468f7add552172398e23243d444bac)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnTieringConfigurationProps(
+            backup_vault_name=backup_vault_name,
+            resource_selection=resource_selection,
+            tiering_configuration_name=tiering_configuration_name,
+            tiering_configuration_tags=tiering_configuration_tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForTieringConfiguration")
+    @builtins.classmethod
+    def arn_for_tiering_configuration(
+        cls,
+        resource: "_ITieringConfigurationRef_0738fe9f",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1414c2c9efc5cf61fc1b1fa9b53bcac1f6a85d63f204ef6eab855f8d07575df4)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTieringConfiguration", [resource]))
+
+    @jsii.member(jsii_name="isCfnTieringConfiguration")
+    @builtins.classmethod
+    def is_cfn_tiering_configuration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnTieringConfiguration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bf722534a3239247a1d4019fd2e1c536da59f3e6f2c4b0502f369c082cd7e968)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTieringConfiguration", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dda2c701f3fedcead3279033afa06375f3ed979bf814ada5f5765f641b0a93b1)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b3324dd183a299b53cc6637a7614d15ad7a9e3cad1c64de0aa3b5e720cbd2ace)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedTime")
+    def attr_last_updated_time(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: LastUpdatedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTieringConfigurationArn")
+    def attr_tiering_configuration_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: TieringConfigurationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTieringConfigurationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tieringConfigurationRef")
+    def tiering_configuration_ref(self) -> "_TieringConfigurationReference_e566af55":
+        '''A reference to a TieringConfiguration resource.'''
+        return typing.cast("_TieringConfigurationReference_e566af55", jsii.get(self, "tieringConfigurationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="backupVaultName")
+    def backup_vault_name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "backupVaultName"))
+
+    @backup_vault_name.setter
+    def backup_vault_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__421109a7ac0ca0f6485d20caaddc5c8525f24fba28cdc7003588ce5a557f2ae1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "backupVaultName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceSelection")
+    def resource_selection(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTieringConfiguration.ResourceSelectionProperty"]]]:
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTieringConfiguration.ResourceSelectionProperty"]]], jsii.get(self, "resourceSelection"))
+
+    @resource_selection.setter
+    def resource_selection(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTieringConfiguration.ResourceSelectionProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8dfa5fbab756b867b1d97ca534180e35c8d4fc17bf188a74b9d1cd219e0e469e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceSelection", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tieringConfigurationName")
+    def tiering_configuration_name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "tieringConfigurationName"))
+
+    @tiering_configuration_name.setter
+    def tiering_configuration_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8ece1a5672c13cd421238bd95df4b862d50090157deda22d95c87f7c07167014)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tieringConfigurationName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tieringConfigurationTags")
+    def tiering_configuration_tags(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tieringConfigurationTags"))
+
+    @tiering_configuration_tags.setter
+    def tiering_configuration_tags(
+        self,
+        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__db22ddcdc10b6d3a0f640404daa7321520409a6dd9c60324f10eb6f8954748c3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tieringConfigurationTags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_backup.CfnTieringConfiguration.ResourceSelectionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "resources": "resources",
+            "resource_type": "resourceType",
+            "tiering_down_settings_in_days": "tieringDownSettingsInDays",
+        },
+    )
+    class ResourceSelectionProperty:
+        def __init__(
+            self,
+            *,
+            resources: typing.Sequence[builtins.str],
+            resource_type: builtins.str,
+            tiering_down_settings_in_days: jsii.Number,
+        ) -> None:
+            '''
+            :param resources: 
+            :param resource_type: 
+            :param tiering_down_settings_in_days: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-tieringconfiguration-resourceselection.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_backup as backup
+                
+                resource_selection_property = backup.CfnTieringConfiguration.ResourceSelectionProperty(
+                    resources=["resources"],
+                    resource_type="resourceType",
+                    tiering_down_settings_in_days=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__395082588b875f092977587e0ed3c59cf31d0bd0ef8b75faea6a7047f01b3744)
+                check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
+                check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
+                check_type(argname="argument tiering_down_settings_in_days", value=tiering_down_settings_in_days, expected_type=type_hints["tiering_down_settings_in_days"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "resources": resources,
+                "resource_type": resource_type,
+                "tiering_down_settings_in_days": tiering_down_settings_in_days,
+            }
+
+        @builtins.property
+        def resources(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-tieringconfiguration-resourceselection.html#cfn-backup-tieringconfiguration-resourceselection-resources
+            '''
+            result = self._values.get("resources")
+            assert result is not None, "Required property 'resources' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def resource_type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-tieringconfiguration-resourceselection.html#cfn-backup-tieringconfiguration-resourceselection-resourcetype
+            '''
+            result = self._values.get("resource_type")
+            assert result is not None, "Required property 'resource_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def tiering_down_settings_in_days(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-tieringconfiguration-resourceselection.html#cfn-backup-tieringconfiguration-resourceselection-tieringdownsettingsindays
+            '''
+            result = self._values.get("tiering_down_settings_in_days")
+            assert result is not None, "Required property 'tiering_down_settings_in_days' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ResourceSelectionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_backup.CfnTieringConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "backup_vault_name": "backupVaultName",
+        "resource_selection": "resourceSelection",
+        "tiering_configuration_name": "tieringConfigurationName",
+        "tiering_configuration_tags": "tieringConfigurationTags",
+    },
+)
+class CfnTieringConfigurationProps:
+    def __init__(
+        self,
+        *,
+        backup_vault_name: builtins.str,
+        resource_selection: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTieringConfiguration.ResourceSelectionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        tiering_configuration_name: builtins.str,
+        tiering_configuration_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTieringConfiguration``.
+
+        :param backup_vault_name: 
+        :param resource_selection: 
+        :param tiering_configuration_name: 
+        :param tiering_configuration_tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-tieringconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_backup as backup
+            
+            cfn_tiering_configuration_props = backup.CfnTieringConfigurationProps(
+                backup_vault_name="backupVaultName",
+                resource_selection=[backup.CfnTieringConfiguration.ResourceSelectionProperty(
+                    resources=["resources"],
+                    resource_type="resourceType",
+                    tiering_down_settings_in_days=123
+                )],
+                tiering_configuration_name="tieringConfigurationName",
+            
+                # the properties below are optional
+                tiering_configuration_tags={
+                    "tiering_configuration_tags_key": "tieringConfigurationTags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4429cff13e428c64f5c230a65e62ba2d645b76e2fd6b2b72f5aad4b72d9491a)
+            check_type(argname="argument backup_vault_name", value=backup_vault_name, expected_type=type_hints["backup_vault_name"])
+            check_type(argname="argument resource_selection", value=resource_selection, expected_type=type_hints["resource_selection"])
+            check_type(argname="argument tiering_configuration_name", value=tiering_configuration_name, expected_type=type_hints["tiering_configuration_name"])
+            check_type(argname="argument tiering_configuration_tags", value=tiering_configuration_tags, expected_type=type_hints["tiering_configuration_tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "backup_vault_name": backup_vault_name,
+            "resource_selection": resource_selection,
+            "tiering_configuration_name": tiering_configuration_name,
+        }
+        if tiering_configuration_tags is not None:
+            self._values["tiering_configuration_tags"] = tiering_configuration_tags
+
+    @builtins.property
+    def backup_vault_name(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-tieringconfiguration.html#cfn-backup-tieringconfiguration-backupvaultname
+        '''
+        result = self._values.get("backup_vault_name")
+        assert result is not None, "Required property 'backup_vault_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resource_selection(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTieringConfiguration.ResourceSelectionProperty"]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-tieringconfiguration.html#cfn-backup-tieringconfiguration-resourceselection
+        '''
+        result = self._values.get("resource_selection")
+        assert result is not None, "Required property 'resource_selection' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTieringConfiguration.ResourceSelectionProperty"]]], result)
+
+    @builtins.property
+    def tiering_configuration_name(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-tieringconfiguration.html#cfn-backup-tieringconfiguration-tieringconfigurationname
+        '''
+        result = self._values.get("tiering_configuration_name")
+        assert result is not None, "Required property 'tiering_configuration_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tiering_configuration_tags(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-tieringconfiguration.html#cfn-backup-tieringconfiguration-tieringconfigurationtags
+        '''
+        result = self._values.get("tiering_configuration_tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTieringConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.aws_backup.IBackupPlan")
 class IBackupPlan(
     _IResource_c80c4260,
@@ -8144,6 +8784,8 @@ __all__ = [
     "CfnRestoreTestingPlanProps",
     "CfnRestoreTestingSelection",
     "CfnRestoreTestingSelectionProps",
+    "CfnTieringConfiguration",
+    "CfnTieringConfigurationProps",
     "IBackupPlan",
     "IBackupVault",
     "LockConfiguration",
@@ -8409,6 +9051,7 @@ def _typecheckingstub__4fa711ce952ba97854872fd98c8f8e371b8e208c6e6c6d9d96087f413
     backup_plan_name: builtins.str,
     backup_plan_rule: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.BackupRuleResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]],
     advanced_backup_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    scan_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.ScanSettingResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8423,6 +9066,7 @@ def _typecheckingstub__a15d5028e47f5757a8c2319a31ccf993bd398f0a4476991c75f1e1c3b
     index_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.IndexActionsResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     lifecycle: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.LifecycleResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     recovery_point_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    scan_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.ScanActionResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     schedule_expression: typing.Optional[builtins.str] = None,
     schedule_expression_timezone: typing.Optional[builtins.str] = None,
     start_window_minutes: typing.Optional[jsii.Number] = None,
@@ -8451,6 +9095,23 @@ def _typecheckingstub__b9cc85d565a0bdd44f5b8b5d29dce7bae38cfd50437c39a049e1b16bd
     delete_after_days: typing.Optional[jsii.Number] = None,
     move_to_cold_storage_after_days: typing.Optional[jsii.Number] = None,
     opt_in_to_archive_for_supported_resources: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3caec5202bdd7cb95e55dfb1f43dacffd638c970ca85da8f45e18ee7a135cfd2(
+    *,
+    malware_scanner: typing.Optional[builtins.str] = None,
+    scan_mode: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc93fa1678199d79bf7b9fa988732c0f06e2ed4210f7217037d788d3f1b2607b(
+    *,
+    malware_scanner: typing.Optional[builtins.str] = None,
+    resource_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+    scanner_role_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9186,6 +9847,85 @@ def _typecheckingstub__fd755bb9b5c3f12e065d4bb10b1805bc3571946724f1d8f52794cc549
     protected_resource_conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRestoreTestingSelection.ProtectedResourceConditionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     restore_metadata_overrides: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
     validation_window_hours: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ef5564320142f38c220daa137edb04c22468f7add552172398e23243d444bac(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    backup_vault_name: builtins.str,
+    resource_selection: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTieringConfiguration.ResourceSelectionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    tiering_configuration_name: builtins.str,
+    tiering_configuration_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1414c2c9efc5cf61fc1b1fa9b53bcac1f6a85d63f204ef6eab855f8d07575df4(
+    resource: _ITieringConfigurationRef_0738fe9f,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bf722534a3239247a1d4019fd2e1c536da59f3e6f2c4b0502f369c082cd7e968(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dda2c701f3fedcead3279033afa06375f3ed979bf814ada5f5765f641b0a93b1(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3324dd183a299b53cc6637a7614d15ad7a9e3cad1c64de0aa3b5e720cbd2ace(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__421109a7ac0ca0f6485d20caaddc5c8525f24fba28cdc7003588ce5a557f2ae1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8dfa5fbab756b867b1d97ca534180e35c8d4fc17bf188a74b9d1cd219e0e469e(
+    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTieringConfiguration.ResourceSelectionProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8ece1a5672c13cd421238bd95df4b862d50090157deda22d95c87f7c07167014(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__db22ddcdc10b6d3a0f640404daa7321520409a6dd9c60324f10eb6f8954748c3(
+    value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__395082588b875f092977587e0ed3c59cf31d0bd0ef8b75faea6a7047f01b3744(
+    *,
+    resources: typing.Sequence[builtins.str],
+    resource_type: builtins.str,
+    tiering_down_settings_in_days: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a4429cff13e428c64f5c230a65e62ba2d645b76e2fd6b2b72f5aad4b72d9491a(
+    *,
+    backup_vault_name: builtins.str,
+    resource_selection: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTieringConfiguration.ResourceSelectionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    tiering_configuration_name: builtins.str,
+    tiering_configuration_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

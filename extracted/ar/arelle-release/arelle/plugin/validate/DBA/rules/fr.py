@@ -3,14 +3,18 @@ See COPYRIGHT.md for copyright information.
 """
 from __future__ import annotations
 
+from collections import defaultdict
+
 import datetime
 import decimal
 from collections.abc import Iterable
-from typing import Any, cast
+from lxml import etree
+from typing import Any, cast, Set
 
-from arelle import ModelDocument
+from arelle import ModelDocument, ValidateDuplicateFacts
 from arelle.ModelInstanceObject import ModelFact
 from arelle.ModelValue import QName
+from arelle.ValidateDuplicateFacts import DuplicateType
 from arelle.XbrlConst import xhtml
 from arelle.typing import TypeGetText
 from arelle.ValidateXbrl import ValidateXbrl
@@ -124,17 +128,33 @@ def rule_fr24(
         **kwargs: Any,
 ) -> Iterable[Validation]:
     """
-    DBA.FR24: When cmn:TypeOfAuditorAssistance is "Revisionspåtegning" or "Auditor's report on audited financial statements"
-    then arr:DescriptionOfQualificationsOfAuditedFinancialStatements must not contain the following text:
-        - 'har ikke givet anledning til forbehold'
-        - 'has not given rise to reservations'
+    DBA.FR24: arr:DescriptionOfQualificationsOfAuditedFinancialStatements must not contain the following text:
+            - 'har ikke givet anledning til forbehold'
+            - 'has not given rise to reservations'
+        when cmn:TypeOfAuditorAssistance has one of the following values:
+
+        2022 or 2024 Values:
+            - Revisionspåtegning
+            - Auditor's report on audited financial statements
+
+        2025+ Values:
+            - Den uafhængige revisors erklæring
+            - Independent Auditor’s Report
     """
     modelXbrl = val.modelXbrl
+    if val.disclosureSystem.name in [ARL_2022_PREVIEW, ARL_2024_PREVIEW, ARL_2024_MULTI_TARGET_PREVIEW]:
+        validAuditorFactValues = [
+            pluginData.auditedFinancialStatementsDanish,
+            pluginData.auditedFinancialStatementsEnglish
+        ]
+    else:
+        validAuditorFactValues = [
+            pluginData.independentAuditorsReportDanish,
+            pluginData.independentAuditorsReportEnglish,
+        ]
     type_of_auditors_assistance_facts = modelXbrl.factsByQname.get(pluginData.typeOfAuditorAssistanceQn, set())
     for auditor_fact in type_of_auditors_assistance_facts:
-        if (auditor_fact.xValid >= VALID and
-                (auditor_fact.xValue == pluginData.auditedFinancialStatementsDanish or
-                 auditor_fact.xValue == pluginData.auditedFinancialStatementsEnglish)):
+        if auditor_fact.xValid >= VALID and auditor_fact.xValue in validAuditorFactValues:
             description_facts = modelXbrl.factsByQname.get(pluginData.descriptionOfQualificationsOfAuditedFinancialStatementsQn, set())
             for description_fact in description_facts:
                 if description_fact.xValid >= VALID:
@@ -143,8 +163,12 @@ def rule_fr24(
                             yield Validation.error(
                                 codes="DBA.FR24",
                                 msg=_("The value of DescriptionOfQualificationsOfAuditedFinancialStatements must not "
-                                      "contain the text: \'{}\', when TypeOfAuditorAssistance is set to \'Revisionspåtegning\' "
-                                      "or \'Auditor's report on audited financial statements\'").format(text),
+                                      "contain the text: \'{}\', when TypeOfAuditorAssistance is set to \'{}\' "
+                                      "or \'{}\'").format(
+                                    text,
+                                    validAuditorFactValues[0],
+                                    validAuditorFactValues[1]
+                                ),
                                 modelObject=description_fact
                             )
 
@@ -160,17 +184,32 @@ def rule_fr25(
         **kwargs: Any,
 ) -> Iterable[Validation]:
     """
-    DBA.FR25: When cmn:TypeOfAuditorAssistance is "Erklæring om udvidet gennemgang" or "Auditor's report on extended review"
-    then arr:DescriptionOfQualificationsOfFinancialStatementsExtendedReview must not contain the following text:
-        - 'har ikke givet anledning til forbehold'
-        - 'has not given rise to reservations'
+    DBA.FR25: arr:DescriptionOfQualificationsOfFinancialStatementsExtendedReview must not contain the following text:
+            - 'har ikke givet anledning til forbehold'
+            - 'has not given rise to reservations'
+        When cmn:TypeOfAuditorAssistance has the following values:
+
+        2022 or 2024 Values:
+            - Erklæring om udvidet gennemgang
+            - Auditor's report on extended review
+        2025+ Values:
+            - Den uafhængige revisors erklæring om udvidet gennemgang
+            - Independent Practitioner’s Extended Review Report
     """
     modelXbrl = val.modelXbrl
+    if val.disclosureSystem.name in [ARL_2022_PREVIEW, ARL_2024_PREVIEW, ARL_2024_MULTI_TARGET_PREVIEW]:
+        validAuditorFactValues = [
+            pluginData.auditedExtendedReviewDanish,
+            pluginData.auditedExtendedReviewEnglish
+        ]
+    else:
+        validAuditorFactValues = [
+            pluginData.independentPractitionersExtendedReviewReportDanish,
+            pluginData.independentPractitionersExtendedReviewReportEnglish,
+        ]
     type_of_auditors_assistance_facts = modelXbrl.factsByQname.get(pluginData.typeOfAuditorAssistanceQn, set())
     for auditor_fact in type_of_auditors_assistance_facts:
-        if (auditor_fact.xValid >= VALID and
-                (auditor_fact.xValue == pluginData.auditedExtendedReviewDanish or
-                 auditor_fact.xValue == pluginData.auditedExtendedReviewEnglish)):
+        if auditor_fact.xValid >= VALID and auditor_fact.xValue in validAuditorFactValues:
             description_facts = modelXbrl.factsByQname.get(pluginData.descriptionOfQualificationsOfFinancialStatementsExtendedReviewQn, set())
             for description_fact in description_facts:
                 if description_fact.xValid >= VALID:
@@ -179,8 +218,11 @@ def rule_fr25(
                             yield Validation.error(
                                 codes="DBA.FR25",
                                 msg=_("The value of DescriptionOfQualificationsOfFinancialStatementsExtendedReview must not "
-                                      "contain the text: \'{}\', when TypeOfAuditorAssistance is set to \'Erklæring om udvidet "
-                                      "gennemgang\' or \'Auditor's report on extended review\'").format(text),
+                                      "contain the text: \'{}\', when TypeOfAuditorAssistance is set to \'{}\' or \'{}\'").format(
+                                    text,
+                                    validAuditorFactValues[0],
+                                    validAuditorFactValues[1]
+                                ),
                                 modelObject=description_fact
                             )
 
@@ -831,10 +873,28 @@ def rule_fr59(
         **kwargs: Any,
 ) -> Iterable[Validation]:
     """
-    DBA.FR59: When the annual report contains an audit report, which is when TypeOfAuditorAssistance = Revisionspåtegning / Auditor's report on audited financial statements, then the concept
-    arr:DescriptionOfQualificationsOfAuditedFinancialStatements must be filled in.
+    DBA.FR59: arr:DescriptionOfQualificationsOfAuditedFinancialStatements must be filled in
+              when cmn:TypeOfAuditorAssistance has one of the following values:
+
+              2022 or 2024 Values:
+                - Revisionspåtegning
+                - Auditor's report on audited financial statements
+
+              2025+ Values:
+                - Den uafhængige revisors erklæring
+                - Independent Auditor’s Report
     """
     modelXbrl = val.modelXbrl
+    if val.disclosureSystem.name in [ARL_2022_PREVIEW, ARL_2024_PREVIEW, ARL_2024_MULTI_TARGET_PREVIEW]:
+        validAuditorFactValues = [
+            pluginData.auditedFinancialStatementsDanish,
+            pluginData.auditedFinancialStatementsEnglish
+        ]
+    else:
+        validAuditorFactValues = [
+            pluginData.independentAuditorsReportDanish,
+            pluginData.independentAuditorsReportEnglish,
+        ]
     noDimensionDescriptionFacts = []
     consolidatedDescriptionFacts = []
     descriptionFacts = modelXbrl.factsByQname.get(pluginData.descriptionOfQualificationsOfAuditedFinancialStatementsQn, set())
@@ -848,7 +908,7 @@ def rule_fr59(
     consolidatedIndicatorFacts = []
     auditorFacts = modelXbrl.factsByQname.get(pluginData.typeOfAuditorAssistanceQn, set())
     for aFact in auditorFacts:
-        if aFact.xValid >= VALID and aFact.xValue in [pluginData.auditedFinancialStatementsDanish, pluginData.auditedFinancialStatementsEnglish]:
+        if aFact.xValid >= VALID and aFact.xValue in validAuditorFactValues:
             if not aFact.context.scenDimValues:
                 noDimensionIndicatorFacts.append(aFact)
             if pluginData.consolidatedSoloDimensionQn in [dim.qname for dim in aFact.context.scenDimValues.keys()]:
@@ -1257,7 +1317,7 @@ def rule_fr87(
             ixTags = set(ixNStag + ln for ln in ("nonNumeric", "nonFraction", "references", "relationship"))
         ixTargets = set()
         for ixdsHtmlRootElt in modelXbrl.ixdsHtmlElements:
-            for elt in ixdsHtmlRootElt.iter():
+            for elt in ixdsHtmlRootElt.iter(etree.Element):
                 eltTag = elt.tag
                 if eltTag in ixTags:
                     ixTargets.add( elt.get("target") )
@@ -1500,50 +1560,247 @@ def rule_fr108(
     """
     DBA.FR108: There are accounting systems whose periods overlap.
     """
-
-    def findOverlappingPeriods(groupedFacts: dict[ContextHashKey, list[ModelFact]], startDateQnames: list[QName], endDateQnames: list[QName]) -> list[list[ModelFact]]:
-        periodsList: list[list[ModelFact]] = []
-        for facts in groupedFacts.values():
-            startDateFact = None
-            endDateFact = None
-            for fact in facts:
-                if fact.qname in startDateQnames:
-                    startDateFact = fact
-                elif fact.qname in endDateQnames:
-                    endDateFact = fact
-            if startDateFact is not None and endDateFact is not None:
-                periodsList.append([startDateFact, endDateFact])
-        sortedPeriodList = sorted(periodsList, key=lambda period: cast(datetime.date, period[0].xValue))
-        overlappingPeriods: list[list[ModelFact]] = []
-        for i in range(len(sortedPeriodList) - 1):
-            currentPeriod = sortedPeriodList[i]
-            nextPeriod = sortedPeriodList[i + 1]
+    allGroupedFacts = pluginData.getBookkeepingPeriods(val.modelXbrl)
+    if len(allGroupedFacts) > 0:
+        for i in range(len(allGroupedFacts) - 1):
+            currentPeriod = allGroupedFacts[i]
+            nextPeriod = allGroupedFacts[i + 1]
             currentEndDate = currentPeriod[1].xValue
             nextStartDate = nextPeriod[0].xValue
             if currentEndDate is not None and nextStartDate is not None and cast(datetime.date, currentEndDate) > cast(datetime.date, nextStartDate):
-                overlappingPeriods.append(currentPeriod + nextPeriod)
-        return overlappingPeriods
+                yield Validation.error(
+                    codes='DBA.FR108',
+                    msg=_("There are periods that overlap between accounting systems.\n"
+                          "For registered accounting systems the periods are defined by `StartDateForUseOfDigitalStandardBookkeepingSystem` and `EndDateForUseOfDigitalStandardBookkeepingSystem`. \n"
+                          "For non-registered accounting systems the periods are defined by `StartDateForUseOfDigitalNonregisteredBookkeepingSystem` and `EndDateForUseOfDigitalNonregisteredBookkeepingSystem`.\n"
+                          ),
+                    modelObject=currentPeriod + nextPeriod
+                )
 
-    # Registered Accounting Systems
-    regStartDatesFacts = val.modelXbrl.factsByQname.get(pluginData.startDateForUseOfDigitalStandardBookkeepingSystemQn, set())
-    regEndDatesFacts = val.modelXbrl.factsByQname.get(pluginData.endDateForUseOfDigitalStandardBookkeepingSystemQn, set())
-    # Non-Registered Accounting Systems
-    nonRegStartDatesFacts = val.modelXbrl.factsByQname.get(pluginData.startDateForUseOfDigitalNonregisteredBookkeepingSystemQn, set())
-    nonRegEndDatesFacts = val.modelXbrl.factsByQname.get(pluginData.endDateForUseOfDigitalNonregisteredBookkeepingSystemQn, set())
-    if len(regStartDatesFacts) + len(nonRegStartDatesFacts) > 1 and len(regEndDatesFacts) + len(nonRegEndDatesFacts) > 1:
-        allDateFact = regStartDatesFacts.union(regEndDatesFacts).union(nonRegStartDatesFacts).union(nonRegEndDatesFacts)
-        allGroupedFacts = groupFactsByContextHash(allDateFact)
-        offendingPeriods = findOverlappingPeriods(
-            allGroupedFacts,
-            [pluginData.startDateForUseOfDigitalStandardBookkeepingSystemQn, pluginData.startDateForUseOfDigitalNonregisteredBookkeepingSystemQn],
-            [pluginData.endDateForUseOfDigitalStandardBookkeepingSystemQn, pluginData.endDateForUseOfDigitalNonregisteredBookkeepingSystemQn]
-        )
-        for periodFacts in offendingPeriods:
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=STAND_ALONE_DISCLOSURE_SYSTEMS,
+)
+def rule_fr109(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    DBA.FR109: There are one or more accounting systems whose period is outside the accounting period.
+
+    For consolidated reports the accounting period to use is marked with AllReportingPeriodsMember.
+    For reports that use floating accounting periods, the accounting period to use is marked with RegisteredReportingPeriodDeviatingFromReportedReportingPeriodDueArbitraryDatesMember.
+    """
+    def findFact(factSet: Set[ModelFact], qname: QName) -> ModelFact | None:
+        for fact in factSet:
+          if fact is not None and fact.xValid >= VALID and fact.qname == qname:
+            return fact
+        return None
+
+    accountingPeriodStartFact = None
+    accountingPeriodEndFact = None
+    allReportingMemberFacts = val.modelXbrl.factsByDimMemQname(pluginData.typeOfReportingPeriodDimensionQn, pluginData.allReportingPeriodsMemberQn)
+    if len(allReportingMemberFacts) >1:
+        accountingPeriodStartFact = findFact(allReportingMemberFacts, pluginData.reportingPeriodStartDateQn)
+        accountingPeriodEndFact = findFact(allReportingMemberFacts, pluginData.reportingPeriodEndDateQn)
+    if accountingPeriodStartFact is None or accountingPeriodEndFact is None:
+        accountingPeriodStartFact = None
+        accountingPeriodEndFact = None
+    deviatingReportingMemberFacts = val.modelXbrl.factsByDimMemQname(pluginData.typeOfReportingPeriodDimensionQn, pluginData.registeredReportingPeriodDeviatingFromReportedReportingPeriodDueArbitraryDatesMemberQn)
+    if len(deviatingReportingMemberFacts) >1:
+        accountingPeriodStartFact = findFact(deviatingReportingMemberFacts, pluginData.reportingPeriodStartDateQn)
+        accountingPeriodEndFact = findFact(deviatingReportingMemberFacts, pluginData.reportingPeriodEndDateQn)
+    if accountingPeriodStartFact is None or accountingPeriodEndFact is None:
+        accountingPeriodStartFact = None
+        accountingPeriodEndFact = None
+    accountingPeriodStartFacts = getFactsWithoutDimension(val, pluginData.reportingPeriodStartDateQn)
+    if len(accountingPeriodStartFacts) >1:
+        accountingPeriodStartFact =   next(iter(accountingPeriodStartFacts), None)
+        accountingPeriodEndFacts = getFactsWithoutDimension(val, pluginData.reportingPeriodEndDateQn)
+        if len(accountingPeriodEndFacts) >1:
+            accountingPeriodEndFact =   next(iter(accountingPeriodStartFacts), None)
+    if accountingPeriodStartFact is None or accountingPeriodEndFact is None:
+        return
+    allGroupedFacts = pluginData.getBookkeepingPeriods(val.modelXbrl)
+    if len(allGroupedFacts) > 0:
+        if (allGroupedFacts[0][0].xValue is not None and cast(datetime.date, allGroupedFacts[0][0].xValue) < cast(datetime.date, accountingPeriodStartFact.xValue)) or (allGroupedFacts[-1][1].xValue is not None and cast(datetime.date, allGroupedFacts[-1][1].xValue) > cast(datetime.date, accountingPeriodEndFact.xValue)):
             yield Validation.error(
-                codes='DBA.FR108',
-                msg=_("There are periods that overlap between accounting systems.\n"
-                      "For registered accounting systems the periods are defined by `StartDateForUseOfDigitalStandardBookkeepingSystem` and `EndDateForUseOfDigitalStandardBookkeepingSystem`. \n"
-                      "For non-registered accounting systems the periods are defined by `StartDateForUseOfDigitalNonregisteredBookkeepingSystem` and `EndDateForUseOfDigitalNonregisteredBookkeepingSystem`.\n"
-                      ),
-                modelObject=periodFacts
+                codes='DBA.FR109',
+                msg=_("There are accounting systems whose period is outside the accounting period."),
+                modelObject=[accountingPeriodStartFact, accountingPeriodEndFact, allGroupedFacts[0][0], allGroupedFacts[-1][1]]
             )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=STAND_ALONE_DISCLOSURE_SYSTEMS,
+)
+def rule_fr115(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    DBA.FR115: It is not possible to specify an end date for using an accounting system before the start date
+    """
+    allGroupedFacts = pluginData.getBookkeepingPeriods(val.modelXbrl)
+    if len(allGroupedFacts) > 0:
+        for facts in allGroupedFacts:
+            if facts[0].xValue is not None and facts[1].xValue is not None and cast(datetime.date, facts[0].xValue) > cast(datetime.date, facts[1].xValue):
+                yield Validation.error(
+                    codes='DBA.FR115',
+                    msg=_("It is not possible to specify an end date for using an accounting system before the start date.\n"
+                          "Start Date: %(startDate)s,   End Date: %(endDate)s."),
+                    startDate=facts[0].xValue,
+                    endDate=facts[1].xValue,
+                    modelObject=facts
+                )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=STAND_ALONE_DISCLOSURE_SYSTEMS,
+)
+def rule_fr116(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    DBA.FR116: It is not permitted to declare numeric fields with multiple values in the same period.
+    """
+    dimensionQn = pluginData.reportedValueOtherRenderingOfReportedValueDimensionQn
+    otherRenderingMemberQn = pluginData.otherRenderingOfReportedValueMemberQn
+    duplicateFactSets = ValidateDuplicateFacts.getDuplicateFactSetsWithType(val.modelXbrl.facts, DuplicateType.INCOMPLETE)
+    for duplicateFactSet in duplicateFactSets:
+        if not duplicateFactSet.areNumeric:
+            continue
+        reportedValueFacts = {
+            fact
+            for fact in duplicateFactSet.facts
+            if fact.context is None or fact.context.dimMemberQname(dimensionQn) != otherRenderingMemberQn
+        }
+        if len(reportedValueFacts) > 1:
+            yield Validation.warning(
+                codes='DBA.FR116',
+                msg=_("It is not permitted to declare numeric fields with multiple values in the same period."),
+                modelObject=reportedValueFacts,
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=STAND_ALONE_DISCLOSURE_SYSTEMS,
+)
+def rule_fr117(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    DBA.FR117: The rendering dimension may only be used for numeric fields.
+    """
+    dimensionQn = pluginData.reportedValueOtherRenderingOfReportedValueDimensionQn
+    otherRenderingMemberQn = pluginData.otherRenderingOfReportedValueMemberQn
+    facts = val.modelXbrl.factsByDimMemQname(dimensionQn, otherRenderingMemberQn)
+    invalidFacts = [fact for fact in facts if not fact.isNumeric]
+    if len(invalidFacts) > 0:
+        yield Validation.warning(
+            codes='DBA.FR117',
+            msg=_("The rendering dimension may only be used for numeric fields."),
+            modelObject=invalidFacts,
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=STAND_ALONE_DISCLOSURE_SYSTEMS,
+)
+def rule_fr118(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    DBA.FR118: Fields that appear in the other rendering dimension
+    must also appear in the reported dimension with a different scale.
+    """
+    dimensionQn = pluginData.reportedValueOtherRenderingOfReportedValueDimensionQn
+    otherRenderingMemberQn = pluginData.otherRenderingOfReportedValueMemberQn
+
+    # Find "other rendering" contexts and map reported value contexts for matching later
+    otherRenderingContextsMap = defaultdict(list)
+    reportedValueContextsMap = defaultdict(list)
+    for contextId, context in val.modelXbrl.contexts.items():
+        # An "other rendering" and "reported value" context match if they are effectively duplicate contexts
+        # when ignoring the "other rendering" dimension member
+        key = (
+            context.startDatetime,
+            context.endDatetime,
+            context.entityIdentifier,
+            tuple(
+                (dimConcept, dimMember)
+                for dimConcept, dimMember in sorted(context.scenDimValues.items(), key=lambda item: item[0].localName)
+                if dimConcept.qname != dimensionQn
+            )
+        )
+        if context.dimMemberQname(dimensionQn) == otherRenderingMemberQn:
+            otherRenderingContextsMap[key].append(context)
+        else:
+            reportedValueContextsMap[key].append(context)
+
+    if not otherRenderingContextsMap:
+        # No "other reporting" contexts, nothing to validate
+        return
+
+    factsByContextId = pluginData.factsByContextId(val.modelXbrl)
+
+    invalidFacts: list[ModelFact] = []
+    for key, otherRenderingContexts in otherRenderingContextsMap.items():
+        for otherRenderingContext in otherRenderingContexts:
+            if otherRenderingContext.id is None:
+                continue
+            # Map "other rendering" facts by (qname, unitID) for quick lookup
+            # We'll remove matched facts from this map as we find them
+            otherRenderingFactsMap: dict[tuple[QName, str], set[ModelFact]] = defaultdict(set)
+            for otherRenderingFact in factsByContextId.get(otherRenderingContext.id, set()):
+                if not otherRenderingFact.isNumeric:
+                    # Validated by FR117
+                    continue
+                otherRenderingFactsMap[(otherRenderingFact.qname, otherRenderingFact.unitID)].add(otherRenderingFact)
+
+            # Iterate over each "reported value" context, matched by a key that indicates that are effectively
+            # duplicate contexts except for the "other rendering" dimension member
+            for reportedValueContext in reportedValueContextsMap.get(key, []):
+                if reportedValueContext.id is None:
+                    continue
+                reportedValueFacts = factsByContextId.get(reportedValueContext.id, set())
+                for reportedValueFact in reportedValueFacts:
+                    fact_key = (reportedValueFact.qname, reportedValueFact.unitID)
+                    if fact_key not in otherRenderingFactsMap:
+                        continue
+                    matchingOtherRenderingFacts = {
+                        _fact
+                        for _fact in otherRenderingFactsMap.get(fact_key, set())
+                        if _fact.scaleInt != reportedValueFact.scaleInt  # type: ignore[attr-defined]
+                    }
+                    otherRenderingFactsMap[fact_key] -= matchingOtherRenderingFacts
+
+            # Any remaining "other rendering" facts have not been matched
+            # with a "reported value" fact with a different scale
+            for __, otherRenderingFacts in otherRenderingFactsMap.items():
+                invalidFacts.extend(otherRenderingFacts)
+
+    if invalidFacts:
+        yield Validation.warning(
+            codes='DBA.FR118',
+            msg=_("Fields that appear in the other rendering dimension must also appear in the reported dimension with a different scale."),
+            modelObject=invalidFacts,
+        )

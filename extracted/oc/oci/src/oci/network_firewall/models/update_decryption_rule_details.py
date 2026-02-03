@@ -29,6 +29,10 @@ class UpdateDecryptionRuleDetails(object):
         Initializes a new UpdateDecryptionRuleDetails object with values from keyword arguments.
         The following keyword arguments are supported (corresponding to the getters/setters of this class):
 
+        :param description:
+            The value to assign to the description property of this UpdateDecryptionRuleDetails.
+        :type description: str
+
         :param condition:
             The value to assign to the condition property of this UpdateDecryptionRuleDetails.
         :type condition: oci.network_firewall.models.DecryptionRuleMatchCriteria
@@ -52,6 +56,7 @@ class UpdateDecryptionRuleDetails(object):
 
         """
         self.swagger_types = {
+            'description': 'str',
             'condition': 'DecryptionRuleMatchCriteria',
             'action': 'str',
             'decryption_profile': 'str',
@@ -59,17 +64,43 @@ class UpdateDecryptionRuleDetails(object):
             'position': 'RulePosition'
         }
         self.attribute_map = {
+            'description': 'description',
             'condition': 'condition',
             'action': 'action',
             'decryption_profile': 'decryptionProfile',
             'secret': 'secret',
             'position': 'position'
         }
+        self._description = None
         self._condition = None
         self._action = None
         self._decryption_profile = None
         self._secret = None
         self._position = None
+
+    @property
+    def description(self):
+        """
+        Gets the description of this UpdateDecryptionRuleDetails.
+        The description of the decryption rule. This field can be used to add additional info.
+
+
+        :return: The description of this UpdateDecryptionRuleDetails.
+        :rtype: str
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """
+        Sets the description of this UpdateDecryptionRuleDetails.
+        The description of the decryption rule. This field can be used to add additional info.
+
+
+        :param description: The description of this UpdateDecryptionRuleDetails.
+        :type: str
+        """
+        self._description = description
 
     @property
     def condition(self):

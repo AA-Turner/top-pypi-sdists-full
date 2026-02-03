@@ -1,29 +1,27 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-import sys
 import functools
+import sys
 
 from contrast_fireball import DiscoveredRoute
 
 import contrast
 from contrast.agent import scope
+from contrast.agent.assess.rules.config import (
+    FlaskHttpOnlyRule,
+    FlaskSecureFlagRule,
+    FlaskSessionAgeRule,
+)
 from contrast.agent.middlewares.route_coverage import common
 from contrast.agent.policy import patch_manager
+from contrast.utils.decorators import fail_quietly
 from contrast.utils.patch_utils import (
     build_and_apply_patch,
+    register_module_patcher,
     unregister_module_patcher,
     wrap_and_watermark,
-    register_module_patcher,
 )
-from contrast.utils.decorators import fail_quietly
 from contrast.utils.safe_import import safe_import_list
-
-from contrast.agent.assess.rules.config import (
-    FlaskSessionAgeRule,
-    FlaskSecureFlagRule,
-    FlaskHttpOnlyRule,
-)
-
 from contrast_vendor import structlog as logging
 
 FLASK_MODULE_NAME = "flask"
@@ -73,9 +71,9 @@ def build_quart_full_dispatch_request_patch(orig_func, patch_policy):
 @fail_quietly("Failed to run first-request analysis")
 @scope.contrast_scope()
 def do_first_request_analysis(app_instance, framework: str):
-    from contrast.agent import agent_state
+    context = contrast.REQUEST_CONTEXT.get()
 
-    if not agent_state.is_first_request():
+    if context is None or not context.first_request or not context.assess_enabled:
         return
 
     common.handle_route_discovery(framework, discover_routes, (app_instance,))

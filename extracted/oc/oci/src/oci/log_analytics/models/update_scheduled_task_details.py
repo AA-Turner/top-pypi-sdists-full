@@ -41,6 +41,10 @@ class UpdateScheduledTaskDetails(object):
             The value to assign to the display_name property of this UpdateScheduledTaskDetails.
         :type display_name: str
 
+        :param description:
+            The value to assign to the description property of this UpdateScheduledTaskDetails.
+        :type description: str
+
         :param freeform_tags:
             The value to assign to the freeform_tags property of this UpdateScheduledTaskDetails.
         :type freeform_tags: dict(str, str)
@@ -57,6 +61,7 @@ class UpdateScheduledTaskDetails(object):
         self.swagger_types = {
             'kind': 'str',
             'display_name': 'str',
+            'description': 'str',
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))',
             'schedules': 'list[Schedule]'
@@ -64,12 +69,14 @@ class UpdateScheduledTaskDetails(object):
         self.attribute_map = {
             'kind': 'kind',
             'display_name': 'displayName',
+            'description': 'description',
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags',
             'schedules': 'schedules'
         }
         self._kind = None
         self._display_name = None
+        self._description = None
         self._freeform_tags = None
         self._defined_tags = None
         self._schedules = None
@@ -147,6 +154,30 @@ class UpdateScheduledTaskDetails(object):
         :type: str
         """
         self._display_name = display_name
+
+    @property
+    def description(self):
+        """
+        Gets the description of this UpdateScheduledTaskDetails.
+        Description for this resource.
+
+
+        :return: The description of this UpdateScheduledTaskDetails.
+        :rtype: str
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """
+        Sets the description of this UpdateScheduledTaskDetails.
+        Description for this resource.
+
+
+        :param description: The description of this UpdateScheduledTaskDetails.
+        :type: str
+        """
+        self._description = description
 
     @property
     def freeform_tags(self):

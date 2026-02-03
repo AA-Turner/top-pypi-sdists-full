@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -57,36 +57,36 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FpolicyEvent(
     {
-        "filters": {
-            "write_with_size_change": True,
-            "open_with_write_intent": True,
-            "first_write": True,
-            "monitor_ads": True,
-            "open_with_delete_intent": True,
-            "close_with_read": True,
-            "first_read": True,
-            "close_with_modification": True,
-            "offline_bit": True,
-            "close_without_modification": True,
-        },
-        "monitor_fileop_failure": False,
         "protocol": "cifs",
-        "file_operations": {
-            "create": True,
-            "delete": True,
-            "create_dir": True,
-            "setattr": True,
-            "getattr": True,
-            "delete_dir": True,
-            "open": True,
-            "rename": True,
-            "read": True,
-            "write": True,
-            "close": True,
-            "rename_dir": True,
-        },
+        "monitor_fileop_failure": False,
         "volume_monitoring": True,
         "name": "event_cifs",
+        "filters": {
+            "open_with_delete_intent": True,
+            "write_with_size_change": True,
+            "open_with_write_intent": True,
+            "offline_bit": True,
+            "close_with_modification": True,
+            "monitor_ads": True,
+            "first_read": True,
+            "close_without_modification": True,
+            "first_write": True,
+            "close_with_read": True,
+        },
+        "file_operations": {
+            "read": True,
+            "close": True,
+            "rename_dir": True,
+            "setattr": True,
+            "create": True,
+            "create_dir": True,
+            "open": True,
+            "delete_dir": True,
+            "rename": True,
+            "write": True,
+            "getattr": True,
+            "delete": True,
+        },
     }
 )
 
@@ -132,25 +132,25 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FpolicyEvent(
     {
-        "filters": {"write_with_size_change": True, "offline_bit": True},
-        "monitor_fileop_failure": False,
         "protocol": "nfsv3",
-        "file_operations": {
-            "create": True,
-            "delete": True,
-            "create_dir": True,
-            "setattr": True,
-            "delete_dir": True,
-            "rename": True,
-            "read": True,
-            "link": True,
-            "lookup": True,
-            "write": True,
-            "symlink": True,
-            "rename_dir": True,
-        },
+        "monitor_fileop_failure": False,
         "volume_monitoring": False,
         "name": "event_nfsv3",
+        "filters": {"write_with_size_change": True, "offline_bit": True},
+        "file_operations": {
+            "read": True,
+            "symlink": True,
+            "rename_dir": True,
+            "link": True,
+            "setattr": True,
+            "create": True,
+            "create_dir": True,
+            "delete_dir": True,
+            "rename": True,
+            "write": True,
+            "lookup": True,
+            "delete": True,
+        },
     }
 )
 
@@ -193,21 +193,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FpolicyEvent(
     {
-        "monitor_fileop_failure": True,
         "protocol": "nfsv3",
+        "monitor_fileop_failure": True,
+        "volume_monitoring": False,
+        "name": "nfs_failed_op",
         "file_operations": {
+            "read": True,
+            "rename_dir": True,
+            "link": True,
             "create": True,
-            "delete": True,
             "create_dir": True,
             "delete_dir": True,
             "rename": True,
-            "read": True,
-            "link": True,
             "write": True,
-            "rename_dir": True,
+            "delete": True,
         },
-        "volume_monitoring": False,
-        "name": "nfs_failed_op",
     }
 )
 
@@ -243,28 +243,28 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FpolicyEvent(
         {
-            "monitor_fileop_failure": True,
             "protocol": "cifs",
-            "file_operations": {
-                "create": False,
-                "delete": False,
-                "create_dir": False,
-                "setattr": False,
-                "getattr": False,
-                "delete_dir": False,
-                "open": True,
-                "rename": False,
-                "read": False,
-                "link": False,
-                "lookup": False,
-                "write": False,
-                "symlink": False,
-                "close": False,
-                "rename_dir": False,
-            },
+            "monitor_fileop_failure": True,
             "volume_monitoring": False,
-            "svm": {"uuid": "b5087518-40b3-11ed-b3eb-005056bbe901"},
             "name": "fo_event",
+            "file_operations": {
+                "read": False,
+                "close": False,
+                "symlink": False,
+                "rename_dir": False,
+                "link": False,
+                "setattr": False,
+                "create": False,
+                "create_dir": False,
+                "open": True,
+                "delete_dir": False,
+                "rename": False,
+                "write": False,
+                "lookup": False,
+                "getattr": False,
+                "delete": False,
+            },
+            "svm": {"uuid": "b5087518-40b3-11ed-b3eb-005056bbe901"},
         }
     )
 ]
@@ -298,100 +298,100 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FpolicyEvent(
         {
-            "filters": {
-                "write_with_size_change": False,
-                "setattr_with_owner_change": False,
-                "open_with_write_intent": False,
-                "exclude_directory": False,
-                "first_write": False,
-                "monitor_ads": False,
-                "open_with_delete_intent": False,
-                "setattr_with_allocation_size_change": False,
-                "setattr_with_mode_change": False,
-                "setattr_with_access_time_change": False,
-                "setattr_with_sacl_change": False,
-                "close_with_read": True,
-                "first_read": False,
-                "setattr_with_size_change": False,
-                "setattr_with_group_change": False,
-                "close_with_modification": False,
-                "setattr_with_modify_time_change": False,
-                "offline_bit": False,
-                "setattr_with_dacl_change": False,
-                "setattr_with_creation_time_change": False,
-                "close_without_modification": False,
-            },
-            "monitor_fileop_failure": False,
             "protocol": "cifs",
-            "file_operations": {
-                "create": False,
-                "delete": False,
-                "create_dir": False,
-                "setattr": False,
-                "getattr": False,
-                "delete_dir": False,
-                "open": False,
-                "rename": False,
-                "read": False,
-                "link": False,
-                "lookup": False,
-                "write": False,
-                "symlink": False,
-                "close": True,
-                "rename_dir": False,
-            },
+            "monitor_fileop_failure": False,
             "volume_monitoring": False,
-            "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
             "name": "cluster",
+            "filters": {
+                "open_with_delete_intent": False,
+                "write_with_size_change": False,
+                "open_with_write_intent": False,
+                "offline_bit": False,
+                "setattr_with_creation_time_change": False,
+                "exclude_directory": False,
+                "close_with_modification": False,
+                "monitor_ads": False,
+                "setattr_with_owner_change": False,
+                "setattr_with_group_change": False,
+                "setattr_with_sacl_change": False,
+                "first_read": False,
+                "setattr_with_access_time_change": False,
+                "setattr_with_dacl_change": False,
+                "close_without_modification": False,
+                "setattr_with_allocation_size_change": False,
+                "first_write": False,
+                "setattr_with_mode_change": False,
+                "close_with_read": True,
+                "setattr_with_size_change": False,
+                "setattr_with_modify_time_change": False,
+            },
+            "file_operations": {
+                "read": False,
+                "close": True,
+                "symlink": False,
+                "rename_dir": False,
+                "link": False,
+                "setattr": False,
+                "create": False,
+                "create_dir": False,
+                "open": False,
+                "delete_dir": False,
+                "rename": False,
+                "write": False,
+                "lookup": False,
+                "getattr": False,
+                "delete": False,
+            },
+            "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
         }
     ),
     FpolicyEvent(
         {
-            "filters": {
-                "write_with_size_change": True,
-                "setattr_with_owner_change": False,
-                "open_with_write_intent": True,
-                "exclude_directory": False,
-                "first_write": True,
-                "monitor_ads": True,
-                "open_with_delete_intent": True,
-                "setattr_with_allocation_size_change": False,
-                "setattr_with_mode_change": False,
-                "setattr_with_access_time_change": False,
-                "setattr_with_sacl_change": False,
-                "close_with_read": True,
-                "first_read": True,
-                "setattr_with_size_change": False,
-                "setattr_with_group_change": False,
-                "close_with_modification": True,
-                "setattr_with_modify_time_change": False,
-                "offline_bit": True,
-                "setattr_with_dacl_change": False,
-                "setattr_with_creation_time_change": False,
-                "close_without_modification": True,
-            },
-            "monitor_fileop_failure": False,
             "protocol": "cifs",
-            "file_operations": {
-                "create": True,
-                "delete": True,
-                "create_dir": True,
-                "setattr": True,
-                "getattr": True,
-                "delete_dir": True,
-                "open": True,
-                "rename": True,
-                "read": True,
-                "link": False,
-                "lookup": False,
-                "write": True,
-                "symlink": False,
-                "close": True,
-                "rename_dir": True,
-            },
+            "monitor_fileop_failure": False,
             "volume_monitoring": True,
-            "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
             "name": "event_cifs",
+            "filters": {
+                "open_with_delete_intent": True,
+                "write_with_size_change": True,
+                "open_with_write_intent": True,
+                "offline_bit": True,
+                "setattr_with_creation_time_change": False,
+                "exclude_directory": False,
+                "close_with_modification": True,
+                "monitor_ads": True,
+                "setattr_with_owner_change": False,
+                "setattr_with_group_change": False,
+                "setattr_with_sacl_change": False,
+                "first_read": True,
+                "setattr_with_access_time_change": False,
+                "setattr_with_dacl_change": False,
+                "close_without_modification": True,
+                "setattr_with_allocation_size_change": False,
+                "first_write": True,
+                "setattr_with_mode_change": False,
+                "close_with_read": True,
+                "setattr_with_size_change": False,
+                "setattr_with_modify_time_change": False,
+            },
+            "file_operations": {
+                "read": True,
+                "close": True,
+                "symlink": False,
+                "rename_dir": True,
+                "link": False,
+                "setattr": True,
+                "create": True,
+                "create_dir": True,
+                "open": True,
+                "delete_dir": True,
+                "rename": True,
+                "write": True,
+                "lookup": False,
+                "getattr": True,
+                "delete": True,
+            },
+            "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
         }
     ),
 ]
@@ -420,51 +420,51 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FpolicyEvent(
     {
-        "filters": {
-            "write_with_size_change": True,
-            "setattr_with_owner_change": False,
-            "open_with_write_intent": True,
-            "exclude_directory": False,
-            "first_write": True,
-            "monitor_ads": True,
-            "open_with_delete_intent": True,
-            "setattr_with_allocation_size_change": False,
-            "setattr_with_mode_change": False,
-            "setattr_with_access_time_change": False,
-            "setattr_with_sacl_change": False,
-            "close_with_read": True,
-            "first_read": True,
-            "setattr_with_size_change": False,
-            "setattr_with_group_change": False,
-            "close_with_modification": True,
-            "setattr_with_modify_time_change": False,
-            "offline_bit": True,
-            "setattr_with_dacl_change": False,
-            "setattr_with_creation_time_change": False,
-            "close_without_modification": True,
-        },
-        "monitor_fileop_failure": False,
         "protocol": "cifs",
-        "file_operations": {
-            "create": True,
-            "delete": True,
-            "create_dir": True,
-            "setattr": True,
-            "getattr": True,
-            "delete_dir": True,
-            "open": True,
-            "rename": True,
-            "read": True,
-            "link": False,
-            "lookup": False,
-            "write": True,
-            "symlink": False,
-            "close": True,
-            "rename_dir": True,
-        },
+        "monitor_fileop_failure": False,
         "volume_monitoring": True,
-        "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
         "name": "event_cifs",
+        "filters": {
+            "open_with_delete_intent": True,
+            "write_with_size_change": True,
+            "open_with_write_intent": True,
+            "offline_bit": True,
+            "setattr_with_creation_time_change": False,
+            "exclude_directory": False,
+            "close_with_modification": True,
+            "monitor_ads": True,
+            "setattr_with_owner_change": False,
+            "setattr_with_group_change": False,
+            "setattr_with_sacl_change": False,
+            "first_read": True,
+            "setattr_with_access_time_change": False,
+            "setattr_with_dacl_change": False,
+            "close_without_modification": True,
+            "setattr_with_allocation_size_change": False,
+            "first_write": True,
+            "setattr_with_mode_change": False,
+            "close_with_read": True,
+            "setattr_with_size_change": False,
+            "setattr_with_modify_time_change": False,
+        },
+        "file_operations": {
+            "read": True,
+            "close": True,
+            "symlink": False,
+            "rename_dir": True,
+            "link": False,
+            "setattr": True,
+            "create": True,
+            "create_dir": True,
+            "open": True,
+            "delete_dir": True,
+            "rename": True,
+            "write": True,
+            "lookup": False,
+            "getattr": True,
+            "delete": True,
+        },
+        "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
     }
 )
 
@@ -512,11 +512,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -530,15 +529,24 @@ __pdoc__ = {
     "FpolicyEventSchema.opts": False,
 }
 
-
 class FpolicyEventSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the FpolicyEvent object"""
 
-    file_operations = marshmallow_fields.Nested("netapp_ontap.models.fpolicy_event_file_operations.FpolicyEventFileOperationsSchema", data_key="file_operations", unknown=EXCLUDE, allow_none=True)
+    file_operations = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fpolicy_event_file_operations", "FpolicyEventFileOperationsSchema"),
+                data_key="file_operations",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Specifies the file operations for the FPolicy event. You must specify a valid protocol in the protocol parameter.
 The event will check the operations specified from all client requests using the protocol."""
 
-    filters = marshmallow_fields.Nested("netapp_ontap.models.fpolicy_event_filters.FpolicyEventFiltersSchema", data_key="filters", unknown=EXCLUDE, allow_none=True)
+    filters = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fpolicy_event_filters", "FpolicyEventFiltersSchema"),
+                data_key="filters",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Specifies the list of filters for a given file operation for the specified protocol.
 When you specify the filters, you must specify the valid protocols and a valid file operations."""
 
@@ -576,7 +584,12 @@ Valid choices:
 * nfsv3
 * nfsv4"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.models.fpolicy_engine_svm.FpolicyEngineSvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fpolicy_engine_svm", "FpolicyEngineSvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the fpolicy_event."""
 
     volume_monitoring = marshmallow_fields.Boolean(

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -70,16 +70,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Autosupport(
     {
-        "to": ["abc@netapp.com", "xyz@netapp.com"],
-        "enabled": True,
-        "is_minimal": False,
-        "from": "Postmaster",
         "contact_support": True,
-        "proxy_url": "",
-        "mail_hosts": ["mailhost"],
         "ondemand_enabled": True,
         "smtp_encryption": "none",
         "transport": "smtp",
+        "proxy_url": "",
+        "to": ["abc@netapp.com", "xyz@netapp.com"],
+        "is_minimal": False,
+        "from": "Postmaster",
+        "mail_hosts": ["mailhost"],
+        "enabled": True,
     }
 )
 
@@ -110,42 +110,42 @@ Autosupport(
     {
         "issues": [
             {
+                "destination": "mailhost",
                 "issue": {
                     "message": "SMTP connectivity check failed for destination: mailhost. Error: Could not resolve host - 'mailhost'",
                     "code": "53149746",
                 },
                 "component": "mail_server",
                 "node": {
-                    "uuid": "0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc",
                     "name": "node3",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc"
                         }
                     },
+                    "uuid": "0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc",
                 },
-                "destination": "mailhost",
                 "corrective_action": {
                     "message": "Check the hostname of the SMTP server",
                     "code": "53149746",
                 },
             },
             {
+                "destination": "https://support.netapp.com/aods/asupmessage",
                 "issue": {
                     "message": 'AutoSupport OnDemand is disabled when "-transport" is not set to "https".',
                     "code": "53149740",
                 },
                 "component": "ondemand_server",
                 "node": {
-                    "uuid": "0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc",
                     "name": "node3",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc"
                         }
                     },
+                    "uuid": "0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc",
                 },
-                "destination": "https://support.netapp.com/aods/asupmessage",
                 "corrective_action": {
                     "message": 'Run "system node autosupport modify -transport https -node <node name>" to set "-transport" to "https".',
                     "code": "53149740",
@@ -179,60 +179,60 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Autosupport(
     {
-        "to": ["abc@netapp.com", "xyz@netapp.com"],
-        "enabled": True,
-        "is_minimal": False,
-        "from": "Postmaster",
         "contact_support": True,
-        "proxy_url": "",
-        "mail_hosts": ["mailhost"],
+        "ondemand_enabled": True,
         "issues": [
             {
+                "destination": "mailhost",
                 "issue": {
                     "message": "SMTP connectivity check failed for destination: mailhost. Error: Could not resolve host - 'mailhost'",
                     "code": "53149746",
                 },
                 "component": "mail_server",
                 "node": {
-                    "uuid": "0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc",
                     "name": "node3",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc"
                         }
                     },
+                    "uuid": "0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc",
                 },
-                "destination": "mailhost",
                 "corrective_action": {
                     "message": "Check the hostname of the SMTP server",
                     "code": "53149746",
                 },
             },
             {
+                "destination": "https://support.netapp.com/aods/asupmessage",
                 "issue": {
                     "message": 'AutoSupport OnDemand is disabled when "-transport" is not set to "https".',
                     "code": "53149740",
                 },
                 "component": "ondemand_server",
                 "node": {
-                    "uuid": "0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc",
                     "name": "node3",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc"
                         }
                     },
+                    "uuid": "0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc",
                 },
-                "destination": "https://support.netapp.com/aods/asupmessage",
                 "corrective_action": {
                     "message": 'Run "system node autosupport modify -transport https -node <node name>" to set "-transport" to "https".',
                     "code": "53149740",
                 },
             },
         ],
-        "ondemand_enabled": True,
         "smtp_encryption": "none",
         "transport": "smtp",
+        "proxy_url": "",
+        "to": ["abc@netapp.com", "xyz@netapp.com"],
+        "is_minimal": False,
+        "from": "Postmaster",
+        "mail_hosts": ["mailhost"],
+        "enabled": True,
     }
 )
 
@@ -246,11 +246,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -263,7 +262,6 @@ __pdoc__ = {
     "AutosupportSchema.resource": False,
     "AutosupportSchema.opts": False,
 }
-
 
 class AutosupportSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Autosupport object"""
@@ -300,7 +298,15 @@ Example: postmaster@example.com"""
 
 Example: true"""
 
-    issues = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.autosupport_issues.AutosupportIssuesSchema", unknown=EXCLUDE, allow_none=True), data_key="issues", allow_none=True)
+    issues = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.autosupport_issues", "AutosupportIssuesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="issues",
+                allow_none=True
+            )
     r""" A list of connectivity issues to the HTTPS/SMTP/AOD AutoSupport destinations on the nodes in the cluster along with the corrective actions."""
 
     mail_hosts = marshmallow_fields.List(marshmallow_fields.Str, data_key="mail_hosts", allow_none=True)

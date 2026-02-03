@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -33,46 +33,46 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConsistencyGroup(
         {
-            "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
             "name": "vol1",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f"
                 }
             },
+            "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
         }
     ),
     ConsistencyGroup(
         {
-            "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
             "name": "parent_cg",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/c1b22c85-0a82-11ec-a449-005056bbcf9f"
                 }
             },
+            "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
         }
     ),
     ConsistencyGroup(
         {
-            "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
             "name": "child_1",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/c1b270b1-0a82-11ec-a449-005056bbcf9f"
                 }
             },
+            "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
         }
     ),
     ConsistencyGroup(
         {
-            "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
             "name": "child_2",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/c1b270c3-0a82-11ec-a449-005056bbcf9f"
                 }
             },
+            "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
         }
     ),
 ]
@@ -105,154 +105,154 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConsistencyGroup(
         {
-            "svm": {
-                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
-                "name": "vs1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"
-                    }
-                },
-            },
-            "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
-            "space": {"size": 108003328, "available": 107704320, "used": 299008},
-            "replicated": False,
             "name": "vol1",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f"
                 }
             },
-        }
-    ),
-    ConsistencyGroup(
-        {
+            "space": {"available": 107704320, "size": 108003328, "used": 299008},
+            "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
+            "replicated": False,
             "svm": {
-                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"
                     }
                 },
+                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
             },
-            "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
-            "space": {"size": 83886080, "available": 78696448, "used": 995328},
+        }
+    ),
+    ConsistencyGroup(
+        {
+            "name": "parent_cg",
             "snapshot_policy": {
-                "uuid": "a30bd0fe-067d-11ec-a449-005056bbcf9f",
                 "_links": {
                     "self": {
                         "href": "/api/storage/snapshot-policies/a30bd0fe-067d-11ec-a449-005056bbcf9f"
                     }
                 },
                 "name": "default-1weekly",
+                "uuid": "a30bd0fe-067d-11ec-a449-005056bbcf9f",
             },
-            "consistency_groups": [
-                {
-                    "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
-                    "_links": {
-                        "self": {
-                            "href": "/api/application/consistency-groups/c1b270b1-0a82-11ec-a449-005056bbcf9f"
-                        }
-                    },
-                    "space": {"size": 41943040, "available": 39346176, "used": 499712},
-                    "name": "child_1",
-                },
-                {
-                    "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
-                    "_links": {
-                        "self": {
-                            "href": "/api/application/consistency-groups/c1b270c3-0a82-11ec-a449-005056bbcf9f"
-                        }
-                    },
-                    "space": {"size": 41943040, "available": 39350272, "used": 495616},
-                    "name": "child_2",
-                },
-            ],
-            "replicated": False,
-            "name": "parent_cg",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/c1b22c85-0a82-11ec-a449-005056bbcf9f"
                 }
             },
-        }
-    ),
-    ConsistencyGroup(
-        {
+            "space": {"available": 78696448, "size": 83886080, "used": 995328},
+            "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
+            "consistency_groups": [
+                {
+                    "_links": {
+                        "self": {
+                            "href": "/api/application/consistency-groups/c1b270b1-0a82-11ec-a449-005056bbcf9f"
+                        }
+                    },
+                    "space": {"available": 39346176, "size": 41943040, "used": 499712},
+                    "name": "child_1",
+                    "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
+                },
+                {
+                    "_links": {
+                        "self": {
+                            "href": "/api/application/consistency-groups/c1b270c3-0a82-11ec-a449-005056bbcf9f"
+                        }
+                    },
+                    "space": {"available": 39350272, "size": 41943040, "used": 495616},
+                    "name": "child_2",
+                    "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
+                },
+            ],
+            "replicated": False,
             "svm": {
-                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"
                     }
                 },
+                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
             },
-            "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
-            "space": {"size": 41943040, "available": 39346176, "used": 499712},
-            "parent_consistency_group": {
-                "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
-                "name": "parent_cg",
-                "_links": {
-                    "self": {
-                        "href": "/api/application/consistency-groups/c1b22c85-0a82-11ec-a449-005056bbcf9f"
-                    }
-                },
-            },
+        }
+    ),
+    ConsistencyGroup(
+        {
+            "name": "child_1",
             "snapshot_policy": {
-                "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
                 "_links": {
                     "self": {
                         "href": "/api/storage/snapshot-policies/a30b60a4-067d-11ec-a449-005056bbcf9f"
                     }
                 },
                 "name": "default",
+                "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
             },
-            "name": "child_1",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/c1b270b1-0a82-11ec-a449-005056bbcf9f"
                 }
             },
-        }
-    ),
-    ConsistencyGroup(
-        {
-            "svm": {
-                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
-                "name": "vs1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"
-                    }
-                },
-            },
-            "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
-            "space": {"size": 41943040, "available": 39350272, "used": 495616},
+            "space": {"available": 39346176, "size": 41943040, "used": 499712},
             "parent_consistency_group": {
-                "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
                 "name": "parent_cg",
                 "_links": {
                     "self": {
                         "href": "/api/application/consistency-groups/c1b22c85-0a82-11ec-a449-005056bbcf9f"
                     }
                 },
+                "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
             },
+            "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
+            "svm": {
+                "name": "vs1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"
+                    }
+                },
+                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
+            },
+        }
+    ),
+    ConsistencyGroup(
+        {
+            "name": "child_2",
             "snapshot_policy": {
-                "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
                 "_links": {
                     "self": {
                         "href": "/api/storage/snapshot-policies/a30b60a4-067d-11ec-a449-005056bbcf9f"
                     }
                 },
                 "name": "default",
+                "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
             },
-            "name": "child_2",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/c1b270c3-0a82-11ec-a449-005056bbcf9f"
                 }
+            },
+            "space": {"available": 39350272, "size": 41943040, "used": 495616},
+            "parent_consistency_group": {
+                "name": "parent_cg",
+                "_links": {
+                    "self": {
+                        "href": "/api/application/consistency-groups/c1b22c85-0a82-11ec-a449-005056bbcf9f"
+                    }
+                },
+                "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
+            },
+            "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
+            "svm": {
+                "name": "vs1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"
+                    }
+                },
+                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
             },
         }
     ),
@@ -286,26 +286,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConsistencyGroup(
         {
-            "svm": {"name": "vs1"},
-            "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
             "name": "vol1",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f"
                 }
             },
+            "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
+            "svm": {"name": "vs1"},
         }
     ),
     ConsistencyGroup(
         {
-            "svm": {"name": "vs1"},
-            "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
             "name": "parent_cg",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/c1b22c85-0a82-11ec-a449-005056bbcf9f"
                 }
             },
+            "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
+            "svm": {"name": "vs1"},
         }
     ),
 ]
@@ -350,30 +350,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroup(
     {
+        "name": "vol1",
+        "luns": [
+            {
+                "lun_maps": [
+                    {
+                        "igroup": {
+                            "name": "igroup1",
+                            "initiators": [{"name": "example_name"}],
+                        }
+                    }
+                ],
+                "space": {"size": 104857600},
+                "name": "/vol/vol1/lun1",
+                "os_type": "linux",
+            }
+        ],
+        "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
         "svm": {
-            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
             "name": "vs1",
             "_links": {
                 "self": {"href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"}
             },
+            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
         },
-        "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
-        "luns": [
-            {
-                "os_type": "linux",
-                "name": "/vol/vol1/lun1",
-                "space": {"size": 104857600},
-                "lun_maps": [
-                    {
-                        "igroup": {
-                            "initiators": [{"name": "example_name"}],
-                            "name": "igroup1",
-                        }
-                    }
-                ],
-            }
-        ],
-        "name": "vol1",
     }
 )
 
@@ -421,30 +421,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroup(
     {
+        "name": "parent_cg",
+        "snapshot_policy": {"name": "default-1weekly"},
+        "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
+        "consistency_groups": [
+            {
+                "snapshot_policy": {"name": "default"},
+                "name": "child_1",
+                "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
+                "volumes": [{"name": "existing_vol1"}, {"name": "existing_vol2"}],
+            },
+            {
+                "snapshot_policy": {"name": "default"},
+                "name": "child_2",
+                "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
+                "volumes": [{"name": "existing_vol3"}, {"name": "existing_vol4"}],
+            },
+        ],
         "svm": {
-            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
             "name": "vs1",
             "_links": {
                 "self": {"href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"}
             },
+            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
         },
-        "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
-        "snapshot_policy": {"name": "default-1weekly"},
-        "consistency_groups": [
-            {
-                "volumes": [{"name": "existing_vol1"}, {"name": "existing_vol2"}],
-                "snapshot_policy": {"name": "default"},
-                "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
-                "name": "child_1",
-            },
-            {
-                "volumes": [{"name": "existing_vol3"}, {"name": "existing_vol4"}],
-                "snapshot_policy": {"name": "default"},
-                "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
-                "name": "child_2",
-            },
-        ],
-        "name": "parent_cg",
     }
 )
 
@@ -472,21 +472,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroup(
     {
-        "svm": {
-            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
-            "name": "vs1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"}
-            },
-        },
-        "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
-        "space": {"size": 108003328, "available": 107724800, "used": 278528},
-        "replicated": False,
         "name": "vol1",
         "_links": {
             "self": {
                 "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f"
             }
+        },
+        "space": {"available": 107724800, "size": 108003328, "used": 278528},
+        "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
+        "replicated": False,
+        "svm": {
+            "name": "vs1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"}
+            },
+            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
         },
     }
 )
@@ -515,83 +515,83 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroup(
     {
+        "name": "vol1",
         "tiering": {"policy": "none"},
-        "volumes": [
-            {
-                "tiering": {"policy": "none"},
-                "comment": "",
-                "qos": {
-                    "policy": {
-                        "uuid": "b7189398-e572-48ab-8f69-82cd46580812",
-                        "_links": {
-                            "self": {
-                                "href": "/api/storage/qos/policies/b7189398-e572-48ab-8f69-82cd46580812"
-                            }
-                        },
-                        "name": "extreme-fixed",
-                    }
-                },
-                "snapshot_policy": {
-                    "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
-                    "name": "default",
-                },
-                "uuid": "6f516c6c-0a7f-11ec-a449-005056bbcf9f",
-                "space": {"size": 108003328, "available": 107569152, "used": 434176},
-                "name": "vol1",
-            }
-        ],
-        "svm": {
-            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
-            "name": "vs1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"}
-            },
-        },
-        "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
-        "space": {"size": 108003328, "available": 107569152, "used": 434176},
-        "replicated": False,
         "luns": [
             {
                 "serial_number": "wIqM6]RfQK3t",
-                "os_type": "linux",
-                "name": "/vol/vol1/lun1",
-                "create_time": "2021-08-31T13:18:24-04:00",
-                "uuid": "6f51748a-0a7f-11ec-a449-005056bbcf9f",
+                "lun_maps": [
+                    {
+                        "igroup": {
+                            "protocol": "mixed",
+                            "name": "igroup1",
+                            "initiators": [{"name": "example_name"}],
+                            "os_type": "linux",
+                            "uuid": "6f4a4b86-0a7f-11ec-a449-005056bbcf9f",
+                        },
+                        "logical_unit_number": 0,
+                    }
+                ],
                 "space": {
                     "size": 104857600,
                     "used": 0,
                     "guarantee": {"reserved": False, "requested": False},
                 },
-                "lun_maps": [
-                    {
-                        "igroup": {
-                            "os_type": "linux",
-                            "protocol": "mixed",
-                            "uuid": "6f4a4b86-0a7f-11ec-a449-005056bbcf9f",
-                            "initiators": [{"name": "example_name"}],
-                            "name": "igroup1",
-                        },
-                        "logical_unit_number": 0,
-                    }
-                ],
+                "name": "/vol/vol1/lun1",
+                "os_type": "linux",
+                "uuid": "6f51748a-0a7f-11ec-a449-005056bbcf9f",
+                "create_time": "2021-08-31T13:18:24-04:00",
             }
         ],
-        "name": "vol1",
+        "_links": {
+            "self": {
+                "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f?fields=**"
+            }
+        },
         "qos": {
             "policy": {
-                "uuid": "b7189398-e572-48ab-8f69-82cd46580812",
                 "_links": {
                     "self": {
                         "href": "/api/storage/qos/policies/b7189398-e572-48ab-8f69-82cd46580812"
                     }
                 },
                 "name": "extreme-fixed",
+                "uuid": "b7189398-e572-48ab-8f69-82cd46580812",
             }
         },
-        "_links": {
-            "self": {
-                "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f?fields=**"
+        "space": {"available": 107569152, "size": 108003328, "used": 434176},
+        "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
+        "volumes": [
+            {
+                "qos": {
+                    "policy": {
+                        "_links": {
+                            "self": {
+                                "href": "/api/storage/qos/policies/b7189398-e572-48ab-8f69-82cd46580812"
+                            }
+                        },
+                        "name": "extreme-fixed",
+                        "uuid": "b7189398-e572-48ab-8f69-82cd46580812",
+                    }
+                },
+                "snapshot_policy": {
+                    "name": "default",
+                    "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
+                },
+                "space": {"available": 107569152, "size": 108003328, "used": 434176},
+                "name": "vol1",
+                "uuid": "6f516c6c-0a7f-11ec-a449-005056bbcf9f",
+                "comment": "",
+                "tiering": {"policy": "none"},
             }
+        ],
+        "replicated": False,
+        "svm": {
+            "name": "vs1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"}
+            },
+            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
         },
     }
 )
@@ -621,57 +621,57 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroup(
     {
-        "tiering": {"policy": "none"},
-        "volumes": [
-            {
-                "tiering": {"policy": "none"},
-                "comment": "",
-                "qos": {
-                    "policy": {
-                        "uuid": "b7189398-e572-48ab-8f69-82cd46580812",
-                        "_links": {
-                            "self": {
-                                "href": "/api/storage/qos/policies/b7189398-e572-48ab-8f69-82cd46580812"
-                            }
-                        },
-                        "name": "extreme-fixed",
-                    }
-                },
-                "snapshot_policy": {
-                    "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
-                    "name": "default",
-                },
-                "uuid": "6f516c6c-0a7f-11ec-a449-005056bbcf9f",
-                "space": {"size": 108003328, "available": 107569152, "used": 434176},
-                "name": "vol1",
-            }
-        ],
-        "svm": {
-            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
-            "name": "vs1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"}
-            },
-        },
-        "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
-        "space": {"size": 108003328, "available": 107569152, "used": 434176},
-        "replicated": False,
         "name": "vol1",
+        "tiering": {"policy": "none"},
+        "_links": {
+            "self": {
+                "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f?fields=**"
+            }
+        },
         "qos": {
             "policy": {
-                "uuid": "b7189398-e572-48ab-8f69-82cd46580812",
                 "_links": {
                     "self": {
                         "href": "/api/storage/qos/policies/b7189398-e572-48ab-8f69-82cd46580812"
                     }
                 },
                 "name": "extreme-fixed",
+                "uuid": "b7189398-e572-48ab-8f69-82cd46580812",
             }
         },
-        "_links": {
-            "self": {
-                "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f?fields=**"
+        "space": {"available": 107569152, "size": 108003328, "used": 434176},
+        "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
+        "volumes": [
+            {
+                "qos": {
+                    "policy": {
+                        "_links": {
+                            "self": {
+                                "href": "/api/storage/qos/policies/b7189398-e572-48ab-8f69-82cd46580812"
+                            }
+                        },
+                        "name": "extreme-fixed",
+                        "uuid": "b7189398-e572-48ab-8f69-82cd46580812",
+                    }
+                },
+                "snapshot_policy": {
+                    "name": "default",
+                    "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
+                },
+                "space": {"available": 107569152, "size": 108003328, "used": 434176},
+                "name": "vol1",
+                "uuid": "6f516c6c-0a7f-11ec-a449-005056bbcf9f",
+                "comment": "",
+                "tiering": {"policy": "none"},
             }
+        ],
+        "replicated": False,
+        "svm": {
+            "name": "vs1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"}
+            },
+            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
         },
     }
 )
@@ -766,17 +766,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroup(
     {
+        "name": "clone01_of_cg01",
         "clone": {
-            "parent_consistency_group": {
-                "uuid": "ca5e76fb-98c0-11ec-855a-005056a7693b",
-                "name": "cg01",
-            },
             "split_initiated": True,
-            "guarantee": {"type": "none"},
             "volume": {"suffix": "my_clone_sfx", "prefix": "my_clone_pfx"},
+            "guarantee": {"type": "none"},
+            "parent_consistency_group": {
+                "name": "cg01",
+                "uuid": "ca5e76fb-98c0-11ec-855a-005056a7693b",
+            },
         },
         "svm": {"name": "vs_0"},
-        "name": "clone01_of_cg01",
     }
 )
 
@@ -815,18 +815,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroup(
     {
+        "name": "clone01_of_cg01",
         "clone": {
-            "parent_consistency_group": {
-                "uuid": "ca5e76fb-98c0-11ec-855a-005056a7693b",
-                "name": "cg01",
-            },
             "split_initiated": True,
-            "guarantee": {"type": "none"},
-            "parent_snapshot": {"name": "snap01_of_cg01"},
             "volume": {"suffix": "my_clone_sfx", "prefix": "my_clone_pfx"},
+            "guarantee": {"type": "none"},
+            "parent_consistency_group": {
+                "name": "cg01",
+                "uuid": "ca5e76fb-98c0-11ec-855a-005056a7693b",
+            },
+            "parent_snapshot": {"name": "snap01_of_cg01"},
         },
         "svm": {"name": "vs_0"},
-        "name": "clone01_of_cg01",
     }
 )
 
@@ -1000,12 +1000,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroup(
     {
-        "svm": {"name": "vs1"},
+        "name": "cg_parent2",
         "consistency_groups": [
             {"provisioning_options": {"action": "add"}, "name": "cg_large"},
             {"provisioning_options": {"action": "add"}, "name": "cg_standalone2"},
         ],
-        "name": "cg_parent2",
+        "svm": {"name": "vs1"},
     }
 )
 
@@ -1042,11 +1042,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -1060,11 +1059,15 @@ __pdoc__ = {
     "ConsistencyGroupSchema.opts": False,
 }
 
-
 class ConsistencyGroupSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ConsistencyGroup object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the consistency_group."""
 
     tags = marshmallow_fields.List(marshmallow_fields.Str, data_key="_tags", allow_none=True)
@@ -1072,24 +1075,60 @@ class ConsistencyGroupSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: ["team:csi","environment:test"]"""
 
-    application = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_application.ConsistencyGroupApplicationSchema", data_key="application", unknown=EXCLUDE, allow_none=True)
+    application = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_application", "ConsistencyGroupApplicationSchema"),
+                data_key="application",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The application field of the consistency_group."""
 
-    clone = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_clone.ConsistencyGroupCloneSchema", data_key="clone", unknown=EXCLUDE, allow_none=True)
+    clone = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_clone", "ConsistencyGroupCloneSchema"),
+                data_key="clone",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The clone field of the consistency_group."""
 
-    consistency_groups = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.consistency_group_child.ConsistencyGroupChildSchema", unknown=EXCLUDE, allow_none=True), data_key="consistency_groups", allow_none=True)
+    consistency_groups = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.consistency_group_child", "ConsistencyGroupChildSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="consistency_groups",
+                allow_none=True
+            )
     r""" A consistency group is a mutually exclusive aggregation of volumes or other consistency groups. A consistency group can only be associated with one direct parent consistency group."""
 
-    luns = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.consistency_group_lun.ConsistencyGroupLunSchema", unknown=EXCLUDE, allow_none=True), data_key="luns", allow_none=True)
+    luns = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.consistency_group_lun", "ConsistencyGroupLunSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="luns",
+                allow_none=True
+            )
     r""" The LUNs array can be used to create or modify LUNs in a consistency group on a new or existing volume that is a member of the consistency group. LUNs are considered members of a consistency group if they are located on a volume that is a member of the consistency group.
 <personalities supports=unified>The maximum number of items for this array is 16.</personalities>
 <personalities supports=asar2>The maximum number of items for this array is 256.</personalities>"""
 
-    map_to = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_map_to.ConsistencyGroupMapToSchema", data_key="map_to", unknown=EXCLUDE, allow_none=True)
+    map_to = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_map_to", "ConsistencyGroupMapToSchema"),
+                data_key="map_to",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Specifies the igroup or subsystem to map the LUNs or namespaces within the consistency group. This parameter can only be used if all the storage objects within the consistency groups are either LUNs or namespaces."""
 
-    metric = marshmallow_fields.Nested("netapp_ontap.resources.consistency_group_metrics.ConsistencyGroupMetricsSchema", data_key="metric", unknown=EXCLUDE, allow_none=True)
+    metric = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.consistency_group_metrics", "ConsistencyGroupMetricsSchema"),
+                data_key="metric",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Performance and capacity numbers, such as, IOPS, latency, throughput, used space, and available space."""
 
     name = marshmallow_fields.Str(
@@ -1099,7 +1138,15 @@ Example: ["team:csi","environment:test"]"""
     r""" Name of the consistency group. The consistency group name must be unique within an SVM.<br/>
 <personalities supports=unified>If not provided and the consistency group contains only one volume, the name will be generated based on the volume name. If the consistency group contains more than one volume, the name is required.</personalities>"""
 
-    namespaces = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.consistency_group_consistency_groups_namespaces.ConsistencyGroupConsistencyGroupsNamespacesSchema", unknown=EXCLUDE, allow_none=True), data_key="namespaces", allow_none=True)
+    namespaces = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.consistency_group_consistency_groups_namespaces", "ConsistencyGroupConsistencyGroupsNamespacesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="namespaces",
+                allow_none=True
+            )
     r""" An NVMe namespace is a collection of addressable logical blocks presented to hosts connected to the SVM using the NVMe over Fabrics protocol.
 In ONTAP, an NVMe namespace is located within a volume. Optionally, it can be located within a qtree in a volume.<br/>
 An NVMe namespace is created to a specified size using thin or thick provisioning as determined by the volume on which it is created. NVMe namespaces support being cloned. An NVMe namespace cannot be renamed, resized, or moved to a different volume. NVMe namespaces do not support the assignment of a QoS policy for performance management, but a QoS policy can be assigned to the volume containing the namespace. See the NVMe namespace object model to learn more about each of the properties supported by the NVMe namespace REST API.<br/>
@@ -1107,13 +1154,28 @@ An NVMe namespace must be mapped to an NVMe subsystem to grant access to the sub
 <personalities supports=unified>The maximum number of items for this array is 16.</personalities>
 <personalities supports=asar2>The maximum number of items for this array is 256.</personalities>"""
 
-    parent_consistency_group = marshmallow_fields.Nested("netapp_ontap.resources.consistency_group.ConsistencyGroupSchema", data_key="parent_consistency_group", unknown=EXCLUDE, allow_none=True)
+    parent_consistency_group = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.consistency_group", "ConsistencyGroupSchema"),
+                data_key="parent_consistency_group",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The parent_consistency_group field of the consistency_group."""
 
-    provisioning_options = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_provisioning_options.ConsistencyGroupProvisioningOptionsSchema", data_key="provisioning_options", unknown=EXCLUDE, allow_none=True)
+    provisioning_options = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_provisioning_options", "ConsistencyGroupProvisioningOptionsSchema"),
+                data_key="provisioning_options",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Options that are applied to the operation."""
 
-    qos = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_qos.ConsistencyGroupQosSchema", data_key="qos", unknown=EXCLUDE, allow_none=True)
+    qos = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_qos", "ConsistencyGroupQosSchema"),
+                data_key="qos",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The qos field of the consistency_group."""
 
     replicated = marshmallow_fields.Boolean(
@@ -1122,7 +1184,15 @@ An NVMe namespace must be mapped to an NVMe subsystem to grant access to the sub
     )
     r""" Indicates whether or not replication has been enabled on this consistency group."""
 
-    replication_relationships = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.consistency_group_replication_relationships.ConsistencyGroupReplicationRelationshipsSchema", unknown=EXCLUDE, allow_none=True), data_key="replication_relationships", allow_none=True)
+    replication_relationships = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.consistency_group_replication_relationships", "ConsistencyGroupReplicationRelationshipsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="replication_relationships",
+                allow_none=True
+            )
     r""" Indicates the SnapMirror relationship of this consistency group."""
 
     replication_source = marshmallow_fields.Boolean(
@@ -1131,29 +1201,69 @@ An NVMe namespace must be mapped to an NVMe subsystem to grant access to the sub
     )
     r""" Since support for this field is to be removed in the next release, use replication_relationships.is_source instead."""
 
-    restore_to = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_consistency_groups_restore_to.ConsistencyGroupConsistencyGroupsRestoreToSchema", data_key="restore_to", unknown=EXCLUDE, allow_none=True)
+    restore_to = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_consistency_groups_restore_to", "ConsistencyGroupConsistencyGroupsRestoreToSchema"),
+                data_key="restore_to",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Use to restore a consistency group to a previous snapshot"""
 
-    snaplock = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_snaplock.ConsistencyGroupSnaplockSchema", data_key="snaplock", unknown=EXCLUDE, allow_none=True)
+    snaplock = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_snaplock", "ConsistencyGroupSnaplockSchema"),
+                data_key="snaplock",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The snaplock field of the consistency_group."""
 
-    snapshot_policy = marshmallow_fields.Nested("netapp_ontap.resources.snapshot_policy.SnapshotPolicySchema", data_key="snapshot_policy", unknown=EXCLUDE, allow_none=True)
+    snapshot_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.snapshot_policy", "SnapshotPolicySchema"),
+                data_key="snapshot_policy",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The snapshot policy of the consistency group.<br/>
 This is the dedicated consistency group snapshot policy, not an aggregation of the volume granular snapshot policy."""
 
-    space = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_space.ConsistencyGroupSpaceSchema", data_key="space", unknown=EXCLUDE, allow_none=True)
+    space = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_space", "ConsistencyGroupSpaceSchema"),
+                data_key="space",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The space field of the consistency_group."""
 
-    statistics = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_statistics.ConsistencyGroupStatisticsSchema", data_key="statistics", unknown=EXCLUDE, allow_none=True)
+    statistics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_statistics", "ConsistencyGroupStatisticsSchema"),
+                data_key="statistics",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" These are raw performance and space numbers, such as, IOPS, latency, throughput, used space, and available space. These numbers are aggregated across all nodes in the cluster and increase with the uptime of the cluster."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the consistency_group."""
 
-    tiering = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_tiering.ConsistencyGroupTieringSchema", data_key="tiering", unknown=EXCLUDE, allow_none=True)
+    tiering = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_tiering", "ConsistencyGroupTieringSchema"),
+                data_key="tiering",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The tiering field of the consistency_group."""
 
-    unmap_from = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_unmap_from.ConsistencyGroupUnmapFromSchema", data_key="unmap_from", unknown=EXCLUDE, allow_none=True)
+    unmap_from = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_unmap_from", "ConsistencyGroupUnmapFromSchema"),
+                data_key="unmap_from",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Specify the igroup or subsystem within the consistency group from which the LUNs or namespaces will be unmapped. This parameter can only be used if all the storage objects within the consistency groups are either LUNs or namespaces."""
 
     uuid = marshmallow_fields.Str(
@@ -1178,7 +1288,15 @@ Valid choices:
 * namespaces
 * mixed"""
 
-    volumes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.consistency_group_consistency_groups_volumes.ConsistencyGroupConsistencyGroupsVolumesSchema", unknown=EXCLUDE, allow_none=True), data_key="volumes", allow_none=True)
+    volumes = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.consistency_group_consistency_groups_volumes", "ConsistencyGroupConsistencyGroupsVolumesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="volumes",
+                allow_none=True
+            )
     r""" A consistency group is a mutually exclusive aggregation of volumes or other consistency groups. A volume can only be associated with one direct parent consistency group.<br/>
 <personalities supports=unified>The volumes array can be used to create new volumes in the consistency group, add existing volumes to the consistency group, or modify existing volumes that are already members of the consistency group.<br/></personalities>
 The total number of volumes across all child consistency groups contained in a consistency group is constrained by the same limit."""

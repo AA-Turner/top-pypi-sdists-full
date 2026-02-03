@@ -265,6 +265,8 @@ class Cron(TypedDict):
     """The cron metadata."""
     now: NotRequired[datetime]
     """The current time (present in internal next() only)."""
+    enabled: bool
+    """Whether the cron is enabled."""
 
 
 class ThreadUpdateResponse(TypedDict):
@@ -339,6 +341,7 @@ CronSelectField = Literal[
     "payload",
     "next_run_date",
     "metadata",
+    "enabled",
 ]
 CRON_FIELDS: set[str] = set(CronSelectField.__args__)  # type: ignore[attr-defined]
 
@@ -389,3 +392,61 @@ CRON_PAYLOAD_ENCRYPTION_SUBFIELDS = NESTED_ENCRYPTED_SUBFIELDS[("cron", "payload
 
 # Convenience alias for run kwargs subfields, used by the worker for decryption.
 RUN_KWARGS_ENCRYPTION_SUBFIELDS = NESTED_ENCRYPTED_SUBFIELDS[("run", "kwargs")]
+
+# Fields that should NEVER be encrypted in ANY context.
+# These are system fields with unique prefixes or names that are safe to skip globally.
+NEVER_ENCRYPT_FIELDS_GLOBAL: frozenset[str] = frozenset(
+    {
+        # System identifiers (UUIDs, not user-provided)
+        "thread_id",
+        "run_id",
+        "assistant_id",
+        "graph_id",
+        "checkpoint_id",
+        "task_id",
+        # Internal __pregel_* fields - uniquely named, safe to skip everywhere
+        "__pregel_checkpointer",
+        "__pregel_resuming",
+        "__pregel_durability",
+        "__pregel_stream",
+        "__pregel_task_id",
+        "__pregel_checkpoint_ns",
+        # Internal timing/scheduling fields
+        "__after_seconds__",
+        "__request_start_time_ms__",
+        # Encryption context markers (must stay plaintext for routing)
+        "__encryption_context__",
+        "__blob_encryption_context__",
+        # LangGraph system fields (mirrors AES_JSON_DISALLOWED_KEYS)
+        "langgraph_version",
+        "langgraph_api_version",
+        "langgraph_plan",
+        "langgraph_host",
+        "langgraph_api_url",
+        "langgraph_request_id",
+        "langgraph_auth_user_id",
+        "langgraph_auth_permissions",
+    }
+)
+
+# Path-based skip rules for encryption.
+# Format: "model_type.field.subfield...key" using dot notation.
+# These allow surgical control over which fields skip encryption at specific locations.
+# Use "*" as a wildcard segment to match any field at that level.
+#
+# Examples:
+#   "run.kwargs.config.configurable.ttl" - skip ttl only in run's configurable
+NEVER_ENCRYPT_PATHS: frozenset[str] = frozenset(
+    {
+        # Run execution parameters
+        "run.kwargs.config.recursion_limit",
+        "run.kwargs.config.max_concurrency",
+        # Thread TTL in run configurable - needs to stay plaintext for system to apply
+        "run.kwargs.config.configurable.ttl",
+        # Checkpoint metadata execution state - system-controlled, not user data
+        "checkpoint_metadata.source",
+        "checkpoint_metadata.step",
+        "checkpoint_metadata.parents",
+        "checkpoint_metadata.run_attempt",
+    }
+)

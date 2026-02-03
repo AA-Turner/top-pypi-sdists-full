@@ -13,8 +13,8 @@ from ._common import (
     get_generic_origin,
     get_unaliased_type,
     is_final_class,
-    is_not_subclass_type,
     is_subclass,
+    is_subclasses_disabled,
 )
 from ._namespace import Namespace
 from ._optionals import attrs_support, get_doc_short_description, is_attrs_class, is_pydantic_model
@@ -40,7 +40,7 @@ inspect_empty = inspect._empty
 
 
 class SignatureArguments(LoggerProperty):
-    """Methods to add arguments based on signatures to an ArgumentParser instance."""
+    """Methods to add arguments based on signatures to an :class:`ArgumentParser` instance."""
 
     def add_class_arguments(
         self,
@@ -85,7 +85,7 @@ class SignatureArguments(LoggerProperty):
             or (isinstance(default, LazyInitBaseClass) and isinstance(default, unaliased_class_type))
             or (
                 not is_final_class(default.__class__)
-                and is_not_subclass_type(default.__class__)
+                and is_subclasses_disabled(default.__class__)
                 and isinstance(default, unaliased_class_type)
             )
         ):
@@ -386,7 +386,7 @@ class SignatureArguments(LoggerProperty):
         elif not as_positional or is_non_positional:
             kwargs["required"] = True
         is_subclass_typehint = False
-        is_not_subclass_typehint = is_not_subclass_type(annotation)
+        subclasses_disabled = is_subclasses_disabled(annotation)
         dest = (nested_key + "." if nested_key else "") + name
         args = [dest if is_required and as_positional and not is_non_positional else "--" + dest]
         if param.origin:
@@ -401,11 +401,7 @@ class SignatureArguments(LoggerProperty):
                     f"Conditional arguments [origins: {group_name}]",
                     name=group_name,
                 )
-        if (
-            annotation in {str, int, float, bool}
-            or is_subclass(annotation, (str, int, float))
-            or is_not_subclass_typehint
-        ):
+        if annotation in {str, int, float, bool} or is_subclass(annotation, (str, int, float)) or subclasses_disabled:
             kwargs["type"] = annotation
             register_pydantic_type(annotation)
         elif annotation != inspect_empty:
@@ -440,7 +436,7 @@ class SignatureArguments(LoggerProperty):
                 "sub_configs": sub_configs,
                 "instantiate": instantiate,
             }
-            if is_not_subclass_typehint:
+            if subclasses_disabled:
                 kwargs.update(sub_add_kwargs)
             with ActionTypeHint.allow_default_instance_context():
                 action = container.add_argument(*args, **kwargs)
@@ -471,9 +467,9 @@ class SignatureArguments(LoggerProperty):
     ):
         """Adds arguments to allow specifying any subclass of the given base class.
 
-        This adds an argument that requires a dictionary with a "class_path"
+        This adds an argument that requires a dictionary with a ``class_path``
         entry which must be a import dot notation expression. Optionally any
-        init arguments for the class can be given in the "init_args" entry.
+        init arguments for the class can be given in the ``init_args`` entry.
         Since subclasses can have different init arguments, the help does not
         show the details of the arguments of the base class. Instead a help
         argument is added that will print the details for a given class path.
@@ -486,7 +482,7 @@ class SignatureArguments(LoggerProperty):
             required: Whether the argument group is required.
             metavar: Variable string to show in the argument's help.
             help: Description of argument to show in the help.
-            **kwargs: Additional parameters like in add_class_arguments.
+            **kwargs: Additional parameters like in :meth:`add_class_arguments`.
 
         Raises:
             ValueError: When given an invalid base class.
@@ -612,6 +608,6 @@ def convert_to_dict(value) -> dict:
                     attr[num] = convert_to_dict(item)
         init_args[name] = attr
 
-    if is_not_subclass_type(value_type):
+    if is_subclasses_disabled(value_type):
         return init_args
     return {"class_path": get_import_path(value_type), "init_args": init_args}

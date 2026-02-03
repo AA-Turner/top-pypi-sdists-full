@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["NodeResponseRecordsHa", "NodeResponseRecordsHaSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "NodeResponseRecordsHaSchema.opts": False,
     "NodeResponseRecordsHa": False,
 }
-
 
 class NodeResponseRecordsHaSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the NodeResponseRecordsHa object"""
@@ -33,22 +31,58 @@ class NodeResponseRecordsHaSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     enabled = marshmallow_fields.Boolean(data_key="enabled", allow_none=True)
     r""" Specifies whether or not storage failover is enabled. """
 
-    giveback = marshmallow_fields.Nested("netapp_ontap.models.node_response_records_ha_giveback.NodeResponseRecordsHaGivebackSchema", unknown=EXCLUDE, data_key="giveback", allow_none=True)
+    giveback = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.node_response_records_ha_giveback", "NodeResponseRecordsHaGivebackSchema"),
+                unknown=EXCLUDE,
+                data_key="giveback",
+                allow_none=True
+            )
     r""" Represents the state of the node that is giving storage back to its HA partner. """
 
-    interconnect = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_ha_interconnect.ClusterNodesHaInterconnectSchema", unknown=EXCLUDE, data_key="interconnect", allow_none=True)
+    interconnect = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_ha_interconnect", "ClusterNodesHaInterconnectSchema"),
+                unknown=EXCLUDE,
+                data_key="interconnect",
+                allow_none=True
+            )
     r""" The interconnect field of the node_response_records_ha. """
 
-    partners = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.node_ha_partners.NodeHaPartnersSchema", unknown=EXCLUDE, allow_none=True), data_key="partners", allow_none=True)
+    partners = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.node_ha_partners", "NodeHaPartnersSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="partners",
+                allow_none=True
+                )
     r""" Nodes in this node's High Availability (HA) group. """
 
-    ports = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_ha_ports.ClusterNodesHaPortsSchema", unknown=EXCLUDE, allow_none=True), data_key="ports", allow_none=True)
+    ports = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_ha_ports", "ClusterNodesHaPortsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="ports",
+                allow_none=True
+                )
     r""" The ports field of the node_response_records_ha. """
 
-    takeover = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_ha_takeover.ClusterNodesHaTakeoverSchema", unknown=EXCLUDE, data_key="takeover", allow_none=True)
+    takeover = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_ha_takeover", "ClusterNodesHaTakeoverSchema"),
+                unknown=EXCLUDE,
+                data_key="takeover",
+                allow_none=True
+            )
     r""" This represents the state of the node that is taking over storage from its HA partner. """
 
-    takeover_check = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_ha_takeover_check.ClusterNodesHaTakeoverCheckSchema", unknown=EXCLUDE, data_key="takeover_check", allow_none=True)
+    takeover_check = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_ha_takeover_check", "ClusterNodesHaTakeoverCheckSchema"),
+                unknown=EXCLUDE,
+                data_key="takeover_check",
+                allow_none=True
+            )
     r""" The takeover check response. """
 
     type = marshmallow_fields.Str(data_key="type", allow_none=True)

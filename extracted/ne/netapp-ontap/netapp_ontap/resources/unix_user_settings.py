@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,22 +26,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     UnixUserSettings(
         {
-            "negative_ttl": "PT1M",
-            "enabled": True,
             "negative_cache_enabled": True,
+            "svm": {"name": "vs43", "uuid": "8a1a8730-2036-11ec-8457-005056bbcfdb"},
             "ttl": "P1D",
-            "svm": {"uuid": "8a1a8730-2036-11ec-8457-005056bbcfdb", "name": "vs43"},
+            "negative_ttl": "PT1M",
             "propagation_enabled": True,
+            "enabled": True,
         }
     ),
     UnixUserSettings(
         {
-            "negative_ttl": "PT1M",
-            "enabled": True,
             "negative_cache_enabled": True,
+            "svm": {"name": "vs34", "uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef"},
             "ttl": "P1D",
-            "svm": {"uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef", "name": "vs34"},
+            "negative_ttl": "PT1M",
             "propagation_enabled": True,
+            "enabled": True,
         }
     ),
 ]
@@ -71,12 +71,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 UnixUserSettings(
     {
-        "negative_ttl": "PT1M",
-        "enabled": True,
         "negative_cache_enabled": True,
+        "svm": {"name": "vs34", "uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef"},
         "ttl": "P1D",
-        "svm": {"uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef", "name": "vs34"},
+        "negative_ttl": "PT1M",
         "propagation_enabled": True,
+        "enabled": True,
     }
 )
 
@@ -106,11 +106,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -124,11 +123,15 @@ __pdoc__ = {
     "UnixUserSettingsSchema.opts": False,
 }
 
-
 class UnixUserSettingsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the UnixUserSettings object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the unix_user_settings."""
 
     enabled = marshmallow_fields.Boolean(
@@ -158,7 +161,12 @@ Example: PT5M"""
     )
     r""" Specifies whether the propagation setting is enabled or not."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the unix_user_settings."""
 
     ttl = marshmallow_fields.Str(

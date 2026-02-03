@@ -1,6 +1,6 @@
 # pylint: disable=line-too-long
 """
-Copyright &copy; 2025 NetApp Inc. All rights reserved.
+Copyright &copy; 2026 NetApp Inc. All rights reserved.
 
 This module contains some of the common utility functions used in the library.
 """
@@ -284,7 +284,7 @@ def _get_job_status(
     """
 
     url = f"{connection.origin}{job_link}"
-    response = connection.session.get(url, params={"fields": "message,state,error"})
+    response = connection.session.get(url, params={"fields": "message,state"})
     try:
         response.raise_for_status()
         return response, response.json()
@@ -360,6 +360,8 @@ def redact_sensitive_fields(body: str) -> str:
     except json.JSONDecodeError:
         # If the body is cannot be parsed using JSON, return it as is without redacting anything
         return body
+    except TypeError:
+        return f"Object is of type {type(body)}. Sending object as is ..."
     for key, value in body_dict.items():
         if isinstance(value, str) and key.lower() in config.SENSITIVE_FIELDS:
             LOGGER.debug("Redacting the value of sensitive field '%s' from logs", key)

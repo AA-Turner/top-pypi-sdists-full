@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -32,14 +32,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     UnixGroupUsers(
         {
-            "unix_group": {"name": "pcuser"},
-            "svm": {"uuid": "f06686a2-c901-11eb-94b4-0050568e9f2c", "name": "svm1"},
             "_links": {
                 "self": {
                     "href": "/api/name-services/unix-groups/f06686a2-c901-11eb-94b4-0050568e9f2c/pcuser/users/user1"
                 }
             },
             "name": "user1",
+            "unix_group": {"name": "pcuser"},
+            "svm": {"name": "svm1", "uuid": "f06686a2-c901-11eb-94b4-0050568e9f2c"},
         }
     )
 ]
@@ -68,14 +68,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 UnixGroupUsers(
     {
-        "unix_group": {"name": "pcuser"},
-        "svm": {"uuid": "f06686a2-c901-11eb-94b4-0050568e9f2c", "name": "svm1"},
         "_links": {
             "self": {
                 "href": "/api/name-services/unix-groups/f06686a2-c901-11eb-94b4-0050568e9f2c/pcuser/users/user1"
             }
         },
         "name": "user1",
+        "unix_group": {"name": "pcuser"},
+        "svm": {"name": "svm1", "uuid": "f06686a2-c901-11eb-94b4-0050568e9f2c"},
     }
 )
 
@@ -133,11 +133,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -151,11 +150,15 @@ __pdoc__ = {
     "UnixGroupUsersSchema.opts": False,
 }
 
-
 class UnixGroupUsersSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the UnixGroupUsers object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the unix_group_users."""
 
     name = marshmallow_fields.Str(
@@ -164,7 +167,15 @@ class UnixGroupUsersSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" UNIX user who belongs to the specified UNIX group and the SVM."""
 
-    records = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.unix_group_users1.UnixGroupUsers1Schema", unknown=EXCLUDE, allow_none=True), data_key="records", allow_none=True)
+    records = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.unix_group_users1", "UnixGroupUsers1Schema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="records",
+                allow_none=True
+            )
     r""" An array of UNIX users specified to add multiple users to a UNIX group in a single API call.
 Not allowed when the `name` property is used."""
 
@@ -174,10 +185,20 @@ Not allowed when the `name` property is used."""
     )
     r""" Indicates whether or not the validation for the specified UNIX user names is disabled."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the unix_group_users."""
 
-    unix_group = marshmallow_fields.Nested("netapp_ontap.models.unix_group_users_unix_group.UnixGroupUsersUnixGroupSchema", data_key="unix_group", unknown=EXCLUDE, allow_none=True)
+    unix_group = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.unix_group_users_unix_group", "UnixGroupUsersUnixGroupSchema"),
+                data_key="unix_group",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The unix_group field of the unix_group_users."""
 
     @property

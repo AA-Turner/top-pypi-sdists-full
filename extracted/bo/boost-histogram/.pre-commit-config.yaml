@@ -46,8 +46,8 @@ repos:
     rev: v1.19.1
     hooks:
       - id: mypy
-        files: ^src
-        additional_dependencies: [numpy~=2.2.0, pytest, uhi]
+        files: ^(src|examples)
+        additional_dependencies: [numpy~=2.4.0, pytest, uhi]
 
   - repo: https://github.com/codespell-project/codespell
     rev: v2.4.1

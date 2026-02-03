@@ -328,7 +328,7 @@ class NetworkFirewallClientCompositeOperations(object):
             Unique Network Firewall Policy identifier
 
         :param stream bulk_upload_nat_rules_details: (required)
-            Request Details to create the NAT Rule for the Network Firewall Policy Resource.
+            Request details to create the NAT rule for the Network Firewall policy resource.
 
         :param list[str] wait_for_states:
             An array of states to wait on. These should be valid values for :py:attr:`~oci.network_firewall.models.WorkRequest.status`

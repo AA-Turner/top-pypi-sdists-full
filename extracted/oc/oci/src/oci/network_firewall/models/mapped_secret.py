@@ -56,23 +56,30 @@ class MappedSecret(object):
             The value to assign to the parent_resource_id property of this MappedSecret.
         :type parent_resource_id: str
 
+        :param description:
+            The value to assign to the description property of this MappedSecret.
+        :type description: str
+
         """
         self.swagger_types = {
             'name': 'str',
             'source': 'str',
             'type': 'str',
-            'parent_resource_id': 'str'
+            'parent_resource_id': 'str',
+            'description': 'str'
         }
         self.attribute_map = {
             'name': 'name',
             'source': 'source',
             'type': 'type',
-            'parent_resource_id': 'parentResourceId'
+            'parent_resource_id': 'parentResourceId',
+            'description': 'description'
         }
         self._name = None
         self._source = None
         self._type = None
         self._parent_resource_id = None
+        self._description = None
 
     @staticmethod
     def get_subtype(object_dictionary):
@@ -200,6 +207,30 @@ class MappedSecret(object):
         :type: str
         """
         self._parent_resource_id = parent_resource_id
+
+    @property
+    def description(self):
+        """
+        Gets the description of this MappedSecret.
+        The description of the mapped secret. This field can be used to add additional info.
+
+
+        :return: The description of this MappedSecret.
+        :rtype: str
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """
+        Sets the description of this MappedSecret.
+        The description of the mapped secret. This field can be used to add additional info.
+
+
+        :param description: The description of this MappedSecret.
+        :type: str
+        """
+        self._description = description
 
     def __repr__(self):
         return formatted_flat_dict(self)

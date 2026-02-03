@@ -92,6 +92,10 @@ class ComputeHost(object):
             The value to assign to the hpc_island_id property of this ComputeHost.
         :type hpc_island_id: str
 
+        :param host_correlation_id:
+            The value to assign to the host_correlation_id property of this ComputeHost.
+        :type host_correlation_id: str
+
         :param compute_host_group_id:
             The value to assign to the compute_host_group_id property of this ComputeHost.
         :type compute_host_group_id: str
@@ -197,6 +201,7 @@ class ComputeHost(object):
             'id': 'str',
             'fault_domain': 'str',
             'hpc_island_id': 'str',
+            'host_correlation_id': 'str',
             'compute_host_group_id': 'str',
             'configuration_state': 'str',
             'time_configuration_check': 'datetime',
@@ -227,6 +232,7 @@ class ComputeHost(object):
             'id': 'id',
             'fault_domain': 'faultDomain',
             'hpc_island_id': 'hpcIslandId',
+            'host_correlation_id': 'hostCorrelationId',
             'compute_host_group_id': 'computeHostGroupId',
             'configuration_state': 'configurationState',
             'time_configuration_check': 'timeConfigurationCheck',
@@ -256,6 +262,7 @@ class ComputeHost(object):
         self._id = None
         self._fault_domain = None
         self._hpc_island_id = None
+        self._host_correlation_id = None
         self._compute_host_group_id = None
         self._configuration_state = None
         self._time_configuration_check = None
@@ -429,6 +436,30 @@ class ComputeHost(object):
         :type: str
         """
         self._hpc_island_id = hpc_island_id
+
+    @property
+    def host_correlation_id(self):
+        """
+        Gets the host_correlation_id of this ComputeHost.
+        The ID that remains consistent when a host moves between capacity pools within the same tenancy.
+
+
+        :return: The host_correlation_id of this ComputeHost.
+        :rtype: str
+        """
+        return self._host_correlation_id
+
+    @host_correlation_id.setter
+    def host_correlation_id(self, host_correlation_id):
+        """
+        Sets the host_correlation_id of this ComputeHost.
+        The ID that remains consistent when a host moves between capacity pools within the same tenancy.
+
+
+        :param host_correlation_id: The host_correlation_id of this ComputeHost.
+        :type: str
+        """
+        self._host_correlation_id = host_correlation_id
 
     @property
     def compute_host_group_id(self):

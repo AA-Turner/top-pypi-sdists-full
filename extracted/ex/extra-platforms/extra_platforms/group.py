@@ -17,19 +17,21 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 from functools import cached_property
 from types import MappingProxyType
 from typing import cast
 
-from .trait import Trait, _Identifiable
+from .trait import Trait, _Identifiable, _resolve_alias
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from ._types import _TNestedReferences
+    from ._types import _T, _TNestedReferences
+
 
 _MembersMapping = MappingProxyType[str, Trait]
 
@@ -47,16 +49,40 @@ def _flatten(items: Iterable) -> Iterator:
             yield item
 
 
+def extract_members(*other: _TNestedReferences) -> Iterator[Trait]:
+    """Returns all traits found in ``other``.
+
+    ``other`` can be an arbitrarily nested :class:`~collections.abc.Iterable` of
+    :class:`~extra_platforms.Group`, :class:`~extra_platforms.Trait`, or their IDs.
+    ``None`` values and empty iterables are silently ignored.
+
+    .. caution::
+        Can returns duplicates.
+    """
+    for item in _flatten(other):
+        match item:
+            case None:
+                continue
+            case Trait():
+                yield item
+            case Group():
+                yield from item._members.values()
+            case str():
+                yield from traits_from_ids(item)
+            case _:
+                raise TypeError(f"Unsupported type: {type(item)}")
+
+
 @dataclass(frozen=True)
 class Group(_Identifiable):
-    """A ``Group`` identifies a collection of ``Trait`` members.
+    """A :class:`~extra_platforms.Group` identifies a collection of :class:`~extra_platforms.Trait` members.
 
-    Additionally of the common fields inherited from ``_Identifiable``, each trait provides:
+    Additionally of the common fields inherited from ``_Identifiable``, each group provides:
 
-    - ``members``: An iterable of ``Trait`` instances that belong to this group.
-    - ``member_ids``: A frozenset of member IDs for quick lookup.
-    - ``canonical``: A boolean indicating if the group is canonical (non-overlapping).
-    - various `set`-like operations (union, intersection, difference, etc.).
+    - ``members``: An iterable of :class:`~extra_platforms.Trait` instances that belong to this group.
+    - ``member_ids``: A :class:`frozenset` of member IDs for quick lookup.
+    - ``canonical``: A :class:`bool` indicating if the group is canonical (non-overlapping).
+    - various :class:`set`-like operations (union, intersection, difference, etc.).
     """
 
     unknown_symbol = "UNKNOWN"
@@ -65,23 +91,28 @@ class Group(_Identifiable):
     members: Iterable[Trait] = field(repr=False, default_factory=tuple)
     """Traits in this group.
 
-    Normalized to ``MappingProxyType[str, Trait]`` at init, providing O(1) lookup by ID.
+    Normalized to :class:`~types.MappingProxyType` at init, providing O(1) lookup by ID.
     """
 
     @property
     def _members(self) -> _MembersMapping:
-        """Typed access to members as ``MappingProxyType[str, Trait]``.
+        """Typed access to members as :class:`~types.MappingProxyType`.
 
         .. warning::
-            The ``members`` field is typed as ``Iterable[Trait]`` to accept any
+            The ``members`` field is typed as :class:`~collections.abc.Iterable` to accept any
             iterable at construction time. After ``__post_init__``, it is always a
-            ``MappingProxyType[str, Trait]``. This property provides a ``cast()`` to
+            :class:`~types.MappingProxyType`. This property provides a :func:`~typing.cast` to
             that type, avoiding ``# type: ignore`` comments throughout the class.
         """
         return cast(_MembersMapping, self.members)
 
     def __post_init__(self):
-        """Normalize members to a sorted, deduplicated mapping."""
+        """Normalize members to a sorted, deduplicated mapping.
+
+        .. hint::
+            Docstring generation is deferred to avoid circular imports during module
+            initialization. See _docstrings._initialize_all_docstrings().
+        """
         super().__post_init__()
 
         # Override detection_func_id and unless_decorator_id for groups with "all_" prefix.
@@ -130,9 +161,54 @@ class Group(_Identifiable):
             MappingProxyType({t.id: t for t in sorted_traits}),
         )
 
+    def generate_docstring(self) -> str:
+        """Generate comprehensive docstring for this group instance.
+
+        Combines the attribute docstring from the source module with various metadata.
+        """
+        from extra_platforms._docstrings import get_attribute_docstring
+
+        lines = []
+
+        # Fetch attribute docstring from source module.
+        source_docstring = get_attribute_docstring(
+            f"extra_platforms.{self.data_module_id}", self.symbol_id
+        )
+        if source_docstring:
+            lines.extend(source_docstring.strip().split("\n"))
+            lines.append("")
+
+        # Add metadata.
+        lines.append(f"- **ID**: ``{self.id}``")
+        lines.append(f"- **Name**: {self.name}")
+        lines.append(f"- **Icon**: {self.icon}")
+        lines.append(
+            f"- **Canonical**: ``{self.canonical}`` {'⬥' if self.canonical else ''}"
+        )
+        lines.append(f"- **Detection function**: :func:`~{self.detection_func_id}`")
+        lines.append(
+            f"- **Pytest decorators**: :data:`~pytest.{self.skip_decorator_id}` / "
+            f":data:`~pytest.{self.unless_decorator_id}`"
+        )
+
+        # Add list of members with links to their definitions.
+        member_links = [f":data:`~{m.symbol_id}`" for m in self]
+        type_counts = Counter(type(m).__name__ for m in self)
+
+        if member_links:
+            # Format type information with links.
+            type_parts = [
+                f"{count} :class:`~{class_name}`"
+                for class_name, count in sorted(type_counts.items())
+            ]
+            type_info = ", ".join(type_parts)
+            lines.append(f"- **Members** ({type_info}): {', '.join(member_links)}")
+
+        return "\n".join(lines)
+
     @property
     def member_ids(self) -> frozenset[str]:
-        """Set of member IDs that belong to this group."""
+        """A :class:`frozenset` of member IDs that belong to this group."""
         return frozenset(self._members.keys())
 
     def __hash__(self) -> int:
@@ -141,7 +217,7 @@ class Group(_Identifiable):
 
     @cached_property
     def canonical(self) -> bool:
-        """Returns `True` if the group is canonical (non-overlapping), `False` otherwise.
+        """Returns :data:`True` if the group is canonical (non-overlapping), :data:`False` otherwise.
 
         A canonical group is one that does not share any members with other canonical
         groups. All canonical groups are non-overlapping.
@@ -166,11 +242,11 @@ class Group(_Identifiable):
         return len(self._members)
 
     def __bool__(self) -> bool:
-        """Return `True` if the group has members, `False` otherwise."""
+        """Return :data:`True` if the group has members, :data:`False` otherwise."""
         return len(self._members) > 0
 
     def __contains__(self, item: Trait | str) -> bool:
-        """Test if ``Trait`` object or its ID is part of the group."""
+        """Test if :class:`~extra_platforms.Trait` object or its ID is part of the group."""
         if isinstance(item, str):
             return item in self._members
         return item.id in self._members and self._members[item.id] == item
@@ -188,95 +264,81 @@ class Group(_Identifiable):
 
     @staticmethod
     def _extract_members(*other: _TNestedReferences) -> Iterator[Trait]:
-        """Returns all traits found in ``other``.
+        """Deprecated alias for :func:`~extra_platforms.extract_members`.
 
-        ``other`` can be an arbitrarily nested ``Iterable`` of ``Group``, ``Trait``, or
-        their IDs. ``None`` values and empty iterables are silently ignored.
-
-        .. caution::
-            Can returns duplicates.
-        """
-        for item in _flatten(other):
-            match item:
-                case None:
-                    continue
-                case Trait():
-                    yield item
-                case Group():
-                    yield from item._members.values()
-                case str():
-                    # Prevent circular import.
-                    from .operations import traits_from_ids
-
-                    yield from traits_from_ids(item)
-                case _:
-                    raise TypeError(f"Unsupported type: {type(item)}")
-
-    @staticmethod
-    def _extract_platforms(*other: _TNestedReferences) -> Iterator[Trait]:
-        """Deprecated alias for `_extract_members()`.
-
-        .. deprecated:: 6.0.0
-           Use `_extract_members()` instead.
+        .. deprecated:: 8.0.0
+           Use :func:`~extra_platforms.extract_members` instead.
         """
         # Prevent circular import.
         from ._deprecated import _warn_deprecated
 
-        _warn_deprecated("Group._extract_platforms()", "Group._extract_members()")
-        return Group._extract_members(*other)
+        _warn_deprecated("Group._extract_members()", "extract_members()")
+        return extract_members(*other)
+
+    @staticmethod
+    def _extract_platforms(*other: _TNestedReferences) -> Iterator[Trait]:
+        """Deprecated alias for :func:`~extra_platforms.extract_members`.
+
+        .. deprecated:: 6.0.0
+           Use :func:`~extra_platforms.extract_members` instead.
+        """
+        # Prevent circular import.
+        from ._deprecated import _warn_deprecated
+
+        _warn_deprecated("Group._extract_platforms()", "extract_members()")
+        return extract_members(*other)
 
     def isdisjoint(self, other: _TNestedReferences) -> bool:
-        """Return `True` if the group has no members in common with ``other``.
+        """Return :data:`True` if the group has no members in common with ``other``.
 
-        Groups are disjoint if and only if their intersection is an empty set.
+        Groups are disjoint if and only if their intersection is an empty :class:`set`.
 
-        ``other`` can be an arbitrarily nested ``Iterable`` of ``Group`` and ``Trait``.
+        ``other`` can be an arbitrarily nested :class:`~collections.abc.Iterable` of
+        :class:`~extra_platforms.Group` and :class:`~extra_platforms.Trait`.
         """
-        return set(self._members.values()).isdisjoint(self._extract_members(other))
+        return set(self._members.values()).isdisjoint(extract_members(other))
 
     def fullyintersects(self, other: _TNestedReferences) -> bool:
-        """Return `True` if the group has all members in common with ``other``."""
-        return set(self._members.values()) == set(self._extract_members(other))
+        """Return :data:`True` if the group has all members in common with ``other``."""
+        return set(self._members.values()) == set(extract_members(other))
 
     def issubset(self, other: _TNestedReferences) -> bool:
         """Test whether every member in the group is in other."""
-        return set(self._members.values()).issubset(self._extract_members(other))
+        return set(self._members.values()).issubset(extract_members(other))
 
     __le__ = issubset
 
     def __lt__(self, other: _TNestedReferences) -> bool:
         """Test whether every member in the group is in other, but not all."""
-        return self <= other and set(self._members.values()) != set(
-            self._extract_members(other)
-        )
+        other_members = set(extract_members(other))
+        self_members = set(self._members.values())
+        return self_members < other_members
 
     def issuperset(self, other: _TNestedReferences) -> bool:
         """Test whether every member in other is in the group."""
-        return set(self._members.values()).issuperset(self._extract_members(other))
+        return set(self._members.values()).issuperset(extract_members(other))
 
     __ge__ = issuperset
 
     def __gt__(self, other: _TNestedReferences) -> bool:
         """Test whether every member in other is in the group, but not all."""
-        return self >= other and set(self._members.values()) != set(
-            self._extract_members(other)
-        )
+        other_members = set(extract_members(other))
+        self_members = set(self._members.values())
+        return self_members > other_members
 
     def union(self, *others: _TNestedReferences) -> Group:
-        """Return a new ``Group`` with members from the group and all others.
+        """Return a new :class:`~extra_platforms.Group` with members from the group and all others.
 
         .. caution::
-            The new ``Group`` will inherits the metadata of the first one. All other
-            groups' metadata will be ignored.
+            The new :class:`~extra_platforms.Group` will inherits the metadata of the first one.
+            All other groups' metadata will be ignored.
         """
         return Group(
             self.id,
             self.name,
             self.icon,
-            tuple(
-                set(self._members.values()).union(
-                    *(self._extract_members(other) for other in others)
-                )
+            set(self._members.values()).union(
+                *(extract_members(other) for other in others)
             ),
         )
 
@@ -284,20 +346,18 @@ class Group(_Identifiable):
     __ior__ = union
 
     def intersection(self, *others: _TNestedReferences) -> Group:
-        """Return a new ``Group`` with members common to the group and all others.
+        """Return a new :class:`~extra_platforms.Group` with members common to the group and all others.
 
         .. caution::
-            The new ``Group`` will inherits the metadata of the first one. All other
-            groups' metadata will be ignored.
+            The new :class:`~extra_platforms.Group` will inherits the metadata of the first one.
+            All other groups' metadata will be ignored.
         """
         return Group(
             self.id,
             self.name,
             self.icon,
-            tuple(
-                set(self._members.values()).intersection(
-                    *(self._extract_members(other) for other in others)
-                )
+            set(self._members.values()).intersection(
+                *(extract_members(other) for other in others)
             ),
         )
 
@@ -305,20 +365,18 @@ class Group(_Identifiable):
     __iand__ = intersection
 
     def difference(self, *others: _TNestedReferences) -> Group:
-        """Return a new ``Group`` with members in the group that are not in the others.
+        """Return a new :class:`~extra_platforms.Group` with members in the group that are not in the others.
 
         .. caution::
-            The new ``Group`` will inherits the metadata of the first one. All other
-            groups' metadata will be ignored.
+            The new :class:`~extra_platforms.Group` will inherits the metadata of the first one.
+            All other groups' metadata will be ignored.
         """
         return Group(
             self.id,
             self.name,
             self.icon,
-            tuple(
-                set(self._members.values()).difference(
-                    *(self._extract_members(other) for other in others)
-                )
+            set(self._members.values()).difference(
+                *(extract_members(other) for other in others)
             ),
         )
 
@@ -326,21 +384,17 @@ class Group(_Identifiable):
     __isub__ = difference
 
     def symmetric_difference(self, other: _TNestedReferences) -> Group:
-        """Return a new ``Group`` with members in either the group or other but not both.
+        """Return a new :class:`~extra_platforms.Group` with members in either the group or other but not both.
 
         .. caution::
-            The new ``Group`` will inherits the metadata of the first one. All other
-            groups' metadata will be ignored.
+            The new :class:`~extra_platforms.Group` will inherits the metadata of the first one.
+            All other groups' metadata will be ignored.
         """
         return Group(
             self.id,
             self.name,
             self.icon,
-            tuple(
-                set(self._members.values()).symmetric_difference(
-                    self._extract_members(other)
-                )
-            ),
+            set(self._members.values()).symmetric_difference(extract_members(other)),
         )
 
     __xor__ = symmetric_difference
@@ -361,23 +415,20 @@ class Group(_Identifiable):
         return replace(self, **kwargs)
 
     def add(self, member: Trait | str) -> Group:
-        """Return a new ``Group`` with the specified trait added.
+        """Return a new :class:`~extra_platforms.Group` with the specified trait added.
 
         If the trait is already in the group, returns a copy unchanged.
 
         Args:
-            member: A ``Trait`` object or trait ID string to add.
+            member: A :class:`~extra_platforms.Trait` object or trait ID string to add.
 
         Returns:
-            A new ``Group`` instance with the trait added.
+            A new :class:`~extra_platforms.Group` instance with the trait added.
 
         Raises:
             ValueError: If the trait ID is not recognized.
         """
         if isinstance(member, str):
-            # Prevent circular import.
-            from .operations import traits_from_ids
-
             traits = traits_from_ids(member)
             member = traits[0]
 
@@ -388,19 +439,19 @@ class Group(_Identifiable):
             self.id,
             self.name,
             self.icon,
-            tuple(set(self._members.values()) | {member}),
+            set(self._members.values()) | {member},
         )
 
     def remove(self, member: Trait | str) -> Group:
-        """Return a new ``Group`` with the specified trait removed.
+        """Return a new :class:`~extra_platforms.Group` with the specified trait removed.
 
-        Raises ``KeyError`` if the trait is not in the group.
+        Raises :exc:`KeyError` if the trait is not in the group.
 
         Args:
-            member: A ``Trait`` object or trait ID string to remove.
+            member: A :class:`~extra_platforms.Trait` object or trait ID string to remove.
 
         Returns:
-            A new ``Group`` instance with the trait removed.
+            A new :class:`~extra_platforms.Group` instance with the trait removed.
 
         Raises:
             KeyError: If the trait is not in the group.
@@ -422,15 +473,16 @@ class Group(_Identifiable):
         )
 
     def discard(self, member: Trait | str) -> Group:
-        """Return a new ``Group`` with the specified trait removed if present.
+        """Return a new :class:`~extra_platforms.Group` with the specified trait removed if present.
 
-        Unlike ``remove()``, this does not raise an error if the trait is not found.
+        Unlike :meth:`remove`, this does not raise an error if the trait is not found.
 
         Args:
-            member: A ``Trait`` object or trait ID string to remove.
+            member: A :class:`~extra_platforms.Trait` object or trait ID string to remove.
 
         Returns:
-            A new ``Group`` instance with the trait removed, or a copy if not present.
+            A new :class:`~extra_platforms.Group` instance with the trait removed, or a copy if
+            not present.
         """
         member_id = member.id if isinstance(member, Trait) else member
 
@@ -456,7 +508,8 @@ class Group(_Identifiable):
                 trait (specifically, the first one in iteration order).
 
         Returns:
-            A tuple of (removed_trait, new_group).
+            A :class:`tuple` of (removed :class:`~extra_platforms.Trait`,
+            new :class:`~extra_platforms.Group`).
 
         Raises:
             KeyError: If ``member_id`` is provided but not found in the group.
@@ -487,10 +540,11 @@ class Group(_Identifiable):
         return popped_trait, new_group
 
     def clear(self) -> Group:
-        """Return a new empty ``Group`` with the same metadata.
+        """Return a new empty :class:`~extra_platforms.Group` with the same metadata.
 
         Returns:
-            A new ``Group`` instance with no members but same id, name, and icon.
+            A new :class:`~extra_platforms.Group` instance with no members but same id, name,
+            and icon.
         """
         return Group(
             self.id,
@@ -498,3 +552,140 @@ class Group(_Identifiable):
             self.icon,
             tuple(),
         )
+
+
+# =============================================================================
+# Lookup and reduction functions
+# =============================================================================
+
+
+def _unique(items: Iterable[_T]) -> tuple[_T, ...]:
+    """Return a :class:`tuple` with duplicates removed, preserving order.
+
+    This uses :meth:`dict.fromkeys` which:
+
+    - Preserves insertion order (guaranteed since Python 3.7)
+    - Removes duplicates (:class:`dict` keys are unique)
+    """
+    return tuple(dict.fromkeys(items))
+
+
+def traits_from_ids(*trait_and_group_ids: str) -> tuple[Trait, ...]:
+    """Returns a deduplicated :class:`tuple` of traits matching the provided IDs.
+
+    IDs are case-insensitive, and can refer to any traits or groups. Matching groups
+    will be expanded to the :class:`~extra_platforms.Trait` instances they contain.
+
+    Aliases are automatically resolved to their canonical IDs, with a warning emitted
+    to encourage using the canonical ID directly.
+
+    Order of the returned traits matches the order of the provided IDs.
+
+    .. tip::
+        If you want to reduce the returned set and removes as much overlaps as
+        possible, you can use the :func:`~extra_platforms.reduce` function on the results.
+    """
+    # Avoid circular import.
+    from .group_data import ALL_IDS, ALL_TRAIT_IDS, ALL_TRAITS
+
+    # Normalize to lowercase and resolve aliases.
+    ids = _unique((_resolve_alias(s.lower()) for s in trait_and_group_ids))
+
+    # Check for unrecognized IDs (aliases have already been resolved).
+    unrecognized_ids = set(ids) - ALL_IDS
+    if unrecognized_ids:
+        raise ValueError(
+            "Unrecognized group or trait IDs: " + ", ".join(sorted(unrecognized_ids))
+        )
+    traits = []
+    for trait_id in ids:
+        if trait_id in ALL_TRAIT_IDS:
+            traits.append(ALL_TRAITS[trait_id])
+        else:
+            groups = groups_from_ids(trait_id)
+            assert len(groups) == 1
+            traits.extend(groups[0])
+    return _unique(traits)
+
+
+def groups_from_ids(*group_ids: str) -> tuple[Group, ...]:
+    """Returns a deduplicated :class:`tuple` of groups matching the provided IDs.
+
+    IDs are case-insensitive.
+
+    Order of the returned :class:`~extra_platforms.Group` instances matches the order of
+    the provided IDs.
+
+    .. tip::
+        If you want to reduce the returned set and removes as much overlaps as
+        possible, you can use the :func:`~extra_platforms.reduce` function on the results.
+    """
+    # Avoid circular import.
+    from .group_data import ALL_GROUP_IDS, ALL_GROUPS
+
+    ids = _unique((s.lower() for s in group_ids))
+    unrecognized_ids = set(ids) - ALL_GROUP_IDS
+    if unrecognized_ids:
+        raise ValueError(
+            "Unrecognized group IDs: " + ", ".join(sorted(unrecognized_ids))
+        )
+    # Build lookup dict for O(1) access instead of O(n) iteration per ID.
+    group_by_id = {g.id: g for g in ALL_GROUPS}
+    return _unique(group_by_id[gid] for gid in ids)
+
+
+def reduce(
+    items: _TNestedReferences,
+    target_pool: Iterable[Group | Trait] | None = None,
+) -> frozenset[Group | Trait]:
+    """Reduce a collection of traits to a minimal set.
+
+    Returns a deduplicated set of :class:`~extra_platforms.Group` and
+    :class:`~extra_platforms.Trait` that covers the same exact traits as the original
+    input, but group as much traits as possible, to reduce the number of items.
+
+    Only the groups defined in the ``target_pool`` are considered for the reduction.
+    If no reference pool is provided, use all known groups.
+
+    .. note::
+        The algorithm is a variant of the `Set Cover Problem
+        <https://en.wikipedia.org/wiki/Set_cover_problem>`_, which is NP-hard. This
+        implementation uses a `greedy approximation
+        <https://en.wikipedia.org/wiki/Set_cover_problem#Greedy_algorithm>`_ that
+        iteratively selects the largest group fitting the remaining uncovered traits.
+
+    .. todo::
+        Should we rename or alias this method to ``collapse()``? Cannot decide if it is
+        more descriptive or not...
+    """
+    # Avoid circular import.
+    from .group_data import ALL_GROUPS
+
+    # Collect all traits.
+    uncovered = set(extract_members(items))
+    if not uncovered:
+        return frozenset()
+
+    # Build candidate groups: those that are subsets of the input traits.
+    if target_pool is None:
+        target_pool = ALL_GROUPS
+    candidates = [
+        g for g in target_pool if isinstance(g, Group) and g.issubset(uncovered)
+    ]
+
+    # Greedy selection: repeatedly pick the largest group that fits remaining traits.
+    # Sort candidates by size (descending), then by ID for determinism.
+    candidates.sort(key=lambda g: (-len(g), g.id))
+
+    result: set[Group | Trait] = set()
+    for group in candidates:
+        # Only select if the group's members are all still uncovered.
+        group_members = set(group)
+        if group_members <= uncovered:
+            result.add(group)
+            uncovered -= group_members
+
+    # Add any remaining uncovered traits individually.
+    result.update(uncovered)
+
+    return frozenset(result)

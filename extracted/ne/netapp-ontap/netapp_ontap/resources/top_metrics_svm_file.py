@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -25,6 +25,7 @@ The API can sometimes fail to return the list of files with the most I/O activit
 * The NFS/CIFS client operations are being served by the client-side filesystem cache.
 * The NFS/CIFS client operations are being buffered by the client operating system.
 * On rare occasions, the incoming traffic pattern is not suitable to obtain the list of files with the most I/O activity.
+* NFSv4 client read operations using Multi-Processor I/O (MPIO) are not tracked.
 ## Failure to return pathnames
 The API can sometimes fail to obtain the filesystem pathnames for certain files, either due to internal transient errors or if those files have been recently deleted.
 In such cases, instead of the pathname, the API will return "{<volume_instance_uuid>.<fileid>}" for that file.
@@ -57,74 +58,74 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsSvmFile(
         {
-            "path": "/vol/fv1/d5/f5",
-            "throughput": {
-                "error": {"upper_bound": 29, "lower_bound": 24},
-                "write": 24,
-            },
-            "junction-path": "/fv1",
-            "svm": {"name": "vs1"},
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864/files/d5%2Ff5?return_metadata=true"
                 }
             },
             "volume": {
-                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef864",
                 "name": "fv1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864"
                     }
                 },
+                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef864",
             },
+            "junction-path": "/fv1",
+            "path": "/vol/fv1/d5/f5",
+            "throughput": {
+                "error": {"lower_bound": 24, "upper_bound": 29},
+                "write": 24,
+            },
+            "svm": {"name": "vs1"},
         }
     ),
     TopMetricsSvmFile(
         {
-            "path": "/vol/fv2/d6/f6",
-            "throughput": {
-                "error": {"upper_bound": 22, "lower_bound": 12},
-                "write": 12,
-            },
-            "junction-path": "/fv2",
-            "svm": {"name": "vs1"},
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/2ea74c3e-d5ca-11eb-8fbb-005056ac0f33/files/d6%2Ff6?return_metadata=true"
                 }
             },
             "volume": {
-                "uuid": "2ea74c3e-d5ca-11eb-8fbb-005056ac0f33",
                 "name": "fv2",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/2ea74c3e-d5ca-11eb-8fbb-005056ac0f33"
                     }
                 },
+                "uuid": "2ea74c3e-d5ca-11eb-8fbb-005056ac0f33",
             },
+            "junction-path": "/fv2",
+            "path": "/vol/fv2/d6/f6",
+            "throughput": {
+                "error": {"lower_bound": 12, "upper_bound": 22},
+                "write": 12,
+            },
+            "svm": {"name": "vs1"},
         }
     ),
     TopMetricsSvmFile(
         {
-            "path": "/vol/fv3/d3/f3",
-            "throughput": {"error": {"upper_bound": 10, "lower_bound": 8}, "write": 8},
-            "junction-path": "/fv3",
-            "svm": {"name": "vs1"},
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/1ca74c3e-d5ca-11eb-8fbb-005056ac0f88/files/d3%2Ff3?return_metadata=true"
                 }
             },
             "volume": {
-                "uuid": "1ca74c3e-d5ca-11eb-8fbb-005056ac0f88",
                 "name": "fv3",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/1ca74c3e-d5ca-11eb-8fbb-005056ac0f88"
                     }
                 },
+                "uuid": "1ca74c3e-d5ca-11eb-8fbb-005056ac0f88",
             },
+            "junction-path": "/fv3",
+            "path": "/vol/fv3/d3/f3",
+            "throughput": {"error": {"lower_bound": 8, "upper_bound": 10}, "write": 8},
+            "svm": {"name": "vs1"},
         }
     ),
 ]
@@ -151,53 +152,53 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsSvmFile(
         {
-            "path": "73b293df-e9d7-46cc-a9ce-2df8e52ef86.1232",
-            "junction-path": "/fv1",
-            "iops": {"read": 1495, "error": {"upper_bound": 1505, "lower_bound": 1495}},
-            "svm": {"name": "vs1"},
             "volume": {
-                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef86",
                 "name": "fv1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef86"
                     }
                 },
+                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef86",
             },
+            "iops": {"error": {"lower_bound": 1495, "upper_bound": 1505}, "read": 1495},
+            "junction-path": "/fv1",
+            "path": "73b293df-e9d7-46cc-a9ce-2df8e52ef86.1232",
+            "svm": {"name": "vs1"},
         }
     ),
     TopMetricsSvmFile(
         {
-            "path": "11b293df-e9d7-46cc-a9ce-2df8e52ef811.6574",
-            "junction-path": "/fv2",
-            "iops": {"read": 1022, "error": {"upper_bound": 1032, "lower_bound": 1022}},
-            "svm": {"name": "vs1"},
             "volume": {
-                "uuid": "11b293df-e9d7-46cc-a9ce-2df8e52ef811",
                 "name": "fv2",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/11b293df-e9d7-46cc-a9ce-2df8e52ef811"
                     }
                 },
+                "uuid": "11b293df-e9d7-46cc-a9ce-2df8e52ef811",
             },
+            "iops": {"error": {"lower_bound": 1022, "upper_bound": 1032}, "read": 1022},
+            "junction-path": "/fv2",
+            "path": "11b293df-e9d7-46cc-a9ce-2df8e52ef811.6574",
+            "svm": {"name": "vs1"},
         }
     ),
     TopMetricsSvmFile(
         {
-            "path": "73b293df-e9d7-46cc-a9ce-2df8e52ef864.7844",
-            "junction-path": "/fv1",
-            "iops": {"read": 345, "error": {"upper_bound": 355, "lower_bound": 345}},
-            "svm": {"name": "vs1"},
             "volume": {
-                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef864",
                 "name": "fv1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864"
                     }
                 },
+                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef864",
             },
+            "iops": {"error": {"lower_bound": 345, "upper_bound": 355}, "read": 345},
+            "junction-path": "/fv1",
+            "path": "73b293df-e9d7-46cc-a9ce-2df8e52ef864.7844",
+            "svm": {"name": "vs1"},
         }
     ),
 ]
@@ -239,11 +240,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -257,14 +257,23 @@ __pdoc__ = {
     "TopMetricsSvmFileSchema.opts": False,
 }
 
-
 class TopMetricsSvmFileSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the TopMetricsSvmFile object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.file_info_links.FileInfoLinksSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.file_info_links", "FileInfoLinksSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the top_metrics_svm_file."""
 
-    iops = marshmallow_fields.Nested("netapp_ontap.models.top_metrics_file_iops.TopMetricsFileIopsSchema", data_key="iops", unknown=EXCLUDE, allow_none=True)
+    iops = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.top_metrics_file_iops", "TopMetricsFileIopsSchema"),
+                data_key="iops",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The iops field of the top_metrics_svm_file."""
 
     junction_path = marshmallow_fields.Str(
@@ -283,13 +292,28 @@ Example: /fv"""
 
 Example: /vol/fv/dir_abc/dir_123/file_1"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the top_metrics_svm_file."""
 
-    throughput = marshmallow_fields.Nested("netapp_ontap.models.top_metrics_file_throughput.TopMetricsFileThroughputSchema", data_key="throughput", unknown=EXCLUDE, allow_none=True)
+    throughput = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.top_metrics_file_throughput", "TopMetricsFileThroughputSchema"),
+                data_key="throughput",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The throughput field of the top_metrics_svm_file."""
 
-    volume = marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", data_key="volume", unknown=EXCLUDE, allow_none=True)
+    volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                data_key="volume",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The volume field of the top_metrics_svm_file."""
 
     @property

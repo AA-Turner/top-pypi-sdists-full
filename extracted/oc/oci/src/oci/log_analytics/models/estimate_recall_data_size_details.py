@@ -36,23 +36,30 @@ class EstimateRecallDataSizeDetails(object):
             The value to assign to the is_recall_new_data_only property of this EstimateRecallDataSizeDetails.
         :type is_recall_new_data_only: bool
 
+        :param collection_id:
+            The value to assign to the collection_id property of this EstimateRecallDataSizeDetails.
+        :type collection_id: int
+
         """
         self.swagger_types = {
             'time_data_started': 'datetime',
             'time_data_ended': 'datetime',
             'log_sets': 'str',
-            'is_recall_new_data_only': 'bool'
+            'is_recall_new_data_only': 'bool',
+            'collection_id': 'int'
         }
         self.attribute_map = {
             'time_data_started': 'timeDataStarted',
             'time_data_ended': 'timeDataEnded',
             'log_sets': 'logSets',
-            'is_recall_new_data_only': 'isRecallNewDataOnly'
+            'is_recall_new_data_only': 'isRecallNewDataOnly',
+            'collection_id': 'collectionId'
         }
         self._time_data_started = None
         self._time_data_ended = None
         self._log_sets = None
         self._is_recall_new_data_only = None
+        self._collection_id = None
 
     @property
     def time_data_started(self):
@@ -149,6 +156,32 @@ class EstimateRecallDataSizeDetails(object):
         :type: bool
         """
         self._is_recall_new_data_only = is_recall_new_data_only
+
+    @property
+    def collection_id(self):
+        """
+        Gets the collection_id of this EstimateRecallDataSizeDetails.
+        This is the existing recalled data collection ID, to be used only for recalling new data.
+        If specified, the recall new data will be estimated only for this collection
+
+
+        :return: The collection_id of this EstimateRecallDataSizeDetails.
+        :rtype: int
+        """
+        return self._collection_id
+
+    @collection_id.setter
+    def collection_id(self, collection_id):
+        """
+        Sets the collection_id of this EstimateRecallDataSizeDetails.
+        This is the existing recalled data collection ID, to be used only for recalling new data.
+        If specified, the recall new data will be estimated only for this collection
+
+
+        :param collection_id: The collection_id of this EstimateRecallDataSizeDetails.
+        :type: int
+        """
+        self._collection_id = collection_id
 
     def __repr__(self):
         return formatted_flat_dict(self)

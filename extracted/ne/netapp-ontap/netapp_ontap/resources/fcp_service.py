@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -33,19 +33,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FcpService(
     {
-        "enabled": True,
-        "svm": {
-            "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/5c659d90-c01a-11e8-88ed-005056bbb24b"}
-            },
-        },
-        "target": {"name": "20:00:00:50:56:bb:b2:4b"},
         "_links": {
             "self": {
                 "href": "/api/protocols/san/fcp/services/5c659d90-c01a-11e8-88ed-005056bbb24b"
             }
+        },
+        "target": {"name": "20:00:00:50:56:bb:b2:4b"},
+        "enabled": True,
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/5c659d90-c01a-11e8-88ed-005056bbb24b"}
+            },
+            "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
         },
     }
 )
@@ -72,37 +72,37 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FcpService(
         {
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/fcp/services/5c659d90-c01a-11e8-88ed-005056bbb24b"
+                }
+            },
             "svm": {
-                "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/5c659d90-c01a-11e8-88ed-005056bbb24b"
                     }
                 },
-            },
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/fcp/services/5c659d90-c01a-11e8-88ed-005056bbb24b"
-                }
+                "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
             },
         }
     ),
     FcpService(
         {
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/fcp/services/6011f874-c01a-11e8-88ed-005056bbb24b"
+                }
+            },
             "svm": {
-                "uuid": "6011f874-c01a-11e8-88ed-005056bbb24b",
                 "name": "svm2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/6011f874-c01a-11e8-88ed-005056bbb24b"
                     }
                 },
-            },
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/fcp/services/6011f874-c01a-11e8-88ed-005056bbb24b"
-                }
+                "uuid": "6011f874-c01a-11e8-88ed-005056bbb24b",
             },
         }
     ),
@@ -133,19 +133,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FcpService(
     {
-        "enabled": True,
-        "svm": {
-            "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/5c659d90-c01a-11e8-88ed-005056bbb24b"}
-            },
-        },
-        "target": {"name": "20:00:00:50:56:bb:b2:4b"},
         "_links": {
             "self": {
                 "href": "/api/protocols/san/fcp/services/5c659d90-c01a-11e8-88ed-005056bbb24b"
             }
+        },
+        "target": {"name": "20:00:00:50:56:bb:b2:4b"},
+        "enabled": True,
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/5c659d90-c01a-11e8-88ed-005056bbb24b"}
+            },
+            "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
         },
     }
 )
@@ -191,18 +191,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FcpService(
     {
-        "enabled": False,
-        "svm": {
-            "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/5c659d90-c01a-11e8-88ed-005056bbb24b"}
-            },
-        },
         "_links": {
             "self": {
                 "href": "/api/protocols/san/fcp/services/5c659d90-c01a-11e8-88ed-005056bbb24b"
             }
+        },
+        "enabled": False,
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/5c659d90-c01a-11e8-88ed-005056bbb24b"}
+            },
+            "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
         },
     }
 )
@@ -231,11 +231,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -249,11 +248,15 @@ __pdoc__ = {
     "FcpServiceSchema.opts": False,
 }
 
-
 class FcpServiceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the FcpService object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the fcp_service."""
 
     enabled = marshmallow_fields.Boolean(
@@ -263,16 +266,36 @@ class FcpServiceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     r""" The administrative state of the FC Protocol service. The FC Protocol service can be disabled to block all FC Protocol connectivity to the SVM.<br/>
 This is optional in POST and PATCH. The default setting is _true_ (enabled) in POST."""
 
-    metric = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_svm.PerformanceMetricSvmSchema", data_key="metric", unknown=EXCLUDE, allow_none=True)
+    metric = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_svm", "PerformanceMetricSvmSchema"),
+                data_key="metric",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The metric field of the fcp_service."""
 
-    statistics = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_raw_svm.PerformanceMetricRawSvmSchema", data_key="statistics", unknown=EXCLUDE, allow_none=True)
+    statistics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_raw_svm", "PerformanceMetricRawSvmSchema"),
+                data_key="statistics",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The statistics field of the fcp_service."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the fcp_service."""
 
-    target = marshmallow_fields.Nested("netapp_ontap.models.fcp_service_target.FcpServiceTargetSchema", data_key="target", unknown=EXCLUDE, allow_none=True)
+    target = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fcp_service_target", "FcpServiceTargetSchema"),
+                data_key="target",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The target field of the fcp_service."""
 
     @property

@@ -16,6 +16,9 @@ from .add_dbnode_snapshots_for_exadb_vm_cluster_details import AddDbnodeSnapshot
 from .add_standby_autonomous_container_database_details import AddStandbyAutonomousContainerDatabaseDetails
 from .add_virtual_machine_to_cloud_vm_cluster_details import AddVirtualMachineToCloudVmClusterDetails
 from .add_virtual_machine_to_vm_cluster_details import AddVirtualMachineToVmClusterDetails
+from .advanced_cluster_file_system import AdvancedClusterFileSystem
+from .advanced_cluster_file_system_collection import AdvancedClusterFileSystemCollection
+from .advanced_cluster_file_system_summary import AdvancedClusterFileSystemSummary
 from .app_version_summary import AppVersionSummary
 from .application_vip import ApplicationVip
 from .application_vip_summary import ApplicationVipSummary
@@ -145,6 +148,7 @@ from .convert_to_pdb_details import ConvertToPdbDetails
 from .convert_to_pdb_target_base import ConvertToPdbTargetBase
 from .convert_to_regular_pluggable_database_details import ConvertToRegularPluggableDatabaseDetails
 from .convert_to_standalone_details import ConvertToStandaloneDetails
+from .create_advanced_cluster_file_system_details import CreateAdvancedClusterFileSystemDetails
 from .create_application_vip_details import CreateApplicationVipDetails
 from .create_autonomous_container_database_base import CreateAutonomousContainerDatabaseBase
 from .create_autonomous_container_database_dataguard_association_details import CreateAutonomousContainerDatabaseDataguardAssociationDetails
@@ -479,6 +483,7 @@ from .unmount_dbnode_snapshot_details import UnmountDbnodeSnapshotDetails
 from .unregister_cloud_autonomous_vm_cluster_pkcs_details import UnregisterCloudAutonomousVmClusterPkcsDetails
 from .unregister_cloud_vm_cluster_pkcs_details import UnregisterCloudVmClusterPkcsDetails
 from .update import Update
+from .update_advanced_cluster_file_system_details import UpdateAdvancedClusterFileSystemDetails
 from .update_autonomous_container_database_data_guard_association_details import UpdateAutonomousContainerDatabaseDataGuardAssociationDetails
 from .update_autonomous_container_database_details import UpdateAutonomousContainerDatabaseDetails
 from .update_autonomous_database_backup_details import UpdateAutonomousDatabaseBackupDetails
@@ -556,6 +561,9 @@ database_type_mapping = {
     "AddStandbyAutonomousContainerDatabaseDetails": AddStandbyAutonomousContainerDatabaseDetails,
     "AddVirtualMachineToCloudVmClusterDetails": AddVirtualMachineToCloudVmClusterDetails,
     "AddVirtualMachineToVmClusterDetails": AddVirtualMachineToVmClusterDetails,
+    "AdvancedClusterFileSystem": AdvancedClusterFileSystem,
+    "AdvancedClusterFileSystemCollection": AdvancedClusterFileSystemCollection,
+    "AdvancedClusterFileSystemSummary": AdvancedClusterFileSystemSummary,
     "AppVersionSummary": AppVersionSummary,
     "ApplicationVip": ApplicationVip,
     "ApplicationVipSummary": ApplicationVipSummary,
@@ -685,6 +693,7 @@ database_type_mapping = {
     "ConvertToPdbTargetBase": ConvertToPdbTargetBase,
     "ConvertToRegularPluggableDatabaseDetails": ConvertToRegularPluggableDatabaseDetails,
     "ConvertToStandaloneDetails": ConvertToStandaloneDetails,
+    "CreateAdvancedClusterFileSystemDetails": CreateAdvancedClusterFileSystemDetails,
     "CreateApplicationVipDetails": CreateApplicationVipDetails,
     "CreateAutonomousContainerDatabaseBase": CreateAutonomousContainerDatabaseBase,
     "CreateAutonomousContainerDatabaseDataguardAssociationDetails": CreateAutonomousContainerDatabaseDataguardAssociationDetails,
@@ -1019,6 +1028,7 @@ database_type_mapping = {
     "UnregisterCloudAutonomousVmClusterPkcsDetails": UnregisterCloudAutonomousVmClusterPkcsDetails,
     "UnregisterCloudVmClusterPkcsDetails": UnregisterCloudVmClusterPkcsDetails,
     "Update": Update,
+    "UpdateAdvancedClusterFileSystemDetails": UpdateAdvancedClusterFileSystemDetails,
     "UpdateAutonomousContainerDatabaseDataGuardAssociationDetails": UpdateAutonomousContainerDatabaseDataGuardAssociationDetails,
     "UpdateAutonomousContainerDatabaseDetails": UpdateAutonomousContainerDatabaseDetails,
     "UpdateAutonomousDatabaseBackupDetails": UpdateAutonomousDatabaseBackupDetails,

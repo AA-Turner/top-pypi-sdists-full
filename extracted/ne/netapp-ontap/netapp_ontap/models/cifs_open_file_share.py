@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["CifsOpenFileShare", "CifsOpenFileShareSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "CifsOpenFileShareSchema.opts": False,
     "CifsOpenFileShare": False,
 }
-
 
 class CifsOpenFileShareSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the CifsOpenFileShare object"""
@@ -27,13 +25,17 @@ The share mode can be a combination of:
   - r: read mode
   - w: write mode
   - d: delete
+  - rw: read and write modes
+  - rwd: read, write, and delete modes
 
 
 Valid choices:
 
 * r
 * w
-* d """
+* d
+* rw
+* rwd """
 
     name = marshmallow_fields.Str(data_key="name", allow_none=True)
     r""" CIFS share name where the file resides.

@@ -1,6 +1,6 @@
 [project]
 name = "comfy-env"
-version = "0.1.25"
+version = "0.1.26"
 description = "Environment management for ComfyUI custom nodes - CUDA wheel resolution and process isolation"
 readme = "README.md"
 license = {text = "MIT"}
@@ -22,6 +22,7 @@ dependencies = [
     "tomli>=2.0.0",
     "tomli-w>=1.0.0",
     "uv>=0.4.0",
+    "pixi>=0.40.0",
     "pip>=21.0",
     "numpy",
 ]

@@ -1,21 +1,25 @@
 """
 Core data representation module for YAKE keyword extraction.
 
-This module contains the DataCore class which serves as the foundation for 
-processing and analyzing text documents to extract keywords. It handles text 
-preprocessing, term identification, co-occurrence analysis, and candidate 
+This module contains the DataCore class which serves as the foundation for
+processing and analyzing text documents to extract keywords. It handles text
+preprocessing, term identification, co-occurrence analysis, and candidate
 keyword generation.
 """
 
+import logging
 import string
-import networkx as nx
-import numpy as np
+from typing import Dict, List, Set, Optional, Any
+import networkx as nx  # pylint: disable=import-error
+import numpy as np  # pylint: disable=import-error
 
-from segtok.tokenizer import web_tokenizer, split_contractions
+from segtok.tokenizer import web_tokenizer, split_contractions  # pylint: disable=import-error
 from .utils import pre_filter, tokenize_sentences, get_tag
 from .single_word import SingleWord
 from .composed_word import ComposedWord
 
+# Configure module logger
+logger = logging.getLogger(__name__)
 
 class DataCore:
     """
@@ -30,18 +34,23 @@ class DataCore:
         See property accessors below for available attributes.
     """
 
-    def __init__(self, text, stopword_set, config=None):
+    def __init__(
+        self,
+        text: str,
+        stopword_set: Set[str],
+        config: Optional[Dict[str, Any]] = None
+    ):
         """
-        Initialize the data core with text and configuration.
+        Initialize the data core for keyword extraction.
 
         Args:
-            text (str): The input text to analyze for keyword extraction
-            stopword_set (set): A set of stopwords to filter out non-content words
-            config (dict, optional): Configuration options including:
-                - windows_size (int): Size of word window for co-occurrence (default: 2)
-                - n (int): Maximum length of keyword phrases (default: 3)
-                - tags_to_discard (set): POS tags to ignore (default: {"u", "d"})
-                - exclude (set): Characters to exclude (default: string.punctuation)
+            text: Input text to process
+            stopword_set: Set of stopwords to ignore
+            config: Configuration options including:
+                - windows_size (int): Size of window for co-occurrence matrix (default: 2)
+                - n (int): Maximum n-gram size (default: 3)
+                - tags_to_discard (set): Tags to discard during processing (default: {"u", "d"})
+                - exclude (set): Set of characters to exclude (default: string.punctuation)
         """
         # Initialize default configuration if none provided
         if config is None:
@@ -53,11 +62,14 @@ class DataCore:
         tags_to_discard = config.get("tags_to_discard", set(["u", "d"]))
         exclude = config.get("exclude", set(string.punctuation))
 
+        # Convert exclude to frozenset once for efficient caching in get_tag()
+        exclude = frozenset(exclude)
+
         # Initialize the state dictionary containing all component data structures
         self._state = {
             # Configuration settings
             "config": {
-                "exclude": exclude,  # Punctuation and other characters to exclude
+                "exclude": exclude,  # Punctuation and other characters to exclude (as frozenset)
                 "tags_to_discard": tags_to_discard,  # POS tags to ignore during analysis
                 "stopword_set": stopword_set,  # Set of stopwords for filtering
             },
@@ -75,7 +87,9 @@ class DataCore:
                 "freq_ns": {},  # Frequency distribution of n-grams by length
             },
             # Graph for term co-occurrence analysis
-            "g": nx.DiGraph(),  # Directed graph where nodes are terms and edges represent co-occurrences
+            # Directed graph where nodes are terms and edges represent
+            # co-occurrences
+            "g": nx.DiGraph(),
         }
 
         # Initialize n-gram frequencies with zero counts for each length 1 to n
@@ -161,17 +175,22 @@ class DataCore:
         return self._state["collections"]["freq_ns"]
 
     # --- Internal utility methods ---
-    def _build(self, text, windows_size, n):
+    def _build(self, text: str, windows_size: int, n: int) -> None:
         """
-        Build the core data structures from the input text.
+        Build the datacore features.
 
-        This method handles the initial processing of text, including
-        pre-filtering, sentence segmentation, and word tokenization.
+        This method processes the input text to extract terms, build the co-occurrence graph,
+        and generate candidate keyphrases. It performs the following steps:
+        1. Pre-filters and tokenizes the text into sentences and words
+        2. Processes each word to create term objects
+        3. Builds a co-occurrence matrix based on the window size
+        4. Generates candidate keyphrases of various n-gram sizes
+        5. Updates internal data structures with the extracted information
 
         Args:
-            text (str): The input text to process
-            windows_size (int): Size of word window for co-occurrence analysis
-            n (int): Maximum n-gram length to consider for keyword candidates
+            text: Input text to process
+            windows_size: Size of window for co-occurrence matrix calculation
+            n: Maximum n-gram size to consider for candidate keyphrases
         """
         # Pre-process text for normalization
         text = pre_filter(text)
@@ -193,7 +212,13 @@ class DataCore:
         # Store the total number of processed words
         self.number_of_words = pos_text
 
-    def _process_sentence(self, sentence, sentence_id, pos_text, context):
+    def _process_sentence(
+        self,
+        sentence: List[str],
+        sentence_id: int,
+        pos_text: int,
+        context: Dict[str, Any]
+    ) -> int:
         """
         Process a single sentence from the document.
 
@@ -201,13 +226,13 @@ class DataCore:
         and processes each meaningful word.
 
         Args:
-            sentence (list): List of word tokens in the sentence
-            sentence_id (int): Unique identifier for this sentence
-            pos_text (int): Current global position in the text
-            context (dict): Processing context with configuration parameters
+            sentence: List of word tokens in the sentence
+            sentence_id: Unique identifier for this sentence
+            pos_text: Current global position in the text
+            context: Processing context with configuration parameters
 
         Returns:
-            int: Updated global position counter
+            Updated global position counter
         """
         # Initialize lists to store processed sentence components
         sentence_obj_aux = []  # Blocks of words within the sentence
@@ -222,9 +247,9 @@ class DataCore:
         # Process each word in the sentence
         for pos_sent, word in enumerate(sentence):
             # Check if the word is just punctuation (all characters are excluded)
-            if len([c for c in word if c in self.exclude]) == len(word):
+            if all(c in self.exclude for c in word):
                 # If we have a block of words, save it and start a new block
-                if len(block_of_word_obj) > 0:
+                if block_of_word_obj:
                     sentence_obj_aux.append(block_of_word_obj)
                     block_of_word_obj = []
             else:
@@ -239,11 +264,11 @@ class DataCore:
                 )
 
         # Save any remaining word block
-        if len(block_of_word_obj) > 0:
+        if block_of_word_obj:
             sentence_obj_aux.append(block_of_word_obj)
 
         # Add processed sentence to collection if not empty
-        if len(sentence_obj_aux) > 0:
+        if sentence_obj_aux:
             self.sentences_obj.append(sentence_obj_aux)
 
         return pos_text
@@ -360,32 +385,38 @@ class DataCore:
 
     def get_tag(self, word, i):
         """
-        Get the part-of-speech tag for a word.
+        Get tag for a word.
+
+        Determines the type of word based on its characteristics:
+        - 'd': Digit (numeric value)
+        - 'u': Unknown (mixed alphanumeric or special characters)
+        - 'a': All caps (acronym)
+        - 'n': Proper noun (capitalized word not at sentence start)
+        - 'p': Regular word
 
         Args:
-            word (str): The word to tag
-            i (int): Position of the word in its sentence
+            word: Word to tag
+            i: Position in sentence (used to identify proper nouns)
 
         Returns:
-            str: Single character tag representing the word type
-                 ("d" for digit, "u" for unusual, "a" for acronym,
-                  "n" for proper noun, "p" for plain word)
+            Tag as string representing the word type
         """
         return get_tag(word, i, self.exclude)
 
-    def build_candidate(self, candidate_string):
+    def build_candidate(self, candidate_string: str) -> ComposedWord:
         """
-        Build a candidate ComposedWord from a string.
+        Build a candidate from a string.
 
         This function processes a candidate string by tokenizing it, tagging each word,
         and creating a ComposedWord object from the resulting terms. It's used to
         convert external strings into the internal candidate representation.
 
         Args:
-            candidate_string (str): String to convert to a keyword candidate
+            candidate_string: String to build candidate from
 
         Returns:
-            ComposedWord: A composed word object representing the candidate
+            A ComposedWord instance representing the candidate, or an invalid
+            ComposedWord if no valid terms were found
         """
 
         # Tokenize the candidate string
@@ -416,7 +447,7 @@ class DataCore:
         # Create and return the composed word
         return ComposedWord(candidate_terms)
 
-    def build_single_terms_features(self, features=None):
+    def build_single_terms_features(self, features: Optional[List[str]] = None) -> None:
         """
         Calculates and updates statistical features for all single terms in the text.
         This includes term frequency statistics and other features specified in the
@@ -424,14 +455,14 @@ class DataCore:
         calculation.
 
         Args:
-            features (list, optional): Specific features to calculate
+            features: Specific features to calculate. If None, all available features will be built.
         """
         # Filter to valid terms (non-stopwords)
         valid_terms = [term for term in self.terms.values() if not term.stopword]
         valid_tfs = np.array([x.tf for x in valid_terms])
 
         # Skip if no valid terms
-        if len(valid_tfs) == 0:
+        if not valid_tfs.size:
             return
 
         # Calculate frequency statistics
@@ -448,38 +479,44 @@ class DataCore:
         }
 
         # Update all terms with the calculated statistics
-        list(map(lambda x: x.update_h(stats, features=features), self.terms.values()))
+        for term in self.terms.values():
+            term.update_h(stats, features=features)
 
-    def build_mult_terms_features(self, features=None):
+    def build_mult_terms_features(self, features: Optional[List[str]] = None) -> None:
         """
         Build features for multi-word terms.
 
         Updates the features for all valid multi-word candidate terms (n-grams).
-        Only candidates that pass the validity check will have their features updated.
+        Only candidates that pass the validity check will have their features
+        updated.
 
         Args:
-            features (list, optional): List of features to build. If None, all available features will be built.
+            features: List of features to build. If None, all
+                available features will be built.
         """
-        # Update only valid candidates (filter then apply update_h)
-        list(
-            map(
-                lambda x: x.update_h(features=features),
-                [cand for cand in self.candidates.values() if cand.is_valid()],
-            )
-        )
+        # Update only valid candidates using single pass generator expression
+        # This is more efficient than separate filter + map operations
+        for cand in self.candidates.values():
+            if cand.is_valid():
+                cand.update_h(features=features)
 
-    def get_term(self, str_word, save_non_seen=True):
+    def get_term(self, str_word: str, save_non_seen: bool = True) -> SingleWord:
         """
         Get or create a term object for a word.
 
-        Handles word normalization, stopword checking, and term object creation.
+        Retrieves an existing term object for a word or creates a new one.
+        The function also:
+        1. Normalizes the word (lowercase, handles plural forms)
+        2. Determines if the word is a stopword
+        3. Creates a new term object if needed and adds it to the graph
 
         Args:
-            str_word (str): The word to get a term object for
-            save_non_seen (bool, optional): Whether to save new terms to the collection
+            str_word: Word to get term for
+            save_non_seen: Whether to save new terms to the internal dictionary.
+                          If False, creates a temporary term without saving it.
 
         Returns:
-            SingleWord: Term object representing this word
+            SingleWord instance representing the term
         """
         # Normalize the term (convert to lowercase)
         unique_term = str_word.lower()
@@ -512,7 +549,7 @@ class DataCore:
         term_obj = SingleWord(unique_term, term_id, self.g)
         term_obj.stopword = isstopword
 
-        # Save the term to the collection if requestedComposedWord instance to add or update in the candidates dictionary
+        # Save the term to the collection if requested
         if save_non_seen:
             self.g.add_node(term_id)
             self.terms[unique_term] = term_obj
@@ -521,15 +558,15 @@ class DataCore:
 
     def add_cooccur(self, left_term, right_term):
         """
-        Add a co-occurrence relationship between two terms.
+        Add co-occurrence between terms.
 
         Updates the co-occurrence graph by adding or incrementing an edge between
         two terms. This information is used to calculate term relatedness and
         importance in the text.
 
         Args:
-            left_term (SingleWord): Source term in the relationship
-            right_term (SingleWord): Target term in the relationship
+            left_term: Left term in the co-occurrence relationship
+            right_term: Right term in the co-occurrence relationship
         """
         # Check if the edge already exists
         if right_term.id not in self.g[left_term.id]:
@@ -539,16 +576,20 @@ class DataCore:
         # Increment the co-occurrence frequency
         self.g[left_term.id][right_term.id]["tf"] += 1.0
 
+        # Invalidate graph metrics cache for affected terms
+        left_term.invalidate_graph_cache()
+        right_term.invalidate_graph_cache()
+
     def add_or_update_composedword(self, cand):
         """
-        Add or update a composed word in the candidates collection.
+        Add or update a composed word.
 
         Adds a new candidate composed word (n-gram) to the candidates dictionary
         or updates an existing one by incrementing its frequency. This is used to
         track potential keyphrases in the text.
 
         Args:
-            cand (ComposedWord): ComposedWord instance to add or update in the candidates dictionary
+            cand: ComposedWord instance to add or update in the candidates dictionary
         """
         # Check if this candidate already exists
         if cand.unique_kw not in self.candidates:
@@ -556,7 +597,7 @@ class DataCore:
             self.candidates[cand.unique_kw] = cand
         else:
             # Update existing candidate with new information
-            self.candidates[cand.unique_kw].uptade_cand(cand)
+            self.candidates[cand.unique_kw].update_cand(cand)
 
         # Increment the frequency counter for this candidate
         self.candidates[cand.unique_kw].tf += 1.0

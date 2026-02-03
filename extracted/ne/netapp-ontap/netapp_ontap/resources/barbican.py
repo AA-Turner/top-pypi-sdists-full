@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -39,12 +39,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Barbican(
     {
-        "svm": {"name": "barbican_svm"},
-        "key_id": "https://sample.keyid.com:9311/v1/secrets/5c610a4f-ea97-44b5-8682-f4daeafa9647/",
         "configuration": {"name": "myConfiguration"},
-        "application_cred_id": "app1",
-        "keystone_url": "https://sample.keystone.com:5000/v3/auth/tokens",
         "application_cred_secret": "secret1",
+        "keystone_url": "https://sample.keystone.com:5000/v3/auth/tokens",
+        "application_cred_id": "app1",
+        "key_id": "https://sample.keyid.com:9311/v1/secrets/5c610a4f-ea97-44b5-8682-f4daeafa9647/",
+        "svm": {"name": "barbican_svm"},
     }
 )
 
@@ -71,16 +71,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Barbican(
         {
-            "uuid": "5a134975-fa58-11ef-8c9f-005056bbeee5",
             "configuration": {
-                "uuid": "5a134975-fa58-11ef-8c9f-005056bbeee5",
                 "name": "myConfiguration",
+                "uuid": "5a134975-fa58-11ef-8c9f-005056bbeee5",
             },
             "_links": {
                 "self": {
                     "href": "/api/security/barbican-kms/5a134975-fa58-11ef-8c9f-005056bbeee5"
                 }
             },
+            "uuid": "5a134975-fa58-11ef-8c9f-005056bbeee5",
         }
     )
 ]
@@ -109,29 +109,29 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Barbican(
     {
-        "proxy_host": "",
-        "svm": {"uuid": "ec8e0954-fa10-11ef-8c9f-005056bbeee5", "name": "barbican_svm"},
-        "uuid": "5a134975-fa58-11ef-8c9f-005056bbeee5",
-        "key_id": "https://sample.keyid.com:9311/v1/secrets/5c610a4f-ea97-44b5-8682-f4daeafa9647/",
-        "verify_host": True,
-        "proxy_port": 0,
         "configuration": {
-            "uuid": "5a134975-fa58-11ef-8c9f-005056bbeee5",
             "name": "myConfiguration",
+            "uuid": "5a134975-fa58-11ef-8c9f-005056bbeee5",
         },
-        "proxy_type": "https",
-        "proxy_username": "",
-        "application_cred_id": "app1",
         "timeout": 10,
-        "scope": "svm",
+        "verify_host": True,
+        "proxy_host": "",
+        "keystone_url": "https://sample.keystone.com:5000/v3/auth/tokens",
         "verify": True,
         "enabled": False,
-        "keystone_url": "https://sample.keystone.com:5000/v3/auth/tokens",
+        "proxy_username": "",
         "_links": {
             "self": {
                 "href": "/api/security/barbican-kms/5a134975-fa58-11ef-8c9f-005056bbeee5"
             }
         },
+        "application_cred_id": "app1",
+        "key_id": "https://sample.keyid.com:9311/v1/secrets/5c610a4f-ea97-44b5-8682-f4daeafa9647/",
+        "proxy_type": "https",
+        "uuid": "5a134975-fa58-11ef-8c9f-005056bbeee5",
+        "proxy_port": 0,
+        "scope": "svm",
+        "svm": {"name": "barbican_svm", "uuid": "ec8e0954-fa10-11ef-8c9f-005056bbeee5"},
     }
 )
 
@@ -159,17 +159,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Barbican(
     {
-        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
-        "barbican_reachability": {"message": "", "reachable": True, "code": "0"},
         "configuration": {
-            "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
             "name": "myConfiguration",
+            "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
         },
         "_links": {
             "self": {
                 "href": "/api/security/barbican-kms/f72098a2-e908-11ea-bd56-005056bb4222"
             }
         },
+        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
+        "barbican_reachability": {"message": "", "code": "0", "reachable": True},
     }
 )
 
@@ -248,11 +248,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -266,11 +265,15 @@ __pdoc__ = {
     "BarbicanSchema.opts": False,
 }
 
-
 class BarbicanSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Barbican object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the barbican."""
 
     application_cred_id = marshmallow_fields.Str(
@@ -289,11 +292,21 @@ Example: 63e3cb77f84f42b7a0395a3efb7636f9"""
 
 Example: secret"""
 
-    barbican_reachability = marshmallow_fields.Nested("netapp_ontap.models.barbican_connectivity.BarbicanConnectivitySchema", data_key="barbican_reachability", unknown=EXCLUDE, allow_none=True)
+    barbican_reachability = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.barbican_connectivity", "BarbicanConnectivitySchema"),
+                data_key="barbican_reachability",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Indicates whether the Barbican KMS is reachable from all nodes in the cluster.
 This is an advanced property; there is an added computational cost to retrieving its value. The property is not populated for either a collection GET request or an instance GET request unless it is explicitly requested using the field's query parameter or GET for all advanced properties is enabled."""
 
-    configuration = marshmallow_fields.Nested("netapp_ontap.models.security_keystore_configuration.SecurityKeystoreConfigurationSchema", data_key="configuration", unknown=EXCLUDE, allow_none=True)
+    configuration = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.security_keystore_configuration", "SecurityKeystoreConfigurationSchema"),
+                data_key="configuration",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Security keystore object reference."""
 
     enabled = marshmallow_fields.Boolean(
@@ -374,11 +387,21 @@ Valid choices:
 * svm
 * cluster"""
 
-    state = marshmallow_fields.Nested("netapp_ontap.models.barbican_state.BarbicanStateSchema", data_key="state", unknown=EXCLUDE, allow_none=True)
+    state = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.barbican_state", "BarbicanStateSchema"),
+                data_key="state",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Indicates whether or not the SVM key encryption key (KEK) is available cluster wide.
 This is an advanced property; there is an added computational cost to retrieving its value. The property is not populated for either a collection GET or an instance GET unless it is explicitly requested using the `fields` query parameter or GET for all advanced properties is enabled."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the barbican."""
 
     timeout = Size(

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -36,20 +36,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Portset(
     {
         "protocol": "mixed",
-        "svm": {
-            "uuid": "31484775-1e23-11eb-b2a8-005056bb3521",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/31484775-1e23-11eb-b2a8-005056bb3521"}
-            },
-        },
-        "uuid": "5d7b1dfa-1ed7-11eb-8b0f-005056bb3521",
         "_links": {
             "self": {
                 "href": "/api/protocols/san/portsets/5d7b1dfa-1ed7-11eb-8b0f-005056bb3521"
             }
         },
         "name": "portset1",
+        "uuid": "5d7b1dfa-1ed7-11eb-8b0f-005056bb3521",
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/31484775-1e23-11eb-b2a8-005056bb3521"}
+            },
+            "uuid": "31484775-1e23-11eb-b2a8-005056bb3521",
+        },
     }
 )
 
@@ -82,16 +82,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Portset(
     {
+        "protocol": "iscsi",
+        "_links": {
+            "self": {
+                "href": "/api/protocols/san/portsets/816c0d49-1ed7-11eb-8b0f-005056bb3521"
+            }
+        },
         "interfaces": [
             {
-                "uuid": "f37bfb01-1e2a-11eb-b2a8-005056bb3521",
-                "_links": {
-                    "self": {
-                        "href": "/api/protocols/san/portsets/816c0d49-1ed7-11eb-8b0f-005056bb3521/interfaces/f37bfb01-1e2a-11eb-b2a8-005056bb3521"
-                    }
-                },
                 "ip": {
-                    "uuid": "f37bfb01-1e2a-11eb-b2a8-005056bb3521",
                     "ip": {"address": "192.168.1.100"},
                     "name": "lif1",
                     "_links": {
@@ -99,17 +98,17 @@ Portset(
                             "href": "/api/network/ip/interfaces/f37bfb01-1e2a-11eb-b2a8-005056bb3521"
                         }
                     },
+                    "uuid": "f37bfb01-1e2a-11eb-b2a8-005056bb3521",
                 },
-            },
-            {
-                "uuid": "f92178e7-1e2a-11eb-b2a8-005056bb3521",
                 "_links": {
                     "self": {
-                        "href": "/api/protocols/san/portsets/816c0d49-1ed7-11eb-8b0f-005056bb3521/interfaces/f92178e7-1e2a-11eb-b2a8-005056bb3521"
+                        "href": "/api/protocols/san/portsets/816c0d49-1ed7-11eb-8b0f-005056bb3521/interfaces/f37bfb01-1e2a-11eb-b2a8-005056bb3521"
                     }
                 },
+                "uuid": "f37bfb01-1e2a-11eb-b2a8-005056bb3521",
+            },
+            {
                 "ip": {
-                    "uuid": "f92178e7-1e2a-11eb-b2a8-005056bb3521",
                     "ip": {"address": "192.168.1.101"},
                     "name": "lif2",
                     "_links": {
@@ -117,24 +116,25 @@ Portset(
                             "href": "/api/network/ip/interfaces/f92178e7-1e2a-11eb-b2a8-005056bb3521"
                         }
                     },
+                    "uuid": "f92178e7-1e2a-11eb-b2a8-005056bb3521",
                 },
+                "_links": {
+                    "self": {
+                        "href": "/api/protocols/san/portsets/816c0d49-1ed7-11eb-8b0f-005056bb3521/interfaces/f92178e7-1e2a-11eb-b2a8-005056bb3521"
+                    }
+                },
+                "uuid": "f92178e7-1e2a-11eb-b2a8-005056bb3521",
             },
         ],
-        "protocol": "iscsi",
+        "name": "portset2",
+        "uuid": "816c0d49-1ed7-11eb-8b0f-005056bb3521",
         "svm": {
-            "uuid": "31484775-1e23-11eb-b2a8-005056bb3521",
             "name": "svm1",
             "_links": {
                 "self": {"href": "/api/svm/svms/31484775-1e23-11eb-b2a8-005056bb3521"}
             },
+            "uuid": "31484775-1e23-11eb-b2a8-005056bb3521",
         },
-        "uuid": "816c0d49-1ed7-11eb-8b0f-005056bb3521",
-        "_links": {
-            "self": {
-                "href": "/api/protocols/san/portsets/816c0d49-1ed7-11eb-8b0f-005056bb3521"
-            }
-        },
-        "name": "portset2",
     }
 )
 
@@ -161,35 +161,35 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Portset(
         {
-            "uuid": "5d7b1dfa-1ed7-11eb-8b0f-005056bb3521",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/portsets/5d7b1dfa-1ed7-11eb-8b0f-005056bb3521"
                 }
             },
             "name": "portset1",
+            "uuid": "5d7b1dfa-1ed7-11eb-8b0f-005056bb3521",
         }
     ),
     Portset(
         {
-            "uuid": "816c0d49-1ed7-11eb-8b0f-005056bb3521",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/portsets/816c0d49-1ed7-11eb-8b0f-005056bb3521"
                 }
             },
             "name": "portset2",
+            "uuid": "816c0d49-1ed7-11eb-8b0f-005056bb3521",
         }
     ),
     Portset(
         {
-            "uuid": "b716b4d2-1ed7-11eb-8b0f-005056bb3521",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/portsets/b716b4d2-1ed7-11eb-8b0f-005056bb3521"
                 }
             },
             "name": "portset3",
+            "uuid": "b716b4d2-1ed7-11eb-8b0f-005056bb3521",
         }
     ),
 ]
@@ -217,59 +217,59 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Portset(
     {
+        "protocol": "fcp",
+        "_links": {
+            "self": {
+                "href": "/api/protocols/san/portsets/b716b4d2-1ed7-11eb-8b0f-005056bb3521"
+            }
+        },
         "interfaces": [
             {
-                "uuid": "164eb052-1e2b-11eb-b2a8-005056bb3521",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/san/portsets/b716b4d2-1ed7-11eb-8b0f-005056bb3521/interfaces/164eb052-1e2b-11eb-b2a8-005056bb3521"
                     }
                 },
                 "fc": {
-                    "wwpn": "20:01:00:50:56:bb:35:21",
-                    "uuid": "164eb052-1e2b-11eb-b2a8-005056bb3521",
                     "_links": {
                         "self": {
                             "href": "/api/network/fc/interfaces/164eb052-1e2b-11eb-b2a8-005056bb3521"
                         }
                     },
+                    "wwpn": "20:01:00:50:56:bb:35:21",
                     "name": "lif5",
+                    "uuid": "164eb052-1e2b-11eb-b2a8-005056bb3521",
                 },
+                "uuid": "164eb052-1e2b-11eb-b2a8-005056bb3521",
             },
             {
-                "uuid": "197ba2b7-1e2b-11eb-b2a8-005056bb3521",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/san/portsets/b716b4d2-1ed7-11eb-8b0f-005056bb3521/interfaces/197ba2b7-1e2b-11eb-b2a8-005056bb3521"
                     }
                 },
                 "fc": {
-                    "wwpn": "20:02:00:50:56:bb:35:21",
-                    "uuid": "197ba2b7-1e2b-11eb-b2a8-005056bb3521",
                     "_links": {
                         "self": {
                             "href": "/api/network/fc/interfaces/197ba2b7-1e2b-11eb-b2a8-005056bb3521"
                         }
                     },
+                    "wwpn": "20:02:00:50:56:bb:35:21",
                     "name": "lif6",
+                    "uuid": "197ba2b7-1e2b-11eb-b2a8-005056bb3521",
                 },
+                "uuid": "197ba2b7-1e2b-11eb-b2a8-005056bb3521",
             },
         ],
-        "protocol": "fcp",
+        "name": "portset3",
+        "uuid": "b716b4d2-1ed7-11eb-8b0f-005056bb3521",
         "svm": {
-            "uuid": "31484775-1e23-11eb-b2a8-005056bb3521",
             "name": "svm1",
             "_links": {
                 "self": {"href": "/api/svm/svms/31484775-1e23-11eb-b2a8-005056bb3521"}
             },
+            "uuid": "31484775-1e23-11eb-b2a8-005056bb3521",
         },
-        "uuid": "b716b4d2-1ed7-11eb-8b0f-005056bb3521",
-        "_links": {
-            "self": {
-                "href": "/api/protocols/san/portsets/b716b4d2-1ed7-11eb-8b0f-005056bb3521"
-            }
-        },
-        "name": "portset3",
     }
 )
 
@@ -341,11 +341,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -359,17 +358,37 @@ __pdoc__ = {
     "PortsetSchema.opts": False,
 }
 
-
 class PortsetSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Portset object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the portset."""
 
-    igroups = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.iscsi_session_igroups.IscsiSessionIgroupsSchema", unknown=EXCLUDE, allow_none=True), data_key="igroups", allow_none=True)
+    igroups = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.iscsi_session_igroups", "IscsiSessionIgroupsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="igroups",
+                allow_none=True
+            )
     r""" An array initiator groups to which the portset is bound."""
 
-    interfaces = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.portset_interface_no_records.PortsetInterfaceNoRecordsSchema", unknown=EXCLUDE, allow_none=True), data_key="interfaces", allow_none=True)
+    interfaces = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.portset_interface_no_records", "PortsetInterfaceNoRecordsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="interfaces",
+                allow_none=True
+            )
     r""" An array of network interfaces that are members of the portset. These are the only network interfaces through which the initiators of a bound igroup can access mapped LUNs.<br/>
 Zero or more network interfaces can be supplied when the portset is created. After creation, network interfaces can be added or removed from the portset using the `/protocols/san/portsets/{portset.uuid}/interfaces` endpoint. See [`POST /protocols/san/portsets/{portset.uuid}/interfaces`](#/SAN/portset_interface_create) and [`DELETE /protocols/san/portsets/{portset.uuid}/interfaces/{uuid}`](#/SAN/portset_interface_delete) for more details."""
 
@@ -399,7 +418,12 @@ Valid choices:
 * iscsi
 * mixed"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the portset."""
 
     uuid = marshmallow_fields.Str(

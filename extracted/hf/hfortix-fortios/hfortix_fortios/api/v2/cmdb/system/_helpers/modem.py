@@ -54,71 +54,50 @@ DEPRECATED_FIELDS = {
 
 # Field types mapping
 FIELD_TYPES = {
-    "status": "option",  # Enable/disable Modem support (equivalent to bringing an inte
+    "status": "option",  # Enable/disable Modem support (equivalent to bringing an interface up or down).  
     "pin-init": "string",  # AT command to set the PIN (AT+PIN=<pin>).
-    "network-init": "string",  # AT command to set the Network name/type (AT+COPS=<mode>,[<fo
-    "lockdown-lac": "string",  # Allow connection only to the specified Location Area Code (L
-    "mode": "option",  # Set MODEM operation mode to redundant or standalone.   
-stan
-    "auto-dial": "option",  # Enable/disable auto-dial after a reboot or disconnection.   
-    "dial-on-demand": "option",  # Enable/disable to dial the modem when packets are routed to 
+    "network-init": "string",  # AT command to set the Network name/type (AT+COPS=<mode>,[<format>,<oper>[,<AcT>]
+    "lockdown-lac": "string",  # Allow connection only to the specified Location Area Code (LAC).
+    "mode": "option",  # Set MODEM operation mode to redundant or standalone.    standalone:Standalone.  
+    "auto-dial": "option",  # Enable/disable auto-dial after a reboot or disconnection.    enable:Enable setti
+    "dial-on-demand": "option",  # Enable/disable to dial the modem when packets are routed to the modem interface.
     "idle-timer": "integer",  # MODEM connection idle time (1 - 9999 min, default = 5).
-    "redial": "option",  # Redial limit (1 - 10 attempts, none = redial forever).   
-no
-    "reset": "integer",  # Number of dial attempts before resetting modem (0 = never re
+    "redial": "option",  # Redial limit (1 - 10 attempts, none = redial forever).    none:Forever.    1:One
+    "reset": "integer",  # Number of dial attempts before resetting modem (0 = never reset).
     "holddown-timer": "integer",  # Hold down timer in seconds (1 - 60 sec).
     "connect-timeout": "integer",  # Connection completion timeout (30 - 255 sec, default = 90).
     "interface": "string",  # Name of redundant interface.
-    "wireless-port": "integer",  # Enter wireless port number: 0 for default, 1 for first port,
-    "dont-send-CR1": "option",  # Do not send CR when connected (ISP1).   
-enable:Enable setti
-    "phone1": "string",  # Phone number to connect to the dialup account (must not cont
+    "wireless-port": "integer",  # Enter wireless port number: 0 for default, 1 for first port, and so on (0 - 4294
+    "dont-send-CR1": "option",  # Do not send CR when connected (ISP1).    enable:Enable setting.    disable:Disab
+    "phone1": "string",  # Phone number to connect to the dialup account (must not contain spaces, and shou
     "dial-cmd1": "string",  # Dial command (this is often an ATD or ATDT command).
     "username1": "string",  # User name to access the specified dialup account.
     "passwd1": "string",  # Password to access the specified dialup account.
     "extra-init1": "string",  # Extra initialization string to ISP 1.
-    "peer-modem1": "option",  # Specify peer MODEM type for phone1.   
-generic:All other mod
-    "ppp-echo-request1": "option",  # Enable/disable PPP echo-request to ISP 1.   
-enable:Enable s
-    "authtype1": "option",  # Allowed authentication types for ISP 1.   
-pap:PAP   
-chap:C
-    "dont-send-CR2": "option",  # Do not send CR when connected (ISP2).   
-enable:Enable setti
-    "phone2": "string",  # Phone number to connect to the dialup account (must not cont
+    "peer-modem1": "option",  # Specify peer MODEM type for phone1.    generic:All other modem type.    actionte
+    "ppp-echo-request1": "option",  # Enable/disable PPP echo-request to ISP 1.    enable:Enable setting.    disable:D
+    "authtype1": "option",  # Allowed authentication types for ISP 1.    pap:PAP    chap:CHAP    mschap:MSCHAP
+    "dont-send-CR2": "option",  # Do not send CR when connected (ISP2).    enable:Enable setting.    disable:Disab
+    "phone2": "string",  # Phone number to connect to the dialup account (must not contain spaces, and shou
     "dial-cmd2": "string",  # Dial command (this is often an ATD or ATDT command).
     "username2": "string",  # User name to access the specified dialup account.
     "passwd2": "string",  # Password to access the specified dialup account.
     "extra-init2": "string",  # Extra initialization string to ISP 2.
-    "peer-modem2": "option",  # Specify peer MODEM type for phone2.   
-generic:All other mod
-    "ppp-echo-request2": "option",  # Enable/disable PPP echo-request to ISP 2.   
-enable:Enable s
-    "authtype2": "option",  # Allowed authentication types for ISP 2.   
-pap:PAP   
-chap:C
-    "dont-send-CR3": "option",  # Do not send CR when connected (ISP3).   
-enable:Enable setti
-    "phone3": "string",  # Phone number to connect to the dialup account (must not cont
+    "peer-modem2": "option",  # Specify peer MODEM type for phone2.    generic:All other modem type.    actionte
+    "ppp-echo-request2": "option",  # Enable/disable PPP echo-request to ISP 2.    enable:Enable setting.    disable:D
+    "authtype2": "option",  # Allowed authentication types for ISP 2.    pap:PAP    chap:CHAP    mschap:MSCHAP
+    "dont-send-CR3": "option",  # Do not send CR when connected (ISP3).    enable:Enable setting.    disable:Disab
+    "phone3": "string",  # Phone number to connect to the dialup account (must not contain spaces, and shou
     "dial-cmd3": "string",  # Dial command (this is often an ATD or ATDT command).
     "username3": "string",  # User name to access the specified dialup account.
     "passwd3": "string",  # Password to access the specified dialup account.
     "extra-init3": "string",  # Extra initialization string to ISP 3.
-    "peer-modem3": "option",  # Specify peer MODEM type for phone3.   
-generic:All other mod
-    "ppp-echo-request3": "option",  # Enable/disable PPP echo-request to ISP 3.   
-enable:Enable s
-    "altmode": "option",  # Enable/disable altmode for installations using PPP in China.
-    "authtype3": "option",  # Allowed authentication types for ISP 3.   
-pap:PAP   
-chap:C
-    "traffic-check": "option",  # Enable/disable traffic-check.   
-enable:Enable setting.   
-d
-    "action": "option",  # Dial up/stop MODEM.   
-dial:Dial up number.   
-stop:Stop dia
+    "peer-modem3": "option",  # Specify peer MODEM type for phone3.    generic:All other modem type.    actionte
+    "ppp-echo-request3": "option",  # Enable/disable PPP echo-request to ISP 3.    enable:Enable setting.    disable:D
+    "altmode": "option",  # Enable/disable altmode for installations using PPP in China.    enable:Enable se
+    "authtype3": "option",  # Allowed authentication types for ISP 3.    pap:PAP    chap:CHAP    mschap:MSCHAP
+    "traffic-check": "option",  # Enable/disable traffic-check.    enable:Enable setting.    disable:Disable setti
+    "action": "option",  # Dial up/stop MODEM.    dial:Dial up number.    stop:Stop dialup.    none:No acti
     "distance": "integer",  # Distance of learned routes (1 - 255, default = 1).
     "priority": "integer",  # Priority of learned routes (1 - 65535, default = 1).
 }

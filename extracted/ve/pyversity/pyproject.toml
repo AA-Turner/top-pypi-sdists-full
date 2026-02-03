@@ -43,6 +43,18 @@ dev = [
     "pytest",
     "pytest-coverage",
     "ruff",
+    "types-requests",
+]
+benchmarks = [
+    "datasets~=3.6.0",
+    "huggingface-hub~=0.30.0",
+    "matplotlib~=3.10.0",
+    "pandas~=2.3.0",
+    "requests~=2.32.0",
+    "scikit-learn>=1.6.0",
+    "scipy>=1.13.0",
+    "seaborn~=0.13.0",
+    "tqdm~=4.67.0",
 ]
 
 [tool.ruff]

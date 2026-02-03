@@ -27,7 +27,7 @@ usage:                    ## Show this help
 
 $(VENV_ACTIVATE): pyproject.toml
 	test -d $(VENV_DIR) || $(VENV_BIN) $(VENV_DIR)
-	$(VENV_RUN); $(PIP_CMD) install --upgrade pip setuptools wheel plux
+	$(VENV_RUN); $(PIP_CMD) install --upgrade pip setuptools wheel
 	touch $(VENV_ACTIVATE)
 
 venv: $(VENV_ACTIVATE)    ## Create a new (empty) virtual environment
@@ -36,7 +36,8 @@ freeze:                   ## Run pip freeze -l in the virtual environment
 	@$(VENV_RUN); pip freeze -l
 
 upgrade-pinned-dependencies: venv
-	$(VENV_RUN); $(PIP_CMD) install --upgrade pip pip-tools pre-commit
+	# TODO: Avoid pip 26.0 for now due to https://github.com/jazzband/pip-tools/issues/2319
+	$(VENV_RUN); $(PIP_CMD) install --upgrade "pip!=26.0" pip-tools pre-commit
 	$(VENV_RUN); pip-compile --strip-extras --upgrade -o requirements-basic.txt pyproject.toml
 	$(VENV_RUN); pip-compile --strip-extras --upgrade --extra runtime -o requirements-runtime.txt pyproject.toml
 	$(VENV_RUN); pip-compile --strip-extras --upgrade --extra test -o requirements-test.txt pyproject.toml
@@ -69,14 +70,14 @@ install-s3: venv     ## Install dependencies for the localstack runtime for s3-o
 	$(VENV_RUN); $(PIP_CMD) install -r requirements-base-runtime.txt
 	$(VENV_RUN); $(PIP_CMD) install $(PIP_OPTS) -e ".[base-runtime]"
 
-install: install-dev entrypoints  ## Install full dependencies into venv
+install: install-dev      ## Install full dependencies into venv
 
-entrypoints:              ## Run plux to build entry points
-	$(VENV_RUN); python3 -c "from setuptools import setup; setup()" plugins egg_info
-	@# make sure that the entrypoints were correctly created and are non-empty
-	@test -s localstack-core/localstack_core.egg-info/entry_points.txt || (echo "Entrypoints were not correctly created! Aborting!" && exit 1)
+entrypoints: install-dev
+	$(VENV_RUN); python -m plux entrypoints
+	@# make sure that the plux.ini file with the entrypoints has correctly been created
+	@test -s plux.ini || (echo "Entrypoints were not correctly created! Aborting!" && exit 1)
 
-dist: entrypoints        ## Build source and built (wheel) distributions of the current version
+dist:                     ## Build source and built (wheel) distributions of the current version
 	$(VENV_RUN); pip install --upgrade build twine; python -m build
 
 publish: clean-dist dist  ## Publish the library to the central PyPi repository

@@ -1,25 +1,24 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: slip10
-Version: 1.0.1
+Version: 1.1.0
 Summary: A reference implementation of the SLIP-0010 specification, which generalizes the BIP-0032 derivation scheme for private and public key pairs in hierarchical deterministic wallets for the curves secp256k1, NIST P-256, ed25519 and curve25519.
-Home-page: https://github.com/trezor/python-slip10
-License: MIT
+License-Expression: BSD-3-Clause AND MIT
+License-File: LICENCE
 Keywords: bitcoin,slip10,hdwallet
 Author: Antoine Poinsot
 Author-email: darosior@protonmail.com
 Maintainer: Andrew R. Kozlik
 Maintainer-email: andrew.kozlik@satoshilabs.com
 Requires-Python: >=3.8,<4.0
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: base58 (>=2,<3)
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: cryptography
-Requires-Dist: ecdsa
 Project-URL: Repository, https://github.com/trezor/python-slip10
 Description-Content-Type: text/markdown
 
@@ -151,7 +150,7 @@ Equivalent to `get_xpriv_from_path([])`.
 
 #### get_xpriv_bytes()
 
-Equivalent to `get_xpriv([])`, but not serialized in base58
+Equivalent to `get_xpriv([])`, but not serialized in base58.
 
 #### get_xpub()
 
@@ -159,13 +158,34 @@ Equivalent to `get_xpub_from_path([])`.
 
 #### get_xpub_bytes()
 
-Equivalent to `get_xpub([])`, but not serialized in base58
+Equivalent to `get_xpub([])`, but not serialized in base58.
 
-## 1.0.1
+#### get_fingerprint()
+
+Returns `fingerprint (bytes)`, equivalent to `utils._pubkey_to_fingerprint(self.pubkey)`.
+
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [1.1.0] - 2026-02-02
+
+### Added
+
+- A new method `get_fingerprint()` was added.
+
+### Changed
+
+- Drop base58 dependency. Port base58 code directly in-tree as a `base58` module.
+- Drop ecdsa dependency. Replace with own implementation of point addition.
+
+## [1.0.1] - 2024-09-03
 
 - Support Python 3.8
 
-## 1.0.0
+## [1.0.0] - 2024-08-20
 
 - First release forked from Antoine Poinsot's python-bip32.
 

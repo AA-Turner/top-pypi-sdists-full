@@ -70,26 +70,33 @@ class SecurityRuleSummary(object):
             The value to assign to the parent_resource_id property of this SecurityRuleSummary.
         :type parent_resource_id: str
 
+        :param description:
+            The value to assign to the description property of this SecurityRuleSummary.
+        :type description: str
+
         """
         self.swagger_types = {
             'name': 'str',
             'action': 'str',
             'inspection': 'str',
             'priority_order': 'int',
-            'parent_resource_id': 'str'
+            'parent_resource_id': 'str',
+            'description': 'str'
         }
         self.attribute_map = {
             'name': 'name',
             'action': 'action',
             'inspection': 'inspection',
             'priority_order': 'priorityOrder',
-            'parent_resource_id': 'parentResourceId'
+            'parent_resource_id': 'parentResourceId',
+            'description': 'description'
         }
         self._name = None
         self._action = None
         self._inspection = None
         self._priority_order = None
         self._parent_resource_id = None
+        self._description = None
 
     @property
     def name(self):
@@ -238,6 +245,30 @@ class SecurityRuleSummary(object):
         :type: str
         """
         self._parent_resource_id = parent_resource_id
+
+    @property
+    def description(self):
+        """
+        Gets the description of this SecurityRuleSummary.
+        The description of the security rule. This field can be used to add additional info.
+
+
+        :return: The description of this SecurityRuleSummary.
+        :rtype: str
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """
+        Sets the description of this SecurityRuleSummary.
+        The description of the security rule. This field can be used to add additional info.
+
+
+        :param description: The description of this SecurityRuleSummary.
+        :type: str
+        """
+        self._description = description
 
     def __repr__(self):
         return formatted_flat_dict(self)

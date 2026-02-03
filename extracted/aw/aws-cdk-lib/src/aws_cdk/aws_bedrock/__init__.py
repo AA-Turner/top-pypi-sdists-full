@@ -25,10 +25,9 @@ import aws_cdk.aws_bedrock as bedrock
 bedrock.ProvisionedModel.from_provisioned_model_arn(self, "Model", "arn:aws:bedrock:us-east-2:123456789012:provisioned-model/abc-123")
 ```
 
-There are no official hand-written ([L2](https://docs.aws.amazon.com/cdk/latest/guide/constructs.html#constructs_lib)) constructs for provisioning Bedrock resources yet. Here are some suggestions on how to proceed:
+L2 constructs for this service are available in the [`@aws-cdk/aws-bedrock-alpha`](https://www.npmjs.com/package/@aws-cdk/aws-bedrock-alpha) package.
 
-* Search [Construct Hub for Bedrock construct libraries](https://constructs.dev/search?q=bedrock)
-* Use the automatically generated [L1](https://docs.aws.amazon.com/cdk/latest/guide/constructs.html#constructs_l1_using) constructs, in the same way you would use [the CloudFormation AWS::Bedrock resources](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/AWS_Bedrock.html) directly.
+You can also use the automatically generated [L1](https://docs.aws.amazon.com/cdk/latest/guide/constructs.html#constructs_l1_using) constructs, in the same way you would use [the CloudFormation AWS::Bedrock resources](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/AWS_Bedrock.html) directly.
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -181,49 +181,49 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CounterTable(
     {
-        "description": "The qos_detail table that provides service center-based statistical information. Note: This table returns a large number of rows. Querying by row name and using wild cards may improve response times.",
-        "_links": {"self": {"href": "/api/cluster/counter/tables/qos_detail"}},
-        "name": "qos_detail",
         "counter_schemas": [
             {
-                "unit": "none",
-                "description": "Determines whether or not service center-based statistics are in the latency path.",
-                "type": "raw",
                 "name": "in_latency_path",
+                "type": "raw",
+                "description": "Determines whether or not service center-based statistics are in the latency path.",
+                "unit": "none",
             },
             {
-                "unit": "none",
-                "description": "System node name",
-                "type": "string",
                 "name": "node.name",
-            },
-            {
-                "unit": "none",
-                "description": "Name of the associated resource.",
                 "type": "string",
+                "description": "System node name",
+                "unit": "none",
+            },
+            {
                 "name": "resource.name",
+                "type": "string",
+                "description": "Name of the associated resource.",
+                "unit": "none",
             },
             {
-                "denominator": {"name": "visits"},
-                "unit": "microsec",
-                "description": "The workload's average service time per visit to the service center.",
-                "type": "average",
                 "name": "service_time",
-            },
-            {
-                "unit": "per_sec",
-                "description": "The number of visits that the workload made to the service center; measured in visits per second.",
-                "type": "rate",
-                "name": "visits",
-            },
-            {
                 "denominator": {"name": "visits"},
-                "unit": "microsec",
-                "description": "The workload's average wait time per visit to the service center.",
                 "type": "average",
+                "description": "The workload's average service time per visit to the service center.",
+                "unit": "microsec",
+            },
+            {
+                "name": "visits",
+                "type": "rate",
+                "description": "The number of visits that the workload made to the service center; measured in visits per second.",
+                "unit": "per_sec",
+            },
+            {
                 "name": "wait_time",
+                "denominator": {"name": "visits"},
+                "type": "average",
+                "description": "The workload's average wait time per visit to the service center.",
+                "unit": "microsec",
             },
         ],
+        "_links": {"self": {"href": "/api/cluster/counter/tables/qos_detail"}},
+        "name": "qos_detail",
+        "description": "The qos_detail table that provides service center-based statistical information. Note: This table returns a large number of rows. Querying by row name and using wild cards may improve response times.",
     }
 )
 
@@ -259,16 +259,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     CounterTable(
         {
-            "description": "This table reports global statistics of the Cluster Session Manager. The counters report the processing overhead of SpinNP cryptography, both encryption and decryption, as carried out by CSM as it handles cross-cluster data traffic, mostly on behalf of their data protection operations. For example, a customer might seek to know the processor time being consumed by these cryptographic operations in support of their cross-cluster traffic. That data might help them evaluate the performance impact of these security operations.",
             "_links": {"self": {"href": "/api/cluster/counter/tables/csm_global"}},
             "name": "csm_global",
+            "description": "This table reports global statistics of the Cluster Session Manager. The counters report the processing overhead of SpinNP cryptography, both encryption and decryption, as carried out by CSM as it handles cross-cluster data traffic, mostly on behalf of their data protection operations. For example, a customer might seek to know the processor time being consumed by these cryptographic operations in support of their cross-cluster traffic. That data might help them evaluate the performance impact of these security operations.",
         }
     ),
     CounterTable(
         {
-            "description": "This table reports how many times file-directory jobs were triggered to the set the file-security ACLS or SLAG ACLS. This counter gives an indication how frequently the feature is being used to set the ACLS on file-directory/volume.",
             "_links": {"self": {"href": "/api/cluster/counter/tables/file_directory"}},
             "name": "file_directory",
+            "description": "This table reports how many times file-directory jobs were triggered to the set the file-security ACLS or SLAG ACLS. This counter gives an indication how frequently the feature is being used to set the ACLS on file-directory/volume.",
         }
     ),
 ]
@@ -307,11 +307,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     CounterRow(
         {
-            "id": "<instance id>",
-            "properties": [{"value": "<node name>", "name": "node.name"}],
             "_links": {
                 "self": {"href": "/api/cluster/counter/tables/wafl/rows/<instance id>"}
             },
+            "id": "<instance id>",
+            "properties": [{"value": "<node name>", "name": "node.name"}],
         }
     )
 ]
@@ -344,15 +344,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CounterRow(
     {
+        "_links": {
+            "self": {"href": "/api/cluster/counter/tables/volume/rows/<instance-id>/"}
+        },
         "id": "<instance-id>",
         "counter_table": {"name": "volume"},
         "properties": [
             {"value": "<svm-name>", "name": "svm.name"},
             {"value": "4774d11c-a606-11ec-856f-005056bb7b59", "name": "svm.uuid"},
         ],
-        "_links": {
-            "self": {"href": "/api/cluster/counter/tables/volume/rows/<instance-id>/"}
-        },
     }
 )
 
@@ -384,8 +384,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CounterRow(
     {
-        "id": "<instance-id>",
-        "counter_table": {"name": "wafl"},
         "counters": [
             {"value": 541, "name": "memory_used"},
             {"value": 786, "name": "memory_free"},
@@ -393,6 +391,8 @@ CounterRow(
         "_links": {
             "self": {"href": "/api/cluster/counter/tables/wafl/rows/<instance-id>"}
         },
+        "id": "<instance-id>",
+        "counter_table": {"name": "wafl"},
     }
 )
 
@@ -405,11 +405,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -423,14 +422,26 @@ __pdoc__ = {
     "CounterTableSchema.opts": False,
 }
 
-
 class CounterTableSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the CounterTable object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the counter_table."""
 
-    counter_schemas = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.counter_schema.CounterSchemaSchema", unknown=EXCLUDE, allow_none=True), data_key="counter_schemas", allow_none=True)
+    counter_schemas = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.counter_schema", "CounterSchemaSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="counter_schemas",
+                allow_none=True
+            )
     r""" Array of counter schema definitions."""
 
     description = marshmallow_fields.Str(

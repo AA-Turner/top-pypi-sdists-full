@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -30,7 +30,7 @@ curl -X POST https://<mgmt-ip>/api/cluster/mediator-ping -d "@ping_post_body.txt
 ```
 ### Inline POST request body
 ```
-curl -X POST https://<mgmt-ip>/api/cluste/mediator-ping -d '{"type":"cloud"}'
+curl -X POST https://<mgmt-ip>/api/cluster/mediator-ping -d '{"type":"cloud"}'
 ```
 ### POST request response
 ```
@@ -57,9 +57,8 @@ X-Content-Type-Options: nosniff
   "timeout_occurred": false
 }
 ```"""
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["MediatorPing", "MediatorPingSchema"]
@@ -68,7 +67,6 @@ __pdoc__ = {
     "MediatorPingSchema.opts": False,
     "MediatorPing": False,
 }
-
 
 class MediatorPingSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the MediatorPing object"""

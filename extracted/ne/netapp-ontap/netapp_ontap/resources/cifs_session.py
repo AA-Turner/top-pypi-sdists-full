@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -33,62 +33,62 @@ with HostConnection(
     CifsSession(
         {
             "idle_duration": "PT3M15S",
-            "volumes": [
-                {"uuid": "5015c99b-3554-11ee-9f97-005056ae78de", "name": "root_vs0"},
-                {"uuid": "84b94bb8-3553-11ee-a3c3-005056ae0dd5", "name": "vol_test"},
-            ],
-            "connection_id": 103985,
-            "server_ip": "172.29.212.166",
-            "open_other": 0,
-            "svm": {"uuid": "80e795f4-3553-11ee-9f97-005056ae78de", "name": "vs0"},
-            "user": "example_user",
-            "authentication": "ntlmv2",
-            "continuous_availability": "unavailable",
-            "smb_signing": True,
-            "mapped_unix_user": "example_user",
-            "large_mtu": True,
-            "protocol": "smb3_1",
-            "connection_count": 1,
             "smb_encryption": "unencrypted",
             "connected_duration": "PT37M53S",
-            "open_shares": 1,
-            "client_ip": "10.249.30.206",
             "node": {
-                "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
                 "name": "sti220-vsim-sr050u",
+                "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
             },
+            "authentication": "ntlmv2",
+            "continuous_availability": "unavailable",
+            "protocol": "smb3_1",
+            "server_ip": "172.29.212.166",
+            "connection_count": 1,
+            "mapped_unix_user": "example_user",
+            "large_mtu": True,
+            "client_ip": "10.249.30.206",
             "identifier": 10878444899913433000,
+            "smb_signing": True,
+            "open_shares": 1,
+            "open_other": 0,
+            "volumes": [
+                {"name": "root_vs0", "uuid": "5015c99b-3554-11ee-9f97-005056ae78de"},
+                {"name": "vol_test", "uuid": "84b94bb8-3553-11ee-a3c3-005056ae0dd5"},
+            ],
+            "connection_id": 103985,
+            "user": "example_user",
             "open_files": 5,
+            "svm": {"name": "vs0", "uuid": "80e795f4-3553-11ee-9f97-005056ae78de"},
         }
     ),
     CifsSession(
         {
             "idle_duration": "PT5S",
-            "volumes": [
-                {"uuid": "84b94bb8-3553-11ee-a3c3-005056ae0dd5", "name": "root_vs0"}
-            ],
-            "connection_id": 103986,
-            "server_ip": "172.29.212.166",
-            "open_other": 0,
-            "svm": {"uuid": "80e795f4-3553-11ee-9f97-005056ae78de", "name": "vs0"},
-            "user": "example_user",
-            "authentication": "ntlmv2",
-            "continuous_availability": "unavailable",
-            "smb_signing": False,
-            "mapped_unix_user": "example_user",
-            "large_mtu": True,
-            "protocol": "smb3_1",
-            "connection_count": 1,
             "smb_encryption": "unencrypted",
             "connected_duration": "PT15S",
-            "open_shares": 1,
-            "client_ip": "10.234.157.109",
             "node": {
-                "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
                 "name": "sti220-vsim-sr050u",
+                "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
             },
+            "authentication": "ntlmv2",
+            "continuous_availability": "unavailable",
+            "protocol": "smb3_1",
+            "server_ip": "172.29.212.166",
+            "connection_count": 1,
+            "mapped_unix_user": "example_user",
+            "large_mtu": True,
+            "client_ip": "10.234.157.109",
             "identifier": 10878444899913433000,
+            "smb_signing": False,
+            "open_shares": 1,
+            "open_other": 0,
+            "volumes": [
+                {"name": "root_vs0", "uuid": "84b94bb8-3553-11ee-a3c3-005056ae0dd5"}
+            ],
+            "connection_id": 103986,
+            "user": "example_user",
             "open_files": 1,
+            "svm": {"name": "vs0", "uuid": "80e795f4-3553-11ee-9f97-005056ae78de"},
         }
     ),
 ]
@@ -127,32 +127,32 @@ with HostConnection(
 CifsSession(
     {
         "idle_duration": "PT5M41S",
-        "volumes": [
-            {"uuid": "5015c99b-3554-11ee-9f97-005056ae78de", "name": "root_vs0"},
-            {"uuid": "84b94bb8-3553-11ee-a3c3-005056ae0dd5", "name": "vol_test"},
-        ],
-        "connection_id": 103985,
-        "server_ip": "172.29.212.166",
-        "open_other": 0,
-        "svm": {"uuid": "80e795f4-3553-11ee-9f97-005056ae78de", "name": "vs0"},
-        "user": "example_user",
-        "authentication": "ntlmv2",
-        "continuous_availability": "unavailable",
-        "smb_signing": True,
-        "mapped_unix_user": "example_user",
-        "large_mtu": True,
-        "protocol": "smb3_1",
-        "connection_count": 1,
         "smb_encryption": "unencrypted",
         "connected_duration": "PT50M20S",
-        "open_shares": 1,
-        "client_ip": "10.249.30.206",
         "node": {
-            "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
             "name": "sti220-vsim-sr050u",
+            "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
         },
+        "authentication": "ntlmv2",
+        "continuous_availability": "unavailable",
+        "protocol": "smb3_1",
+        "server_ip": "172.29.212.166",
+        "connection_count": 1,
+        "mapped_unix_user": "example_user",
+        "large_mtu": True,
+        "client_ip": "10.249.30.206",
         "identifier": 10878444899913433000,
+        "smb_signing": True,
+        "open_shares": 1,
+        "open_other": 0,
+        "volumes": [
+            {"name": "root_vs0", "uuid": "5015c99b-3554-11ee-9f97-005056ae78de"},
+            {"name": "vol_test", "uuid": "84b94bb8-3553-11ee-a3c3-005056ae0dd5"},
+        ],
+        "connection_id": 103985,
+        "user": "example_user",
         "open_files": 5,
+        "svm": {"name": "vs0", "uuid": "80e795f4-3553-11ee-9f97-005056ae78de"},
     }
 )
 
@@ -238,11 +238,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -256,11 +255,15 @@ __pdoc__ = {
     "CifsSessionSchema.opts": False,
 }
 
-
 class CifsSessionSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the CifsSession object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the cifs_session."""
 
     authentication = marshmallow_fields.Str(
@@ -375,7 +378,12 @@ Example: true"""
 
 Example: root"""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the cifs_session."""
 
     open_files = Size(
@@ -453,7 +461,12 @@ Valid choices:
 
 Example: false"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the cifs_session."""
 
     user = marshmallow_fields.Str(
@@ -465,7 +478,15 @@ Example: false"""
 
 Example: NBCIFSQA2\administrator"""
 
-    volumes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", unknown=EXCLUDE, allow_none=True), data_key="volumes", allow_none=True)
+    volumes = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="volumes",
+                allow_none=True
+            )
     r""" A group of volumes, the client is accessing."""
 
     @property

@@ -3,14 +3,18 @@ See COPYRIGHT.md for copyright information.
 """
 from __future__ import annotations
 
+import datetime
 from collections import defaultdict
 from dataclasses import dataclass
+from typing import cast
 
 import regex
+from functools import lru_cache
 
 from arelle.ModelInstanceObject import ModelContext, ModelFact
 from arelle.ModelValue import QName
 from arelle.ModelXbrl import ModelXbrl
+from .rules import groupFactsByContextHash
 from arelle.utils.PluginData import PluginData
 from arelle.XmlValidateConst import VALID
 
@@ -88,6 +92,7 @@ class PluginValidationDataExtension(PluginData):
     nameOfReportingEntityQn: QName
     nameOfSubmittingEnterpriseQn: QName
     otherEmployeeExpenseQn: QName
+    otherRenderingOfReportedValueMemberQn: QName
     positiveProfitThreshold: float
     postemploymentBenefitExpenseQn: QName
     precedingReportingPeriodEndDateQn: QName
@@ -98,6 +103,7 @@ class PluginValidationDataExtension(PluginData):
     provisionsQn: QName
     registrationNumberOfTheDigitalStandardBookkeepingSystemUsedQn: QName
     registeredReportingPeriodDeviatingFromReportedReportingPeriodDueArbitraryDatesMemberQn: QName
+    reportedValueOtherRenderingOfReportedValueDimensionQn: QName
     reportingClassCLargeDanish: str
     reportingClassCLargeEnglish: str
     reportingClassCLargeLowercaseDanish: str
@@ -132,15 +138,26 @@ class PluginValidationDataExtension(PluginData):
     typeOfReportingPeriodDimensionQn: QName
     wagesAndSalariesQn: QName
 
-    _contextFactMap: dict[str, dict[QName, ModelFact]] | None = None
-    _reportingPeriodContexts: list[ModelContext] | None = None
+    # Identity hash for caching.
+    def __hash__(self) -> int:
+        return id(self)
 
+    @lru_cache(1)
     def contextFactMap(self, modelXbrl: ModelXbrl) -> dict[str, dict[QName, ModelFact]]:
-        if self._contextFactMap is None:
-            self._contextFactMap = defaultdict(dict)
-            for fact in modelXbrl.facts:
-                self._contextFactMap[fact.contextID][fact.qname] = fact
-        return self._contextFactMap
+        contextFactMap: dict[str, dict[QName, ModelFact]] = defaultdict(dict)
+        for fact in modelXbrl.facts:
+            contextFactMap[fact.contextID][fact.qname] = fact
+        return contextFactMap
+
+    @lru_cache(1)
+    def factsByContextId(self, modelXbrl: ModelXbrl) -> dict[str, set[ModelFact]]:
+        """
+        :return: A mapping of context ID to the set of facts associated with that context.
+        """
+        contextFactMap: dict[str, set[ModelFact]] = defaultdict(set)
+        for fact in modelXbrl.facts:
+            contextFactMap[fact.contextID].add(fact)
+        return contextFactMap
 
     def getCurrentAndPreviousReportingPeriodContexts(self, modelXbrl: ModelXbrl) -> list[ModelContext]:
         """
@@ -153,12 +170,41 @@ class PluginValidationDataExtension(PluginData):
             return contexts[-2:]
         return contexts
 
+    def getBookkeepingPeriods(self, modelXbrl: ModelXbrl) -> list[list[ModelFact]]:
+        """
+        :return: A sorted list of lists of facts that match "bookkeeping period" criteria.
+        The first element in each list is the start date fact and the second element is the end date fact.
+        """
+        periodsList: list[list[ModelFact]] = []
+        startDateQnames = [self.startDateForUseOfDigitalStandardBookkeepingSystemQn, self.startDateForUseOfDigitalNonregisteredBookkeepingSystemQn]
+        endDateQnames = [self.endDateForUseOfDigitalStandardBookkeepingSystemQn, self.endDateForUseOfDigitalNonregisteredBookkeepingSystemQn]
+        regStartDatesFacts = modelXbrl.factsByQname.get(self.startDateForUseOfDigitalStandardBookkeepingSystemQn, set())
+        regEndDatesFacts = modelXbrl.factsByQname.get(self.endDateForUseOfDigitalStandardBookkeepingSystemQn, set())
+        # Non-Registered Accounting Systems
+        nonRegStartDatesFacts = modelXbrl.factsByQname.get(self.startDateForUseOfDigitalNonregisteredBookkeepingSystemQn, set())
+        nonRegEndDatesFacts = modelXbrl.factsByQname.get(self.endDateForUseOfDigitalNonregisteredBookkeepingSystemQn, set())
+        allDateFacts = regStartDatesFacts.union(regEndDatesFacts).union(nonRegStartDatesFacts).union(nonRegEndDatesFacts)
+        if len(allDateFacts) == 0:
+            return []
+        allGroupedFacts = groupFactsByContextHash(allDateFacts)
+        for facts in allGroupedFacts.values():
+            startDateFact = None
+            endDateFact = None
+            for fact in facts:
+                if fact.qname in startDateQnames:
+                    startDateFact = fact
+                elif fact.qname in endDateQnames:
+                    endDateFact = fact
+            if startDateFact is not None and endDateFact is not None:
+                periodsList.append([startDateFact, endDateFact])
+        sortedPeriodList = sorted(periodsList, key=lambda period: cast(datetime.date, period[0].xValue))
+        return sortedPeriodList
+
+    @lru_cache(1)
     def getReportingPeriodContexts(self, modelXbrl: ModelXbrl) -> list[ModelContext]:
         """
         :return: A sorted list of contexts that match "reporting period" criteria.
         """
-        if self._reportingPeriodContexts is not None:
-            return self._reportingPeriodContexts
         contexts = []
         for context in modelXbrl.contexts.values():
             if context.isInstantPeriod or context.isForeverPeriod:
@@ -171,8 +217,7 @@ class PluginValidationDataExtension(PluginData):
                 if context.dimMemberQname(self.consolidatedSoloDimensionQn) != self.consolidatedMemberQn:
                     continue  # Context is dimensionalized with the correct dimension but not member
             contexts.append(context)
-        self._reportingPeriodContexts = sorted(contexts, key=lambda c: c.endDatetime)
-        return self._reportingPeriodContexts
+        return sorted(contexts, key=lambda c: c.endDatetime)
 
     def isAnnualReport(self, modelXbrl: ModelXbrl) -> bool:
         """

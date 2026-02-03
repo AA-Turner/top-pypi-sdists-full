@@ -99,7 +99,7 @@ class FieldSummaryReport(object):
     def usage_details(self):
         """
         Gets the usage_details of this FieldSummaryReport.
-        Field usage detailss
+        Field usage details
 
 
         :return: The usage_details of this FieldSummaryReport.
@@ -111,7 +111,7 @@ class FieldSummaryReport(object):
     def usage_details(self, usage_details):
         """
         Sets the usage_details of this FieldSummaryReport.
-        Field usage detailss
+        Field usage details
 
 
         :param usage_details: The usage_details of this FieldSummaryReport.

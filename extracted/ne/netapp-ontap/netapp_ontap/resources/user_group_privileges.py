@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,27 +27,27 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     UserGroupPrivileges(
         {
-            "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
             "privileges": ["sechangenotifyprivilege", "setakeownershipprivilege"],
             "name": "VS1.CIFS\\user1",
+            "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
         }
     ),
     UserGroupPrivileges(
         {
-            "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
             "privileges": ["sebackupprivilege", "setakeownershipprivilege"],
             "name": "ACTIVE_DIRECTORY\\user",
+            "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
         }
     ),
     UserGroupPrivileges(
         {
-            "svm": {"uuid": "0ac79c37-3867-11eb-bece-0050568ed0a2", "name": "vs2"},
             "privileges": [
                 "sesecurityprivilege",
                 "sebackupprivilege",
                 "serestoreprivilege",
             ],
             "name": "VS2.CIFS\\group1",
+            "svm": {"name": "vs2", "uuid": "0ac79c37-3867-11eb-bece-0050568ed0a2"},
         }
     ),
 ]
@@ -77,9 +77,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 UserGroupPrivileges(
     {
-        "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
         "privileges": ["sechangenotifyprivilege", "setakeownershipprivilege"],
         "name": "VS1.CIFS\\user1",
+        "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
     }
 )
 
@@ -141,11 +141,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -159,11 +158,15 @@ __pdoc__ = {
     "UserGroupPrivilegesSchema.opts": False,
 }
 
-
 class UserGroupPrivilegesSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the UserGroupPrivileges object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the user_group_privileges."""
 
     name = marshmallow_fields.Str(
@@ -186,7 +189,12 @@ The available values are:
 * SeSecurityPrivilege         - Allows user to manage auditing and viewing/dumping/clearing the security log
 * SeChangeNotifyPrivilege     - Allows user to bypass traverse checking"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the user_group_privileges."""
 
     @property

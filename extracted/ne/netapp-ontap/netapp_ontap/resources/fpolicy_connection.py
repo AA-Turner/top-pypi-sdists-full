@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -32,55 +32,55 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     FpolicyConnection(
         {
             "policy": {"name": "p1"},
-            "update_time": "2021-06-17T16:05:15+05:30",
-            "server": "192.168.137.78",
-            "svm": {"uuid": "9f738ac5-c502-11eb-b82c-0050568e5902", "name": "vs1"},
-            "state": "disconnected",
             "disconnected_reason": {
                 "message": "No local lif present to connect to FPolicy server.",
                 "code": 9305,
             },
-            "node": {
-                "uuid": "8ca36b68-c501-11eb-b82c-0050568e5902",
-                "name": "user-vsim4",
-            },
+            "state": "disconnected",
+            "update_time": "2021-06-17T16:05:15+05:30",
             "type": "primary",
+            "server": "192.168.137.78",
+            "node": {
+                "name": "user-vsim4",
+                "uuid": "8ca36b68-c501-11eb-b82c-0050568e5902",
+            },
+            "svm": {"name": "vs1", "uuid": "9f738ac5-c502-11eb-b82c-0050568e5902"},
         }
     ),
     FpolicyConnection(
         {
             "policy": {"name": "p2"},
-            "update_time": "2021-06-17T16:05:15+05:30",
-            "server": "192.168.136.38",
-            "svm": {"uuid": "9f738ac5-c502-11eb-b82c-0050568e5902", "name": "vs1"},
-            "state": "disconnected",
             "disconnected_reason": {
                 "message": "No local lif present to connect to FPolicy server.",
                 "code": 9305,
             },
-            "node": {
-                "uuid": "8ca36b68-c501-11eb-b82c-0050568e5902",
-                "name": "user-vsim4",
-            },
+            "state": "disconnected",
+            "update_time": "2021-06-17T16:05:15+05:30",
             "type": "primary",
+            "server": "192.168.136.38",
+            "node": {
+                "name": "user-vsim4",
+                "uuid": "8ca36b68-c501-11eb-b82c-0050568e5902",
+            },
+            "svm": {"name": "vs1", "uuid": "9f738ac5-c502-11eb-b82c-0050568e5902"},
         }
     ),
     FpolicyConnection(
         {
             "policy": {"name": "pol1"},
-            "update_time": "2021-06-17T16:05:15+05:30",
-            "server": "192.168.129.146",
-            "svm": {"uuid": "b6df362b-c502-11eb-b82c-0050568e5902", "name": "vs2"},
-            "state": "disconnected",
             "disconnected_reason": {
                 "message": "No local lif present to connect to FPolicy server.",
                 "code": 9305,
             },
-            "node": {
-                "uuid": "8ca36b68-c501-11eb-b82c-0050568e5902",
-                "name": "user-vsim4",
-            },
+            "state": "disconnected",
+            "update_time": "2021-06-17T16:05:15+05:30",
             "type": "primary",
+            "server": "192.168.129.146",
+            "node": {
+                "name": "user-vsim4",
+                "uuid": "8ca36b68-c501-11eb-b82c-0050568e5902",
+            },
+            "svm": {"name": "vs2", "uuid": "b6df362b-c502-11eb-b82c-0050568e5902"},
         }
     ),
 ]
@@ -115,27 +115,27 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     FpolicyConnection(
         {
             "policy": {"name": "pol1"},
-            "server": "192.168.129.146",
-            "session_uuid": "2410d348-c7cb-11eb-a07a-0050568ebc01",
-            "svm": {"uuid": "a69e938d-c7ca-11eb-a07a-0050568ebc01", "name": "vs2"},
             "state": "connected",
+            "session_uuid": "2410d348-c7cb-11eb-a07a-0050568ebc01",
+            "server": "192.168.129.146",
             "node": {
-                "uuid": "55693090-c7c8-11eb-a07a-0050568ebc01",
                 "name": "user-vsim3",
+                "uuid": "55693090-c7c8-11eb-a07a-0050568ebc01",
             },
+            "svm": {"name": "vs2", "uuid": "a69e938d-c7ca-11eb-a07a-0050568ebc01"},
         }
     ),
     FpolicyConnection(
         {
             "policy": {"name": "pol2"},
-            "server": "192.168.129.146",
-            "session_uuid": "288f7002-c7cb-11eb-a07a-0050568ebc01",
-            "svm": {"uuid": "a69e938d-c7ca-11eb-a07a-0050568ebc01", "name": "vs2"},
             "state": "connected",
+            "session_uuid": "288f7002-c7cb-11eb-a07a-0050568ebc01",
+            "server": "192.168.129.146",
             "node": {
-                "uuid": "55693090-c7c8-11eb-a07a-0050568ebc01",
                 "name": "user-vsim3",
+                "uuid": "55693090-c7c8-11eb-a07a-0050568ebc01",
             },
+            "svm": {"name": "vs2", "uuid": "a69e938d-c7ca-11eb-a07a-0050568ebc01"},
         }
     ),
 ]
@@ -172,37 +172,37 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     FpolicyConnection(
         {
             "policy": {"name": "p1"},
-            "update_time": "2021-06-17T16:05:15+05:30",
-            "server": "192.168.137.78",
-            "svm": {"uuid": "9f738ac5-c502-11eb-b82c-0050568e5902", "name": "vs1"},
-            "state": "disconnected",
             "disconnected_reason": {
                 "message": "No local lif present to connect to FPolicy server.",
                 "code": 9305,
             },
-            "node": {
-                "uuid": "8ca36b68-c501-11eb-b82c-0050568e5902",
-                "name": "user-vsim4",
-            },
+            "state": "disconnected",
+            "update_time": "2021-06-17T16:05:15+05:30",
             "type": "primary",
+            "server": "192.168.137.78",
+            "node": {
+                "name": "user-vsim4",
+                "uuid": "8ca36b68-c501-11eb-b82c-0050568e5902",
+            },
+            "svm": {"name": "vs1", "uuid": "9f738ac5-c502-11eb-b82c-0050568e5902"},
         }
     ),
     FpolicyConnection(
         {
             "policy": {"name": "p2"},
-            "update_time": "2021-06-17T16:05:15+05:30",
-            "server": "192.168.136.38",
-            "svm": {"uuid": "9f738ac5-c502-11eb-b82c-0050568e5902", "name": "vs1"},
-            "state": "disconnected",
             "disconnected_reason": {
                 "message": "No local lif present to connect to FPolicy server.",
                 "code": 9305,
             },
-            "node": {
-                "uuid": "8ca36b68-c501-11eb-b82c-0050568e5902",
-                "name": "user-vsim4",
-            },
+            "state": "disconnected",
+            "update_time": "2021-06-17T16:05:15+05:30",
             "type": "primary",
+            "server": "192.168.136.38",
+            "node": {
+                "name": "user-vsim4",
+                "uuid": "8ca36b68-c501-11eb-b82c-0050568e5902",
+            },
+            "svm": {"name": "vs1", "uuid": "9f738ac5-c502-11eb-b82c-0050568e5902"},
         }
     ),
 ]
@@ -236,16 +236,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 FpolicyConnection(
     {
         "policy": {"name": "p1"},
-        "update_time": "2021-06-17T16:05:15+05:30",
-        "server": "192.168.137.78",
-        "svm": {"uuid": "9f738ac5-c502-11eb-b82c-0050568e5902", "name": "vs1"},
-        "state": "disconnected",
         "disconnected_reason": {
             "message": "No local lif present to connect to FPolicy server.",
             "code": 9305,
         },
-        "node": {"uuid": "8ca36b68-c501-11eb-b82c-0050568e5902", "name": "user-vsim4"},
+        "state": "disconnected",
+        "update_time": "2021-06-17T16:05:15+05:30",
         "type": "primary",
+        "server": "192.168.137.78",
+        "node": {"name": "user-vsim4", "uuid": "8ca36b68-c501-11eb-b82c-0050568e5902"},
+        "svm": {"name": "vs1", "uuid": "9f738ac5-c502-11eb-b82c-0050568e5902"},
     }
 )
 
@@ -276,11 +276,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -294,20 +293,39 @@ __pdoc__ = {
     "FpolicyConnectionSchema.opts": False,
 }
 
-
 class FpolicyConnectionSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the FpolicyConnection object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the fpolicy_connection."""
 
-    disconnected_reason = marshmallow_fields.Nested("netapp_ontap.models.fpolicy_connection_disconnected_reason.FpolicyConnectionDisconnectedReasonSchema", data_key="disconnected_reason", unknown=EXCLUDE, allow_none=True)
+    disconnected_reason = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fpolicy_connection_disconnected_reason", "FpolicyConnectionDisconnectedReasonSchema"),
+                data_key="disconnected_reason",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Indicates the reason for FPolicy server disconnection."""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the fpolicy_connection."""
 
-    policy = marshmallow_fields.Nested("netapp_ontap.resources.fpolicy_policy.FpolicyPolicySchema", data_key="policy", unknown=EXCLUDE, allow_none=True)
+    policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.fpolicy_policy", "FpolicyPolicySchema"),
+                data_key="policy",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The policy field of the fpolicy_connection."""
 
     server = marshmallow_fields.Str(
@@ -345,7 +363,12 @@ Valid choices:
 * connected
 * disconnected"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the fpolicy_connection."""
 
     type = marshmallow_fields.Str(

@@ -1,6 +1,7 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 import _io
+import atexit
 import os
 
 from contrast import import_hook
@@ -10,8 +11,8 @@ from contrast.agent.policy.applicator import register_policy_patches
 from contrast.agent.policy.rewriter import apply_rewrite_policy
 from contrast.agent.settings import Settings
 from contrast.extensions import c_ext
-from contrast.patches import pure_python_string_patches
 from contrast.patches import (
+    pure_python_string_patches,
     register_assess_monkeypatches,
     register_common_monkeypatches,
 )
@@ -93,6 +94,7 @@ def enable_assess_patches():
     c_ext.initialize()
     pure_python_string_patches.enable_str_properties()
     c_ext.enable_c_patches()
+    atexit.register(c_ext.disable_c_patches)
     _enable_pure_python_string_patches([str, bytes, bytearray])
     _enable_pure_python_stream_patches()
 

@@ -3,8 +3,7 @@
 import json
 
 from synkro.llm.client import LLM
-from synkro.verify.types import Report, Result, Verdict
-
+from synkro.verify.types import Report, Verdict
 
 REFINE_PROMPT = """\
 You are fixing factual errors in an AI response.

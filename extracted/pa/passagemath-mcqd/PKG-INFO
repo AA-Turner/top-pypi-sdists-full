@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-mcqd
-Version: 10.6.47
+Version: 10.6.48
 Summary: passagemath: Finding maximum cliques with mcqd
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -29,7 +29,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/x-rst
-Requires-Dist: memory_allocator
+Requires-Dist: memory_allocator<0.2
 Requires-Dist: cysignals!=1.12.4; sys_platform == "win32"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
 Provides-Extra: test

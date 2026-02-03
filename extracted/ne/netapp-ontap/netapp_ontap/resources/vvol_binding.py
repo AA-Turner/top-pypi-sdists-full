@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -44,13 +44,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     VvolBinding(
         {
             "vvol": {
-                "uuid": "28c02623-42fa-4f5f-a984-a02044bfc005",
                 "name": "/vol/vol1/vvol1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/luns/28c02623-42fa-4f5f-a984-a02044bfc005"
                     }
                 },
+                "uuid": "28c02623-42fa-4f5f-a984-a02044bfc005",
             },
             "_links": {
                 "self": {
@@ -58,26 +58,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "protocol_endpoint": {
-                "uuid": "2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4",
                 "name": "/vol/vol1/pe1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/luns/2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4"
                     }
                 },
+                "uuid": "2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4",
             },
         }
     ),
     VvolBinding(
         {
             "vvol": {
-                "uuid": "a8d4ba93-918f-40ad-a1e4-4d7b244bdcdf",
                 "name": "/vol/vol1/vvol2",
                 "_links": {
                     "self": {
                         "href": "/api/storage/luns/a8d4ba93-918f-40ad-a1e4-4d7b244bdcdf"
                     }
                 },
+                "uuid": "a8d4ba93-918f-40ad-a1e4-4d7b244bdcdf",
             },
             "_links": {
                 "self": {
@@ -85,13 +85,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "protocol_endpoint": {
-                "uuid": "2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4",
                 "name": "/vol/vol1/pe1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/luns/2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4"
                     }
                 },
+                "uuid": "2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4",
             },
         }
     ),
@@ -125,39 +125,39 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VvolBinding(
     {
-        "id": 2411392,
-        "count": 1,
         "vvol": {
-            "uuid": "28c02623-42fa-4f5f-a984-a02044bfc005",
             "name": "/vol/vol1/vvol1",
             "_links": {
                 "self": {
                     "href": "/api/storage/luns/28c02623-42fa-4f5f-a984-a02044bfc005"
                 }
             },
-        },
-        "is_optimal": True,
-        "svm": {
-            "uuid": "bf295ccc-a6bb-11eb-93e8-005056bb470f",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/bf295ccc-a6bb-11eb-93e8-005056bb470f"}
-            },
+            "uuid": "28c02623-42fa-4f5f-a984-a02044bfc005",
         },
         "_links": {
             "self": {
                 "href": "/api/protocols/san/vvol-bindings/2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4/28c02623-42fa-4f5f-a984-a02044bfc005"
             }
         },
+        "count": 1,
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/bf295ccc-a6bb-11eb-93e8-005056bb470f"}
+            },
+            "uuid": "bf295ccc-a6bb-11eb-93e8-005056bb470f",
+        },
+        "id": 2411392,
         "protocol_endpoint": {
-            "uuid": "2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4",
             "name": "/vol/vol1/pe1",
             "_links": {
                 "self": {
                     "href": "/api/storage/luns/2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4"
                 }
             },
+            "uuid": "2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4",
         },
+        "is_optimal": True,
     }
 )
 
@@ -187,11 +187,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -205,11 +204,15 @@ __pdoc__ = {
     "VvolBindingSchema.opts": False,
 }
 
-
 class VvolBindingSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the VvolBinding object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the vvol_binding."""
 
     count = Size(
@@ -240,7 +243,12 @@ Example: 1"""
 
 Example: true"""
 
-    protocol_endpoint = marshmallow_fields.Nested("netapp_ontap.resources.lun.LunSchema", data_key="protocol_endpoint", unknown=EXCLUDE, allow_none=True)
+    protocol_endpoint = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.lun", "LunSchema"),
+                data_key="protocol_endpoint",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The protocol_endpoint field of the vvol_binding."""
 
     secondary_id = marshmallow_fields.Str(
@@ -253,10 +261,20 @@ The format for a secondary LUN ID is 16 hexadecimal digits (zero-filled) followe
 
 Example: 0000D20000010000h"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the vvol_binding."""
 
-    vvol = marshmallow_fields.Nested("netapp_ontap.resources.lun.LunSchema", data_key="vvol", unknown=EXCLUDE, allow_none=True)
+    vvol = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.lun", "LunSchema"),
+                data_key="vvol",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The vvol field of the vvol_binding."""
 
     @property

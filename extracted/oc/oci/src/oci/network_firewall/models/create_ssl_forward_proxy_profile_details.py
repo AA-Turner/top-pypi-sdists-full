@@ -30,6 +30,10 @@ class CreateSslForwardProxyProfileDetails(CreateDecryptionProfileDetails):
             The value to assign to the name property of this CreateSslForwardProxyProfileDetails.
         :type name: str
 
+        :param description:
+            The value to assign to the description property of this CreateSslForwardProxyProfileDetails.
+        :type description: str
+
         :param is_expired_certificate_blocked:
             The value to assign to the is_expired_certificate_blocked property of this CreateSslForwardProxyProfileDetails.
         :type is_expired_certificate_blocked: bool
@@ -70,6 +74,7 @@ class CreateSslForwardProxyProfileDetails(CreateDecryptionProfileDetails):
         self.swagger_types = {
             'type': 'str',
             'name': 'str',
+            'description': 'str',
             'is_expired_certificate_blocked': 'bool',
             'is_untrusted_issuer_blocked': 'bool',
             'is_revocation_status_timeout_blocked': 'bool',
@@ -83,6 +88,7 @@ class CreateSslForwardProxyProfileDetails(CreateDecryptionProfileDetails):
         self.attribute_map = {
             'type': 'type',
             'name': 'name',
+            'description': 'description',
             'is_expired_certificate_blocked': 'isExpiredCertificateBlocked',
             'is_untrusted_issuer_blocked': 'isUntrustedIssuerBlocked',
             'is_revocation_status_timeout_blocked': 'isRevocationStatusTimeoutBlocked',
@@ -95,6 +101,7 @@ class CreateSslForwardProxyProfileDetails(CreateDecryptionProfileDetails):
         }
         self._type = None
         self._name = None
+        self._description = None
         self._is_expired_certificate_blocked = None
         self._is_untrusted_issuer_blocked = None
         self._is_revocation_status_timeout_blocked = None

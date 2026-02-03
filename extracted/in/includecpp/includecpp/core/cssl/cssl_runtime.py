@@ -419,6 +419,8 @@ class CSSLRuntime:
         self._copied_memory: Dict[str, Dict[str, Any]] = {}  # v4.9.9: Copied memory from other functions
         self._copies_memory_allowed: set = set()  # v4.9.9: Which functions the current context can access via ::
         self._overwrites_memory_allowed: set = set()  # v4.9.9: Which functions the current context can write back to via ::
+        self._const_cache: Dict[str, Any] = {}  # v4.9.8: const function/variable result cache (no-param)
+        self._const_memo: Dict[str, Dict[tuple, Any]] = {}  # v4.9.8: const function memoization (with params)
         self._running = False
         self._exit_code = 0
         self._output_callback = output_callback  # Callback for console output (text, level)
@@ -1913,6 +1915,21 @@ class CSSLRuntime:
         if is_global:
             self.global_scope.set(func_name, node)
             self._promoted_globals[func_name] = node
+
+        # v4.9.8: const modifier - pre-compile/cache for instant access
+        if 'const' in modifiers:
+            params = func_info.get('params', [])
+            if not params:
+                # No params: pre-execute now, cache result
+                try:
+                    result = self._call_function(node, [], {})
+                    self._const_cache[func_name] = result
+                except Exception:
+                    pass  # If pre-exec fails, will execute normally on first call
+            else:
+                # Has params: initialize memoization dict for this function
+                self._const_memo[func_name] = {}
+
         return None
 
     def _contains_yield(self, node: ASTNode) -> bool:
@@ -3159,6 +3176,20 @@ class CSSLRuntime:
         # Fallback: execute normally
         return self._execute_node(inner)
 
+    def _make_hashable(self, value):
+        """Convert a value to a hashable form for const memoization cache keys."""
+        if isinstance(value, (list, tuple)):
+            return tuple(self._make_hashable(v) for v in value)
+        if isinstance(value, dict):
+            return tuple(sorted((k, self._make_hashable(v)) for k, v in value.items()))
+        if isinstance(value, set):
+            return frozenset(self._make_hashable(v) for v in value)
+        try:
+            hash(value)
+            return value
+        except TypeError:
+            return id(value)
+
     def _call_function(self, func_node: ASTNode, args: List[Any], kwargs: Dict[str, Any] = None, _is_hook_trigger: bool = False) -> Any:
         """Call a function node with arguments (positional and named)
 
@@ -3455,7 +3486,14 @@ class CSSLRuntime:
                     'string': str, 'int': int, 'float': (int, float), 'bool': bool,
                     'list': list, 'array': list, 'dict': dict, 'json': dict,
                     'dynamic': object,  # Any type
+                    'auto': object,  # v4.9.8: Auto type accepts anything
                     'void': type(None),
+                    # v4.9.8: Python namespace types
+                    'python::list': list, 'python::tuple': tuple, 'python::dict': dict,
+                    'python::set': set, 'python::str': str, 'python::int': int,
+                    'python::float': (int, float), 'python::bool': bool,
+                    'python::object': object, 'python::any': object,
+                    'python': object,  # bare 'python' = any python object
                 }
 
                 # Generic container types - accept lists/tuples
@@ -5939,6 +5977,9 @@ class CSSLRuntime:
             var_name = target.value
             if var_name in self._var_meta and self._var_meta[var_name].get('is_freezed', False):
                 return None  # Cannot reassign freezed variable
+            # v4.9.8: const variables cannot be reassigned
+            if var_name in self._var_meta and self._var_meta[var_name].get('const', False):
+                raise CSSLRuntimeError(f"Cannot reassign const variable '{var_name}'")
 
         value = self._evaluate(node.value.get('value'))
 
@@ -7663,6 +7704,23 @@ class CSSLRuntime:
             return callee(*args)
 
         if isinstance(callee, ASTNode) and callee.type == 'function':
+            # v4.9.8: const functions - return cached/memoized result
+            func_info_c = callee.value
+            if isinstance(func_info_c, dict) and 'const' in func_info_c.get('modifiers', []):
+                c_name = func_info_c.get('name', '')
+                c_params = func_info_c.get('params', [])
+                if not c_params and c_name in self._const_cache:
+                    # No-param const: return pre-computed result instantly
+                    return self._const_cache[c_name]
+                elif c_params and c_name in self._const_memo:
+                    # Param const: check memo cache
+                    cache_key = tuple(self._make_hashable(a) for a in args)
+                    if cache_key in self._const_memo[c_name]:
+                        return self._const_memo[c_name][cache_key]
+                    # Not cached yet: execute, cache, return
+                    result = self._call_function(callee, args, kwargs)
+                    self._const_memo[c_name][cache_key] = result
+                    return result
             return self._call_function(callee, args, kwargs)
 
         # v4.9.7: Extract human-readable callee name for error messages
@@ -7941,6 +7999,7 @@ class CSSLRuntime:
 
         # Create new instance
         instance = CSSLInstance(class_def)
+        instance._runtime_ref = self  # Allow Python-side method calls
 
         # Store parent class reference for super() calls
         instance._parent_class = class_def.parent
@@ -7965,6 +8024,7 @@ class CSSLRuntime:
                 # class MyClass(instance Dependency) → same behavior
                 if param_type in ('ptr', 'instance') and isinstance(value, CSSLClass):
                     ptr_instance = CSSLInstance(value)
+                    ptr_instance._runtime_ref = self
                     ptr_instance._parent_class = value.parent
                     ptr_instance._parent_constructor_called = False
                     # Run constructors on the ptr instance

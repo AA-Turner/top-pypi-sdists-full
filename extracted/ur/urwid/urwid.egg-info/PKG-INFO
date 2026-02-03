@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: urwid
-Version: 3.0.3
+Version: 3.0.5
 Summary: A full-featured console (xterm et al.) user interface library
 Author-email: Ian Ward <ian@excess.org>
-License: LGPL-2.1-only
+License-Expression: LGPL-2.1-only
 Project-URL: Homepage, https://urwid.org/
 Project-URL: Documentation, https://urwid.org/manual/index.html
 Project-URL: Repository, https://github.com/urwid/urwid
@@ -14,7 +14,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: Console :: Curses
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS :: MacOS X
@@ -27,13 +26,14 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.9.0
 Description-Content-Type: text/x-rst
 License-File: COPYING
-Requires-Dist: wcwidth
+Requires-Dist: wcwidth>=0.4
 Provides-Extra: curses
 Requires-Dist: windows-curses; sys_platform == "win32" and extra == "curses"
 Provides-Extra: glib
@@ -74,7 +74,7 @@ It includes many features useful for text console application developers includi
 - Display modules include raw, curses, and experimental LCD and web displays
 - Support for UTF-8, simple 8-bit and CJK encodings
 - 24-bit (true color), 256 color, and 88 color mode support
-- Compatible with Python 3.7+ and PyPy
+- Compatible with Python 3.9+ and PyPy
 
 Home Page:
   http://urwid.org/
@@ -147,6 +147,7 @@ Supported Python versions
 - 3.11
 - 3.12
 - 3.13
+- 3.14
 - pypy3
 
 Authors

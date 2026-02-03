@@ -55,17 +55,14 @@ DEPRECATED_FIELDS = {
 # Field types mapping
 FIELD_TYPES = {
     "name": "string",  # Device Name.
-    "fastpath": "option",  # Enable/disable NP6XLITE offloading (also called fast path). 
-    "per-session-accounting": "option",  # Enable/disable per-session accounting.   
-disable:Disable pe
+    "fastpath": "option",  # Enable/disable NP6XLITE offloading (also called fast path).    disable:Disable N
+    "per-session-accounting": "option",  # Enable/disable per-session accounting.    disable:Disable per-session accounting
     "session-timeout-interval": "integer",  # Set session timeout interval (0 - 1000 sec, default 40 sec).
-    "ipsec-inner-fragment": "option",  # Enable/disable NP6XLite IPsec fragmentation type: inner.   
-
-    "ipsec-throughput-msg-frequency": "option",  # Set NP6XLite IPsec throughput message frequency (0 = disable
-    "ipsec-sts-timeout": "option",  # Set NP6XLite IPsec STS message timeout.   
-1:Set NP6Xlite ST
+    "ipsec-inner-fragment": "option",  # Enable/disable NP6XLite IPsec fragmentation type: inner.    disable:NP6XLite ips
+    "ipsec-throughput-msg-frequency": "option",  # Set NP6XLite IPsec throughput message frequency (0 = disable).    disable:Disabl
+    "ipsec-sts-timeout": "option",  # Set NP6XLite IPsec STS message timeout.    1:Set NP6Xlite STS message timeout to
     "hpe": "table",  # HPE configuration.
-    "fp-anomaly": "table",  # NP6XLITE IPv4 anomaly protection. The trap-to-host forwards 
+    "fp-anomaly": "table",  # NP6XLITE IPv4 anomaly protection. The trap-to-host forwards anomaly sessions to 
 }
 
 # Field descriptions (help text from FortiOS API)

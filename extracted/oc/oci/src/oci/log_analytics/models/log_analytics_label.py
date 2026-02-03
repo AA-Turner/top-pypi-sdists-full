@@ -100,6 +100,10 @@ class LogAnalyticsLabel(object):
             The value to assign to the is_user_deleted property of this LogAnalyticsLabel.
         :type is_user_deleted: bool
 
+        :param time_updated:
+            The value to assign to the time_updated property of this LogAnalyticsLabel.
+        :type time_updated: datetime
+
         """
         self.swagger_types = {
             'aliases': 'list[LogAnalyticsLabelAlias]',
@@ -114,7 +118,8 @@ class LogAnalyticsLabel(object):
             'priority': 'str',
             'recommendation': 'str',
             'type': 'str',
-            'is_user_deleted': 'bool'
+            'is_user_deleted': 'bool',
+            'time_updated': 'datetime'
         }
         self.attribute_map = {
             'aliases': 'aliases',
@@ -129,7 +134,8 @@ class LogAnalyticsLabel(object):
             'priority': 'priority',
             'recommendation': 'recommendation',
             'type': 'type',
-            'is_user_deleted': 'isUserDeleted'
+            'is_user_deleted': 'isUserDeleted',
+            'time_updated': 'timeUpdated'
         }
         self._aliases = None
         self._count_usage_in_source = None
@@ -144,6 +150,7 @@ class LogAnalyticsLabel(object):
         self._recommendation = None
         self._type = None
         self._is_user_deleted = None
+        self._time_updated = None
 
     @property
     def aliases(self):
@@ -470,6 +477,30 @@ class LogAnalyticsLabel(object):
         :type: bool
         """
         self._is_user_deleted = is_user_deleted
+
+    @property
+    def time_updated(self):
+        """
+        Gets the time_updated of this LogAnalyticsLabel.
+        The last updated date.
+
+
+        :return: The time_updated of this LogAnalyticsLabel.
+        :rtype: datetime
+        """
+        return self._time_updated
+
+    @time_updated.setter
+    def time_updated(self, time_updated):
+        """
+        Sets the time_updated of this LogAnalyticsLabel.
+        The last updated date.
+
+
+        :param time_updated: The time_updated of this LogAnalyticsLabel.
+        :type: datetime
+        """
+        self._time_updated = time_updated
 
     def __repr__(self):
         return formatted_flat_dict(self)

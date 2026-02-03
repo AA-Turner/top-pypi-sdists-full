@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -33,50 +33,50 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Role(
     {
-        "scope": "svm",
-        "owner": {
-            "uuid": "aaef7c38-4bd3-11e9-b238-0050568e2e25",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/aaef7c38-4bd3-11e9-b238-0050568e2e25"}
-            },
-        },
-        "builtin": False,
-        "_links": {
-            "self": {
-                "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/secure_role"
-            }
-        },
         "privileges": [
             {
                 "access": "all",
-                "path": "/api/security",
                 "_links": {
                     "self": {
                         "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/secure_role/privileges/%2Fapi%2Fsecurity"
                     }
                 },
+                "path": "/api/security",
             },
             {
                 "access": "readonly",
-                "path": "/api/storage/volumes/651f7fdf-7752-11eb-8d4e-0050568ed6bd/snapshots",
                 "_links": {
                     "self": {
                         "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/secure_role/privileges/%2Fapi%2Fstorage%2Fvolumes%2F651f7fdf-7752-11eb-8d4e-0050568ed6bd%2Fsnapshots"
                     }
                 },
+                "path": "/api/storage/volumes/651f7fdf-7752-11eb-8d4e-0050568ed6bd/snapshots",
             },
             {
                 "access": "readonly",
-                "path": "/api/storage/volumes/6dfeb406-9a16-11ec-819e-005056bb1a7c/top-metrics/clients",
                 "_links": {
                     "self": {
                         "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/secure_role/privileges/%2Fapi%2Fstorage%2Fvolumes%2F6dfeb406-9a16-11ec-819e-005056bb1a7c%2Ftop-metrics%2Fclients"
                     }
                 },
+                "path": "/api/storage/volumes/6dfeb406-9a16-11ec-819e-005056bb1a7c/top-metrics/clients",
             },
         ],
+        "_links": {
+            "self": {
+                "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/secure_role"
+            }
+        },
         "name": "secure_role",
+        "owner": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/aaef7c38-4bd3-11e9-b238-0050568e2e25"}
+            },
+            "uuid": "aaef7c38-4bd3-11e9-b238-0050568e2e25",
+        },
+        "builtin": False,
+        "scope": "svm",
     }
 )
 
@@ -104,51 +104,51 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Role(
     {
-        "scope": "svm",
-        "owner": {
-            "uuid": "aaef7c38-4bd3-11e9-b238-0050568e2e25",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/aaef7c38-4bd3-11e9-b238-0050568e2e25"}
-            },
-        },
-        "builtin": False,
-        "_links": {
-            "self": {
-                "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/finVolNoDel"
-            }
-        },
         "privileges": [
             {
                 "access": "none",
-                "path": "DEFAULT",
                 "_links": {
                     "self": {
                         "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/finVolNoDel/privileges/DEFAULT"
                     }
                 },
+                "path": "DEFAULT",
             },
             {
                 "access": "all",
-                "path": "volume",
                 "_links": {
                     "self": {
                         "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/finVolNoDel/privileges/volume"
                     }
                 },
+                "path": "volume",
             },
             {
-                "access": "none",
-                "path": "volume delete",
                 "query": "-volume vol_fin*",
+                "access": "none",
                 "_links": {
                     "self": {
                         "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/finVolNoDel/privileges/volume%20delete"
                     }
                 },
+                "path": "volume delete",
             },
         ],
+        "_links": {
+            "self": {
+                "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/finVolNoDel"
+            }
+        },
         "name": "finVolNoDel",
+        "owner": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/aaef7c38-4bd3-11e9-b238-0050568e2e25"}
+            },
+            "uuid": "aaef7c38-4bd3-11e9-b238-0050568e2e25",
+        },
+        "builtin": False,
+        "scope": "svm",
     }
 )
 
@@ -174,11 +174,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -192,11 +191,15 @@ __pdoc__ = {
     "RoleSchema.opts": False,
 }
 
-
 class RoleSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Role object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the role."""
 
     builtin = marshmallow_fields.Boolean(
@@ -213,10 +216,23 @@ class RoleSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: admin"""
 
-    owner = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="owner", unknown=EXCLUDE, allow_none=True)
+    owner = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="owner",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The owner field of the role."""
 
-    privileges = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.role_privilege.RolePrivilegeSchema", unknown=EXCLUDE, allow_none=True), data_key="privileges", allow_none=True)
+    privileges = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.role_privilege", "RolePrivilegeSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="privileges",
+                allow_none=True
+            )
     r""" The list of privileges that this role has been granted."""
 
     scope = marshmallow_fields.Str(

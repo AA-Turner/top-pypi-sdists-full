@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["LunSpace", "LunSpaceSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "LunSpaceSchema.opts": False,
     "LunSpace": False,
 }
-
 
 class LunSpaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LunSpace object"""
@@ -29,7 +27,12 @@ class LunSpaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 2.5 """
 
-    guarantee = marshmallow_fields.Nested("netapp_ontap.models.lun_space_guarantee.LunSpaceGuaranteeSchema", unknown=EXCLUDE, data_key="guarantee", allow_none=True)
+    guarantee = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.lun_space_guarantee", "LunSpaceGuaranteeSchema"),
+                unknown=EXCLUDE,
+                data_key="guarantee",
+                allow_none=True
+            )
     r""" Properties that request and report the space guarantee for the LUN. """
 
     physical_used = Size(data_key="physical_used", allow_none=True)
@@ -42,6 +45,7 @@ Example: 1073741824 """
 
     physical_used_by_snapshots = Size(data_key="physical_used_by_snapshots", allow_none=True)
     r""" The number of bytes consumed on the disk by the LUN's snapshots.
+This property has been replaced by `space.snapshot.used`.
 <personalities supports=unified>This property is not available on the LUN object in the REST API and is not reported for GET requests. See the containing volume object for this information.</personalities>
 <personalities supports=asar2>Available for GET.</personalities>
 
@@ -66,6 +70,14 @@ For more information, see _Size properties_ in the _docs_ section of the ONTAP R
 
 Example: 1073741824 """
 
+    snapshot = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.vdisk_space_snapshot", "VdiskSpaceSnapshotSchema"),
+                unknown=EXCLUDE,
+                data_key="snapshot",
+                allow_none=True
+            )
+    r""" The snapshot field of the lun_space. """
+
     used = Size(data_key="used", allow_none=True)
     r""" The amount of space consumed by the main data stream of the LUN.<br/>
 This value is the total space consumed in the volume by the LUN, including filesystem overhead, but excluding prefix and suffix streams. Due to internal filesystem overhead and the many ways SAN filesystems and applications utilize blocks within a LUN, this value does not necessarily reflect actual consumption/availability from the perspective of the filesystem or application. Without specific knowledge of how the LUN blocks are utilized outside of ONTAP, this property should not be used as an indicator for an out-of-space condition.<br/>
@@ -82,23 +94,26 @@ For more information, see _Size properties_ in the _docs_ section of the ONTAP R
         "physical_used_by_snapshots",
         "scsi_thin_provisioning_support_enabled",
         "size",
+        "snapshot",
         "used",
     ]
-    """efficiency_ratio,guarantee,physical_used,physical_used_by_snapshots,scsi_thin_provisioning_support_enabled,size,used,"""
+    """efficiency_ratio,guarantee,physical_used,physical_used_by_snapshots,scsi_thin_provisioning_support_enabled,size,snapshot,used,"""
 
     patchable_fields = [
         "guarantee",
         "scsi_thin_provisioning_support_enabled",
         "size",
+        "snapshot",
     ]
-    """guarantee,scsi_thin_provisioning_support_enabled,size,"""
+    """guarantee,scsi_thin_provisioning_support_enabled,size,snapshot,"""
 
     postable_fields = [
         "guarantee",
         "scsi_thin_provisioning_support_enabled",
         "size",
+        "snapshot",
     ]
-    """guarantee,scsi_thin_provisioning_support_enabled,size,"""
+    """guarantee,scsi_thin_provisioning_support_enabled,size,snapshot,"""
 
 
 class LunSpace(Resource):

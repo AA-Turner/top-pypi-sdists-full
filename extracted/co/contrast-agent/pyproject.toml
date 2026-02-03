@@ -111,7 +111,7 @@ ignore = [
 "tests/**/python_14_plus_only/*.py" = "py314"
 
 [tool.pytest.ini_options]
-testpaths = "tests integration-tests/test-create-config-script"
+testpaths = "tests"
 filterwarnings = [
   "error::DeprecationWarning",
   # for DeprecatedWarning which doesn't work for some reason if not like this
@@ -129,6 +129,8 @@ filterwarnings = [
   # In addition the same dependency a vendored package uses (paste) uses the legacy style method of declaring a namespace package
   "ignore:pkg_resources.*:DeprecationWarning",
   "ignore:Deprecated call to .*pkg_resources.declare_namespace.*:DeprecationWarning",
+  # The pkg_resources UserWarning is needed for old frameworks that haven't upgraded pkg_resources
+  "ignore:pkg_resources is deprecated as an API.*:UserWarning:contrast_rewriter",
   "ignore:ast.Ellipsis is deprecated.*:DeprecationWarning",
   "ignore:.*datetime.datetime.utc.*:DeprecationWarning",  # from older dependency or maybe pytest
 
@@ -144,9 +146,13 @@ filterwarnings = [
   "ignore::contrast.utils.exceptions.deprecation_warning.ContrastDeprecationWarning",
 ]
 markers = [
-    "needs_runner: mark the test as requiring contrast-python-run"
+    "needs_runner: mark the test as requiring contrast-python-run",
+    "framework: mark the test as requiring a specific framework"
 ]
 timeout = 300 # in seconds => 5m
 xfail_strict = true
 asyncio_mode = "auto"
-addopts = "--ignore=tests/performance"
+addopts = [
+    "--ignore=tests/performance",
+    "-m not framework",
+]

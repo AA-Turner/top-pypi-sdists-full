@@ -1,4 +1,4 @@
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 import logging
 import os
 import pathlib
-import re
 import subprocess
 import sys
 from typing import Any
@@ -31,7 +30,11 @@ else:
 
 from ..utils.language import (
     detect_language,
+    find_agent_file,
+    get_agent_file_hint,
     get_asp_config_for_language,
+    get_language_config,
+    validate_agent_file,
 )
 from ..utils.logging import display_welcome_banner, handle_cli_error
 from ..utils.template import (
@@ -68,12 +71,13 @@ _EXCLUDED_DIRS = {
 
 
 def get_project_asp_config(project_dir: pathlib.Path) -> dict[str, Any] | None:
-    """Read agent-starter-pack config from project's .asp.toml or pyproject.toml.
+    """Read agent-starter-pack config from project config files.
 
     Uses shared language utilities for config detection.
 
-    For Go projects, config is stored in .asp.toml under [project].
-    For Python projects, config is stored in pyproject.toml under [tool.agent-starter-pack].
+    For Python projects: config in pyproject.toml under [tool.agent-starter-pack]
+    For Go projects: config in .asp.toml under [project]
+    For Java projects: config in pom.xml as asp.* Maven properties
 
     Args:
         project_dir: Path to the project directory
@@ -104,6 +108,19 @@ def get_project_asp_config(project_dir: pathlib.Path) -> dict[str, Any] | None:
             },
         }
 
+    # For Java projects, normalize the config structure (same as Go)
+    if language == "java":
+        return {
+            "base_template": config.get("base_template"),
+            "asp_version": config.get("version"),
+            "agent_directory": config.get("agent_directory", "src/main/java"),
+            "language": config.get("language", "java"),
+            "create_params": {
+                "deployment_target": config.get("deployment_target"),
+                "cicd_runner": config.get("cicd_runner"),
+            },
+        }
+
     # For Python, add language key and return as-is
     config["language"] = language
     return config
@@ -114,19 +131,28 @@ def _should_skip_config_value(value: Any) -> bool:
     return value is None or value is False or str(value).lower() in ("none", "skip", "")
 
 
-def build_args_from_config(project_config: dict[str, Any]) -> list[str]:
+def build_args_from_config(
+    project_config: dict[str, Any],
+    auto_approve: bool = False,
+    cli_overrides: dict[str, str] | None = None,
+) -> list[str]:
     """Build CLI arguments from project config.
 
     Args:
         project_config: The [tool.agent-starter-pack] config dict
+        auto_approve: If True, add --auto-approve to args
+        cli_overrides: Additional CLI args to merge (e.g., from original command)
 
     Returns:
         List of CLI arguments to pass to enhance command
     """
     # --skip-deps is added because dependencies were already installed on first run
     # --skip-welcome avoids showing the banner twice
-    # Note: we don't add --auto-approve so user still gets interactive prompts for CI/CD etc.
     args = ["enhance", "--skip-deps", "--skip-welcome"]
+
+    # Pass through auto-approve if it was set on the original command
+    if auto_approve:
+        args.append("--auto-approve")
 
     # Add base template from metadata
     base_template = project_config.get("base_template")
@@ -150,6 +176,29 @@ def build_args_from_config(project_config: dict[str, Any]) -> list[str]:
             args.append(arg_name)
         else:
             args.extend([arg_name, str(value)])
+
+    # Merge CLI overrides (these take precedence over saved config)
+    # This ensures user-provided args like --cicd-runner are passed through
+    if cli_overrides:
+        for arg_name, value in cli_overrides.items():
+            # Convert to CLI format
+            cli_arg = f"--{arg_name.replace('_', '-')}"
+            # Remove existing arg if present (to override)
+            # Find and remove any existing occurrence
+            i = 0
+            while i < len(args):
+                if args[i] == cli_arg:
+                    # Remove the arg and its value if present
+                    args.pop(i)
+                    if i < len(args) and not args[i].startswith("--"):
+                        args.pop(i)
+                else:
+                    i += 1
+            # Add the override
+            if value is True:
+                args.append(cli_arg)
+            elif value is not False and value is not None:
+                args.extend([cli_arg, str(value)])
 
     return args
 
@@ -291,7 +340,9 @@ def _execute_with_saved_config(
 
 
 def check_and_execute_with_saved_config(
-    project_dir: pathlib.Path, auto_approve: bool = False
+    project_dir: pathlib.Path,
+    auto_approve: bool = False,
+    cli_overrides: dict[str, Any] | None = None,
 ) -> bool:
     """Check for saved config and offer to reuse it.
 
@@ -301,6 +352,7 @@ def check_and_execute_with_saved_config(
     Args:
         project_dir: Path to the project directory
         auto_approve: If True, skip confirmation prompt and use saved config
+        cli_overrides: CLI args to pass through (e.g., cicd_runner from original command)
 
     Returns:
         True if config was used and executed, False otherwise
@@ -338,7 +390,7 @@ def check_and_execute_with_saved_config(
             return False
 
     # Build and execute the command
-    args = build_args_from_config(project_config)
+    args = build_args_from_config(project_config, auto_approve, cli_overrides)
     return _execute_with_saved_config(args, project_version, use_different_version)
 
 
@@ -446,16 +498,7 @@ def display_agent_directory_selection(
         for dir_name in available_dirs:
             directory_choices[choice_num] = dir_name
             # Check if this directory might contain agent code
-            agent_py_exists = (current_dir / dir_name / "agent.py").exists()
-            root_agent_yaml_exists = (
-                current_dir / dir_name / "root_agent.yaml"
-            ).exists()
-            if root_agent_yaml_exists:
-                hint = " (has root_agent.yaml)"
-            elif agent_py_exists:
-                hint = " (has agent.py)"
-            else:
-                hint = ""
+            hint = get_agent_file_hint(current_dir / dir_name, base_template)
             console.print(f"  {choice_num}. [bold]{dir_name}[/]{hint}")
             if (
                 default_choice is None
@@ -589,7 +632,29 @@ def enhance(
     # Check for saved config and offer to reuse it
     # This handles both version locking AND reusing previous settings
     current_dir = pathlib.Path.cwd()
-    if check_and_execute_with_saved_config(current_dir, auto_approve=auto_approve):
+
+    # Build CLI overrides from explicitly provided args to pass through
+    cli_override_args: dict[str, Any] = {}
+    if cicd_runner:
+        cli_override_args["cicd_runner"] = cicd_runner
+    if deployment_target:
+        cli_override_args["deployment_target"] = deployment_target
+    if session_type:
+        cli_override_args["session_type"] = session_type
+    if datastore:
+        cli_override_args["datastore"] = datastore
+    if base_template:
+        cli_override_args["base_template"] = base_template
+    if agent_directory:
+        cli_override_args["agent_directory"] = agent_directory
+    if include_data_ingestion:
+        cli_override_args["include_data_ingestion"] = include_data_ingestion
+    if prototype:
+        cli_override_args["prototype"] = prototype
+
+    if check_and_execute_with_saved_config(
+        current_dir, auto_approve=auto_approve, cli_overrides=cli_override_args
+    ):
         # Successfully executed with saved config, exit this process
         return
 
@@ -598,6 +663,13 @@ def enhance(
         logging.basicConfig(level=logging.DEBUG, force=True)
         console.print("> Debug mode enabled")
         logging.debug("Starting enhance command in debug mode")
+
+    # Validate required options for programmatic invocation
+    if auto_approve and not cicd_runner:
+        raise click.ClickException(
+            "When using --auto-approve (-y), you must specify --cicd-runner.\n"
+            "Example: uvx agent-starter-pack enhance . -y --cicd-runner github_actions"
+        )
 
     # Handle --adk shortcut
     if adk:
@@ -706,6 +778,9 @@ def enhance(
                     f"✅ Selected base template: [cyan]{selected_base_template}[/cyan]"
                 )
                 console.print()
+        elif not base_template and auto_approve:
+            # Auto-select the detected base template when auto-approving
+            base_template = original_base_template_name
 
         # Reload config with potential base template override
         if cli_overrides.get("base_template"):
@@ -725,20 +800,29 @@ def enhance(
     if template_path == pathlib.Path("."):
         current_dir = pathlib.Path.cwd()
 
-        # Detect if this is a Go project from base_template or config
+        # Detect if this is a Go or Java project from base_template or config
         is_go_project = base_template and base_template.endswith("_go")
+        is_java_project = base_template and base_template.endswith("_java")
         asp_config = get_project_asp_config(current_dir)
-        if asp_config and asp_config.get("language") == "go":
-            is_go_project = True
+        if asp_config:
+            if asp_config.get("language") == "go":
+                is_go_project = True
+            elif asp_config.get("language") == "java":
+                is_java_project = True
 
         # Determine agent directory: CLI param > config detection > language default
-        detected_agent_directory = "agent" if is_go_project else "app"
+        if is_go_project:
+            detected_agent_directory = "agent"
+        elif is_java_project:
+            detected_agent_directory = "src/main/java"
+        else:
+            detected_agent_directory = "app"
         if not agent_directory:  # Only try to detect if not provided via CLI
             # First check .asp.toml/pyproject.toml config
             config_agent_dir = asp_config.get("agent_directory") if asp_config else None
             if config_agent_dir and isinstance(config_agent_dir, str):
                 detected_agent_directory = config_agent_dir
-            elif not is_go_project:
+            elif not is_go_project and not is_java_project:
                 # For Python, also try to detect from hatch config
                 pyproject_path = current_dir / "pyproject.toml"
                 if pyproject_path.exists():
@@ -838,24 +922,24 @@ def enhance(
                     console.print("✋ [yellow]Enhancement cancelled.[/yellow]")
                     return
         else:
-            # Check for agent files (supports both Python and Go)
-            root_agent_yaml = agent_folder / "root_agent.yaml"
-            agent_py = agent_folder / "agent.py"
-            agent_go = agent_folder / "agent.go"
+            # Detect language for proper agent file handling
+            language = "python"  # default
+            if is_go_project:
+                language = "go"
+            elif is_java_project:
+                language = "java"
 
-            # Determine if this is a Go project (prioritize Python if both exist)
-            is_go = (base_template and base_template.endswith("_go")) or (
-                agent_go.exists()
-                and not agent_py.exists()
-                and not root_agent_yaml.exists()
-            )
+            lang_config = get_language_config(language)
             is_adk = base_template and "adk" in base_template.lower()
-            required_object = "root_agent" if is_adk else "agent"
+            required_var = lang_config.get("agent_variable", "root_agent")
 
-            if root_agent_yaml.exists():
+            # Find agent file using shared utility
+            agent_file = find_agent_file(current_dir, language, final_agent_directory)
+
+            if agent_file and agent_file.name == "root_agent.yaml":
                 # YAML config agent detected
                 console.print(
-                    f"✅ Found [cyan]/{final_agent_directory}/root_agent.yaml[/cyan] (YAML config agent)"
+                    f"✅ Found [cyan]{agent_file.relative_to(current_dir)}[/cyan] (YAML config agent)"
                 )
                 console.print(
                     "   An agent.py shim will be generated automatically for deployment compatibility."
@@ -864,87 +948,56 @@ def enhance(
                     console.print(
                         "   📖 Learn more: [cyan][link=https://google.github.io/adk-docs/agents/agent-config/]ADK Agent Config guide[/link][/cyan]"
                     )
-            elif agent_go.exists():
-                # Go agent detected
+            elif agent_file:
+                # Agent file found
                 console.print(
-                    f"✅ Found [cyan]/{final_agent_directory}/agent.go[/cyan]"
-                )
-            elif agent_py.exists():
-                console.print(
-                    f"✅ Found [cyan]/{final_agent_directory}/agent.py[/cyan]"
+                    f"✅ Found [cyan]{agent_file.relative_to(current_dir)}[/cyan]"
                 )
 
-                try:
-                    content = agent_py.read_text(encoding="utf-8")
-
-                    # Look for the required object definition using static analysis
-                    patterns = [
-                        rf"^\s*{required_object}\s*=",  # assignment: root_agent = ...
-                        rf"^\s*def\s+{required_object}",  # function: def root_agent(...)
-                        rf"from\s+.*\s+import\s+.*{required_object}",  # import: from ... import root_agent
-                    ]
-
-                    found = any(
-                        re.search(pattern, content, re.MULTILINE)
-                        for pattern in patterns
-                    )
-
-                    if found:
-                        console.print(
-                            f"✅ Found '{required_object}' definition in {final_agent_directory}/agent.py"
-                        )
-                    else:
-                        console.print(
-                            f"⚠️  [yellow]Missing '{required_object}' variable in {final_agent_directory}/agent.py[/yellow]"
-                        )
-                        console.print(
-                            "   This variable should contain your main agent instance for deployment."
-                        )
-                        console.print(
-                            f"   Example: [cyan]{required_object} = YourAgentClass()[/cyan]"
-                        )
-                        # Show ADK docs link for ADK templates
-                        if is_adk:
-                            console.print(
-                                "   📖 Learn more: [cyan][link=https://google.github.io/adk-docs/get-started/quickstart/#agentpy]ADK agent.py guide[/link][/cyan]"
-                            )
-                        console.print()
-                        if not auto_approve:
-                            if not click.confirm(
-                                f"Continue enhancement? (You can add '{required_object}' later)",
-                                default=True,
-                            ):
-                                console.print(
-                                    "✋ [yellow]Enhancement cancelled.[/yellow]"
-                                )
-                                return
-
-                except Exception as e:
+                # Validate the agent file contains the required variable
+                is_valid, error_msg = validate_agent_file(agent_file, language)
+                if is_valid:
                     console.print(
-                        f"⚠️  [yellow]Warning: Could not read {final_agent_directory}/agent.py: {e}[/yellow]"
-                    )
-            else:
-                # Suggest the appropriate file based on context
-                if is_go:
-                    agent_file = "agent.go"
-                    console.print(
-                        f"⚠️  [yellow]Warning: {final_agent_directory}/agent.go not found[/yellow]"
-                    )
-                    console.print(
-                        f"   Create {final_agent_directory}/agent.go with your agent logic"
+                        f"✅ Found '{required_var}' definition in {agent_file.name}"
                     )
                 else:
-                    agent_file = "agent.py"
+                    console.print(f"⚠️  [yellow]{error_msg}[/yellow]")
                     console.print(
-                        f"⚠️  [yellow]Warning: {final_agent_directory}/agent.py not found[/yellow]"
+                        "   This variable should contain your main agent instance for deployment."
                     )
                     console.print(
-                        f"   Create {final_agent_directory}/agent.py with your agent logic and define: [cyan]{required_object} = your_agent_instance[/cyan]"
+                        f"   Example: [cyan]{required_var} = YourAgentClass()[/cyan]"
+                    )
+                    # Show ADK docs link for ADK templates
+                    if is_adk:
+                        console.print(
+                            "   📖 Learn more: [cyan][link=https://google.github.io/adk-docs/get-started/quickstart/#agentpy]ADK agent.py guide[/link][/cyan]"
+                        )
+                    console.print()
+                    if not auto_approve:
+                        if not click.confirm(
+                            f"Continue enhancement? (You can add '{required_var}' later)",
+                            default=True,
+                        ):
+                            console.print("✋ [yellow]Enhancement cancelled.[/yellow]")
+                            return
+            else:
+                # No agent file found - suggest creating one
+                expected_file = lang_config.get("agent_file", "agent.py")
+                console.print(
+                    f"⚠️  [yellow]Warning: {expected_file} not found in {final_agent_directory}/[/yellow]"
+                )
+                console.print(
+                    f"   Create {final_agent_directory}/{expected_file} with your agent logic"
+                )
+                if language == "python":
+                    console.print(
+                        f"   and define: [cyan]{required_var} = your_agent_instance[/cyan]"
                     )
                 console.print()
                 if not auto_approve:
                     if not click.confirm(
-                        f"Continue enhancement? (An example {final_agent_directory}/{agent_file} will be created for you)",
+                        f"Continue enhancement? (An example {expected_file} will be created for you)",
                         default=True,
                     ):
                         console.print("✋ [yellow]Enhancement cancelled.[/yellow]")

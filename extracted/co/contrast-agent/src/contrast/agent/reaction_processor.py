@@ -1,7 +1,6 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 from contrast.agent.disable_reaction import DisableReaction
-
 from contrast_vendor import structlog as logging
 
 logger = logging.getLogger("contrast")
@@ -20,4 +19,11 @@ class ReactionProcessor:
                 logger.debug("Received the following reaction: %s %s", operation, msg)
 
                 if operation == DisableReaction.NAME:
-                    DisableReaction.run(settings.config)
+                    DisableReaction.run(
+                        settings.config,
+                        reason="Contrast UI Reaction",
+                        additional_info={
+                            "reaction_operation": operation,
+                            "reaction_msg": msg,
+                        },
+                    )

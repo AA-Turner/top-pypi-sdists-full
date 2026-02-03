@@ -6473,23 +6473,18 @@ class Repository(
 ):
     '''Define an ECR repository.
 
-    :exampleMetadata: fixture=default infused
+    :exampleMetadata: infused
 
     Example::
 
-        repository = ecr.Repository(self, "TestRepository",
-            repository_name="test-agent-runtime"
+        container_recipe = imagebuilder.ContainerRecipe(self, "MyContainerRecipe",
+            base_image=imagebuilder.BaseContainerImage.from_docker_hub("amazonlinux", "latest"),
+            target_repository=imagebuilder.Repository.from_ecr(
+                ecr.Repository.from_repository_name(self, "Repository", "my-container-repo"))
         )
         
-        agent_runtime_artifact = agentcore.AgentRuntimeArtifact.from_ecr_repository(repository, "v1.0.0")
-        
-        agentcore.Runtime(self, "test-runtime",
-            runtime_name="test_runtime",
-            agent_runtime_artifact=agent_runtime_artifact,
-            lifecycle_configuration=agentcore.LifecycleConfiguration(
-                idle_runtime_session_timeout=Duration.minutes(10),
-                max_lifetime=Duration.hours(4)
-            )
+        container_pipeline = imagebuilder.ImagePipeline(self, "MyContainerPipeline",
+            recipe=example_container_recipe
         )
     '''
 

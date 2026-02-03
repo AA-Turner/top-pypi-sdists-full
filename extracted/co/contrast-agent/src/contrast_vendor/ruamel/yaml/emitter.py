@@ -1,4 +1,5 @@
-# coding: utf-8
+
+from __future__ import annotations
 
 # Emitter expects events obeying the following grammar:
 # stream ::= STREAM-START document* STREAM-END
@@ -17,8 +18,9 @@ from contrast_vendor.ruamel.yaml.compat import nprint, dbg, DBG_EVENT, \
 # fmt: on
 
 
-from typing import Any, Dict, List, Union, Text, Tuple, Optional  # NOQA
-from contrast_vendor.ruamel.yaml.compat import StreamType  # NOQA
+if False:  # MYPY
+    from typing import Any, Dict, List, Union, Text, Tuple, Optional  # NOQA
+    from contrast_vendor.ruamel.yaml.compat import StreamType  # NOQA
 
 __all__ = ['Emitter', 'EmitterError']
 
@@ -48,6 +50,9 @@ class ScalarAnalysis:
         self.allow_double_quoted = allow_double_quoted
         self.allow_block = allow_block
 
+    def __repr__(self) -> str:
+        return f'scalar={self.scalar!r}, empty={self.empty}, multiline={self.multiline}, allow_flow_plain={self.allow_flow_plain}, allow_block_plain={self.allow_block_plain}, allow_single_quoted={self.allow_single_quoted}, allow_double_quoted={self.allow_double_quoted}, allow_block={self.allow_block}'  # NOQA
+
 
 class Indents:
     # replacement for the list based stack of None/int
@@ -60,6 +65,14 @@ class Indents:
     def pop(self) -> Any:
         return self.values.pop()[0]
 
+    def seq_seq(self) -> bool:
+        try:
+            if self.values[-2][1] and self.values[-1][1]:
+                return True
+        except IndexError:
+            pass
+        return False
+
     def last_seq(self) -> bool:
         # return the seq(uence) value for the element added before the last one
         # in increase_indent()
@@ -69,7 +82,7 @@ class Indents:
             return False
 
     def seq_flow_align(
-        self, seq_indent: int, column: int, pre_comment: Optional[bool] = False
+        self, seq_indent: int, column: int, pre_comment: Optional[bool] = False,
     ) -> int:
         # extra spaces because of dash
         # nprint('seq_flow_align', self.values, pre_comment)
@@ -97,6 +110,12 @@ class Emitter:
     # fmt: on
 
     MAX_SIMPLE_KEY_LENGTH = 128
+    flow_seq_start = '['
+    flow_seq_end = ']'
+    flow_seq_separator = ','
+    flow_map_start = '{'
+    flow_map_end = '}'
+    flow_map_separator = ','
 
     def __init__(
         self,
@@ -277,7 +296,7 @@ class Emitter:
         return len(self.events) < count + 1
 
     def increase_indent(
-        self, flow: bool = False, sequence: Optional[bool] = None, indentless: bool = False
+        self, flow: bool = False, sequence: Optional[bool] = None, indentless: bool = False,
     ) -> None:
         self.indents.append(self.indent, sequence)
         if self.indent is None:  # top level
@@ -410,7 +429,6 @@ class Emitter:
                 # nprint('@', self.indention, self.no_newline, self.column)
                 self.expect_scalar()
             elif isinstance(self.event, SequenceStartEvent):
-                # nprint('@', self.indention, self.no_newline, self.column)
                 i2, n2 = self.indention, self.no_newline  # NOQA
                 if self.event.comment:
                     if self.event.flow_style is False:
@@ -436,12 +454,16 @@ class Emitter:
                     self.expect_flow_sequence(force_flow_indent)
                 else:
                     self.expect_block_sequence()
+                if self.indents.seq_seq():
+                    # - -
+                    self.indention = True
+                    self.no_newline = False
             elif isinstance(self.event, MappingStartEvent):
                 if self.event.flow_style is False and self.event.comment:
                     self.write_post_comment(self.event)
                 if self.event.comment and self.event.comment[1]:
                     self.write_pre_comment(self.event)
-                    if self.event.flow_style:
+                    if self.event.flow_style and self.indents.values:
                         force_flow_indent = not self.indents.values[-1][1]
                 if (
                     self.flow_level
@@ -450,12 +472,12 @@ class Emitter:
                     or self.check_empty_mapping()
                 ):
                     self.expect_flow_mapping(
-                        single=self.event.nr_items == 1, force_flow_indent=force_flow_indent
+                        single=self.event.nr_items == 1, force_flow_indent=force_flow_indent,
                     )
                 else:
                     self.expect_block_mapping()
         else:
-            raise EmitterError('expected NodeEvent, but got {self.event!s}')
+            raise EmitterError(f'expected NodeEvent, but got {self.event!s}')
 
     def expect_alias(self) -> None:
         if self.event.anchor is None:
@@ -475,9 +497,9 @@ class Emitter:
         if force_flow_indent:
             self.increase_indent(flow=True, sequence=True)
         ind = self.indents.seq_flow_align(
-            self.best_sequence_indent, self.column, force_flow_indent
+            self.best_sequence_indent, self.column, force_flow_indent,
         )
-        self.write_indicator(' ' * ind + '[', True, whitespace=True)
+        self.write_indicator(' ' * ind + self.flow_seq_start, True, whitespace=True)
         if not force_flow_indent:
             self.increase_indent(flow=True, sequence=True)
         self.flow_context.append('[')
@@ -488,7 +510,7 @@ class Emitter:
             self.indent = self.indents.pop()
             popped = self.flow_context.pop()
             assert popped == '['
-            self.write_indicator(']', False)
+            self.write_indicator(self.flow_seq_end, False)
             if self.event.comment and self.event.comment[0]:
                 # eol comment on empty flow sequence
                 self.write_post_comment(self.event)
@@ -507,9 +529,12 @@ class Emitter:
             popped = self.flow_context.pop()
             assert popped == '['
             if self.canonical:
-                self.write_indicator(',', False)
+                # ToDo: so-39595807, maybe add a space to the flow_seq_separator
+                # and strip the last space, if space then indent, else do not
+                # not sure that [1,2,3] is a valid YAML seq
+                self.write_indicator(self.flow_seq_separator, False)
                 self.write_indent()
-            self.write_indicator(']', False)
+            self.write_indicator(self.flow_seq_end, False)
             if self.event.comment and self.event.comment[0]:
                 # eol comment on flow sequence
                 self.write_post_comment(self.event)
@@ -517,7 +542,7 @@ class Emitter:
                 self.no_newline = False
             self.state = self.states.pop()
         else:
-            self.write_indicator(',', False)
+            self.write_indicator(self.flow_seq_separator, False)
             if self.canonical or self.column > self.best_width:
                 self.write_indent()
             self.states.append(self.expect_flow_sequence_item)
@@ -526,14 +551,14 @@ class Emitter:
     # Flow mapping handlers.
 
     def expect_flow_mapping(
-        self, single: Optional[bool] = False, force_flow_indent: Optional[bool] = False
+        self, single: Optional[bool] = False, force_flow_indent: Optional[bool] = False,
     ) -> None:
         if force_flow_indent:
             self.increase_indent(flow=True, sequence=False)
         ind = self.indents.seq_flow_align(
-            self.best_sequence_indent, self.column, force_flow_indent
+            self.best_sequence_indent, self.column, force_flow_indent,
         )
-        map_init = '{'
+        map_init = self.flow_map_start
         if (
             single
             and self.flow_level
@@ -554,7 +579,7 @@ class Emitter:
             self.indent = self.indents.pop()
             popped = self.flow_context.pop()
             assert popped == '{'  # empty flow mapping
-            self.write_indicator('}', False)
+            self.write_indicator(self.flow_map_end, False)
             if self.event.comment and self.event.comment[0]:
                 # eol comment on empty mapping
                 self.write_post_comment(self.event)
@@ -580,10 +605,10 @@ class Emitter:
             popped = self.flow_context.pop()
             assert popped in ['{', '']
             if self.canonical:
-                self.write_indicator(',', False)
+                self.write_indicator(self.flow_map_separator, False)
                 self.write_indent()
             if popped != '':
-                self.write_indicator('}', False)
+                self.write_indicator(self.flow_map_end, False)
             if self.event.comment and self.event.comment[0]:
                 # eol comment on flow mapping, never reached on empty mappings
                 self.write_post_comment(self.event)
@@ -591,7 +616,7 @@ class Emitter:
                 self.no_newline = False
             self.state = self.states.pop()
         else:
-            self.write_indicator(',', False)
+            self.write_indicator(self.flow_map_separator, False)
             if self.canonical or self.column > self.best_width:
                 self.write_indent()
             if not self.canonical and self.check_simple_key():
@@ -603,7 +628,8 @@ class Emitter:
                 self.expect_node(mapping=True)
 
     def expect_flow_mapping_simple_value(self) -> None:
-        self.write_indicator(self.prefixed_colon, False)
+        if getattr(self.event, 'style', '?') != '-':  # suppress for flow style sets
+            self.write_indicator(self.prefixed_colon, False)
         self.states.append(self.expect_flow_mapping_key)
         self.expect_node(mapping=True)
 
@@ -674,7 +700,7 @@ class Emitter:
             self.write_indent()
             if self.check_simple_key():
                 if not isinstance(
-                    self.event, (SequenceStartEvent, MappingStartEvent)
+                    self.event, (SequenceStartEvent, MappingStartEvent),
                 ):  # sequence keys
                     try:
                         if self.event.style == '?':
@@ -832,7 +858,7 @@ class Emitter:
             self.analysis = self.analyze_scalar(self.event.value)
         if self.event.style == '"' or self.canonical:
             return '"'
-        if (not self.event.style or self.event.style == '?') and (
+        if (not self.event.style or self.event.style == '?' or self.event.style == '-') and (
             self.event.implicit[0] or not self.event.implicit[2]
         ):
             if not (
@@ -842,6 +868,8 @@ class Emitter:
                 and self.analysis.allow_flow_plain
                 or (not self.flow_level and self.analysis.allow_block_plain)
             ):
+                return ""
+            if self.event.style == '-':
                 return ""
         self.analysis.allow_block = True
         if self.event.style and self.event.style in '|>':
@@ -880,7 +908,7 @@ class Emitter:
         elif self.style == '>':
             try:
                 cmx = self.event.comment[1][0]
-            except (IndexError, TypeError):
+            except (IndexError, TypeError) as e:  # NOQA
                 cmx = ""
             self.write_folded(self.analysis.scalar, cmx)
             if (
@@ -1349,6 +1377,10 @@ class Emitter:
     }
 
     def write_double_quoted(self, text: Any, split: Any = True) -> None:
+        """
+        a newline, as written by self.write_indent(), might need to be escaped with a backslash
+        as on reading this will produce a possibly unwanted space.
+        """
         if self.root_context:
             if self.requested_indent is not None:
                 self.write_line_break()
@@ -1403,21 +1435,30 @@ class Emitter:
                 and split
             ):
                 # SO https://stackoverflow.com/a/75634614/1307905
-                # data = text[start:end] + u'\\'  # <<< replaced with following six lines
-                need_backquote = True
+                # data = text[start:end] + u'\\'  # <<< replaced with following lines
+                need_backslash = True
                 if len(text) > end:
                     try:
                         space_pos = text.index(' ', end)
-                        if (
+                        try:
+                            space_pos = text.index('\n', end, space_pos)
+                        except (ValueError, IndexError):
+                            pass
+                        # nprint('backslash?', space_pos, repr(text[:space_pos]), repr(text[space_pos:]), (text[space_pos] == '\n' and text[space_pos+1] == ' '))  # NOQA
+                        if (text[space_pos] == '\n' and text[space_pos + 1] != ' '):
+                            pass
+                        elif (
                             '"' not in text[end:space_pos]
                             and "'" not in text[end:space_pos]
-                            and text[space_pos + 1] != ' '
+                            # and text[space_pos + 1] != ' '
+                            and text[space_pos + 1] not in ' \n'
                             and text[end - 1 : end + 1] != '  '
+                            and start != end
                         ):
-                            need_backquote = False
+                            need_backslash = False
                     except (ValueError, IndexError):
                         pass
-                data = text[start:end] + ('\\' if need_backquote else '')
+                data = text[start:end] + ('\\' if need_backslash else '')
                 if start < end:
                     start = end
                 self.column += len(data)
@@ -1428,11 +1469,11 @@ class Emitter:
                 self.whitespace = False
                 self.indention = False
                 if text[start] == ' ':
-                    if not need_backquote:
+                    if not need_backslash:
                         # remove leading space it will load from the newline
                         start += 1
                     # data = u'\\'    # <<< replaced with following line
-                    data = '\\' if need_backquote else ''
+                    data = '\\' if need_backslash else ''
                     self.column += len(data)
                     if bool(self.encoding):
                         data = data.encode(self.encoding)
@@ -1449,21 +1490,27 @@ class Emitter:
                 indent = 2
                 hints += str(indent)
             elif self.root_context:
-                for end in ['\n---', '\n...']:
+                for end in ['---', '...']:
+                    position = -1
                     pos = 0
-                    while True:
+                    while position == -1:
                         pos = text.find(end, pos)
                         if pos == -1:
                             break
+                        if pos != 0:
+                            if text[pos - 1] != '\n':
+                                pos += 1
+                                continue
                         try:
-                            if text[pos + 4] in ' \r\n':
+                            if text[pos + len(end)] in ' \r\n':
+                                position = pos
                                 break
                         except IndexError:
                             pass
                         pos += 1
-                    if pos > -1:
+                    if position != -1:
                         break
-                if pos > 0:
+                if position != -1:
                     indent = 2
             if text[-1] not in '\n\x85\u2028\u2029':
                 indicator = '-'
@@ -1614,12 +1661,14 @@ class Emitter:
         breaks = False
         start = end = 0
         while end <= len(text):
+            # ToDo: there is an empty space at the end of the wrapped line, if that line
+            # does not exceed self.best_width, that space is superfluous if wrapping is on
             ch = None
             if end < len(text):
                 ch = text[end]
             if spaces:
                 if ch != ' ':
-                    if start + 1 == end and self.column > self.best_width and split:
+                    if start + 1 == end and self.column >= self.best_width and split:
                         self.write_indent()
                         self.whitespace = False
                         self.indention = False
@@ -1647,7 +1696,7 @@ class Emitter:
                 if ch is None or ch in ' \n\x85\u2028\u2029':
                     data = text[start:end]
                     if (
-                        len(data) > self.best_width
+                        (len(data) + self.column) > self.best_width
                         and self.indent is not None
                         and self.column > self.indent
                     ):
@@ -1703,6 +1752,8 @@ class Emitter:
             self.write_line_break()
 
     def write_pre_comment(self, event: Any) -> bool:
+        if event.comment is None:
+            return False
         comments = event.comment[1]
         if comments is None:
             return False
@@ -1734,7 +1785,6 @@ class RoundTripEmitter(Emitter):
         if not ctag:
             raise EmitterError('tag must not be empty')
         tag = str(ctag)
-        # print('handling', repr(tag))
         if tag == '!' or tag == '!!':
             return tag
         handle = ctag.handle

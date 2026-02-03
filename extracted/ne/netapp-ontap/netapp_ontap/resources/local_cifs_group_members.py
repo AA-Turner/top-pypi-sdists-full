@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -77,11 +77,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -95,11 +94,15 @@ __pdoc__ = {
     "LocalCifsGroupMembersSchema.opts": False,
 }
 
-
 class LocalCifsGroupMembersSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LocalCifsGroupMembers object"""
 
-    local_cifs_group = marshmallow_fields.Nested("netapp_ontap.models.local_cifs_group_members_local_cifs_group.LocalCifsGroupMembersLocalCifsGroupSchema", data_key="local_cifs_group", unknown=EXCLUDE, allow_none=True)
+    local_cifs_group = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.local_cifs_group_members_local_cifs_group", "LocalCifsGroupMembersLocalCifsGroupSchema"),
+                data_key="local_cifs_group",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The local_cifs_group field of the local_cifs_group_members."""
 
     name = marshmallow_fields.Str(
@@ -108,11 +111,24 @@ class LocalCifsGroupMembersSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Local user, Active Directory user, or Active Directory group which is a member of the specified local group."""
 
-    records = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.local_cifs_group_members1.LocalCifsGroupMembers1Schema", unknown=EXCLUDE, allow_none=True), data_key="records", allow_none=True)
+    records = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.local_cifs_group_members1", "LocalCifsGroupMembers1Schema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="records",
+                allow_none=True
+            )
     r""" An array of local users, Active Directory users, and Active Directory groups specified to add or delete multiple members to or from a local group in a single API call.
 Not allowed when the `name` property is used."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the local_cifs_group_members."""
 
     @property

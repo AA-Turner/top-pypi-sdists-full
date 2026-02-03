@@ -30,6 +30,10 @@ class CreateTcpServiceDetails(CreateServiceDetails):
             Allowed values for this property are: "TCP_SERVICE", "UDP_SERVICE"
         :type type: str
 
+        :param description:
+            The value to assign to the description property of this CreateTcpServiceDetails.
+        :type description: str
+
         :param port_ranges:
             The value to assign to the port_ranges property of this CreateTcpServiceDetails.
         :type port_ranges: list[oci.network_firewall.models.PortRange]
@@ -38,15 +42,18 @@ class CreateTcpServiceDetails(CreateServiceDetails):
         self.swagger_types = {
             'name': 'str',
             'type': 'str',
+            'description': 'str',
             'port_ranges': 'list[PortRange]'
         }
         self.attribute_map = {
             'name': 'name',
             'type': 'type',
+            'description': 'description',
             'port_ranges': 'portRanges'
         }
         self._name = None
         self._type = None
+        self._description = None
         self._port_ranges = None
         self._type = 'TCP_SERVICE'
 

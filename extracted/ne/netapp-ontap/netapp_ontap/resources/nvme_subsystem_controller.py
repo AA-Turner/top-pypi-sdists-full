@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -25,113 +25,113 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NvmeSubsystemController(
         {
-            "id": "0040h",
-            "subsystem": {
-                "uuid": "14875240-2594-11e9-abde-00a098984313",
-                "_links": {
-                    "self": {
-                        "href": "/api/protocols/nvme/subsystems/14875240-2594-11e9-abde-00a098984313"
-                    }
-                },
-                "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_0",
-            },
-            "svm": {
-                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
-                "name": "symmcon_fcnvme_vserver_0",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"
-                    }
-                },
-            },
             "_links": {
                 "self": {
                     "href": "/api/protocols/nvme/subsystem-controllers/14875240-2594-11e9-abde-00a098984313/0040h"
                 }
             },
-        }
-    ),
-    NvmeSubsystemController(
-        {
-            "id": "0041h",
+            "id": "0040h",
             "subsystem": {
-                "uuid": "14875240-2594-11e9-abde-00a098984313",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/nvme/subsystems/14875240-2594-11e9-abde-00a098984313"
                     }
                 },
                 "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_0",
+                "uuid": "14875240-2594-11e9-abde-00a098984313",
             },
             "svm": {
-                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
                 "name": "symmcon_fcnvme_vserver_0",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"
                     }
                 },
+                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
             },
+        }
+    ),
+    NvmeSubsystemController(
+        {
             "_links": {
                 "self": {
                     "href": "/api/protocols/nvme/subsystem-controllers/14875240-2594-11e9-abde-00a098984313/0041h"
                 }
             },
-        }
-    ),
-    NvmeSubsystemController(
-        {
-            "id": "0040h",
+            "id": "0041h",
             "subsystem": {
-                "uuid": "1489d0d5-2594-11e9-94c4-00a0989a1c8e",
                 "_links": {
                     "self": {
-                        "href": "/api/protocols/nvme/subsystems/1489d0d5-2594-11e9-94c4-00a0989a1c8e"
+                        "href": "/api/protocols/nvme/subsystems/14875240-2594-11e9-abde-00a098984313"
                     }
                 },
-                "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_1",
+                "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_0",
+                "uuid": "14875240-2594-11e9-abde-00a098984313",
             },
             "svm": {
-                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
                 "name": "symmcon_fcnvme_vserver_0",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"
                     }
                 },
+                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
             },
+        }
+    ),
+    NvmeSubsystemController(
+        {
             "_links": {
                 "self": {
                     "href": "/api/protocols/nvme/subsystem-controllers/1489d0d5-2594-11e9-94c4-00a0989a1c8e/0040h"
                 }
             },
-        }
-    ),
-    NvmeSubsystemController(
-        {
-            "id": "0041h",
+            "id": "0040h",
             "subsystem": {
-                "uuid": "1489d0d5-2594-11e9-94c4-00a0989a1c8e",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/nvme/subsystems/1489d0d5-2594-11e9-94c4-00a0989a1c8e"
                     }
                 },
                 "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_1",
+                "uuid": "1489d0d5-2594-11e9-94c4-00a0989a1c8e",
             },
             "svm": {
-                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
                 "name": "symmcon_fcnvme_vserver_0",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"
                     }
                 },
+                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
             },
+        }
+    ),
+    NvmeSubsystemController(
+        {
             "_links": {
                 "self": {
                     "href": "/api/protocols/nvme/subsystem-controllers/1489d0d5-2594-11e9-94c4-00a0989a1c8e/0041h"
                 }
+            },
+            "id": "0041h",
+            "subsystem": {
+                "_links": {
+                    "self": {
+                        "href": "/api/protocols/nvme/subsystems/1489d0d5-2594-11e9-94c4-00a0989a1c8e"
+                    }
+                },
+                "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_1",
+                "uuid": "1489d0d5-2594-11e9-94c4-00a0989a1c8e",
+            },
+            "svm": {
+                "name": "symmcon_fcnvme_vserver_0",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"
+                    }
+                },
+                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
             },
         }
     ),
@@ -165,57 +165,57 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NvmeSubsystemController(
         {
-            "id": "0040h",
-            "subsystem": {
-                "uuid": "14875240-2594-11e9-abde-00a098984313",
-                "_links": {
-                    "self": {
-                        "href": "/api/protocols/nvme/subsystems/14875240-2594-11e9-abde-00a098984313"
-                    }
-                },
-                "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_0",
-            },
-            "svm": {
-                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
-                "name": "symmcon_fcnvme_vserver_0",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"
-                    }
-                },
-            },
             "_links": {
                 "self": {
                     "href": "/api/protocols/nvme/subsystem-controllers/14875240-2594-11e9-abde-00a098984313/0040h"
                 }
             },
-        }
-    ),
-    NvmeSubsystemController(
-        {
-            "id": "0041h",
+            "id": "0040h",
             "subsystem": {
-                "uuid": "14875240-2594-11e9-abde-00a098984313",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/nvme/subsystems/14875240-2594-11e9-abde-00a098984313"
                     }
                 },
                 "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_0",
+                "uuid": "14875240-2594-11e9-abde-00a098984313",
             },
             "svm": {
-                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
                 "name": "symmcon_fcnvme_vserver_0",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"
                     }
                 },
+                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
             },
+        }
+    ),
+    NvmeSubsystemController(
+        {
             "_links": {
                 "self": {
                     "href": "/api/protocols/nvme/subsystem-controllers/14875240-2594-11e9-abde-00a098984313/0041h"
                 }
+            },
+            "id": "0041h",
+            "subsystem": {
+                "_links": {
+                    "self": {
+                        "href": "/api/protocols/nvme/subsystems/14875240-2594-11e9-abde-00a098984313"
+                    }
+                },
+                "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_0",
+                "uuid": "14875240-2594-11e9-abde-00a098984313",
+            },
+            "svm": {
+                "name": "symmcon_fcnvme_vserver_0",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"
+                    }
+                },
+                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
             },
         }
     ),
@@ -246,57 +246,57 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NvmeSubsystemController(
     {
-        "id": "0040h",
         "admin_queue": {"depth": 32},
-        "interface": {
-            "uuid": "fa1c5941-2593-11e9-94c4-00a0989a1c8e",
-            "transport_address": "nn-0x200400a0989a1c8d:pn-0x200500a0989a1c8d",
-            "name": "symmcon_lif_fcnvme_symmcon_fcnvme_vserver_0_3a_0",
+        "_links": {
+            "self": {
+                "href": "/api/protocols/nvme/subsystem-controllers/14875240-2594-11e9-abde-00a098984313/0040h"
+            }
         },
-        "tls": {
-            "psk_identity": "NVMe1R01 nqn.2014-08.org.nvmexpress:uuid:c2846cb1-89d2-4020-a3b0-71ce907b4eef nqn.1992-08.com.netapp:sn.ca3cae02070811ef9a53005056bb9001:subsystem.ss1 c9X3RurQxGiGa76Tpk2tirifrUhHmVp035MOrtHXnAU=",
-            "key_type": "configured",
-            "cipher": "tls_aes_128_gcm_sha256",
+        "host": {
+            "nqn": "nqn.2014-08.org.nvmexpress:uuid:c2846cb1-89d2-4020-a3b0-71ce907b4eef",
+            "id": "b8546ca6097349e5b1558dc154fc073b",
+            "transport_address": "nn-0x20000090fae00806:pn-0x10000090fae00806",
         },
         "dh_hmac_chap": {"mode": "none"},
+        "interface": {
+            "name": "symmcon_lif_fcnvme_symmcon_fcnvme_vserver_0_3a_0",
+            "transport_address": "nn-0x200400a0989a1c8d:pn-0x200500a0989a1c8d",
+            "uuid": "fa1c5941-2593-11e9-94c4-00a0989a1c8e",
+        },
+        "io_queue": {"depth": [32, 32, 32, 32], "count": 4},
+        "id": "0040h",
+        "digest": {"data": False, "header": True},
         "subsystem": {
-            "uuid": "14875240-2594-11e9-abde-00a098984313",
             "_links": {
                 "self": {
                     "href": "/api/protocols/nvme/subsystems/14875240-2594-11e9-abde-00a098984313"
                 }
             },
             "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_0",
+            "uuid": "14875240-2594-11e9-abde-00a098984313",
         },
-        "io_queue": {"depth": [32, 32, 32, 32], "count": 4},
         "keep_alive_timeout": 4000,
-        "svm": {
-            "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
-            "name": "symmcon_fcnvme_vserver_0",
-            "_links": {
-                "self": {"href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"}
-            },
-        },
-        "host": {
-            "id": "b8546ca6097349e5b1558dc154fc073b",
-            "transport_address": "nn-0x20000090fae00806:pn-0x10000090fae00806",
-            "nqn": "nqn.2014-08.org.nvmexpress:uuid:c2846cb1-89d2-4020-a3b0-71ce907b4eef",
-        },
         "node": {
-            "uuid": "ebf66f05-2590-11e9-abde-00a098984313",
             "name": "ssan-8040-94a",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/ebf66f05-2590-11e9-abde-00a098984313"
                 }
             },
+            "uuid": "ebf66f05-2590-11e9-abde-00a098984313",
         },
-        "_links": {
-            "self": {
-                "href": "/api/protocols/nvme/subsystem-controllers/14875240-2594-11e9-abde-00a098984313/0040h"
-            }
+        "tls": {
+            "cipher": "tls_aes_128_gcm_sha256",
+            "psk_identity": "NVMe1R01 nqn.2014-08.org.nvmexpress:uuid:c2846cb1-89d2-4020-a3b0-71ce907b4eef nqn.1992-08.com.netapp:sn.ca3cae02070811ef9a53005056bb9001:subsystem.ss1 c9X3RurQxGiGa76Tpk2tirifrUhHmVp035MOrtHXnAU=",
+            "key_type": "configured",
         },
-        "digest": {"header": True, "data": False},
+        "svm": {
+            "name": "symmcon_fcnvme_vserver_0",
+            "_links": {
+                "self": {"href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"}
+            },
+            "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
+        },
     }
 )
 
@@ -309,11 +309,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -327,24 +326,48 @@ __pdoc__ = {
     "NvmeSubsystemControllerSchema.opts": False,
 }
 
-
 class NvmeSubsystemControllerSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the NvmeSubsystemController object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the nvme_subsystem_controller."""
 
-    admin_queue = marshmallow_fields.Nested("netapp_ontap.models.nvme_subsystem_controller_admin_queue.NvmeSubsystemControllerAdminQueueSchema", data_key="admin_queue", unknown=EXCLUDE, allow_none=True)
+    admin_queue = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_subsystem_controller_admin_queue", "NvmeSubsystemControllerAdminQueueSchema"),
+                data_key="admin_queue",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The admin_queue field of the nvme_subsystem_controller."""
 
-    dh_hmac_chap = marshmallow_fields.Nested("netapp_ontap.models.nvme_subsystem_controller_dh_hmac_chap.NvmeSubsystemControllerDhHmacChapSchema", data_key="dh_hmac_chap", unknown=EXCLUDE, allow_none=True)
+    dh_hmac_chap = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_subsystem_controller_dh_hmac_chap", "NvmeSubsystemControllerDhHmacChapSchema"),
+                data_key="dh_hmac_chap",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" A container for properties of the NVMe in-band authentication DH-HMAC-CHAP protocol used by the the host connection to the controller."""
 
-    digest = marshmallow_fields.Nested("netapp_ontap.models.nvme_subsystem_controller_digest.NvmeSubsystemControllerDigestSchema", data_key="digest", unknown=EXCLUDE, allow_none=True)
+    digest = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_subsystem_controller_digest", "NvmeSubsystemControllerDigestSchema"),
+                data_key="digest",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Digests are properties of NVMe controllers created over the NVMe/TCP transport protocol. The usage of digests is negotiated between the host and the controller during connection setup. ONTAP enables digests only if the host requests them. The header digest is the crc32 checksum of the header portion of the NVMe/TCP PDU. The data digest is the crc32 checksum of the data portion of the NVMe/TCP PDU.<br/>
 If a digest is enabled, upon receiving an NVMe/TCP PDU, ONTAP calculates the crc32 checksum of the associated portion of the PDU and compares it with the digest value present in the transmitted PDU. If there is a mismatch, ONTAP returns an error and destroys the controller."""
 
-    host = marshmallow_fields.Nested("netapp_ontap.models.nvme_subsystem_controller_host.NvmeSubsystemControllerHostSchema", data_key="host", unknown=EXCLUDE, allow_none=True)
+    host = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_subsystem_controller_host", "NvmeSubsystemControllerHostSchema"),
+                data_key="host",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Properties of the connected host."""
 
     id = marshmallow_fields.Str(
@@ -356,10 +379,20 @@ If a digest is enabled, upon receiving an NVMe/TCP PDU, ONTAP calculates the crc
 
 Example: 0040h"""
 
-    interface = marshmallow_fields.Nested("netapp_ontap.models.nvme_subsystem_controller_interface.NvmeSubsystemControllerInterfaceSchema", data_key="interface", unknown=EXCLUDE, allow_none=True)
+    interface = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_subsystem_controller_interface", "NvmeSubsystemControllerInterfaceSchema"),
+                data_key="interface",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The logical interface through which the host is connected."""
 
-    io_queue = marshmallow_fields.Nested("netapp_ontap.models.nvme_subsystem_controller_io_queue.NvmeSubsystemControllerIoQueueSchema", data_key="io_queue", unknown=EXCLUDE, allow_none=True)
+    io_queue = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_subsystem_controller_io_queue", "NvmeSubsystemControllerIoQueueSchema"),
+                data_key="io_queue",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Properties of the I/O queues available to the controller."""
 
     keep_alive_timeout = Size(
@@ -372,16 +405,36 @@ If the NVMe controller does not receive a keep-alive request or an I/O request w
 
 Example: 1500"""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the nvme_subsystem_controller."""
 
-    subsystem = marshmallow_fields.Nested("netapp_ontap.resources.nvme_subsystem.NvmeSubsystemSchema", data_key="subsystem", unknown=EXCLUDE, allow_none=True)
+    subsystem = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.nvme_subsystem", "NvmeSubsystemSchema"),
+                data_key="subsystem",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The subsystem field of the nvme_subsystem_controller."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the nvme_subsystem_controller."""
 
-    tls = marshmallow_fields.Nested("netapp_ontap.models.nvme_subsystem_controller_tls.NvmeSubsystemControllerTlsSchema", data_key="tls", unknown=EXCLUDE, allow_none=True)
+    tls = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_subsystem_controller_tls", "NvmeSubsystemControllerTlsSchema"),
+                data_key="tls",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" A container for properties that describe the encrypted NVMe/TCP transport connection between the host and the NVMe subsystem."""
 
     transport_protocol = marshmallow_fields.Str(

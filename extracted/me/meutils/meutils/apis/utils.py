@@ -11,8 +11,9 @@
 
 from meutils.pipe import *
 from meutils.caches import rcache
+# from meutils.decorators.retry import retrying
 from meutils.apis.proxy.kdlapi import get_one_proxy
-from openai import AsyncClient
+from openai import AsyncClient, APIError
 from openai._legacy_response import HttpxBinaryResponseContent
 
 
@@ -143,7 +144,7 @@ async def make_request(
         try:
             response = await client.get(path, options=options, cast_to=object)
             return response
-        except Exception as e:
+        except APIError as e:
             logger.error(e)
 
             headers = {
@@ -170,12 +171,19 @@ async def make_request(
         #         # print(response.text)
         #
         #         return response.json()
+        try:
+            response = await client.post(path, body=payload, options=options, files=files, cast_to=object)
+            return response
+        except APIError as e:
+            logger.debug(e.__dict__)
+            # if any(i in e.message or "" for i in {"overdue balance", "Connection error."}):
+            #     raise e
+            raise e
 
-        response = await client.post(path, body=payload, options=options, files=files, cast_to=object)
+            # 'message': 'Connection error.'
+            # {'code': 'AccountOverdueError', 'message': 'The request failed because your account has an overdue balance.
 
         # HttpxBinaryResponseContent
-
-        return response
 
 
 @rcache(ttl=1 * 24 * 3600)  # todo: 可调节
@@ -267,15 +275,15 @@ if __name__ == '__main__':
     FAL_KEY = "aa5c047f-2621-4be2-9cee-9857a630aa11:b06782c97dffb50bfd6eebb63f49c624"
 
     headers = {"Authorization": f"key {FAL_KEY}"}
-    arun(make_request(
-        base_url=base_url,
-        path=path,
-        api_key=FAL_KEY,
-        payload=payload,
-        headers=headers,
-        method="post",
-        debug=True
-    ))
+    # arun(make_request(
+    #     base_url=base_url,
+    #     path=path,
+    #     api_key=FAL_KEY,
+    #     payload=payload,
+    #     headers=headers,
+    #     method="post",
+    #     debug=True
+    # ))
 
     # fal - topaz - upscale - video
     FAL_KEY = "aa5c047f-2621-4be2-9cee-9857a630aa11:b06782c97dffb50bfd6eebb63f49c624"
@@ -357,20 +365,31 @@ if __name__ == '__main__':
     #     debug=True
     # ))
 
-    # UPSTREAM_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
-    # UPSTREAM_API_KEY = "88b82799f3234a5aad130b0f74c7eb85.tBMTRh0h1IqbvMaw"
-    # path="/videos/generations"
-    # # API_KEY=sk-R6y5di2fR3OAxEH3idNZIc4sm3CWIS4LAzRfhxSVbhXrrIej
-    # payload = {
-    #     "model": "cogvideox-flash",
-    #     "prompt": "比得兔开小汽车，游走在马路上，脸上的表情充满开心喜悦。",
-    #     "duration": 10
-    # }
-    #
-    # arun(make_request(
-    #     base_url=UPSTREAM_BASE_URL,
-    #     api_key=UPSTREAM_API_KEY,
-    #     path=path,
-    #     payload=payload,
-    #     debug=True
-    # ))
+    UPSTREAM_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
+    # UPSTREAM_API_KEY = "85abd27e-11ac-449b-ad88-66369e320df0 "
+    UPSTREAM_API_KEY = "c18e9ef5-b6f7-449b-897f-8004f091aad0"
+    path = "/contents/generations/tasks"
+    # API_KEY=sk-R6y5di2fR3OAxEH3idNZIc4sm3CWIS4LAzRfhxSVbhXrrIej
+    payload = {
+        "model": "doubao-seedance-1-5-pro-251215",
+        "content": [
+            {
+                "type": "text",
+                "text": "无人机以极快速度穿越复杂障碍或自然奇观，带来沉浸式飞行体验  --duration 5 --camerafixed false --watermark true"
+            },
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": "https://ark-project.tos-cn-beijing.volces.com/doc_image/seepro_i2v.png"
+                }
+            }
+        ]
+    }
+
+    arun(make_request(
+        base_url=UPSTREAM_BASE_URL,
+        api_key=UPSTREAM_API_KEY,
+        path=path,
+        payload=payload,
+        debug=True
+    ))

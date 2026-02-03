@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ContainerVolumesS3BucketPolicyStatements", "ContainerVolumesS3BucketPolicyStatementsSchema"]
@@ -17,7 +16,6 @@ __pdoc__ = {
     "ContainerVolumesS3BucketPolicyStatements": False,
 }
 
-
 class ContainerVolumesS3BucketPolicyStatementsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ContainerVolumesS3BucketPolicyStatements object"""
 
@@ -26,7 +24,15 @@ class ContainerVolumesS3BucketPolicyStatementsSchema(ResourceSchema, metaclass=R
 
 Example: ["GetObject","PutObject","DeleteObject","ListBucket"] """
 
-    conditions = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.s3_bucket_policy_condition.S3BucketPolicyConditionSchema", unknown=EXCLUDE, allow_none=True), data_key="conditions", allow_none=True)
+    conditions = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.s3_bucket_policy_condition", "S3BucketPolicyConditionSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="conditions",
+                allow_none=True
+                )
     r""" Specifies bucket policy conditions. """
 
     effect = marshmallow_fields.Str(data_key="effect", allow_none=True)
@@ -48,9 +54,9 @@ Example: ["user1","group/grp1","nasgroup/group1"] """
 Example: ["bucket1","bucket1/*"] """
 
     sid = marshmallow_fields.Str(data_key="sid", allow_none=True)
-    r""" Specifies the statement identifier used to differentiate between statements. The sid length can range from 1 to 256 characters and can only contain the following combination of characters 0-9, A-Z, and a-z. Special characters are not valid.
+    r""" Specifies the statement identifier used to differentiate between statements. The SID length can range from 1 to 256 characters.
 
-Example: FullAccessToUser1 """
+Example: Full_Access_To_User1! """
 
     @property
     def resource(self):

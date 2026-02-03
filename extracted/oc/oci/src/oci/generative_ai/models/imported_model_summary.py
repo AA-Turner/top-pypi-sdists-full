@@ -31,6 +31,10 @@ class ImportedModelSummary(object):
     #: This constant has a value of "RERANK"
     CAPABILITIES_RERANK = "RERANK"
 
+    #: A constant which can be used with the capabilities property of a ImportedModelSummary.
+    #: This constant has a value of "TEXT_TO_IMAGE"
+    CAPABILITIES_TEXT_TO_IMAGE = "TEXT_TO_IMAGE"
+
     def __init__(self, **kwargs):
         """
         Initializes a new ImportedModelSummary object with values from keyword arguments.
@@ -54,7 +58,7 @@ class ImportedModelSummary(object):
 
         :param capabilities:
             The value to assign to the capabilities property of this ImportedModelSummary.
-            Allowed values for items in this list are: "TEXT_TO_TEXT", "IMAGE_TEXT_TO_TEXT", "EMBEDDING", "RERANK", 'UNKNOWN_ENUM_VALUE'.
+            Allowed values for items in this list are: "TEXT_TO_TEXT", "IMAGE_TEXT_TO_TEXT", "EMBEDDING", "RERANK", "TEXT_TO_IMAGE", 'UNKNOWN_ENUM_VALUE'.
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type capabilities: list[str]
 
@@ -251,7 +255,7 @@ class ImportedModelSummary(object):
         Gets the capabilities of this ImportedModelSummary.
         Specifies the intended use or supported capabilities of the imported model.
 
-        Allowed values for items in this list are: "TEXT_TO_TEXT", "IMAGE_TEXT_TO_TEXT", "EMBEDDING", "RERANK", 'UNKNOWN_ENUM_VALUE'.
+        Allowed values for items in this list are: "TEXT_TO_TEXT", "IMAGE_TEXT_TO_TEXT", "EMBEDDING", "RERANK", "TEXT_TO_IMAGE", 'UNKNOWN_ENUM_VALUE'.
         Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
 
 
@@ -270,7 +274,7 @@ class ImportedModelSummary(object):
         :param capabilities: The capabilities of this ImportedModelSummary.
         :type: list[str]
         """
-        allowed_values = ["TEXT_TO_TEXT", "IMAGE_TEXT_TO_TEXT", "EMBEDDING", "RERANK"]
+        allowed_values = ["TEXT_TO_TEXT", "IMAGE_TEXT_TO_TEXT", "EMBEDDING", "RERANK", "TEXT_TO_IMAGE"]
         if capabilities:
             capabilities[:] = ['UNKNOWN_ENUM_VALUE' if not value_allowed_none_or_none_sentinel(x, allowed_values) else x for x in capabilities]
         self._capabilities = capabilities

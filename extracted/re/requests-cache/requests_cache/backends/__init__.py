@@ -4,6 +4,7 @@
 from logging import getLogger
 from pathlib import Path
 from typing import Callable, Dict, Iterable, Optional, Type, Union
+from warnings import warn
 
 from .._utils import get_placeholder_class, get_valid_kwargs
 from .base import BaseCache, BaseStorage, DictStorage
@@ -43,9 +44,9 @@ except ImportError as e:
     SQLiteCache = SQLiteDict = get_placeholder_class(e)  # type: ignore
 
 try:
-    from .filesystem import FileCache, FileDict
+    from .filesystem import FileCache, FileDict, LRUFileDict
 except ImportError as e:
-    FileCache = FileDict = get_placeholder_class(e)  # type: ignore
+    FileCache = FileDict = LRUFileDict = get_placeholder_class(e)  # type: ignore
 
 
 BACKEND_CLASSES = {
@@ -74,8 +75,18 @@ def init_backend(
 
     # Already a backend instance
     if isinstance(backend, BaseCache):
-        if cache_name:
+        # Database names, file paths, etc. cannot be reliably updated after initialization, so
+        # warn if the user passes both `cache_name` and a backend instance
+        from ..policy import DEFAULT_CACHE_NAME
+
+        if cache_name and cache_name != DEFAULT_CACHE_NAME:
             backend.cache_name = str(cache_name)
+            warn(
+                '`cache_name` cannot be set after backend initialization; '
+                'please pass it to the backend class instead',
+                DeprecationWarning,
+                stacklevel=3,
+            )
         return backend
     # If no backend is specified, use SQLite as default, unless the environment doesn't support it
     elif not backend:

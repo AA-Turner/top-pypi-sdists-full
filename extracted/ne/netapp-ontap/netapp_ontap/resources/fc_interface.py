@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -44,66 +44,66 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FcInterface(
     {
-        "wwpn": "20:04:00:50:56:bb:a0:e0",
-        "enabled": True,
-        "state": "down",
-        "svm": {
-            "uuid": "cf300f5c-db83-11e8-bd46-005056bba0e0",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/cf300f5c-db83-11e8-bd46-005056bba0e0"}
-            },
-        },
-        "location": {
-            "port": {
-                "uuid": "300c1ae3-db82-11e8-bd46-005056bba0e0",
-                "node": {"name": "node1"},
-                "_links": {
-                    "self": {
-                        "href": "/api/network/fc/ports/300c1ae3-db82-11e8-bd46-005056bba0e0"
-                    }
-                },
-                "name": "0a",
-            },
-            "home_node": {
-                "uuid": "bafe9b9f-db81-11e8-bd46-005056bba0e0",
-                "name": "node1",
-                "_links": {
-                    "self": {
-                        "href": "/api/cluster/nodes/bafe9b9f-db81-11e8-bd46-005056bba0e0"
-                    }
-                },
-            },
-            "home_port": {
-                "uuid": "300c1ae3-db82-11e8-bd46-005056bba0e0",
-                "node": {"name": "node1"},
-                "_links": {
-                    "self": {
-                        "href": "/api/network/fc/ports/300c1ae3-db82-11e8-bd46-005056bba0e0"
-                    }
-                },
-                "name": "0a",
-            },
-            "node": {
-                "uuid": "bafe9b9f-db81-11e8-bd46-005056bba0e0",
-                "name": "node1",
-                "_links": {
-                    "self": {
-                        "href": "/api/cluster/nodes/bafe9b9f-db81-11e8-bd46-005056bba0e0"
-                    }
-                },
-            },
-        },
-        "wwnn": "20:00:00:50:56:bb:a0:e0",
-        "uuid": "f6045b92-dec7-11e8-a733-005056bba0e0",
         "_links": {
             "self": {
                 "href": "/api/network/fc/interfaces/f6045b92-dec7-11e8-a733-005056bba0e0"
             }
         },
-        "port_address": "9da2cb1",
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/cf300f5c-db83-11e8-bd46-005056bba0e0"}
+            },
+            "uuid": "cf300f5c-db83-11e8-bd46-005056bba0e0",
+        },
+        "wwpn": "20:04:00:50:56:bb:a0:e0",
         "name": "lif1",
+        "state": "down",
+        "uuid": "f6045b92-dec7-11e8-a733-005056bba0e0",
         "data_protocol": "fcp",
+        "location": {
+            "port": {
+                "_links": {
+                    "self": {
+                        "href": "/api/network/fc/ports/300c1ae3-db82-11e8-bd46-005056bba0e0"
+                    }
+                },
+                "name": "0a",
+                "uuid": "300c1ae3-db82-11e8-bd46-005056bba0e0",
+                "node": {"name": "node1"},
+            },
+            "node": {
+                "name": "node1",
+                "_links": {
+                    "self": {
+                        "href": "/api/cluster/nodes/bafe9b9f-db81-11e8-bd46-005056bba0e0"
+                    }
+                },
+                "uuid": "bafe9b9f-db81-11e8-bd46-005056bba0e0",
+            },
+            "home_port": {
+                "_links": {
+                    "self": {
+                        "href": "/api/network/fc/ports/300c1ae3-db82-11e8-bd46-005056bba0e0"
+                    }
+                },
+                "name": "0a",
+                "uuid": "300c1ae3-db82-11e8-bd46-005056bba0e0",
+                "node": {"name": "node1"},
+            },
+            "home_node": {
+                "name": "node1",
+                "_links": {
+                    "self": {
+                        "href": "/api/cluster/nodes/bafe9b9f-db81-11e8-bd46-005056bba0e0"
+                    }
+                },
+                "uuid": "bafe9b9f-db81-11e8-bd46-005056bba0e0",
+            },
+        },
+        "wwnn": "20:00:00:50:56:bb:a0:e0",
+        "port_address": "9da2cb1",
+        "enabled": True,
     }
 )
 
@@ -136,66 +136,66 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FcInterface(
     {
-        "wwpn": "20:05:00:50:56:bb:a0:e0",
-        "enabled": True,
-        "state": "down",
-        "svm": {
-            "uuid": "a5060466-dbab-11e8-bd46-005056bba0e0",
-            "name": "svm3",
-            "_links": {
-                "self": {"href": "/api/svm/svms/a5060466-dbab-11e8-bd46-005056bba0e0"}
-            },
-        },
-        "location": {
-            "port": {
-                "uuid": "24bb636a-db83-11e8-9a49-005056bb1ec6",
-                "node": {"name": "node3"},
-                "_links": {
-                    "self": {
-                        "href": "/api/network/fc/ports/24bb636a-db83-11e8-9a49-005056bb1ec6"
-                    }
-                },
-                "name": "1b",
-            },
-            "home_node": {
-                "uuid": "e85aa147-db83-11e8-9a48-005056bb1ec6",
-                "name": "node3",
-                "_links": {
-                    "self": {
-                        "href": "/api/cluster/nodes/e85aa147-db83-11e8-9a48-005056bb1ec6"
-                    }
-                },
-            },
-            "home_port": {
-                "uuid": "24bb636a-db83-11e8-9a49-005056bb1ec6",
-                "node": {"name": "node3"},
-                "_links": {
-                    "self": {
-                        "href": "/api/network/fc/ports/24bb636a-db83-11e8-9a49-005056bb1ec6"
-                    }
-                },
-                "name": "1b",
-            },
-            "node": {
-                "uuid": "e85aa147-db83-11e8-9a48-005056bb1ec6",
-                "name": "node3",
-                "_links": {
-                    "self": {
-                        "href": "/api/cluster/nodes/e85aa147-db83-11e8-9a48-005056bb1ec6"
-                    }
-                },
-            },
-        },
-        "wwnn": "20:02:00:50:56:bb:a0:e0",
-        "uuid": "cdeb5591-dec9-11e8-a733-005056bba0e0",
         "_links": {
             "self": {
                 "href": "/api/network/fc/interfaces/cdeb5591-dec9-11e8-a733-005056bba0e0"
             }
         },
-        "port_address": "612e202b",
+        "svm": {
+            "name": "svm3",
+            "_links": {
+                "self": {"href": "/api/svm/svms/a5060466-dbab-11e8-bd46-005056bba0e0"}
+            },
+            "uuid": "a5060466-dbab-11e8-bd46-005056bba0e0",
+        },
+        "wwpn": "20:05:00:50:56:bb:a0:e0",
         "name": "lif2",
+        "state": "down",
+        "uuid": "cdeb5591-dec9-11e8-a733-005056bba0e0",
         "data_protocol": "fc_nvme",
+        "location": {
+            "port": {
+                "_links": {
+                    "self": {
+                        "href": "/api/network/fc/ports/24bb636a-db83-11e8-9a49-005056bb1ec6"
+                    }
+                },
+                "name": "1b",
+                "uuid": "24bb636a-db83-11e8-9a49-005056bb1ec6",
+                "node": {"name": "node3"},
+            },
+            "node": {
+                "name": "node3",
+                "_links": {
+                    "self": {
+                        "href": "/api/cluster/nodes/e85aa147-db83-11e8-9a48-005056bb1ec6"
+                    }
+                },
+                "uuid": "e85aa147-db83-11e8-9a48-005056bb1ec6",
+            },
+            "home_port": {
+                "_links": {
+                    "self": {
+                        "href": "/api/network/fc/ports/24bb636a-db83-11e8-9a49-005056bb1ec6"
+                    }
+                },
+                "name": "1b",
+                "uuid": "24bb636a-db83-11e8-9a49-005056bb1ec6",
+                "node": {"name": "node3"},
+            },
+            "home_node": {
+                "name": "node3",
+                "_links": {
+                    "self": {
+                        "href": "/api/cluster/nodes/e85aa147-db83-11e8-9a48-005056bb1ec6"
+                    }
+                },
+                "uuid": "e85aa147-db83-11e8-9a48-005056bb1ec6",
+            },
+        },
+        "wwnn": "20:02:00:50:56:bb:a0:e0",
+        "port_address": "612e202b",
+        "enabled": True,
     }
 )
 
@@ -223,134 +223,134 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FcInterface(
         {
-            "wwpn": "20:05:00:50:56:bb:a0:e0",
-            "enabled": True,
-            "state": "down",
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/interfaces/cdeb5591-dec9-11e8-a733-005056bba0e0"
+                }
+            },
             "svm": {
-                "uuid": "a5060466-dbab-11e8-bd46-005056bba0e0",
                 "name": "svm3",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/a5060466-dbab-11e8-bd46-005056bba0e0"
                     }
                 },
+                "uuid": "a5060466-dbab-11e8-bd46-005056bba0e0",
             },
+            "wwpn": "20:05:00:50:56:bb:a0:e0",
+            "name": "lif2",
+            "state": "down",
+            "uuid": "cdeb5591-dec9-11e8-a733-005056bba0e0",
+            "data_protocol": "fc_nvme",
             "location": {
                 "port": {
-                    "uuid": "24bb636a-db83-11e8-9a49-005056bb1ec6",
-                    "node": {"name": "node3"},
                     "_links": {
                         "self": {
                             "href": "/api/network/fc/ports/24bb636a-db83-11e8-9a49-005056bb1ec6"
                         }
                     },
                     "name": "1b",
-                },
-                "home_node": {
-                    "uuid": "e85aa147-db83-11e8-9a48-005056bb1ec6",
-                    "name": "node3",
-                    "_links": {
-                        "self": {
-                            "href": "/api/cluster/nodes/e85aa147-db83-11e8-9a48-005056bb1ec6"
-                        }
-                    },
-                },
-                "home_port": {
                     "uuid": "24bb636a-db83-11e8-9a49-005056bb1ec6",
                     "node": {"name": "node3"},
-                    "_links": {
-                        "self": {
-                            "href": "/api/network/fc/ports/24bb636a-db83-11e8-9a49-005056bb1ec6"
-                        }
-                    },
-                    "name": "1b",
                 },
                 "node": {
-                    "uuid": "e85aa147-db83-11e8-9a48-005056bb1ec6",
                     "name": "node3",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/e85aa147-db83-11e8-9a48-005056bb1ec6"
                         }
                     },
+                    "uuid": "e85aa147-db83-11e8-9a48-005056bb1ec6",
+                },
+                "home_port": {
+                    "_links": {
+                        "self": {
+                            "href": "/api/network/fc/ports/24bb636a-db83-11e8-9a49-005056bb1ec6"
+                        }
+                    },
+                    "name": "1b",
+                    "uuid": "24bb636a-db83-11e8-9a49-005056bb1ec6",
+                    "node": {"name": "node3"},
+                },
+                "home_node": {
+                    "name": "node3",
+                    "_links": {
+                        "self": {
+                            "href": "/api/cluster/nodes/e85aa147-db83-11e8-9a48-005056bb1ec6"
+                        }
+                    },
+                    "uuid": "e85aa147-db83-11e8-9a48-005056bb1ec6",
                 },
             },
             "wwnn": "20:02:00:50:56:bb:a0:e0",
-            "uuid": "cdeb5591-dec9-11e8-a733-005056bba0e0",
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/interfaces/cdeb5591-dec9-11e8-a733-005056bba0e0"
-                }
-            },
             "port_address": "612e202b",
-            "name": "lif2",
-            "data_protocol": "fc_nvme",
+            "enabled": True,
         }
     ),
     FcInterface(
         {
-            "wwpn": "20:04:00:50:56:bb:a0:e0",
-            "enabled": True,
-            "state": "down",
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/interfaces/f6045b92-dec7-11e8-a733-005056bba0e0"
+                }
+            },
             "svm": {
-                "uuid": "cf300f5c-db83-11e8-bd46-005056bba0e0",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/cf300f5c-db83-11e8-bd46-005056bba0e0"
                     }
                 },
+                "uuid": "cf300f5c-db83-11e8-bd46-005056bba0e0",
             },
+            "wwpn": "20:04:00:50:56:bb:a0:e0",
+            "name": "lif1",
+            "state": "down",
+            "uuid": "f6045b92-dec7-11e8-a733-005056bba0e0",
+            "data_protocol": "fcp",
             "location": {
                 "port": {
-                    "uuid": "300c1ae3-db82-11e8-bd46-005056bba0e0",
-                    "node": {"name": "node1"},
                     "_links": {
                         "self": {
                             "href": "/api/network/fc/ports/300c1ae3-db82-11e8-bd46-005056bba0e0"
                         }
                     },
                     "name": "0a",
-                },
-                "home_node": {
-                    "uuid": "bafe9b9f-db81-11e8-bd46-005056bba0e0",
-                    "name": "node1",
-                    "_links": {
-                        "self": {
-                            "href": "/api/cluster/nodes/bafe9b9f-db81-11e8-bd46-005056bba0e0"
-                        }
-                    },
-                },
-                "home_port": {
                     "uuid": "300c1ae3-db82-11e8-bd46-005056bba0e0",
                     "node": {"name": "node1"},
-                    "_links": {
-                        "self": {
-                            "href": "/api/network/fc/ports/300c1ae3-db82-11e8-bd46-005056bba0e0"
-                        }
-                    },
-                    "name": "0a",
                 },
                 "node": {
-                    "uuid": "bafe9b9f-db81-11e8-bd46-005056bba0e0",
                     "name": "node1",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/bafe9b9f-db81-11e8-bd46-005056bba0e0"
                         }
                     },
+                    "uuid": "bafe9b9f-db81-11e8-bd46-005056bba0e0",
+                },
+                "home_port": {
+                    "_links": {
+                        "self": {
+                            "href": "/api/network/fc/ports/300c1ae3-db82-11e8-bd46-005056bba0e0"
+                        }
+                    },
+                    "name": "0a",
+                    "uuid": "300c1ae3-db82-11e8-bd46-005056bba0e0",
+                    "node": {"name": "node1"},
+                },
+                "home_node": {
+                    "name": "node1",
+                    "_links": {
+                        "self": {
+                            "href": "/api/cluster/nodes/bafe9b9f-db81-11e8-bd46-005056bba0e0"
+                        }
+                    },
+                    "uuid": "bafe9b9f-db81-11e8-bd46-005056bba0e0",
                 },
             },
             "wwnn": "20:00:00:50:56:bb:a0:e0",
-            "uuid": "f6045b92-dec7-11e8-a733-005056bba0e0",
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/interfaces/f6045b92-dec7-11e8-a733-005056bba0e0"
-                }
-            },
             "port_address": "9da2cb1",
-            "name": "lif1",
-            "data_protocol": "fcp",
+            "enabled": True,
         }
     ),
 ]
@@ -379,23 +379,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FcInterface(
         {
-            "state": "up",
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/interfaces/f6045b92-dec7-11e8-a733-005056bba0e0"
+                }
+            },
             "svm": {
-                "uuid": "cf300f5c-db83-11e8-bd46-005056bba0e0",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/cf300f5c-db83-11e8-bd46-005056bba0e0"
                     }
                 },
-            },
-            "uuid": "f6045b92-dec7-11e8-a733-005056bba0e0",
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/interfaces/f6045b92-dec7-11e8-a733-005056bba0e0"
-                }
+                "uuid": "cf300f5c-db83-11e8-bd46-005056bba0e0",
             },
             "name": "lif1",
+            "state": "up",
+            "uuid": "f6045b92-dec7-11e8-a733-005056bba0e0",
             "data_protocol": "fcp",
         }
     )
@@ -424,81 +424,81 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FcInterface(
     {
-        "statistics": {
-            "timestamp": "2019-04-09T05:50:42+00:00",
-            "latency_raw": {"read": 0, "total": 38298, "other": 38298, "write": 0},
-            "iops_raw": {"read": 0, "total": 3, "other": 3, "write": 0},
-            "status": "ok",
-            "throughput_raw": {"read": 0, "total": 0, "write": 0},
-        },
-        "wwpn": "20:05:00:50:56:bb:a0:e0",
-        "enabled": True,
-        "metric": {
-            "timestamp": "2019-04-09T05:50:15+00:00",
-            "throughput": {"read": 0, "total": 0, "write": 0},
-            "iops": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "status": "ok",
-            "latency": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "duration": "PT15S",
-        },
-        "state": "down",
-        "svm": {
-            "uuid": "a5060466-dbab-11e8-bd46-005056bba0e0",
-            "name": "svm3",
-            "_links": {
-                "self": {"href": "/api/svm/svms/a5060466-dbab-11e8-bd46-005056bba0e0"}
-            },
-        },
-        "location": {
-            "port": {
-                "uuid": "24bb636a-db83-11e8-9a49-005056bb1ec6",
-                "node": {"name": "node3"},
-                "_links": {
-                    "self": {
-                        "href": "/api/network/fc/ports/24bb636a-db83-11e8-9a49-005056bb1ec6"
-                    }
-                },
-                "name": "1b",
-            },
-            "home_node": {
-                "uuid": "e85aa147-db83-11e8-9a48-005056bb1ec6",
-                "name": "node3",
-                "_links": {
-                    "self": {
-                        "href": "/api/cluster/nodes/e85aa147-db83-11e8-9a48-005056bb1ec6"
-                    }
-                },
-            },
-            "home_port": {
-                "uuid": "24bb636a-db83-11e8-9a49-005056bb1ec6",
-                "node": {"name": "node3"},
-                "_links": {
-                    "self": {
-                        "href": "/api/network/fc/ports/24bb636a-db83-11e8-9a49-005056bb1ec6"
-                    }
-                },
-                "name": "1b",
-            },
-            "node": {
-                "uuid": "e85aa147-db83-11e8-9a48-005056bb1ec6",
-                "name": "node3",
-                "_links": {
-                    "self": {
-                        "href": "/api/cluster/nodes/e85aa147-db83-11e8-9a48-005056bb1ec6"
-                    }
-                },
-            },
-        },
-        "wwnn": "20:02:00:50:56:bb:a0:e0",
-        "uuid": "cdeb5591-dec9-11e8-a733-005056bba0e0",
         "_links": {
             "self": {
                 "href": "/api/network/fc/interfaces/cdeb5591-dec9-11e8-a733-005056bba0e0"
             }
         },
-        "port_address": "612e202b",
+        "svm": {
+            "name": "svm3",
+            "_links": {
+                "self": {"href": "/api/svm/svms/a5060466-dbab-11e8-bd46-005056bba0e0"}
+            },
+            "uuid": "a5060466-dbab-11e8-bd46-005056bba0e0",
+        },
+        "wwpn": "20:05:00:50:56:bb:a0:e0",
+        "metric": {
+            "latency": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "timestamp": "2019-04-09T05:50:15+00:00",
+            "iops": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "status": "ok",
+            "duration": "PT15S",
+            "throughput": {"write": 0, "total": 0, "read": 0},
+        },
         "name": "lif2",
+        "state": "down",
+        "statistics": {
+            "throughput_raw": {"write": 0, "total": 0, "read": 0},
+            "iops_raw": {"write": 0, "total": 3, "other": 3, "read": 0},
+            "timestamp": "2019-04-09T05:50:42+00:00",
+            "status": "ok",
+            "latency_raw": {"write": 0, "total": 38298, "other": 38298, "read": 0},
+        },
+        "uuid": "cdeb5591-dec9-11e8-a733-005056bba0e0",
         "data_protocol": "fc_nvme",
+        "location": {
+            "port": {
+                "_links": {
+                    "self": {
+                        "href": "/api/network/fc/ports/24bb636a-db83-11e8-9a49-005056bb1ec6"
+                    }
+                },
+                "name": "1b",
+                "uuid": "24bb636a-db83-11e8-9a49-005056bb1ec6",
+                "node": {"name": "node3"},
+            },
+            "node": {
+                "name": "node3",
+                "_links": {
+                    "self": {
+                        "href": "/api/cluster/nodes/e85aa147-db83-11e8-9a48-005056bb1ec6"
+                    }
+                },
+                "uuid": "e85aa147-db83-11e8-9a48-005056bb1ec6",
+            },
+            "home_port": {
+                "_links": {
+                    "self": {
+                        "href": "/api/network/fc/ports/24bb636a-db83-11e8-9a49-005056bb1ec6"
+                    }
+                },
+                "name": "1b",
+                "uuid": "24bb636a-db83-11e8-9a49-005056bb1ec6",
+                "node": {"name": "node3"},
+            },
+            "home_node": {
+                "name": "node3",
+                "_links": {
+                    "self": {
+                        "href": "/api/cluster/nodes/e85aa147-db83-11e8-9a48-005056bb1ec6"
+                    }
+                },
+                "uuid": "e85aa147-db83-11e8-9a48-005056bb1ec6",
+            },
+        },
+        "wwnn": "20:02:00:50:56:bb:a0:e0",
+        "port_address": "612e202b",
+        "enabled": True,
     }
 )
 
@@ -572,56 +572,56 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FcInterface(
         {
+            "data_protocol": "fcp",
             "comment": "fabric: 55:0e:b1:a0:20:40:80:00",
             "location": {
                 "home_port": {
-                    "uuid": "300c1ae3-db82-11e8-bd46-005056bba0e0",
-                    "node": {"name": "node1"},
                     "_links": {
                         "self": {
                             "href": "/api/network/fc/ports/300c1ae3-db82-11e8-bd46-005056bba0e0"
                         }
                     },
                     "name": "0a",
+                    "uuid": "300c1ae3-db82-11e8-bd46-005056bba0e0",
+                    "node": {"name": "node1"},
                 }
             },
-            "data_protocol": "fcp",
         }
     ),
     FcInterface(
         {
+            "data_protocol": "fcp",
             "comment": "fabric: 55:0e:b1:a0:20:40:80:00",
             "location": {
                 "home_port": {
-                    "uuid": "ad7d3915-db82-11e8-b36d-005056bb982e",
-                    "node": {"name": "node2"},
                     "_links": {
                         "self": {
                             "href": "/api/network/fc/ports/ad7d3915-db82-11e8-b36d-005056bb982e"
                         }
                     },
                     "name": "0a",
+                    "uuid": "ad7d3915-db82-11e8-b36d-005056bb982e",
+                    "node": {"name": "node2"},
                 }
             },
-            "data_protocol": "fcp",
         }
     ),
     FcInterface(
         {
+            "data_protocol": "fcp",
             "comment": "fabric: 55:0e:b1:a0:20:40:80:01",
             "location": {
                 "home_port": {
-                    "uuid": "300c1dfd-db82-11e8-bd46-005056bba0e0",
-                    "node": {"name": "node1"},
                     "_links": {
                         "self": {
                             "href": "/api/network/fc/ports/300c1dfd-db82-11e8-bd46-005056bba0e0"
                         }
                     },
                     "name": "0b",
+                    "uuid": "300c1dfd-db82-11e8-bd46-005056bba0e0",
+                    "node": {"name": "node1"},
                 }
             },
-            "data_protocol": "fcp",
         }
     ),
 ]
@@ -668,11 +668,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -686,11 +685,15 @@ __pdoc__ = {
     "FcInterfaceSchema.opts": False,
 }
 
-
 class FcInterfaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the FcInterface object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the fc_interface."""
 
     comment = marshmallow_fields.Str(
@@ -718,11 +721,21 @@ Valid choices:
     )
     r""" The administrative state of the FC interface. The FC interface can be disabled to block all FC communication with the SVM through this interface. Optional in POST and PATCH; defaults to _true_ (enabled) in POST."""
 
-    location = marshmallow_fields.Nested("netapp_ontap.models.fc_interface_location.FcInterfaceLocationSchema", data_key="location", unknown=EXCLUDE, allow_none=True)
+    location = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fc_interface_location", "FcInterfaceLocationSchema"),
+                data_key="location",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The location of the FC interface is defined by the location of its port. An FC port is identified by its UUID, or a combination of its cluster node name and port name. Either the UUID or the cluster node name and port name are required for POST. To move an interface, supply either the port UUID or the cluster node name and port name in a PATCH.<br/>
 `location.node` and `location.port` refer to the current location of the FC interface. This can be different from `location.home_node` and `location.home_port` in instances where the FC interface has failed over to its HA partner node. The `location.node`, `location.port`, and `location.is_home` properties are not available for interfaces on the inactive side of a MetroCluster relationship."""
 
-    metric = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_reduced_throughput.PerformanceMetricReducedThroughputSchema", data_key="metric", unknown=EXCLUDE, allow_none=True)
+    metric = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_reduced_throughput", "PerformanceMetricReducedThroughputSchema"),
+                data_key="metric",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Performance numbers, such as IOPS latency and throughput"""
 
     name = marshmallow_fields.Str(
@@ -759,10 +772,20 @@ Valid choices:
 * up
 * down"""
 
-    statistics = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_raw_reduced_throughput.PerformanceMetricRawReducedThroughputSchema", data_key="statistics", unknown=EXCLUDE, allow_none=True)
+    statistics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_raw_reduced_throughput", "PerformanceMetricRawReducedThroughputSchema"),
+                data_key="statistics",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" These are raw performance numbers, such as IOPS latency and throughput. These numbers are aggregated across all nodes in the cluster and increase with the uptime of the cluster."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the fc_interface."""
 
     uuid = marshmallow_fields.Str(

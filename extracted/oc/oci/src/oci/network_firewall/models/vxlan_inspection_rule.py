@@ -47,6 +47,10 @@ class VxlanInspectionRule(TunnelInspectionRule):
             The value to assign to the parent_resource_id property of this VxlanInspectionRule.
         :type parent_resource_id: str
 
+        :param description:
+            The value to assign to the description property of this VxlanInspectionRule.
+        :type description: str
+
         :param condition:
             The value to assign to the condition property of this VxlanInspectionRule.
         :type condition: oci.network_firewall.models.VxlanInspectionRuleMatchCriteria
@@ -63,6 +67,7 @@ class VxlanInspectionRule(TunnelInspectionRule):
             'priority_order': 'int',
             'position': 'RulePosition',
             'parent_resource_id': 'str',
+            'description': 'str',
             'condition': 'VxlanInspectionRuleMatchCriteria',
             'profile': 'VxlanInspectionRuleProfile'
         }
@@ -73,6 +78,7 @@ class VxlanInspectionRule(TunnelInspectionRule):
             'priority_order': 'priorityOrder',
             'position': 'position',
             'parent_resource_id': 'parentResourceId',
+            'description': 'description',
             'condition': 'condition',
             'profile': 'profile'
         }
@@ -82,6 +88,7 @@ class VxlanInspectionRule(TunnelInspectionRule):
         self._priority_order = None
         self._position = None
         self._parent_resource_id = None
+        self._description = None
         self._condition = None
         self._profile = None
         self._protocol = 'VXLAN'

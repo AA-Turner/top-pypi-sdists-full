@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -40,12 +40,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FpolicyEngine(
     {
+        "name": "engine0",
+        "primary_servers": ["10.132.145.22", "10.140.101.109"],
         "secondary_servers": ["10.132.145.20", "10.132.145.21"],
         "format": "xml",
-        "type": "synchronous",
         "port": 9876,
-        "primary_servers": ["10.132.145.22", "10.140.101.109"],
-        "name": "engine0",
+        "type": "synchronous",
     }
 )
 
@@ -77,11 +77,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FpolicyEngine(
     {
-        "format": "xml",
-        "type": "synchronous",
-        "port": 9876,
-        "primary_servers": ["10.132.145.22", "10.140.101.109"],
         "name": "engine0",
+        "primary_servers": ["10.132.145.22", "10.140.101.109"],
+        "format": "xml",
+        "port": 9876,
+        "type": "synchronous",
     }
 )
 
@@ -114,33 +114,33 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FpolicyEngine(
         {
-            "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
-            "type": "synchronous",
-            "port": 9876,
-            "primary_servers": ["10.20.20.10"],
             "name": "cifs",
+            "primary_servers": ["10.20.20.10"],
+            "port": 9876,
+            "type": "synchronous",
+            "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
         }
     ),
     FpolicyEngine(
         {
-            "secondary_servers": ["10.132.145.20", "10.132.145.22"],
-            "format": "xml",
-            "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
-            "server_progress_timeout": "PT1M",
-            "type": "synchronous",
-            "buffer_size": {"send_buffer": 1048576, "recv_buffer": 262144},
+            "keep_alive_interval": "PT2M",
             "session_timeout": "PT10S",
             "request_abort_timeout": "PT3M",
-            "port": 9876,
-            "primary_servers": ["10.23.140.64", "10.140.101.109"],
-            "ssl_option": "no_auth",
-            "max_server_requests": 500,
-            "keep_alive_interval": "PT2M",
-            "request_cancel_timeout": "PT29S",
-            "max_connection_retries": 5,
             "name": "nfs",
-            "resiliency": {"retention_duration": "PT3M", "enabled": False},
+            "buffer_size": {"recv_buffer": 262144, "send_buffer": 1048576},
+            "request_cancel_timeout": "PT29S",
+            "primary_servers": ["10.23.140.64", "10.140.101.109"],
             "status_request_interval": "PT23S",
+            "secondary_servers": ["10.132.145.20", "10.132.145.22"],
+            "format": "xml",
+            "ssl_option": "no_auth",
+            "port": 9876,
+            "server_progress_timeout": "PT1M",
+            "max_connection_retries": 5,
+            "type": "synchronous",
+            "max_server_requests": 500,
+            "resiliency": {"retention_duration": "PT3M", "enabled": False},
+            "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
         }
     ),
 ]
@@ -169,12 +169,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FpolicyEngine(
     {
-        "format": "xml",
-        "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
-        "type": "synchronous",
-        "port": 9876,
-        "primary_servers": ["10.20.20.10"],
         "name": "cifs",
+        "primary_servers": ["10.20.20.10"],
+        "format": "xml",
+        "port": 9876,
+        "type": "synchronous",
+        "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
     }
 )
 
@@ -235,11 +235,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -253,14 +252,23 @@ __pdoc__ = {
     "FpolicyEngineSchema.opts": False,
 }
 
-
 class FpolicyEngineSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the FpolicyEngine object"""
 
-    buffer_size = marshmallow_fields.Nested("netapp_ontap.models.fpolicy_engine_buffer_size.FpolicyEngineBufferSizeSchema", data_key="buffer_size", unknown=EXCLUDE, allow_none=True)
+    buffer_size = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fpolicy_engine_buffer_size", "FpolicyEngineBufferSizeSchema"),
+                data_key="buffer_size",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Specifies the send and receive buffer size of the connected socket for the FPolicy server."""
 
-    certificate = marshmallow_fields.Nested("netapp_ontap.models.fpolicy_engine_certificate.FpolicyEngineCertificateSchema", data_key="certificate", unknown=EXCLUDE, allow_none=True)
+    certificate = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fpolicy_engine_certificate", "FpolicyEngineCertificateSchema"),
+                data_key="certificate",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Provides details about certificate used to authenticate the FPolicy server."""
 
     format = marshmallow_fields.Str(
@@ -343,7 +351,12 @@ Example: PT40S"""
 
 Example: PT20S"""
 
-    resiliency = marshmallow_fields.Nested("netapp_ontap.models.fpolicy_engine_resiliency.FpolicyEngineResiliencySchema", data_key="resiliency", unknown=EXCLUDE, allow_none=True)
+    resiliency = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fpolicy_engine_resiliency", "FpolicyEngineResiliencySchema"),
+                data_key="resiliency",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" If all primary and secondary servers are down, or if no response is received from the FPolicy servers, file access events are stored inside the storage controller under the specified resiliency-directory-path."""
 
     secondary_servers = marshmallow_fields.List(marshmallow_fields.Str, data_key="secondary_servers", allow_none=True)
@@ -393,7 +406,12 @@ Valid choices:
 
 Example: PT10S"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.models.fpolicy_engine_svm.FpolicyEngineSvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fpolicy_engine_svm", "FpolicyEngineSvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the fpolicy_engine."""
 
     type = marshmallow_fields.Str(

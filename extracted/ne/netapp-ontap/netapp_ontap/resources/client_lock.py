@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,65 +28,65 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ClientLock(
         {
-            "path": "/test_vol1/Demo406.TXT",
+            "protocol": "cifs",
+            "client_address": "10.74.7.22",
             "interface": {
-                "uuid": "6bf26e25-9ae4-11eb-8597-0050568ec154",
                 "ip": {"address": "10.140.115.95"},
                 "name": "vs1.data",
+                "uuid": "6bf26e25-9ae4-11eb-8597-0050568ec154",
             },
-            "constituent": False,
+            "share_lock": {"mode": "read_write_deny_write_delete", "soft": False},
+            "state": "granted",
             "volume": {
-                "uuid": "429dcc79-9af2-11eb-b313-0050568ec154",
                 "name": "test_vol1",
+                "uuid": "429dcc79-9af2-11eb-b313-0050568ec154",
             },
+            "uuid": "bf03d8b4-e145-498a-902d-b9fe5d546d18",
+            "constituent": False,
             "smb": {
-                "connect_state": "connected",
                 "open_type": "durable",
                 "open_group_id": "71756e2325a7eb11843f005056a4731c101068450bcdffff1c2c000000000000",
+                "connect_state": "connected",
             },
-            "protocol": "cifs",
-            "uuid": "bf03d8b4-e145-498a-902d-b9fe5d546d18",
-            "share_lock": {"soft": False, "mode": "read_write_deny_write_delete"},
-            "svm": {"uuid": "5b4b6847-9ae4-11eb-8597-0050568ec154", "name": "vs1"},
-            "state": "granted",
-            "owner_id": "feff-0206000000020000000204000000000000000000000000ffff0a4a07161053010001000000030000006c00000000000000",
-            "node": {
-                "uuid": "1f29b875-9ae3-11eb-8597-0050568ec154",
-                "name": "user-vsim3",
-            },
+            "path": "/test_vol1/Demo406.TXT",
             "type": "share_level",
-            "client_address": "10.74.7.22",
+            "node": {
+                "name": "user-vsim3",
+                "uuid": "1f29b875-9ae3-11eb-8597-0050568ec154",
+            },
+            "owner_id": "feff-0206000000020000000204000000000000000000000000ffff0a4a07161053010001000000030000006c00000000000000",
+            "svm": {"name": "vs1", "uuid": "5b4b6847-9ae4-11eb-8597-0050568ec154"},
         }
     ),
     ClientLock(
         {
-            "path": "/test_vol1/Demo406.TXT",
+            "protocol": "cifs",
+            "client_address": "10.74.7.22",
             "interface": {
-                "uuid": "6bf26e25-9ae4-11eb-8597-0050568ec154",
                 "ip": {"address": "10.140.115.95"},
                 "name": "vs1.data",
+                "uuid": "6bf26e25-9ae4-11eb-8597-0050568ec154",
             },
-            "constituent": False,
-            "oplock_level": "batch",
-            "volume": {
-                "uuid": "429dcc79-9af2-11eb-b313-0050568ec154",
-                "name": "test_vol1",
-            },
-            "smb": {
-                "connect_state": "connected",
-                "open_group_id": "71756e2325a7eb11843f005056a4731c101068450bcdffff1c2c000000000000",
-            },
-            "protocol": "cifs",
-            "uuid": "0c33d18d-dcbc-492a-81b3-4c5740c46172",
-            "svm": {"uuid": "5b4b6847-9ae4-11eb-8597-0050568ec154", "name": "vs1"},
             "state": "granted",
-            "owner_id": "feff-0206000000020000000204000000000000000000000000ffff0a4a07161053010001000000030000006c00000000000000",
-            "node": {
-                "uuid": "1f29b875-9ae3-11eb-8597-0050568ec154",
-                "name": "user-vsim3",
+            "volume": {
+                "name": "test_vol1",
+                "uuid": "429dcc79-9af2-11eb-b313-0050568ec154",
             },
+            "uuid": "0c33d18d-dcbc-492a-81b3-4c5740c46172",
+            "constituent": False,
+            "smb": {
+                "open_group_id": "71756e2325a7eb11843f005056a4731c101068450bcdffff1c2c000000000000",
+                "connect_state": "connected",
+            },
+            "oplock_level": "batch",
+            "path": "/test_vol1/Demo406.TXT",
             "type": "op_lock",
-            "client_address": "10.74.7.22",
+            "node": {
+                "name": "user-vsim3",
+                "uuid": "1f29b875-9ae3-11eb-8597-0050568ec154",
+            },
+            "owner_id": "feff-0206000000020000000204000000000000000000000000ffff0a4a07161053010001000000030000006c00000000000000",
+            "svm": {"name": "vs1", "uuid": "5b4b6847-9ae4-11eb-8597-0050568ec154"},
         }
     ),
 ]
@@ -122,32 +122,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ClientLock(
         {
-            "path": "/test_vol1/Demo408.TXT",
             "interface": {
-                "uuid": "6bf26e25-9ae4-11eb-8597-0050568ec154",
                 "name": "vs1.data",
+                "uuid": "6bf26e25-9ae4-11eb-8597-0050568ec154",
             },
             "volume": {
-                "uuid": "429dcc79-9af2-11eb-b313-0050568ec154",
                 "name": "test_vol1",
+                "uuid": "429dcc79-9af2-11eb-b313-0050568ec154",
             },
             "uuid": "be1cdf00-37f1-4477-b6d0-bba8c4fa8c67",
-            "svm": {"uuid": "5b4b6847-9ae4-11eb-8597-0050568ec154", "name": "vs1"},
+            "path": "/test_vol1/Demo408.TXT",
+            "svm": {"name": "vs1", "uuid": "5b4b6847-9ae4-11eb-8597-0050568ec154"},
         }
     ),
     ClientLock(
         {
-            "path": "/test_vol1/Demo408.TXT",
             "interface": {
-                "uuid": "6bf26e25-9ae4-11eb-8597-0050568ec154",
                 "name": "vs1.data",
+                "uuid": "6bf26e25-9ae4-11eb-8597-0050568ec154",
             },
             "volume": {
-                "uuid": "429dcc79-9af2-11eb-b313-0050568ec154",
                 "name": "test_vol1",
+                "uuid": "429dcc79-9af2-11eb-b313-0050568ec154",
             },
             "uuid": "393cc06e-8b37-4f49-b09a-74d1eef79368",
-            "svm": {"uuid": "5b4b6847-9ae4-11eb-8597-0050568ec154", "name": "vs1"},
+            "path": "/test_vol1/Demo408.TXT",
+            "svm": {"name": "vs1", "uuid": "5b4b6847-9ae4-11eb-8597-0050568ec154"},
         }
     ),
 ]
@@ -176,28 +176,28 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClientLock(
     {
-        "path": "/test_vol1/Demo406.TXT",
+        "protocol": "cifs",
+        "client_address": "10.74.7.22",
         "interface": {
-            "uuid": "6bf26e25-9ae4-11eb-8597-0050568ec154",
             "ip": {"address": "10.140.115.95"},
             "name": "vs1.data",
+            "uuid": "6bf26e25-9ae4-11eb-8597-0050568ec154",
         },
+        "share_lock": {"mode": "read_write_deny_write_delete", "soft": False},
+        "state": "granted",
+        "volume": {"name": "test_vol1", "uuid": "429dcc79-9af2-11eb-b313-0050568ec154"},
+        "uuid": "be1cdf00-37f1-4477-b6d0-bba8c4fa8c67",
         "constituent": False,
-        "volume": {"uuid": "429dcc79-9af2-11eb-b313-0050568ec154", "name": "test_vol1"},
         "smb": {
-            "connect_state": "connected",
             "open_type": "durable",
             "open_group_id": "71756e2325a7eb11843f005056a4731c101068450bcdffff1c2c000000000000",
+            "connect_state": "connected",
         },
-        "protocol": "cifs",
-        "uuid": "be1cdf00-37f1-4477-b6d0-bba8c4fa8c67",
-        "share_lock": {"soft": False, "mode": "read_write_deny_write_delete"},
-        "svm": {"uuid": "5b4b6847-9ae4-11eb-8597-0050568ec154", "name": "vs1"},
-        "state": "granted",
-        "owner_id": "feff-0206000000020000000204000000000000000000000000ffff0a4a07161053010001000000030000006c00000000000000",
-        "node": {"uuid": "1f29b875-9ae3-11eb-8597-0050568ec154", "name": "user-vsim3"},
+        "path": "/test_vol1/Demo406.TXT",
         "type": "share_level",
-        "client_address": "10.74.7.22",
+        "node": {"name": "user-vsim3", "uuid": "1f29b875-9ae3-11eb-8597-0050568ec154"},
+        "owner_id": "feff-0206000000020000000204000000000000000000000000ffff0a4a07161053010001000000030000006c00000000000000",
+        "svm": {"name": "vs1", "uuid": "5b4b6847-9ae4-11eb-8597-0050568ec154"},
     }
 )
 
@@ -237,11 +237,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -255,11 +254,15 @@ __pdoc__ = {
     "ClientLockSchema.opts": False,
 }
 
-
 class ClientLockSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ClientLock object"""
 
-    byte_lock = marshmallow_fields.Nested("netapp_ontap.models.byte_lock.ByteLockSchema", data_key="byte_lock", unknown=EXCLUDE, allow_none=True)
+    byte_lock = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.byte_lock", "ByteLockSchema"),
+                data_key="byte_lock",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The byte_lock field of the client_lock."""
 
     client_address = marshmallow_fields.Str(
@@ -288,10 +291,20 @@ Valid choices:
 * read
 * write"""
 
-    interface = marshmallow_fields.Nested("netapp_ontap.resources.ip_interface.IpInterfaceSchema", data_key="interface", unknown=EXCLUDE, allow_none=True)
+    interface = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.ip_interface", "IpInterfaceSchema"),
+                data_key="interface",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The interface field of the client_lock."""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the client_lock."""
 
     oplock_level = marshmallow_fields.Str(
@@ -338,10 +351,20 @@ Valid choices:
 * nfsv4.1
 * crposix"""
 
-    share_lock = marshmallow_fields.Nested("netapp_ontap.models.share_lock.ShareLockSchema", data_key="share_lock", unknown=EXCLUDE, allow_none=True)
+    share_lock = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.share_lock", "ShareLockSchema"),
+                data_key="share_lock",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The share_lock field of the client_lock."""
 
-    smb = marshmallow_fields.Nested("netapp_ontap.models.smb.SmbSchema", data_key="smb", unknown=EXCLUDE, allow_none=True)
+    smb = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.smb", "SmbSchema"),
+                data_key="smb",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The smb field of the client_lock."""
 
     state = marshmallow_fields.Str(
@@ -363,7 +386,12 @@ Valid choices:
 * waiting
 * timeout"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the client_lock."""
 
     type = marshmallow_fields.Str(
@@ -388,7 +416,12 @@ Valid choices:
 
 Example: ceeac1b4-8646-4c76-a054-1c96e87594aa"""
 
-    volume = marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", data_key="volume", unknown=EXCLUDE, allow_none=True)
+    volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                data_key="volume",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The volume field of the client_lock."""
 
     @property

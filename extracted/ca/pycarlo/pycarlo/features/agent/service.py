@@ -14,7 +14,7 @@ from pycarlo.features.agent.models import (
     SpanAttributeFilter,
     SpanQueryResult,
 )
-from pycarlo.features.agent.queries import GET_AGENT_SPAN_SAMPLE_V2
+from pycarlo.features.agent.queries import GET_AGENT_SPAN_COUNT, GET_AGENT_SPAN_SAMPLE_V2
 
 
 class AgentService:
@@ -84,3 +84,54 @@ class AgentService:
             has_error=bool(result.has_error),
             error=str(result.error) if result.error else None,
         )
+
+    def get_agent_span_count(
+        self,
+        mcon: str,
+        agent_span_filters: Optional[list[AgentSpanFilter]] = None,
+        attribute_filters: Optional[list[SpanAttributeFilter]] = None,
+        ingestion_start_time: Optional[datetime] = None,
+        ingestion_end_time: Optional[datetime] = None,
+    ) -> int:
+        """
+        Get count of matching agent spans without fetching row data.
+
+        Uses selectExpressionType=COUNT for efficient counting.
+
+        :param mcon: MCON identifier for the table
+        :param agent_span_filters: Filter by agent, workflow, task, or span name
+        :param attribute_filters: Filter by attribute key-value pairs from attr_map
+        :param ingestion_start_time: Start of ingestion time range
+        :param ingestion_end_time: End of ingestion time range
+        :return: Count of matching spans
+        :raises ValueError: If the query returns an error
+        """
+        variables: dict[str, object] = {"mcon": mcon}
+
+        if agent_span_filters is not None:
+            variables["agentSpanFilters"] = [f.to_dict() for f in agent_span_filters]
+        if attribute_filters is not None:
+            variables["attributeFilters"] = [f.to_dict() for f in attribute_filters]
+        if ingestion_start_time is not None:
+            variables["ingestionStartTime"] = ingestion_start_time.isoformat()
+        if ingestion_end_time is not None:
+            variables["ingestionEndTime"] = ingestion_end_time.isoformat()
+
+        response = self._mc_client(
+            query=GET_AGENT_SPAN_COUNT,
+            variables=variables,
+            additional_headers={
+                HEADER_MCD_TELEMETRY_REASON: RequestReason.SERVICE.value,
+                HEADER_MCD_TELEMETRY_SERVICE: "agent_service",
+            },
+        )
+
+        result = response.get_agent_span_sample_v2  # type: ignore[union-attr]
+        if result.has_error:
+            raise ValueError(f"Error querying span count: {result.error}")
+
+        # COUNT query returns rows like [["150"]]
+        if result.rows and len(result.rows) > 0 and len(result.rows[0]) > 0:
+            count_value = result.rows[0][0]
+            return int(str(count_value)) if count_value is not None else 0
+        return 0

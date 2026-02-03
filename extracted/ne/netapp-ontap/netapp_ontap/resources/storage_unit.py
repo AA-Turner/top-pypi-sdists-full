@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,26 +26,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     StorageUnit(
         {
-            "status": {"state": "online"},
-            "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
             "name": "lun1",
+            "status": {"state": "online"},
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b"
                 }
             },
+            "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
         }
     ),
     StorageUnit(
         {
-            "status": {"state": "online"},
-            "uuid": "3d9c001f-227e-11ef-97b9-005056bbbc7b",
             "name": "ns1",
+            "status": {"state": "online"},
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/3d9c001f-227e-11ef-97b9-005056bbbc7b"
                 }
             },
+            "uuid": "3d9c001f-227e-11ef-97b9-005056bbbc7b",
         }
     ),
 ]
@@ -75,95 +75,95 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 StorageUnit(
     {
         "serial_number": "wqUc6?XQp8Cn",
-        "status": {
-            "mapped": False,
-            "read_only": False,
-            "container_state": "online",
-            "state": "online",
-        },
-        "clone": {"is_flexclone": False},
-        "movement": {
-            "start_time": "2024-11-18T20:39:38+00:00",
-            "source": {
-                "storage_availability_zone": {
-                    "uuid": "c5a5d316-a2ca-11ef-a7d1-005056a77440",
-                    "_links": {
-                        "self": {
-                            "href": "/api/storage/availability-zones/c5a5d316-a2ca-11ef-a7d1-005056a77440"
-                        }
-                    },
-                    "name": "storage_availability_zone_1",
-                }
-            },
-            "percent_complete": 100,
-            "state": "success",
-            "destination": {
-                "storage_availability_zone": {
-                    "uuid": "2b52fd40-a2ca-11ef-be6a-005056a74d48",
-                    "_links": {
-                        "self": {
-                            "href": "/api/storage/availability-zones/2b52fd40-a2ca-11ef-be6a-005056a74d48"
-                        }
-                    },
-                    "name": "storage_availability_zone_0",
-                }
-            },
-        },
-        "svm": {
-            "uuid": "8b8bb0c5-a2ca-11ef-be6a-005056a74d48",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/8b8bb0c5-a2ca-11ef-be6a-005056a74d48"}
-            },
-        },
-        "uuid": "55150b5f-a365-11ef-be6a-005056a74d48",
-        "space": {
-            "physical_used": 40960,
-            "used": 0,
-            "efficiency_ratio": 1.0,
-            "size": 31457280,
-            "physical_used_by_snapshots": 3407872,
-        },
-        "type": "lun",
-        "os_type": "linux",
-        "create_time": "2024-11-15T10:22:00-05:00",
         "name": "lun1",
-        "enabled": True,
-        "encryption": {"state": "unencrypted"},
-        "class": "regular",
+        "os_type": "linux",
+        "status": {
+            "container_state": "online",
+            "mapped": False,
+            "state": "online",
+            "read_only": False,
+        },
         "location": {
             "node": {
-                "uuid": "a5fd8f06-a2c9-11ef-aec3-005056a7f0ed",
                 "name": "sti40-vsim-ucs507f",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/a5fd8f06-a2c9-11ef-aec3-005056a7f0ed"
                     }
                 },
-            },
-            "volume": {
-                "uuid": "55cf6ff7-a365-11ef-be6a-005056a74d48",
-                "name": "lun1",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/volumes/55cf6ff7-a365-11ef-be6a-005056a74d48"
-                    }
-                },
+                "uuid": "a5fd8f06-a2c9-11ef-aec3-005056a7f0ed",
             },
             "storage_availability_zone": {
-                "uuid": "2b52fd40-a2ca-11ef-be6a-005056a74d48",
                 "_links": {
                     "self": {
                         "href": "/api/storage/availability-zones/2b52fd40-a2ca-11ef-be6a-005056a74d48"
                     }
                 },
                 "name": "storage_availability_zone_0",
+                "uuid": "2b52fd40-a2ca-11ef-be6a-005056a74d48",
+            },
+            "volume": {
+                "name": "lun1",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/volumes/55cf6ff7-a365-11ef-be6a-005056a74d48"
+                    }
+                },
+                "uuid": "55cf6ff7-a365-11ef-be6a-005056a74d48",
             },
         },
+        "clone": {"is_flexclone": False},
+        "movement": {
+            "source": {
+                "storage_availability_zone": {
+                    "_links": {
+                        "self": {
+                            "href": "/api/storage/availability-zones/c5a5d316-a2ca-11ef-a7d1-005056a77440"
+                        }
+                    },
+                    "name": "storage_availability_zone_1",
+                    "uuid": "c5a5d316-a2ca-11ef-a7d1-005056a77440",
+                }
+            },
+            "destination": {
+                "storage_availability_zone": {
+                    "_links": {
+                        "self": {
+                            "href": "/api/storage/availability-zones/2b52fd40-a2ca-11ef-be6a-005056a74d48"
+                        }
+                    },
+                    "name": "storage_availability_zone_0",
+                    "uuid": "2b52fd40-a2ca-11ef-be6a-005056a74d48",
+                }
+            },
+            "percent_complete": 100,
+            "state": "success",
+            "start_time": "2024-11-18T20:39:38+00:00",
+        },
+        "enabled": True,
         "_links": {
             "self": {
                 "href": "/api/storage/storage-units/55150b5f-a365-11ef-be6a-005056a74d48?fields=**"
             }
+        },
+        "space": {
+            "efficiency_ratio": 1.0,
+            "used": 0,
+            "size": 31457280,
+            "physical_used": 40960,
+            "physical_used_by_snapshots": 3407872,
+        },
+        "create_time": "2024-11-15T10:22:00-05:00",
+        "type": "lun",
+        "uuid": "55150b5f-a365-11ef-be6a-005056a74d48",
+        "encryption": {"state": "unencrypted"},
+        "class": "regular",
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/8b8bb0c5-a2ca-11ef-be6a-005056a74d48"}
+            },
+            "uuid": "8b8bb0c5-a2ca-11ef-be6a-005056a74d48",
         },
     }
 )
@@ -254,11 +254,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StorageUnit(
     {
+        "name": "lun1Clone1",
         "clone": {
             "source": {"storage_unit": {"name": "lun1"}, "svm": {"name": "svm1"}}
         },
         "svm": {"name": "svm1"},
-        "name": "lun1Clone1",
     }
 )
 
@@ -318,39 +318,39 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StorageUnit(
     {
+        "name": "lun1",
         "movement": {
-            "start_time": "2024-11-18T20:35:13+00:00",
             "source": {
                 "storage_availability_zone": {
-                    "uuid": "2b52fd40-a2ca-11ef-be6a-005056a74d48",
                     "_links": {
                         "self": {
                             "href": "/api/storage/availability-zones/2b52fd40-a2ca-11ef-be6a-005056a74d48"
                         }
                     },
                     "name": "storage_availability_zone_0",
+                    "uuid": "2b52fd40-a2ca-11ef-be6a-005056a74d48",
                 }
             },
-            "state": "replicating",
             "destination": {
                 "storage_availability_zone": {
-                    "uuid": "c5a5d316-a2ca-11ef-a7d1-005056a77440",
                     "_links": {
                         "self": {
                             "href": "/api/storage/availability-zones/c5a5d316-a2ca-11ef-a7d1-005056a77440"
                         }
                     },
                     "name": "storage_availability_zone_1",
+                    "uuid": "c5a5d316-a2ca-11ef-a7d1-005056a77440",
                 }
             },
+            "state": "replicating",
+            "start_time": "2024-11-18T20:35:13+00:00",
         },
-        "uuid": "55150b5f-a365-11ef-be6a-005056a74d48",
-        "name": "lun1",
         "_links": {
             "self": {
                 "href": "/api/storage/storage-units/55150b5f-a365-11ef-be6a-005056a74d48"
             }
         },
+        "uuid": "55150b5f-a365-11ef-be6a-005056a74d48",
     }
 )
 
@@ -379,11 +379,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -397,14 +396,23 @@ __pdoc__ = {
     "StorageUnitSchema.opts": False,
 }
 
-
 class StorageUnitSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the StorageUnit object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the storage_unit."""
 
-    anti_ransomware = marshmallow_fields.Nested("netapp_ontap.models.anti_ransomware_storage_unit.AntiRansomwareStorageUnitSchema", data_key="anti_ransomware", unknown=EXCLUDE, allow_none=True)
+    anti_ransomware = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.anti_ransomware_storage_unit", "AntiRansomwareStorageUnitSchema"),
+                data_key="anti_ransomware",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The anti-ransomware properties of a storage unit."""
 
     class_ = marshmallow_fields.Str(
@@ -420,7 +428,12 @@ Valid choices:
 * regular
 * vvol"""
 
-    clone = marshmallow_fields.Nested("netapp_ontap.models.storage_unit_clone.StorageUnitCloneSchema", data_key="clone", unknown=EXCLUDE, allow_none=True)
+    clone = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_unit_clone", "StorageUnitCloneSchema"),
+                data_key="clone",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The clone field of the storage_unit."""
 
     comment = marshmallow_fields.Str(
@@ -430,7 +443,12 @@ Valid choices:
     )
     r""" A configurable comment available for use by the administrator."""
 
-    consistency_group = marshmallow_fields.Nested("netapp_ontap.models.storage_unit_consistency_group.StorageUnitConsistencyGroupSchema", data_key="consistency_group", unknown=EXCLUDE, allow_none=True)
+    consistency_group = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_unit_consistency_group", "StorageUnitConsistencyGroupSchema"),
+                data_key="consistency_group",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The storage unit's consistency group. This property is populated for storage units that are members of a consistency group."""
 
     create_time = ImpreciseDateTime(
@@ -449,19 +467,47 @@ Example: 2018-06-04T19:00:00.000+0000"""
     r""" The enabled state of the storage unit. Storage units can be disabled to prevent access to the storage unit. Certain error conditions also cause the storage unit to become disabled. If the storage unit is disabled, check the `status.state` property to determine if the storage unit is administratively disabled (_offline_) or has become disabled as a result of an error.<br/>
 A storage unit in an error condition can be brought online by setting the `enabled` property to _true_ or brought administratively offline by setting the `enabled` property to _false_ using /api/storage/luns or /api/storage/namespaces. Upon creation, a storage unit is enabled by default."""
 
-    encryption = marshmallow_fields.Nested("netapp_ontap.models.storage_unit_encryption.StorageUnitEncryptionSchema", data_key="encryption", unknown=EXCLUDE, allow_none=True)
+    encryption = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_unit_encryption", "StorageUnitEncryptionSchema"),
+                data_key="encryption",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The encryption field of the storage_unit."""
 
-    location = marshmallow_fields.Nested("netapp_ontap.models.storage_unit_location.StorageUnitLocationSchema", data_key="location", unknown=EXCLUDE, allow_none=True)
+    location = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_unit_location", "StorageUnitLocationSchema"),
+                data_key="location",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The location field of the storage_unit."""
 
-    maps = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.storage_unit_maps.StorageUnitMapsSchema", unknown=EXCLUDE, allow_none=True), data_key="maps", allow_none=True)
+    maps = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.storage_unit_maps", "StorageUnitMapsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="maps",
+                allow_none=True
+            )
     r""" Maps between the storage unit and host groups."""
 
-    metric = marshmallow_fields.Nested("netapp_ontap.resources.performance_metric.PerformanceMetricSchema", data_key="metric", unknown=EXCLUDE, allow_none=True)
+    metric = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.performance_metric", "PerformanceMetricSchema"),
+                data_key="metric",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Performance numbers, such as IOPS latency and throughput."""
 
-    movement = marshmallow_fields.Nested("netapp_ontap.models.storage_unit_movement.StorageUnitMovementSchema", data_key="movement", unknown=EXCLUDE, allow_none=True)
+    movement = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_unit_movement", "StorageUnitMovementSchema"),
+                data_key="movement",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The properties of a storage unit move operation from one storage availability zone to another."""
 
     name = marshmallow_fields.Str(
@@ -497,7 +543,12 @@ Valid choices:
 * windows_gpt
 * xen"""
 
-    qos_policy = marshmallow_fields.Nested("netapp_ontap.models.storage_unit_qos_policy.StorageUnitQosPolicySchema", data_key="qos_policy", unknown=EXCLUDE, allow_none=True)
+    qos_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_unit_qos_policy", "StorageUnitQosPolicySchema"),
+                data_key="qos_policy",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The QoS policy for the storage unit. Both traditional and adaptive QoS policies are supported."""
 
     serial_number = marshmallow_fields.Str(
@@ -513,16 +564,36 @@ Valid choices:
     )
     r""" The LUN serial number encoded in hexadecimal format. The serial number is generated by ONTAP when the LUN is created."""
 
-    space = marshmallow_fields.Nested("netapp_ontap.models.storage_unit_space.StorageUnitSpaceSchema", data_key="space", unknown=EXCLUDE, allow_none=True)
+    space = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_unit_space", "StorageUnitSpaceSchema"),
+                data_key="space",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The storage space related properties of the storage unit."""
 
-    statistics = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_raw.PerformanceMetricRawSchema", data_key="statistics", unknown=EXCLUDE, allow_none=True)
+    statistics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_raw", "PerformanceMetricRawSchema"),
+                data_key="statistics",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The statistics field of the storage_unit."""
 
-    status = marshmallow_fields.Nested("netapp_ontap.models.storage_unit_status.StorageUnitStatusSchema", data_key="status", unknown=EXCLUDE, allow_none=True)
+    status = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_unit_status", "StorageUnitStatusSchema"),
+                data_key="status",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Status information about the storage unit."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the storage_unit."""
 
     type = marshmallow_fields.Str(
@@ -634,6 +705,7 @@ There is an added computational cost to retrieving values for these properties. 
 * `movement.state`
 * `space.physical_used_by_snapshots`
 * `space.physical_used`
+* `space.snapshot.*`
 * `statistics.*`
 ### Learn more
 * [`DOC /storage/storage-units`](#docs-SAN-storage_storage-units)
@@ -745,6 +817,7 @@ There is an added computational cost to retrieving values for these properties. 
 * `movement.state`
 * `space.physical_used_by_snapshots`
 * `space.physical_used`
+* `space.snapshot.*`
 * `statistics.*`
 ### Learn more
 * [`DOC /storage/storage-units`](#docs-SAN-storage_storage-units)
@@ -772,6 +845,7 @@ There is an added computational cost to retrieving values for these properties. 
 * `movement.state`
 * `space.physical_used_by_snapshots`
 * `space.physical_used`
+* `space.snapshot.*`
 * `statistics.*`
 ### Learn more
 * [`DOC /storage/storage-units`](#docs-SAN-storage_storage-units)

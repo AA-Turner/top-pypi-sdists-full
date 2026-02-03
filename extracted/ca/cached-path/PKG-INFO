@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cached_path
-Version: 1.8.1
+Version: 1.8.9
 Summary: A file utility for accessing both local and remote files through a unified interface
 Author-email: Allen Institute for Artificial Intelligence <contact@allenai.org>
 License:                                  Apache License

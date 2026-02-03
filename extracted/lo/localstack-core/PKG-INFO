@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: localstack-core
-Version: 4.13.0
+Version: 4.13.1
 Summary: The core library and runtime of LocalStack
 Author-email: LocalStack Contributors <info@localstack.cloud>
 License-Expression: Apache-2.0
@@ -21,7 +21,7 @@ Requires-Dist: cachetools>=5.0
 Requires-Dist: cryptography
 Requires-Dist: dnslib>=0.9.10
 Requires-Dist: dnspython>=1.16.0
-Requires-Dist: plux>=1.10
+Requires-Dist: plux>=1.14.0
 Requires-Dist: psutil>=5.4.8
 Requires-Dist: python-dotenv>=0.19.1
 Requires-Dist: pyyaml>=5.1

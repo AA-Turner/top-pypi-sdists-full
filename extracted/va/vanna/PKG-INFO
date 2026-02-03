@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vanna
-Version: 2.0.1
+Version: 2.0.2
 Summary: Generate SQL queries from natural language
 Author-email: Zain Hoda <zain@vanna.ai>
 Requires-Python: >=3.9

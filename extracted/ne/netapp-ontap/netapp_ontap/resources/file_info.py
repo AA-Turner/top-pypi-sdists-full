@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -22,13 +22,13 @@ The following APIs are used to view a list of files and directories:
 * GET       /api/storage/volumes/{volume.uuid}/files/{path}
 * GET       /api/storage/volumes/{volume.uuid}/files/{path}?fields=*
 ## File information
-The metadata and detailed information about a single directory or file can be retrieved by setting the `return_metadata` query property to `true`. The information returned includes type, creation_time, modified_time, changed_time, accessed_time, unix_permissions, owner_id, group_id, size, hard_links_count, inode_number, is_empty, bytes_used, unique_bytes, inode_generation, is_vm_aligned, is_junction, links, and analytics (if requested). NOTE: unique_bytes is an expensive property and will not be returned unless specifically requested in a future release.<br/>
+The metadata and detailed information about a single directory or file can be retrieved by setting the `return_metadata` query property to `true`. The information returned includes type, creation_time, modified_time, changed_time, accessed_time, unix_permissions, owner_id, group_id, size, hard_links_count, inode_number, is_empty, bytes_used, inode_generation, is_vm_aligned, is_junction, links, and analytics (if requested).<br/>
 The following API is used to view the properties of a single file or directory:
 
 * GET       /api/storage/volumes/{volume.uuid}/files/{path}?return_metadata=true
 ## File usage
 Custom details about the usage of a file can be retrieved by specifying a value for the `byte_offset` and `length` query properties.<br/>
-The following API is used to view the unique bytes, and bytes used, by a file based on the range defined by `byte_offset` and `length`:
+The following API is used to view the bytes used, by a file based on the range defined by `byte_offset` and `length`:
 
 * GET       /api/storage/volumes/{volume.uuid}/files/{path}?return_metadata=true&byte_offset={int}&length={int}
 ## Create a directory
@@ -140,7 +140,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example3_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example3_result" class="try_it_out_content">
 ```
-FileInfo({"unix_permissions": 644, "type": "directory", "path": "dir1"})
+FileInfo({"unix_permissions": 644, "path": "dir1", "type": "directory"})
 
 ```
 </div>
@@ -189,59 +189,59 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FileInfo(
         {
-            "type": "directory",
-            "path": "d1/d2/d3",
             "name": ".",
+            "path": "d1/d2/d3",
             "_links": {
-                "metadata": {
-                    "href": "/api/storage/volumes/e8274d79-3bba-11ea-b780-005056a7d72a/files/d1%2Fd2%2Fd3%2F%2E?return_metadata=true"
-                },
                 "self": {
                     "href": "/api/storage/volumes/cb6b1b39-8d21-11e9-b926-005056aca658/files/d1%2Fd2%2Fd3%2F%2E"
                 },
+                "metadata": {
+                    "href": "/api/storage/volumes/e8274d79-3bba-11ea-b780-005056a7d72a/files/d1%2Fd2%2Fd3%2F%2E?return_metadata=true"
+                },
             },
+            "type": "directory",
         }
     ),
     FileInfo(
         {
-            "type": "directory",
-            "path": "d1/d2/d3",
             "name": "..",
+            "path": "d1/d2/d3",
             "_links": {
-                "metadata": {
-                    "href": "/api/storage/volumes/e8274d79-3bba-11ea-b780-005056a7d72a/files/d1%2Fd2%2Fd3%2F%2E%2E?return_metadata=true"
-                },
                 "self": {
                     "href": "/api/storage/volumes/cb6b1b39-8d21-11e9-b926-005056aca658/files/d1%2Fd2%2Fd3%2F%2E%2E"
                 },
+                "metadata": {
+                    "href": "/api/storage/volumes/e8274d79-3bba-11ea-b780-005056a7d72a/files/d1%2Fd2%2Fd3%2F%2E%2E?return_metadata=true"
+                },
             },
+            "type": "directory",
         }
     ),
     FileInfo(
         {
-            "type": "file",
-            "path": "d1/d2/d3",
             "name": "f1",
+            "path": "d1/d2/d3",
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/e8274d79-3bba-11ea-b780-005056a7d72a/files/d1%2Fd2%2Fd3%2File1?return_metadata=true"
                 }
             },
+            "type": "file",
         }
     ),
     FileInfo(
         {
-            "type": "directory",
-            "path": "d1/d2/d3",
             "name": "d5",
+            "path": "d1/d2/d3",
             "_links": {
-                "metadata": {
-                    "href": "/api/storage/volumes/e8274d79-3bba-11ea-b780-005056a7d72a/files/d1%2Fd2%2Fd3%2Fd5?return_metadata=true"
-                },
                 "self": {
                     "href": "/api/storage/volumes/cb6b1b39-8d21-11e9-b926-005056aca658/files/d1%2Fd2%2Fd3%2Fd5"
                 },
+                "metadata": {
+                    "href": "/api/storage/volumes/e8274d79-3bba-11ea-b780-005056a7d72a/files/d1%2Fd2%2Fd3%2Fd5?return_metadata=true"
+                },
             },
+            "type": "directory",
         }
     ),
 ]
@@ -270,59 +270,59 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FileInfo(
         {
-            "type": "directory",
-            "path": "d1/d2/d3",
             "name": ".",
+            "path": "d1/d2/d3",
             "_links": {
-                "metadata": {
-                    "href": "/api/storage/volumes/e8274d79-3bba-11ea-b780-005056a7d72a/files/d1%2Fd2%2Fd3%2F%2E?return_metadata=true"
-                },
                 "self": {
                     "href": "/api/storage/volumes/cb6b1b39-8d21-11e9-b926-005056aca658/files/d1%2Fd2%2Fd3%2F%2E"
                 },
+                "metadata": {
+                    "href": "/api/storage/volumes/e8274d79-3bba-11ea-b780-005056a7d72a/files/d1%2Fd2%2Fd3%2F%2E?return_metadata=true"
+                },
             },
+            "type": "directory",
         }
     ),
     FileInfo(
         {
-            "type": "directory",
-            "path": "d1/d2/d3",
             "name": "..",
+            "path": "d1/d2/d3",
             "_links": {
-                "metadata": {
-                    "href": "/api/storage/volumes/e8274d79-3bba-11ea-b780-005056a7d72a/files/d1%2Fd2%2Fd3%2F%2E%2E?return_metadata=true"
-                },
                 "self": {
                     "href": "/api/storage/volumes/cb6b1b39-8d21-11e9-b926-005056aca658/files/d1%2Fd2%2Fd3%2F%2E%2E"
                 },
+                "metadata": {
+                    "href": "/api/storage/volumes/e8274d79-3bba-11ea-b780-005056a7d72a/files/d1%2Fd2%2Fd3%2F%2E%2E?return_metadata=true"
+                },
             },
+            "type": "directory",
         }
     ),
     FileInfo(
         {
-            "type": "file",
-            "path": "d1/d2/d3",
             "name": "f1",
+            "path": "d1/d2/d3",
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/e8274d79-3bba-11ea-b780-005056a7d72a/files/d1%2Fd2%2Fd3%2File1?return_metadata=true"
                 }
             },
+            "type": "file",
         }
     ),
     FileInfo(
         {
-            "type": "directory",
-            "path": "d1/d2/d3",
             "name": "d5",
+            "path": "d1/d2/d3",
             "_links": {
-                "metadata": {
-                    "href": "/api/storage/volumes/e8274d79-3bba-11ea-b780-005056a7d72a/files/d1%2Fd2%2Fd3%2Fd5?return_metadata=true"
-                },
                 "self": {
                     "href": "/api/storage/volumes/cb6b1b39-8d21-11e9-b926-005056aca658/files/d1%2Fd2%2Fd3%2Fd5"
                 },
+                "metadata": {
+                    "href": "/api/storage/volumes/e8274d79-3bba-11ea-b780-005056a7d72a/files/d1%2Fd2%2Fd3%2Fd5?return_metadata=true"
+                },
             },
+            "type": "directory",
         }
     ),
 ]
@@ -350,24 +350,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FileInfo(
         {
-            "accessed_time": "2019-06-12T21:27:28-04:00",
-            "bytes_used": 4096,
-            "group_id": 30,
-            "unique_bytes": 4096,
             "inode_number": 1233,
-            "unix_permissions": 644,
-            "type": "file",
-            "changed_time": "2019-06-12T21:27:28-04:00",
-            "is_vm_aligned": False,
-            "is_junction": False,
-            "path": "d1/d2/d3/f1",
             "name": "",
-            "inode_generation": 214488325,
-            "hard_links_count": 1,
-            "modified_time": "2019-06-12T21:27:28-04:00",
-            "size": 200,
-            "owner_id": 54738,
+            "group_id": 30,
             "creation_time": "2019-06-12T21:27:28-04:00",
+            "inode_generation": 214488325,
+            "bytes_used": 4096,
+            "size": 200,
+            "modified_time": "2019-06-12T21:27:28-04:00",
+            "unix_permissions": 644,
+            "path": "d1/d2/d3/f1",
+            "changed_time": "2019-06-12T21:27:28-04:00",
+            "owner_id": 54738,
+            "accessed_time": "2019-06-12T21:27:28-04:00",
+            "type": "file",
+            "is_junction": False,
+            "hard_links_count": 1,
+            "is_vm_aligned": False,
         }
     )
 ]
@@ -394,7 +393,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example8_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example8_result" class="try_it_out_content">
 ```
-FileInfo({"path": "symlink1", "target": "d1/f1"})
+FileInfo({"target": "d1/f1", "path": "symlink1"})
 
 ```
 </div>
@@ -417,14 +416,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example9_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example9_result" class="try_it_out_content">
 ```
-[FileInfo({"path": "symlink1", "target": "d1/f1"})]
+[FileInfo({"target": "d1/f1", "path": "symlink1"})]
 
 ```
 </div>
 </div>
 
 ###  Retrieving the usage information for a file
-You can use the GET request to retrieve the unique bytes held in a file with or without specifying the offset. NOTE: unique_bytes is an expensive property and will not be returned unless specifically requested in a future release.
+You can use the GET request to retrieve the bytes used in a file with or without specifying the offset.
 ```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import FileInfo
@@ -443,23 +442,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FileInfo(
         {
-            "accessed_time": "2019-06-12T21:27:28-04:00",
-            "bytes_used": 4096,
-            "group_id": 30,
-            "unique_bytes": 4096,
             "inode_number": 1233,
-            "unix_permissions": 644,
-            "type": "file",
-            "changed_time": "2019-06-12T21:27:28-04:00",
-            "is_vm_aligned": False,
-            "is_junction": False,
-            "path": "d1/d2/d3/f1",
-            "inode_generation": 214488325,
-            "hard_links_count": 1,
-            "modified_time": "2019-06-12T21:27:28-04:00",
-            "size": 200,
-            "owner_id": 54738,
+            "group_id": 30,
             "creation_time": "2019-06-12T21:27:28-04:00",
+            "inode_generation": 214488325,
+            "bytes_used": 4096,
+            "size": 200,
+            "modified_time": "2019-06-12T21:27:28-04:00",
+            "unix_permissions": 644,
+            "path": "d1/d2/d3/f1",
+            "changed_time": "2019-06-12T21:27:28-04:00",
+            "owner_id": 54738,
+            "accessed_time": "2019-06-12T21:27:28-04:00",
+            "type": "file",
+            "is_junction": False,
+            "hard_links_count": 1,
+            "is_vm_aligned": False,
         }
     )
 ]
@@ -487,38 +485,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FileInfo(
         {
-            "accessed_time": "2019-10-28T23:10:38+00:00",
-            "bytes_used": 4096,
-            "group_id": 65533,
             "inode_number": 96,
-            "unix_permissions": 755,
-            "type": "directory",
+            "volume": {
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/volumes/1ef5d1b2-f9d7-11e9-8043-00505682f860"
+                    }
+                },
+                "uuid": "1ef5d1b2-f9d7-11e9-8043-00505682f860",
+            },
+            "group_id": 65533,
+            "creation_time": "2019-10-28T23:04:13+00:00",
+            "inode_generation": 214514951,
+            "bytes_used": 4096,
+            "size": 4096,
             "analytics": {
-                "subdir_count": 18,
-                "bytes_used": 209657856,
-                "file_count": 668,
                 "by_accessed_time": {
                     "bytes_used": {
-                        "percentages": [
-                            49.01,
-                            0.89,
-                            0.59,
-                            1.04,
-                            0.74,
-                            50.5,
-                            4.31,
-                            3.86,
-                            50.5,
-                            11.43,
-                            15.45,
-                            12.62,
-                            90.0,
-                            0.0,
-                            0.0,
-                            0.0,
-                            10.0,
-                            0.0,
-                        ],
                         "labels": [
                             "2019-W42",
                             "2019-W41",
@@ -538,6 +521,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                             "2016",
                             "--2015",
                             "unknown",
+                        ],
+                        "percentages": [
+                            49.01,
+                            0.89,
+                            0.59,
+                            1.04,
+                            0.74,
+                            50.5,
+                            4.31,
+                            3.86,
+                            50.5,
+                            11.43,
+                            15.45,
+                            12.62,
+                            90.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            10.0,
+                            0.0,
                         ],
                         "values": [
                             102760448,
@@ -561,28 +564,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                         ],
                     }
                 },
+                "subdir_count": 18,
+                "bytes_used": 209657856,
+                "file_count": 668,
                 "by_modified_time": {
                     "bytes_used": {
-                        "percentages": [
-                            0.0,
-                            0.0,
-                            0.0,
-                            0.0,
-                            1.48,
-                            0.0,
-                            6.7,
-                            9.8,
-                            0.0,
-                            27.63,
-                            29.55,
-                            32.82,
-                            90.0,
-                            0.0,
-                            0.0,
-                            0.0,
-                            10.0,
-                            0.0,
-                        ],
                         "labels": [
                             "2019-W42",
                             "2019-W41",
@@ -602,6 +588,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                             "2016",
                             "--2015",
                             "unknown",
+                        ],
+                        "percentages": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.48,
+                            0.0,
+                            6.7,
+                            9.8,
+                            0.0,
+                            27.63,
+                            29.55,
+                            32.82,
+                            90.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            10.0,
+                            0.0,
                         ],
                         "values": [
                             0,
@@ -626,25 +632,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     }
                 },
             },
-            "is_empty": False,
-            "changed_time": "2019-10-28T23:10:30+00:00",
-            "is_vm_aligned": False,
-            "is_junction": False,
-            "volume": {
-                "uuid": "1ef5d1b2-f9d7-11e9-8043-00505682f860",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/volumes/1ef5d1b2-f9d7-11e9-8043-00505682f860"
-                    }
-                },
-            },
-            "path": "d1",
-            "inode_generation": 214514951,
-            "hard_links_count": 5,
             "modified_time": "2019-10-28T23:10:30+00:00",
-            "size": 4096,
+            "unix_permissions": 755,
+            "path": "d1",
+            "changed_time": "2019-10-28T23:10:30+00:00",
             "owner_id": 1002,
-            "creation_time": "2019-10-28T23:04:13+00:00",
+            "accessed_time": "2019-10-28T23:10:38+00:00",
+            "type": "directory",
+            "is_junction": False,
+            "hard_links_count": 5,
+            "is_vm_aligned": False,
+            "is_empty": False,
         }
     )
 ]
@@ -682,17 +680,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FileInfo(
         {
-            "type": "directory",
+            "name": ".",
             "analytics": {
-                "subdir_count": 14,
-                "bytes_used": 244240384,
-                "file_count": 44,
                 "by_accessed_time": {
                     "bytes_used": {
                         "percentages": [0.03, 99.97, 0.0, 0.0],
                         "values": [69632, 244170752, 0, 0],
                     }
                 },
+                "subdir_count": 14,
+                "bytes_used": 244240384,
+                "file_count": 44,
                 "by_modified_time": {
                     "bytes_used": {
                         "percentages": [0.02, 12.17, 80.31, 0.02],
@@ -701,30 +699,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 },
             },
             "path": "d3",
-            "name": ".",
             "_links": {
-                "metadata": {
-                    "href": "/api/storage/volumes/cb6b1b39-8d21-11e9-b926-005056aca658/files/d3%2F%2E?return_metadata=true"
-                },
                 "self": {
                     "href": "/api/storage/volumes/cb6b1b39-8d21-11e9-b926-005056aca658/files/d3%2F%2E"
                 },
+                "metadata": {
+                    "href": "/api/storage/volumes/cb6b1b39-8d21-11e9-b926-005056aca658/files/d3%2F%2E?return_metadata=true"
+                },
             },
+            "type": "directory",
         }
     ),
     FileInfo(
         {
-            "type": "directory",
+            "name": "..",
             "analytics": {
-                "subdir_count": 23,
-                "bytes_used": 3034574848,
-                "file_count": 515,
                 "by_accessed_time": {
                     "bytes_used": {
                         "percentages": [0.01, 99.99, 0.0, 0.0],
                         "values": [282624, 3034292224, 0, 0],
                     }
                 },
+                "subdir_count": 23,
+                "bytes_used": 3034574848,
+                "file_count": 515,
                 "by_modified_time": {
                     "bytes_used": {
                         "percentages": [0.0, 57.88, 7.07, 0.04],
@@ -733,30 +731,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 },
             },
             "path": "d3",
-            "name": "..",
             "_links": {
-                "metadata": {
-                    "href": "/api/storage/volumes/cb6b1b39-8d21-11e9-b926-005056aca658/files/d3%2F%2E%2E?return_metadata=true"
-                },
                 "self": {
                     "href": "/api/storage/volumes/cb6b1b39-8d21-11e9-b926-005056aca658/files/d3%2F%2E%2E"
                 },
+                "metadata": {
+                    "href": "/api/storage/volumes/cb6b1b39-8d21-11e9-b926-005056aca658/files/d3%2F%2E%2E?return_metadata=true"
+                },
             },
+            "type": "directory",
         }
     ),
     FileInfo(
         {
-            "type": "directory",
+            "name": "d5",
             "analytics": {
-                "subdir_count": 4,
-                "bytes_used": 47648768,
-                "file_count": 10,
                 "by_accessed_time": {
                     "bytes_used": {
                         "percentages": [0.0, 100.0, 0.0, 0.0],
                         "values": [0, 47648768, 0, 0],
                     }
                 },
+                "subdir_count": 4,
+                "bytes_used": 47648768,
+                "file_count": 10,
                 "by_modified_time": {
                     "bytes_used": {
                         "percentages": [0.0, 62.2, 0.0, 0.0],
@@ -765,15 +763,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 },
             },
             "path": "d3",
-            "name": "d5",
             "_links": {
-                "metadata": {
-                    "href": "/api/storage/volumes/cb6b1b39-8d21-11e9-b926-005056aca658/files/d3%2Fd5?return_metadata=true"
-                },
                 "self": {
                     "href": "/api/storage/volumes/cb6b1b39-8d21-11e9-b926-005056aca658/files/d3%2Fd5"
                 },
+                "metadata": {
+                    "href": "/api/storage/volumes/cb6b1b39-8d21-11e9-b926-005056aca658/files/d3%2Fd5?return_metadata=true"
+                },
             },
+            "type": "directory",
         }
     ),
 ]
@@ -809,42 +807,42 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FileInfo(
         {
-            "type": "directory",
+            "name": "..",
             "analytics": {"bytes_used": 56623104},
             "path": "d1",
-            "name": "..",
+            "type": "directory",
         }
     ),
     FileInfo(
         {
-            "type": "directory",
+            "name": ".",
             "analytics": {"bytes_used": 35651584},
             "path": "d1",
-            "name": ".",
+            "type": "directory",
         }
     ),
     FileInfo(
         {
-            "type": "directory",
+            "name": "biggest",
             "analytics": {"bytes_used": 17825792},
             "path": "d1",
-            "name": "biggest",
+            "type": "directory",
         }
     ),
     FileInfo(
         {
-            "type": "directory",
+            "name": "bigger",
             "analytics": {"bytes_used": 10485760},
             "path": "d1",
-            "name": "bigger",
+            "type": "directory",
         }
     ),
     FileInfo(
         {
-            "type": "directory",
+            "name": "big",
             "analytics": {"bytes_used": 5242880},
             "path": "d1",
-            "name": "big",
+            "type": "directory",
         }
     ),
 ]
@@ -886,28 +884,28 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FileInfo(
         {
-            "accessed_time": "2020-03-24T18:15:40-04:00",
-            "bytes_used": 1056768,
-            "group_id": 0,
-            "is_snapshot": False,
             "inode_number": 96,
-            "unix_permissions": 644,
-            "type": "lun",
-            "changed_time": "2020-03-24T18:15:40-04:00",
-            "is_vm_aligned": False,
-            "is_junction": False,
             "volume": {"uuid": "c05eb66a-685f-11ea-8508-005056a7b8ac"},
-            "path": "file",
-            "qos_policy": {
-                "uuid": "00725264-688f-11ea-8f10-005056a7b8ac",
-                "name": "pg1",
-            },
-            "inode_generation": 219748425,
-            "hard_links_count": 2,
-            "modified_time": "2020-03-24T18:15:40-04:00",
-            "size": 1048576,
-            "owner_id": 0,
+            "group_id": 0,
             "creation_time": "2020-03-17T10:58:40-04:00",
+            "inode_generation": 219748425,
+            "bytes_used": 1056768,
+            "size": 1048576,
+            "qos_policy": {
+                "name": "pg1",
+                "uuid": "00725264-688f-11ea-8f10-005056a7b8ac",
+            },
+            "modified_time": "2020-03-24T18:15:40-04:00",
+            "unix_permissions": 644,
+            "is_snapshot": False,
+            "path": "file",
+            "changed_time": "2020-03-24T18:15:40-04:00",
+            "owner_id": 0,
+            "accessed_time": "2020-03-24T18:15:40-04:00",
+            "type": "lun",
+            "is_junction": False,
+            "hard_links_count": 2,
+            "is_vm_aligned": False,
         }
     )
 ]
@@ -1018,11 +1016,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -1036,11 +1033,15 @@ __pdoc__ = {
     "FileInfoSchema.opts": False,
 }
 
-
 class FileInfoSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the FileInfo object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.file_info_links.FileInfoLinksSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.file_info_links", "FileInfoLinksSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the file_info."""
 
     accessed_time = ImpreciseDateTime(
@@ -1051,7 +1052,12 @@ class FileInfoSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 2019-06-12T15:00:16.000+0000"""
 
-    analytics = marshmallow_fields.Nested("netapp_ontap.models.analytics_info.AnalyticsInfoSchema", data_key="analytics", unknown=EXCLUDE, allow_none=True)
+    analytics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.analytics_info", "AnalyticsInfoSchema"),
+                data_key="analytics",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" File system analytics information summarizing all descendants of a specific directory."""
 
     bytes_used = Size(
@@ -1070,7 +1076,12 @@ Example: 4096"""
 
 Example: 2019-06-12T15:00:16.000+0000"""
 
-    constituent = marshmallow_fields.Nested("netapp_ontap.models.file_info_constituent.FileInfoConstituentSchema", data_key="constituent", unknown=EXCLUDE, allow_none=True)
+    constituent = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.file_info_constituent", "FileInfoConstituentSchema"),
+                data_key="constituent",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The constituent field of the file_info."""
 
     creation_time = ImpreciseDateTime(
@@ -1183,7 +1194,12 @@ Example: 54738"""
     )
     r""" Path of the file."""
 
-    qos_policy = marshmallow_fields.Nested("netapp_ontap.models.file_info_qos_policy.FileInfoQosPolicySchema", data_key="qos_policy", unknown=EXCLUDE, allow_none=True)
+    qos_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.file_info_qos_policy", "FileInfoQosPolicySchema"),
+                data_key="qos_policy",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The QoS policy for the file. Both traditional and adaptive QoS policies are supported. If both `qos_policy.uuid` and `qos_policy.name` properties are specified in the same request, they must refer to the same QoS policy. To remove the file from a QoS policy, set the property `qos_policy.name` in a PATCH request to an empty string "" or "none". Note: Files which are in use as a LUN cannot be assigned to a QoS policy, instead use PATCH on /storage/luns to assign a QoS policy for such files. <br/>
 Note that a QoS policy can be set on a file, or a file's volume, but not on both."""
 
@@ -1232,7 +1248,12 @@ Example: 4096"""
     )
     r""" UNIX permissions to be viewed as an octal number. It consists of 4 digits derived by adding up bits 4 (read), 2 (write), and 1 (execute). The first digit selects the set user ID(4), set group ID (2), and sticky (1) attributes. The second digit selects permissions for the owner of the file; the third selects permissions for other users in the same group; the fourth selects permissions for other users not in the group."""
 
-    volume = marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", data_key="volume", unknown=EXCLUDE, allow_none=True)
+    volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                data_key="volume",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The volume field of the file_info."""
 
     @property

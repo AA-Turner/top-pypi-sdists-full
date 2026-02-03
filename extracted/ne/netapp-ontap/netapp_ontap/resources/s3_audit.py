@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -37,15 +37,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Audit(
     {
-        "enabled": True,
-        "svm": {"uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf", "name": "vs1"},
         "log_path": "/",
-        "events": {"management": False, "data": False},
+        "events": {"data": False, "management": False},
         "log": {
-            "retention": {"duration": "0s", "count": 10},
-            "rotation": {"size": 2048000},
             "format": "json",
+            "retention": {"count": 10, "duration": "0s"},
+            "rotation": {"size": 2048000},
         },
+        "enabled": True,
+        "svm": {"name": "vs1", "uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf"},
     }
 )
 
@@ -91,23 +91,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Audit(
     {
-        "enabled": True,
-        "svm": {"uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e", "name": "vs3"},
         "log_path": "/",
-        "events": {"management": True, "data": True},
+        "events": {"data": True, "management": True},
         "log": {
-            "retention": {"duration": "P4DT12H30M5S", "count": 0},
+            "format": "json",
+            "retention": {"count": 0, "duration": "P4DT12H30M5S"},
             "rotation": {
                 "schedule": {
+                    "weekdays": [0, 2, 5],
                     "months": [0],
                     "hours": [0, 1, 6, 12, 18, 23],
-                    "weekdays": [0, 2, 5],
-                    "days": [1, 5, 10, 15],
                     "minutes": [10, 15, 30, 45, 59],
+                    "days": [1, 5, 10, 15],
                 }
             },
-            "format": "json",
         },
+        "enabled": True,
+        "svm": {"name": "vs3", "uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e"},
     }
 )
 
@@ -136,36 +136,36 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3Audit(
         {
-            "enabled": True,
-            "svm": {"uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf", "name": "vs1"},
             "log_path": "/",
-            "events": {"management": False, "data": False},
+            "events": {"data": False, "management": False},
             "log": {
-                "retention": {"duration": "0s", "count": 10},
-                "rotation": {"size": 2048000},
                 "format": "json",
+                "retention": {"count": 10, "duration": "0s"},
+                "rotation": {"size": 2048000},
             },
+            "enabled": True,
+            "svm": {"name": "vs1", "uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf"},
         }
     ),
     S3Audit(
         {
-            "enabled": True,
-            "svm": {"uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e", "name": "vs3"},
             "log_path": "/",
-            "events": {"management": True, "data": True},
+            "events": {"data": True, "management": True},
             "log": {
-                "retention": {"duration": "P4DT12H30M5S", "count": 0},
+                "format": "json",
+                "retention": {"count": 0, "duration": "P4DT12H30M5S"},
                 "rotation": {
                     "schedule": {
+                        "weekdays": [0, 2, 5],
                         "months": [0],
                         "hours": [0, 1, 6, 12, 18, 23],
-                        "weekdays": [0, 2, 5],
-                        "days": [1, 5, 10, 15],
                         "minutes": [10, 15, 30, 45, 59],
+                        "days": [1, 5, 10, 15],
                     }
                 },
-                "format": "json",
             },
+            "enabled": True,
+            "svm": {"name": "vs3", "uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e"},
         }
     ),
 ]
@@ -199,14 +199,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3Audit(
         {
-            "svm": {"uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf", "name": "vs1"},
-            "events": {"management": True, "data": True},
+            "events": {"data": True, "management": True},
+            "svm": {"name": "vs1", "uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf"},
         }
     ),
     S3Audit(
         {
-            "svm": {"uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e", "name": "vs3"},
-            "events": {"management": True, "data": True},
+            "events": {"data": True, "management": True},
+            "svm": {"name": "vs3", "uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e"},
         }
     ),
 ]
@@ -237,15 +237,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Audit(
     {
-        "enabled": True,
-        "svm": {"uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf", "name": "vs1"},
         "log_path": "/",
-        "events": {"management": False, "data": False},
+        "events": {"data": False, "management": False},
         "log": {
-            "retention": {"duration": "0s", "count": 10},
-            "rotation": {"size": 2048000},
             "format": "json",
+            "retention": {"count": 10, "duration": "0s"},
+            "rotation": {"size": 2048000},
         },
+        "enabled": True,
+        "svm": {"name": "vs1", "uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf"},
     }
 )
 
@@ -289,11 +289,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -307,7 +306,6 @@ __pdoc__ = {
     "S3AuditSchema.opts": False,
 }
 
-
 class S3AuditSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the S3Audit object"""
 
@@ -317,10 +315,20 @@ class S3AuditSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Specifies whether or not auditing is enabled on the SVM."""
 
-    events = marshmallow_fields.Nested("netapp_ontap.models.s3_audit_events.S3AuditEventsSchema", data_key="events", unknown=EXCLUDE, allow_none=True)
+    events = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.s3_audit_events", "S3AuditEventsSchema"),
+                data_key="events",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The events field of the s3_audit."""
 
-    log = marshmallow_fields.Nested("netapp_ontap.models.s3_log.S3LogSchema", data_key="log", unknown=EXCLUDE, allow_none=True)
+    log = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.s3_log", "S3LogSchema"),
+                data_key="log",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The log field of the s3_audit."""
 
     log_path = marshmallow_fields.Str(
@@ -329,7 +337,12 @@ class S3AuditSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" The audit log destination path where consolidated audit logs are stored."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the s3_audit."""
 
     @property

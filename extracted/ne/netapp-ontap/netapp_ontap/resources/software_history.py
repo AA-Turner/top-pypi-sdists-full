@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -29,20 +29,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SoftwareHistory(
     {
-        "start_time": "2018-09-03T16:18:46+05:30",
+        "from_version": "9.4.0",
         "to_version": "9.5.0",
         "state": "successful",
+        "start_time": "2018-09-03T16:18:46+05:30",
+        "end_time": "2018-05-21T10:14:51+05:30",
         "node": {
-            "uuid": "58cd3a2b-af63-11e8-8b0d-0050568e7279",
             "name": "sti70-vsim-ucs165n",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/58cd3a2b-af63-11e8-8b0d-0050568e7279"
                 }
             },
+            "uuid": "58cd3a2b-af63-11e8-8b0d-0050568e7279",
         },
-        "from_version": "9.4.0",
-        "end_time": "2018-05-21T10:14:51+05:30",
     }
 )
 
@@ -59,11 +59,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -76,7 +75,6 @@ __pdoc__ = {
     "SoftwareHistorySchema.resource": False,
     "SoftwareHistorySchema.opts": False,
 }
-
 
 class SoftwareHistorySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SoftwareHistory object"""
@@ -97,7 +95,12 @@ Example: 2019-02-02T20:00:00.000+0000"""
 
 Example: ONTAP_X1"""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the software_history."""
 
     start_time = ImpreciseDateTime(

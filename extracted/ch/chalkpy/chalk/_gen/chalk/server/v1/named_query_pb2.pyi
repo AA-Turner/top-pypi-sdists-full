@@ -20,10 +20,12 @@ class GetAllNamedQueriesRequest(_message.Message):
     def __init__(self, deployment_id: _Optional[str] = ...) -> None: ...
 
 class GetNamedQueryByNameRequest(_message.Message):
-    __slots__ = ("name",)
+    __slots__ = ("name", "query_version")
     NAME_FIELD_NUMBER: _ClassVar[int]
+    QUERY_VERSION_FIELD_NUMBER: _ClassVar[int]
     name: str
-    def __init__(self, name: _Optional[str] = ...) -> None: ...
+    query_version: str
+    def __init__(self, name: _Optional[str] = ..., query_version: _Optional[str] = ...) -> None: ...
 
 class GetNamedQueryByNameResponse(_message.Message):
     __slots__ = ("named_queries",)

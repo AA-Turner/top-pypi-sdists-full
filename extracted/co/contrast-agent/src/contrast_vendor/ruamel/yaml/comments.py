@@ -1,4 +1,5 @@
-# coding: utf-8
+
+from __future__ import annotations
 
 """
 stuff to deal with comments and formatting on dict/list/ordereddict/set
@@ -18,12 +19,14 @@ from contrast_vendor.ruamel.yaml.tag import Tag
 
 from collections.abc import MutableSet, Sized, Set, Mapping
 
-from typing import Any, Dict, Optional, List, Union, Optional, Iterator  # NOQA
+if False:  # MYPY
+    from typing import Any, Dict, Optional, List, Union, Iterator  # NOQA
 
 # fmt: off
 __all__ = ['CommentedSeq', 'CommentedKeySeq',
            'CommentedMap', 'CommentedOrderedMap',
            'CommentedSet', 'comment_attrib', 'merge_attrib',
+           'TaggedScalar',
            'C_POST', 'C_PRE', 'C_SPLIT_ON_FIRST_BLANK', 'C_BLANK_LINE_PRESERVE_SPACE',
            ]
 # fmt: on
@@ -220,6 +223,9 @@ class Format:
             return default
         return self._flow_style
 
+    def __repr__(self) -> str:
+        return f'Format({self._flow_style})'
+
 
 class LineCol:
     """
@@ -367,7 +373,7 @@ class CommentedBase:
         return getattr(self, Format.attrib)
 
     def yaml_add_eol_comment(
-        self, comment: Any, key: Optional[Any] = NotNone, column: Optional[Any] = None
+        self, comment: Any, key: Optional[Any] = NotNone, column: Optional[Any] = None,
     ) -> None:
         """
         there is a problem as eol comments should start with ' #'
@@ -432,7 +438,11 @@ class CommentedBase:
     def yaml_set_ctag(self, value: Tag) -> None:
         setattr(self, Tag.attrib, value)
 
-    def copy_attributes(self, t: Any, memo: Any = None) -> None:
+    def copy_attributes(self, t: Any, memo: Any = None) -> Any:
+        """
+        copies the YAML related attributes, not e.g. .values
+        returns target
+        """
         # fmt: off
         for a in [Comment.attrib, Format.attrib, LineCol.attrib, Anchor.attrib,
                   Tag.attrib, merge_attrib]:
@@ -441,6 +451,7 @@ class CommentedBase:
                     setattr(t, a, copy.deepcopy(getattr(self, a, memo)))
                 else:
                     setattr(t, a, getattr(self, a))
+        return t
         # fmt: on
 
     def _yaml_add_eol_comment(self, comment: Any, key: Any) -> None:
@@ -563,7 +574,7 @@ class CommentedSeq(MutableSliceableSequence, list, CommentedBase):  # type: igno
             list.__init__(self, [x[0] for x in tmp_lst])
         else:
             tmp_lst = sorted(
-                zip(map(key, list.__iter__(self)), range(len(self))), reverse=reverse
+                zip(map(key, list.__iter__(self)), range(len(self))), reverse=reverse,
             )
             list.__init__(self, [list.__getitem__(self, x[1]) for x in tmp_lst])
         itm = self.ca.items
@@ -701,7 +712,7 @@ class CommentedMap(ordereddict, CommentedBase):
         ordereddict.__init__(self, *args, **kw)
 
     def _yaml_add_comment(
-        self, comment: Any, key: Optional[Any] = NotNone, value: Optional[Any] = NotNone
+        self, comment: Any, key: Optional[Any] = NotNone, value: Optional[Any] = NotNone,
     ) -> None:
         """values is set to key to indicate a value attachment of comment"""
         if key is not NotNone:
@@ -787,13 +798,14 @@ class CommentedMap(ordereddict, CommentedBase):
             del self[key]
         keys = [k for k in self.keys() if k in self._ok]
         try:
-            ma0 = getattr(self, merge_attrib, [[-1]])[0]
-            merge_pos = ma0[0]
-        except IndexError:
+            merge_value = getattr(self, merge_attrib)
+            merge_pos = merge_value.merge_pos
+        except (AttributeError, IndexError):
             merge_pos = -1
         if merge_pos >= 0:
             if merge_pos >= pos:
-                getattr(self, merge_attrib)[0] = (merge_pos + 1, ma0[1])
+                # getattr(self, merge_attrib)[0] = (merge_pos + 1, ma0[1])
+                merge_value.merge_pos += 1
                 idx_min = pos
                 idx_max = len(self._ok)
             else:
@@ -842,8 +854,13 @@ class CommentedMap(ordereddict, CommentedBase):
             return ordereddict.__getitem__(self, key)
         except KeyError:
             for merged in getattr(self, merge_attrib, []):
-                if key in merged[1]:
-                    return merged[1][key]
+                # if isinstance(merged, tuple):
+                #     if key in merged[1]:
+                #         return merged[1][key]
+                # else:
+                if True:
+                    if key in merged:
+                        return merged[key]
             raise
 
     def __setitem__(self, key: Any, value: Any) -> None:
@@ -901,6 +918,20 @@ class CommentedMap(ordereddict, CommentedBase):
         #
         # ordereddict.__setitem__(self, key, value)  # merge might have different value
         # self._ok.discard(key)
+
+        try:
+            merge_value = getattr(self, merge_attrib)
+            merge_pos = merge_value.merge_pos
+        except AttributeError:
+            merge_pos = -1
+        if merge_pos >= 0:
+            try:
+                pos = list(ordereddict.keys(self)).index(key)
+                # the merge is not in the dict, so don't use >=
+                if merge_pos > pos:
+                    merge_value.merge_pos -= 1
+            except ValueError:
+                pass  # let the removal of the key throw a "normal" error
         self._ok.discard(key)
         ordereddict.__delitem__(self, key)
         for referer in self._ref:
@@ -961,13 +992,24 @@ class CommentedMap(ordereddict, CommentedBase):
             self._ref.append(cm)
 
     def add_yaml_merge(self, value: Any) -> None:
+        assert not hasattr(self, merge_attrib)
+        setattr(self, merge_attrib, value)
         for v in value:
-            v[1].add_referent(self)
-            for k1, v1 in v[1].items():
-                if ordereddict.__contains__(self, k1):
-                    continue
-                ordereddict.__setitem__(self, k1, v1)
-        self.merge.extend(value)
+            # if isinstance(v, tuple):
+            #     assert len(v) == 2
+            #     # print('vvv', v, type(v[1]))
+            #     v[1].add_referent(self)
+            #     for k1, v1 in v[1].items():
+            #         if ordereddict.__contains__(self, k1):
+            #             continue
+            #         ordereddict.__setitem__(self, k1, v1)
+            # else:
+            if True:
+                v.add_referent(self)
+                for k1, v1 in v.items():
+                    if ordereddict.__contains__(self, k1):
+                        continue
+                    ordereddict.__setitem__(self, k1, v1)
 
     def update_key_value(self, key: Any) -> None:
         if key in self._ok:
@@ -1085,7 +1127,7 @@ class CommentedSet(MutableSet, CommentedBase):  # type: ignore  # NOQA
             self |= values
 
     def _yaml_add_comment(
-        self, comment: Any, key: Optional[Any] = NotNone, value: Optional[Any] = NotNone
+        self, comment: Any, key: Optional[Any] = NotNone, value: Optional[Any] = NotNone,
     ) -> None:
         """values is set to key to indicate a value attachment of comment"""
         if key is not NotNone:
@@ -1141,6 +1183,9 @@ class TaggedScalar(CommentedBase):
     def __getitem__(self, pos: int) -> Any:
         return self.value[pos]
 
+    def __repr__(self) -> str:
+        return f'TaggedScalar(value={self.value!r}, style={self.style!r}, tag={self.tag!r})'
+
 
 def dump_comments(d: Any, name: str = "", sep: str = '.', out: Any = sys.stdout) -> None:
     """
@@ -1159,5 +1204,5 @@ def dump_comments(d: Any, name: str = "", sep: str = '.', out: Any = sys.stdout)
         out.write(f'{d.ca!r}\n')
         for idx, k in enumerate(d):
             dump_comments(
-                k, name=(name + sep + str(idx)) if name else str(idx), sep=sep, out=out
+                k, name=(name + sep + str(idx)) if name else str(idx), sep=sep, out=out,
             )

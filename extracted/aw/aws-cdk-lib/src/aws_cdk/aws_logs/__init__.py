@@ -75,14 +75,14 @@ Or more conveniently, write permissions to the log group can be granted as follo
 
 ```python
 log_group = logs.LogGroup(self, "LogGroup")
-log_group.grant_write(iam.ServicePrincipal("es.amazonaws.com"))
+log_group.grants.write(iam.ServicePrincipal("es.amazonaws.com"))
 ```
 
 Similarly, read permissions can be granted to the log group as follows.
 
 ```python
 log_group = logs.LogGroup(self, "LogGroup")
-log_group.grant_read(iam.ServicePrincipal("es.amazonaws.com"))
+log_group.grants.read(iam.ServicePrincipal("es.amazonaws.com"))
 ```
 
 Be aware that any ARNs or tokenized values passed to the resource policy will be converted into AWS Account IDs.

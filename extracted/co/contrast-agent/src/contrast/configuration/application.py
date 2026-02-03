@@ -1,11 +1,13 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 
+import os
+
+from contrast import AGENT_CURR_WORKING_DIR
 from contrast.utils.configuration_utils import str_to_bool
+
 from .config_builder import ConfigBuilder
 from .config_option import ConfigOption
-from contrast import AGENT_CURR_WORKING_DIR
-import os
 
 
 class Application(ConfigBuilder):
@@ -23,13 +25,11 @@ class Application(ConfigBuilder):
                 canonical_name="application.sensitive_data_masking_policy.mask_attack_vector",
                 default_value=False,
                 type_cast=str_to_bool,
-                log_effective_config=False,
             ),
             ConfigOption(
                 canonical_name="application.sensitive_data_masking_policy.mask_http_body",
                 default_value=False,
                 type_cast=str_to_bool,
-                log_effective_config=False,
             ),
             ConfigOption(
                 canonical_name="application.sensitive_data_masking_policy.rules",

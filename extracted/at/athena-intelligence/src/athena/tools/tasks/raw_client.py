@@ -31,7 +31,7 @@ class RawTasksClient:
         """
         Run a [task](https://resources.athenaintel.com/docs/task-studio/home) and wait for the result.
 
-        Executes a Windmill script or flow synchronously. Server handles polling internally.
+        Executes a serverless function script or flow synchronously. Server handles polling internally.
 
         Parameters
         ----------
@@ -108,7 +108,7 @@ class AsyncRawTasksClient:
         """
         Run a [task](https://resources.athenaintel.com/docs/task-studio/home) and wait for the result.
 
-        Executes a Windmill script or flow synchronously. Server handles polling internally.
+        Executes a serverless function script or flow synchronously. Server handles polling internally.
 
         Parameters
         ----------

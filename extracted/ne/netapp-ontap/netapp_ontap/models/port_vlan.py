@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["PortVlan", "PortVlanSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "PortVlan": False,
 }
 
-
 class PortVlanSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the PortVlan object"""
 
-    base_port = marshmallow_fields.Nested("netapp_ontap.resources.port.PortSchema", unknown=EXCLUDE, data_key="base_port", allow_none=True)
+    base_port = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.port", "PortSchema"),
+                unknown=EXCLUDE,
+                data_key="base_port",
+                allow_none=True
+            )
     r""" The base_port field of the port_vlan. """
 
     tag = Size(data_key="tag", allow_none=True)

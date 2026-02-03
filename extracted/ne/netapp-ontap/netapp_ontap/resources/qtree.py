@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -57,19 +57,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Qtree(
     {
-        "qos_policy": {
-            "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
-            "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
-        },
         "unix_permissions": 744,
-        "volume": {"name": "fv"},
+        "_links": {"self": {"href": "/api/storage/qtrees/?volume.name=fv&name=qt1"}},
         "export_policy": {"name": "default"},
         "svm": {"name": "svm1"},
-        "user": {"name": "unix_user1"},
-        "_links": {"self": {"href": "/api/storage/qtrees/?volume.name=fv&name=qt1"}},
-        "group": {"name": "unix_group1"},
         "name": "qt1",
         "security_style": "unix",
+        "user": {"name": "unix_user1"},
+        "volume": {"name": "fv"},
+        "qos_policy": {
+            "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
+            "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
+        },
+        "group": {"name": "unix_group1"},
     }
 )
 
@@ -99,89 +99,89 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Qtree(
         {
-            "id": 0,
-            "volume": {
-                "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
-                "name": "fv",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/volumes/cb20da45-4f6b-11e9-9a71-005056a7f717"
-                    }
-                },
-            },
-            "svm": {
-                "uuid": "b68f961b-4cee-11e9-930a-005056a7f717",
-                "name": "svm1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/b68f961b-4cee-11e9-930a-005056a7f717"
-                    }
-                },
-            },
             "_links": {
                 "self": {
                     "href": "/api/storage/qtrees/cb20da45-4f6b-11e9-9a71-005056a7f717/0"
                 }
             },
-            "name": "",
-        }
-    ),
-    Qtree(
-        {
-            "id": 1,
-            "volume": {
-                "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
-                "name": "fv",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/volumes/cb20da45-4f6b-11e9-9a71-005056a7f717"
-                    }
-                },
-            },
             "svm": {
-                "uuid": "b68f961b-4cee-11e9-930a-005056a7f717",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/b68f961b-4cee-11e9-930a-005056a7f717"
                     }
                 },
+                "uuid": "b68f961b-4cee-11e9-930a-005056a7f717",
             },
+            "name": "",
+            "volume": {
+                "name": "fv",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/volumes/cb20da45-4f6b-11e9-9a71-005056a7f717"
+                    }
+                },
+                "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
+            },
+            "id": 0,
+        }
+    ),
+    Qtree(
+        {
             "_links": {
                 "self": {
                     "href": "/api/storage/qtrees/cb20da45-4f6b-11e9-9a71-005056a7f717/1"
                 }
             },
-            "name": "qt1",
-        }
-    ),
-    Qtree(
-        {
-            "id": 2,
-            "volume": {
-                "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
-                "name": "fv",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/volumes/cb20da45-4f6b-11e9-9a71-005056a7f717"
-                    }
-                },
-            },
             "svm": {
-                "uuid": "b68f961b-4cee-11e9-930a-005056a7f717",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/b68f961b-4cee-11e9-930a-005056a7f717"
                     }
                 },
+                "uuid": "b68f961b-4cee-11e9-930a-005056a7f717",
             },
+            "name": "qt1",
+            "volume": {
+                "name": "fv",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/volumes/cb20da45-4f6b-11e9-9a71-005056a7f717"
+                    }
+                },
+                "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
+            },
+            "id": 1,
+        }
+    ),
+    Qtree(
+        {
             "_links": {
                 "self": {
                     "href": "/api/storage/qtrees/cb20da45-4f6b-11e9-9a71-005056a7f717/2"
                 }
             },
+            "svm": {
+                "name": "svm1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/b68f961b-4cee-11e9-930a-005056a7f717"
+                    }
+                },
+                "uuid": "b68f961b-4cee-11e9-930a-005056a7f717",
+            },
             "name": "qt2",
+            "volume": {
+                "name": "fv",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/volumes/cb20da45-4f6b-11e9-9a71-005056a7f717"
+                    }
+                },
+                "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
+            },
+            "id": 2,
         }
     ),
 ]
@@ -339,11 +339,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -357,11 +356,15 @@ __pdoc__ = {
     "QtreeSchema.opts": False,
 }
 
-
 class QtreeSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Qtree object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the qtree."""
 
     tags = marshmallow_fields.List(marshmallow_fields.Str, data_key="_tags", allow_none=True)
@@ -369,13 +372,28 @@ class QtreeSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: ["team:csi","environment:test"]"""
 
-    export_policy = marshmallow_fields.Nested("netapp_ontap.resources.export_policy.ExportPolicySchema", data_key="export_policy", unknown=EXCLUDE, allow_none=True)
+    export_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.export_policy", "ExportPolicySchema"),
+                data_key="export_policy",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The export_policy field of the qtree."""
 
-    ext_performance_monitoring = marshmallow_fields.Nested("netapp_ontap.models.qtree_ext_performance_monitoring.QtreeExtPerformanceMonitoringSchema", data_key="ext_performance_monitoring", unknown=EXCLUDE, allow_none=True)
+    ext_performance_monitoring = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.qtree_ext_performance_monitoring", "QtreeExtPerformanceMonitoringSchema"),
+                data_key="ext_performance_monitoring",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The ext_performance_monitoring field of the qtree."""
 
-    group = marshmallow_fields.Nested("netapp_ontap.models.qtree_group.QtreeGroupSchema", data_key="group", unknown=EXCLUDE, allow_none=True)
+    group = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.qtree_group", "QtreeGroupSchema"),
+                data_key="group",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The user set as owner of the qtree."""
 
     id = Size(
@@ -388,7 +406,12 @@ Example: ["team:csi","environment:test"]"""
 
 Example: 1"""
 
-    metric = marshmallow_fields.Nested("netapp_ontap.models.performance_qtree_metric_data.PerformanceQtreeMetricDataSchema", data_key="metric", unknown=EXCLUDE, allow_none=True)
+    metric = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_qtree_metric_data", "PerformanceQtreeMetricDataSchema"),
+                data_key="metric",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Performance numbers, such as IOPS latency and throughput."""
 
     name = marshmallow_fields.Str(
@@ -397,7 +420,12 @@ Example: 1"""
     )
     r""" The name of the qtree. Required in POST; optional in PATCH."""
 
-    nas = marshmallow_fields.Nested("netapp_ontap.models.qtree_nas.QtreeNasSchema", data_key="nas", unknown=EXCLUDE, allow_none=True)
+    nas = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.qtree_nas", "QtreeNasSchema"),
+                data_key="nas",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The nas field of the qtree."""
 
     path = marshmallow_fields.Str(
@@ -408,7 +436,12 @@ Example: 1"""
 
 Example: /volume3/qtree1"""
 
-    qos_policy = marshmallow_fields.Nested("netapp_ontap.resources.qos_policy.QosPolicySchema", data_key="qos_policy", unknown=EXCLUDE, allow_none=True)
+    qos_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.qos_policy", "QosPolicySchema"),
+                data_key="qos_policy",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The qos_policy field of the qtree."""
 
     security_style = marshmallow_fields.Str(
@@ -417,10 +450,20 @@ Example: /volume3/qtree1"""
     )
     r""" The security_style field of the qtree."""
 
-    statistics = marshmallow_fields.Nested("netapp_ontap.models.qtree_statistics_raw.QtreeStatisticsRawSchema", data_key="statistics", unknown=EXCLUDE, allow_none=True)
+    statistics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.qtree_statistics_raw", "QtreeStatisticsRawSchema"),
+                data_key="statistics",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The statistics field of the qtree."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the qtree."""
 
     unix_permissions = Size(
@@ -431,10 +474,20 @@ Example: /volume3/qtree1"""
 
 Example: 493"""
 
-    user = marshmallow_fields.Nested("netapp_ontap.models.qtree_user.QtreeUserSchema", data_key="user", unknown=EXCLUDE, allow_none=True)
+    user = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.qtree_user", "QtreeUserSchema"),
+                data_key="user",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The user set as owner of the qtree."""
 
-    volume = marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", data_key="volume", unknown=EXCLUDE, allow_none=True)
+    volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                data_key="volume",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The volume field of the qtree."""
 
     @property

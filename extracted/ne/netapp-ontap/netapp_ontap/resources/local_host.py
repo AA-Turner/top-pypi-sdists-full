@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,43 +27,43 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LocalHost(
         {
-            "address": "1.1.1.1",
-            "aliases": ["host1.sales.foo.com", "host2.sakes.foo.com"],
-            "hostname": "host.sales.foo.com",
+            "_links": {
+                "self": {
+                    "href": "/api/name-services/local-hosts/6cdf045c-87ae-11eb-a56a-0050568e0287/1.1.1.1"
+                }
+            },
             "owner": {
-                "uuid": "6cdf045c-87ae-11eb-a56a-0050568e0287",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/6cdf045c-87ae-11eb-a56a-0050568e0287"
                     }
                 },
+                "uuid": "6cdf045c-87ae-11eb-a56a-0050568e0287",
             },
-            "_links": {
-                "self": {
-                    "href": "/api/name-services/local-hosts/6cdf045c-87ae-11eb-a56a-0050568e0287/1.1.1.1"
-                }
-            },
+            "aliases": ["host1.sales.foo.com", "host2.sakes.foo.com"],
+            "address": "1.1.1.1",
+            "hostname": "host.sales.foo.com",
         }
     ),
     LocalHost(
         {
-            "address": "2.2.2.2",
-            "hostname": "samplehost2",
+            "_links": {
+                "self": {
+                    "href": "/api/name-services/local-hosts/9d080552-7bff-11eb-a56a-0050568e0287/2.2.2.2"
+                }
+            },
             "owner": {
-                "uuid": "9d080552-7bff-11eb-a56a-0050568e0287",
                 "name": "svm2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/9d080552-7bff-11eb-a56a-0050568e0287"
                     }
                 },
+                "uuid": "9d080552-7bff-11eb-a56a-0050568e0287",
             },
-            "_links": {
-                "self": {
-                    "href": "/api/name-services/local-hosts/9d080552-7bff-11eb-a56a-0050568e0287/2.2.2.2"
-                }
-            },
+            "address": "2.2.2.2",
+            "hostname": "samplehost2",
         }
     ),
 ]
@@ -94,21 +94,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 LocalHost(
     {
-        "address": "3.3.3.3",
-        "aliases": ["host1.sales.foo.com", "host2.sakes.foo.com"],
-        "hostname": "samplehost3",
-        "owner": {
-            "uuid": "9d080552-7bff-11eb-a56a-0050568e0287",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/9d080552-7bff-11eb-a56a-0050568e0287"}
-            },
-        },
         "_links": {
             "self": {
                 "href": "/api/name-services/local-hosts/9d080552-7bff-11eb-a56a-0050568e0287/3.3.3.3"
             }
         },
+        "owner": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/9d080552-7bff-11eb-a56a-0050568e0287"}
+            },
+            "uuid": "9d080552-7bff-11eb-a56a-0050568e0287",
+        },
+        "aliases": ["host1.sales.foo.com", "host2.sakes.foo.com"],
+        "address": "3.3.3.3",
+        "hostname": "samplehost3",
     }
 )
 
@@ -199,11 +199,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -217,11 +216,15 @@ __pdoc__ = {
     "LocalHostSchema.opts": False,
 }
 
-
 class LocalHostSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LocalHost object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the local_host."""
 
     address = marshmallow_fields.Str(
@@ -246,7 +249,12 @@ Example: ["host1.sales.foo.com","host2.sakes.foo.com"]"""
 
 Example: host.sales.foo.com"""
 
-    owner = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="owner", unknown=EXCLUDE, allow_none=True)
+    owner = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="owner",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The owner field of the local_host."""
 
     scope = marshmallow_fields.Str(

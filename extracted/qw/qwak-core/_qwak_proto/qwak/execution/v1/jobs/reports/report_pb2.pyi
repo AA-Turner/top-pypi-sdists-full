@@ -62,6 +62,29 @@ class FailureInformation(google.protobuf.message.Message):
 
 global___FailureInformation = FailureInformation
 
+class BatchDeletionJobMetadata(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DELETION_CANDIDATES_TABLE_FIELD_NUMBER: builtins.int
+    DELETION_CANDIDATES_SIZE_IN_BYTES_ON_REDIS_FIELD_NUMBER: builtins.int
+    BILLING_SIZE_IN_BYTES_BEFORE_DELETION_FIELD_NUMBER: builtins.int
+    deletion_candidates_table: builtins.str
+    """The name of the table containing the keys that are currently in the process of being deleted."""
+    deletion_candidates_size_in_bytes_on_redis: builtins.int
+    """The size (in bytes) of the Redis keys that are being deleted."""
+    billing_size_in_bytes_before_deletion: builtins.int
+    """The captured billing size (in bytes) before deletion of the Redis keys."""
+    def __init__(
+        self,
+        *,
+        deletion_candidates_table: builtins.str = ...,
+        deletion_candidates_size_in_bytes_on_redis: builtins.int = ...,
+        billing_size_in_bytes_before_deletion: builtins.int = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["billing_size_in_bytes_before_deletion", b"billing_size_in_bytes_before_deletion", "deletion_candidates_size_in_bytes_on_redis", b"deletion_candidates_size_in_bytes_on_redis", "deletion_candidates_table", b"deletion_candidates_table"]) -> None: ...
+
+global___BatchDeletionJobMetadata = BatchDeletionJobMetadata
+
 class BatchIngestionJobMetadata(google.protobuf.message.Message):
     """batchV1 job ingestion details"""
 
@@ -187,6 +210,7 @@ class JobReport(google.protobuf.message.Message):
     STREAMING_JOB_METADATA_FIELD_NUMBER: builtins.int
     STREAMING_AGGR_JOB_METADATA_FIELD_NUMBER: builtins.int
     BATCH_BACKFILL_JOB_METADATA_FIELD_NUMBER: builtins.int
+    BATCH_DELETION_JOB_METADATA_FIELD_NUMBER: builtins.int
     NUM_AFFECTED_RECORDS_FIELD_NUMBER: builtins.int
     RUN_START_TIME_FIELD_NUMBER: builtins.int
     RUN_END_TIME_FIELD_NUMBER: builtins.int
@@ -199,6 +223,7 @@ class JobReport(google.protobuf.message.Message):
     JOB_LABELS_FIELD_NUMBER: builtins.int
     JOB_ID_FIELD_NUMBER: builtins.int
     INFO_FIELD_NUMBER: builtins.int
+    EXPIRATION_WATERMARK_TIMESTAMP_FIELD_NUMBER: builtins.int
     @property
     def batch_ingestion_metadata(self) -> global___BatchIngestionJobMetadata: ...
     @property
@@ -207,6 +232,8 @@ class JobReport(google.protobuf.message.Message):
     def streaming_aggr_job_metadata(self) -> global___StreamingAggregationJobMetadata: ...
     @property
     def batch_backfill_job_metadata(self) -> global___BatchBackfillJobMetadata: ...
+    @property
+    def batch_deletion_job_metadata(self) -> global___BatchDeletionJobMetadata: ...
     num_affected_records: builtins.int
     """number of affected records"""
     @property
@@ -234,6 +261,8 @@ class JobReport(google.protobuf.message.Message):
     """Job ID"""
     @property
     def info(self) -> global___FailureInformation: ...
+    @property
+    def expiration_watermark_timestamp(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
     def __init__(
         self,
         *,
@@ -241,6 +270,7 @@ class JobReport(google.protobuf.message.Message):
         streaming_job_metadata: global___StreamingJobMetadata | None = ...,
         streaming_aggr_job_metadata: global___StreamingAggregationJobMetadata | None = ...,
         batch_backfill_job_metadata: global___BatchBackfillJobMetadata | None = ...,
+        batch_deletion_job_metadata: global___BatchDeletionJobMetadata | None = ...,
         num_affected_records: builtins.int = ...,
         run_start_time: google.protobuf.timestamp_pb2.Timestamp | None = ...,
         run_end_time: google.protobuf.timestamp_pb2.Timestamp | None = ...,
@@ -253,14 +283,17 @@ class JobReport(google.protobuf.message.Message):
         job_labels: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
         job_id: builtins.str = ...,
         info: global___FailureInformation | None = ...,
+        expiration_watermark_timestamp: google.protobuf.timestamp_pb2.Timestamp | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["batch_backfill_job_metadata", b"batch_backfill_job_metadata", "batch_ingestion_metadata", b"batch_ingestion_metadata", "execution_id", b"execution_id", "execution_identifier", b"execution_identifier", "failure_info", b"failure_info", "info", b"info", "job_metadata_type", b"job_metadata_type", "legacy_run_id", b"legacy_run_id", "run_end_time", b"run_end_time", "run_start_time", b"run_start_time", "streaming_aggr_job_metadata", b"streaming_aggr_job_metadata", "streaming_job_metadata", b"streaming_job_metadata"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["batch_backfill_job_metadata", b"batch_backfill_job_metadata", "batch_ingestion_metadata", b"batch_ingestion_metadata", "environment_id", b"environment_id", "execution_id", b"execution_id", "execution_identifier", b"execution_identifier", "failure_info", b"failure_info", "featureset_id", b"featureset_id", "featureset_name", b"featureset_name", "info", b"info", "job_id", b"job_id", "job_labels", b"job_labels", "job_metadata_type", b"job_metadata_type", "legacy_run_id", b"legacy_run_id", "num_affected_records", b"num_affected_records", "run_end_time", b"run_end_time", "run_start_time", b"run_start_time", "status", b"status", "streaming_aggr_job_metadata", b"streaming_aggr_job_metadata", "streaming_job_metadata", b"streaming_job_metadata"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["batch_backfill_job_metadata", b"batch_backfill_job_metadata", "batch_deletion_job_metadata", b"batch_deletion_job_metadata", "batch_ingestion_metadata", b"batch_ingestion_metadata", "data_retention_state_type", b"data_retention_state_type", "execution_id", b"execution_id", "execution_identifier", b"execution_identifier", "expiration_watermark_timestamp", b"expiration_watermark_timestamp", "failure_info", b"failure_info", "info", b"info", "job_metadata_type", b"job_metadata_type", "legacy_run_id", b"legacy_run_id", "run_end_time", b"run_end_time", "run_start_time", b"run_start_time", "streaming_aggr_job_metadata", b"streaming_aggr_job_metadata", "streaming_job_metadata", b"streaming_job_metadata"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["batch_backfill_job_metadata", b"batch_backfill_job_metadata", "batch_deletion_job_metadata", b"batch_deletion_job_metadata", "batch_ingestion_metadata", b"batch_ingestion_metadata", "data_retention_state_type", b"data_retention_state_type", "environment_id", b"environment_id", "execution_id", b"execution_id", "execution_identifier", b"execution_identifier", "expiration_watermark_timestamp", b"expiration_watermark_timestamp", "failure_info", b"failure_info", "featureset_id", b"featureset_id", "featureset_name", b"featureset_name", "info", b"info", "job_id", b"job_id", "job_labels", b"job_labels", "job_metadata_type", b"job_metadata_type", "legacy_run_id", b"legacy_run_id", "num_affected_records", b"num_affected_records", "run_end_time", b"run_end_time", "run_start_time", b"run_start_time", "status", b"status", "streaming_aggr_job_metadata", b"streaming_aggr_job_metadata", "streaming_job_metadata", b"streaming_job_metadata"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["data_retention_state_type", b"data_retention_state_type"]) -> typing_extensions.Literal["expiration_watermark_timestamp"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["execution_identifier", b"execution_identifier"]) -> typing_extensions.Literal["legacy_run_id", "execution_id"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["failure_info", b"failure_info"]) -> typing_extensions.Literal["info"] | None: ...
     @typing.overload
-    def WhichOneof(self, oneof_group: typing_extensions.Literal["job_metadata_type", b"job_metadata_type"]) -> typing_extensions.Literal["batch_ingestion_metadata", "streaming_job_metadata", "streaming_aggr_job_metadata", "batch_backfill_job_metadata"] | None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["job_metadata_type", b"job_metadata_type"]) -> typing_extensions.Literal["batch_ingestion_metadata", "streaming_job_metadata", "streaming_aggr_job_metadata", "batch_backfill_job_metadata", "batch_deletion_job_metadata"] | None: ...
 
 global___JobReport = JobReport

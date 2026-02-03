@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["RaidGroup", "RaidGroupSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "RaidGroupSchema.opts": False,
     "RaidGroup": False,
 }
-
 
 class RaidGroupSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the RaidGroup object"""
@@ -27,7 +25,15 @@ class RaidGroupSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     degraded = marshmallow_fields.Boolean(data_key="degraded", allow_none=True)
     r""" RAID group is degraded. A RAID group is degraded when at least one disk from that group has failed or is offline. """
 
-    disks = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.raid_group_disk.RaidGroupDiskSchema", unknown=EXCLUDE, allow_none=True), data_key="disks", allow_none=True)
+    disks = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.raid_group_disk", "RaidGroupDiskSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="disks",
+                allow_none=True
+                )
     r""" The disks field of the raid_group. """
 
     name = marshmallow_fields.Str(data_key="name", allow_none=True)
@@ -45,10 +51,20 @@ Valid choices:
 * raid0
 * raid4 """
 
-    recomputing_parity = marshmallow_fields.Nested("netapp_ontap.models.raid_group_recomputing_parity.RaidGroupRecomputingParitySchema", unknown=EXCLUDE, data_key="recomputing_parity", allow_none=True)
+    recomputing_parity = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.raid_group_recomputing_parity", "RaidGroupRecomputingParitySchema"),
+                unknown=EXCLUDE,
+                data_key="recomputing_parity",
+                allow_none=True
+            )
     r""" The recomputing_parity field of the raid_group. """
 
-    reconstruct = marshmallow_fields.Nested("netapp_ontap.models.raid_group_reconstruct.RaidGroupReconstructSchema", unknown=EXCLUDE, data_key="reconstruct", allow_none=True)
+    reconstruct = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.raid_group_reconstruct", "RaidGroupReconstructSchema"),
+                unknown=EXCLUDE,
+                data_key="reconstruct",
+                allow_none=True
+            )
     r""" The reconstruct field of the raid_group. """
 
     @property

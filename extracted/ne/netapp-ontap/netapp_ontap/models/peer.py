@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["Peer", "PeerSchema"]
@@ -17,14 +16,23 @@ __pdoc__ = {
     "Peer": False,
 }
 
-
 class PeerSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Peer object"""
 
-    cluster = marshmallow_fields.Nested("netapp_ontap.resources.cluster_peer.ClusterPeerSchema", unknown=EXCLUDE, data_key="cluster", allow_none=True)
+    cluster = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.cluster_peer", "ClusterPeerSchema"),
+                unknown=EXCLUDE,
+                data_key="cluster",
+                allow_none=True
+            )
     r""" The cluster field of the peer. """
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", unknown=EXCLUDE, data_key="svm", allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                unknown=EXCLUDE,
+                data_key="svm",
+                allow_none=True
+            )
     r""" The svm field of the peer. """
 
     @property

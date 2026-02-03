@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -60,15 +60,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     KeyManagerAuthKey(
         {
-            "key_tag": "vsim1",
             "security_key_manager": {"uuid": "d36a654d-14b4-11ed-b82e-005056bb8f59"},
+            "key_tag": "vsim1",
             "key_id": "00000000000000000200000000000100052ab79fc51a430dbb16f1c0d2054cfe0000000000000000",
         }
     ),
     KeyManagerAuthKey(
         {
-            "key_tag": "vsim1",
             "security_key_manager": {"uuid": "d36a654d-14b4-11ed-b82e-005056bb8f59"},
+            "key_tag": "vsim1",
             "key_id": "000000000000000002000000000001003f32ce2dc55d2764c07da74e722c179b0000000000000000",
         }
     ),
@@ -99,11 +99,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -117,11 +116,15 @@ __pdoc__ = {
     "KeyManagerAuthKeySchema.opts": False,
 }
 
-
 class KeyManagerAuthKeySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the KeyManagerAuthKey object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the key_manager_auth_key."""
 
     key_id = marshmallow_fields.Str(
@@ -148,7 +151,12 @@ Example: Authentication-Key-01"""
 
 Example: AuthenticationKey_01"""
 
-    security_key_manager = marshmallow_fields.Nested("netapp_ontap.resources.security_key_manager.SecurityKeyManagerSchema", data_key="security_key_manager", unknown=EXCLUDE, allow_none=True)
+    security_key_manager = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.security_key_manager", "SecurityKeyManagerSchema"),
+                data_key="security_key_manager",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The security_key_manager field of the key_manager_auth_key."""
 
     @property

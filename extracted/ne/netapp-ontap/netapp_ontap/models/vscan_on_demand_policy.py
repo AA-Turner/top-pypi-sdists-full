@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["VscanOnDemandPolicy", "VscanOnDemandPolicySchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "VscanOnDemandPolicySchema.opts": False,
     "VscanOnDemandPolicy": False,
 }
-
 
 class VscanOnDemandPolicySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the VscanOnDemandPolicy object"""
@@ -36,10 +34,20 @@ Example: task-1 """
 
 Example: ["/vol1/","/vol2/cifs/"] """
 
-    schedule = marshmallow_fields.Nested("netapp_ontap.resources.schedule.ScheduleSchema", unknown=EXCLUDE, data_key="schedule", allow_none=True)
+    schedule = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.schedule", "ScheduleSchema"),
+                unknown=EXCLUDE,
+                data_key="schedule",
+                allow_none=True
+            )
     r""" The schedule field of the vscan_on_demand_policy. """
 
-    scope = marshmallow_fields.Nested("netapp_ontap.models.vscan_on_demand_scope.VscanOnDemandScopeSchema", unknown=EXCLUDE, data_key="scope", allow_none=True)
+    scope = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.vscan_on_demand_scope", "VscanOnDemandScopeSchema"),
+                unknown=EXCLUDE,
+                data_key="scope",
+                allow_none=True
+            )
     r""" The scope field of the vscan_on_demand_policy. """
 
     @property

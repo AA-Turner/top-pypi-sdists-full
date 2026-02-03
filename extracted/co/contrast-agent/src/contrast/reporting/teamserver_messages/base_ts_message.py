@@ -137,7 +137,14 @@ class BaseTsMessage:
             return False
 
         if response.status_code == 404 and self.should_shutdown(response):
-            DisableReaction.run(self.settings.config)
+            DisableReaction.run(
+                self.settings.config,
+                reason="Error from Contrast UI",
+                additional_info={
+                    "status_code": response.status_code,
+                    "ui_response": response.text,
+                },
+            )
             return False
 
         if response.status_code in (403, 409, 410, 412, 422):
@@ -147,7 +154,14 @@ class BaseTsMessage:
             # 412: API key no longer valid. While spec may say to resend msg in 15 mins, in reality the app server and
             #   agent should simply be restarted.
             # 422: app could not be created because a condition, like session id or metadata failed
-            DisableReaction.run(self.settings.config)
+            DisableReaction.run(
+                self.settings.config,
+                reason="Error from Contrast UI",
+                additional_info={
+                    "status_code": response.status_code,
+                    "ui_response": response.text,
+                },
+            )
             return False
 
         if response.status_code in (401, 408):
@@ -156,7 +170,14 @@ class BaseTsMessage:
             #   V1: Access forbidden because credentials were not provided.
             # 408: TS Could not create settings in time.
             if self.disable_agent_on_401_and_408:
-                DisableReaction.run(self.settings.config)
+                DisableReaction.run(
+                    self.settings.config,
+                    reason="Error from Contrast UI",
+                    additional_info={
+                        "status_code": response.status_code,
+                        "ui_response": response.text,
+                    },
+                )
             else:
                 logger.debug("Sleeping for 15 minutes")
 

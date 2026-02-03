@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -25,41 +25,41 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Schedule(
         {
-            "interval": "PT7M30S",
-            "uuid": "0941e980-0158-11e9-a82c-005056bb4301",
             "_links": {
                 "self": {
                     "href": "/api/cluster/schedules/0941e980-0158-11e9-a82c-005056bb4301"
                 }
             },
-            "type": "interval",
             "name": "Balanced Placement Model Cache Update",
+            "uuid": "0941e980-0158-11e9-a82c-005056bb4301",
+            "interval": "PT7M30S",
+            "type": "interval",
         }
     ),
     Schedule(
         {
-            "interval": "PT1H",
-            "uuid": "0944b975-0158-11e9-a82c-005056bb4301",
             "_links": {
                 "self": {
                     "href": "/api/cluster/schedules/0944b975-0158-11e9-a82c-005056bb4301"
                 }
             },
-            "type": "interval",
             "name": "Auto Balance Aggregate Scheduler",
+            "uuid": "0944b975-0158-11e9-a82c-005056bb4301",
+            "interval": "PT1H",
+            "type": "interval",
         }
     ),
     Schedule(
         {
-            "interval": "P1D",
-            "uuid": "0c65f1fb-0158-11e9-a82c-005056bb4301",
             "_links": {
                 "self": {
                     "href": "/api/cluster/schedules/0c65f1fb-0158-11e9-a82c-005056bb4301"
                 }
             },
-            "type": "interval",
             "name": "Application Templates ASUP Dump",
+            "uuid": "0c65f1fb-0158-11e9-a82c-005056bb4301",
+            "interval": "P1D",
+            "type": "interval",
         }
     ),
 ]
@@ -85,19 +85,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Schedule(
     {
-        "cluster": {
-            "uuid": "f3f9bbfa-0157-11e9-a82c-005056bb4301",
-            "name": "my_cluster",
-        },
-        "cron": {"hours": [0], "days": [1], "minutes": [20]},
-        "uuid": "25312bd8-0158-11e9-a82c-005056bb4301",
         "_links": {
             "self": {
                 "href": "/api/cluster/schedules/25312bd8-0158-11e9-a82c-005056bb4301"
             }
         },
-        "type": "cron",
+        "cron": {"hours": [0], "minutes": [20], "days": [1]},
         "name": "monthly",
+        "uuid": "25312bd8-0158-11e9-a82c-005056bb4301",
+        "cluster": {
+            "name": "my_cluster",
+            "uuid": "f3f9bbfa-0157-11e9-a82c-005056bb4301",
+        },
+        "type": "cron",
     }
 )
 
@@ -230,11 +230,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -248,17 +247,31 @@ __pdoc__ = {
     "ScheduleSchema.opts": False,
 }
 
-
 class ScheduleSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Schedule object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the schedule."""
 
-    cluster = marshmallow_fields.Nested("netapp_ontap.models.schedule_cluster.ScheduleClusterSchema", data_key="cluster", unknown=EXCLUDE, allow_none=True)
+    cluster = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.schedule_cluster", "ScheduleClusterSchema"),
+                data_key="cluster",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The cluster that owns the schedule. Defaults to the local cluster."""
 
-    cron = marshmallow_fields.Nested("netapp_ontap.models.schedule_cron.ScheduleCronSchema", data_key="cron", unknown=EXCLUDE, allow_none=True)
+    cron = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.schedule_cron", "ScheduleCronSchema"),
+                data_key="cron",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Details for schedules of type cron."""
 
     interval = marshmallow_fields.Str(
@@ -288,7 +301,12 @@ Valid choices:
 * cluster
 * svm"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the schedule."""
 
     type = marshmallow_fields.Str(

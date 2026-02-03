@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,16 +28,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConfigurationBackupFile(
         {
+            "name": "backup1.7z",
             "node": {
-                "uuid": "5cafe0f6-499f-11e9-b644-005056bbcf93",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/5cafe0f6-499f-11e9-b644-005056bbcf93"
                     }
                 },
+                "uuid": "5cafe0f6-499f-11e9-b644-005056bbcf93",
             },
-            "name": "backup1.7z",
         }
     )
 ]
@@ -69,22 +69,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ConfigurationBackupFile(
     {
         "version": "9.7.0",
-        "backup_nodes": [{"name": "node1"}, {"name": "node2"}],
-        "auto": False,
-        "size": 6058408,
         "download_link": "https://10.224.66.113/backups/backup1.7z",
+        "backup_nodes": [{"name": "node1"}, {"name": "node2"}],
+        "name": "backup1.7z",
+        "size": 6058408,
+        "auto": False,
         "time": "2019-06-10T13:35:06-04:00",
         "node": {
-            "uuid": "bc2f15d0-8b93-11e9-90e9-005056bb6a30",
             "name": "node1",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/bc2f15d0-8b93-11e9-90e9-005056bb6a30"
                 }
             },
+            "uuid": "bc2f15d0-8b93-11e9-90e9-005056bb6a30",
         },
         "type": "cluster",
-        "name": "backup1.7z",
     }
 )
 
@@ -114,8 +114,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConfigurationBackupFile(
     {
-        "node": {"uuid": "ac13c636-4fc9-11e9-94c2-005056bb2516", "name": "node1"},
         "name": "backup3.7z",
+        "node": {"name": "node1", "uuid": "ac13c636-4fc9-11e9-94c2-005056bb2516"},
     }
 )
 
@@ -144,11 +144,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -162,7 +161,6 @@ __pdoc__ = {
     "ConfigurationBackupFileSchema.opts": False,
 }
 
-
 class ConfigurationBackupFileSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ConfigurationBackupFile object"""
 
@@ -172,7 +170,15 @@ class ConfigurationBackupFileSchema(ResourceSchema, metaclass=ResourceSchemaMeta
     )
     r""" Indicates if the backup was created automatically."""
 
-    backup_nodes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.backup_node.BackupNodeSchema", unknown=EXCLUDE, allow_none=True), data_key="backup_nodes", allow_none=True)
+    backup_nodes = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.backup_node", "BackupNodeSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="backup_nodes",
+                allow_none=True
+            )
     r""" The list of nodes included in the backup."""
 
     download_link = marshmallow_fields.Str(
@@ -191,7 +197,12 @@ Example: https://10.224.65.198/backups/backup_file.7z"""
 
 Example: backup_file.7z"""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the configuration_backup_file."""
 
     size = Size(

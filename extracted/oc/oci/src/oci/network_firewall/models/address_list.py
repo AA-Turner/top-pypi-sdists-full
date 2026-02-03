@@ -52,26 +52,33 @@ class AddressList(object):
             The value to assign to the parent_resource_id property of this AddressList.
         :type parent_resource_id: str
 
+        :param description:
+            The value to assign to the description property of this AddressList.
+        :type description: str
+
         """
         self.swagger_types = {
             'name': 'str',
             'type': 'str',
             'addresses': 'list[str]',
             'total_addresses': 'int',
-            'parent_resource_id': 'str'
+            'parent_resource_id': 'str',
+            'description': 'str'
         }
         self.attribute_map = {
             'name': 'name',
             'type': 'type',
             'addresses': 'addresses',
             'total_addresses': 'totalAddresses',
-            'parent_resource_id': 'parentResourceId'
+            'parent_resource_id': 'parentResourceId',
+            'description': 'description'
         }
         self._name = None
         self._type = None
         self._addresses = None
         self._total_addresses = None
         self._parent_resource_id = None
+        self._description = None
 
     @property
     def name(self):
@@ -198,6 +205,30 @@ class AddressList(object):
         :type: str
         """
         self._parent_resource_id = parent_resource_id
+
+    @property
+    def description(self):
+        """
+        Gets the description of this AddressList.
+        The description of the address list. This field can be used to add additional info.
+
+
+        :return: The description of this AddressList.
+        :rtype: str
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """
+        Sets the description of this AddressList.
+        The description of the address list. This field can be used to add additional info.
+
+
+        :param description: The description of this AddressList.
+        :type: str
+        """
+        self._description = description
 
     def __repr__(self):
         return formatted_flat_dict(self)

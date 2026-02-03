@@ -31,6 +31,10 @@ class CreateImportedModelDetails(object):
     #: This constant has a value of "RERANK"
     CAPABILITIES_RERANK = "RERANK"
 
+    #: A constant which can be used with the capabilities property of a CreateImportedModelDetails.
+    #: This constant has a value of "TEXT_TO_IMAGE"
+    CAPABILITIES_TEXT_TO_IMAGE = "TEXT_TO_IMAGE"
+
     def __init__(self, **kwargs):
         """
         Initializes a new CreateImportedModelDetails object with values from keyword arguments.
@@ -62,7 +66,7 @@ class CreateImportedModelDetails(object):
 
         :param capabilities:
             The value to assign to the capabilities property of this CreateImportedModelDetails.
-            Allowed values for items in this list are: "TEXT_TO_TEXT", "IMAGE_TEXT_TO_TEXT", "EMBEDDING", "RERANK"
+            Allowed values for items in this list are: "TEXT_TO_TEXT", "IMAGE_TEXT_TO_TEXT", "EMBEDDING", "RERANK", "TEXT_TO_IMAGE"
         :type capabilities: list[str]
 
         :param freeform_tags:
@@ -252,7 +256,7 @@ class CreateImportedModelDetails(object):
         Gets the capabilities of this CreateImportedModelDetails.
         Specifies the intended use or supported capabilities of the imported model.
 
-        Allowed values for items in this list are: "TEXT_TO_TEXT", "IMAGE_TEXT_TO_TEXT", "EMBEDDING", "RERANK"
+        Allowed values for items in this list are: "TEXT_TO_TEXT", "IMAGE_TEXT_TO_TEXT", "EMBEDDING", "RERANK", "TEXT_TO_IMAGE"
 
 
         :return: The capabilities of this CreateImportedModelDetails.
@@ -270,7 +274,7 @@ class CreateImportedModelDetails(object):
         :param capabilities: The capabilities of this CreateImportedModelDetails.
         :type: list[str]
         """
-        allowed_values = ["TEXT_TO_TEXT", "IMAGE_TEXT_TO_TEXT", "EMBEDDING", "RERANK"]
+        allowed_values = ["TEXT_TO_TEXT", "IMAGE_TEXT_TO_TEXT", "EMBEDDING", "RERANK", "TEXT_TO_IMAGE"]
 
         if capabilities and capabilities is not NONE_SENTINEL:
             for value in capabilities:

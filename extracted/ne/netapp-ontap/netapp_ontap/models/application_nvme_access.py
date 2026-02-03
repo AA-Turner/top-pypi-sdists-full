@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ApplicationNvmeAccess", "ApplicationNvmeAccessSchema"]
@@ -17,17 +16,26 @@ __pdoc__ = {
     "ApplicationNvmeAccess": False,
 }
 
-
 class ApplicationNvmeAccessSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ApplicationNvmeAccess object"""
 
-    backing_storage = marshmallow_fields.Nested("netapp_ontap.models.application_nvme_access_backing_storage.ApplicationNvmeAccessBackingStorageSchema", unknown=EXCLUDE, data_key="backing_storage", allow_none=True)
+    backing_storage = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.application_nvme_access_backing_storage", "ApplicationNvmeAccessBackingStorageSchema"),
+                unknown=EXCLUDE,
+                data_key="backing_storage",
+                allow_none=True
+            )
     r""" The backing_storage field of the application_nvme_access. """
 
     is_clone = marshmallow_fields.Boolean(data_key="is_clone", allow_none=True)
     r""" Clone """
 
-    subsystem_map = marshmallow_fields.Nested("netapp_ontap.models.application_subsystem_map_object.ApplicationSubsystemMapObjectSchema", unknown=EXCLUDE, data_key="subsystem_map", allow_none=True)
+    subsystem_map = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.application_subsystem_map_object", "ApplicationSubsystemMapObjectSchema"),
+                unknown=EXCLUDE,
+                data_key="subsystem_map",
+                allow_none=True
+            )
     r""" Subsystem map object """
 
     @property

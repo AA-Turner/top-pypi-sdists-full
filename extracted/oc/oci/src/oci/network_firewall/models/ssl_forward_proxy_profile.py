@@ -34,6 +34,10 @@ class SslForwardProxyProfile(DecryptionProfile):
             The value to assign to the parent_resource_id property of this SslForwardProxyProfile.
         :type parent_resource_id: str
 
+        :param description:
+            The value to assign to the description property of this SslForwardProxyProfile.
+        :type description: str
+
         :param is_expired_certificate_blocked:
             The value to assign to the is_expired_certificate_blocked property of this SslForwardProxyProfile.
         :type is_expired_certificate_blocked: bool
@@ -75,6 +79,7 @@ class SslForwardProxyProfile(DecryptionProfile):
             'type': 'str',
             'name': 'str',
             'parent_resource_id': 'str',
+            'description': 'str',
             'is_expired_certificate_blocked': 'bool',
             'is_untrusted_issuer_blocked': 'bool',
             'is_revocation_status_timeout_blocked': 'bool',
@@ -89,6 +94,7 @@ class SslForwardProxyProfile(DecryptionProfile):
             'type': 'type',
             'name': 'name',
             'parent_resource_id': 'parentResourceId',
+            'description': 'description',
             'is_expired_certificate_blocked': 'isExpiredCertificateBlocked',
             'is_untrusted_issuer_blocked': 'isUntrustedIssuerBlocked',
             'is_revocation_status_timeout_blocked': 'isRevocationStatusTimeoutBlocked',
@@ -102,6 +108,7 @@ class SslForwardProxyProfile(DecryptionProfile):
         self._type = None
         self._name = None
         self._parent_resource_id = None
+        self._description = None
         self._is_expired_certificate_blocked = None
         self._is_untrusted_issuer_blocked = None
         self._is_revocation_status_timeout_blocked = None

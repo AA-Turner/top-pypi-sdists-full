@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,22 +26,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     StorageAvailabilityZone(
         {
-            "uuid": "05be85be-2a5f-11ef-890a-005056bb9bec",
             "_links": {
                 "self": {
                     "href": "/api/storage/availability-zones/05be85be-2a5f-11ef-890a-005056bb9bec"
                 }
             },
+            "uuid": "05be85be-2a5f-11ef-890a-005056bb9bec",
         }
     ),
     StorageAvailabilityZone(
         {
-            "uuid": "9b3ff559-3333-11ef-b420-005056ae6060",
             "_links": {
                 "self": {
                     "href": "/api/storage/availability-zones/9b3ff559-3333-11ef-b420-005056ae6060"
                 }
             },
+            "uuid": "9b3ff559-3333-11ef-b420-005056ae6060",
         }
     ),
 ]
@@ -70,60 +70,60 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     StorageAvailabilityZone(
         {
-            "nodes": [
-                {"uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1", "name": "node3"},
-                {"uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47", "name": "node4"},
-            ],
-            "uuid": "05be85be-2a5f-11ef-890a-005056bb9bec",
             "_links": {
                 "self": {
                     "href": "/api/storage/availability-zones/05be85be-2a5f-11ef-890a-005056bb9bec"
                 }
             },
             "space": {
-                "physical_used": 16384,
-                "physical_user_data_without_snapshots": 40960,
-                "nearly_full_threshold_percent": 95,
-                "available": 2441216,
+                "efficiency_without_snapshots": {"savings": 8192, "ratio": 1.2},
                 "log_and_recovery_metadata": 32662,
+                "available": 2441216,
+                "nearly_full_threshold_percent": 95,
                 "physical_used_percent": 0,
-                "delayed_frees": 81920,
-                "total_metadata_used": 32768,
-                "efficiency_without_snapshots": {"ratio": 1.2, "savings": 8192},
-                "logical_user_data_without_snapshots": 49152,
+                "physical_user_data_without_snapshots": 40960,
                 "size": 2457600,
                 "full_threshold_percent": 98,
+                "physical_used": 16384,
+                "logical_user_data_without_snapshots": 49152,
+                "delayed_frees": 81920,
+                "total_metadata_used": 32768,
             },
             "name": "storage_availability_zone_2",
+            "nodes": [
+                {"name": "node3", "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1"},
+                {"name": "node4", "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47"},
+            ],
+            "uuid": "05be85be-2a5f-11ef-890a-005056bb9bec",
         }
     ),
     StorageAvailabilityZone(
         {
-            "nodes": [
-                {"uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4", "name": "node1"},
-                {"uuid": "54440ec3-6127-11e9-a959-005056bb76f9", "name": "node2"},
-            ],
-            "uuid": "9b3ff559-3333-11ef-b420-005056ae6060",
             "_links": {
                 "self": {
                     "href": "/api/storage/availability-zones/9b3ff559-3333-11ef-b420-005056ae6060"
                 }
             },
             "space": {
-                "physical_used": 58681106432,
-                "physical_user_data_without_snapshots": 114688,
-                "nearly_full_threshold_percent": 95,
-                "available": 66676547584,
+                "efficiency_without_snapshots": {"savings": 8192, "ratio": 1.0},
                 "log_and_recovery_metadata": 58678050816,
+                "available": 66676547584,
+                "nearly_full_threshold_percent": 95,
                 "physical_used_percent": 46,
-                "delayed_frees": 13832192,
-                "total_metadata_used": 58693394432,
-                "efficiency_without_snapshots": {"ratio": 1.0, "savings": 8192},
-                "logical_user_data_without_snapshots": 102400,
+                "physical_user_data_without_snapshots": 114688,
                 "size": 125357654016,
                 "full_threshold_percent": 98,
+                "physical_used": 58681106432,
+                "logical_user_data_without_snapshots": 102400,
+                "delayed_frees": 13832192,
+                "total_metadata_used": 58693394432,
             },
             "name": "storage_availability_zone_1",
+            "nodes": [
+                {"name": "node1", "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4"},
+                {"name": "node2", "uuid": "54440ec3-6127-11e9-a959-005056bb76f9"},
+            ],
+            "uuid": "9b3ff559-3333-11ef-b420-005056ae6060",
         }
     ),
 ]
@@ -152,26 +152,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StorageAvailabilityZone(
     {
-        "nodes": [
-            {"uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4", "name": "node1"},
-            {"uuid": "54440ec3-6127-11e9-a959-005056bb76f9", "name": "node2"},
-        ],
-        "uuid": "9b3ff559-3333-11ef-b420-005056ae6060",
         "space": {
-            "physical_used": 58681094144,
-            "physical_user_data_without_snapshots": 114688,
-            "nearly_full_threshold_percent": 95,
-            "available": 66676559872,
+            "efficiency_without_snapshots": {"savings": 8192, "ratio": 1.0},
             "log_and_recovery_metadata": 58678050816,
+            "available": 66676559872,
+            "nearly_full_threshold_percent": 95,
             "physical_used_percent": 46,
-            "delayed_frees": 100458496,
-            "total_metadata_used": 58780037120,
-            "efficiency_without_snapshots": {"ratio": 1.0, "savings": 8192},
-            "logical_user_data_without_snapshots": 122880,
+            "physical_user_data_without_snapshots": 114688,
             "size": 125357654016,
             "full_threshold_percent": 98,
+            "physical_used": 58681094144,
+            "logical_user_data_without_snapshots": 122880,
+            "delayed_frees": 100458496,
+            "total_metadata_used": 58780037120,
         },
         "name": "storage_availability_zone_1",
+        "nodes": [
+            {"name": "node1", "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4"},
+            {"name": "node2", "uuid": "54440ec3-6127-11e9-a959-005056bb76f9"},
+        ],
+        "uuid": "9b3ff559-3333-11ef-b420-005056ae6060",
     }
 )
 
@@ -199,11 +199,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -217,11 +216,15 @@ __pdoc__ = {
     "StorageAvailabilityZoneSchema.opts": False,
 }
 
-
 class StorageAvailabilityZoneSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the StorageAvailabilityZone object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the storage_availability_zone."""
 
     name = marshmallow_fields.Str(
@@ -230,10 +233,23 @@ class StorageAvailabilityZoneSchema(ResourceSchema, metaclass=ResourceSchemaMeta
     )
     r""" Availability zone name."""
 
-    nodes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.node_response_records_ha_partners.NodeResponseRecordsHaPartnersSchema", unknown=EXCLUDE, allow_none=True), data_key="nodes", allow_none=True)
+    nodes = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.node_response_records_ha_partners", "NodeResponseRecordsHaPartnersSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="nodes",
+                allow_none=True
+            )
     r""" Nodes in the availability zone."""
 
-    space = marshmallow_fields.Nested("netapp_ontap.models.storage_availability_zone_space.StorageAvailabilityZoneSpaceSchema", data_key="space", unknown=EXCLUDE, allow_none=True)
+    space = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_availability_zone_space", "StorageAvailabilityZoneSpaceSchema"),
+                data_key="space",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The space field of the storage_availability_zone."""
 
     uuid = marshmallow_fields.Str(

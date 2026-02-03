@@ -28,17 +28,24 @@ class EstimateReleaseDataSizeDetails(object):
             The value to assign to the time_data_ended property of this EstimateReleaseDataSizeDetails.
         :type time_data_ended: datetime
 
+        :param collection_id:
+            The value to assign to the collection_id property of this EstimateReleaseDataSizeDetails.
+        :type collection_id: int
+
         """
         self.swagger_types = {
             'time_data_started': 'datetime',
-            'time_data_ended': 'datetime'
+            'time_data_ended': 'datetime',
+            'collection_id': 'int'
         }
         self.attribute_map = {
             'time_data_started': 'timeDataStarted',
-            'time_data_ended': 'timeDataEnded'
+            'time_data_ended': 'timeDataEnded',
+            'collection_id': 'collectionId'
         }
         self._time_data_started = None
         self._time_data_ended = None
+        self._collection_id = None
 
     @property
     def time_data_started(self):
@@ -87,6 +94,32 @@ class EstimateReleaseDataSizeDetails(object):
         :type: datetime
         """
         self._time_data_ended = time_data_ended
+
+    @property
+    def collection_id(self):
+        """
+        Gets the collection_id of this EstimateReleaseDataSizeDetails.
+        This is the id for the recalled data collection to be released.
+        If specified, only this collection will be released
+
+
+        :return: The collection_id of this EstimateReleaseDataSizeDetails.
+        :rtype: int
+        """
+        return self._collection_id
+
+    @collection_id.setter
+    def collection_id(self, collection_id):
+        """
+        Sets the collection_id of this EstimateReleaseDataSizeDetails.
+        This is the id for the recalled data collection to be released.
+        If specified, only this collection will be released
+
+
+        :param collection_id: The collection_id of this EstimateReleaseDataSizeDetails.
+        :type: int
+        """
+        self._collection_id = collection_id
 
     def __repr__(self):
         return formatted_flat_dict(self)

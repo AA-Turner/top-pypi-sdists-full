@@ -18,6 +18,7 @@ from contrast_vendor import structlog as logging
 REWRITE_MODULES = [
     "posixpath",
     "urllib.parse",
+    # Also pathlib, conditionally. See references.
 ]
 
 MODULE_REWRITE_SKIP_NAMES = [
@@ -93,7 +94,7 @@ def rewrite_module_functions(module_name: str):
     module = sys.modules.get(module_name, None)
     if module is None:
         logger.debug(
-            'Failed to rewrite functions in module "%s": module not loaded', module_name
+            'Skipping rewriter policy for module "%s": module not loaded', module_name
         )
         return
 
@@ -151,7 +152,7 @@ def apply_rewrite_policy(*, rewrite_pathlib: bool = True):
     # Rewriting pathlib is problematic within the unit testing setting since
     # pytest relies heavily on pathlib and our patches wreak havoc. We enable
     # it by default but allow unit tests to disable it as necessary.
-    if rewrite_pathlib and sys.version_info[:2] > (3, 10):
+    if rewrite_pathlib:
         rewrite_module_functions("pathlib")
 
     repatch_imported_modules()

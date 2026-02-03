@@ -65,6 +65,11 @@ class CattrStage(Stage):
         self.converter = init_converter(factory, **kwargs)
         self.decode_content = decode_content
 
+    def copy(self) -> 'CattrStage':
+        stage = CattrStage(decode_content=self.decode_content)
+        stage.converter = self.converter
+        return stage
+
     @singledispatchmethod
     def dumps(self, value):
         return value
@@ -198,8 +203,11 @@ def _encode_content(response: CachedResponse) -> CachedResponse:
     if isinstance(response._decoded_content, str):
         response._content = response._decoded_content.encode('utf-8')
         response._decoded_content = None
-        response.encoding = 'utf-8'  # Set encoding explicitly so requests doesn't have to detect it
-        response.headers['Content-Length'] = str(len(response._content))  # Size may have changed
+        # Set encoding explicitly so requests doesn't have to detect it
+        response.encoding = 'utf-8'
+        # Normalization may change Content-Length
+        if 'Content-Length' in response.headers:
+            response.headers['Content-Length'] = str(len(response._content))
 
     return response
 

@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["FpolicyPolicies", "FpolicyPoliciesSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "FpolicyPoliciesSchema.opts": False,
     "FpolicyPolicies": False,
 }
-
 
 class FpolicyPoliciesSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the FpolicyPolicies object"""
@@ -32,10 +30,23 @@ data channel with privileged access. """
     r""" Specifies if the policy is enabled on the SVM or not. If no value is
 mentioned for this field but priority is set, then this policy will be enabled. """
 
-    engine = marshmallow_fields.Nested("netapp_ontap.resources.fpolicy_engine.FpolicyEngineSchema", unknown=EXCLUDE, data_key="engine", allow_none=True)
+    engine = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.fpolicy_engine", "FpolicyEngineSchema"),
+                unknown=EXCLUDE,
+                data_key="engine",
+                allow_none=True
+            )
     r""" The engine field of the fpolicy_policies. """
 
-    events = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.fpolicy_event.FpolicyEventSchema", unknown=EXCLUDE, allow_none=True), data_key="events", allow_none=True)
+    events = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.fpolicy_event", "FpolicyEventSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="events",
+                allow_none=True
+                )
     r""" The events field of the fpolicy_policies.
 
 Example: ["event_cifs","event_open"] """
@@ -74,7 +85,12 @@ this field should be in "domain\username" format.
 
 Example: mydomain\testuser """
 
-    scope = marshmallow_fields.Nested("netapp_ontap.models.fpolicy_policies_scope.FpolicyPoliciesScopeSchema", unknown=EXCLUDE, data_key="scope", allow_none=True)
+    scope = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fpolicy_policies_scope", "FpolicyPoliciesScopeSchema"),
+                unknown=EXCLUDE,
+                data_key="scope",
+                allow_none=True
+            )
     r""" The scope field of the fpolicy_policies. """
 
     @property

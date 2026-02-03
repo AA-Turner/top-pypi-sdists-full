@@ -2381,6 +2381,7 @@ class CreateOnlineEvaluationConfigRequestTypeDef(TypedDict):
     enableOnCreate: bool
     clientToken: NotRequired[str]
     description: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 class UpdateOnlineEvaluationConfigRequestTypeDef(TypedDict):
     onlineEvaluationConfigId: str
@@ -2692,6 +2693,7 @@ class CreateEvaluatorRequestTypeDef(TypedDict):
     level: EvaluatorLevelType
     clientToken: NotRequired[str]
     description: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 class UpdateEvaluatorRequestTypeDef(TypedDict):
     evaluatorId: str

@@ -51,7 +51,7 @@ class StepInfo(object):
     def input_sequence_current_match(self):
         """
         Gets the input_sequence_current_match of this StepInfo.
-        The currnet input sequence match.
+        The current input sequence match.
 
 
         :return: The input_sequence_current_match of this StepInfo.
@@ -63,7 +63,7 @@ class StepInfo(object):
     def input_sequence_current_match(self, input_sequence_current_match):
         """
         Sets the input_sequence_current_match of this StepInfo.
-        The currnet input sequence match.
+        The current input sequence match.
 
 
         :param input_sequence_current_match: The input_sequence_current_match of this StepInfo.

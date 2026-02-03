@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from logging import DEBUG, getLogger
-from typing import TYPE_CHECKING, Dict, List, MutableMapping, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Mapping, MutableMapping, Optional, Union
 
 from attrs import define, field
 from requests import PreparedRequest, Response
@@ -24,7 +24,7 @@ from . import (
 from .settings import CacheSettings
 
 if TYPE_CHECKING:
-    from ..models import CachedResponse
+    from ..models import CachedRequest, CachedResponse
 
 # Nonstandard headers that can be used to override the request method
 METHOD_OVERRIDE_HEADERS = [
@@ -95,20 +95,13 @@ class CacheActions(RichMixin):
         with the `expire_after` option provided in :py:meth:`.CachedSession.request`.
 
         Args:
+            cache_key: The cache key created based on the initial request
             request: The outgoing request
             settings: Session-level cache settings
         """
         settings = settings or CacheSettings()
         directives = CacheDirectives.from_headers(request.headers)
         logger.debug(f'Cache directives from request headers: {directives}')
-
-        # Merge values that may come from either settings or headers
-        only_if_cached = settings.only_if_cached or directives.only_if_cached
-        refresh = directives.max_age == EXPIRE_IMMEDIATELY or directives.must_revalidate
-        stale_if_error = settings.stale_if_error or directives.stale_if_error
-        stale_while_revalidate = (
-            settings.stale_while_revalidate or directives.stale_while_revalidate
-        )
 
         # Check expiration values in order of precedence
         expire_after = coalesce(
@@ -117,12 +110,22 @@ class CacheActions(RichMixin):
             settings.expire_after,
         )
 
+        # Merge values that may come from either settings (requests-cache-specific) or headers (standard)
+        actual_no_cache = directives.actual_no_cache or expire_after == DO_NOT_CACHE
+        kinda_no_cache = directives.no_cache or directives.no_store
+        only_if_cached = settings.only_if_cached or directives.only_if_cached
+        refresh = directives.max_age == EXPIRE_IMMEDIATELY or directives.must_revalidate
+        stale_if_error = settings.stale_if_error or directives.stale_if_error
+        stale_while_revalidate = (
+            settings.stale_while_revalidate or directives.stale_while_revalidate
+        )
+
         # Check and log conditions for reading from the cache
         read_criteria = {
             'disabled cache': settings.disabled,
             'disabled method': not _is_method_allowed(request, settings),
-            'disabled by headers or refresh': directives.no_cache or directives.no_store,
-            'disabled by expiration': expire_after == DO_NOT_CACHE,
+            'disabled by headers or refresh': kinda_no_cache,
+            'disabled by expiration': actual_no_cache,
         }
         _log_cache_criteria('read', read_criteria)
 
@@ -241,6 +244,7 @@ class CacheActions(RichMixin):
             'disabled by filter': filtered_out,
             'disabled by headers': self.skip_write,
             'disabled by expiration': do_not_cache or skip_stale,
+            'disabled by read-only': self._settings.read_only,
         }
         self.skip_write = any(write_criteria.values())
         _log_cache_criteria('write', write_criteria)
@@ -262,9 +266,17 @@ class CacheActions(RichMixin):
             cached_response.headers.get(k) != v for k, v in response.headers.items()
         )
         self.skip_write = self.expires == cached_response.expires and not headers_changed
-
         cached_response.expires = self.expires
+
+        # Update headers;
+        # Account for Transfer-Encoding in original response and Content-Length in 304 response
         cached_response.headers.update(response.headers)
+        if (
+            'Content-Length' in cached_response.headers
+            and 'Transfer-Encoding' in cached_response.headers
+        ):
+            del cached_response.headers['Content-Length']
+
         cached_response.revalidated = True
         return cached_response
 
@@ -303,8 +315,8 @@ class CacheActions(RichMixin):
                 self._validation_headers['If-None-Match'] = directives.etag
             if directives.last_modified:
                 self._validation_headers['If-Modified-Since'] = directives.last_modified
-            self.send_request = True
-            self.resend_request = False
+            self.send_request = False
+            self.resend_request = True
 
     def _validate_vary(
         self, cached_response: 'CachedResponse', create_key: KeyCallback, **key_kwargs
@@ -318,12 +330,23 @@ class CacheActions(RichMixin):
 
         # Generate a secondary cache key based on Vary for both the cached request and new request.
         # If there are redirects, compare the new request against the last request in the chain.
-        key_kwargs['match_headers'] = [k.strip() for k in vary.split(',')]
+        match_headers = [k.strip().lower() for k in vary.split(',')]
         vary_request = (
             cached_response.history[-1].request
             if cached_response.history
             else cached_response.request
         )
+
+        # Handle 'Vary: Cookie' separately since requests doesn't store cookies with other headers
+        if 'cookie' in match_headers:
+            if not self._cookies_match(vary_request):
+                logger.debug('Failed Vary check: cookies do not match')
+                return False
+            match_headers.remove('cookie')
+        if not match_headers:
+            return True
+
+        key_kwargs['match_headers'] = match_headers
         vary_cache_key = create_key(vary_request, **key_kwargs)
         headers_match = create_key(self._request, **key_kwargs) == vary_cache_key
         if not headers_match:
@@ -333,6 +356,17 @@ class CacheActions(RichMixin):
                 key_kwargs['match_headers'],
             )
         return headers_match
+
+    def _cookies_match(self, cached_request: 'CachedRequest') -> bool:
+        """Compare cookies between the current request and cached request for Vary: Cookie"""
+
+        def normalize_cookies(cookies: Optional[Mapping]) -> str:
+            cookie_list = [f'{k}={v}' for k, v in (cookies or {}).items()]
+            return '; '.join(sorted(cookie_list))
+
+        cached_cookies = normalize_cookies(cached_request.cookies)
+        request_cookies = normalize_cookies(getattr(self._request, '_cookies', None))
+        return request_cookies == cached_cookies
 
 
 def _is_method_allowed(request: PreparedRequest, settings: CacheSettings) -> bool:

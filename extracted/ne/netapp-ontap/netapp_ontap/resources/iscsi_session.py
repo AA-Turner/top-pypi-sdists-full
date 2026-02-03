@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,40 +26,40 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     IscsiSession(
         {
             "target_portal_group": "iscsi_lif1",
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/iscsi/sessions/a009a9e7-4081-b576-7575-ada21efcaf16/iscsi_lif1/10"
+                }
+            },
             "tsih": 10,
             "svm": {
-                "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/a009a9e7-4081-b576-7575-ada21efcaf16"
                     }
                 },
-            },
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/iscsi/sessions/a009a9e7-4081-b576-7575-ada21efcaf16/iscsi_lif1/10"
-                }
+                "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16",
             },
         }
     ),
     IscsiSession(
         {
             "target_portal_group": "iscsi_lif2",
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/iscsi/sessions/b009a9e7-4081-b576-7575-ada21efcaf16/iscsi_lif2/11"
+                }
+            },
             "tsih": 11,
             "svm": {
-                "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16",
                 "name": "svm2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/b009a9e7-4081-b576-7575-ada21efcaf16"
                     }
                 },
-            },
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/iscsi/sessions/b009a9e7-4081-b576-7575-ada21efcaf16/iscsi_lif2/11"
-                }
+                "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16",
             },
         }
     ),
@@ -90,20 +90,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     IscsiSession(
         {
             "target_portal_group": "iscsi_lif1",
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/iscsi/sessions/a009a9e7-4081-b576-7575-ada21efcaf16/iscsi_lif1/10"
+                }
+            },
             "tsih": 10,
             "svm": {
-                "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/a009a9e7-4081-b576-7575-ada21efcaf16"
                     }
                 },
-            },
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/iscsi/sessions/a009a9e7-4081-b576-7575-ada21efcaf16/iscsi_lif1/10"
-                }
+                "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16",
             },
         }
     )
@@ -136,62 +136,62 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IscsiSession(
     {
-        "connections": [
-            {
-                "interface": {
-                    "uuid": "c15439b4-dbb4-11e8-90ac-005056bba882",
-                    "_links": {
-                        "self": {
-                            "href": "/api/network/ip/interfaces/c15439b4-dbb4-11e8-90ac-005056bba882"
-                        }
-                    },
-                    "ip": {"port": 3260, "address": "192.168.0.1"},
-                    "name": "iscsi_lif1",
-                },
-                "authentication_type": "chap",
-                "cid": 1,
-                "initiator_address": {"port": 43827, "address": "10.224.123.85"},
-            }
-        ],
         "initiator": {
             "comment": "Example information about this initiator",
             "name": "iqn.1994-05.com.example:string",
         },
+        "isid": "61:62:63:64:65:00",
+        "target_portal_group": "iscsi_lif1",
+        "_links": {
+            "self": {
+                "href": "/api/protocols/san/iscsi/sessions/a009a9e7-4081-b576-7575-ada21efcaf16/iscsi_lif1/10"
+            }
+        },
+        "tsih": 10,
         "igroups": [
             {
-                "uuid": "af7838cd-f993-4faf-90b7-5524787ae1e8",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/san/igroups/af7838cd-f993-4faf-90b7-5524787ae1e8"
                     }
                 },
                 "name": "igroup1",
+                "uuid": "af7838cd-f993-4faf-90b7-5524787ae1e8",
             },
             {
-                "uuid": "bf7838cd-f993-4faf-90b7-5524787ae1e8",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/san/igroups/bf7838cd-f993-4faf-90b7-5524787ae1e8"
                     }
                 },
                 "name": "igroup2",
+                "uuid": "bf7838cd-f993-4faf-90b7-5524787ae1e8",
             },
         ],
-        "target_portal_group": "iscsi_lif1",
+        "connections": [
+            {
+                "interface": {
+                    "ip": {"port": 3260, "address": "192.168.0.1"},
+                    "_links": {
+                        "self": {
+                            "href": "/api/network/ip/interfaces/c15439b4-dbb4-11e8-90ac-005056bba882"
+                        }
+                    },
+                    "name": "iscsi_lif1",
+                    "uuid": "c15439b4-dbb4-11e8-90ac-005056bba882",
+                },
+                "cid": 1,
+                "initiator_address": {"port": 43827, "address": "10.224.123.85"},
+                "authentication_type": "chap",
+            }
+        ],
         "target_portal_group_tag": 1027,
-        "tsih": 10,
-        "isid": "61:62:63:64:65:00",
         "svm": {
-            "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16",
             "name": "svm1",
             "_links": {
                 "self": {"href": "/api/svm/svms/a009a9e7-4081-b576-7575-ada21efcaf16"}
             },
-        },
-        "_links": {
-            "self": {
-                "href": "/api/protocols/san/iscsi/sessions/a009a9e7-4081-b576-7575-ada21efcaf16/iscsi_lif1/10"
-            }
+            "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16",
         },
     }
 )
@@ -205,11 +205,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -223,20 +222,45 @@ __pdoc__ = {
     "IscsiSessionSchema.opts": False,
 }
 
-
 class IscsiSessionSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the IscsiSession object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the iscsi_session."""
 
-    connections = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.iscsi_connection.IscsiConnectionSchema", unknown=EXCLUDE, allow_none=True), data_key="connections", allow_none=True)
+    connections = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.iscsi_connection", "IscsiConnectionSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="connections",
+                allow_none=True
+            )
     r""" The iSCSI connections that make up the iSCSI session."""
 
-    igroups = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.igroup_nested_records.IgroupNestedRecordsSchema", unknown=EXCLUDE, allow_none=True), data_key="igroups", allow_none=True)
+    igroups = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.igroup_nested_records", "IgroupNestedRecordsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="igroups",
+                allow_none=True
+            )
     r""" The initiator groups in which the initiator is a member."""
 
-    initiator = marshmallow_fields.Nested("netapp_ontap.models.iscsi_session_initiator.IscsiSessionInitiatorSchema", data_key="initiator", unknown=EXCLUDE, allow_none=True)
+    initiator = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.iscsi_session_initiator", "IscsiSessionInitiatorSchema"),
+                data_key="initiator",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The initiator that created the session."""
 
     isid = marshmallow_fields.Str(
@@ -248,7 +272,12 @@ class IscsiSessionSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 61:62:63:64:65:00"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the iscsi_session."""
 
     target_portal_group = marshmallow_fields.Str(

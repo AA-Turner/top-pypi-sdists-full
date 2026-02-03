@@ -15,9 +15,99 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Month code to month number mapping for futures contracts
+MONTH_CODE_MAP = {
+    "F": 1,
+    "G": 2,
+    "H": 3,
+    "J": 4,
+    "K": 5,
+    "M": 6,
+    "N": 7,
+    "Q": 8,
+    "U": 9,
+    "V": 10,
+    "X": 11,
+    "Z": 12,
+}
+
+
+def _parse_generic_ticker(gen_ticker: str) -> tuple[str, int, str]:
+    """Parse a generic futures ticker into components.
+
+    Args:
+        gen_ticker: Generic ticker like 'ES1 Index', 'CL2 Comdty', '7203 1 JT Equity'
+
+    Returns:
+        Tuple of (root, n, asset_type) where:
+        - root: The ticker root (e.g., 'ES', 'CL', '7203')
+        - n: The contract number (1 = front month, 2 = second, etc.)
+        - asset_type: The asset type (e.g., 'Index', 'Comdty', 'JT Equity')
+
+    Raises:
+        ValueError: If the ticker format is not recognized.
+    """
+    t_info = gen_ticker.split()
+    asset = t_info[-1]
+
+    if asset in ["Index", "Curncy", "Comdty"]:
+        ticker = " ".join(t_info[:-1])
+        root = ticker[:-1]
+        n = int(ticker[-1])
+        asset_type = asset
+    elif asset == "Equity":
+        ticker = t_info[0]
+        root = ticker[:-1]
+        n = int(ticker[-1])
+        asset_type = " ".join(t_info[1:])
+    else:
+        raise ValueError(f"Unknown asset type for generic ticker: {gen_ticker}")
+
+    return root, n, asset_type
+
+
+def _get_cycle_months(gen_ticker: str) -> str:
+    """Get the contract cycle months from Bloomberg.
+
+    Args:
+        gen_ticker: Generic futures ticker like 'ES1 Index'
+
+    Returns:
+        String of month codes (e.g., 'HMUZ' for quarterly, 'FGHJKMNQUVXZ' for monthly)
+    """
+    from xbbg.api.reference import bdp  # noqa: PLC0415
+
+    result = bdp(gen_ticker, "FUT_GEN_MONTH")
+    if result.empty:
+        logger.warning("Could not get FUT_GEN_MONTH for %s", gen_ticker)
+        return ""
+    return result.iloc[0, 0]
+
+
+def _construct_contract_ticker(
+    root: str, month_code: str, year: int, asset_type: str, use_single_digit_year: bool = False
+) -> str:
+    """Construct a specific futures contract ticker.
+
+    Args:
+        root: Ticker root (e.g., 'ES', 'CL')
+        month_code: Month code (e.g., 'H', 'M', 'U', 'Z')
+        year: Full year (e.g., 2024)
+        asset_type: Asset type (e.g., 'Index', 'Comdty')
+        use_single_digit_year: If True, use single digit year (e.g., 'ESH5' instead of 'ESH25')
+
+    Returns:
+        Contract ticker (e.g., 'ESH24 Index')
+    """
+    year_str = str(year)[-1] if use_single_digit_year else str(year)[-2:]
+    return f"{root}{month_code}{year_str} {asset_type}"
+
 
 def active_futures(ticker: str, dt, **kwargs) -> str:
     """Active futures contract.
+
+    Determines the most actively traded futures contract by comparing volume
+    between the front-month and second-month contracts.
 
     Args:
         ticker: Generic futures ticker, i.e., UX1 Index, ESA Index, Z A Index, CLA Comdty, etc.
@@ -33,14 +123,14 @@ def active_futures(ticker: str, dt, **kwargs) -> str:
     """
     # Check if ticker is already a specific contract (contains month codes)
     month_codes = set(const.Futures.values())  # {'F', 'G', 'H', 'J', 'K', 'M', 'N', 'Q', 'U', 'V', 'X', 'Z'}
-    ticker_base = ticker.rsplit(' ', 1)[0]  # Remove asset type (Index, Comdty, etc.)
+    ticker_base = ticker.rsplit(" ", 1)[0]  # Remove asset type (Index, Comdty, etc.)
 
     # Generic tickers end with just a number (1, 2, etc.) like UX1, ESA1, ZA1
     # Specific contracts end with month code + year digits like UXZ5, UXZ24, ESAM24
     # Pattern: ends with [month_code][1-2 digits] where month_code is immediately before digits
-    month_code_pattern = rf'[{re.escape("".join(month_codes))}]'
+    month_code_pattern = rf"[{re.escape(''.join(month_codes))}]"
     # Match pattern: [anything][month_code][1-2 digits] at the end
-    match = re.search(rf'(.+)({month_code_pattern})(\d{{1,2}})$', ticker_base)
+    match = re.search(rf"(.+)({month_code_pattern})(\d{{1,2}})$", ticker_base)
     if match:
         prefix, month_char, digits = match.groups()
         # If it ends with [month_code][2 digits] it's definitely specific
@@ -66,114 +156,128 @@ def active_futures(ticker: str, dt, **kwargs) -> str:
     from xbbg.api.reference import bdp  # noqa: PLC0415
 
     t_info = ticker.split()
-    prefix, asset = ' '.join(t_info[:-1]), t_info[-1]
-    info = const.market_info(f'{prefix[:-1]}1 {asset}')
+    prefix, asset = " ".join(t_info[:-1]), t_info[-1]
 
-    f1, f2 = f'{prefix[:-1]}1 {asset}', f'{prefix[:-1]}2 {asset}'
-    raw_freq = info.get('freq')
-    if isinstance(raw_freq, str) and raw_freq.strip():
-        freq_code = raw_freq.strip()
-    else:
-        logger.error(
-            "Missing 'freq' configuration in assets.yml for futures root '%s' (asset type: %s). Please set 'freq' explicitly.",
-            prefix[:-1], asset
-        )
-        return ''
+    # Construct the generic tickers for front and second month
+    f1, f2 = f"{prefix[:-1]}1 {asset}", f"{prefix[:-1]}2 {asset}"
 
-    fut_2 = fut_ticker(gen_ticker=f2, dt=dt, freq=freq_code, **kwargs)
-    fut_1 = fut_ticker(gen_ticker=f1, dt=dt, freq=freq_code, **kwargs)
+    # Get specific contracts using Bloomberg-based resolution
+    fut_1 = fut_ticker(gen_ticker=f1, dt=dt, **kwargs)
+    fut_2 = fut_ticker(gen_ticker=f2, dt=dt, **kwargs)
 
-    fut_tk = bdp(tickers=[fut_1, fut_2], flds='last_tradeable_dt')
+    if not fut_1:
+        logger.error("Failed to resolve front-month contract for %s", f1)
+        return ""
 
-    first_matu = pd.Timestamp(fut_tk['last_tradeable_dt'].iloc[0])
-    if pd.Timestamp(dt).month < first_matu.month: return fut_1
+    if not fut_2:
+        # If we can't get second month, just return front month
+        return fut_1
+
+    fut_tk = bdp(tickers=[fut_1, fut_2], flds="last_tradeable_dt")
+
+    if fut_tk.empty or "last_tradeable_dt" not in fut_tk.columns:
+        return fut_1
+
+    first_matu = pd.Timestamp(fut_tk["last_tradeable_dt"].iloc[0])
+    if pd.Timestamp(dt).month < first_matu.month:
+        return fut_1
 
     dts = pd.bdate_range(end=dt, periods=10)
     from xbbg.api.historical import bdh  # noqa: PLC0415
-    volume = bdh(tickers=list(fut_tk.index), flds='volume', start_date=dts[0], end_date=dts[-1])
-    if volume.empty: return fut_1
+
+    volume = bdh(tickers=list(fut_tk.index), flds="volume", start_date=dts[0], end_date=dts[-1])
+    if volume.empty:
+        return fut_1
     return volume.iloc[-1].idxmax()[0]
 
 
-def fut_ticker(gen_ticker: str, dt, freq: str, **kwargs) -> str:
-    """Get proper ticker from generic ticker.
+def fut_ticker(gen_ticker: str, dt, **kwargs) -> str:
+    """Get specific futures contract ticker from generic ticker.
+
+    Uses Bloomberg's FUT_GEN_MONTH field to determine the contract cycle,
+    then constructs candidate contracts and queries their expiration dates.
 
     Args:
-        gen_ticker: generic ticker
-        dt: date
-        freq: futures contract frequency
-        **kwargs: Passed through to Bloomberg fetch and logging.
+        gen_ticker: Generic ticker (e.g., 'ES1 Index', 'CL2 Comdty')
+        dt: Date to resolve for
+        **kwargs: Passed through to Bloomberg calls (e.g., timeout).
 
     Returns:
-        str: exact futures ticker
+        Specific contract ticker (e.g., 'ESH24 Index')
     """
-    # Logger is module-level
+    from xbbg.api.reference import bdp  # noqa: PLC0415
+
     dt = pd.Timestamp(dt)
-    t_info = gen_ticker.split()
-    pre_dt = pd.bdate_range(end='today', periods=1)[-1]
-    same_month = (pre_dt.month == dt.month) and (pre_dt.year == dt.year)
 
-    asset = t_info[-1]
-    if asset in ['Index', 'Curncy', 'Comdty']:
-        ticker = ' '.join(t_info[:-1])
-        prefix, idx, postfix = ticker[:-1], int(ticker[-1]) - 1, asset
-
-    elif asset == 'Equity':
-        ticker = t_info[0]
-        prefix, idx, postfix = ticker[:-1], int(ticker[-1]) - 1, ' '.join(t_info[1:])
-
-    else:
-        logger.error('Unknown asset type for generic ticker: %s (expected Index, Curncy, Comdty, or Equity)', gen_ticker)
-        return ''
-
-    month_ext = 4 if asset == 'Comdty' else 2
-    eff_freq = (freq or '').strip().upper() if isinstance(freq, str) else None
-    if not eff_freq:
-        logger.error("Missing or invalid 'freq' parameter for generic ticker '%s'. Please provide explicit 'freq' in assets.yml.", gen_ticker)
-        return ''
-    if eff_freq == 'M':
-        eff_freq = 'ME'
-    elif eff_freq == 'Q':
-        eff_freq = 'QE-DEC'
-    months = pd.date_range(start=dt, periods=max(idx + month_ext, 3), freq=eff_freq)
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.debug('Computing futures expiry dates for %d months', len(months))
-
-    def to_fut(month):
-        return prefix + const.Futures[month.strftime('%b')] + \
-            month.strftime('%y')[-1 if same_month else -2:] + ' ' + postfix
-
-    fut = [to_fut(m) for m in months]
-    # Guard list conversion - only log if DEBUG enabled (avoid string conversion overhead)
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.debug('Attempting to resolve %d futures contracts', len(fut))
-    # Import directly from API modules to avoid circular dependency
-    from xbbg.api.reference import bdp  # lazy
-    # noinspection PyBroadException
+    # Parse the generic ticker
     try:
-        fut_matu = bdp(tickers=fut, flds='last_tradeable_dt')
-    except Exception as e1:
-        logger.error('Failed to download futures contracts (attempt 1): %s. Tickers: %s', e1, fut)
-        # noinspection PyBroadException
-        try:
-            fut = fut[:-1]
-            logger.debug('Retrying futures contract resolution (attempt 2): %s', fut)
-            fut_matu = bdp(tickers=fut, flds='last_tradeable_dt')
-        except Exception as e2:
-            logger.error('Failed to download futures contracts (attempt 2): %s. Tickers: %s', e2, fut)
-            return ''
+        root, n, asset_type = _parse_generic_ticker(gen_ticker)
+    except ValueError as e:
+        logger.error(str(e))
+        return ""
 
-    if 'last_tradeable_dt' not in fut_matu:
-        logger.warning('No valid futures contracts found for: %s', fut)
-        return ''
+    # Get cycle months from Bloomberg
+    cycle_months = _get_cycle_months(gen_ticker)
+    if not cycle_months:
+        logger.error("Could not determine contract cycle for %s", gen_ticker)
+        return ""
 
-    fut_matu.sort_values(by='last_tradeable_dt', ascending=True, inplace=True)
-    sub_fut = fut_matu[pd.DatetimeIndex(fut_matu.last_tradeable_dt) > dt]
-    # Guard len() calls - only compute if DEBUG logging is enabled
     if logger.isEnabledFor(logging.DEBUG):
-        logger.debug('Futures maturity chain: %d contracts', len(fut_matu))
-        logger.debug('Selecting futures contract at index %d from %d available contracts', idx, len(sub_fut))
-    return sub_fut.index.values[idx]
+        logger.debug("Contract cycle for %s: %s", gen_ticker, cycle_months)
+
+    # Determine if we should use single-digit year (for current year contracts)
+    pre_dt = pd.bdate_range(end="today", periods=1)[-1]
+    use_single_digit_year = (pre_dt.month == dt.month) and (pre_dt.year == dt.year)
+
+    # Generate candidate contracts for a range of years
+    start_year = dt.year - 1
+    end_year = dt.year + 3
+
+    candidates = []
+    for year in range(start_year, end_year + 1):
+        for month_code in cycle_months:
+            ticker = _construct_contract_ticker(root, month_code, year, asset_type, use_single_digit_year)
+            candidates.append(ticker)
+
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug("Generated %d candidate contracts for %s", len(candidates), gen_ticker)
+
+    # Query expiration dates from Bloomberg
+    try:
+        exp_dates = bdp(tickers=candidates, flds="last_tradeable_dt")
+    except Exception as e:
+        logger.error("Failed to query expiration dates for %s: %s", gen_ticker, e)
+        return ""
+
+    if exp_dates.empty or "last_tradeable_dt" not in exp_dates.columns:
+        logger.warning("No valid futures contracts found for %s", gen_ticker)
+        return ""
+
+    # Filter and sort by expiration date
+    exp_dates = exp_dates.dropna(subset=["last_tradeable_dt"])
+    exp_dates["last_tradeable_dt"] = pd.to_datetime(exp_dates["last_tradeable_dt"])
+    exp_dates = exp_dates.sort_values("last_tradeable_dt")
+
+    # Filter contracts expiring after dt
+    future_contracts = exp_dates[exp_dates["last_tradeable_dt"] > dt]
+
+    if len(future_contracts) < n:
+        logger.warning(
+            "Not enough contracts expiring after %s for %s (need %d, found %d)",
+            dt.date(),
+            gen_ticker,
+            n,
+            len(future_contracts),
+        )
+        return ""
+
+    # Return the Nth contract (1-indexed, so n-1 for 0-indexed)
+    result = future_contracts.index[n - 1]
+
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug("Resolved %s @ %s -> %s", gen_ticker, dt.date(), result)
+
+    return result
 
 
 def cdx_ticker(
@@ -217,40 +321,40 @@ def cdx_ticker(
     try:
         info = bdp(
             tickers=gen_ticker,
-            flds=['rolling_series', 'on_the_run_current_bd_indicator', 'cds_first_accrual_start_date'],
+            flds=["rolling_series", "on_the_run_current_bd_indicator", "cds_first_accrual_start_date"],
             **safe_kwargs,
         )
     except Exception as e:
-        logger.error('Failed to fetch CDX metadata for generic ticker %s: %s', gen_ticker, e)
-        return ''
+        logger.error("Failed to fetch CDX metadata for generic ticker %s: %s", gen_ticker, e)
+        return ""
 
-    if info.empty or 'rolling_series' not in info:
-        logger.warning('No rolling series configuration found for CDX ticker: %s', gen_ticker)
-        return ''
+    if info.empty or "rolling_series" not in info:
+        logger.warning("No rolling series configuration found for CDX ticker: %s", gen_ticker)
+        return ""
 
-    series = info.loc[gen_ticker, 'rolling_series']
+    series = info.loc[gen_ticker, "rolling_series"]
     try:
         series = int(series)
     except Exception:
         series = series
 
     tokens = gen_ticker.split()
-    if 'GEN' not in tokens:
-        logger.warning('Generic ticker %s does not contain expected GEN token for CDX resolution', gen_ticker)
-        return ''
-    tokens[tokens.index('GEN')] = f'S{series}'
-    resolved = ' '.join(tokens)
+    if "GEN" not in tokens:
+        logger.warning("Generic ticker %s does not contain expected GEN token for CDX resolution", gen_ticker)
+        return ""
+    tokens[tokens.index("GEN")] = f"S{series}"
+    resolved = " ".join(tokens)
 
     # If dt is before first accrual date of current series, use prior series
-    faccr_col = 'cds_first_accrual_start_date'
+    faccr_col = "cds_first_accrual_start_date"
     try:
         start_dt = pd.Timestamp(info.loc[gen_ticker, faccr_col]) if faccr_col in info else None
     except Exception:
         start_dt = None
 
     if (start_dt is not None) and (dt < start_dt) and isinstance(series, int) and series > 1:
-        tokens[tokens.index(f'S{series}')] = f'S{series - 1}'
-        resolved = ' '.join(tokens)
+        tokens[tokens.index(f"S{series}")] = f"S{series - 1}"
+        resolved = " ".join(tokens)
 
     return resolved
 
@@ -286,17 +390,17 @@ def active_cdx(
 
     cur = cdx_ticker(gen_ticker=gen_ticker, dt=dt, ctx=ctx)
     if not cur:
-        return ''
+        return ""
 
     # Compute previous series candidate
     parts = cur.split()
-    prev = ''
+    prev = ""
     for i, tok in enumerate(parts):
-        if tok.startswith('S') and tok[1:].isdigit():
+        if tok.startswith("S") and tok[1:].isdigit():
             s = int(tok[1:])
             if s > 1:
-                parts[i] = f'S{s - 1}'
-                prev = ' '.join(parts)
+                parts[i] = f"S{s - 1}"
+                prev = " ".join(parts)
             break
 
     # If no prev candidate, return current
@@ -306,11 +410,12 @@ def active_cdx(
     # Import directly from API modules to avoid circular dependency
     from xbbg.api.historical import bdh  # lazy
     from xbbg.api.reference import bdp  # lazy
+
     # Convert context to kwargs for bdp/bdh calls
     safe_kwargs = ctx.to_kwargs()
     # If dt is before accrual start, prefer prev
     try:
-        cur_meta = bdp(cur, ['cds_first_accrual_start_date'], **safe_kwargs)
+        cur_meta = bdp(cur, ["cds_first_accrual_start_date"], **safe_kwargs)
         cur_start = pd.Timestamp(cur_meta.iloc[0, 0]) if not cur_meta.empty else None
     except Exception:
         cur_start = None
@@ -322,12 +427,10 @@ def active_cdx(
     end = pd.Timestamp(dt)
     start = end - pd.Timedelta(days=lookback_days)
     try:
-        px = bdh([cur, prev], ['PX_LAST'], start_date=start, end_date=end, **safe_kwargs)
+        px = bdh([cur, prev], ["PX_LAST"], start_date=start, end_date=end, **safe_kwargs)
         if px.empty:
             return cur
-        last_non_na = px.xs('PX_LAST', axis=1, level=1).ffill().iloc[-1]
+        last_non_na = px.xs("PX_LAST", axis=1, level=1).ffill().iloc[-1]
         return last_non_na.dropna().index[0] if last_non_na.notna().any() else cur
     except Exception:
         return cur
-
-

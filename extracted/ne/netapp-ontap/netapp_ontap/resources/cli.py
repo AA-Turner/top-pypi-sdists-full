@@ -1,6 +1,6 @@
 """
 
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 ## Overview

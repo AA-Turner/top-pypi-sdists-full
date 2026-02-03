@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["StorageUnitSpace", "StorageUnitSpaceSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "StorageUnitSpaceSchema.opts": False,
     "StorageUnitSpace": False,
 }
-
 
 class StorageUnitSpaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the StorageUnitSpace object"""
@@ -35,6 +33,7 @@ Example: 1073741824 """
 
     physical_used_by_snapshots = Size(data_key="physical_used_by_snapshots", allow_none=True)
     r""" The number of bytes consumed on the disk by the storage unit's snapshots.
+This property has been replaced by `space.snapshot.used`.
 
 
 Example: 1073741824 """
@@ -46,6 +45,14 @@ For more information, see _Size properties_ in the _docs_ section of the ONTAP R
 
 
 Example: 1073741824 """
+
+    snapshot = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_unit_space_snapshot", "StorageUnitSpaceSnapshotSchema"),
+                unknown=EXCLUDE,
+                data_key="snapshot",
+                allow_none=True
+            )
+    r""" The snapshot field of the storage_unit_space. """
 
     used = Size(data_key="used", allow_none=True)
     r""" The amount of space consumed by the main data stream of the storage unit.<br/>
@@ -61,17 +68,20 @@ For more information, see _Size properties_ in the _docs_ section of the ONTAP R
         "physical_used",
         "physical_used_by_snapshots",
         "size",
+        "snapshot",
         "used",
     ]
-    """efficiency_ratio,physical_used,physical_used_by_snapshots,size,used,"""
+    """efficiency_ratio,physical_used,physical_used_by_snapshots,size,snapshot,used,"""
 
     patchable_fields = [
+        "snapshot",
     ]
-    """"""
+    """snapshot,"""
 
     postable_fields = [
+        "snapshot",
     ]
-    """"""
+    """snapshot,"""
 
 
 class StorageUnitSpace(Resource):

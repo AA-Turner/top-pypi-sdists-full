@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -327,15 +327,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Node(
         {
-            "state": "up",
-            "uptime": 134555,
-            "uuid": "6dce4710-c860-11e9-b5bc-005056bb6135",
             "name": "cluster1",
+            "uptime": 134555,
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/6dce4710-c860-11e9-b5bc-005056bb6135"
                 }
             },
+            "state": "up",
+            "uuid": "6dce4710-c860-11e9-b5bc-005056bb6135",
         }
     )
 ]
@@ -348,6 +348,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ### Creating the cluster
 When the node information is available, including each node's cluster interface address, you can assemble the information for creating the cluster.  Provide the cluster name and the password for the admin account.  The rest of the information is optional and can be configured later using other APIs.  Provide the cluster interface address for each node to be included in the cluster so that you can connect to it while adding it to the cluster. In addition to the cluster interface address, you can provide the optional node name, location, and management interface information. If you do not provide node names, nodes are named based on the cluster name. The nodes' management interface subnet mask and gateway values are omitted and must be the same as the cluster management interface's subnet mask and gateway.
 <br />
+<personalities supports=asar2,unified>
 ```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import Cluster
@@ -399,40 +400,40 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Cluster(
     {
-        "license": {"keys": ["AMEPOSOIKLKGEEEEDGNDEKSJDEEE"]},
-        "dns_domains": ["example.com"],
-        "nodes": [
-            {
-                "cluster_interface": {"ip": {"address": "169.254.245.113"}},
-                "management_interface": {"ip": {"address": "10.224.82.29"}},
-                "name": "node1",
-            },
-            {
-                "cluster_interface": {"ip": {"address": "169.254.217.95"}},
-                "management_interface": {"ip": {"address": "10.224.82.31"}},
-                "name": "node2",
-            },
-        ],
-        "management_interface": {
-            "ip": {
-                "gateway": "10.224.64.1",
-                "address": "10.224.82.25",
-                "netmask": "255.255.192.0",
-            }
-        },
+        "password": "mypassword",
+        "name": "cluster1",
         "active_directory": {
-            "password": "password",
             "force_account_overwrite": True,
-            "fqdn": "test.com",
+            "password": "password",
             "username": "administrator",
+            "fqdn": "test.com",
             "name": "adaccount",
         },
         "contact": "me",
-        "ntp_servers": ["time.nist.gov"],
-        "name": "cluster1",
-        "password": "mypassword",
-        "location": "datacenter1",
+        "dns_domains": ["example.com"],
         "name_servers": ["10.224.223.130", "10.224.223.131", "10.224.223.132"],
+        "location": "datacenter1",
+        "nodes": [
+            {
+                "name": "node1",
+                "cluster_interface": {"ip": {"address": "169.254.245.113"}},
+                "management_interface": {"ip": {"address": "10.224.82.29"}},
+            },
+            {
+                "name": "node2",
+                "cluster_interface": {"ip": {"address": "169.254.217.95"}},
+                "management_interface": {"ip": {"address": "10.224.82.31"}},
+            },
+        ],
+        "ntp_servers": ["time.nist.gov"],
+        "license": {"keys": ["AMEPOSOIKLKGEEEEDGNDEKSJDEEE"]},
+        "management_interface": {
+            "ip": {
+                "gateway": "10.224.64.1",
+                "netmask": "255.255.192.0",
+                "address": "10.224.82.25",
+            }
+        },
     }
 )
 
@@ -440,6 +441,7 @@ Cluster(
 </div>
 </div>
 
+</personalities>
 ---
 ### Monitoring the progress of cluster creation
 To monitor the progress of the cluster create operation, poll the returned job link until the state value is no longer "running" or "queued".
@@ -462,13 +464,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Job(
     {
         "message": "success",
-        "state": "success",
-        "code": 0,
-        "description": "POST /api/cluster",
-        "uuid": "b5bc07e2-19e9-11e9-a751-005056bbd95f",
         "_links": {
             "self": {"href": "/api/cluster/jobs/b5bc07e2-19e9-11e9-a751-005056bbd95f"}
         },
+        "code": 0,
+        "state": "success",
+        "uuid": "b5bc07e2-19e9-11e9-a751-005056bbd95f",
+        "description": "POST /api/cluster",
     }
 )
 
@@ -497,41 +499,48 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Cluster(
     {
-        "dns_domains": ["example.com"],
-        "metric": {
-            "timestamp": "2021-05-26T20:36:15+00:00",
-            "throughput": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "iops": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "status": "ok",
-            "latency": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "duration": "PT15S",
-        },
-        "uuid": "5f7f57c7-bd67-11eb-95f4-005056a7b9b1",
+        "name": "C1_sti44-vsim-ucs515w_1621957038",
         "active_directory": {
             "fqdn": "TEST.COM",
-            "organizational_unit": "CN=Computers",
             "name": "ADACCOUNT",
+            "organizational_unit": "CN=Computers",
         },
         "contact": "example_name",
+        "peering_policy": {
+            "authentication_required": True,
+            "encryption_required": False,
+            "minimum_passphrase_length": 8,
+        },
+        "dns_domains": ["example.com"],
+        "metric": {
+            "latency": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "timestamp": "2021-05-26T20:36:15+00:00",
+            "iops": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "status": "ok",
+            "duration": "PT15S",
+            "throughput": {"write": 0, "total": 0, "other": 0, "read": 0},
+        },
+        "name_servers": ["192.0.2.1", "192.0.2.2"],
+        "timezone": {"name": "America/New_York"},
+        "location": "sti",
+        "san_optimized": False,
         "version": {
             "generation": 9,
-            "major": 10,
             "full": "NetApp Release 9.10.1: Mon May 24 08:07:35 UTC 2021",
             "minor": 1,
+            "major": 10,
         },
         "ntp_servers": ["192.0.2.3"],
-        "name": "C1_sti44-vsim-ucs515w_1621957038",
-        "san_optimized": False,
+        "_links": {"self": {"href": "/api/cluster"}},
         "statistics": {
+            "throughput_raw": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "iops_raw": {"write": 0, "total": 0, "other": 0, "read": 0},
             "timestamp": "2021-05-26T20:36:25+00:00",
-            "latency_raw": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "iops_raw": {"read": 0, "total": 0, "other": 0, "write": 0},
             "status": "ok",
-            "throughput_raw": {"read": 0, "total": 0, "other": 0, "write": 0},
+            "latency_raw": {"write": 0, "total": 0, "other": 0, "read": 0},
         },
         "management_interfaces": [
             {
-                "uuid": "beef2db7-bd67-11eb-95f4-005056a7b9b1",
                 "ip": {"address": "192.0.2.4"},
                 "name": "clus_mgmt",
                 "_links": {
@@ -539,9 +548,9 @@ Cluster(
                         "href": "/api/network/ip/interfaces/beef2db7-bd67-11eb-95f4-005056a7b9b1"
                     }
                 },
+                "uuid": "beef2db7-bd67-11eb-95f4-005056a7b9b1",
             },
             {
-                "uuid": "cb63e02c-bd72-11eb-95f4-005056a7b9b1",
                 "ip": {"address": "2001:db8:ef56:gh78::ij90"},
                 "name": "sti44-vsim-ucs515w_cluster_mgmt_inet6",
                 "_links": {
@@ -549,9 +558,9 @@ Cluster(
                         "href": "/api/network/ip/interfaces/cb63e02c-bd72-11eb-95f4-005056a7b9b1"
                     }
                 },
+                "uuid": "cb63e02c-bd72-11eb-95f4-005056a7b9b1",
             },
             {
-                "uuid": "ea13dec1-bd72-11eb-bd00-005056a7f50e",
                 "ip": {"address": "2001:db8:ef56:gh78::ij91"},
                 "name": "sti44-vsim-ucs515x_cluster_mgmt_inet6",
                 "_links": {
@@ -559,17 +568,10 @@ Cluster(
                         "href": "/api/network/ip/interfaces/ea13dec1-bd72-11eb-bd00-005056a7f50e"
                     }
                 },
+                "uuid": "ea13dec1-bd72-11eb-bd00-005056a7f50e",
             },
         ],
-        "peering_policy": {
-            "encryption_required": False,
-            "authentication_required": True,
-            "minimum_passphrase_length": 8,
-        },
-        "timezone": {"name": "America/New_York"},
-        "location": "sti",
-        "_links": {"self": {"href": "/api/cluster"}},
-        "name_servers": ["192.0.2.1", "192.0.2.2"],
+        "uuid": "5f7f57c7-bd67-11eb-95f4-005056a7b9b1",
     }
 )
 
@@ -582,11 +584,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -600,11 +601,15 @@ __pdoc__ = {
     "ClusterSchema.opts": False,
 }
 
-
 class ClusterSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Cluster object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the cluster."""
 
     tags = marshmallow_fields.List(marshmallow_fields.Str, data_key="_tags", allow_none=True)
@@ -612,7 +617,12 @@ class ClusterSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: ["team:csi","environment:test"]"""
 
-    active_directory = marshmallow_fields.Nested("netapp_ontap.models.cluster_active_directory.ClusterActiveDirectorySchema", data_key="active_directory", unknown=EXCLUDE, allow_none=True)
+    active_directory = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_active_directory", "ClusterActiveDirectorySchema"),
+                data_key="active_directory",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The active_directory field of the cluster."""
 
     auto_enable_activity_tracking = marshmallow_fields.Boolean(
@@ -627,10 +637,26 @@ Example: ["team:csi","environment:test"]"""
     )
     r""" Indicates how new SVMs will default "auto_enable_analytics" for new volumes."""
 
-    certificate = marshmallow_fields.Nested("netapp_ontap.resources.security_certificate.SecurityCertificateSchema", data_key="certificate", unknown=EXCLUDE, allow_none=True)
+    certificate = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.security_certificate", "SecurityCertificateSchema"),
+                data_key="certificate",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The certificate field of the cluster."""
 
-    configuration_backup = marshmallow_fields.Nested("netapp_ontap.resources.configuration_backup.ConfigurationBackupSchema", data_key="configuration_backup", unknown=EXCLUDE, allow_none=True)
+    cluster_network_overlay_enabled = marshmallow_fields.Boolean(
+        data_key="cluster_network_overlay_enabled",
+        allow_none=True,
+    )
+    r""" Indicates whether the cluster network overlay is enabled."""
+
+    configuration_backup = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.configuration_backup", "ConfigurationBackupSchema"),
+                data_key="configuration_backup",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The configuration_backup field of the cluster."""
 
     contact = marshmallow_fields.Str(
@@ -660,7 +686,12 @@ Domain names have the following requirements:
 
 Example: ["example.com","example2.example3.com"]"""
 
-    license = marshmallow_fields.Nested("netapp_ontap.models.license_keys.LicenseKeysSchema", data_key="license", unknown=EXCLUDE, allow_none=True)
+    license = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.license_keys", "LicenseKeysSchema"),
+                data_key="license",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" License keys or NLF contents."""
 
     location = marshmallow_fields.Str(
@@ -671,13 +702,31 @@ Example: ["example.com","example2.example3.com"]"""
 
 Example: building 1"""
 
-    management_interface = marshmallow_fields.Nested("netapp_ontap.models.cluster_management_interface.ClusterManagementInterfaceSchema", data_key="management_interface", unknown=EXCLUDE, allow_none=True)
+    management_interface = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_management_interface", "ClusterManagementInterfaceSchema"),
+                data_key="management_interface",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The management interface of the cluster. The subnet mask and gateway for this interface are used for the node management interfaces provided in the node configuration."""
 
-    management_interfaces = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.ip_interface.IpInterfaceSchema", unknown=EXCLUDE, allow_none=True), data_key="management_interfaces", allow_none=True)
+    management_interfaces = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.ip_interface", "IpInterfaceSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="management_interfaces",
+                allow_none=True
+            )
     r""" The management_interfaces field of the cluster."""
 
-    metric = marshmallow_fields.Nested("netapp_ontap.resources.performance_metric.PerformanceMetricSchema", data_key="metric", unknown=EXCLUDE, allow_none=True)
+    metric = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.performance_metric", "PerformanceMetricSchema"),
+                data_key="metric",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Performance numbers, such as IOPS latency and throughput."""
 
     name = marshmallow_fields.Str(
@@ -695,7 +744,15 @@ IPv4 or IPv6 addresses.
 
 Example: ["10.224.65.20","2001:db08:a0b:12f0::1"]"""
 
-    nodes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", unknown=EXCLUDE, allow_none=True), data_key="nodes", allow_none=True)
+    nodes = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="nodes",
+                allow_none=True
+            )
     r""" Complete node information"""
 
     ntp_servers = marshmallow_fields.List(marshmallow_fields.Str, data_key="ntp_servers", allow_none=True)
@@ -711,7 +768,12 @@ Example: ["time.nist.gov","10.98.19.20","2610:20:6F15:15::27"]"""
 
 Example: mypassword"""
 
-    peering_policy = marshmallow_fields.Nested("netapp_ontap.models.cluster_peering_policy.ClusterPeeringPolicySchema", data_key="peering_policy", unknown=EXCLUDE, allow_none=True)
+    peering_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_peering_policy", "ClusterPeeringPolicySchema"),
+                data_key="peering_policy",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The peering_policy field of the cluster."""
 
     san_optimized = marshmallow_fields.Boolean(
@@ -720,10 +782,20 @@ Example: mypassword"""
     )
     r""" Specifies if this cluster is an All SAN Array."""
 
-    statistics = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_raw.PerformanceMetricRawSchema", data_key="statistics", unknown=EXCLUDE, allow_none=True)
+    statistics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_raw", "PerformanceMetricRawSchema"),
+                data_key="statistics",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The statistics field of the cluster."""
 
-    timezone = marshmallow_fields.Nested("netapp_ontap.models.timezone_cluster.TimezoneClusterSchema", data_key="timezone", unknown=EXCLUDE, allow_none=True)
+    timezone = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.timezone_cluster", "TimezoneClusterSchema"),
+                data_key="timezone",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Provides the cluster-wide time zone information that localizes time found on messages displayed on each node's:
 
 * console messages;
@@ -740,7 +812,12 @@ such as Manage ONTAP (ONTAPI), use second or subsecond time values that are base
 
 Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
 
-    version = marshmallow_fields.Nested("netapp_ontap.models.version.VersionSchema", data_key="version", unknown=EXCLUDE, allow_none=True)
+    version = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.version", "VersionSchema"),
+                data_key="version",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" This returns the cluster version information.  When the cluster has more than one node, the cluster version is equivalent to the lowest of generation, major, and minor versions on all nodes."""
 
     @property
@@ -756,6 +833,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "certificate.links",
         "certificate.name",
         "certificate.uuid",
+        "cluster_network_overlay_enabled",
         "contact",
         "disaggregated",
         "dns_domains",
@@ -779,7 +857,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "uuid",
         "version",
     ]
-    """links,tags,active_directory,auto_enable_activity_tracking,auto_enable_analytics,certificate.links,certificate.name,certificate.uuid,contact,disaggregated,dns_domains,location,management_interfaces.links,management_interfaces.ip,management_interfaces.name,management_interfaces.uuid,metric,name,name_servers,ntp_servers,peering_policy,san_optimized,statistics.iops_raw,statistics.latency_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,timezone,uuid,version,"""
+    """links,tags,active_directory,auto_enable_activity_tracking,auto_enable_analytics,certificate.links,certificate.name,certificate.uuid,cluster_network_overlay_enabled,contact,disaggregated,dns_domains,location,management_interfaces.links,management_interfaces.ip,management_interfaces.name,management_interfaces.uuid,metric,name,name_servers,ntp_servers,peering_policy,san_optimized,statistics.iops_raw,statistics.latency_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,timezone,uuid,version,"""
 
     patchable_fields = [
         "tags",
@@ -802,6 +880,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "active_directory",
         "auto_enable_activity_tracking",
         "auto_enable_analytics",
+        "cluster_network_overlay_enabled",
         "configuration_backup",
         "contact",
         "dns_domains",
@@ -815,7 +894,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "password",
         "timezone",
     ]
-    """tags,active_directory,auto_enable_activity_tracking,auto_enable_analytics,configuration_backup,contact,dns_domains,license,location,management_interface,name,name_servers,nodes,ntp_servers,password,timezone,"""
+    """tags,active_directory,auto_enable_activity_tracking,auto_enable_analytics,cluster_network_overlay_enabled,configuration_backup,contact,dns_domains,license,location,management_interface,name,name_servers,nodes,ntp_servers,password,timezone,"""
 
 class Cluster(Resource):
     r""" Complete cluster information """
@@ -884,7 +963,6 @@ class Cluster(Resource):
 * `vserver services dns modify`
 * `vserver services name-service dns modify`
 * `timezone`
-* `security ssl modify`
 * `vserver active-directory create`
 * `vserver active-directory modify`
 * `vserver active-directory delete`

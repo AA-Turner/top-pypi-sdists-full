@@ -1,4 +1,5 @@
-# coding: utf-8
+
+from __future__ import annotations
 
 # This module contains abstractions for the input stream. You don't have to
 # looks further, there are no pretty code.
@@ -24,15 +25,16 @@ import codecs
 from contrast_vendor.ruamel.yaml.error import YAMLError, FileMark, StringMark, YAMLStreamError
 from contrast_vendor.ruamel.yaml.util import RegExp
 
-from typing import Any, Dict, Optional, List, Union, Text, Tuple, Optional  # NOQA
+if False:  # MYPY
+    from typing import Any, Dict, Optional, List, Union, Text, Tuple, Optional  # NOQA
 # from contrast_vendor.ruamel.yaml.compat import StreamTextType  # NOQA
 
 __all__ = ['Reader', 'ReaderError']
 
 
 class ReaderError(YAMLError):
-    def __init__(
-        self, name: Any, position: Any, character: Any, encoding: Any, reason: Any
+    def __init__(  # NOQA
+        self, name: Any, position: Any, character: Any, encoding: Any, reason: Any,
     ) -> None:
         self.name = name
         self.character = character
@@ -162,7 +164,7 @@ class Reader:
     def get_mark(self) -> Any:
         if self.stream is None:
             return StringMark(
-                self.name, self.index, self.line, self.column, self.buffer, self.pointer
+                self.name, self.index, self.line, self.column, self.buffer, self.pointer,
             )
         else:
             return FileMark(self.name, self.index, self.line, self.column)
@@ -183,7 +185,7 @@ class Reader:
         self.update(1)
 
     NON_PRINTABLE = RegExp(
-        '[^\x09\x0A\x0D\x20-\x7E\x85' '\xA0-\uD7FF' '\uE000-\uFFFD' '\U00010000-\U0010FFFF' ']'
+        '[^\x09\x0A\x0D\x20-\x7E\x85' '\xA0-\uD7FF' '\uE000-\uFFFD' '\U00010000-\U0010FFFF' ']'  # NOQA
     )
 
     _printable_ascii = ('\x09\x0A\x0D' + "".join(map(chr, range(0x20, 0x7F)))).encode('ascii')

@@ -52,20 +52,27 @@ class UpdateTunnelInspectionRuleDetails(object):
             The value to assign to the position property of this UpdateTunnelInspectionRuleDetails.
         :type position: oci.network_firewall.models.RulePosition
 
+        :param description:
+            The value to assign to the description property of this UpdateTunnelInspectionRuleDetails.
+        :type description: str
+
         """
         self.swagger_types = {
             'action': 'str',
             'protocol': 'str',
-            'position': 'RulePosition'
+            'position': 'RulePosition',
+            'description': 'str'
         }
         self.attribute_map = {
             'action': 'action',
             'protocol': 'protocol',
-            'position': 'position'
+            'position': 'position',
+            'description': 'description'
         }
         self._action = None
         self._protocol = None
         self._position = None
+        self._description = None
 
     @staticmethod
     def get_subtype(object_dictionary):
@@ -171,6 +178,30 @@ class UpdateTunnelInspectionRuleDetails(object):
         :type: oci.network_firewall.models.RulePosition
         """
         self._position = position
+
+    @property
+    def description(self):
+        """
+        Gets the description of this UpdateTunnelInspectionRuleDetails.
+        The description of the tunnel inspect rule. This field can be used to add additional info.
+
+
+        :return: The description of this UpdateTunnelInspectionRuleDetails.
+        :rtype: str
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """
+        Sets the description of this UpdateTunnelInspectionRuleDetails.
+        The description of the tunnel inspect rule. This field can be used to add additional info.
+
+
+        :param description: The description of this UpdateTunnelInspectionRuleDetails.
+        :type: str
+        """
+        self._description = description
 
     def __repr__(self):
         return formatted_flat_dict(self)

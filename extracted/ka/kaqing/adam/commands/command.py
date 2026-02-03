@@ -223,7 +223,7 @@ class Command:
         print()
 
     def context(self, show_out=True):
-        return Context.new(self.command, show_out=show_out)
+        return Context.new(self.command(), show_out=show_out)
 
 class InvalidStateException(Exception):
     def __init__(self, state: ReplState):

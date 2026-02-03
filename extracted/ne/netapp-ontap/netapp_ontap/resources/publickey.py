@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -40,42 +40,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         }
     )
     resource.comment = "Cserver-modification"
-    resource.certificate = (
-        "-----BEGIN CERTIFICATE-----"
-        "MIIFrTCCA5WgAwIBAgICEAMwDQYJKoZIhvcNAQELBQAwYDELMAkGA1UEBhMCVVMx"
-        "CzAJBgNVBAgMAk5DMQwwCgYDVQQHDANSVFAxDzANBgNVBAoMBk5FVEFQUDENMAsG"
-        "A1UECwwETlRBUDEWMBQGA1UEAwwNTlRBUC1JTlRFUkNBMjAeFw0yMzAxMTkwOTE4"
-        "MzBaFw0yNDAxMjkwOTE4MzBaMFcxCzAJBgNVBAYTAklOMQswCQYDVQQIDAJLQTEM"
-        "MAoGA1UEBwwDQkxSMQ0wCwYDVQQKDAROVEFQMQ0wCwYDVQQLDAROVEFQMQ8wDQYD"
-        "VQQDDAZNWU5UQVAwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDfkWQD"
-        "4kQcInzLQh95eNMXOP6AK9DIzM1e5V7350xTiWmrmiqREh96Asms4RxOHTI4Q1ox"
-        "ghn3NugjWy/y9aCao+Uz6nIG8gAP+NIYb3TU/WeGJFKF6fRJgaZxIzBjla3x1QQ5"
-        "rCWZMPuEiKZeBtnyHnoz6g3d5Cz4Ahu2mmHUDbAah25nNuYA9vbroP4GPtE4KQYQ"
-        "2lKtXnw8UKvyTYBOU3KzM2PP+lhtNmh3l/rgFhx99x1P6x8I8c6xRRQIjfIhHH9n"
-        "8mLkElc3SMSeRNLIQn8JSd9gly6FyHDF2jsPWdRjTlPyvGeN+LNUsBrBgmeyuFvA"
-        "Tq0/7lavqoNiwA4dAgMBAAGjggF4MIIBdDAJBgNVHRMEAjAAMBEGCWCGSAGG+EIB"
-        "AQQEAwIGQDAzBglghkgBhvhCAQ0EJhYkT3BlblNTTCBHZW5lcmF0ZWQgU2VydmVy"
-        "IENlcnRpZmljYXRlMB0GA1UdDgQWBBQkJGop1KmP0D5jkblSGk3nSGHf5jCBiwYD"
-        "VR0jBIGDMIGAgBQqjApAoQETk23RqM0Fo7u60SsmL6FkpGIwYDELMAkGA1UEBhMC"
-        "VVMxCzAJBgNVBAgMAk5DMQwwCgYDVQQHDANSVFAxDzANBgNVBAoMBk5FVEFQUDEN"
-        "MAsGA1UECwwETlRBUDEWMBQGA1UEAwwNTlRBUC1JTlRFUkNBMYICEAAwDgYDVR0P"
-        "AQH/BAQDAgWgMBMGA1UdJQQMMAoGCCsGAQUFBwMBME0GCCsGAQUFBwEBBEEwPzA9"
-        "BggrBgEFBQcwAYYxaHR0cDovL3Njc3ByMjY5Mjc4OTAyMS5nZGwuZW5nbGFiLm5l"
-        "dGFwcC5jb206MjU2MDANBgkqhkiG9w0BAQsFAAOCAgEASSs8BR96qNipv4X8ZS49"
-        "hW5MpkuQmHg2E7ICXYPP+r0qHeAa0fVpstLoju7ICo1HyfszwlncO8X2V37cQsCB"
-        "MsMq1THVhKExPuAwUjTk6aP6kiun8Werr7rOqFKheZDkCxIMQ0E2mK+O5z6wZaqc"
-        "Oa1o4jmAEDUvLBYLYxa0qXa1EunLpOOJTg0fkCW8SOwGDT7CWhpk1AiqivnGnsaz"
-        "hN54gPbinI6La9elEfbNJSOLQUGzvp9nhkFGNssx5tl0Ij+qzxV6DrzbY8qAeCH2"
-        "rZnasMILUGISQC1LvxxeGcZ7da4AX3V8/ixHeKoUsk5kA+ucHEB+GP15L0KGU5xa"
-        "Y/Uy7Uoh1GRPmvILelxzf2jK+z4x8hudJ9TUrskrLHkrsAm68eW5IikIJmQsCBiM"
-        "ioGib6tWl250etSiC9byQ48W99yOlyShe8EQStogOeshXJfMyY7VZa0YA/4KMtvi"
-        "O+fxF6LdeFMeu0qxvYLYnIbNPmc2ohGrZwffnL/Kc9s9RF5dk9bjchCKuL3+bdBm"
-        "IdcvjGi1gGHzgvsg7W54/ctwFH/qW5N68SE7JCv0DtydjUhtlU34I1RfrJD72L3X"
-        "LAb0KlLG92Oun5psy49vprr143X7eOlGB4TNjUsXW9lNP/R8J3o1ZNnoZq7E32XI"
-        "tsi/5Ttkq7aT975alerJoAU="
-        "-----END CERTIFICATE-----"
-    )
-    resource.public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDfkWQD4kQcInzLQh95eNMXOP6AK9DIzM1e5V7350xTiWmrmiqREh96Asms4RxOHTI4Q1oxghn3NugjWy/y9aCao+Uz6nIG8gAP+NIYb3TU/WeGJFKF6fRJgaZxIzBjla3x1QQ5rCWZMPuEiKZeBtnyHnoz6g3d5Cz4Ahu2mmHUDbAah25nNuYA9vbroP4GPtE4KQYQ2lKtXnw8UKvyTYBOU3KzM2PP+lhtNmh3l/rgFhx99x1P6x8I8c6xRRQIjfIhHH9n8mLkElc3SMSeRNLIQn8JSd9gly6FyHDF2jsPWdRjTlPyvGeN+LNUsBrBgmeyuFvATq0/7lavqoNiwA4d"
+    resource.certificate = "<CERTIFICATE-CONTENT>"
+    resource.public_key = "<SSH-PUBLIC-KEY>"
     resource.patch()
 
 ```
@@ -102,11 +68,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -120,14 +85,23 @@ __pdoc__ = {
     "PublickeySchema.opts": False,
 }
 
-
 class PublickeySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Publickey object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the publickey."""
 
-    account = marshmallow_fields.Nested("netapp_ontap.resources.account.AccountSchema", data_key="account", unknown=EXCLUDE, allow_none=True)
+    account = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.account", "AccountSchema"),
+                data_key="account",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The account field of the publickey."""
 
     certificate = marshmallow_fields.Str(
@@ -173,7 +147,12 @@ class PublickeySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" The obfuscated fingerprint for the public key (READONLY)."""
 
-    owner = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="owner", unknown=EXCLUDE, allow_none=True)
+    owner = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="owner",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The owner field of the publickey."""
 
     public_key = marshmallow_fields.Str(

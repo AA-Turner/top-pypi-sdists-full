@@ -23,7 +23,9 @@ from __future__ import annotations
 import functools
 import typing
 
-from urwid.str_util import calc_text_pos, calc_width, get_char_width, is_wide_char, move_next_char, move_prev_char
+import wcwidth
+
+from urwid.str_util import calc_text_pos, calc_width, is_wide_char, move_next_char, move_prev_char
 from urwid.util import calc_trim_text, get_encoding
 
 if typing.TYPE_CHECKING:
@@ -44,7 +46,7 @@ def get_ellipsis_string(encoding: str) -> str:
 @functools.lru_cache(maxsize=4)
 def _get_width(string) -> int:
     """Get ellipsis character width for given encoding."""
-    return sum(get_char_width(char) for char in string)
+    return wcwidth.width(string, control_codes="ignore")
 
 
 class TextLayout:
@@ -176,7 +178,7 @@ class StandardTextLayout(TextLayout):
         self,
         text: str | bytes,
         width: int,
-        wrap: Literal["any", "space", "clip", "ellipsis"] | WrapMode,
+        wrap: Literal["clip", "ellipsis", WrapMode.CLIP, WrapMode.ELLIPSIS],
     ) -> list[list[tuple[int, int, int | bytes] | tuple[int, int | None]]]:
         """Calculate text segments for cases of a text trimmed (wrap is clip or ellipsis)."""
         segments = []
@@ -185,8 +187,8 @@ class StandardTextLayout(TextLayout):
         encoding = get_encoding()
         ellipsis_string = get_ellipsis_string(encoding)
         ellipsis_width = _get_width(ellipsis_string)
-        while width - 1 < ellipsis_width and ellipsis_string:
-            ellipsis_string = ellipsis_string[:-1]
+        if (extra := width - ellipsis_width - 1) < 0:
+            ellipsis_string = ellipsis_string[:extra]
             ellipsis_width = _get_width(ellipsis_string)
 
         ellipsis_char = ellipsis_string.encode(encoding)
@@ -236,7 +238,7 @@ class StandardTextLayout(TextLayout):
         """
         Calculate the segments of text to display given width screen columns to display them.
 
-        text - unicode text or byte string to display
+        text - Unicode text or byte string to display
         width - number of available screen columns
         wrap - wrapping mode used
 

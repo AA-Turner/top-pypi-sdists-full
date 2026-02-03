@@ -1,4 +1,5 @@
-# coding: utf-8
+
+from __future__ import annotations
 
 from contrast_vendor.ruamel.yaml.reader import Reader
 from contrast_vendor.ruamel.yaml.scanner import Scanner, RoundTripScanner
@@ -12,8 +13,9 @@ from contrast_vendor.ruamel.yaml.constructor import (
 )
 from contrast_vendor.ruamel.yaml.resolver import VersionedResolver
 
-from typing import Any, Dict, List, Union, Optional  # NOQA
-from contrast_vendor.ruamel.yaml.compat import StreamTextType, VersionType  # NOQA
+if False:  # MYPY
+    from typing import Any, Dict, List, Union, Optional  # NOQA
+    from contrast_vendor.ruamel.yaml.compat import StreamTextType, VersionType  # NOQA
 
 __all__ = ['BaseLoader', 'SafeLoader', 'Loader', 'RoundTripLoader']
 

@@ -35,6 +35,14 @@ class CronSchedule(Schedule):
             The value to assign to the time_of_first_execution property of this CronSchedule.
         :type time_of_first_execution: datetime
 
+        :param query_offset_secs:
+            The value to assign to the query_offset_secs property of this CronSchedule.
+        :type query_offset_secs: int
+
+        :param time_end:
+            The value to assign to the time_end property of this CronSchedule.
+        :type time_end: datetime
+
         :param expression:
             The value to assign to the expression property of this CronSchedule.
         :type expression: str
@@ -48,6 +56,8 @@ class CronSchedule(Schedule):
             'type': 'str',
             'misfire_policy': 'str',
             'time_of_first_execution': 'datetime',
+            'query_offset_secs': 'int',
+            'time_end': 'datetime',
             'expression': 'str',
             'time_zone': 'str'
         }
@@ -55,12 +65,16 @@ class CronSchedule(Schedule):
             'type': 'type',
             'misfire_policy': 'misfirePolicy',
             'time_of_first_execution': 'timeOfFirstExecution',
+            'query_offset_secs': 'queryOffsetSecs',
+            'time_end': 'timeEnd',
             'expression': 'expression',
             'time_zone': 'timeZone'
         }
         self._type = None
         self._misfire_policy = None
         self._time_of_first_execution = None
+        self._query_offset_secs = None
+        self._time_end = None
         self._expression = None
         self._time_zone = None
         self._type = 'CRON'

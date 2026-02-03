@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,42 +26,42 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NvmeInterface(
         {
-            "svm": {
-                "uuid": "013e2c44-0d30-11e9-a684-005056bbdb14",
-                "name": "svm1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/013e2c44-0d30-11e9-a684-005056bbdb14"
-                    }
-                },
-            },
-            "uuid": "74d69872-0d30-11e9-a684-005056bbdb14",
             "_links": {
                 "self": {
                     "href": "/api/protocols/nvme/interfaces/74d69872-0d30-11e9-a684-005056bbdb14"
                 }
             },
-            "name": "nvme1",
-        }
-    ),
-    NvmeInterface(
-        {
             "svm": {
-                "uuid": "013e2c44-0d30-11e9-a684-005056bbdb14",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/013e2c44-0d30-11e9-a684-005056bbdb14"
                     }
                 },
+                "uuid": "013e2c44-0d30-11e9-a684-005056bbdb14",
             },
-            "uuid": "77ded991-0d30-11e9-a684-005056bbdb14",
+            "name": "nvme1",
+            "uuid": "74d69872-0d30-11e9-a684-005056bbdb14",
+        }
+    ),
+    NvmeInterface(
+        {
             "_links": {
                 "self": {
                     "href": "/api/protocols/nvme/interfaces/77ded991-0d30-11e9-a684-005056bbdb14"
                 }
             },
+            "svm": {
+                "name": "svm1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/013e2c44-0d30-11e9-a684-005056bbdb14"
+                    }
+                },
+                "uuid": "013e2c44-0d30-11e9-a684-005056bbdb14",
+            },
             "name": "nvme2",
+            "uuid": "77ded991-0d30-11e9-a684-005056bbdb14",
         }
     ),
 ]
@@ -89,50 +89,50 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NvmeInterface(
     {
-        "enabled": True,
-        "transport_address": "nn-0x2003005056bbdb14:pn-0x2005005056bbdb14",
+        "_links": {
+            "self": {
+                "href": "/api/protocols/nvme/interfaces/77ded991-0d30-11e9-a684-005056bbdb14"
+            }
+        },
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/013e2c44-0d30-11e9-a684-005056bbdb14"}
+            },
+            "uuid": "013e2c44-0d30-11e9-a684-005056bbdb14",
+        },
         "fc_interface": {
+            "wwpn": "20:05:00:50:56:bb:db:14",
             "port": {
-                "uuid": "081ec491-0d2f-11e9-a684-005056bbdb14",
-                "node": {"name": "node1"},
                 "_links": {
                     "self": {
                         "href": "/api/network/fc/ports/081ec491-0d2f-11e9-a684-005056bbdb14"
                     }
                 },
                 "name": "1a",
+                "uuid": "081ec491-0d2f-11e9-a684-005056bbdb14",
+                "node": {"name": "node1"},
             },
             "_links": {
                 "self": {
                     "href": "/api/network/fc/interfaces/77ded991-0d30-11e9-a684-005056bbdb14"
                 }
             },
-            "wwpn": "20:05:00:50:56:bb:db:14",
             "wwnn": "20:03:00:50:56:bb:db:14",
         },
-        "svm": {
-            "uuid": "013e2c44-0d30-11e9-a684-005056bbdb14",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/013e2c44-0d30-11e9-a684-005056bbdb14"}
-            },
-        },
+        "name": "nvme2",
         "uuid": "77ded991-0d30-11e9-a684-005056bbdb14",
         "node": {
-            "uuid": "cd4d47fd-0d2e-11e9-a684-005056bbdb14",
             "name": "node1",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/cd4d47fd-0d2e-11e9-a684-005056bbdb14"
                 }
             },
+            "uuid": "cd4d47fd-0d2e-11e9-a684-005056bbdb14",
         },
-        "_links": {
-            "self": {
-                "href": "/api/protocols/nvme/interfaces/77ded991-0d30-11e9-a684-005056bbdb14"
-            }
-        },
-        "name": "nvme2",
+        "transport_address": "nn-0x2003005056bbdb14:pn-0x2005005056bbdb14",
+        "enabled": True,
     }
 )
 
@@ -146,11 +146,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -164,11 +163,15 @@ __pdoc__ = {
     "NvmeInterfaceSchema.opts": False,
 }
 
-
 class NvmeInterfaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the NvmeInterface object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the nvme_interface."""
 
     enabled = marshmallow_fields.Boolean(
@@ -177,7 +180,12 @@ class NvmeInterfaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" The administrative state of the NVMe interface."""
 
-    fc_interface = marshmallow_fields.Nested("netapp_ontap.models.nvme_interface_fc_interface.NvmeInterfaceFcInterfaceSchema", data_key="fc_interface", unknown=EXCLUDE, allow_none=True)
+    fc_interface = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_interface_fc_interface", "NvmeInterfaceFcInterfaceSchema"),
+                data_key="fc_interface",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The attributes specific to a Fibre Channel-based NVMe interface.<br/>
 This is populated when `interface_type` is _fc_interface_."""
 
@@ -194,7 +202,12 @@ Valid choices:
 * fc_interface
 * ip_interface"""
 
-    ip_interface = marshmallow_fields.Nested("netapp_ontap.models.nvme_interface_ip_interface.NvmeInterfaceIpInterfaceSchema", data_key="ip_interface", unknown=EXCLUDE, allow_none=True)
+    ip_interface = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_interface_ip_interface", "NvmeInterfaceIpInterfaceSchema"),
+                data_key="ip_interface",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The attributes specific to an IP-based NVMe interface.<br/>
 This is populated when `interface_type` is _ip_interface_."""
 
@@ -207,10 +220,20 @@ This is populated when `interface_type` is _ip_interface_."""
 
 Example: lif1"""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the nvme_interface."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the nvme_interface."""
 
     transport_address = marshmallow_fields.Str(

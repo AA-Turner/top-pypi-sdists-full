@@ -30,8 +30,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv pip install -e ".[dev]"
-          uv pip install pytest
+          uv pip install -e ".[dev,benchmark]"
 
       - name: Run tests
         id: run-tests

@@ -153,7 +153,7 @@ class LogAnalyticsLabelView(object):
     def aliases(self):
         """
         Gets the aliases of this LogAnalyticsLabelView.
-        An arrya of label aliases.
+        An array of label aliases.
 
 
         :return: The aliases of this LogAnalyticsLabelView.
@@ -165,7 +165,7 @@ class LogAnalyticsLabelView(object):
     def aliases(self, aliases):
         """
         Sets the aliases of this LogAnalyticsLabelView.
-        An arrya of label aliases.
+        An array of label aliases.
 
 
         :param aliases: The aliases of this LogAnalyticsLabelView.

@@ -1,9 +1,27 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: singer-python
-Version: 6.3.0
+Version: 6.4.0
 Summary: Singer.io utility library
 Home-page: http://singer.io
 Author: Stitch
 Classifier: Programming Language :: Python :: 3 :: Only
-Provides-Extra: dev
 License-File: LICENSE
+Requires-Dist: pytz>=2018.4
+Requires-Dist: jsonschema==2.*,>=2.6.0
+Requires-Dist: simplejson==3.*,>=3.13.2
+Requires-Dist: python-dateutil==2.*,>=2.7.3
+Requires-Dist: backoff==2.*,>=2.2.1
+Requires-Dist: ciso8601==2.*,>=2.3.1
+Provides-Extra: dev
+Requires-Dist: pylint; extra == "dev"
+Requires-Dist: ipython; extra == "dev"
+Requires-Dist: ipdb; extra == "dev"
+Requires-Dist: nose; extra == "dev"
+Requires-Dist: singer-tools; extra == "dev"
+Dynamic: author
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary

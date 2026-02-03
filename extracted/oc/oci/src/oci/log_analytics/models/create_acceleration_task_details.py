@@ -36,6 +36,10 @@ class CreateAccelerationTaskDetails(CreateScheduledTaskDetails):
             The value to assign to the display_name property of this CreateAccelerationTaskDetails.
         :type display_name: str
 
+        :param description:
+            The value to assign to the description property of this CreateAccelerationTaskDetails.
+        :type description: str
+
         :param freeform_tags:
             The value to assign to the freeform_tags property of this CreateAccelerationTaskDetails.
         :type freeform_tags: dict(str, str)
@@ -53,6 +57,7 @@ class CreateAccelerationTaskDetails(CreateScheduledTaskDetails):
             'kind': 'str',
             'compartment_id': 'str',
             'display_name': 'str',
+            'description': 'str',
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))',
             'saved_search_id': 'str'
@@ -61,6 +66,7 @@ class CreateAccelerationTaskDetails(CreateScheduledTaskDetails):
             'kind': 'kind',
             'compartment_id': 'compartmentId',
             'display_name': 'displayName',
+            'description': 'description',
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags',
             'saved_search_id': 'savedSearchId'
@@ -68,6 +74,7 @@ class CreateAccelerationTaskDetails(CreateScheduledTaskDetails):
         self._kind = None
         self._compartment_id = None
         self._display_name = None
+        self._description = None
         self._freeform_tags = None
         self._defined_tags = None
         self._saved_search_id = None

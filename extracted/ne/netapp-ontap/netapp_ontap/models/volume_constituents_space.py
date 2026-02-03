@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["VolumeConstituentsSpace", "VolumeConstituentsSpaceSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "VolumeConstituentsSpaceSchema.opts": False,
     "VolumeConstituentsSpace": False,
 }
-
 
 class VolumeConstituentsSpaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the VolumeConstituentsSpace object"""
@@ -45,7 +43,12 @@ class VolumeConstituentsSpaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta
     local_tier_footprint = Size(data_key="local_tier_footprint", allow_none=True)
     r""" Space used by the local tier for this volume in the aggregate, in bytes. """
 
-    logical_space = marshmallow_fields.Nested("netapp_ontap.models.volume_constituents_space_logical_space.VolumeConstituentsSpaceLogicalSpaceSchema", unknown=EXCLUDE, data_key="logical_space", allow_none=True)
+    logical_space = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_constituents_space_logical_space", "VolumeConstituentsSpaceLogicalSpaceSchema"),
+                unknown=EXCLUDE,
+                data_key="logical_space",
+                allow_none=True
+            )
     r""" The logical_space field of the volume_constituents_space. """
 
     max_size = marshmallow_fields.Str(data_key="max_size", allow_none=True)
@@ -69,7 +72,12 @@ Valid choices:
     size = Size(data_key="size", allow_none=True)
     r""" Total provisioned size. The default size is equal to the minimum size of 20MB, in bytes. """
 
-    snapshot = marshmallow_fields.Nested("netapp_ontap.models.volume_constituents_space_snapshot.VolumeConstituentsSpaceSnapshotSchema", unknown=EXCLUDE, data_key="snapshot", allow_none=True)
+    snapshot = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_constituents_space_snapshot", "VolumeConstituentsSpaceSnapshotSchema"),
+                unknown=EXCLUDE,
+                data_key="snapshot",
+                allow_none=True
+            )
     r""" The snapshot field of the volume_constituents_space. """
 
     total_footprint = Size(data_key="total_footprint", allow_none=True)

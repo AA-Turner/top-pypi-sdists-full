@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["SvmMigrationDestination", "SvmMigrationDestinationSchema"]
@@ -17,14 +16,23 @@ __pdoc__ = {
     "SvmMigrationDestination": False,
 }
 
-
 class SvmMigrationDestinationSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SvmMigrationDestination object"""
 
-    ipspace = marshmallow_fields.Nested("netapp_ontap.resources.ipspace.IpspaceSchema", unknown=EXCLUDE, data_key="ipspace", allow_none=True)
+    ipspace = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.ipspace", "IpspaceSchema"),
+                unknown=EXCLUDE,
+                data_key="ipspace",
+                allow_none=True
+            )
     r""" The ipspace field of the svm_migration_destination. """
 
-    volume_placement = marshmallow_fields.Nested("netapp_ontap.models.svm_migration_volume_placement.SvmMigrationVolumePlacementSchema", unknown=EXCLUDE, data_key="volume_placement", allow_none=True)
+    volume_placement = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.svm_migration_volume_placement", "SvmMigrationVolumePlacementSchema"),
+                unknown=EXCLUDE,
+                data_key="volume_placement",
+                allow_none=True
+            )
     r""" Volume selection information """
 
     @property

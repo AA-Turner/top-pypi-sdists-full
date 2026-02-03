@@ -14,6 +14,7 @@ from narwhals._pandas_like.series_str import PandasLikeSeriesStringNamespace
 from narwhals._pandas_like.series_struct import PandasLikeSeriesStructNamespace
 from narwhals._pandas_like.utils import (
     align_and_extract_native,
+    broadcast_series_to_index,
     get_dtype_backend,
     import_array_module,
     narwhals_to_native_dtype,
@@ -211,8 +212,8 @@ class PandasLikeSeries(EagerSeries[Any]):
         reindexed = []
         for s in series:
             if s._broadcast:
-                native = Series(
-                    s.native.iloc[0], index=idx, name=s.name, dtype=s.native.dtype
+                native = broadcast_series_to_index(
+                    s.native, idx, is_nested=s.dtype.is_nested(), series_class=Series
                 )
                 compliant = s._with_native(native)
             elif s.native.index is not idx:
@@ -1112,6 +1113,21 @@ class PandasLikeSeries(EagerSeries[Any]):
             )
         else:
             array_func = self._array_funcs.sin
+            result_native = self._apply_array_func(native, array_func)
+
+        return self._with_native(result_native)
+
+    def cos(self) -> Self:
+        native = self.native
+        if self.is_native_dtype_pyarrow(native.dtype):
+            import pyarrow.compute as pc
+
+            result_native = self._apply_pyarrow_compute_func(
+                native,
+                pc.cos,  # type: ignore[arg-type]
+            )
+        else:
+            array_func = self._array_funcs.cos
             result_native = self._apply_array_func(native, array_func)
 
         return self._with_native(result_native)

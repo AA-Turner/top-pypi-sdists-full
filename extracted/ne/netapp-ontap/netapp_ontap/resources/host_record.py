@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -31,10 +31,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 HostRecord(
     {
         "source": "Files",
-        "hostname": "localhost",
-        "svm": {"uuid": "77e23bd4-a8fe-11eb-99e0-0050568e14ff", "name": "svm1"},
-        "ipv4_addresses": ["127.0.0.1"],
         "host": "127.0.0.1",
+        "ipv4_addresses": ["127.0.0.1"],
+        "hostname": "localhost",
+        "svm": {"name": "svm1", "uuid": "77e23bd4-a8fe-11eb-99e0-0050568e14ff"},
     }
 )
 
@@ -65,12 +65,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 HostRecord(
     {
         "source": "Files",
+        "host": "localhost",
+        "ipv4_addresses": ["127.0.0.1"],
+        "ipv6_addresses": ["::1"],
         "canonical_name": "localhost",
         "hostname": "localhost",
-        "ipv6_addresses": ["::1"],
-        "svm": {"uuid": "77e23bd4-a8fe-11eb-99e0-0050568e14ff", "name": "svm1"},
-        "ipv4_addresses": ["127.0.0.1"],
-        "host": "localhost",
+        "svm": {"name": "svm1", "uuid": "77e23bd4-a8fe-11eb-99e0-0050568e14ff"},
     }
 )
 
@@ -84,11 +84,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -101,7 +100,6 @@ __pdoc__ = {
     "HostRecordSchema.resource": False,
     "HostRecordSchema.opts": False,
 }
-
 
 class HostRecordSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the HostRecord object"""
@@ -154,7 +152,12 @@ Example: ["::1"]"""
 
 Example: Files"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the host_record."""
 
     @property

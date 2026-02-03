@@ -25,6 +25,8 @@ class StreamingAggregationFeaturesetMetadata(google.protobuf.message.Message):
     STREAMING_AGGREGATION_FEATURESET_FIELD_NUMBER: builtins.int
     ENTITY_FIELD_NUMBER: builtins.int
     AVRO_SCHEMA_JSON_FIELD_NUMBER: builtins.int
+    FEATURESET_REPOSITORY_NAME_FIELD_NUMBER: builtins.int
+    PROJECT_KEY_FIELD_NUMBER: builtins.int
     environment_id: builtins.str
     """Multi environment support"""
     featureset_name: builtins.str
@@ -39,6 +41,10 @@ class StreamingAggregationFeaturesetMetadata(google.protobuf.message.Message):
         """Entity definition of the FeatureSet"""
     avro_schema_json: builtins.str
     """The avro schema in json format that represents the AggregationSpec"""
+    featureset_repository_name: builtins.str
+    """Repository name of the FeatureSet"""
+    project_key: builtins.str
+    """Project key of the FeatureSet"""
     def __init__(
         self,
         *,
@@ -48,9 +54,11 @@ class StreamingAggregationFeaturesetMetadata(google.protobuf.message.Message):
         streaming_aggregation_featureset: qwak.feature_store.features.feature_set_types_pb2.StreamingAggregationFeatureSet | None = ...,
         entity: qwak.feature_store.entities.entity_pb2.EntityDefinition | None = ...,
         avro_schema_json: builtins.str = ...,
+        featureset_repository_name: builtins.str = ...,
+        project_key: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["entity", b"entity", "streaming_aggregation_featureset", b"streaming_aggregation_featureset"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["avro_schema_json", b"avro_schema_json", "entity", b"entity", "environment_id", b"environment_id", "featureset_id", b"featureset_id", "featureset_name", b"featureset_name", "streaming_aggregation_featureset", b"streaming_aggregation_featureset"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["avro_schema_json", b"avro_schema_json", "entity", b"entity", "environment_id", b"environment_id", "featureset_id", b"featureset_id", "featureset_name", b"featureset_name", "featureset_repository_name", b"featureset_repository_name", "project_key", b"project_key", "streaming_aggregation_featureset", b"streaming_aggregation_featureset"]) -> None: ...
 
 global___StreamingAggregationFeaturesetMetadata = StreamingAggregationFeaturesetMetadata
 
@@ -63,6 +71,8 @@ class BatchFeaturesetV1Metadata(google.protobuf.message.Message):
     QWAK_PROTOCOL_VERSION_FIELD_NUMBER: builtins.int
     BATCH_FEATURESET_V1_FIELD_NUMBER: builtins.int
     ENTITY_FIELD_NUMBER: builtins.int
+    FEATURESET_REPOSITORY_NAME_FIELD_NUMBER: builtins.int
+    PROJECT_KEY_FIELD_NUMBER: builtins.int
     environment_id: builtins.str
     """Multi environment support"""
     featureset_name: builtins.str
@@ -77,6 +87,10 @@ class BatchFeaturesetV1Metadata(google.protobuf.message.Message):
     @property
     def entity(self) -> qwak.feature_store.entities.entity_pb2.EntityDefinition:
         """Entity definition of the FeatureSet"""
+    featureset_repository_name: builtins.str
+    """Repository name of the FeatureSet"""
+    project_key: builtins.str
+    """Project key of the FeatureSet"""
     def __init__(
         self,
         *,
@@ -86,9 +100,11 @@ class BatchFeaturesetV1Metadata(google.protobuf.message.Message):
         qwak_protocol_version: builtins.int = ...,
         batch_featureset_v1: qwak.feature_store.features.feature_set_types_pb2.BatchFeatureSetV1 | None = ...,
         entity: qwak.feature_store.entities.entity_pb2.EntityDefinition | None = ...,
+        featureset_repository_name: builtins.str = ...,
+        project_key: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["batch_featureset_v1", b"batch_featureset_v1", "entity", b"entity"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["batch_featureset_v1", b"batch_featureset_v1", "entity", b"entity", "environment_id", b"environment_id", "featureset_id", b"featureset_id", "featureset_name", b"featureset_name", "qwak_protocol_version", b"qwak_protocol_version"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["batch_featureset_v1", b"batch_featureset_v1", "entity", b"entity", "environment_id", b"environment_id", "featureset_id", b"featureset_id", "featureset_name", b"featureset_name", "featureset_repository_name", b"featureset_repository_name", "project_key", b"project_key", "qwak_protocol_version", b"qwak_protocol_version"]) -> None: ...
 
 global___BatchFeaturesetV1Metadata = BatchFeaturesetV1Metadata
 
@@ -101,6 +117,8 @@ class StreamingFeaturesetV1Metadata(google.protobuf.message.Message):
     QWAK_PROTOCOL_VERSION_FIELD_NUMBER: builtins.int
     STREAMING_FEATURESET_V1_FIELD_NUMBER: builtins.int
     ENTITY_FIELD_NUMBER: builtins.int
+    FEATURESET_REPOSITORY_NAME_FIELD_NUMBER: builtins.int
+    PROJECT_KEY_FIELD_NUMBER: builtins.int
     environment_id: builtins.str
     """Multi environment support"""
     featureset_name: builtins.str
@@ -115,6 +133,10 @@ class StreamingFeaturesetV1Metadata(google.protobuf.message.Message):
     @property
     def entity(self) -> qwak.feature_store.entities.entity_pb2.EntityDefinition:
         """Entity definition of the FeatureSet"""
+    featureset_repository_name: builtins.str
+    """Repository name of the FeatureSet"""
+    project_key: builtins.str
+    """Project key of the FeatureSet"""
     def __init__(
         self,
         *,
@@ -124,9 +146,11 @@ class StreamingFeaturesetV1Metadata(google.protobuf.message.Message):
         qwak_protocol_version: builtins.int = ...,
         streaming_featureset_v1: qwak.feature_store.features.feature_set_types_pb2.StreamingFeatureSetV1 | None = ...,
         entity: qwak.feature_store.entities.entity_pb2.EntityDefinition | None = ...,
+        featureset_repository_name: builtins.str = ...,
+        project_key: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["entity", b"entity", "streaming_featureset_v1", b"streaming_featureset_v1"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["entity", b"entity", "environment_id", b"environment_id", "featureset_id", b"featureset_id", "featureset_name", b"featureset_name", "qwak_protocol_version", b"qwak_protocol_version", "streaming_featureset_v1", b"streaming_featureset_v1"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["entity", b"entity", "environment_id", b"environment_id", "featureset_id", b"featureset_id", "featureset_name", b"featureset_name", "featureset_repository_name", b"featureset_repository_name", "project_key", b"project_key", "qwak_protocol_version", b"qwak_protocol_version", "streaming_featureset_v1", b"streaming_featureset_v1"]) -> None: ...
 
 global___StreamingFeaturesetV1Metadata = StreamingFeaturesetV1Metadata
 

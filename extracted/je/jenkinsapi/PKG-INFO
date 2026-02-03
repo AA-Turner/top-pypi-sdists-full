@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jenkinsapi
-Version: 0.3.19
+Version: 0.3.20
 Summary: A Python API for accessing resources on a Jenkins continuous-integration server.
 Author-email: Salim Fadhley <salimfadhley@gmail.com>, Aleksey Maksimov <ctpeko3a@gmail.com>, Clinton Steiner <clintonsteiner@gmail.com>
 Maintainer-email: Aleksey Maksimov <ctpeko3a@gmail.com>, Clinton Steiner <clintonsteiner@gmail.com>

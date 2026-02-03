@@ -809,7 +809,7 @@ class Threads(Authenticated):
             thread_id = config["configurable"]["thread_id"]
 
             async with conn.pipeline():
-                thread, checkpoint, graph_id = await asyncio.gather(
+                thread, checkpoint_iter, graph_id = await asyncio.gather(
                     Threads.get(conn, thread_id, ctx=ctx),
                     checkpointer.aget_iter(config),
                     Threads.get_graph_id(thread_id),
@@ -829,7 +829,7 @@ class Threads(Authenticated):
 
             if graph_id:
                 # format latest checkpoint for response
-                checkpointer.latest_iter = checkpoint
+                checkpointer.latest_iter = checkpoint_iter
                 async with get_graph(
                     graph_id,
                     thread_config,
@@ -871,7 +871,7 @@ class Threads(Authenticated):
             )
 
             async with conn.pipeline():
-                thread, checkpoint, graph_id, run_count = await asyncio.gather(
+                thread, checkpoint_iter, graph_id, run_count = await asyncio.gather(
                     Threads.get(conn, thread_id, ctx=ctx, filters=filters),
                     checkpointer.aget_iter(config),
                     Threads.get_graph_id(thread_id),
@@ -893,7 +893,7 @@ class Threads(Authenticated):
             if graph_id:
                 # update state
                 config["configurable"].setdefault("graph_id", graph_id)
-                checkpointer.latest_iter = checkpoint
+                checkpointer.latest_iter = checkpoint_iter
                 async with AsyncExitStack() as stack:
                     graph = await stack.enter_async_context(
                         get_graph(

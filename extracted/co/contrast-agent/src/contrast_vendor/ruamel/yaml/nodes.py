@@ -1,8 +1,10 @@
-# coding: utf-8
+
+from __future__ import annotations
 
 import sys
 
-from typing import Dict, Any, Text, Optional  # NOQA
+if False:  # MYPY
+    from typing import Dict, Any, Text, Optional  # NOQA
 from contrast_vendor.ruamel.yaml.tag import Tag
 
 
@@ -51,6 +53,8 @@ class Node:
         #     else:
         #         value = repr(value)
         value = repr(value)
+        if self.anchor is not None:
+            return f'{self.__class__.__name__!s}(tag={self.tag!r}, anchor={self.anchor!r}, value={value!s})'  # NOQA
         return f'{self.__class__.__name__!s}(tag={self.tag!r}, value={value!s})'
 
     def dump(self, indent: int = 0) -> None:
@@ -78,6 +82,7 @@ class ScalarNode(Node):
     """
     styles:
       ? -> set() ? key, no value
+      - -> suppressable null value in set
       " -> double quoted
       ' -> single quoted
       | -> literal style
@@ -139,6 +144,6 @@ class MappingNode(CollectionNode):
         anchor: Any = None,
     ) -> None:
         CollectionNode.__init__(
-            self, tag, value, start_mark, end_mark, flow_style, comment, anchor
+            self, tag, value, start_mark, end_mark, flow_style, comment, anchor,
         )
         self.merge = None

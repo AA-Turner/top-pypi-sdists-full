@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -24,32 +24,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Netbios(
         {
-            "scope": "group",
-            "time_left": 0,
-            "interfaces": ["172.10.144.44"],
-            "mode": "h",
             "suffix": "00",
-            "wins_servers": [{"ip": "10.10.10.10", "state": "inactive"}],
             "name_registration_type": "",
-            "svm": {"uuid": "99a3bd71-777f-11ec-95a1-1315568ef5fd", "name": "vs1"},
-            "state": "broadcast",
-            "node": {"uuid": "c2179c2c-777f-11ec-95a1-1315568ef5fd", "name": "vsim2"},
+            "mode": "h",
+            "interfaces": ["172.10.144.44"],
             "name": "CIFSERVER2",
+            "state": "broadcast",
+            "wins_servers": [{"ip": "10.10.10.10", "state": "inactive"}],
+            "time_left": 0,
+            "node": {"name": "vsim2", "uuid": "c2179c2c-777f-11ec-95a1-1315568ef5fd"},
+            "scope": "group",
+            "svm": {"name": "vs1", "uuid": "99a3bd71-777f-11ec-95a1-1315568ef5fd"},
         }
     ),
     Netbios(
         {
-            "scope": "",
-            "time_left": 0,
-            "interfaces": ["172.10.144.44"],
-            "mode": "h",
             "suffix": "20",
-            "wins_servers": [{"ip": "10.10.10.10", "state": "inactive"}],
             "name_registration_type": "group",
-            "svm": {"uuid": "99a3bd71-777f-11ec-95a1-1315568ef5fd", "name": "vs1"},
-            "state": "broadcast",
-            "node": {"uuid": "c2179c2c-777f-11ec-95a1-1315568ef5fd", "name": "vsim2"},
+            "mode": "h",
+            "interfaces": ["172.10.144.44"],
             "name": "CIFSERVER2",
+            "state": "broadcast",
+            "wins_servers": [{"ip": "10.10.10.10", "state": "inactive"}],
+            "time_left": 0,
+            "node": {"name": "vsim2", "uuid": "c2179c2c-777f-11ec-95a1-1315568ef5fd"},
+            "scope": "",
+            "svm": {"name": "vs1", "uuid": "99a3bd71-777f-11ec-95a1-1315568ef5fd"},
         }
     ),
 ]
@@ -85,17 +85,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Netbios(
         {
-            "scope": "group",
-            "time_left": 0,
-            "interfaces": ["172.10.144.44"],
-            "mode": "h",
             "suffix": "00",
-            "wins_servers": [{"ip": "10.10.10.10", "state": "inactive"}],
             "name_registration_type": "",
-            "svm": {"uuid": "45a3bd71-777f-11ec-95a1-1315568ef5fd", "name": "vs1"},
-            "state": "broadcast",
-            "node": {"uuid": "c2179c2c-777f-11ec-95a1-1315568ef5fd", "name": "vsim2"},
+            "mode": "h",
+            "interfaces": ["172.10.144.44"],
             "name": "CIFSERVER2",
+            "state": "broadcast",
+            "wins_servers": [{"ip": "10.10.10.10", "state": "inactive"}],
+            "time_left": 0,
+            "node": {"name": "vsim2", "uuid": "c2179c2c-777f-11ec-95a1-1315568ef5fd"},
+            "scope": "group",
+            "svm": {"name": "vs1", "uuid": "45a3bd71-777f-11ec-95a1-1315568ef5fd"},
         }
     )
 ]
@@ -110,11 +110,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -127,7 +126,6 @@ __pdoc__ = {
     "NetbiosSchema.resource": False,
     "NetbiosSchema.opts": False,
 }
-
 
 class NetbiosSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Netbios object"""
@@ -178,7 +176,12 @@ Valid choices:
 * group
 *"""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the netbios."""
 
     scope = marshmallow_fields.Str(
@@ -210,7 +213,12 @@ Valid choices:
     )
     r""" Specifies the NetBIOS suffix. A NetBIOS suffix is the 16th character of the 16-character NetBIOS name. The NetBIOS suffix is used by Microsoft Networking software to identify functionality installed on the registered device."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the netbios."""
 
     time_left = Size(
@@ -219,7 +227,15 @@ Valid choices:
     )
     r""" Specifies the registration time left with WINS, in minutes."""
 
-    wins_servers = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.server.ServerSchema", unknown=EXCLUDE, allow_none=True), data_key="wins_servers", allow_none=True)
+    wins_servers = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.server", "ServerSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="wins_servers",
+                allow_none=True
+            )
     r""" List of WINS"""
 
     @property

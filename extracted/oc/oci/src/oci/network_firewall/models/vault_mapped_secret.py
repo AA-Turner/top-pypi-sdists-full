@@ -39,6 +39,10 @@ class VaultMappedSecret(MappedSecret):
             The value to assign to the parent_resource_id property of this VaultMappedSecret.
         :type parent_resource_id: str
 
+        :param description:
+            The value to assign to the description property of this VaultMappedSecret.
+        :type description: str
+
         :param vault_secret_id:
             The value to assign to the vault_secret_id property of this VaultMappedSecret.
         :type vault_secret_id: str
@@ -53,6 +57,7 @@ class VaultMappedSecret(MappedSecret):
             'source': 'str',
             'type': 'str',
             'parent_resource_id': 'str',
+            'description': 'str',
             'vault_secret_id': 'str',
             'version_number': 'int'
         }
@@ -61,6 +66,7 @@ class VaultMappedSecret(MappedSecret):
             'source': 'source',
             'type': 'type',
             'parent_resource_id': 'parentResourceId',
+            'description': 'description',
             'vault_secret_id': 'vaultSecretId',
             'version_number': 'versionNumber'
         }
@@ -68,6 +74,7 @@ class VaultMappedSecret(MappedSecret):
         self._source = None
         self._type = None
         self._parent_resource_id = None
+        self._description = None
         self._vault_secret_id = None
         self._version_number = None
         self._source = 'OCI_VAULT'

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -44,10 +44,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Flexcache(
     {
-        "svm": {"name": "vs_1"},
+        "origins": [{"volume": {"name": "vol_o1"}, "svm": {"name": "vs_3"}}],
         "name": "fc_333",
-        "origins": [{"svm": {"name": "vs_3"}, "volume": {"name": "vol_o1"}}],
         "aggregates": [{"name": "aggr_1"}],
+        "svm": {"name": "vs_1"},
     }
 )
 
@@ -78,12 +78,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Flexcache(
     {
-        "svm": {"name": "vs_1"},
-        "prepopulate": {"dir_paths": ["/dir1"]},
-        "path": "/fc_333",
+        "origins": [{"volume": {"name": "vol_o1"}, "svm": {"name": "vs_3"}}],
         "name": "fc_333",
-        "origins": [{"svm": {"name": "vs_3"}, "volume": {"name": "vol_o1"}}],
         "aggregates": [{"name": "aggr_1"}],
+        "path": "/fc_333",
+        "prepopulate": {"dir_paths": ["/dir1"]},
+        "svm": {"name": "vs_1"},
     }
 )
 
@@ -117,12 +117,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Flexcache(
     {
-        "svm": {"name": "vs_1"},
-        "prepopulate": {"dir_paths": ["/dir1"], "exclude_dir_paths": ["/dir1/dir11"]},
-        "path": "/       fc_333",
+        "origins": [{"volume": {"name": "vol_o1"}, "svm": {"name": "vs_3"}}],
         "name": "fc_333",
-        "origins": [{"svm": {"name": "vs_3"}, "volume": {"name": "vol_o1"}}],
         "aggregates": [{"name": "aggr_1"}],
+        "path": "/       fc_333",
+        "prepopulate": {"dir_paths": ["/dir1"], "exclude_dir_paths": ["/dir1/dir11"]},
+        "svm": {"name": "vs_1"},
     }
 )
 
@@ -154,13 +154,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Flexcache(
     {
-        "svm": {"name": "vs_1"},
-        "prepopulate": {"dir_paths": ["/dir1"]},
+        "origins": [{"volume": {"name": "vol_o1"}, "svm": {"name": "vs_3"}}],
+        "name": "fc_333",
+        "aggregates": [{"name": "aggr_1"}],
         "path": "/fc_333",
         "dr_cache": True,
-        "name": "fc_333",
-        "origins": [{"svm": {"name": "vs_3"}, "volume": {"name": "vol_o1"}}],
-        "aggregates": [{"name": "aggr_1"}],
+        "prepopulate": {"dir_paths": ["/dir1"]},
+        "svm": {"name": "vs_1"},
     }
 )
 
@@ -186,57 +186,57 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Flexcache(
         {
-            "uuid": "04d5e07b-0ebe-11e9-8180-0050568e0b79",
             "name": "fc_322",
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/flexcaches/04d5e07b-0ebe-11e9-8180-0050568e0b79"
                 }
             },
+            "uuid": "04d5e07b-0ebe-11e9-8180-0050568e0b79",
         }
     ),
     Flexcache(
         {
-            "uuid": "47902654-0ea4-11e9-8180-0050568e0b79",
             "name": "fc_321",
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/flexcaches/47902654-0ea4-11e9-8180-0050568e0b79"
                 }
             },
+            "uuid": "47902654-0ea4-11e9-8180-0050568e0b79",
         }
     ),
     Flexcache(
         {
-            "uuid": "77e911ff-0ebe-11e9-8180-0050568e0b79",
             "name": "fc_323",
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/flexcaches/77e911ff-0ebe-11e9-8180-0050568e0b79"
                 }
             },
+            "uuid": "77e911ff-0ebe-11e9-8180-0050568e0b79",
         }
     ),
     Flexcache(
         {
-            "uuid": "ddb42bbc-0e95-11e9-8180-0050568e0b79",
             "name": "fc_32",
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/flexcaches/ddb42bbc-0e95-11e9-8180-0050568e0b79"
                 }
             },
+            "uuid": "ddb42bbc-0e95-11e9-8180-0050568e0b79",
         }
     ),
     Flexcache(
         {
-            "uuid": "ec774932-0f3c-11e9-8b2b-0050568e0b79",
             "name": "fc_333",
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/flexcaches/ec774932-0f3c-11e9-8b2b-0050568e0b79"
                 }
             },
+            "uuid": "ec774932-0f3c-11e9-8b2b-0050568e0b79",
         }
     ),
 ]
@@ -264,37 +264,37 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Flexcache(
     {
-        "svm": {"uuid": "e708fbe2-0e92-11e9-8180-0050568e0b79", "name": "vs_1"},
-        "uuid": "ec774932-0f3c-11e9-8b2b-0050568e0b79",
-        "dr_cache": True,
-        "name": "fc_333",
-        "guarantee": {"type": "volume"},
         "origins": [
             {
-                "cluster": {
-                    "uuid": "50733f81-0e90-11e9-b391-0050568e4115",
-                    "name": "node2",
-                },
-                "ip_address": "10.140.103.175",
-                "create_time": "2019-01-03T15:19:55+05:30",
-                "size": 20971520,
-                "svm": {"uuid": "8aa2cd28-0e92-11e9-b391-0050568e4115", "name": "vs_3"},
-                "state": "online",
                 "volume": {
-                    "uuid": "2bc957dd-2617-4afb-8d2f-66ac6070d313",
                     "name": "vol_o1",
+                    "uuid": "2bc957dd-2617-4afb-8d2f-66ac6070d313",
                 },
+                "state": "online",
+                "cluster": {
+                    "name": "node2",
+                    "uuid": "50733f81-0e90-11e9-b391-0050568e4115",
+                },
+                "size": 20971520,
+                "create_time": "2019-01-03T15:19:55+05:30",
+                "ip_address": "10.140.103.175",
+                "svm": {"name": "vs_3", "uuid": "8aa2cd28-0e92-11e9-b391-0050568e4115"},
             }
         ],
+        "name": "fc_333",
+        "guarantee": {"type": "volume"},
         "size": 4294967296,
         "aggregates": [
-            {"uuid": "26f34b76-88f8-4a47-b5e0-d8e901fb1114", "name": "aggr_1"}
+            {"name": "aggr_1", "uuid": "26f34b76-88f8-4a47-b5e0-d8e901fb1114"}
         ],
+        "dr_cache": True,
         "_links": {
             "self": {
                 "href": "/api/storage/flexcache/flexcaches/ec774932-0f3c-11e9-8b2b-0050568e0b79"
             }
         },
+        "uuid": "ec774932-0f3c-11e9-8b2b-0050568e0b79",
+        "svm": {"name": "vs_1", "uuid": "e708fbe2-0e92-11e9-8180-0050568e0b79"},
     }
 )
 
@@ -337,6 +337,72 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         "dir_paths": ["/dir1"],
         "exclude_dir_paths": ["/dir1/dir11"],
     }
+    resource.patch()
+
+```
+
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Flexcache
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = Flexcache(uuid="28f9734a-2fc2-11ed-a5d5-005056bb2b7")
+    resource.nfsv4 = {"enabled": True}
+    resource.patch()
+
+```
+
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Flexcache
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = Flexcache(uuid="28f9734a-2fc2-11ed-a5d5-005056bb2b7")
+    resource.nfsv4 = {"enabled": False}
+    resource.patch()
+
+```
+
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Flexcache
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = Flexcache(uuid="28f9734a-2fc2-11ed-a5d5-005056bb2b7")
+    resource.cifs = {"enabled": True}
+    resource.patch()
+
+```
+
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Flexcache
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = Flexcache(uuid="28f9734a-2fc2-11ed-a5d5-005056bb2b7")
+    resource.cifs = {"enabled": False}
+    resource.patch()
+
+```
+
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Flexcache
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = Flexcache(uuid="28f9734a-2fc2-11ed-a5d5-005056bb2b7")
+    resource.s3 = {"enabled": True}
+    resource.patch()
+
+```
+
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Flexcache
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = Flexcache(uuid="28f9734a-2fc2-11ed-a5d5-005056bb2b7")
+    resource.s3 = {"enabled": False}
     resource.patch()
 
 ```
@@ -423,11 +489,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -441,20 +506,50 @@ __pdoc__ = {
     "FlexcacheSchema.opts": False,
 }
 
-
 class FlexcacheSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Flexcache object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the flexcache."""
 
-    aggregates = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.disk_aggregates.DiskAggregatesSchema", unknown=EXCLUDE, allow_none=True), data_key="aggregates", allow_none=True)
+    aggregates = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.disk_aggregates", "DiskAggregatesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="aggregates",
+                allow_none=True
+            )
     r""" Aggregate"""
 
-    atime_scrub = marshmallow_fields.Nested("netapp_ontap.models.flexcache_atime_scrub.FlexcacheAtimeScrubSchema", data_key="atime_scrub", unknown=EXCLUDE, allow_none=True)
+    atime_scrub = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.flexcache_atime_scrub", "FlexcacheAtimeScrubSchema"),
+                data_key="atime_scrub",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The atime_scrub field of the flexcache."""
 
-    cifs_change_notify = marshmallow_fields.Nested("netapp_ontap.models.flexcache_cifs_change_notify.FlexcacheCifsChangeNotifySchema", data_key="cifs_change_notify", unknown=EXCLUDE, allow_none=True)
+    cifs = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.flexcache_cifs", "FlexcacheCifsSchema"),
+                data_key="cifs",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
+    r""" The cifs field of the flexcache."""
+
+    cifs_change_notify = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.flexcache_cifs_change_notify", "FlexcacheCifsChangeNotifySchema"),
+                data_key="cifs_change_notify",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The cifs_change_notify field of the flexcache."""
 
     constituent_count = Size(
@@ -486,7 +581,12 @@ Example: 1"""
     )
     r""" Specifies whether or not a FlexCache volume has global file locking mode enabled. Global file locking mode is a mode where protocol read locking semantics are enforced across all FlexCaches and origins of a FlexCache volume. When global file locking mode is enabled, the "is_disconnected_mode_off_for_locks" flag is always set to "true"."""
 
-    guarantee = marshmallow_fields.Nested("netapp_ontap.models.flexcache_guarantee.FlexcacheGuaranteeSchema", data_key="guarantee", unknown=EXCLUDE, allow_none=True)
+    guarantee = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.flexcache_guarantee", "FlexcacheGuaranteeSchema"),
+                data_key="guarantee",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The guarantee field of the flexcache."""
 
     name = marshmallow_fields.Str(
@@ -498,7 +598,23 @@ Example: 1"""
 
 Example: vol1"""
 
-    origins = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.flexcache_relationship.FlexcacheRelationshipSchema", unknown=EXCLUDE, allow_none=True), data_key="origins", allow_none=True)
+    nfsv4 = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.flexcache_nfsv4", "FlexcacheNfsv4Schema"),
+                data_key="nfsv4",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
+    r""" The nfsv4 field of the flexcache."""
+
+    origins = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.flexcache_relationship", "FlexcacheRelationshipSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="origins",
+                allow_none=True
+            )
     r""" The origins field of the flexcache."""
 
     override_encryption = marshmallow_fields.Boolean(
@@ -515,11 +631,29 @@ Example: vol1"""
 
 Example: /user/my_fc"""
 
-    prepopulate = marshmallow_fields.Nested("netapp_ontap.models.flexcache_prepopulate.FlexcachePrepopulateSchema", data_key="prepopulate", unknown=EXCLUDE, allow_none=True)
+    prepopulate = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.flexcache_prepopulate", "FlexcachePrepopulateSchema"),
+                data_key="prepopulate",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The prepopulate field of the flexcache."""
 
-    relative_size = marshmallow_fields.Nested("netapp_ontap.models.flexcache_relative_size.FlexcacheRelativeSizeSchema", data_key="relative_size", unknown=EXCLUDE, allow_none=True)
+    relative_size = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.flexcache_relative_size", "FlexcacheRelativeSizeSchema"),
+                data_key="relative_size",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The relative_size field of the flexcache."""
+
+    s3 = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.flexcache_s3", "FlexcacheS3Schema"),
+                data_key="s3",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
+    r""" The s3 field of the flexcache."""
 
     size = Size(
         data_key="size",
@@ -527,7 +661,12 @@ Example: /user/my_fc"""
     )
     r""" Physical size of the FlexCache. The recommended size for a FlexCache is 10% of the origin volume. The minimum FlexCache constituent size is 1GB."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the flexcache."""
 
     use_tiered_aggregate = marshmallow_fields.Boolean(
@@ -544,7 +683,12 @@ Example: /user/my_fc"""
 
 Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
 
-    writeback = marshmallow_fields.Nested("netapp_ontap.models.flexcache_writeback.FlexcacheWritebackSchema", data_key="writeback", unknown=EXCLUDE, allow_none=True)
+    writeback = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.flexcache_writeback", "FlexcacheWritebackSchema"),
+                data_key="writeback",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The writeback field of the flexcache."""
 
     @property
@@ -557,6 +701,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "aggregates.name",
         "aggregates.uuid",
         "atime_scrub",
+        "cifs",
         "cifs_change_notify",
         "constituent_count",
         "constituents_per_aggregate",
@@ -564,10 +709,12 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "global_file_locking_enabled",
         "guarantee",
         "name",
+        "nfsv4",
         "origins",
         "override_encryption",
         "path",
         "relative_size",
+        "s3",
         "size",
         "svm.links",
         "svm.name",
@@ -576,21 +723,25 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "uuid",
         "writeback",
     ]
-    """links,aggregates.links,aggregates.name,aggregates.uuid,atime_scrub,cifs_change_notify,constituent_count,constituents_per_aggregate,dr_cache,global_file_locking_enabled,guarantee,name,origins,override_encryption,path,relative_size,size,svm.links,svm.name,svm.uuid,use_tiered_aggregate,uuid,writeback,"""
+    """links,aggregates.links,aggregates.name,aggregates.uuid,atime_scrub,cifs,cifs_change_notify,constituent_count,constituents_per_aggregate,dr_cache,global_file_locking_enabled,guarantee,name,nfsv4,origins,override_encryption,path,relative_size,s3,size,svm.links,svm.name,svm.uuid,use_tiered_aggregate,uuid,writeback,"""
 
     patchable_fields = [
         "atime_scrub",
+        "cifs",
         "cifs_change_notify",
+        "nfsv4",
         "prepopulate",
         "relative_size",
+        "s3",
         "writeback",
     ]
-    """atime_scrub,cifs_change_notify,prepopulate,relative_size,writeback,"""
+    """atime_scrub,cifs,cifs_change_notify,nfsv4,prepopulate,relative_size,s3,writeback,"""
 
     postable_fields = [
         "aggregates.name",
         "aggregates.uuid",
         "atime_scrub",
+        "cifs",
         "cifs_change_notify",
         "constituent_count",
         "constituents_per_aggregate",
@@ -598,18 +749,20 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "global_file_locking_enabled",
         "guarantee",
         "name",
+        "nfsv4",
         "origins",
         "override_encryption",
         "path",
         "prepopulate",
         "relative_size",
+        "s3",
         "size",
         "svm.name",
         "svm.uuid",
         "use_tiered_aggregate",
         "writeback",
     ]
-    """aggregates.name,aggregates.uuid,atime_scrub,cifs_change_notify,constituent_count,constituents_per_aggregate,dr_cache,global_file_locking_enabled,guarantee,name,origins,override_encryption,path,prepopulate,relative_size,size,svm.name,svm.uuid,use_tiered_aggregate,writeback,"""
+    """aggregates.name,aggregates.uuid,atime_scrub,cifs,cifs_change_notify,constituent_count,constituents_per_aggregate,dr_cache,global_file_locking_enabled,guarantee,name,nfsv4,origins,override_encryption,path,prepopulate,relative_size,s3,size,svm.name,svm.uuid,use_tiered_aggregate,writeback,"""
 
 class Flexcache(Resource):
     r""" Defines the cache endpoint of FlexCache. """
@@ -696,6 +849,9 @@ There is an added computational cost to retrieving values for these properties. 
 * `atime_scrub.enabled` - This property specifies whether the atime based scrub is enabled for the FlexCache volume.
 * `atime_scrub.period` - This property specifies the duration in days after which inactive files can be scrubbed from FlexCache volume.
 * `cifs_change_notify.enabled` - This property specifies whether a CIFS change notification is enabled for the FlexCache volume.
+* `nfsv4.enabled` - This property specifies whether NFSv4 is enabled for the FlexCache volume.
+* `cifs.enabled` - This property specifies whether CIFS is enabled for the FlexCache volume.
+* `s3.enabled` - This property specifies whether S3 is enabled for the FlexCache volume.
 ### Default property values
 If not specified in PATCH, the following default property value is assigned:
 * `prepopulate.recurse` - Default value is "true".
@@ -733,7 +889,7 @@ If not specified in PATCH, the following default property value is assigned:
 ### Recommended optional properties
 * `path` - Path to mount the FlexCache volume
 * `prepopulate.dir_paths` - List of directory-paths to be prepopulated for the FlexCache volume.
-* `prepopulate.exclude_dir_paths` - List of directory-paths to be excluded from prepopulation for he FlexCache volume.
+* `prepopulate.exclude_dir_paths` - List of directory-paths to be excluded from prepopulation for the FlexCache volume.
 ### Default property values
 If not specified in POST, the following default property values are assigned:
 * `size` - 10% of origin volume size or 1GB per constituent, whichever is greater.
@@ -749,6 +905,9 @@ If not specified in POST, the following default property values are assigned:
 * `override_encryption` - false. If true, this property is used to create a plaintext FlexCache volume for an encrypted origin volume.
 * `atime_scrub.enabled` - false. This property specifies whether scrubbing of inactive files based on atime is enabled for the FlexCache volume.
 * `atime_scrub.period` - 30. This property specifies the atime duration in days after which the file can be scrubbed from the FlexCache volume if it stays unused beyond the duration.
+* `nfsv4.enabled` - false. This property specifies whether NFSv4 is enabled for the FlexCache volume.
+* `cifs.enabled` - false. This property specifies whether CIFS is enabled for the FlexCache volume.
+* `s3.enabled` - false. This property specifies whether S3 is enabled for the FlexCache volume.
 * `cifs_change_notify.enabled` - false. This property specifies whether a CIFS change notification is enabled for the FlexCache volume. <personalities supports=aiml>
 * `constituent_count` - 1. This property specifies the number of constituents in the FlexGroup volume upon Flexcache create. </personalities>
 ### Related ONTAP commands
@@ -847,7 +1006,7 @@ There is an added computational cost to retrieving values for these properties. 
 ### Recommended optional properties
 * `path` - Path to mount the FlexCache volume
 * `prepopulate.dir_paths` - List of directory-paths to be prepopulated for the FlexCache volume.
-* `prepopulate.exclude_dir_paths` - List of directory-paths to be excluded from prepopulation for he FlexCache volume.
+* `prepopulate.exclude_dir_paths` - List of directory-paths to be excluded from prepopulation for the FlexCache volume.
 ### Default property values
 If not specified in POST, the following default property values are assigned:
 * `size` - 10% of origin volume size or 1GB per constituent, whichever is greater.
@@ -863,6 +1022,9 @@ If not specified in POST, the following default property values are assigned:
 * `override_encryption` - false. If true, this property is used to create a plaintext FlexCache volume for an encrypted origin volume.
 * `atime_scrub.enabled` - false. This property specifies whether scrubbing of inactive files based on atime is enabled for the FlexCache volume.
 * `atime_scrub.period` - 30. This property specifies the atime duration in days after which the file can be scrubbed from the FlexCache volume if it stays unused beyond the duration.
+* `nfsv4.enabled` - false. This property specifies whether NFSv4 is enabled for the FlexCache volume.
+* `cifs.enabled` - false. This property specifies whether CIFS is enabled for the FlexCache volume.
+* `s3.enabled` - false. This property specifies whether S3 is enabled for the FlexCache volume.
 * `cifs_change_notify.enabled` - false. This property specifies whether a CIFS change notification is enabled for the FlexCache volume. <personalities supports=aiml>
 * `constituent_count` - 1. This property specifies the number of constituents in the FlexGroup volume upon Flexcache create. </personalities>
 ### Related ONTAP commands
@@ -897,6 +1059,9 @@ If not specified in POST, the following default property values are assigned:
 * `atime_scrub.enabled` - This property specifies whether the atime based scrub is enabled for the FlexCache volume.
 * `atime_scrub.period` - This property specifies the duration in days after which inactive files can be scrubbed from FlexCache volume.
 * `cifs_change_notify.enabled` - This property specifies whether a CIFS change notification is enabled for the FlexCache volume.
+* `nfsv4.enabled` - This property specifies whether NFSv4 is enabled for the FlexCache volume.
+* `cifs.enabled` - This property specifies whether CIFS is enabled for the FlexCache volume.
+* `s3.enabled` - This property specifies whether S3 is enabled for the FlexCache volume.
 ### Default property values
 If not specified in PATCH, the following default property value is assigned:
 * `prepopulate.recurse` - Default value is "true".

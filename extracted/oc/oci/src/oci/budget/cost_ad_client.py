@@ -162,7 +162,7 @@ class CostAdClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/budget/create_cost_alert_subscription.py.html>`__ to see an example of how to use create_cost_alert_subscription API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/budget/create_cost_alert_subscription.py.html>`__ to see an example of how to use create_cost_alert_subscription API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -267,7 +267,7 @@ class CostAdClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/budget/create_cost_anomaly_monitor.py.html>`__ to see an example of how to use create_cost_anomaly_monitor API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/budget/create_cost_anomaly_monitor.py.html>`__ to see an example of how to use create_cost_anomaly_monitor API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -372,7 +372,7 @@ class CostAdClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/budget/delete_cost_alert_subscription.py.html>`__ to see an example of how to use delete_cost_alert_subscription API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/budget/delete_cost_alert_subscription.py.html>`__ to see an example of how to use delete_cost_alert_subscription API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['costAlertSubscriptionId']
@@ -484,7 +484,7 @@ class CostAdClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/budget/delete_cost_anomaly_monitor.py.html>`__ to see an example of how to use delete_cost_anomaly_monitor API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/budget/delete_cost_anomaly_monitor.py.html>`__ to see an example of how to use delete_cost_anomaly_monitor API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['costAnomalyMonitorId']
@@ -603,7 +603,7 @@ class CostAdClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/budget/disable_cost_anomaly_monitor.py.html>`__ to see an example of how to use disable_cost_anomaly_monitor API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/budget/disable_cost_anomaly_monitor.py.html>`__ to see an example of how to use disable_cost_anomaly_monitor API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['costAnomalyMonitorId']
@@ -727,7 +727,7 @@ class CostAdClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/budget/enable_cost_anomaly_monitor.py.html>`__ to see an example of how to use enable_cost_anomaly_monitor API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/budget/enable_cost_anomaly_monitor.py.html>`__ to see an example of how to use enable_cost_anomaly_monitor API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['costAnomalyMonitorId']
@@ -837,7 +837,7 @@ class CostAdClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/budget/get_cost_alert_subscription.py.html>`__ to see an example of how to use get_cost_alert_subscription API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/budget/get_cost_alert_subscription.py.html>`__ to see an example of how to use get_cost_alert_subscription API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['costAlertSubscriptionId']
@@ -942,7 +942,7 @@ class CostAdClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/budget/get_cost_anomaly_event.py.html>`__ to see an example of how to use get_cost_anomaly_event API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/budget/get_cost_anomaly_event.py.html>`__ to see an example of how to use get_cost_anomaly_event API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['costAnomalyEventId']
@@ -1047,7 +1047,7 @@ class CostAdClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/budget/get_cost_anomaly_monitor.py.html>`__ to see an example of how to use get_cost_anomaly_monitor API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/budget/get_cost_anomaly_monitor.py.html>`__ to see an example of how to use get_cost_anomaly_monitor API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['costAnomalyMonitorId']
@@ -1178,7 +1178,7 @@ class CostAdClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/budget/list_cost_alert_subscriptions.py.html>`__ to see an example of how to use list_cost_alert_subscriptions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/budget/list_cost_alert_subscriptions.py.html>`__ to see an example of how to use list_cost_alert_subscriptions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1353,7 +1353,7 @@ class CostAdClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/budget/list_cost_anomaly_events.py.html>`__ to see an example of how to use list_cost_anomaly_events API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/budget/list_cost_anomaly_events.py.html>`__ to see an example of how to use list_cost_anomaly_events API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1523,7 +1523,7 @@ class CostAdClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/budget/list_cost_anomaly_monitors.py.html>`__ to see an example of how to use list_cost_anomaly_monitors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/budget/list_cost_anomaly_monitors.py.html>`__ to see an example of how to use list_cost_anomaly_monitors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1702,7 +1702,7 @@ class CostAdClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/budget/summarize_cost_anomaly_event_analytics.py.html>`__ to see an example of how to use summarize_cost_anomaly_event_analytics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/budget/summarize_cost_anomaly_event_analytics.py.html>`__ to see an example of how to use summarize_cost_anomaly_event_analytics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1850,7 +1850,7 @@ class CostAdClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/budget/update_cost_alert_subscription.py.html>`__ to see an example of how to use update_cost_alert_subscription API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/budget/update_cost_alert_subscription.py.html>`__ to see an example of how to use update_cost_alert_subscription API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['costAlertSubscriptionId']
@@ -1969,7 +1969,7 @@ class CostAdClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/budget/update_cost_anomaly_event.py.html>`__ to see an example of how to use update_cost_anomaly_event API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/budget/update_cost_anomaly_event.py.html>`__ to see an example of how to use update_cost_anomaly_event API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['costAnomalyEventId']
@@ -2088,7 +2088,7 @@ class CostAdClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/budget/update_cost_anomaly_monitor.py.html>`__ to see an example of how to use update_cost_anomaly_monitor API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/budget/update_cost_anomaly_monitor.py.html>`__ to see an example of how to use update_cost_anomaly_monitor API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['costAnomalyMonitorId']

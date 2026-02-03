@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["NasApplicationComponentsFlexcache", "NasApplicationComponentsFlexcacheSchema"]
@@ -17,14 +16,18 @@ __pdoc__ = {
     "NasApplicationComponentsFlexcache": False,
 }
 
-
 class NasApplicationComponentsFlexcacheSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the NasApplicationComponentsFlexcache object"""
 
     dr_cache = marshmallow_fields.Boolean(data_key="dr_cache", allow_none=True)
     r""" Dr-cache is a FlexCache volume create time option that has the same flexgroup-msid as that of the origin of a FlexCache volume. By default, dr-cache is disabled. The flexgroup-msid of the FlexCache volume does not need to be same as that of the origin of a FlexCache volume. """
 
-    origin = marshmallow_fields.Nested("netapp_ontap.models.nas_application_components_flexcache_origin.NasApplicationComponentsFlexcacheOriginSchema", unknown=EXCLUDE, data_key="origin", allow_none=True)
+    origin = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nas_application_components_flexcache_origin", "NasApplicationComponentsFlexcacheOriginSchema"),
+                unknown=EXCLUDE,
+                data_key="origin",
+                allow_none=True
+            )
     r""" The origin field of the nas_application_components_flexcache. """
 
     @property

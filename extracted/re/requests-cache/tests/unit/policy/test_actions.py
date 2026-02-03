@@ -3,9 +3,10 @@ from unittest.mock import patch
 
 import pytest
 from requests import PreparedRequest, Request
+from requests.cookies import RequestsCookieJar
 
 from requests_cache.cache_keys import create_key
-from requests_cache.models import CachedResponse
+from requests_cache.models import CachedRequest, CachedResponse
 from requests_cache.policy import EXPIRE_IMMEDIATELY, CacheActions, CacheSettings, utcnow
 from tests.conftest import ETAG, HTTPDATE_STR, LAST_MODIFIED, MOCKED_URL, get_mock_response
 
@@ -176,7 +177,8 @@ def test_update_from_cached_response__revalidate(response_headers, expected_vali
     cached_response = CachedResponse(headers=response_headers, expires=utcnow() - timedelta(1))
 
     actions.update_from_cached_response(cached_response)
-    assert actions.send_request is bool(expected_validation_headers)
+    assert actions.send_request is False
+    assert actions.resend_request is True
     assert actions._validation_headers == expected_validation_headers
 
 
@@ -203,10 +205,10 @@ def test_update_from_cached_response__force_revalidate(cache_control, response_h
 
     # cache_control=False overrides revalidation in this case
     if cache_control is False:
-        assert actions.send_request is False
+        assert actions.resend_request is False
         assert not actions._validation_headers
     else:
-        assert actions.send_request is True
+        assert actions.resend_request is True
         assert actions._validation_headers == {'If-None-Match': ETAG}
 
 
@@ -309,7 +311,9 @@ def test_update_from_cached_response__stale_while_revalidate():
         ({'Vary': '*'}, {'Accept': 'application/json'}, {'Accept': 'application/json'}, False),
     ],
 )
-def test_update_from_cached_response__vary(vary, cached_headers, new_headers, expected_match):
+def test_update_from_cached_response__vary_headers(
+    vary, cached_headers, new_headers, expected_match
+):
     cached_response = CachedResponse(
         headers=vary,
         request=Request(method='GET', url='https://site.com/img.jpg', headers=cached_headers),
@@ -320,6 +324,81 @@ def test_update_from_cached_response__vary(vary, cached_headers, new_headers, ex
 
     # If the headers don't match wrt. Vary, expect a new request to be sent (cache miss)
     assert actions.send_request is not expected_match
+
+
+@pytest.mark.parametrize(
+    'cached_cookies, new_cookies, expected_match',
+    [
+        ({'session': 'abc123'}, {'session': 'abc123'}, True),
+        ({'session': 'abc123'}, {'session': 'xyz789'}, False),
+        ({'session': 'abc', 'user': 'bob'}, {'session': 'abc', 'user': 'bob'}, True),
+        ({'user': 'bob', 'session': 'abc'}, {'session': 'abc', 'user': 'bob'}, True),
+        ({'session': 'abc', 'user': 'bob'}, {'session': 'abc', 'user': 'alice'}, False),
+        ({}, {}, True),
+        ({'session': 'abc123'}, {}, False),
+        ({}, {'session': 'abc123'}, False),
+    ],
+)
+def test_update_from_cached_response__vary_cookie(cached_cookies, new_cookies, expected_match):
+    cached_cookiejar = RequestsCookieJar()
+    cached_cookiejar.update(cached_cookies)
+    new_cookiejar = RequestsCookieJar()
+    new_cookiejar.update(new_cookies)
+
+    # Cached response with cookies
+    cached_request = CachedRequest(
+        method='GET',
+        url='https://site.com/page',
+        cookies=cached_cookiejar,
+    )
+    cached_response = CachedResponse(
+        headers={'Vary': 'Cookie'},
+        request=cached_request,
+    )
+
+    # New request with cookies
+    new_request = PreparedRequest()
+    new_request.prepare(method='GET', url='https://site.com/page', cookies=new_cookiejar)
+
+    actions = CacheActions.from_request('key', new_request)
+    actions.update_from_cached_response(cached_response, create_key=create_key)
+
+    # If cookies don't match, expect a new request (cache miss)
+    assert actions.send_request is not expected_match
+
+
+def test_update_from_cached_response__vary_cookie_and_headers():
+    cached_cookiejar = RequestsCookieJar()
+    cached_cookiejar.set('session', 'abc123')
+    new_cookiejar = RequestsCookieJar()
+    new_cookiejar.set('session', 'abc123')
+
+    # Cached response with Vary: Cookie, Accept
+    cached_request = CachedRequest(
+        method='GET',
+        url='https://site.com/page',
+        headers={'Accept': 'application/json'},
+        cookies=cached_cookiejar,
+    )
+    cached_response = CachedResponse(
+        headers={'Vary': 'Cookie, Accept'},
+        request=cached_request,
+    )
+
+    # New request with matching cookies but different Accept header
+    new_request = PreparedRequest()
+    new_request.prepare(
+        method='GET',
+        url='https://site.com/page',
+        headers={'Accept': 'text/html'},
+        cookies=new_cookiejar,
+    )
+
+    actions = CacheActions.from_request('key', new_request)
+    actions.update_from_cached_response(cached_response, create_key=create_key)
+
+    # Should be a cache miss because Accept header differs
+    assert actions.send_request is True
 
 
 @pytest.mark.parametrize('max_stale, usable', [(5, False), (15, True)])
@@ -440,6 +519,18 @@ def test_update_from_response__revalidate(mock_utcnow, cache_headers, validator_
 
     assert actions.expires == mock_utcnow()
     assert actions.skip_write is False
+
+
+def test_update_revalidated_response__transfer_encoding():
+    """When updating response headers after revalidating a cached response,
+    don't set both `Content-Length` and `Transfer-Encoding`
+    """
+    actions = CacheActions.from_request('key', BASIC_REQUEST, CacheSettings(cache_control=True))
+    cached_response = get_mock_response(headers={'ETag': ETAG, 'Transfer-Encoding': 'chunked'})
+    new_response = get_mock_response(status_code=304, headers={'ETag': ETAG, 'Content-Length': 0})
+    cached_response = actions.update_revalidated_response(new_response, cached_response)
+    assert cached_response.headers['Transfer-Encoding'] == 'chunked'
+    assert 'Content-Length' not in cached_response.headers
 
 
 @pytest.mark.parametrize('directive', IGNORED_DIRECTIVES)

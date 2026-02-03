@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["Ipv4Interface", "Ipv4InterfaceSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "Ipv4InterfaceSchema.opts": False,
     "Ipv4Interface": False,
 }
-
 
 class Ipv4InterfaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Ipv4Interface object"""

@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["MongoDbOnSan", "MongoDbOnSanSchema"]
@@ -17,14 +16,26 @@ __pdoc__ = {
     "MongoDbOnSan": False,
 }
 
-
 class MongoDbOnSanSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the MongoDbOnSan object"""
 
-    dataset = marshmallow_fields.Nested("netapp_ontap.models.mongo_db_on_san_dataset.MongoDbOnSanDatasetSchema", unknown=EXCLUDE, data_key="dataset", allow_none=True)
+    dataset = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.mongo_db_on_san_dataset", "MongoDbOnSanDatasetSchema"),
+                unknown=EXCLUDE,
+                data_key="dataset",
+                allow_none=True
+            )
     r""" The dataset field of the mongo_db_on_san. """
 
-    new_igroups = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.mongo_db_on_san_new_igroups.MongoDbOnSanNewIgroupsSchema", unknown=EXCLUDE, allow_none=True), data_key="new_igroups", allow_none=True)
+    new_igroups = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.mongo_db_on_san_new_igroups", "MongoDbOnSanNewIgroupsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="new_igroups",
+                allow_none=True
+                )
     r""" The list of initiator groups to create. """
 
     os_type = marshmallow_fields.Str(data_key="os_type", allow_none=True)
@@ -45,10 +56,23 @@ Valid choices:
     primary_igroup_name = marshmallow_fields.Str(data_key="primary_igroup_name", allow_none=True)
     r""" The initiator group for the primary. """
 
-    protection_type = marshmallow_fields.Nested("netapp_ontap.models.mongo_db_on_san_protection_type.MongoDbOnSanProtectionTypeSchema", unknown=EXCLUDE, data_key="protection_type", allow_none=True)
+    protection_type = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.mongo_db_on_san_protection_type", "MongoDbOnSanProtectionTypeSchema"),
+                unknown=EXCLUDE,
+                data_key="protection_type",
+                allow_none=True
+            )
     r""" The protection_type field of the mongo_db_on_san. """
 
-    secondary_igroups = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.mongo_db_on_san_secondary_igroups.MongoDbOnSanSecondaryIgroupsSchema", unknown=EXCLUDE, allow_none=True), data_key="secondary_igroups", allow_none=True)
+    secondary_igroups = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.mongo_db_on_san_secondary_igroups", "MongoDbOnSanSecondaryIgroupsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="secondary_igroups",
+                allow_none=True
+                )
     r""" The secondary_igroups field of the mongo_db_on_san. """
 
     @property

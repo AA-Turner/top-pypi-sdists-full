@@ -164,7 +164,7 @@ class InvoiceServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/ospgateway/download_pdf_content.py.html>`__ to see an example of how to use download_pdf_content API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/ospgateway/download_pdf_content.py.html>`__ to see an example of how to use download_pdf_content API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['internalInvoiceId', 'ospHomeRegion', 'compartmentId']
@@ -286,7 +286,7 @@ class InvoiceServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/ospgateway/get_invoice.py.html>`__ to see an example of how to use get_invoice API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/ospgateway/get_invoice.py.html>`__ to see an example of how to use get_invoice API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['internalInvoiceId', 'ospHomeRegion', 'compartmentId']
@@ -414,7 +414,7 @@ class InvoiceServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/ospgateway/list_invoice_lines.py.html>`__ to see an example of how to use list_invoice_lines API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/ospgateway/list_invoice_lines.py.html>`__ to see an example of how to use list_invoice_lines API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['internalInvoiceId', 'ospHomeRegion', 'compartmentId']
@@ -584,7 +584,7 @@ class InvoiceServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/ospgateway/list_invoices.py.html>`__ to see an example of how to use list_invoices API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/ospgateway/list_invoices.py.html>`__ to see an example of how to use list_invoices API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['ospHomeRegion', 'compartmentId']
@@ -762,7 +762,7 @@ class InvoiceServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/ospgateway/pay_invoice.py.html>`__ to see an example of how to use pay_invoice API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/ospgateway/pay_invoice.py.html>`__ to see an example of how to use pay_invoice API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['internalInvoiceId', 'ospHomeRegion', 'compartmentId']

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optimum-rbln
-Version: 0.10.0.post1
+Version: 0.10.0.post2
 Summary: Optimum RBLN is the interface between the HuggingFace Transformers and Diffusers libraries and RBLN accelerators. It provides a set of tools enabling easy model loading and inference on single and multiple rbln device settings for different downstream tasks.
 Project-URL: Homepage, https://rebellions.ai
 Project-URL: Documentation, https://docs.rbln.ai

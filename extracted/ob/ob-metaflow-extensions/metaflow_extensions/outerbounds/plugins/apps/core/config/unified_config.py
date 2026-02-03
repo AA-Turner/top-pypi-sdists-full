@@ -574,6 +574,15 @@ class DependencyConfig(metaclass=ConfigMeta):
                 current_value=dependency_config.pypi or dependency_config.conda,
                 message="Cannot set pypi or conda when from_requirements_file or from_pyproject_toml is set",
             )
+        if more_than_n_not_none(1, dependency_config.pypi, dependency_config.conda):
+            raise ConfigValidationFailedException(
+                field_name="pypi" if dependency_config.pypi else "conda",
+                field_info=dependency_config._get_field(  # type: ignore
+                    "pypi" if dependency_config.pypi else "conda"
+                ),
+                current_value=dependency_config.pypi or dependency_config.conda,
+                message="Cannot add dependencies from pypi and conda at the same time. Please use only one.",
+            )
         return True
 
 

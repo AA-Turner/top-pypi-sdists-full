@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,8 +28,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AutoUpdateConfiguration(
     {
-        "action": "confirm",
         "category": "firmware",
+        "action": "confirm",
         "description": {"message": "SP/BMC Firmware", "code": "131072402"},
         "uuid": "440ae2e4-fd8f-4225-9bee-94e2da3f8d9d",
     }
@@ -58,11 +58,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -76,11 +75,15 @@ __pdoc__ = {
     "AutoUpdateConfigurationSchema.opts": False,
 }
 
-
 class AutoUpdateConfigurationSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the AutoUpdateConfiguration object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the auto_update_configuration."""
 
     action = marshmallow_fields.Str(
@@ -104,7 +107,12 @@ Valid choices:
 
 Example: disk_fw"""
 
-    description = marshmallow_fields.Nested("netapp_ontap.models.error_arguments.ErrorArgumentsSchema", data_key="description", unknown=EXCLUDE, allow_none=True)
+    description = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.error_arguments", "ErrorArgumentsSchema"),
+                data_key="description",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The description field of the auto_update_configuration."""
 
     uuid = marshmallow_fields.Str(

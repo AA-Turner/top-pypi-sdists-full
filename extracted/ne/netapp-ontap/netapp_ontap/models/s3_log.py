@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["S3Log", "S3LogSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "S3Log": False,
 }
 
-
 class S3LogSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the S3Log object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", unknown=EXCLUDE, data_key="_links", allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                unknown=EXCLUDE,
+                data_key="_links",
+                allow_none=True
+            )
     r""" The links field of the s3_log. """
 
     format = marshmallow_fields.Str(data_key="format", allow_none=True)
@@ -35,10 +38,20 @@ Valid choices:
 
 * json """
 
-    retention = marshmallow_fields.Nested("netapp_ontap.models.s3_log_retention.S3LogRetentionSchema", unknown=EXCLUDE, data_key="retention", allow_none=True)
+    retention = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.s3_log_retention", "S3LogRetentionSchema"),
+                unknown=EXCLUDE,
+                data_key="retention",
+                allow_none=True
+            )
     r""" The retention field of the s3_log. """
 
-    rotation = marshmallow_fields.Nested("netapp_ontap.models.rotation.RotationSchema", unknown=EXCLUDE, data_key="rotation", allow_none=True)
+    rotation = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.rotation", "RotationSchema"),
+                unknown=EXCLUDE,
+                data_key="rotation",
+                allow_none=True
+            )
     r""" Audit event log files are rotated when they reach a configured threshold log size or are on a configured schedule. When an event log file is rotated, the scheduled consolidation task first renames the active converted file to a time-stamped archive file, and then creates a new active converted event log file. """
 
     @property

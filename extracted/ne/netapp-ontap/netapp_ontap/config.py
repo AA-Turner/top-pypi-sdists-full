@@ -1,5 +1,5 @@
 """
-Copyright &copy; 2025 NetApp Inc. All rights reserved.
+Copyright &copy; 2026 NetApp Inc. All rights reserved.
 
 This module contains the global configuration options and related functions for the library.
 """
@@ -33,6 +33,16 @@ included in the documented object model for that endpoint. If a field is returne
 the host that is not documented, a `netapp_ontap.error.NetAppRestError` will be raised
 specifying which field(s) are invalid. If False (default), no exception will be raised
 and the undocumented field will be set on the resource just like any other.
+"""
+
+STRICT_SCHEMA_TYPE_CHECK = False
+"""If set to True, the library will throw an error if a resource is constructed with
+a value for a field that violates its schema. An error will also be thrown if a create or
+modify operation (`post()`, `patch()`...etc) is called on a resource with fields set with invalid
+values that violate the schema. If a resource includes an invalid type for a field outside of
+what's outlined in the schema, a `netapp_ontap.error.NetAppRestError` will be raised specifying
+which fields have invalid types. If `False` (default), no exception will be raised and the
+invalid types for the fields will be dropped and not set.
 """
 
 STRICT_ACCESS_MODIFIERS = True

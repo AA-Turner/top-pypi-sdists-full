@@ -18,21 +18,26 @@ class PodExecResult(ExecResult):
     #     ]
     #   }
     # }
-    def __init__(self, stdout: str, stderr: str, command: str = None, error_output: str = None, pod: str = None, log_file: str = None, job_id: str = None):
+    def __init__(self, stdout: str, stderr: str, command: str = None, error_output: str = None, pod: str = None, log_file: str = None, job_id: str = None, client_err: Exception = None):
         self.stdout: str = stdout
         self.stderr: str = stderr
         self.command: str = command
+        self.error = None
         if error_output:
             self.error = yaml.safe_load(error_output)
         self.pod = pod
         self.log_file = log_file
         self.job_id = job_id
+        self.client_err = client_err
 
     def exit_code(self) -> int:
         code = 0
 
         with log_exc(False):
-            code = self.error['details']['causes'][0]['message']
+            try:
+                code = self.error['details']['causes'][0]['message']
+            except:
+                pass
 
         return code
 

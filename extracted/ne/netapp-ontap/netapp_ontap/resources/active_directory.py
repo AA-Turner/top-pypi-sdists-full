@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,10 +28,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ActiveDirectory(
     {
         "fqdn": "EXAMPLE.COM",
-        "svm": {"uuid": "6dd78167-c907-11eb-b2bf-0050568e7324", "name": "vs1"},
-        "organizational_unit": "CN=Computers",
-        "security": {"advertised_kdc_encryptions": ["des"]},
         "name": "ACCOUNT1",
+        "security": {"advertised_kdc_encryptions": ["des"]},
+        "organizational_unit": "CN=Computers",
+        "svm": {"name": "vs1", "uuid": "6dd78167-c907-11eb-b2bf-0050568e7324"},
     }
 )
 
@@ -71,11 +71,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -89,11 +88,18 @@ __pdoc__ = {
     "ActiveDirectorySchema.opts": False,
 }
 
-
 class ActiveDirectorySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ActiveDirectory object"""
 
-    discovered_servers = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.active_directory_discovered_server.ActiveDirectoryDiscoveredServerSchema", unknown=EXCLUDE, allow_none=True), data_key="discovered_servers", allow_none=True)
+    discovered_servers = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.active_directory_discovered_server", "ActiveDirectoryDiscoveredServerSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="discovered_servers",
+                allow_none=True
+            )
     r""" Specifies the discovered servers records."""
 
     force_account_overwrite = marshmallow_fields.Boolean(
@@ -139,13 +145,31 @@ Example: CN=Test"""
 
 Example: testpwd"""
 
-    preferred_dcs = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.active_directory_preferred_dc.ActiveDirectoryPreferredDcSchema", unknown=EXCLUDE, allow_none=True), data_key="preferred_dcs", allow_none=True)
+    preferred_dcs = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.active_directory_preferred_dc", "ActiveDirectoryPreferredDcSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="preferred_dcs",
+                allow_none=True
+            )
     r""" Specifies the preferred domain controller (DC) records."""
 
-    security = marshmallow_fields.Nested("netapp_ontap.models.active_directory_security.ActiveDirectorySecuritySchema", data_key="security", unknown=EXCLUDE, allow_none=True)
+    security = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.active_directory_security", "ActiveDirectorySecuritySchema"),
+                data_key="security",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The security field of the active_directory."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the active_directory."""
 
     username = marshmallow_fields.Str(

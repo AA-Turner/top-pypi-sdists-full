@@ -1,38 +1,37 @@
 Metadata-Version: 2.4
 Name: pytd
-Version: 2.2.0
+Version: 2.4.0
 Summary: Treasure Data Driver for Python
-Home-page: https://github.com/treasure-data/pytd
-Author: Treasure Data
-Author-email: support@treasure-data.com
-Maintainer: Treasure Data
-Maintainer-email: support@treasure-data.com
-License: Apache License 2.0
+Author-email: Treasure Data <support@treasure-data.com>
+Maintainer-email: Treasure Data <support@treasure-data.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/treasure-data/pytd
+Project-URL: Repository, https://github.com/treasure-data/pytd
+Keywords: database,treasure-data
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Topic :: Database
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: <3.14,>=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: urllib3>=1.21.1
+Requires-Dist: urllib3>=2.0.0
 Requires-Dist: trino>=0.334.0
 Requires-Dist: pandas>=2.1.0
 Requires-Dist: numpy>=1.25.2
-Requires-Dist: td-client>=1.5.0
+Requires-Dist: td-client>=1.7.0
 Requires-Dist: pytz>=2018.5
 Requires-Dist: tqdm>=4.60.0
+Requires-Dist: pyarrow>=14.0.1
 Provides-Extra: spark
 Requires-Dist: td-pyspark>20.10.0; extra == "spark"
 Requires-Dist: pyspark>=3.0.0; extra == "spark"
-Requires-Dist: pyarrow>=10.0; extra == "spark"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Provides-Extra: doc
@@ -50,7 +49,7 @@ pytd
 **pytd** provides user-friendly interfaces to Treasure Data’s `REST
 APIs <https://github.com/treasure-data/td-client-python>`__, `Presto
 query
-engine <https://docs.treasuredata.com/display/public/PD/About+Presto+Distributed+Query+Engine>`__,
+engine <https://api-docs.treasuredata.com/en/tools/presto/quickstart>`__,
 and `Plazma primary
 storage <https://www.slideshare.net/treasure-data/td-techplazma>`__.
 
@@ -68,8 +67,8 @@ Installation
 Requirements
 ~~~~~~~~~~~~
 
-* Python 3.9 or later
-* pandas 2.0 or later
+* Python 3.10 or later
+* pandas 2.1 or later
 
 
 Usage
@@ -80,9 +79,9 @@ Usage
    Colaboratory <https://colab.research.google.com/drive/1ps_ChU-H2FvkeNlj1e1fcOebCt4ryN11>`__
 
 Set your `API
-key <https://docs.treasuredata.com/display/public/PD/Getting+Your+API+Keys>`__
+key <https://docs.treasuredata.com/products/my-settings/getting-your-api-keys>`__
 and
-`endpoint <https://docs.treasuredata.com/display/public/PD/Sites+and+Endpoints>`__
+`endpoint <https://api-docs.treasuredata.com/en/overview/aboutendpoints#treasure-data-api-baseurls>`__
 to the environment variables, ``TD_API_KEY`` and ``TD_API_SERVER``,
 respectively, and create a client instance:
 
@@ -228,7 +227,7 @@ Treasure Data offers three different Python clients on GitHub, and the following
 
    - Basic REST API wrapper.
    - Similar functionalities to td-client-{`ruby <https://github.com/treasure-data/td-client-ruby>`__, `java <https://github.com/treasure-data/td-client-java>`__, `node <https://github.com/treasure-data/td-client-node>`__, `go <https://github.com/treasure-data/td-client-go>`__}.
-   - The capability is limited by `what Treasure Data REST API can do <https://docs.treasuredata.com/display/public/PD/REST+APIs+in+Treasure+Data>`__.
+   - The capability is limited by `what Treasure Data REST API can do <https://docs.treasuredata.com/products/control-panel/security/accessing-rest-apis>`__.
 
 2. **pytd**
 
@@ -289,6 +288,24 @@ Consequently, all ``pandas_td`` code should keep running correctly with
 ``pytd``. Report an issue from
 `here <https://github.com/treasure-data/pytd/issues/new>`__ if you
 noticed any incompatible behaviors.
+
+Development
+-----------
+
+For contributors, please see `Contributing Guide <https://pytd-doc.readthedocs.io/en/latest/contributing.html>`__.
+
+This project uses `uv <https://docs.astral.sh/uv/>`__ for fast Python package management:
+
+.. code:: sh
+
+   # Install uv
+   pip install uv
+
+   # Sync dependencies
+   uv sync
+
+   # Run tests with nox
+   uvx nox
 
 .. |Build status| image:: https://github.com/treasure-data/pytd/workflows/Build/badge.svg
    :target: https://github.com/treasure-data/pytd/actions/

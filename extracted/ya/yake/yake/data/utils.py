@@ -8,8 +8,12 @@ text analysis throughout the keyword extraction pipeline.
 """
 
 import re
-from segtok.segmenter import split_multi
-from segtok.tokenizer import web_tokenizer, split_contractions
+from functools import lru_cache
+from segtok.segmenter import split_multi  # pylint: disable=import-error
+from segtok.tokenizer import web_tokenizer, split_contractions  # pylint: disable=import-error
+
+# Pre-compiled regex patterns for better performance
+_CAPITAL_LETTER_PATTERN = re.compile(r"^(\s*([A-Z]))")
 
 # Stopword weighting method for multi-word term scoring:
 # - "bi": Use bi-directional weighting (default, considers term connections)
@@ -18,7 +22,7 @@ from segtok.tokenizer import web_tokenizer, split_contractions
 STOPWORD_WEIGHT = "bi"
 
 
-def pre_filter(text):
+def pre_filter(text: str) -> str:
     """Pre-filter text before processing.
 
     This function prepares raw text for keyword extraction by normalizing its format.
@@ -41,9 +45,6 @@ def pre_filter(text):
     Returns:
         Normalized text with consistent spacing and paragraph structure
     """
-    # Regular expression to detect lines starting with capital letters
-    prog = re.compile("^(\\s*([A-Z]))")
-
     # Split the text into lines
     parts = text.split("\n")
     buffer = ""
@@ -52,7 +53,7 @@ def pre_filter(text):
     for part in parts:
         # Determine separator: preserve paragraph breaks for lines starting with capital letters
         sep = " "
-        if prog.match(part):
+        if _CAPITAL_LETTER_PATTERN.match(part):
             sep = "\n\n"
 
         # Append the processed line to the buffer, replacing tabs with spaces
@@ -61,21 +62,18 @@ def pre_filter(text):
     return buffer
 
 
-def tokenize_sentences(text):
+def tokenize_sentences(text: str) -> list:
     """
     Split text into sentences and tokenize into words.
 
-    This function performs two-level tokenization: first dividing the text into
-    sentences using segtok's sentence segmenter, then tokenizing each sentence
-    into individual words. It also handles contractions and filters out empty
-    or invalid tokens.
+    Performs two-level tokenization: dividing text into sentences,
+    then tokenizing each sentence into individual words.
 
     Args:
-        text (str): The input text to be tokenized
+        text: The input text to be tokenized
 
     Returns:
-        list: A nested list structure where each inner list contains the tokens
-              for a single sentence in the original text
+        A nested list where each inner list contains tokens for one sentence
     """
     return [
         # Inner list: tokenize each sentence into words
@@ -92,22 +90,22 @@ def tokenize_sentences(text):
     ]
 
 
-def get_tag(word, i, exclude):
+@lru_cache(maxsize=10000)
+def get_tag(word: str, i: int, exclude: frozenset) -> str:
     """
-    Determine the linguistic tag of a word based on its characteristics.
+    Determine the linguistic tag of a word.
 
-    This function categorizes words into different types based on their
-    orthographic features (capitalization, digits, special characters).
-    These tags are used to identify proper nouns, acronyms, numbers, and
-    unusual token patterns, which affect keyword scoring and filtering.
+    Categorizes words based on orthographic features (capitalization, digits,
+    special characters) to identify proper nouns, acronyms, numbers, and
+    unusual patterns.
 
     Args:
-        word (str): The word to classify
-        i (int): Position of the word within its sentence (0 = first word)
-        exclude (set): Set of characters to consider as punctuation/special chars
+        word: The word to classify
+        i: Position of the word within its sentence (0 = first word)
+        exclude: Frozenset of characters to consider as punctuation/special chars
 
     Returns:
-        str: A single character tag representing the word type:
+        A single character tag:
             - "d": Digit or numeric value
             - "u": Unusual word (mixed alphanumeric or special characters)
             - "a": Acronym (all uppercase)
@@ -122,9 +120,14 @@ def get_tag(word, i, exclude):
         return "d"
 
     # Count character types for classification
-    cdigit = sum(c.isdigit() for c in word)
-    calpha = sum(c.isalpha() for c in word)
-    cexclude = sum(c in exclude for c in word)
+    cdigit = calpha = cexclude = 0
+    for c in word:
+        if c.isdigit():
+            cdigit += 1
+        if c.isalpha():
+            calpha += 1
+        if c in exclude:
+            cexclude += 1
 
     # Classify unusual tokens: mixed alphanumeric, special chars, or multiple punctuation
     if (cdigit > 0 and calpha > 0) or (cdigit == 0 and calpha == 0) or cexclude > 1:

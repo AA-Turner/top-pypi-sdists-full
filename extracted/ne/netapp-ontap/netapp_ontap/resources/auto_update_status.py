@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,23 +28,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AutoUpdateStatus(
     {
+        "_links": {"self": {}},
+        "expiry_time": "2021-06-01T09:12:03+00:00",
+        "last_state_change_time": "2020-12-01T09:12:23+00:00",
         "package_id": "572361f3-e769-439d-9c04-2ba48a08ff47",
-        "remaining_time": "PT1M30S",
+        "percent_complete": 25,
         "start_time": "2020-12-01T09:12:23+00:00",
+        "state": "downloading",
+        "creation_time": "2020-12-01T09:12:03+00:00",
+        "content_category": "Firmware",
+        "description": "disk_fw version 3.0",
         "status": {
             "message": "Get-url request to AutoSupport OnDemand Server failed. Error: Couldn't connect to server.",
             "code": "8650878",
         },
-        "percent_complete": 25,
-        "content_category": "Firmware",
-        "uuid": "440ae2e4-fd8f-4225-9bee-94e2da3f8d9d",
         "content_type": "disk_fw",
-        "state": "downloading",
-        "description": "disk_fw version 3.0",
-        "last_state_change_time": "2020-12-01T09:12:23+00:00",
-        "_links": {"self": {}},
-        "creation_time": "2020-12-01T09:12:03+00:00",
-        "expiry_time": "2021-06-01T09:12:03+00:00",
+        "remaining_time": "PT1M30S",
+        "uuid": "440ae2e4-fd8f-4225-9bee-94e2da3f8d9d",
     }
 )
 
@@ -81,11 +81,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -99,11 +98,15 @@ __pdoc__ = {
     "AutoUpdateStatusSchema.opts": False,
 }
 
-
 class AutoUpdateStatusSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the AutoUpdateStatus object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.application_nvme_access_subsystem_map_subsystem_hosts_links.ApplicationNvmeAccessSubsystemMapSubsystemHostsLinksSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.application_nvme_access_subsystem_map_subsystem_hosts_links", "ApplicationNvmeAccessSubsystemMapSubsystemHostsLinksSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the auto_update_status."""
 
     action = marshmallow_fields.Str(
@@ -246,7 +249,12 @@ Valid choices:
 * failed
 * aborted"""
 
-    status = marshmallow_fields.Nested("netapp_ontap.models.error.ErrorSchema", data_key="status", unknown=EXCLUDE, allow_none=True)
+    status = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.error", "ErrorSchema"),
+                data_key="status",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The status field of the auto_update_status."""
 
     uuid = marshmallow_fields.Str(

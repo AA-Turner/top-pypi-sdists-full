@@ -3,23 +3,20 @@
 import sys
 
 import contrast
+from contrast.agent import scope
 from contrast.agent.assess.policy.analysis import analyze
-from contrast.agent.policy import patch_manager
+from contrast.agent.middlewares.route_coverage import common
+from contrast.agent.policy import patch_manager, registry
 from contrast.agent.policy.applicator import apply_assess_patch
-from contrast.agent.policy import registry
 from contrast.patches import urllib_patch
 from contrast.utils.decorators import fail_quietly
 from contrast.utils.patch_utils import (
     build_and_apply_patch,
+    register_module_patcher,
     unregister_module_patcher,
     wrap_and_watermark,
-    register_module_patcher,
 )
-from contrast.agent import scope
-from contrast.agent.middlewares.route_coverage import common
-
 from contrast_vendor import structlog as logging
-
 
 logger = logging.getLogger("contrast")
 
@@ -124,9 +121,9 @@ def do_pyramid_route_discovery(pyramid_router_instance):
         create_pyramid_routes,
     )
 
-    from contrast.agent import agent_state
+    context = contrast.REQUEST_CONTEXT.get()
 
-    if not agent_state.is_first_request():
+    if context is None or not context.first_request or not context.assess_enabled:
         return
 
     common.handle_route_discovery(

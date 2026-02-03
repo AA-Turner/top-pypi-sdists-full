@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["VolumeSpaceSnapshot", "VolumeSpaceSnapshotSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "VolumeSpaceSnapshot": False,
 }
 
-
 class VolumeSpaceSnapshotSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the VolumeSpaceSnapshot object"""
 
-    autodelete = marshmallow_fields.Nested("netapp_ontap.models.volume_space_snapshot_autodelete.VolumeSpaceSnapshotAutodeleteSchema", unknown=EXCLUDE, data_key="autodelete", allow_none=True)
+    autodelete = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_space_snapshot_autodelete", "VolumeSpaceSnapshotAutodeleteSchema"),
+                unknown=EXCLUDE,
+                data_key="autodelete",
+                allow_none=True
+            )
     r""" The autodelete field of the volume_space_snapshot. """
 
     autodelete_enabled = marshmallow_fields.Boolean(data_key="autodelete_enabled", allow_none=True)

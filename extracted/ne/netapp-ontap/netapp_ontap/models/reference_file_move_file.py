@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ReferenceFileMoveFile", "ReferenceFileMoveFileSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "ReferenceFileMoveFileSchema.opts": False,
     "ReferenceFileMoveFile": False,
 }
-
 
 class ReferenceFileMoveFileSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ReferenceFileMoveFile object"""
@@ -30,10 +28,20 @@ Example: 5 """
     path = marshmallow_fields.Str(data_key="path", allow_none=True)
     r""" The source reference file. If a reference file is specified, data for other files being moved will be transferred as a difference from the reference file. This can save bandwidth and destination storage if the specified source files share blocks. If provided, this input must match one of the source file paths. This input need not be provided if only one source file is specified. Not supported in FlexGroup volume file move operations. """
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", unknown=EXCLUDE, data_key="svm", allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                unknown=EXCLUDE,
+                data_key="svm",
+                allow_none=True
+            )
     r""" The svm field of the reference_file_move_file. """
 
-    volume = marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", unknown=EXCLUDE, data_key="volume", allow_none=True)
+    volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                unknown=EXCLUDE,
+                data_key="volume",
+                allow_none=True
+            )
     r""" The volume field of the reference_file_move_file. """
 
     @property

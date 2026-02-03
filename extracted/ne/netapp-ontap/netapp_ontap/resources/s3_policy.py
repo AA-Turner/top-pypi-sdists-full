@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -30,48 +30,48 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3Policy(
         {
+            "name": "Policy1",
             "comment": "S3 policy.",
             "statements": [
                 {
                     "effect": "allow",
-                    "sid": "FullAccessToBucket1",
-                    "actions": ["*"],
-                    "resources": ["bucket1", "bucket1/*"],
                     "index": 0,
+                    "resources": ["bucket1", "bucket1/*"],
+                    "actions": ["*"],
+                    "sid": "FullAccessToBucket1",
                 },
                 {
                     "effect": "deny",
-                    "sid": "DenyDeleteObjectAccessToAllResources",
-                    "actions": ["DeleteObject"],
-                    "resources": ["*"],
                     "index": 1,
+                    "resources": ["*"],
+                    "actions": ["DeleteObject"],
+                    "sid": "DenyDeleteObjectAccessToAllResources",
                 },
             ],
-            "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
-            "name": "Policy1",
+            "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
         }
     ),
     S3Policy(
         {
+            "name": "Policy2",
             "comment": "S3 policy 2.",
             "statements": [
                 {
                     "effect": "allow",
-                    "sid": "AllowGetObjectAccessToAllResources",
-                    "actions": ["GetObject"],
-                    "resources": ["*"],
                     "index": 3,
+                    "resources": ["*"],
+                    "actions": ["GetObject"],
+                    "sid": "AllowGetObjectAccessToAllResources",
                 },
                 {
                     "effect": "deny",
-                    "sid": "DenyAccessToAllResources",
-                    "actions": ["*"],
-                    "resources": ["*"],
                     "index": 3,
+                    "resources": ["*"],
+                    "actions": ["*"],
+                    "sid": "DenyAccessToAllResources",
                 },
             ],
-            "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
-            "name": "Policy2",
+            "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
         }
     ),
 ]
@@ -98,11 +98,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Policy(
     {
+        "name": "Policy1",
         "comment": "S3 policy.",
         "statements": [
             {
                 "effect": "deny",
-                "sid": "DenyAccessToAllResources",
+                "index": 0,
+                "resources": ["*"],
                 "actions": [
                     "GetObject",
                     "PutObject",
@@ -117,12 +119,10 @@ S3Policy(
                     "GetBucketVersioning",
                     "PutBucketVersioning",
                 ],
-                "resources": ["*"],
-                "index": 0,
+                "sid": "DenyAccessToAllResources",
             }
         ],
-        "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
-        "name": "Policy1",
+        "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
     }
 )
 
@@ -158,18 +158,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Policy(
     {
+        "name": "Policy1",
         "comment": "S3 policy.",
         "statements": [
             {
                 "effect": "allow",
-                "sid": "AllowListAccessToAllResources",
-                "actions": ["ListBucket", "ListMyBuckets"],
-                "resources": ["*"],
                 "index": 5,
+                "resources": ["*"],
+                "actions": ["ListBucket", "ListMyBuckets"],
+                "sid": "AllowListAccessToAllResources",
             }
         ],
-        "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
-        "name": "Policy1",
+        "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
     }
 )
 
@@ -221,11 +221,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -238,7 +237,6 @@ __pdoc__ = {
     "S3PolicySchema.resource": False,
     "S3PolicySchema.opts": False,
 }
-
 
 class S3PolicySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the S3Policy object"""
@@ -267,10 +265,23 @@ Example: Policy1"""
     )
     r""" Specifies whether or not the s3 policy is read only. This parameter should not be specified in the POST method."""
 
-    statements = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.s3_policy_statement.S3PolicyStatementSchema", unknown=EXCLUDE, allow_none=True), data_key="statements", allow_none=True)
+    statements = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.s3_policy_statement", "S3PolicyStatementSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="statements",
+                allow_none=True
+            )
     r""" Specifies the policy statements."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the s3_policy."""
 
     @property

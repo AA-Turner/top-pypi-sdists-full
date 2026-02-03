@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ConsistencyGroupStatistics", "ConsistencyGroupStatisticsSchema"]
@@ -17,7 +16,6 @@ __pdoc__ = {
     "ConsistencyGroupStatistics": False,
 }
 
-
 class ConsistencyGroupStatisticsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ConsistencyGroupStatistics object"""
 
@@ -26,10 +24,20 @@ class ConsistencyGroupStatisticsSchema(ResourceSchema, metaclass=ResourceSchemaM
 
 Example: 4096 """
 
-    iops_raw = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type.PerformanceMetricIoTypeSchema", unknown=EXCLUDE, data_key="iops_raw", allow_none=True)
+    iops_raw = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type", "PerformanceMetricIoTypeSchema"),
+                unknown=EXCLUDE,
+                data_key="iops_raw",
+                allow_none=True
+            )
     r""" The iops_raw field of the consistency_group_statistics. """
 
-    latency_raw = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type.PerformanceMetricIoTypeSchema", unknown=EXCLUDE, data_key="latency_raw", allow_none=True)
+    latency_raw = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type", "PerformanceMetricIoTypeSchema"),
+                unknown=EXCLUDE,
+                data_key="latency_raw",
+                allow_none=True
+            )
     r""" The latency_raw field of the consistency_group_statistics. """
 
     size = Size(data_key="size", allow_none=True)
@@ -53,7 +61,12 @@ Valid choices:
 * inconsistent_delta_time
 * inconsistent_old_data """
 
-    throughput_raw = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type.PerformanceMetricIoTypeSchema", unknown=EXCLUDE, data_key="throughput_raw", allow_none=True)
+    throughput_raw = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type", "PerformanceMetricIoTypeSchema"),
+                unknown=EXCLUDE,
+                data_key="throughput_raw",
+                allow_none=True
+            )
     r""" The throughput_raw field of the consistency_group_statistics. """
 
     timestamp = ImpreciseDateTime(data_key="timestamp", allow_none=True)

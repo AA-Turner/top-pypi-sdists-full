@@ -423,9 +423,9 @@ class CfnCollection(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name of the collection. Collection names must meet the following criteria: - Starts with a lowercase letter - Unique to your account and AWS Region - Contains between 3 and 28 characters - Contains only lowercase letters a-z, the numbers 0-9, and the hyphen (-)
-        :param collection_group_name: The name of the collection group. The name must meet the following criteria: Unique to your account and AWS Region Starts with a lowercase letter Contains only lowercase letters a-z, the numbers 0-9 and the hyphen (-) Contains between 3 and 32 characters
+        :param collection_group_name: The name of the collection group to associate with the collection.
         :param description: A description of the collection.
-        :param encryption_config: The configuration to encrypt the collection.
+        :param encryption_config: Encryption settings for the collection.
         :param standby_replicas: Indicates whether to use standby replicas for the collection. You can't update this property after the collection is already created. If you attempt to modify this property, the collection continues to use the original value.
         :param tags: An arbitrary set of tags (key–value pairs) to associate with the collection. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         :param type: The type of collection. Possible values are ``SEARCH`` , ``TIMESERIES`` , and ``VECTORSEARCH`` . For more information, see `Choosing a collection type <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless-overview.html#serverless-usecase>`_ .
@@ -627,7 +627,7 @@ class CfnCollection(
     @builtins.property
     @jsii.member(jsii_name="collectionGroupName")
     def collection_group_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the collection group.'''
+        '''The name of the collection group to associate with the collection.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "collectionGroupName"))
 
     @collection_group_name.setter
@@ -655,7 +655,7 @@ class CfnCollection(
     def encryption_config(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCollection.EncryptionConfigProperty"]]:
-        '''The configuration to encrypt the collection.'''
+        '''Encryption settings for the collection.'''
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCollection.EncryptionConfigProperty"]], jsii.get(self, "encryptionConfig"))
 
     @encryption_config.setter
@@ -719,10 +719,10 @@ class CfnCollection(
             aws_owned_key: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             kms_key_arn: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''The configuration to encrypt the collection.
+            '''Encryption settings for the collection.
 
-            :param aws_owned_key: The configuration to encrypt the collection with AWS owned key.
-            :param kms_key_arn: The ARN of the KMS key to encrypt the collection with.
+            :param aws_owned_key: Indicates whether to use an AWS owned key for encryption.
+            :param kms_key_arn: Key Management Service key used to encrypt the collection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-collection-encryptionconfig.html
             :exampleMetadata: fixture=_generated
@@ -752,7 +752,7 @@ class CfnCollection(
         def aws_owned_key(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-            '''The configuration to encrypt the collection with AWS owned key.
+            '''Indicates whether to use an AWS owned key for encryption.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-collection-encryptionconfig.html#cfn-opensearchserverless-collection-encryptionconfig-awsownedkey
             '''
@@ -761,7 +761,7 @@ class CfnCollection(
 
         @builtins.property
         def kms_key_arn(self) -> typing.Optional[builtins.str]:
-            '''The ARN of the KMS key to encrypt the collection with.
+            '''Key Management Service key used to encrypt the collection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-collection-encryptionconfig.html#cfn-opensearchserverless-collection-encryptionconfig-kmskeyarn
             '''
@@ -808,9 +808,9 @@ class CfnCollectionProps:
         '''Properties for defining a ``CfnCollection``.
 
         :param name: The name of the collection. Collection names must meet the following criteria: - Starts with a lowercase letter - Unique to your account and AWS Region - Contains between 3 and 28 characters - Contains only lowercase letters a-z, the numbers 0-9, and the hyphen (-)
-        :param collection_group_name: The name of the collection group. The name must meet the following criteria: Unique to your account and AWS Region Starts with a lowercase letter Contains only lowercase letters a-z, the numbers 0-9 and the hyphen (-) Contains between 3 and 32 characters
+        :param collection_group_name: The name of the collection group to associate with the collection.
         :param description: A description of the collection.
-        :param encryption_config: The configuration to encrypt the collection.
+        :param encryption_config: Encryption settings for the collection.
         :param standby_replicas: Indicates whether to use standby replicas for the collection. You can't update this property after the collection is already created. If you attempt to modify this property, the collection continues to use the original value.
         :param tags: An arbitrary set of tags (key–value pairs) to associate with the collection. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         :param type: The type of collection. Possible values are ``SEARCH`` , ``TIMESERIES`` , and ``VECTORSEARCH`` . For more information, see `Choosing a collection type <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless-overview.html#serverless-usecase>`_ .
@@ -887,13 +887,7 @@ class CfnCollectionProps:
 
     @builtins.property
     def collection_group_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the collection group.
-
-        The name must meet the following criteria:
-        Unique to your account and AWS Region
-        Starts with a lowercase letter
-        Contains only lowercase letters a-z, the numbers 0-9 and the hyphen (-)
-        Contains between 3 and 32 characters
+        '''The name of the collection group to associate with the collection.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collection.html#cfn-opensearchserverless-collection-collectiongroupname
         '''
@@ -913,7 +907,7 @@ class CfnCollectionProps:
     def encryption_config(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCollection.EncryptionConfigProperty"]]:
-        '''The configuration to encrypt the collection.
+        '''Encryption settings for the collection.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collection.html#cfn-opensearchserverless-collection-encryptionconfig
         '''

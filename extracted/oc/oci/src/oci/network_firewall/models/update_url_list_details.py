@@ -24,14 +24,21 @@ class UpdateUrlListDetails(object):
             The value to assign to the urls property of this UpdateUrlListDetails.
         :type urls: list[oci.network_firewall.models.UrlPattern]
 
+        :param description:
+            The value to assign to the description property of this UpdateUrlListDetails.
+        :type description: str
+
         """
         self.swagger_types = {
-            'urls': 'list[UrlPattern]'
+            'urls': 'list[UrlPattern]',
+            'description': 'str'
         }
         self.attribute_map = {
-            'urls': 'urls'
+            'urls': 'urls',
+            'description': 'description'
         }
         self._urls = None
+        self._description = None
 
     @property
     def urls(self):
@@ -56,6 +63,30 @@ class UpdateUrlListDetails(object):
         :type: list[oci.network_firewall.models.UrlPattern]
         """
         self._urls = urls
+
+    @property
+    def description(self):
+        """
+        Gets the description of this UpdateUrlListDetails.
+        The description of the Url list. This field can be used to add additional info.
+
+
+        :return: The description of this UpdateUrlListDetails.
+        :rtype: str
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """
+        Sets the description of this UpdateUrlListDetails.
+        The description of the Url list. This field can be used to add additional info.
+
+
+        :param description: The description of this UpdateUrlListDetails.
+        :type: str
+        """
+        self._description = description
 
     def __repr__(self):
         return formatted_flat_dict(self)

@@ -21,6 +21,7 @@ import sys
 import warnings
 from collections.abc import Callable
 from functools import wraps
+from textwrap import dedent
 from types import ModuleType
 from typing import Any
 
@@ -37,12 +38,12 @@ from . import (
     ALL_WINDOWS,
     OTHER_POSIX,
     UNKNOWN_PLATFORM,
+    Platform,
     current_platform,
     current_traits,
     traits_from_ids,
 )
 from ._utils import _recursive_update, _remove_blanks
-from .trait import Platform
 
 
 def _warn_deprecated(name: str, replacement: str) -> None:
@@ -56,6 +57,21 @@ def _warn_deprecated(name: str, replacement: str) -> None:
         f"{name} is deprecated, use {replacement} instead.",
         DeprecationWarning,
         stacklevel=3,
+    )
+
+
+def _warn_alias_used(alias: str, canonical_id: str) -> None:
+    """Issue a warning when an alias is used instead of the canonical ID.
+
+    Args:
+        alias: The alias that was used.
+        canonical_id: The canonical ID that should be used instead.
+    """
+    warnings.warn(
+        f"'{alias}' is an alias for '{canonical_id}'. "
+        f"Use the canonical ID '{canonical_id}' instead.",
+        UserWarning,
+        stacklevel=4,
     )
 
 
@@ -103,16 +119,25 @@ class _DeprecatedProxy:
         return repr(self._target)
 
 
-def _make_deprecated_proxy(target, name: str, replacement: str):
+def _make_deprecated_proxy(target, name: str, replacement: str, docstring: str = ""):
     """Convenience factory returning a deprecated proxy for ``target``.
 
     Keeps call-sites concise and avoids repeating the proxy class.
+
+    Args:
+        target: The object to proxy to.
+        name: Deprecated name.
+        replacement: Suggested replacement.
+        docstring: Documentation string for the proxy.
     """
-    return _DeprecatedProxy(target, name, replacement)
+    proxy = _DeprecatedProxy(target, name, replacement)
+    if docstring:
+        proxy.__doc__ = docstring
+    return proxy
 
 
 def _make_deprecated_callable(
-    name: str, replacement: str, func: Callable[..., Any] | str
+    name: str, replacement: str, func: Callable[..., Any] | str, docstring: str = ""
 ) -> Callable[..., Any]:
     """Return a function wrapping ``func`` that emits a deprecation warning.
 
@@ -122,6 +147,12 @@ def _make_deprecated_callable(
     as the name of a function to look up lazily in ``extra_platforms`` module.
     This allows wrapping dynamically generated functions that don't exist yet at
     module load time.
+
+    Args:
+        name: Deprecated name.
+        replacement: Suggested replacement.
+        func: The callable to wrap or string name to look up.
+        docstring: Documentation string for the wrapper.
     """
 
     @wraps(func) if callable(func) else (lambda f: f)
@@ -130,7 +161,74 @@ def _make_deprecated_callable(
         target = func if callable(func) else getattr(_ep, func)
         return target(*args, **kwargs)
 
+    if docstring:
+        _wrapper.__doc__ = docstring
+
     return _wrapper
+
+
+def _make_deprecated_module(
+    module_name: str,
+    version: str,
+    replacement: str,
+    symbols: dict[str, Any],
+) -> ModuleType:
+    """Create a deprecated module shim that warns on attribute access.
+
+    This factory generates a fake module that can be injected into ``sys.modules``
+    to provide backward-compatible imports while issuing deprecation warnings.
+
+    Args:
+        module_name: Full module path (e.g., "extra_platforms.platform").
+        version: Version when the module was deprecated (e.g., "7.0.0").
+        replacement: Suggested replacement module (e.g., "extra_platforms.trait").
+        symbols: Dictionary mapping symbol names to their values or import paths.
+            Values can be:
+            - Direct objects (e.g., ``Platform`` class)
+            - Tuples of ``(module_path, symbol_name)`` for lazy imports
+
+    Returns:
+        A :class:`~types.ModuleType` subclass instance that warns on attribute access.
+    """
+
+    class _DeprecatedModule(ModuleType):
+        def __init__(self):
+            super().__init__(module_name)
+            self.__doc__ = (
+                "Backward-compatible module for deprecated imports.\n\n"
+                f".. deprecated:: {version}\n"
+                f"    This module is deprecated. Import from ``{replacement}`` instead."
+            )
+            self.__file__ = __file__
+            self.__all__ = list(symbols.keys())
+            # Store symbols without triggering __setattr__ warning.
+            object.__setattr__(self, "_symbols", symbols)
+
+        def __getattr__(self, name: str):
+            # Block private attributes unless explicitly listed in symbols.
+            if name.startswith("_") and name not in self._symbols:
+                raise AttributeError(
+                    f"module {module_name!r} has no attribute {name!r}"
+                )
+            if name in self._symbols:
+                warnings.warn(
+                    f"The {module_name!r} module is deprecated. "
+                    f"Import from {replacement!r} instead.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                value = self._symbols[name]
+                # Handle lazy imports specified as (module_path, symbol_name) tuples.
+                if isinstance(value, tuple) and len(value) == 2:
+                    mod_path, sym_name = value
+                    import importlib
+
+                    mod = importlib.import_module(mod_path, package="extra_platforms")
+                    return getattr(mod, sym_name)
+                return value
+            raise AttributeError(f"module {module_name!r} has no attribute {name!r}")
+
+    return _DeprecatedModule()
 
 
 # ================================================================
@@ -139,36 +237,42 @@ def _make_deprecated_callable(
 
 
 ALL_PLATFORM_IDS = _make_deprecated_proxy(
-    ALL_TRAIT_IDS, "ALL_PLATFORM_IDS", "ALL_TRAIT_IDS"
-)
-"""
-Alias `ALL_PLATFORM_IDS` → :data:`~extra_platforms.ALL_TRAIT_IDS`.
+    ALL_TRAIT_IDS,
+    "ALL_PLATFORM_IDS",
+    "ALL_TRAIT_IDS",
+    dedent("""\
+        Alias ``ALL_PLATFORM_IDS`` → :data:`~ALL_TRAIT_IDS`.
 
-.. deprecated:: 6.0.0
-   Use :data:`~extra_platforms.ALL_TRAIT_IDS` instead.
-"""
+        .. deprecated:: 6.0.0
+           Use :data:`~ALL_TRAIT_IDS` instead.
+        """),
+)
 
 
 ALL_PLATFORMS_WITHOUT_CI = _make_deprecated_proxy(
-    ALL_PLATFORMS, "ALL_PLATFORMS_WITHOUT_CI", "ALL_PLATFORMS"
-)
-"""
-Alias `ALL_PLATFORMS_WITHOUT_CI` → :data:`~extra_platforms.ALL_PLATFORMS`.
+    ALL_PLATFORMS,
+    "ALL_PLATFORMS_WITHOUT_CI",
+    "ALL_PLATFORMS",
+    dedent("""\
+        Alias ``ALL_PLATFORMS_WITHOUT_CI`` → :data:`~ALL_PLATFORMS`.
 
-.. deprecated:: 6.0.0
-   Use :data:`~extra_platforms.ALL_PLATFORMS` instead.
-"""
+        .. deprecated:: 6.0.0
+           Use :data:`~ALL_PLATFORMS` instead.
+        """),
+)
 
 
 UNKNOWN_LINUX = _make_deprecated_proxy(
-    UNKNOWN_PLATFORM, "UNKNOWN_LINUX", "UNKNOWN_PLATFORM"
-)
-"""
-Alias `UNKNOWN_LINUX` → :data:`~extra_platforms.UNKNOWN_PLATFORM`.
+    UNKNOWN_PLATFORM,
+    "UNKNOWN_LINUX",
+    "UNKNOWN_PLATFORM",
+    dedent("""\
+        Alias ``UNKNOWN_LINUX`` → :data:`~UNKNOWN_PLATFORM`.
 
-.. deprecated:: 7.0.0
-   Use :data:`~extra_platforms.UNKNOWN_PLATFORM` instead.
-"""
+        .. deprecated:: 7.0.0
+           Use :data:`~UNKNOWN_PLATFORM` instead.
+        """),
+)
 
 
 # ================================================================
@@ -179,14 +283,15 @@ Alias `UNKNOWN_LINUX` → :data:`~extra_platforms.UNKNOWN_PLATFORM`.
 current_os = _make_deprecated_callable(
     "current_os()",
     "current_platform()",
-    current_platform,  # type: ignore[has-type]
-)
-"""
-Alias `current_os()` → :func:`~extra_platforms.current_platform`.
+    current_platform,
+    dedent(
+        """Alias ``current_os()`` → :func:`~current_platform`.
 
-.. deprecated:: 6.0.0
-   Use :func:`~extra_platforms.current_platform` instead.
-"""
+        .. deprecated:: 6.0.0
+           Use :func:`~current_platform` instead.
+        """
+    ),
+)
 
 
 def _current_platforms_impl() -> tuple[Platform, ...]:
@@ -194,14 +299,17 @@ def _current_platforms_impl() -> tuple[Platform, ...]:
 
 
 current_platforms = _make_deprecated_callable(
-    "current_platforms()", "current_traits()", _current_platforms_impl
-)
-"""
-Alias `current_platforms()` → :func:`~extra_platforms.current_traits`.
+    "current_platforms()",
+    "current_traits()",
+    _current_platforms_impl,
+    dedent(
+        """Alias ``current_platforms()`` → :func:`~current_traits`.
 
-.. deprecated:: 6.0.0
-   Use :func:`~extra_platforms.current_traits` instead.
-"""
+        .. deprecated:: 6.0.0
+           Use :func:`~current_traits` instead.
+        """
+    ),
+)
 
 
 is_unknown_linux = _make_deprecated_callable(
@@ -209,11 +317,10 @@ is_unknown_linux = _make_deprecated_callable(
     "is_unknown_platform()",
     "is_unknown_platform",
 )
-"""
-Alias `is_unknown_linux()` → :func:`~extra_platforms.is_unknown_platform`.
+"""Alias ``is_unknown_linux()`` → :func:`~is_unknown_platform`.
 
 .. deprecated:: 7.0.0
-   Use :func:`~extra_platforms.is_unknown_platform` instead.
+   Use :func:`~is_unknown_platform` instead.
 """
 
 
@@ -227,95 +334,86 @@ is_all_platforms_without_ci = _make_deprecated_callable(
     "is_any_platform()",
     "is_any_platform",
 )
-"""
-Alias `is_all_platforms_without_ci()` → :func:`~extra_platforms.is_any_platform`.
+"""Alias ``is_all_platforms_without_ci()`` → :func:`~is_any_platform`.
 
 .. deprecated:: 6.0.0
-   Use :func:`~extra_platforms.is_any_platform` instead.
+   Use :func:`~is_any_platform` instead.
 """
 
 
 is_ci = _make_deprecated_callable("is_ci()", "is_any_ci()", "is_any_ci")
-"""
-Alias `is_ci()` → :func:`~extra_platforms.is_any_ci`.
+"""Alias ``is_ci()`` → :func:`~is_any_ci`.
 
 .. deprecated:: 6.0.0
-   Use :func:`~extra_platforms.is_any_ci` instead.
+    Use :func:`~is_any_ci` instead.
 """
 
 
 is_all_architectures = _make_deprecated_callable(
     "is_all_architectures()", "is_any_architecture()", "is_any_architecture"
 )
-"""
-Alias `is_all_architectures()` → :func:`~extra_platforms.is_any_architecture`.
+"""Alias ``is_all_architectures()`` → :func:`~is_any_architecture`.
 
 .. deprecated:: 7.0.0
-   Use :func:`~extra_platforms.is_any_architecture` instead.
+   Use :func:`~is_any_architecture` instead.
 """
 
 
 is_all_platforms = _make_deprecated_callable(
     "is_all_platforms()", "is_any_platform()", "is_any_platform"
 )
-"""
-Alias `is_all_platforms()` → :func:`~extra_platforms.is_any_platform`.
+"""Alias ``is_all_platforms()`` → :func:`~is_any_platform`.
 
 .. deprecated:: 7.0.0
-   Use :func:`~extra_platforms.is_any_platform` instead.
+   Use :func:`~is_any_platform` instead.
 """
 
 
 is_all_ci = _make_deprecated_callable("is_all_ci()", "is_any_ci()", "is_any_ci")
-"""
-Alias `is_all_ci()` → :func:`~extra_platforms.is_any_ci`.
+"""Alias ``is_all_ci()`` → :func:`~is_any_ci`.
 
 .. deprecated:: 7.0.0
-   Use :func:`~extra_platforms.is_any_ci` instead.
+    Use :func:`~is_any_ci` instead.
 """
 
 
 is_all_traits = _make_deprecated_callable(
     "is_all_traits()", "is_any_trait()", "is_any_trait"
 )
-"""
-Alias `is_all_traits()` → :func:`~extra_platforms.is_any_trait`.
+"""Alias ``is_all_traits()`` → :func:`~is_any_trait`.
 
 .. deprecated:: 7.0.0
-   Use :func:`~extra_platforms.is_any_trait` instead.
+   Use :func:`~is_any_trait` instead.
 """
 
 
 is_other_unix = _make_deprecated_callable(
     "is_other_unix()", "is_other_posix()", "is_other_posix"
 )
-"""
-Alias `is_other_unix()` → :func:`~extra_platforms.is_other_posix`.
+"""Alias ``is_other_unix()`` → :func:`~is_other_posix`.
 
 .. deprecated:: 7.0.0
-   Use :func:`~extra_platforms.is_other_posix` instead.
+   Use :func:`~is_other_posix` instead.
 """
 
 
 is_bsd_without_macos = _make_deprecated_callable(
     "is_bsd_without_macos()", "is_bsd_not_macos()", "is_bsd_not_macos"
 )
-"""
-Alias `is_bsd_without_macos()` → :func:`~extra_platforms.is_bsd_not_macos`.
+"""Alias ``is_bsd_without_macos()`` → :func:`~is_bsd_not_macos`.
 
 .. deprecated:: 7.0.0
-   Use :func:`~extra_platforms.is_bsd_not_macos` instead.
+   Use :func:`~is_bsd_not_macos` instead.
 """
 
 
 is_unix_without_macos = _make_deprecated_callable(
     "is_unix_without_macos()", "is_unix_not_macos()", "is_unix_not_macos"
 )
-"""
-Alias `is_unix_without_macos()` → :func:`~extra_platforms.is_unix_not_macos`.
+"""Alias ``is_unix_without_macos()`` → :func:`~is_unix_not_macos`.
 
 .. deprecated:: 7.0.0
-   Use :func:`~extra_platforms.is_unix_not_macos` instead.
+   Use :func:`~is_unix_not_macos` instead.
 """
 
 
@@ -324,49 +422,69 @@ Alias `is_unix_without_macos()` → :func:`~extra_platforms.is_unix_not_macos`.
 # ================================================================
 
 
-ANY_ARM = _make_deprecated_proxy(ALL_ARM, "ANY_ARM", "ALL_ARM")
-"""
-Alias `ANY_ARM` → :data:`~extra_platforms.ALL_ARM`.
+ANY_ARM = _make_deprecated_proxy(
+    ALL_ARM,
+    "ANY_ARM",
+    "ALL_ARM",
+    dedent("""\
+        Alias ``ANY_ARM`` → :data:`~ALL_ARM`.
 
-.. deprecated:: 7.0.0
-   Use :data:`~extra_platforms.ALL_ARM` instead.
-"""
-
-
-ANY_MIPS = _make_deprecated_proxy(ALL_MIPS, "ANY_MIPS", "ALL_MIPS")
-"""
-Alias `ANY_MIPS` → :data:`~extra_platforms.ALL_MIPS`.
-
-.. deprecated:: 7.0.0
-   Use :data:`~extra_platforms.ALL_MIPS` instead.
-"""
+        .. deprecated:: 7.0.0
+           Use :data:`~ALL_ARM` instead.
+        """),
+)
 
 
-ANY_SPARC = _make_deprecated_proxy(ALL_SPARC, "ANY_SPARC", "ALL_SPARC")
-"""
-Alias `ANY_SPARC` → :data:`~extra_platforms.ALL_SPARC`.
+ANY_MIPS = _make_deprecated_proxy(
+    ALL_MIPS,
+    "ANY_MIPS",
+    "ALL_MIPS",
+    dedent("""\
+        Alias ``ANY_MIPS`` → :data:`~ALL_MIPS`.
 
-.. deprecated:: 7.0.0
-   Use :data:`~extra_platforms.ALL_SPARC` instead.
-"""
-
-
-ANY_WINDOWS = _make_deprecated_proxy(ALL_WINDOWS, "ANY_WINDOWS", "ALL_WINDOWS")
-"""
-Alias `ANY_WINDOWS` → :data:`~extra_platforms.ALL_WINDOWS`.
-
-.. deprecated:: 7.0.0
-   Use :data:`~extra_platforms.ALL_WINDOWS` instead.
-"""
+        .. deprecated:: 7.0.0
+           Use :data:`~ALL_MIPS` instead.
+        """),
+)
 
 
-OTHER_UNIX = _make_deprecated_proxy(OTHER_POSIX, "OTHER_UNIX", "OTHER_POSIX")
-"""
-Alias `OTHER_UNIX` → :data:`~extra_platforms.OTHER_POSIX`.
+ANY_SPARC = _make_deprecated_proxy(
+    ALL_SPARC,
+    "ANY_SPARC",
+    "ALL_SPARC",
+    dedent("""\
+        Alias ``ANY_SPARC`` → :data:`~ALL_SPARC`.
 
-.. deprecated:: 7.0.0
-   Use :data:`~extra_platforms.OTHER_POSIX` instead.
-"""
+        .. deprecated:: 7.0.0
+           Use :data:`~ALL_SPARC` instead.
+        """),
+)
+
+
+ANY_WINDOWS = _make_deprecated_proxy(
+    ALL_WINDOWS,
+    "ANY_WINDOWS",
+    "ALL_WINDOWS",
+    dedent("""\
+        Alias ``ANY_WINDOWS`` → :data:`~ALL_WINDOWS`.
+
+        .. deprecated:: 7.0.0
+           Use :data:`~ALL_WINDOWS` instead.
+        """),
+)
+
+
+OTHER_UNIX = _make_deprecated_proxy(
+    OTHER_POSIX,
+    "OTHER_UNIX",
+    "OTHER_POSIX",
+    dedent("""\
+        Alias ``OTHER_UNIX`` → :data:`~OTHER_POSIX`.
+
+        .. deprecated:: 7.0.0
+           Use :data:`~OTHER_POSIX` instead.
+        """),
+)
 
 
 # ================================================================
@@ -375,65 +493,46 @@ Alias `OTHER_UNIX` → :data:`~extra_platforms.OTHER_POSIX`.
 
 
 platforms_from_ids = _make_deprecated_callable(
-    "platforms_from_ids", "traits_from_ids", traits_from_ids
+    "platforms_from_ids",
+    "traits_from_ids",
+    traits_from_ids,
+    dedent(
+        """Alias ``platforms_from_ids`` → :func:`~traits_from_ids`.
+
+        .. deprecated:: 6.0.0
+           Use :func:`~traits_from_ids` instead.
+        """
+    ),
 )
-"""
-Alias `platforms_from_ids` → :func:`~extra_platforms.traits_from_ids`.
-
-.. deprecated:: 6.0.0
-   Use :func:`~extra_platforms.traits_from_ids` instead.
-"""
 
 
 # ================================================================
-# Deprecated module: extra_platforms.platform
+# Deprecated modules
 # ================================================================
 
-# Simulate the deprecated `extra_platforms.platform` module by injecting a fake
-# module into sys.modules. This allows `from extra_platforms.platform import Platform`
-# to work while issuing a deprecation warning, without needing a separate file.
+
+sys.modules["extra_platforms.platform"] = _make_deprecated_module(
+    module_name="extra_platforms.platform",
+    version="7.0.0",
+    replacement="extra_platforms.trait",
+    symbols={
+        "Platform": Platform,
+        "_recursive_update": _recursive_update,
+        "_remove_blanks": _remove_blanks,
+    },
+)
 
 
-class _DeprecatedPlatformModule(ModuleType):
-    """A fake module that warns on attribute access.
-
-    .. deprecated:: 7.0.0
-       The ``extra_platforms.platform`` module is deprecated.
-       Import from ``extra_platforms.trait`` instead.
-    """
-
-    def __init__(self):
-        super().__init__("extra_platforms.platform")
-        self.__doc__ = (
-            "Backward-compatible module for deprecated imports.\n\n"
-            ".. deprecated:: 7.0.0\n"
-            "    This module is deprecated. Import from ``extra_platforms.trait``"
-            " instead."
-        )
-        self.__file__ = __file__
-        self.__all__ = ["Platform", "_recursive_update", "_remove_blanks"]
-        # Store actual values without triggering __setattr__ warning.
-        object.__setattr__(self, "_Platform", Platform)
-        object.__setattr__(self, "_recursive_update", _recursive_update)
-        object.__setattr__(self, "_remove_blanks", _remove_blanks)
-
-    def __getattr__(self, name: str):
-        warnings.warn(
-            "The 'extra_platforms.platform' module is deprecated. "
-            "Import from 'extra_platforms.trait' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if name == "Platform":
-            return self._Platform
-        if name == "_recursive_update":
-            return self._recursive_update
-        if name == "_remove_blanks":
-            return self._remove_blanks
-        raise AttributeError(
-            f"module 'extra_platforms.platform' has no attribute {name!r}"
-        )
-
-
-# Register the fake module in sys.modules.
-sys.modules["extra_platforms.platform"] = _DeprecatedPlatformModule()
+sys.modules["extra_platforms.operations"] = _make_deprecated_module(
+    module_name="extra_platforms.operations",
+    version="8.0.0",
+    replacement="extra_platforms",
+    symbols={
+        "ALL_GROUP_IDS": (".group_data", "ALL_GROUP_IDS"),
+        "ALL_IDS": (".group_data", "ALL_IDS"),
+        "ALL_TRAIT_IDS": (".group_data", "ALL_TRAIT_IDS"),
+        "groups_from_ids": (".group", "groups_from_ids"),
+        "reduce": (".group", "reduce"),
+        "traits_from_ids": (".group", "traits_from_ids"),
+    },
+)

@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import functools
 import logging
 import os
-from typing import Any, Literal, Optional, Union, cast, overload
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Union, cast, overload
 
 from hfortix_core.audit import AuditHandler
 from hfortix_core.http.client import HTTPClient
 from hfortix_core.http.interface import IHTTPClient
 
 from .api import API
+
+if TYPE_CHECKING:
+    from .transaction import Transaction
 
 __all__ = ["FortiOS"]
 
@@ -558,6 +562,9 @@ class FortiOS:
         self._error_format: Literal["detailed", "simple", "code_only"] = (
             error_format
         )
+        
+        # Transaction tracking
+        self._active_transaction: Optional[Transaction] = None
 
         # Validate credentials if not using custom client
         if client is None:
@@ -730,7 +737,11 @@ class FortiOS:
                     api_type, path, params, vdom, raw_json=True
                 )
                 response_time = _time.perf_counter() - start_time
-                return process_response(result, unwrap_single=unwrap_single, raw_envelope=result, response_time=response_time)  # type: ignore
+                
+                # Get request info from the HTTP client
+                request_info = getattr(self._wrapped_client, '_last_request', None)
+                
+                return process_response(result, unwrap_single=unwrap_single, raw_envelope=result, response_time=response_time, request_info=request_info)  # type: ignore
 
             def post(
                 self,
@@ -746,7 +757,11 @@ class FortiOS:
                 converted_data = convert_field_names(data) if data else None
                 result = self._wrapped_client.post(api_type, path, converted_data, params, vdom, raw_json=True)  # type: ignore
                 response_time = _time.perf_counter() - start_time
-                return process_response(result, raw_envelope=result, response_time=response_time)  # type: ignore
+                
+                # Get request info from the HTTP client
+                request_info = getattr(self._wrapped_client, '_last_request', None)
+                
+                return process_response(result, raw_envelope=result, response_time=response_time, request_info=request_info)  # type: ignore
 
             def put(
                 self,
@@ -762,7 +777,11 @@ class FortiOS:
                 converted_data = convert_field_names(data) if data else None
                 result = self._wrapped_client.put(api_type, path, converted_data, params, vdom, raw_json=True)  # type: ignore
                 response_time = _time.perf_counter() - start_time
-                return process_response(result, raw_envelope=result, response_time=response_time)  # type: ignore
+                
+                # Get request info from the HTTP client
+                request_info = getattr(self._wrapped_client, '_last_request', None)
+                
+                return process_response(result, raw_envelope=result, response_time=response_time, request_info=request_info)  # type: ignore
 
             def delete(
                 self,
@@ -777,7 +796,11 @@ class FortiOS:
                     api_type, path, params, vdom, raw_json=True
                 )
                 response_time = _time.perf_counter() - start_time
-                return process_response(result, raw_envelope=result, response_time=response_time)  # type: ignore
+                
+                # Get request info from the HTTP client
+                request_info = getattr(self._wrapped_client, '_last_request', None)
+                
+                return process_response(result, raw_envelope=result, response_time=response_time, request_info=request_info)  # type: ignore
 
             def __getattr__(self, name):
                 """Delegate all other attributes to the wrapped client."""
@@ -1543,6 +1566,228 @@ class FortiOS:
             }
         return self._client.get_health_metrics()  # type: ignore
 
+    def transaction(
+        self,
+        timeout: int = 60,
+        vdom: Optional[str] = None,
+        auto_commit: bool = True,
+        auto_abort: bool = True,
+    ) -> Transaction:
+        """
+        Create a FortiOS batch transaction context manager
+        
+        Batches multiple API calls into an atomic transaction. All changes
+        are applied together on commit, or rolled back on abort. Ideal for
+        multi-step configuration changes that must succeed or fail as a unit.
+        
+        Args:
+            timeout: Transaction timeout in seconds (default: 60)
+            vdom: Virtual Domain for the transaction (default: use client's vdom)
+            auto_commit: Auto-commit on successful context exit (default: True)
+            auto_abort: Auto-abort on exception in context (default: True)
+        
+        Returns:
+            Transaction: Transaction context manager
+        
+        Raises:
+            RuntimeError: If another transaction is already active
+            TransactionError: If transaction start fails
+        
+        Example::
+        
+            >>> # Context manager - automatic commit/abort
+            >>> with fgt.transaction() as txn:
+            ...     fgt.api.cmdb.system.interface.post({
+            ...         "name": "port3",
+            ...         "vdom": "root",
+            ...         "mode": "static",
+            ...         "ip": "192.168.1.1 255.255.255.0"
+            ...     })
+            ...     fgt.api.cmdb.firewall.policy.post({
+            ...         "policyid": 1,
+            ...         "name": "test-policy",
+            ...         "srcintf": [{"name": "port1"}],
+            ...         "dstintf": [{"name": "port2"}],
+            ...         "srcaddr": [{"name": "all"}],
+            ...         "dstaddr": [{"name": "all"}],
+            ...         "action": "accept",
+            ...         "schedule": "always",
+            ...         "service": [{"name": "ALL"}]
+            ...     })
+            >>> # Transaction auto-commits on successful exit
+            >>> 
+            >>> # Manual control - disable auto_commit
+            >>> with fgt.transaction(auto_commit=False) as txn:
+            ...     fgt.api.cmdb.system.interface.post(...)
+            ...     # Do validation or checks
+            ...     if everything_ok:
+            ...         txn.commit()
+            ...     else:
+            ...         txn.abort()
+            >>> 
+            >>> # Longer timeout for complex operations
+            >>> with fgt.transaction(timeout=300) as txn:
+            ...     for interface in interfaces:
+            ...         fgt.api.cmdb.system.interface.post(interface)
+        
+        Note:
+            - Requires FortiOS 6.4.0 or later
+            - Only one transaction can be active at a time
+            - Transaction automatically aborts on exception
+            - All API calls within context use same transaction ID
+        """
+        if self._active_transaction is not None:
+            raise RuntimeError(
+                "Another transaction is already active. "
+                "FortiOS only supports one transaction at a time."
+            )
+        
+        # Import here to avoid circular import
+        from .transaction import Transaction
+        
+        txn = Transaction(
+            client=self,  # type: ignore[arg-type]
+            timeout=timeout,
+            vdom=vdom or self._vdom,
+            auto_commit=auto_commit,
+            auto_abort=auto_abort,
+        )
+        self._active_transaction = txn
+        return txn
+    
+    def transactional(
+        self,
+        timeout: int = 60,
+        vdom: Optional[str] = None,
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        """
+        Decorator to run a function within a FortiOS transaction
+        
+        Wraps a function so all API calls it makes are batched into an
+        atomic transaction. Auto-commits on success, auto-aborts on exception.
+        
+        Args:
+            timeout: Transaction timeout in seconds (default: 60)
+            vdom: Virtual Domain for the transaction (default: use client's vdom)
+        
+        Returns:
+            Callable: Decorator function
+        
+        Raises:
+            RuntimeError: If another transaction is already active
+            TransactionError: If transaction start fails
+        
+        Example::
+        
+            >>> @fgt.transactional(timeout=120)
+            ... def setup_network_infrastructure():
+            ...     # All these calls happen in one transaction
+            ...     fgt.api.cmdb.system.interface.post({
+            ...         "name": "dmz",
+            ...         "vdom": "root",
+            ...         "mode": "static",
+            ...         "ip": "10.0.0.1 255.255.255.0"
+            ...     })
+            ...     fgt.api.cmdb.firewall.address.post({
+            ...         "name": "dmz-server",
+            ...         "subnet": "10.0.0.10 255.255.255.255"
+            ...     })
+            ...     fgt.api.cmdb.firewall.policy.post({
+            ...         "policyid": 100,
+            ...         "name": "allow-dmz",
+            ...         "srcintf": [{"name": "internal"}],
+            ...         "dstintf": [{"name": "dmz"}],
+            ...         "srcaddr": [{"name": "all"}],
+            ...         "dstaddr": [{"name": "dmz-server"}],
+            ...         "action": "accept",
+            ...         "schedule": "always",
+            ...         "service": [{"name": "HTTP"}]
+            ...     })
+            ...     return {"status": "success"}
+            >>> 
+            >>> # Function executes within transaction
+            >>> result = setup_network_infrastructure()
+            >>> # Transaction auto-commits if no exception raised
+            >>> 
+            >>> @fgt.transactional()
+            ... def configure_interfaces(interfaces: list[dict]):
+            ...     for intf in interfaces:
+            ...         fgt.api.cmdb.system.interface.post(intf)
+            >>> 
+            >>> # If any interface fails, all changes are rolled back
+            >>> configure_interfaces([
+            ...     {"name": "port3", "ip": "192.168.1.1 255.255.255.0"},
+            ...     {"name": "port4", "ip": "192.168.2.1 255.255.255.0"},
+            ... ])
+        
+        Note:
+            - Requires FortiOS 6.4.0 or later
+            - Always auto-commits on success, auto-aborts on exception
+            - Cannot be nested with other transactions
+            - Function can access transaction via fgt._active_transaction
+        """
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+            @functools.wraps(func)
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                with self.transaction(
+                    timeout=timeout,
+                    vdom=vdom,
+                    auto_commit=True,
+                    auto_abort=True,
+                ):
+                    return func(*args, **kwargs)
+            return wrapper
+        return decorator
+    
+    def list_transactions(self) -> list[dict[str, Any]]:
+        """
+        List all active transactions on the FortiGate
+        
+        Shows transaction IDs, VDOMs, creation times, and other metadata
+        for all currently active transactions across the device.
+        
+        Returns:
+            list[dict]: List of active transaction details
+        
+        Raises:
+            ValueError: If FortiOS version doesn't support listing (< 7.4.1)
+        
+        Example::
+        
+            >>> # Show all active transactions
+            >>> transactions = fgt.list_transactions()
+            >>> for txn in transactions:
+            ...     print(f"ID: {txn['transaction_id']}, VDOM: {txn['vdom']}")
+            ID: 12345, VDOM: root
+            ID: 12346, VDOM: customer1
+            >>> 
+            >>> # Check if specific transaction exists
+            >>> active_ids = [t['transaction_id'] for t in fgt.list_transactions()]
+            >>> if 12345 in active_ids:
+            ...     print("Transaction 12345 still active")
+        
+        Note:
+            - Requires FortiOS 7.4.1 or later
+            - Returns transactions from all VDOMs (admin must have access)
+            - Includes transactions started by other users/sessions
+        """
+        result = self._client.get(
+            api_type="cmdb",
+            path="",
+            params={"action": "transaction-show"},
+            raw_json=True,
+        )
+        
+        # Parse response - structure depends on FortiOS version
+        if isinstance(result, dict):
+            if "results" in result:
+                return result["results"]  # type: ignore
+            elif "transaction_id" in result:
+                # Single transaction response
+                return [result]  # type: ignore
+        
+        return []
+
     def close(self) -> None:
         """
         Close the HTTP session and release resources
@@ -1650,7 +1895,11 @@ class FortiOS:
             >>> print(f"Last request: {info['method']} {info['endpoint']}")
             >>> print(f"Response time: {info['response_time_ms']:.2f}ms")
         """
-        return self._client.inspect_last_request()  # type: ignore[union-attr]
+        result = self._client.inspect_last_request()  # type: ignore[union-attr]
+        # Return empty dict if no result or if not a dict
+        if result is None or not isinstance(result, dict):
+            return {}
+        return result
 
     def __enter__(self) -> "FortiOS":
         """Context manager entry (sync mode only)"""

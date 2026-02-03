@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -10,11 +10,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -28,9 +27,16 @@ __pdoc__ = {
     "VscanEventSchema.opts": False,
 }
 
-
 class VscanEventSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the VscanEvent object"""
+
+    consecutive_occurrence_count = Size(
+        data_key="consecutive_occurrence_count",
+        allow_none=True,
+    )
+    r""" Specifies the consecutive occurrence count of the event.
+
+Example: 2"""
 
     disconnect_reason = marshmallow_fields.Str(
         data_key="disconnect_reason",
@@ -81,11 +87,29 @@ Example: 2021-11-25T04:29:41.606+0000"""
 
 Example: /1"""
 
-    interface = marshmallow_fields.Nested("netapp_ontap.resources.ip_interface.IpInterfaceSchema", data_key="interface", unknown=EXCLUDE, allow_none=True)
+    interface = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.ip_interface", "IpInterfaceSchema"),
+                data_key="interface",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The interface field of the vscan_event."""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the vscan_event."""
+
+    scan_engine_status = Size(
+        data_key="scan_engine_status",
+        allow_none=True,
+    )
+    r""" Specifies the status code of the scan-engine for the event. This field is only generated when there is a proper response from the scan-engine.
+
+Example: 333300005"""
 
     server = marshmallow_fields.Str(
         data_key="server",
@@ -95,7 +119,12 @@ Example: /1"""
 
 Example: 192.168.1.1"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the vscan_event."""
 
     type = marshmallow_fields.Str(
@@ -140,6 +169,7 @@ Example: 1.0"""
         return VscanEvent
 
     gettable_fields = [
+        "consecutive_occurrence_count",
         "disconnect_reason",
         "event_time",
         "file_path",
@@ -150,6 +180,7 @@ Example: 1.0"""
         "node.links",
         "node.name",
         "node.uuid",
+        "scan_engine_status",
         "server",
         "svm.links",
         "svm.name",
@@ -158,31 +189,35 @@ Example: 1.0"""
         "vendor",
         "version",
     ]
-    """disconnect_reason,event_time,file_path,interface.links,interface.ip,interface.name,interface.uuid,node.links,node.name,node.uuid,server,svm.links,svm.name,svm.uuid,type,vendor,version,"""
+    """consecutive_occurrence_count,disconnect_reason,event_time,file_path,interface.links,interface.ip,interface.name,interface.uuid,node.links,node.name,node.uuid,scan_engine_status,server,svm.links,svm.name,svm.uuid,type,vendor,version,"""
 
     patchable_fields = [
+        "consecutive_occurrence_count",
         "event_time",
         "file_path",
         "interface.name",
         "interface.uuid",
+        "scan_engine_status",
         "server",
         "type",
         "vendor",
         "version",
     ]
-    """event_time,file_path,interface.name,interface.uuid,server,type,vendor,version,"""
+    """consecutive_occurrence_count,event_time,file_path,interface.name,interface.uuid,scan_engine_status,server,type,vendor,version,"""
 
     postable_fields = [
+        "consecutive_occurrence_count",
         "event_time",
         "file_path",
         "interface.name",
         "interface.uuid",
+        "scan_engine_status",
         "server",
         "type",
         "vendor",
         "version",
     ]
-    """event_time,file_path,interface.name,interface.uuid,server,type,vendor,version,"""
+    """consecutive_occurrence_count,event_time,file_path,interface.name,interface.uuid,scan_engine_status,server,type,vendor,version,"""
 
 class VscanEvent(Resource):
     """Allows interaction with VscanEvent objects on the host"""

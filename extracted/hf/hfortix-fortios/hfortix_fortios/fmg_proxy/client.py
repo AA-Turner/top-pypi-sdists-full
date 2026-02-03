@@ -614,25 +614,29 @@ class ProxiedFortiOS:
                     start_time = _time.perf_counter()
                     result = self._wrapped_client.get(api_type, path, params, vdom, raw_json=True)
                     response_time = _time.perf_counter() - start_time
-                    return process_response(result, unwrap_single=unwrap_single, raw_envelope=result, response_time=response_time)
+                    request_info = getattr(self._wrapped_client, '_last_request', None)
+                    return process_response(result, unwrap_single=unwrap_single, raw_envelope=result, response_time=response_time, request_info=request_info)
                 
                 def post(self, api_type, path, data=None, params=None, vdom=None):
                     start_time = _time.perf_counter()
                     result = self._wrapped_client.post(api_type, path, data, params, vdom, raw_json=True)
                     response_time = _time.perf_counter() - start_time
-                    return process_response(result, raw_envelope=result, response_time=response_time)
+                    request_info = getattr(self._wrapped_client, '_last_request', None)
+                    return process_response(result, raw_envelope=result, response_time=response_time, request_info=request_info)
                 
                 def put(self, api_type, path, data=None, params=None, vdom=None):
                     start_time = _time.perf_counter()
                     result = self._wrapped_client.put(api_type, path, data, params, vdom, raw_json=True)
                     response_time = _time.perf_counter() - start_time
-                    return process_response(result, raw_envelope=result, response_time=response_time)
+                    request_info = getattr(self._wrapped_client, '_last_request', None)
+                    return process_response(result, raw_envelope=result, response_time=response_time, request_info=request_info)
                 
                 def delete(self, api_type, path, params=None, vdom=None):
                     start_time = _time.perf_counter()
                     result = self._wrapped_client.delete(api_type, path, params, vdom, raw_json=True)
                     response_time = _time.perf_counter() - start_time
-                    return process_response(result, raw_envelope=result, response_time=response_time)
+                    request_info = getattr(self._wrapped_client, '_last_request', None)
+                    return process_response(result, raw_envelope=result, response_time=response_time, request_info=request_info)
                 
                 def __getattr__(self, name):
                     return getattr(self._wrapped_client, name)

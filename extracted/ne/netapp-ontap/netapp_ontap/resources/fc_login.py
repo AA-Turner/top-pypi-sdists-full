@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -25,85 +25,85 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FcLogin(
         {
+            "initiator": {"wwpn": "8b:21:2f:07:00:00:00:00"},
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/logins/01056403-1383-bc4b-786a-93e8ea35969d/8b%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
+                }
+            },
             "interface": {
-                "uuid": "01056403-1383-bc4b-786a-93e8ea35969d",
                 "_links": {
                     "self": {
                         "href": "/api/network/fc/interfaces/01056403-1383-bc4b-786a-93e8ea35969d"
                     }
                 },
                 "name": "lif1",
+                "uuid": "01056403-1383-bc4b-786a-93e8ea35969d",
             },
-            "initiator": {"wwpn": "8b:21:2f:07:00:00:00:00"},
             "svm": {
-                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/056403da-83a7-4b13-bc78-6a93e8ea3596"
                     }
                 },
-            },
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/logins/01056403-1383-bc4b-786a-93e8ea35969d/8b%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
-                }
+                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
             },
         }
     ),
     FcLogin(
         {
+            "initiator": {"wwpn": "8c:21:2f:07:00:00:00:00"},
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/logins/02056403-1383-bc4b-786a-93e8ea35969d/8c%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
+                }
+            },
             "interface": {
-                "uuid": "02056403-1383-bc4b-786a-93e8ea35969d",
                 "_links": {
                     "self": {
                         "href": "/api/network/fc/interfaces/02056403-1383-bc4b-786a-93e8ea35969d"
                     }
                 },
                 "name": "lif2",
+                "uuid": "02056403-1383-bc4b-786a-93e8ea35969d",
             },
-            "initiator": {"wwpn": "8c:21:2f:07:00:00:00:00"},
             "svm": {
-                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/056403da-83a7-4b13-bc78-6a93e8ea3596"
                     }
                 },
-            },
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/logins/02056403-1383-bc4b-786a-93e8ea35969d/8c%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
-                }
+                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
             },
         }
     ),
     FcLogin(
         {
+            "initiator": {"wwpn": "8a:21:2f:07:00:00:00:00"},
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/logins/00056403-1383-bc4b-786a-93e8ea35969d/8a%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
+                }
+            },
             "interface": {
-                "uuid": "03056403-1383-bc4b-786a-93e8ea35969d",
                 "_links": {
                     "self": {
                         "href": "/api/network/fc/interfaces/00056403-1383-bc4b-786a-93e8ea35969d"
                     }
                 },
                 "name": "lif3",
+                "uuid": "03056403-1383-bc4b-786a-93e8ea35969d",
             },
-            "initiator": {"wwpn": "8a:21:2f:07:00:00:00:00"},
             "svm": {
-                "uuid": "156403da-83a7-4b13-bc78-6a93e8ea3596",
                 "name": "svm2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/156403da-83a7-4b13-bc78-6a93e8ea3596"
                     }
                 },
-            },
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/logins/00056403-1383-bc4b-786a-93e8ea35969d/8a%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
-                }
+                "uuid": "156403da-83a7-4b13-bc78-6a93e8ea3596",
             },
         }
     ),
@@ -133,59 +133,59 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FcLogin(
         {
+            "initiator": {"wwpn": "8b:21:2f:07:00:00:00:00"},
+            "protocol": "fcp",
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/logins/01056403-1383-bc4b-786a-93e8ea35969d/8b%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
+                }
+            },
             "interface": {
-                "uuid": "01056403-1383-bc4b-786a-93e8ea35969d",
                 "_links": {
                     "self": {
                         "href": "/api/network/fc/interfaces/01056403-1383-bc4b-786a-93e8ea35969d"
                     }
                 },
                 "name": "lif2",
+                "uuid": "01056403-1383-bc4b-786a-93e8ea35969d",
             },
-            "initiator": {"wwpn": "8b:21:2f:07:00:00:00:00"},
-            "protocol": "fcp",
             "svm": {
-                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/056403da-83a7-4b13-bc78-6a93e8ea3596"
                     }
                 },
-            },
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/logins/01056403-1383-bc4b-786a-93e8ea35969d/8b%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
-                }
+                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
             },
         }
     ),
     FcLogin(
         {
+            "initiator": {"wwpn": "8c:21:2f:07:00:00:00:00"},
+            "protocol": "fcp",
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/logins/02056403-1383-bc4b-786a-93e8ea35969d/8c%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
+                }
+            },
             "interface": {
-                "uuid": "02056403-1383-bc4b-786a-93e8ea35969d",
                 "_links": {
                     "self": {
                         "href": "/api/network/fc/interfaces/02056403-1383-bc4b-786a-93e8ea35969d"
                     }
                 },
                 "name": "lif3",
+                "uuid": "02056403-1383-bc4b-786a-93e8ea35969d",
             },
-            "initiator": {"wwpn": "8c:21:2f:07:00:00:00:00"},
-            "protocol": "fcp",
             "svm": {
-                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/056403da-83a7-4b13-bc78-6a93e8ea3596"
                     }
                 },
-            },
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/logins/02056403-1383-bc4b-786a-93e8ea35969d/8c%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
-                }
+                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
             },
         }
     ),
@@ -215,46 +215,46 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FcLogin(
         {
-            "interface": {
+            "initiator": {
                 "wwpn": "8b:21:2f:07:00:00:00:00",
-                "uuid": "01056403-1383-bc4b-786a-93e8ea35969d",
+                "comment": "Example information about this initiator",
+                "wwnn": "95:21:2f:07:00:00:00:00",
+            },
+            "protocol": "fcp",
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/logins/01056403-1383-bc4b-786a-93e8ea35969d/8b%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
+                }
+            },
+            "interface": {
                 "_links": {
                     "self": {
                         "href": "/api/network/fc/interfaces/01056403-1383-bc4b-786a-93e8ea35969d"
                     }
                 },
-                "name": "lif2",
-            },
-            "initiator": {
-                "comment": "Example information about this initiator",
                 "wwpn": "8b:21:2f:07:00:00:00:00",
-                "wwnn": "95:21:2f:07:00:00:00:00",
+                "name": "lif2",
+                "uuid": "01056403-1383-bc4b-786a-93e8ea35969d",
             },
             "igroups": [
                 {
-                    "name": "igroup1",
-                    "uuid": "243bbb8a-46e9-4b2d-a508-a62dc93df9d1",
                     "_links": {
                         "self": {
                             "href": "/api/protocols/san/igroups/243bbb8a-46e9-4b2d-a508-a62dc93df9d1"
                         }
                     },
+                    "name": "igroup1",
+                    "uuid": "243bbb8a-46e9-4b2d-a508-a62dc93df9d1",
                 }
             ],
-            "protocol": "fcp",
             "svm": {
-                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/056403da-83a7-4b13-bc78-6a93e8ea3596"
                     }
                 },
-            },
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/logins/01056403-1383-bc4b-786a-93e8ea35969d/8b%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
-                }
+                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
             },
         }
     )
@@ -269,11 +269,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -287,20 +286,42 @@ __pdoc__ = {
     "FcLoginSchema.opts": False,
 }
 
-
 class FcLoginSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the FcLogin object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.collection_links.CollectionLinksSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.collection_links", "CollectionLinksSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the fc_login."""
 
-    igroups = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.igroup.IgroupSchema", unknown=EXCLUDE, allow_none=True), data_key="igroups", allow_none=True)
+    igroups = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.igroup", "IgroupSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="igroups",
+                allow_none=True
+            )
     r""" The initiator groups in which the initiator is a member."""
 
-    initiator = marshmallow_fields.Nested("netapp_ontap.models.fc_login_initiator.FcLoginInitiatorSchema", data_key="initiator", unknown=EXCLUDE, allow_none=True)
+    initiator = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fc_login_initiator", "FcLoginInitiatorSchema"),
+                data_key="initiator",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Information about the logged in FC initiator."""
 
-    interface = marshmallow_fields.Nested("netapp_ontap.resources.fc_interface.FcInterfaceSchema", data_key="interface", unknown=EXCLUDE, allow_none=True)
+    interface = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.fc_interface", "FcInterfaceSchema"),
+                data_key="interface",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The interface field of the fc_login."""
 
     protocol = marshmallow_fields.Str(
@@ -316,7 +337,12 @@ Valid choices:
 * fc_nvme
 * fcp"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the fc_login."""
 
     @property

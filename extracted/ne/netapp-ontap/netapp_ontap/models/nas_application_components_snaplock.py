@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["NasApplicationComponentsSnaplock", "NasApplicationComponentsSnaplockSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "NasApplicationComponentsSnaplockSchema.opts": False,
     "NasApplicationComponentsSnaplock": False,
 }
-
 
 class NasApplicationComponentsSnaplockSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the NasApplicationComponentsSnaplock object"""
@@ -27,7 +25,12 @@ class NasApplicationComponentsSnaplockSchema(ResourceSchema, metaclass=ResourceS
     autocommit_period = marshmallow_fields.Str(data_key="autocommit_period", allow_none=True)
     r""" Specifies the autocommit period for SnapLock volume. All files which are not modified for a period greater than the autocommit period of the volume are committed to the WORM state. The autocommit period value represents a duration and must be specified in the ISO-8601 duration format. The autocommit period can be in years, months, days, hours, and minutes. A period specified for years, months, and days is represented in the ISO-8601 format as &quot;P&lt;num&gt;Y&quot;, &quot;P&lt;num&gt;M&quot;, &quot;P&lt;num&gt;D&quot; respectively, for example &quot;P10Y&quot; represents a duration of 10 years. A duration in hours and minutes is represented by &quot;PT&lt;num&gt;H&quot; and &quot;PT&lt;num&gt;M&quot; respectively. The period string must contain only a single time element that is, either years, months, days, hours, or minutes. A duration which combines different periods is not supported, for example &quot;P1Y10M&quot; is not supported. Apart from the duration specified in the ISO-8601 format, the autocommit field also accepts the string &quot;none&quot;. """
 
-    retention = marshmallow_fields.Nested("netapp_ontap.models.nas_application_components_snaplock_retention.NasApplicationComponentsSnaplockRetentionSchema", unknown=EXCLUDE, data_key="retention", allow_none=True)
+    retention = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nas_application_components_snaplock_retention", "NasApplicationComponentsSnaplockRetentionSchema"),
+                unknown=EXCLUDE,
+                data_key="retention",
+                allow_none=True
+            )
     r""" The retention field of the nas_application_components_snaplock. """
 
     snaplock_type = marshmallow_fields.Str(data_key="snaplock_type", allow_none=True)

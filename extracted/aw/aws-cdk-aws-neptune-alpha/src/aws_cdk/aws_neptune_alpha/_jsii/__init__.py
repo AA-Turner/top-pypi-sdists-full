@@ -33,9 +33,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-cdk/aws-neptune-alpha",
-    "2.236.0-alpha.0",
+    "2.237.0-alpha.0",
     __name__[0:-6],
-    "aws-neptune-alpha@2.236.0-alpha.0.jsii.tgz",
+    "aws-neptune-alpha@2.237.0-alpha.0.jsii.tgz",
 )
 
 __all__ = [

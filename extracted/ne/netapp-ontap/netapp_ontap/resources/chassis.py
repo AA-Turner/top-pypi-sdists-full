@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -49,16 +49,29 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Chassis(
     {
-        "id": "021352005981",
+        "state": "ok",
         "frus": [
-            {"id": "PSU2", "state": "ok", "type": "psu"},
-            {"id": "PSU1", "state": "ok", "type": "psu"},
-            {"id": "Fan2", "state": "ok", "type": "fan"},
-            {"id": "Fan3", "state": "ok", "type": "fan"},
-            {"id": "Fan1", "state": "ok", "type": "fan"},
+            {"state": "ok", "id": "PSU2", "type": "psu"},
+            {"state": "ok", "id": "PSU1", "type": "psu"},
+            {"state": "ok", "id": "Fan2", "type": "fan"},
+            {"state": "ok", "id": "Fan3", "type": "fan"},
+            {"state": "ok", "id": "Fan1", "type": "fan"},
         ],
+        "id": "021352005981",
         "nodes": [
             {
+                "_links": {
+                    "self": {
+                        "href": "/api/cluster/nodes/6ede364b-c3d0-11e8-a86a-00a098567f31"
+                    }
+                },
+                "name": "node-1",
+                "usbs": {
+                    "supported": True,
+                    "ports": [{"connected": False}],
+                    "enabled": True,
+                },
+                "position": "top",
                 "pcis": {
                     "cards": [
                         {
@@ -73,22 +86,9 @@ Chassis(
                         },
                     ]
                 },
-                "name": "node-1",
-                "position": "top",
                 "uuid": "6ede364b-c3d0-11e8-a86a-00a098567f31",
-                "_links": {
-                    "self": {
-                        "href": "/api/cluster/nodes/6ede364b-c3d0-11e8-a86a-00a098567f31"
-                    }
-                },
-                "usbs": {
-                    "ports": [{"connected": False}],
-                    "supported": True,
-                    "enabled": True,
-                },
             }
         ],
-        "state": "ok",
     }
 )
 
@@ -101,11 +101,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -119,11 +118,18 @@ __pdoc__ = {
     "ChassisSchema.opts": False,
 }
 
-
 class ChassisSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Chassis object"""
 
-    frus = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.chassis_frus.ChassisFrusSchema", unknown=EXCLUDE, allow_none=True), data_key="frus", allow_none=True)
+    frus = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.chassis_frus", "ChassisFrusSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="frus",
+                allow_none=True
+            )
     r""" List of FRUs in the chassis."""
 
     id = marshmallow_fields.Str(
@@ -134,10 +140,26 @@ class ChassisSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 2.1352005981E10"""
 
-    nodes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.chassis_node.ChassisNodeSchema", unknown=EXCLUDE, allow_none=True), data_key="nodes", allow_none=True)
+    nodes = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.chassis_node", "ChassisNodeSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="nodes",
+                allow_none=True
+            )
     r""" List of nodes in the chassis."""
 
-    shelves = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.shelf.ShelfSchema", unknown=EXCLUDE, allow_none=True), data_key="shelves", allow_none=True)
+    shelves = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.shelf", "ShelfSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="shelves",
+                allow_none=True
+            )
     r""" List of shelves in chassis."""
 
     state = marshmallow_fields.Str(

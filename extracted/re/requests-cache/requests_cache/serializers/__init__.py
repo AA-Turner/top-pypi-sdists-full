@@ -30,9 +30,12 @@ from .preconf import (
     dict_serializer,
     dynamodb_document_serializer,
     json_serializer,
+    orjson_serializer,
     pickle_serializer,
     safe_pickle_serializer,
+    ujson_serializer,
     utf8_encoder,
+    utf8_serializer,
     yaml_serializer,
 )
 
@@ -48,15 +51,20 @@ __all__ = [
     'dynamodb_document_serializer',
     'dict_serializer',
     'json_serializer',
+    'orjson_serializer',
+    'ujson_serializer',
     'pickle_serializer',
     'safe_pickle_serializer',
-    'yaml_serializer',
     'utf8_encoder',
+    'utf8_serializer',
+    'yaml_serializer',
 ]
 
 SERIALIZERS = {
     'bson': bson_serializer,
     'json': json_serializer,
+    'ujson': ujson_serializer,
+    'orjson': orjson_serializer,
     'pickle': pickle_serializer,
     'yaml': yaml_serializer,
 }
@@ -67,7 +75,7 @@ SerializerType = Union[str, SerializerPipeline, Stage]
 def init_serializer(
     serializer: Optional[SerializerType], decode_content: bool
 ) -> Optional[SerializerPipeline]:
-    """Intitialze a serializer by name or instance"""
+    """Initialize a serializer by name or instance"""
     if not serializer:
         return None
 
@@ -76,7 +84,9 @@ def init_serializer(
         serializer = SERIALIZERS[serializer]
 
     # Wrap in a SerializerPipeline, if needed
-    if not isinstance(serializer, SerializerPipeline):
+    if isinstance(serializer, SerializerPipeline):
+        serializer = serializer.copy()
+    else:
         serializer = SerializerPipeline([serializer], name=str(serializer))
     serializer.set_decode_content(decode_content)
 

@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["NvmeServiceStatistics", "NvmeServiceStatisticsSchema"]
@@ -17,17 +16,31 @@ __pdoc__ = {
     "NvmeServiceStatistics": False,
 }
 
-
 class NvmeServiceStatisticsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the NvmeServiceStatistics object"""
 
-    fc = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_raw_svm.PerformanceMetricRawSvmSchema", unknown=EXCLUDE, data_key="fc", allow_none=True)
+    fc = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_raw_svm", "PerformanceMetricRawSvmSchema"),
+                unknown=EXCLUDE,
+                data_key="fc",
+                allow_none=True
+            )
     r""" The fc field of the nvme_service_statistics. """
 
-    iops_raw = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type.PerformanceMetricIoTypeSchema", unknown=EXCLUDE, data_key="iops_raw", allow_none=True)
+    iops_raw = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type", "PerformanceMetricIoTypeSchema"),
+                unknown=EXCLUDE,
+                data_key="iops_raw",
+                allow_none=True
+            )
     r""" The iops_raw field of the nvme_service_statistics. """
 
-    latency_raw = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type.PerformanceMetricIoTypeSchema", unknown=EXCLUDE, data_key="latency_raw", allow_none=True)
+    latency_raw = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type", "PerformanceMetricIoTypeSchema"),
+                unknown=EXCLUDE,
+                data_key="latency_raw",
+                allow_none=True
+            )
     r""" The latency_raw field of the nvme_service_statistics. """
 
     status = marshmallow_fields.Str(data_key="status", allow_none=True)
@@ -47,10 +60,20 @@ Valid choices:
 * inconsistent_old_data
 * partial_no_uuid """
 
-    tcp = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_raw_svm.PerformanceMetricRawSvmSchema", unknown=EXCLUDE, data_key="tcp", allow_none=True)
+    tcp = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_raw_svm", "PerformanceMetricRawSvmSchema"),
+                unknown=EXCLUDE,
+                data_key="tcp",
+                allow_none=True
+            )
     r""" The tcp field of the nvme_service_statistics. """
 
-    throughput_raw = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type_rwt.PerformanceMetricIoTypeRwtSchema", unknown=EXCLUDE, data_key="throughput_raw", allow_none=True)
+    throughput_raw = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type_rwt", "PerformanceMetricIoTypeRwtSchema"),
+                unknown=EXCLUDE,
+                data_key="throughput_raw",
+                allow_none=True
+            )
     r""" The throughput_raw field of the nvme_service_statistics. """
 
     timestamp = ImpreciseDateTime(data_key="timestamp", allow_none=True)

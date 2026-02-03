@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -30,16 +30,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ClusterLdap(
     {
         "bind_dn": "cn=Administrators,cn=users,dc=domainA,dc=example,dc=com",
+        "schema": "ad_idmu",
+        "try_channel_binding": True,
+        "base_scope": "subtree",
+        "_links": {"self": {"href": "/api/security/authentication/cluster/ldap"}},
+        "session_security": "none",
+        "base_dn": "dc=domainA,dc=example,dc=com",
+        "port": 389,
         "use_start_tls": True,
         "servers": ["10.10.10.10", "domainB.example.com"],
         "min_bind_level": "anonymous",
-        "port": 389,
-        "base_scope": "subtree",
-        "try_channel_binding": True,
-        "schema": "ad_idmu",
-        "base_dn": "dc=domainA,dc=example,dc=com",
-        "session_security": "none",
-        "_links": {"self": {"href": "/api/security/authentication/cluster/ldap"}},
     }
 )
 
@@ -61,7 +61,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource.port = 389
     resource.min_bind_level = "anonymous"
     resource.bind_dn = "cn=Administrators,cn=users,dc=domainA,dc=example,dc=com"
-    resource.bind_password = "abc"
+    resource.bind_password = "<BIND-PASSWORD>"
     resource.base_dn = "dc=domainA,dc=example,dc=com"
     resource.base_scope = "subtree"
     resource.use_start_tls = False
@@ -80,7 +80,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource = ClusterLdap()
     resource.port = 389
     resource.bind_dn = "cn=Administrators,cn=users,dc=domainA,dc=example,dc=com"
-    resource.bind_password = "abc"
+    resource.bind_password = "<BIND-PASSWORD>"
     resource.base_dn = "dc=domainA,dc=example,dc=com"
     resource.session_security = "none"
     resource.post(hydrate=True)
@@ -123,11 +123,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -141,11 +140,15 @@ __pdoc__ = {
     "ClusterLdapSchema.opts": False,
 }
 
-
 class ClusterLdapSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ClusterLdap object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the cluster_ldap."""
 
     base_dn = marshmallow_fields.Str(
@@ -358,7 +361,12 @@ Valid choices:
     )
     r""" Indicates whether or not the validation for the specified LDAP configuration is disabled."""
 
-    status = marshmallow_fields.Nested("netapp_ontap.models.ldap_status.LdapStatusSchema", data_key="status", unknown=EXCLUDE, allow_none=True)
+    status = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ldap_status", "LdapStatusSchema"),
+                data_key="status",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The status field of the cluster_ldap."""
 
     try_channel_binding = marshmallow_fields.Boolean(

@@ -66,6 +66,10 @@ class TunnelInspectionRule(object):
             The value to assign to the parent_resource_id property of this TunnelInspectionRule.
         :type parent_resource_id: str
 
+        :param description:
+            The value to assign to the description property of this TunnelInspectionRule.
+        :type description: str
+
         """
         self.swagger_types = {
             'name': 'str',
@@ -73,7 +77,8 @@ class TunnelInspectionRule(object):
             'action': 'str',
             'priority_order': 'int',
             'position': 'RulePosition',
-            'parent_resource_id': 'str'
+            'parent_resource_id': 'str',
+            'description': 'str'
         }
         self.attribute_map = {
             'name': 'name',
@@ -81,7 +86,8 @@ class TunnelInspectionRule(object):
             'action': 'action',
             'priority_order': 'priorityOrder',
             'position': 'position',
-            'parent_resource_id': 'parentResourceId'
+            'parent_resource_id': 'parentResourceId',
+            'description': 'description'
         }
         self._name = None
         self._protocol = None
@@ -89,6 +95,7 @@ class TunnelInspectionRule(object):
         self._priority_order = None
         self._position = None
         self._parent_resource_id = None
+        self._description = None
 
     @staticmethod
     def get_subtype(object_dictionary):
@@ -264,6 +271,30 @@ class TunnelInspectionRule(object):
         :type: str
         """
         self._parent_resource_id = parent_resource_id
+
+    @property
+    def description(self):
+        """
+        Gets the description of this TunnelInspectionRule.
+        The description of the tunnel inspect rule. This field can be used to add additional info.
+
+
+        :return: The description of this TunnelInspectionRule.
+        :rtype: str
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """
+        Sets the description of this TunnelInspectionRule.
+        The description of the tunnel inspect rule. This field can be used to add additional info.
+
+
+        :param description: The description of this TunnelInspectionRule.
+        :type: str
+        """
+        self._description = description
 
     def __repr__(self):
         return formatted_flat_dict(self)

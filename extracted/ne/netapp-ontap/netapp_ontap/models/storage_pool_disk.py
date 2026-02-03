@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["StoragePoolDisk", "StoragePoolDiskSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "StoragePoolDisk": False,
 }
 
-
 class StoragePoolDiskSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the StoragePoolDisk object"""
 
-    disk = marshmallow_fields.Nested("netapp_ontap.resources.disk.DiskSchema", unknown=EXCLUDE, data_key="disk", allow_none=True)
+    disk = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.disk", "DiskSchema"),
+                unknown=EXCLUDE,
+                data_key="disk",
+                allow_none=True
+            )
     r""" The disk field of the storage_pool_disk. """
 
     total_size = Size(data_key="total_size", allow_none=True)

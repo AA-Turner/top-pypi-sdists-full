@@ -80,6 +80,10 @@ class NetworkFirewallSummary(object):
             The value to assign to the nat_configuration property of this NetworkFirewallSummary.
         :type nat_configuration: oci.network_firewall.models.NatConfigurationResponse
 
+        :param shape:
+            The value to assign to the shape property of this NetworkFirewallSummary.
+        :type shape: str
+
         :param network_firewall_policy_id:
             The value to assign to the network_firewall_policy_id property of this NetworkFirewallSummary.
         :type network_firewall_policy_id: str
@@ -124,6 +128,7 @@ class NetworkFirewallSummary(object):
             'ipv4_address': 'str',
             'ipv6_address': 'str',
             'nat_configuration': 'NatConfigurationResponse',
+            'shape': 'str',
             'network_firewall_policy_id': 'str',
             'time_created': 'datetime',
             'time_updated': 'datetime',
@@ -142,6 +147,7 @@ class NetworkFirewallSummary(object):
             'ipv4_address': 'ipv4Address',
             'ipv6_address': 'ipv6Address',
             'nat_configuration': 'natConfiguration',
+            'shape': 'shape',
             'network_firewall_policy_id': 'networkFirewallPolicyId',
             'time_created': 'timeCreated',
             'time_updated': 'timeUpdated',
@@ -159,6 +165,7 @@ class NetworkFirewallSummary(object):
         self._ipv4_address = None
         self._ipv6_address = None
         self._nat_configuration = None
+        self._shape = None
         self._network_firewall_policy_id = None
         self._time_created = None
         self._time_updated = None
@@ -371,6 +378,30 @@ class NetworkFirewallSummary(object):
         :type: oci.network_firewall.models.NatConfigurationResponse
         """
         self._nat_configuration = nat_configuration
+
+    @property
+    def shape(self):
+        """
+        Gets the shape of this NetworkFirewallSummary.
+        The shape of a firewall to determine the bandwidth that the firewall allows.
+
+
+        :return: The shape of this NetworkFirewallSummary.
+        :rtype: str
+        """
+        return self._shape
+
+    @shape.setter
+    def shape(self, shape):
+        """
+        Sets the shape of this NetworkFirewallSummary.
+        The shape of a firewall to determine the bandwidth that the firewall allows.
+
+
+        :param shape: The shape of this NetworkFirewallSummary.
+        :type: str
+        """
+        self._shape = shape
 
     @property
     def network_firewall_policy_id(self):

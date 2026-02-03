@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -55,32 +55,32 @@ with HostConnection(
 [
     NfsClients(
         {
-            "server_ip": "10.140.72.214",
-            "volume": {"uuid": "c6bbc6f2-b8d0-11e9-9ad1-0050568e8480", "name": "rvol1"},
             "protocol": "nfs4",
-            "svm": {"uuid": "c642db55-b8d0-11e9-9ad1-0050568e8480", "name": "vs1"},
+            "server_ip": "10.140.72.214",
+            "svm": {"name": "vs1", "uuid": "c642db55-b8d0-11e9-9ad1-0050568e8480"},
+            "volume": {"name": "rvol1", "uuid": "c6bbc6f2-b8d0-11e9-9ad1-0050568e8480"},
+            "node": {"name": "vsim1", "uuid": "cc282893-b82f-11e9-a3ad-0050568e8480"},
             "client_ip": "10.140.137.57",
-            "node": {"uuid": "cc282893-b82f-11e9-a3ad-0050568e8480", "name": "vsim1"},
         }
     ),
     NfsClients(
         {
-            "server_ip": "10.140.72.214",
-            "volume": {"uuid": "d28d1999-b8d0-11e9-9ad1-0050568e8480", "name": "vol1"},
             "protocol": "nfs3",
-            "svm": {"uuid": "c642db55-b8d0-11e9-9ad1-0050568e8480", "name": "vs1"},
+            "server_ip": "10.140.72.214",
+            "svm": {"name": "vs1", "uuid": "c642db55-b8d0-11e9-9ad1-0050568e8480"},
+            "volume": {"name": "vol1", "uuid": "d28d1999-b8d0-11e9-9ad1-0050568e8480"},
+            "node": {"name": "vsim1", "uuid": "cc282893-b82f-11e9-a3ad-0050568e8480"},
             "client_ip": "10.140.137.57",
-            "node": {"uuid": "cc282893-b82f-11e9-a3ad-0050568e8480", "name": "vsim1"},
         }
     ),
     NfsClients(
         {
-            "server_ip": "10.140.72.214",
-            "volume": {"uuid": "d28d1999-b8d0-11e9-9ad1-0050568e8480", "name": "vol1"},
             "protocol": "nfs4",
-            "svm": {"uuid": "c642db55-b8d0-11e9-9ad1-0050568e8480", "name": "vs1"},
+            "server_ip": "10.140.72.214",
+            "svm": {"name": "vs1", "uuid": "c642db55-b8d0-11e9-9ad1-0050568e8480"},
+            "volume": {"name": "vol1", "uuid": "d28d1999-b8d0-11e9-9ad1-0050568e8480"},
+            "node": {"name": "vsim1", "uuid": "cc282893-b82f-11e9-a3ad-0050568e8480"},
             "client_ip": "10.140.137.57",
-            "node": {"uuid": "cc282893-b82f-11e9-a3ad-0050568e8480", "name": "vsim1"},
         }
     ),
 ]
@@ -94,11 +94,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -112,11 +111,15 @@ __pdoc__ = {
     "NfsClientsSchema.opts": False,
 }
 
-
 class NfsClientsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the NfsClients object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the nfs_clients."""
 
     client_ip = marshmallow_fields.Str(
@@ -125,7 +128,12 @@ class NfsClientsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Specifies IP address of the client."""
 
-    export_policy = marshmallow_fields.Nested("netapp_ontap.resources.export_policy.ExportPolicySchema", data_key="export_policy", unknown=EXCLUDE, allow_none=True)
+    export_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.export_policy", "ExportPolicySchema"),
+                data_key="export_policy",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The export_policy field of the nfs_clients."""
 
     idle_duration = marshmallow_fields.Str(
@@ -143,7 +151,12 @@ Example: P4DT84H30M5S"""
     )
     r""" A counter that tracks requests that are sent to the volume with fast-path to local node."""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the nfs_clients."""
 
     protocol = marshmallow_fields.Str(
@@ -180,7 +193,12 @@ Valid choices:
     )
     r""" Specifies the IP address of the server."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the nfs_clients."""
 
     trunking_enabled = marshmallow_fields.Boolean(
@@ -189,7 +207,12 @@ Valid choices:
     )
     r""" Flag that indicates the trunking status for the specified SVM connection. True indicates that the trunking feature is enabled while false indicates that the trunking feature is disabled."""
 
-    volume = marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", data_key="volume", unknown=EXCLUDE, allow_none=True)
+    volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                data_key="volume",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The volume field of the nfs_clients."""
 
     @property

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .core.events import DatasetEvent, FitEvent, PingEvent, PredictEvent
+from .core.events import DatasetEvent, FitEvent, ModelLoadEvent, PingEvent, PredictEvent
 from .core.service import ProductTelemetry, capture_event
 from .core.decorators import (
     track_model_call,
@@ -14,6 +14,7 @@ from .core.decorators import (
 # Public exports
 __all__ = [
     "DatasetEvent",
+    "ModelLoadEvent",
     "FitEvent",
     "PingEvent",
     "PredictEvent",

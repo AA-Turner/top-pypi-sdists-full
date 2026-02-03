@@ -4615,6 +4615,12 @@ class AuroraPostgresEngineVersion(
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_10"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_16_11")
+    def VER_16_11(cls) -> "AuroraPostgresEngineVersion":
+        '''Version "16.11".'''
+        return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_11"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_2")
     def VER_16_2(cls) -> "AuroraPostgresEngineVersion":
         '''Version "16.2".'''
@@ -9773,7 +9779,7 @@ class CfnDBInstance(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param additional_storage_volumes: 
+        :param additional_storage_volumes: The additional storage volumes associated with the DB instance. RDS supports additional storage volumes for RDS for Oracle and RDS for SQL Server.
         :param allocated_storage: The amount of storage in gibibytes (GiB) to be initially allocated for the database instance. .. epigraph:: If any value is set in the ``Iops`` parameter, ``AllocatedStorage`` must be at least 100 GiB, which corresponds to the minimum Iops value of 1,000. If you increase the ``Iops`` value (in 1,000 IOPS increments), then you must also increase the ``AllocatedStorage`` value (in 100-GiB increments). *Amazon Aurora* Not applicable. Aurora cluster volumes automatically grow as the amount of data in your database increases, though you are only charged for the space that you use in an Aurora cluster volume. *Db2* Constraints to the amount of storage for each storage type are the following: - General Purpose (SSD) storage (gp3): Must be an integer from 20 to 64000. - Provisioned IOPS storage (io1): Must be an integer from 100 to 64000. *MySQL* Constraints to the amount of storage for each storage type are the following: - General Purpose (SSD) storage (gp2): Must be an integer from 20 to 65536. - Provisioned IOPS storage (io1): Must be an integer from 100 to 65536. - Magnetic storage (standard): Must be an integer from 5 to 3072. *MariaDB* Constraints to the amount of storage for each storage type are the following: - General Purpose (SSD) storage (gp2): Must be an integer from 20 to 65536. - Provisioned IOPS storage (io1): Must be an integer from 100 to 65536. - Magnetic storage (standard): Must be an integer from 5 to 3072. *PostgreSQL* Constraints to the amount of storage for each storage type are the following: - General Purpose (SSD) storage (gp2): Must be an integer from 20 to 65536. - Provisioned IOPS storage (io1): Must be an integer from 100 to 65536. - Magnetic storage (standard): Must be an integer from 5 to 3072. *Oracle* Constraints to the amount of storage for each storage type are the following: - General Purpose (SSD) storage (gp2): Must be an integer from 20 to 65536. - Provisioned IOPS storage (io1): Must be an integer from 100 to 65536. - Magnetic storage (standard): Must be an integer from 10 to 3072. *SQL Server* Constraints to the amount of storage for each storage type are the following: - General Purpose (SSD) storage (gp2): - Enterprise and Standard editions: Must be an integer from 20 to 16384. - Web and Express editions: Must be an integer from 20 to 16384. - Provisioned IOPS storage (io1): - Enterprise and Standard editions: Must be an integer from 20 to 16384. - Web and Express editions: Must be an integer from 20 to 16384. - Magnetic storage (standard): - Enterprise and Standard editions: Must be an integer from 20 to 1024. - Web and Express editions: Must be an integer from 20 to 1024.
         :param allow_major_version_upgrade: A value that indicates whether major version upgrades are allowed. Changing this parameter doesn't result in an outage and the change is asynchronously applied as soon as possible. Constraints: Major version upgrades must be allowed when specifying a value for the ``EngineVersion`` parameter that is a different major version than the DB instance's current version.
         :param apply_immediately: Specifies whether changes to the DB instance and any pending modifications are applied immediately, regardless of the ``PreferredMaintenanceWindow`` setting. If set to ``false`` , changes are applied during the next maintenance window. Until RDS applies the changes, the DB instance remains in a drift state. As a result, the configuration doesn't fully reflect the requested modifications and temporarily diverges from the intended state. In addition to the settings described in `Modifying a DB instance <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.DBInstance.Modifying.html>`_ , this property also determines whether the DB instance reboots when a static parameter is modified in the associated DB parameter group. Default: ``true``
@@ -10292,6 +10298,7 @@ class CfnDBInstance(
     def additional_storage_volumes(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDBInstance.AdditionalStorageVolumeProperty"]]]]:
+        '''The additional storage volumes associated with the DB instance.'''
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDBInstance.AdditionalStorageVolumeProperty"]]]], jsii.get(self, "additionalStorageVolumes"))
 
     @additional_storage_volumes.setter
@@ -11555,9 +11562,9 @@ class CfnDBInstance(
             :param allocated_storage: The amount of storage allocated for the additional storage volume, in gibibytes (GiB). The minimum is 20 GiB. The maximum is 65,536 GiB (64 TiB).
             :param iops: The number of I/O operations per second (IOPS) provisioned for the additional storage volume.
             :param max_allocated_storage: The upper limit in gibibytes (GiB) to which RDS can automatically scale the storage of the additional storage volume.
-            :param storage_throughput: The storage throughput value for the additional storage volume, in mebibytes per second (MiBps). This setting applies only to the General Purpose SSD gp3 storage type.
-            :param storage_type: The storage type for the additional storage volume.
-            :param volume_name: The name of the additional storage volume.
+            :param storage_throughput: The storage throughput value for the additional storage volume, in mebibytes per second (MiBps). This setting applies only to the General Purpose SSD (``gp3``) storage type.
+            :param storage_type: The storage type for the additional storage volume. Valid Values: ``GP3 | IO2``
+            :param volume_name: The name of the additional storage volume. Valid Values: ``RDSDBDATA2 | RDSDBDATA3 | RDSDBDATA4``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbinstance-additionalstoragevolume.html
             :exampleMetadata: fixture=_generated
@@ -11632,7 +11639,7 @@ class CfnDBInstance(
         def storage_throughput(self) -> typing.Optional[jsii.Number]:
             '''The storage throughput value for the additional storage volume, in mebibytes per second (MiBps).
 
-            This setting applies only to the General Purpose SSD gp3 storage type.
+            This setting applies only to the General Purpose SSD (``gp3``) storage type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbinstance-additionalstoragevolume.html#cfn-rds-dbinstance-additionalstoragevolume-storagethroughput
             '''
@@ -11643,6 +11650,8 @@ class CfnDBInstance(
         def storage_type(self) -> typing.Optional[builtins.str]:
             '''The storage type for the additional storage volume.
 
+            Valid Values: ``GP3 | IO2``
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbinstance-additionalstoragevolume.html#cfn-rds-dbinstance-additionalstoragevolume-storagetype
             '''
             result = self._values.get("storage_type")
@@ -11651,6 +11660,8 @@ class CfnDBInstance(
         @builtins.property
         def volume_name(self) -> typing.Optional[builtins.str]:
             '''The name of the additional storage volume.
+
+            Valid Values: ``RDSDBDATA2 | RDSDBDATA3 | RDSDBDATA4``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbinstance-additionalstoragevolume.html#cfn-rds-dbinstance-additionalstoragevolume-volumename
             '''
@@ -12347,7 +12358,7 @@ class CfnDBInstanceProps:
     ) -> None:
         '''Properties for defining a ``CfnDBInstance``.
 
-        :param additional_storage_volumes: 
+        :param additional_storage_volumes: The additional storage volumes associated with the DB instance. RDS supports additional storage volumes for RDS for Oracle and RDS for SQL Server.
         :param allocated_storage: The amount of storage in gibibytes (GiB) to be initially allocated for the database instance. .. epigraph:: If any value is set in the ``Iops`` parameter, ``AllocatedStorage`` must be at least 100 GiB, which corresponds to the minimum Iops value of 1,000. If you increase the ``Iops`` value (in 1,000 IOPS increments), then you must also increase the ``AllocatedStorage`` value (in 100-GiB increments). *Amazon Aurora* Not applicable. Aurora cluster volumes automatically grow as the amount of data in your database increases, though you are only charged for the space that you use in an Aurora cluster volume. *Db2* Constraints to the amount of storage for each storage type are the following: - General Purpose (SSD) storage (gp3): Must be an integer from 20 to 64000. - Provisioned IOPS storage (io1): Must be an integer from 100 to 64000. *MySQL* Constraints to the amount of storage for each storage type are the following: - General Purpose (SSD) storage (gp2): Must be an integer from 20 to 65536. - Provisioned IOPS storage (io1): Must be an integer from 100 to 65536. - Magnetic storage (standard): Must be an integer from 5 to 3072. *MariaDB* Constraints to the amount of storage for each storage type are the following: - General Purpose (SSD) storage (gp2): Must be an integer from 20 to 65536. - Provisioned IOPS storage (io1): Must be an integer from 100 to 65536. - Magnetic storage (standard): Must be an integer from 5 to 3072. *PostgreSQL* Constraints to the amount of storage for each storage type are the following: - General Purpose (SSD) storage (gp2): Must be an integer from 20 to 65536. - Provisioned IOPS storage (io1): Must be an integer from 100 to 65536. - Magnetic storage (standard): Must be an integer from 5 to 3072. *Oracle* Constraints to the amount of storage for each storage type are the following: - General Purpose (SSD) storage (gp2): Must be an integer from 20 to 65536. - Provisioned IOPS storage (io1): Must be an integer from 100 to 65536. - Magnetic storage (standard): Must be an integer from 10 to 3072. *SQL Server* Constraints to the amount of storage for each storage type are the following: - General Purpose (SSD) storage (gp2): - Enterprise and Standard editions: Must be an integer from 20 to 16384. - Web and Express editions: Must be an integer from 20 to 16384. - Provisioned IOPS storage (io1): - Enterprise and Standard editions: Must be an integer from 20 to 16384. - Web and Express editions: Must be an integer from 20 to 16384. - Magnetic storage (standard): - Enterprise and Standard editions: Must be an integer from 20 to 1024. - Web and Express editions: Must be an integer from 20 to 1024.
         :param allow_major_version_upgrade: A value that indicates whether major version upgrades are allowed. Changing this parameter doesn't result in an outage and the change is asynchronously applied as soon as possible. Constraints: Major version upgrades must be allowed when specifying a value for the ``EngineVersion`` parameter that is a different major version than the DB instance's current version.
         :param apply_immediately: Specifies whether changes to the DB instance and any pending modifications are applied immediately, regardless of the ``PreferredMaintenanceWindow`` setting. If set to ``false`` , changes are applied during the next maintenance window. Until RDS applies the changes, the DB instance remains in a drift state. As a result, the configuration doesn't fully reflect the requested modifications and temporarily diverges from the intended state. In addition to the settings described in `Modifying a DB instance <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.DBInstance.Modifying.html>`_ , this property also determines whether the DB instance reboots when a static parameter is modified in the associated DB parameter group. Default: ``true``
@@ -12803,7 +12814,10 @@ class CfnDBInstanceProps:
     def additional_storage_volumes(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDBInstance.AdditionalStorageVolumeProperty"]]]]:
-        '''
+        '''The additional storage volumes associated with the DB instance.
+
+        RDS supports additional storage volumes for RDS for Oracle and RDS for SQL Server.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbinstance.html#cfn-rds-dbinstance-additionalstoragevolumes
         '''
         result = self._values.get("additional_storage_volumes")

@@ -28,17 +28,31 @@ class ExascaleConfigDetails(object):
             The value to assign to the available_storage_in_gbs property of this ExascaleConfigDetails.
         :type available_storage_in_gbs: int
 
+        :param total_vm_storage_in_gbs:
+            The value to assign to the total_vm_storage_in_gbs property of this ExascaleConfigDetails.
+        :type total_vm_storage_in_gbs: int
+
+        :param available_vm_storage_in_gbs:
+            The value to assign to the available_vm_storage_in_gbs property of this ExascaleConfigDetails.
+        :type available_vm_storage_in_gbs: int
+
         """
         self.swagger_types = {
             'total_storage_in_gbs': 'int',
-            'available_storage_in_gbs': 'int'
+            'available_storage_in_gbs': 'int',
+            'total_vm_storage_in_gbs': 'int',
+            'available_vm_storage_in_gbs': 'int'
         }
         self.attribute_map = {
             'total_storage_in_gbs': 'totalStorageInGBs',
-            'available_storage_in_gbs': 'availableStorageInGBs'
+            'available_storage_in_gbs': 'availableStorageInGBs',
+            'total_vm_storage_in_gbs': 'totalVmStorageInGBs',
+            'available_vm_storage_in_gbs': 'availableVmStorageInGBs'
         }
         self._total_storage_in_gbs = None
         self._available_storage_in_gbs = None
+        self._total_vm_storage_in_gbs = None
+        self._available_vm_storage_in_gbs = None
 
     @property
     def total_storage_in_gbs(self):
@@ -87,6 +101,54 @@ class ExascaleConfigDetails(object):
         :type: int
         """
         self._available_storage_in_gbs = available_storage_in_gbs
+
+    @property
+    def total_vm_storage_in_gbs(self):
+        """
+        Gets the total_vm_storage_in_gbs of this ExascaleConfigDetails.
+        Storage size needed for VM storage on Exascale in GBs.
+
+
+        :return: The total_vm_storage_in_gbs of this ExascaleConfigDetails.
+        :rtype: int
+        """
+        return self._total_vm_storage_in_gbs
+
+    @total_vm_storage_in_gbs.setter
+    def total_vm_storage_in_gbs(self, total_vm_storage_in_gbs):
+        """
+        Sets the total_vm_storage_in_gbs of this ExascaleConfigDetails.
+        Storage size needed for VM storage on Exascale in GBs.
+
+
+        :param total_vm_storage_in_gbs: The total_vm_storage_in_gbs of this ExascaleConfigDetails.
+        :type: int
+        """
+        self._total_vm_storage_in_gbs = total_vm_storage_in_gbs
+
+    @property
+    def available_vm_storage_in_gbs(self):
+        """
+        Gets the available_vm_storage_in_gbs of this ExascaleConfigDetails.
+        Available storage size for VM storage on Exascale in GBs.
+
+
+        :return: The available_vm_storage_in_gbs of this ExascaleConfigDetails.
+        :rtype: int
+        """
+        return self._available_vm_storage_in_gbs
+
+    @available_vm_storage_in_gbs.setter
+    def available_vm_storage_in_gbs(self, available_vm_storage_in_gbs):
+        """
+        Sets the available_vm_storage_in_gbs of this ExascaleConfigDetails.
+        Available storage size for VM storage on Exascale in GBs.
+
+
+        :param available_vm_storage_in_gbs: The available_vm_storage_in_gbs of this ExascaleConfigDetails.
+        :type: int
+        """
+        self._available_vm_storage_in_gbs = available_vm_storage_in_gbs
 
     def __repr__(self):
         return formatted_flat_dict(self)

@@ -30,6 +30,10 @@ class CreateSslInboundInspectionProfileDetails(CreateDecryptionProfileDetails):
             The value to assign to the name property of this CreateSslInboundInspectionProfileDetails.
         :type name: str
 
+        :param description:
+            The value to assign to the description property of this CreateSslInboundInspectionProfileDetails.
+        :type description: str
+
         :param is_unsupported_version_blocked:
             The value to assign to the is_unsupported_version_blocked property of this CreateSslInboundInspectionProfileDetails.
         :type is_unsupported_version_blocked: bool
@@ -46,6 +50,7 @@ class CreateSslInboundInspectionProfileDetails(CreateDecryptionProfileDetails):
         self.swagger_types = {
             'type': 'str',
             'name': 'str',
+            'description': 'str',
             'is_unsupported_version_blocked': 'bool',
             'is_unsupported_cipher_blocked': 'bool',
             'is_out_of_capacity_blocked': 'bool'
@@ -53,12 +58,14 @@ class CreateSslInboundInspectionProfileDetails(CreateDecryptionProfileDetails):
         self.attribute_map = {
             'type': 'type',
             'name': 'name',
+            'description': 'description',
             'is_unsupported_version_blocked': 'isUnsupportedVersionBlocked',
             'is_unsupported_cipher_blocked': 'isUnsupportedCipherBlocked',
             'is_out_of_capacity_blocked': 'isOutOfCapacityBlocked'
         }
         self._type = None
         self._name = None
+        self._description = None
         self._is_unsupported_version_blocked = None
         self._is_unsupported_cipher_blocked = None
         self._is_out_of_capacity_blocked = None

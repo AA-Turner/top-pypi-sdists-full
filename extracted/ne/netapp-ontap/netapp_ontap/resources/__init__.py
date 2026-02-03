@@ -1,6 +1,374 @@
-# pylint: disable=line-too-long
-"""
-Copyright &copy; 2025 NetApp Inc. All rights reserved.
+# pylint: skip-file
+
+import os
+
+GENERATE_DOCS = os.getenv("GENERATE_DOCS") == "true"
+
+import apipkg
+apipkg.initpkg(__name__,{
+        'KeyManagerKeys' : 'netapp_ontap.resources.key_manager_keys:KeyManagerKeys',
+        'PerformanceNamespaceMetric' : 'netapp_ontap.resources.performance_namespace_metric:PerformanceNamespaceMetric',
+        'Role' : 'netapp_ontap.resources.role:Role',
+        'TopMetricsClient' : 'netapp_ontap.resources.top_metrics_client:TopMetricsClient',
+        'FileDirectorySecurity' : 'netapp_ontap.resources.file_directory_security:FileDirectorySecurity',
+        'CounterRow' : 'netapp_ontap.resources.counter_row:CounterRow',
+        'LunMapReportingNode' : 'netapp_ontap.resources.lun_map_reporting_node:LunMapReportingNode',
+        'ApplicationComponentSnapshot' : 'netapp_ontap.resources.application_component_snapshot:ApplicationComponentSnapshot',
+        'CifsSession' : 'netapp_ontap.resources.cifs_session:CifsSession',
+        'CifsShare' : 'netapp_ontap.resources.cifs_share:CifsShare',
+        'ClusterSshServer' : 'netapp_ontap.resources.cluster_ssh_server:ClusterSshServer',
+        'WwpnAlias' : 'netapp_ontap.resources.wwpn_alias:WwpnAlias',
+        'QosOption' : 'netapp_ontap.resources.qos_option:QosOption',
+        'LocalCifsUser' : 'netapp_ontap.resources.local_cifs_user:LocalCifsUser',
+        'ResourceTagResource' : 'netapp_ontap.resources.resource_tag_resource:ResourceTagResource',
+        'FcPort' : 'netapp_ontap.resources.fc_port:FcPort',
+        'Portset' : 'netapp_ontap.resources.portset:Portset',
+        'CloudTarget' : 'netapp_ontap.resources.cloud_target:CloudTarget',
+        'IpInterface' : 'netapp_ontap.resources.ip_interface:IpInterface',
+        'Snmp' : 'netapp_ontap.resources.snmp:Snmp',
+        'DcnNodeCertificate' : 'netapp_ontap.resources.dcn_node_certificate:DcnNodeCertificate',
+        'LunMap' : 'netapp_ontap.resources.lun_map:LunMap',
+        'GovernanceWorkspaceAggregations' : 'netapp_ontap.resources.governance_workspace_aggregations:GovernanceWorkspaceAggregations',
+        'StorageUnitAntiRansomwareEntropyStats' : 'netapp_ontap.resources.storage_unit_anti_ransomware_entropy_stats:StorageUnitAntiRansomwareEntropyStats',
+        'NfsService' : 'netapp_ontap.resources.nfs_service:NfsService',
+        'FpolicyPolicy' : 'netapp_ontap.resources.fpolicy_policy:FpolicyPolicy',
+        'ClusterAdProxy' : 'netapp_ontap.resources.cluster_ad_proxy:ClusterAdProxy',
+        'FpolicyPersistentStore' : 'netapp_ontap.resources.fpolicy_persistent_store:FpolicyPersistentStore',
+        'NtpServer' : 'netapp_ontap.resources.ntp_server:NtpServer',
+        'ConsistencyGroupMetrics' : 'netapp_ontap.resources.consistency_group_metrics:ConsistencyGroupMetrics',
+        'NfsTlsInterface' : 'netapp_ontap.resources.nfs_tls_interface:NfsTlsInterface',
+        'SnaplockLog' : 'netapp_ontap.resources.snaplock_log:SnaplockLog',
+        'PerformanceSvmNfs' : 'netapp_ontap.resources.performance_svm_nfs:PerformanceSvmNfs',
+        'Publickey' : 'netapp_ontap.resources.publickey:Publickey',
+        'GlobalCacheSetting' : 'netapp_ontap.resources.global_cache_setting:GlobalCacheSetting',
+        'SecurityClusterNetworkCertificates' : 'netapp_ontap.resources.security_cluster_network_certificates:SecurityClusterNetworkCertificates',
+        'NfsClients' : 'netapp_ontap.resources.nfs_clients:NfsClients',
+        'StorageUnit' : 'netapp_ontap.resources.storage_unit:StorageUnit',
+        'EmsConfig' : 'netapp_ontap.resources.ems_config:EmsConfig',
+        'UserGroupPrivileges' : 'netapp_ontap.resources.user_group_privileges:UserGroupPrivileges',
+        'FileCopy' : 'netapp_ontap.resources.file_copy:FileCopy',
+        'VscanServerStatus' : 'netapp_ontap.resources.vscan_server_status:VscanServerStatus',
+        'MetroclusterNode' : 'netapp_ontap.resources.metrocluster_node:MetroclusterNode',
+        'DataEngineGovernanceAuditCount' : 'netapp_ontap.resources.data_engine_governance_audit_count:DataEngineGovernanceAuditCount',
+        'NetgroupFile' : 'netapp_ontap.resources.netgroup_file:NetgroupFile',
+        'DataEnginePolicyVersion' : 'netapp_ontap.resources.data_engine_policy_version:DataEnginePolicyVersion',
+        'Cluster' : 'netapp_ontap.resources.cluster:Cluster',
+        'NvmeService' : 'netapp_ontap.resources.nvme_service:NvmeService',
+        'NdmpSvm' : 'netapp_ontap.resources.ndmp_svm:NdmpSvm',
+        'DatacollectionEntity' : 'netapp_ontap.resources.datacollection_entity:DatacollectionEntity',
+        'DatacollectionVersion' : 'netapp_ontap.resources.datacollection_version:DatacollectionVersion',
+        'DataSource' : 'netapp_ontap.resources.data_source:DataSource',
+        'SnmpUser' : 'netapp_ontap.resources.snmp_user:SnmpUser',
+        'AutoUpdateInfo' : 'netapp_ontap.resources.auto_update_info:AutoUpdateInfo',
+        'KeyManagerAuthKey' : 'netapp_ontap.resources.key_manager_auth_key:KeyManagerAuthKey',
+        'AntiRansomware' : 'netapp_ontap.resources.anti_ransomware:AntiRansomware',
+        'SecurityOauth2Global' : 'netapp_ontap.resources.security_oauth2_global:SecurityOauth2Global',
+        'PerformanceNvmeMetric' : 'netapp_ontap.resources.performance_nvme_metric:PerformanceNvmeMetric',
+        'WorkspaceQuery' : 'netapp_ontap.resources.workspace_query:WorkspaceQuery',
+        'SecurityCertificate' : 'netapp_ontap.resources.security_certificate:SecurityCertificate',
+        'DataEngineGovernancePoliciesClassificationCategory' : 'netapp_ontap.resources.data_engine_governance_policies_classification_category:DataEngineGovernancePoliciesClassificationCategory',
+        'TopMetricsSvmUser' : 'netapp_ontap.resources.top_metrics_svm_user:TopMetricsSvmUser',
+        'S3Service' : 'netapp_ontap.resources.s3_service:S3Service',
+        'ResourceTag' : 'netapp_ontap.resources.resource_tag:ResourceTag',
+        'Initiator' : 'netapp_ontap.resources.initiator:Initiator',
+        'MetroclusterInterconnect' : 'netapp_ontap.resources.metrocluster_interconnect:MetroclusterInterconnect',
+        'LunAttribute' : 'netapp_ontap.resources.lun_attribute:LunAttribute',
+        'GroupPolicyObjectRestrictedGroup' : 'netapp_ontap.resources.group_policy_object_restricted_group:GroupPolicyObjectRestrictedGroup',
+        'HostsSettings' : 'netapp_ontap.resources.hosts_settings:HostsSettings',
+        'FcSwitch' : 'netapp_ontap.resources.fc_switch:FcSwitch',
+        'NtpKey' : 'netapp_ontap.resources.ntp_key:NtpKey',
+        'S3Policy' : 'netapp_ontap.resources.s3_policy:S3Policy',
+        'SnapshotPolicy' : 'netapp_ontap.resources.snapshot_policy:SnapshotPolicy',
+        'NdmpNode' : 'netapp_ontap.resources.ndmp_node:NdmpNode',
+        'SecurityOidc' : 'netapp_ontap.resources.security_oidc:SecurityOidc',
+        'SvmSshServer' : 'netapp_ontap.resources.svm_ssh_server:SvmSshServer',
+        'VolumeEfficiencyPolicy' : 'netapp_ontap.resources.volume_efficiency_policy:VolumeEfficiencyPolicy',
+        'SecurityExternalRoleMapping' : 'netapp_ontap.resources.security_external_role_mapping:SecurityExternalRoleMapping',
+        'S3Group' : 'netapp_ontap.resources.s3_group:S3Group',
+        'DataEngineGovernanceFilePreviewFileContentRequest' : 'netapp_ontap.resources.data_engine_governance_file_preview_file_content_request:DataEngineGovernanceFilePreviewFileContentRequest',
+        'ApplicationSnapshot' : 'netapp_ontap.resources.application_snapshot:ApplicationSnapshot',
+        'ClusterNdmpProperties' : 'netapp_ontap.resources.cluster_ndmp_properties:ClusterNdmpProperties',
+        'TopMetricsDirectory' : 'netapp_ontap.resources.top_metrics_directory:TopMetricsDirectory',
+        'GovernanceAggregations' : 'netapp_ontap.resources.governance_aggregations:GovernanceAggregations',
+        'CifsDomainPreferredDc' : 'netapp_ontap.resources.cifs_domain_preferred_dc:CifsDomainPreferredDc',
+        'RolePrivilege' : 'netapp_ontap.resources.role_privilege:RolePrivilege',
+        'SoftwareHistory' : 'netapp_ontap.resources.software_history:SoftwareHistory',
+        'Account' : 'netapp_ontap.resources.account:Account',
+        'NfsClientsCache' : 'netapp_ontap.resources.nfs_clients_cache:NfsClientsCache',
+        'Lun' : 'netapp_ontap.resources.lun:Lun',
+        'Autosupport' : 'netapp_ontap.resources.autosupport:Autosupport',
+        'FileInfo' : 'netapp_ontap.resources.file_info:FileInfo',
+        'SnaplockFileFingerprint' : 'netapp_ontap.resources.snaplock_file_fingerprint:SnaplockFileFingerprint',
+        'ActiveDirectory' : 'netapp_ontap.resources.active_directory:ActiveDirectory',
+        'PerformanceS3Metric' : 'netapp_ontap.resources.performance_s3_metric:PerformanceS3Metric',
+        'SwitchPort' : 'netapp_ontap.resources.switch_port:SwitchPort',
+        'GcpKms' : 'netapp_ontap.resources.gcp_kms:GcpKms',
+        'LocalHost' : 'netapp_ontap.resources.local_host:LocalHost',
+        'EmsFilterRule' : 'netapp_ontap.resources.ems_filter_rule:EmsFilterRule',
+        'Flexcache' : 'netapp_ontap.resources.flexcache:Flexcache',
+        'MetroclusterSvm' : 'netapp_ontap.resources.metrocluster_svm:MetroclusterSvm',
+        'KerberosRealm' : 'netapp_ontap.resources.kerberos_realm:KerberosRealm',
+        'DatacollectionSearchData' : 'netapp_ontap.resources.datacollection_search_data:DatacollectionSearchData',
+        'FlexcacheOrigin' : 'netapp_ontap.resources.flexcache_origin:FlexcacheOrigin',
+        'ClientLock' : 'netapp_ontap.resources.client_lock:ClientLock',
+        'DcnClusterSoftwarePackage' : 'netapp_ontap.resources.dcn_cluster_software_package:DcnClusterSoftwarePackage',
+        'SecurityHaNetwork' : 'netapp_ontap.resources.security_ha_network:SecurityHaNetwork',
+        'EmsFilter' : 'netapp_ontap.resources.ems_filter:EmsFilter',
+        'MetroclusterOperation' : 'netapp_ontap.resources.metrocluster_operation:MetroclusterOperation',
+        'Schedule' : 'netapp_ontap.resources.schedule:Schedule',
+        'DataEngineEvent' : 'netapp_ontap.resources.data_engine_event:DataEngineEvent',
+        'AzureKeyVault' : 'netapp_ontap.resources.azure_key_vault:AzureKeyVault',
+        'EmsApplicationLog' : 'netapp_ontap.resources.ems_application_log:EmsApplicationLog',
+        'PortMetrics' : 'netapp_ontap.resources.port_metrics:PortMetrics',
+        'SecurityConfig' : 'netapp_ontap.resources.security_config:SecurityConfig',
+        'Dns' : 'netapp_ontap.resources.dns:Dns',
+        'EmsMessage' : 'netapp_ontap.resources.ems_message:EmsMessage',
+        'Snapshot' : 'netapp_ontap.resources.snapshot:Snapshot',
+        'NvmeNamespace' : 'netapp_ontap.resources.nvme_namespace:NvmeNamespace',
+        'S3User' : 'netapp_ontap.resources.s3_user:S3User',
+        'PerformanceLunMetric' : 'netapp_ontap.resources.performance_lun_metric:PerformanceLunMetric',
+        'QosPolicy' : 'netapp_ontap.resources.qos_policy:QosPolicy',
+        'SvmPeer' : 'netapp_ontap.resources.svm_peer:SvmPeer',
+        'ClusterSpace' : 'netapp_ontap.resources.cluster_space:ClusterSpace',
+        'PerformanceFcInterfaceMetric' : 'netapp_ontap.resources.performance_fc_interface_metric:PerformanceFcInterfaceMetric',
+        'CifsSearchPath' : 'netapp_ontap.resources.cifs_search_path:CifsSearchPath',
+        'SnaplockLitigationFile' : 'netapp_ontap.resources.snaplock_litigation_file:SnaplockLitigationFile',
+        'WorkspaceVersionDiff' : 'netapp_ontap.resources.workspace_version_diff:WorkspaceVersionDiff',
+        'LdapSchema' : 'netapp_ontap.resources.ldap_schema:LdapSchema',
+        'Qtree' : 'netapp_ontap.resources.qtree:Qtree',
+        'SecurityOauth2' : 'netapp_ontap.resources.security_oauth2:SecurityOauth2',
+        'NvmeSubsystem' : 'netapp_ontap.resources.nvme_subsystem:NvmeSubsystem',
+        'WorkspaceVersion' : 'netapp_ontap.resources.workspace_version:WorkspaceVersion',
+        'Sensors' : 'netapp_ontap.resources.sensors:Sensors',
+        'SecurityKeystore' : 'netapp_ontap.resources.security_keystore:SecurityKeystore',
+        'Duo' : 'netapp_ontap.resources.duo:Duo',
+        'WebSvm' : 'netapp_ontap.resources.web_svm:WebSvm',
+        'SecurityClusterNetwork' : 'netapp_ontap.resources.security_cluster_network:SecurityClusterNetwork',
+        'StorageAvailabilityZone' : 'netapp_ontap.resources.storage_availability_zone:StorageAvailabilityZone',
+        'StoragePool' : 'netapp_ontap.resources.storage_pool:StoragePool',
+        'SnaplockRetentionPolicy' : 'netapp_ontap.resources.snaplock_retention_policy:SnaplockRetentionPolicy',
+        'FileClone' : 'netapp_ontap.resources.file_clone:FileClone',
+        'WebauthnGlobal' : 'netapp_ontap.resources.webauthn_global:WebauthnGlobal',
+        'Coredump' : 'netapp_ontap.resources.coredump:Coredump',
+        'DcnNode' : 'netapp_ontap.resources.dcn_node:DcnNode',
+        'FcInterface' : 'netapp_ontap.resources.fc_interface:FcInterface',
+        'MultiAdminVerifyConfig' : 'netapp_ontap.resources.multi_admin_verify_config:MultiAdminVerifyConfig',
+        'PerformanceCifsMetric' : 'netapp_ontap.resources.performance_cifs_metric:PerformanceCifsMetric',
+        'Barbican' : 'netapp_ontap.resources.barbican:Barbican',
+        'NisService' : 'netapp_ontap.resources.nis_service:NisService',
+        'AntiRansomwareSuspect' : 'netapp_ontap.resources.anti_ransomware_suspect:AntiRansomwareSuspect',
+        'SplitStatus' : 'netapp_ontap.resources.split_status:SplitStatus',
+        'GroupMembershipSettings' : 'netapp_ontap.resources.group_membership_settings:GroupMembershipSettings',
+        'NameMapping' : 'netapp_ontap.resources.name_mapping:NameMapping',
+        'S3BucketSvm' : 'netapp_ontap.resources.s3_bucket_svm:S3BucketSvm',
+        'StoragePort' : 'netapp_ontap.resources.storage_port:StoragePort',
+        'Igroup' : 'netapp_ontap.resources.igroup:Igroup',
+        'SnapmirrorRelationship' : 'netapp_ontap.resources.snapmirror_relationship:SnapmirrorRelationship',
+        'GroupPolicyObjectCentralAccessPolicy' : 'netapp_ontap.resources.group_policy_object_central_access_policy:GroupPolicyObjectCentralAccessPolicy',
+        'TopMetricsUser' : 'netapp_ontap.resources.top_metrics_user:TopMetricsUser',
+        'MetroclusterDiagnostics' : 'netapp_ontap.resources.metrocluster_diagnostics:MetroclusterDiagnostics',
+        'S3BucketSnapshot' : 'netapp_ontap.resources.s3_bucket_snapshot:S3BucketSnapshot',
+        'StorageUnitSnapshot' : 'netapp_ontap.resources.storage_unit_snapshot:StorageUnitSnapshot',
+        'ConnectionStatus' : 'netapp_ontap.resources.connection_status:ConnectionStatus',
+        'ActiveDirectoryPreferredDc' : 'netapp_ontap.resources.active_directory_preferred_dc:ActiveDirectoryPreferredDc',
+        'UnixGroup' : 'netapp_ontap.resources.unix_group:UnixGroup',
+        'DataEngineGovernancePoliciesClassificationClassifier' : 'netapp_ontap.resources.data_engine_governance_policies_classification_classifier:DataEngineGovernancePoliciesClassificationClassifier',
+        'ExportClient' : 'netapp_ontap.resources.export_client:ExportClient',
+        'SecurityAuditLogForward' : 'netapp_ontap.resources.security_audit_log_forward:SecurityAuditLogForward',
+        'QosWorkload' : 'netapp_ontap.resources.qos_workload:QosWorkload',
+        'IpSubnet' : 'netapp_ontap.resources.ip_subnet:IpSubnet',
+        'CifsShareAcl' : 'netapp_ontap.resources.cifs_share_acl:CifsShareAcl',
+        'CifsOpenFile' : 'netapp_ontap.resources.cifs_open_file:CifsOpenFile',
+        'Aggregate' : 'netapp_ontap.resources.aggregate:Aggregate',
+        'CloudStore' : 'netapp_ontap.resources.cloud_store:CloudStore',
+        'AutoUpdateStatus' : 'netapp_ontap.resources.auto_update_status:AutoUpdateStatus',
+        'ClusterPeer' : 'netapp_ontap.resources.cluster_peer:ClusterPeer',
+        'PerformanceFcpMetric' : 'netapp_ontap.resources.performance_fcp_metric:PerformanceFcpMetric',
+        'IscsiService' : 'netapp_ontap.resources.iscsi_service:IscsiService',
+        'CifsSymlinkMapping' : 'netapp_ontap.resources.cifs_symlink_mapping:CifsSymlinkMapping',
+        'S3BucketLifecycleRule' : 'netapp_ontap.resources.s3_bucket_lifecycle_rule:S3BucketLifecycleRule',
+        'SoftwarePackageDownload' : 'netapp_ontap.resources.software_package_download:SoftwarePackageDownload',
+        'KeyManagerConfig' : 'netapp_ontap.resources.key_manager_config:KeyManagerConfig',
+        'GroupPolicyObjectCentralAccessRule' : 'netapp_ontap.resources.group_policy_object_central_access_rule:GroupPolicyObjectCentralAccessRule',
+        'ExportPolicy' : 'netapp_ontap.resources.export_policy:ExportPolicy',
+        'Fpolicy' : 'netapp_ontap.resources.fpolicy:Fpolicy',
+        'SvmMigrationVolume' : 'netapp_ontap.resources.svm_migration_volume:SvmMigrationVolume',
+        'Datacollection' : 'netapp_ontap.resources.datacollection:Datacollection',
+        'CapacityPool' : 'netapp_ontap.resources.capacity_pool:CapacityPool',
+        'KerberosInterface' : 'netapp_ontap.resources.kerberos_interface:KerberosInterface',
+        'Shelf' : 'netapp_ontap.resources.shelf:Shelf',
+        'Volume' : 'netapp_ontap.resources.volume:Volume',
+        'Port' : 'netapp_ontap.resources.port:Port',
+        'ShadowcopySet' : 'netapp_ontap.resources.shadowcopy_set:ShadowcopySet',
+        'SnaplockComplianceClock' : 'netapp_ontap.resources.snaplock_compliance_clock:SnaplockComplianceClock',
+        'DataEngineJob' : 'netapp_ontap.resources.data_engine_job:DataEngineJob',
+        'BgpPeerGroup' : 'netapp_ontap.resources.bgp_peer_group:BgpPeerGroup',
+        'VvolBinding' : 'netapp_ontap.resources.vvol_binding:VvolBinding',
+        'TopMetricsSvmDirectory' : 'netapp_ontap.resources.top_metrics_svm_directory:TopMetricsSvmDirectory',
+        'ConfigurationBackupFile' : 'netapp_ontap.resources.configuration_backup_file:ConfigurationBackupFile',
+        'SplitLoad' : 'netapp_ontap.resources.split_load:SplitLoad',
+        'LoginMessages' : 'netapp_ontap.resources.login_messages:LoginMessages',
+        'SvmPeerPermission' : 'netapp_ontap.resources.svm_peer_permission:SvmPeerPermission',
+        'FcpService' : 'netapp_ontap.resources.fcp_service:FcpService',
+        'PerformanceMetric' : 'netapp_ontap.resources.performance_metric:PerformanceMetric',
+        'Application' : 'netapp_ontap.resources.application:Application',
+        'HostRecord' : 'netapp_ontap.resources.host_record:HostRecord',
+        'QuotaRule' : 'netapp_ontap.resources.quota_rule:QuotaRule',
+        'Totp' : 'netapp_ontap.resources.totp:Totp',
+        'IscsiSession' : 'netapp_ontap.resources.iscsi_session:IscsiSession',
+        'UnixGroupUsers' : 'netapp_ontap.resources.unix_group_users:UnixGroupUsers',
+        'DataEngineDatacollectionAcl' : 'netapp_ontap.resources.data_engine_datacollection_acl:DataEngineDatacollectionAcl',
+        'DcnCluster' : 'netapp_ontap.resources.dcn_cluster:DcnCluster',
+        'LocalCifsGroupMembers' : 'netapp_ontap.resources.local_cifs_group_members:LocalCifsGroupMembers',
+        'SnaplockFileRetention' : 'netapp_ontap.resources.snaplock_file_retention:SnaplockFileRetention',
+        'Chassis' : 'netapp_ontap.resources.chassis:Chassis',
+        'ApplicationTemplate' : 'netapp_ontap.resources.application_template:ApplicationTemplate',
+        'Netbios' : 'netapp_ontap.resources.netbios:Netbios',
+        'DcnNodeMetrics' : 'netapp_ontap.resources.dcn_node_metrics:DcnNodeMetrics',
+        'UnixUser' : 'netapp_ontap.resources.unix_user:UnixUser',
+        'DataEngineEntityCustomAttribute' : 'netapp_ontap.resources.data_engine_entity_custom_attribute:DataEngineEntityCustomAttribute',
+        'ApplicationComponent' : 'netapp_ontap.resources.application_component:ApplicationComponent',
+        'SvmMigration' : 'netapp_ontap.resources.svm_migration:SvmMigration',
+        'SnmpTraphost' : 'netapp_ontap.resources.snmp_traphost:SnmpTraphost',
+        'SnapmirrorTransfer' : 'netapp_ontap.resources.snapmirror_transfer:SnapmirrorTransfer',
+        'LdapService' : 'netapp_ontap.resources.ldap_service:LdapService',
+        'FileDirectorySecurityAcl' : 'netapp_ontap.resources.file_directory_security_acl:FileDirectorySecurityAcl',
+        'NvmeSubsystemController' : 'netapp_ontap.resources.nvme_subsystem_controller:NvmeSubsystemController',
+        'WorkspaceDataSource' : 'netapp_ontap.resources.workspace_data_source:WorkspaceDataSource',
+        'SecurityGroup' : 'netapp_ontap.resources.security_group:SecurityGroup',
+        'EbrOperation' : 'netapp_ontap.resources.ebr_operation:EbrOperation',
+        'Container' : 'netapp_ontap.resources.container:Container',
+        'NvmeSubsystemMap' : 'netapp_ontap.resources.nvme_subsystem_map:NvmeSubsystemMap',
+        'EmsDestination' : 'netapp_ontap.resources.ems_destination:EmsDestination',
+        'TopMetricsSvmFile' : 'netapp_ontap.resources.top_metrics_svm_file:TopMetricsSvmFile',
+        'DcnCertificate' : 'netapp_ontap.resources.dcn_certificate:DcnCertificate',
+        'Duogroup' : 'netapp_ontap.resources.duogroup:Duogroup',
+        'IgroupNested' : 'netapp_ontap.resources.igroup_nested:IgroupNested',
+        'PoliciesAndRulesToBeApplied' : 'netapp_ontap.resources.policies_and_rules_to_be_applied:PoliciesAndRulesToBeApplied',
+        'LicensePackage' : 'netapp_ontap.resources.license_package:LicensePackage',
+        'VscanEvent' : 'netapp_ontap.resources.vscan_event:VscanEvent',
+        'Web' : 'netapp_ontap.resources.web:Web',
+        'NdmpPassword' : 'netapp_ontap.resources.ndmp_password:NdmpPassword',
+        'SoftwarePackage' : 'netapp_ontap.resources.software_package:SoftwarePackage',
+        'ConfigurationBackup' : 'netapp_ontap.resources.configuration_backup:ConfigurationBackup',
+        'MultiAdminVerifyRule' : 'netapp_ontap.resources.multi_admin_verify_rule:MultiAdminVerifyRule',
+        'Plex' : 'netapp_ontap.resources.plex:Plex',
+        'IpsecPolicy' : 'netapp_ontap.resources.ipsec_policy:IpsecPolicy',
+        'SecuritySamlDefMetadata' : 'netapp_ontap.resources.security_saml_def_metadata:SecuritySamlDefMetadata',
+        'Shadowcopy' : 'netapp_ontap.resources.shadowcopy:Shadowcopy',
+        'KeyServer' : 'netapp_ontap.resources.key_server:KeyServer',
+        'Job' : 'netapp_ontap.resources.job:Job',
+        'LocalCifsUsersAndGroupsImport' : 'netapp_ontap.resources.local_cifs_users_and_groups_import:LocalCifsUsersAndGroupsImport',
+        'LocalCifsGroup' : 'netapp_ontap.resources.local_cifs_group:LocalCifsGroup',
+        'ClusterMetrics' : 'netapp_ontap.resources.cluster_metrics:ClusterMetrics',
+        'SecurityKeyManager' : 'netapp_ontap.resources.security_key_manager:SecurityKeyManager',
+        'ConsistencyGroup' : 'netapp_ontap.resources.consistency_group:ConsistencyGroup',
+        'VscanOnDemand' : 'netapp_ontap.resources.vscan_on_demand:VscanOnDemand',
+        'DataEngineAcl' : 'netapp_ontap.resources.data_engine_acl:DataEngineAcl',
+        'StorageSwitch' : 'netapp_ontap.resources.storage_switch:StorageSwitch',
+        'IpServicePolicy' : 'netapp_ontap.resources.ip_service_policy:IpServicePolicy',
+        'Ipspace' : 'netapp_ontap.resources.ipspace:Ipspace',
+        'NetworkHttpProxy' : 'netapp_ontap.resources.network_http_proxy:NetworkHttpProxy',
+        'Ipsec' : 'netapp_ontap.resources.ipsec:Ipsec',
+        'NetgroupsSettings' : 'netapp_ontap.resources.netgroups_settings:NetgroupsSettings',
+        'StorageUnitAntiRansomwareSuspect' : 'netapp_ontap.resources.storage_unit_anti_ransomware_suspect:StorageUnitAntiRansomwareSuspect',
+        'GroupPolicyObject' : 'netapp_ontap.resources.group_policy_object:GroupPolicyObject',
+        'DataEngineGovernanceFilePreviewJob' : 'netapp_ontap.resources.data_engine_governance_file_preview_job:DataEngineGovernanceFilePreviewJob',
+        'FpolicyEvent' : 'netapp_ontap.resources.fpolicy_event:FpolicyEvent',
+        'FcLogin' : 'netapp_ontap.resources.fc_login:FcLogin',
+        'SecurityJitPrivilegeUser' : 'netapp_ontap.resources.security_jit_privilege_user:SecurityJitPrivilegeUser',
+        'DcnClusterCertificate' : 'netapp_ontap.resources.dcn_cluster_certificate:DcnClusterCertificate',
+        'EmsRoleConfig' : 'netapp_ontap.resources.ems_role_config:EmsRoleConfig',
+        'CifsService' : 'netapp_ontap.resources.cifs_service:CifsService',
+        'NvmeSubsystemHost' : 'netapp_ontap.resources.nvme_subsystem_host:NvmeSubsystemHost',
+        'CifsDomain' : 'netapp_ontap.resources.cifs_domain:CifsDomain',
+        'AntiRansomwareVolumeEntropyStats' : 'netapp_ontap.resources.anti_ransomware_volume_entropy_stats:AntiRansomwareVolumeEntropyStats',
+        'TopMetricsFile' : 'netapp_ontap.resources.top_metrics_file:TopMetricsFile',
+        'IgroupInitiator' : 'netapp_ontap.resources.igroup_initiator:IgroupInitiator',
+        'GroupRoleMappings' : 'netapp_ontap.resources.group_role_mappings:GroupRoleMappings',
+        'Mediator' : 'netapp_ontap.resources.mediator:Mediator',
+        'DataEngineGovernancePoliciesGuardrail' : 'netapp_ontap.resources.data_engine_governance_policies_guardrail:DataEngineGovernancePoliciesGuardrail',
+        'AutosupportMessage' : 'netapp_ontap.resources.autosupport_message:AutosupportMessage',
+        'DataEngine' : 'netapp_ontap.resources.data_engine:DataEngine',
+        'DataEngineEntity' : 'netapp_ontap.resources.data_engine_entity:DataEngineEntity',
+        'MetroclusterDrGroup' : 'netapp_ontap.resources.metrocluster_dr_group:MetroclusterDrGroup',
+        'FpolicyConnection' : 'netapp_ontap.resources.fpolicy_connection:FpolicyConnection',
+        'NodeMetrics' : 'netapp_ontap.resources.node_metrics:NodeMetrics',
+        'AccountPassword' : 'netapp_ontap.resources.account_password:AccountPassword',
+        'VscanOnAccess' : 'netapp_ontap.resources.vscan_on_access:VscanOnAccess',
+        'PortsetInterface' : 'netapp_ontap.resources.portset_interface:PortsetInterface',
+        'FileMove' : 'netapp_ontap.resources.file_move:FileMove',
+        'Vscan' : 'netapp_ontap.resources.vscan:Vscan',
+        'UnixGroupSettings' : 'netapp_ontap.resources.unix_group_settings:UnixGroupSettings',
+        'DataEngineGovernanceAuditDatacollectionCount' : 'netapp_ontap.resources.data_engine_governance_audit_datacollection_count:DataEngineGovernanceAuditDatacollectionCount',
+        'WebauthnCredentials' : 'netapp_ontap.resources.webauthn_credentials:WebauthnCredentials',
+        'FirmwareHistory' : 'netapp_ontap.resources.firmware_history:FirmwareHistory',
+        'VscanScannerPool' : 'netapp_ontap.resources.vscan_scanner_pool:VscanScannerPool',
+        'AntiRansomwareAutoEnable' : 'netapp_ontap.resources.anti_ransomware_auto_enable:AntiRansomwareAutoEnable',
+        'PerformanceFcPortMetric' : 'netapp_ontap.resources.performance_fc_port_metric:PerformanceFcPortMetric',
+        'SnapshotPolicySchedule' : 'netapp_ontap.resources.snapshot_policy_schedule:SnapshotPolicySchedule',
+        'CifsConnection' : 'netapp_ontap.resources.cifs_connection:CifsConnection',
+        'ClusterLdap' : 'netapp_ontap.resources.cluster_ldap:ClusterLdap',
+        'Disk' : 'netapp_ontap.resources.disk:Disk',
+        'Whoami' : 'netapp_ontap.resources.whoami:Whoami',
+        'Switch' : 'netapp_ontap.resources.switch:Switch',
+        'AutoUpdateConfiguration' : 'netapp_ontap.resources.auto_update_configuration:AutoUpdateConfiguration',
+        'SecurityJitPrivilege' : 'netapp_ontap.resources.security_jit_privilege:SecurityJitPrivilege',
+        'NdmpSession' : 'netapp_ontap.resources.ndmp_session:NdmpSession',
+        'DatacollectionVersionDiff' : 'netapp_ontap.resources.datacollection_version_diff:DatacollectionVersionDiff',
+        'StorageBridge' : 'netapp_ontap.resources.storage_bridge:StorageBridge',
+        'Metrocluster' : 'netapp_ontap.resources.metrocluster:Metrocluster',
+        'QuotaReport' : 'netapp_ontap.resources.quota_report:QuotaReport',
+        'SecurityAssociation' : 'netapp_ontap.resources.security_association:SecurityAssociation',
+        'DataEngineGovernanceAuditImpactedFiles' : 'netapp_ontap.resources.data_engine_governance_audit_impacted_files:DataEngineGovernanceAuditImpactedFiles',
+        'WorkspaceQueryEntity' : 'netapp_ontap.resources.workspace_query_entity:WorkspaceQueryEntity',
+        'Node' : 'netapp_ontap.resources.node:Node',
+        'IpsecCaCertificate' : 'netapp_ontap.resources.ipsec_ca_certificate:IpsecCaCertificate',
+        'Audit' : 'netapp_ontap.resources.audit:Audit',
+        'MultiAdminVerifyApprovalGroup' : 'netapp_ontap.resources.multi_admin_verify_approval_group:MultiAdminVerifyApprovalGroup',
+        'Svm' : 'netapp_ontap.resources.svm:Svm',
+        'TopMetricsSvmClient' : 'netapp_ontap.resources.top_metrics_svm_client:TopMetricsSvmClient',
+        'Workspace' : 'netapp_ontap.resources.workspace:Workspace',
+        'UnixUserSettings' : 'netapp_ontap.resources.unix_user_settings:UnixUserSettings',
+        'MultiAdminVerifyRequest' : 'netapp_ontap.resources.multi_admin_verify_request:MultiAdminVerifyRequest',
+        'VolumeMetrics' : 'netapp_ontap.resources.volume_metrics:VolumeMetrics',
+        'DataEnginePolicy' : 'netapp_ontap.resources.data_engine_policy:DataEnginePolicy',
+        'NvmeInterface' : 'netapp_ontap.resources.nvme_interface:NvmeInterface',
+        'ConsistencyGroupSnapshot' : 'netapp_ontap.resources.consistency_group_snapshot:ConsistencyGroupSnapshot',
+        'SnapmirrorPolicy' : 'netapp_ontap.resources.snapmirror_policy:SnapmirrorPolicy',
+        'Software' : 'netapp_ontap.resources.software:Software',
+        'TapeDevice' : 'netapp_ontap.resources.tape_device:TapeDevice',
+        'NfsClientsMap' : 'netapp_ontap.resources.nfs_clients_map:NfsClientsMap',
+        'EmsEvent' : 'netapp_ontap.resources.ems_event:EmsEvent',
+        'S3Bucket' : 'netapp_ontap.resources.s3_bucket:S3Bucket',
+        'NetworkRoute' : 'netapp_ontap.resources.network_route:NetworkRoute',
+        'CounterTable' : 'netapp_ontap.resources.counter_table:CounterTable',
+        'BroadcastDomain' : 'netapp_ontap.resources.broadcast_domain:BroadcastDomain',
+        'PerformanceIscsiMetric' : 'netapp_ontap.resources.performance_iscsi_metric:PerformanceIscsiMetric',
+        'Fabric' : 'netapp_ontap.resources.fabric:Fabric',
+        'InterfaceMetrics' : 'netapp_ontap.resources.interface_metrics:InterfaceMetrics',
+        'SnaplockLegalHoldOperation' : 'netapp_ontap.resources.snaplock_legal_hold_operation:SnaplockLegalHoldOperation',
+        'EffectivePermission' : 'netapp_ontap.resources.effective_permission:EffectivePermission',
+        'LicenseManager' : 'netapp_ontap.resources.license_manager:LicenseManager',
+        'S3Audit' : 'netapp_ontap.resources.s3_audit:S3Audit',
+        'SnaplockLitigation' : 'netapp_ontap.resources.snaplock_litigation:SnaplockLitigation',
+        'Token' : 'netapp_ontap.resources.token:Token',
+        'ClusterNisService' : 'netapp_ontap.resources.cluster_nis_service:ClusterNisService',
+        'FpolicyEngine' : 'netapp_ontap.resources.fpolicy_engine:FpolicyEngine',
+        'ExportRule' : 'netapp_ontap.resources.export_rule:ExportRule',
+        'SecuritySamlSp' : 'netapp_ontap.resources.security_saml_sp:SecuritySamlSp',
+        'PerformanceQtreeMetric' : 'netapp_ontap.resources.performance_qtree_metric:PerformanceQtreeMetric',
+        'SecurityAuditLog' : 'netapp_ontap.resources.security_audit_log:SecurityAuditLog',
+        'AwsKms' : 'netapp_ontap.resources.aws_kms:AwsKms',
+        'SecurityAudit' : 'netapp_ontap.resources.security_audit:SecurityAudit',
+        'SupportedAlgorithms' : 'netapp_ontap.resources.supported_algorithms:SupportedAlgorithms',
+        'IscsiCredentials' : 'netapp_ontap.resources.iscsi_credentials:IscsiCredentials',
+        'FcZone' : 'netapp_ontap.resources.fc_zone:FcZone',
+        'DcnClusterSoftwareUpload' : 'netapp_ontap.resources.dcn_cluster_software_upload:DcnClusterSoftwareUpload',
+        'CLI' : 'netapp_ontap.resources.cli:CLI'
+    },
+    attr={'__doc__': """
+Copyright &copy; 2026 NetApp Inc. All rights reserved.
 
 All of the modules in this package represent individual object models which can
 be imported and used for communicating with the REST APIs. To see their interface,
@@ -103,11 +471,11 @@ svm.comment = "this svm is offline"
 svm.patch()
 ```
 
-If you pass in parameters through the patch method that are read in as formData then the request 
-will be of multipart/form-data content-type. Swagger 2.0 does not care whether it is a Post or Patch method. 
-Due to the swagger 2.0 specifications, data type of both formData and body cannot be present in the same request. 
+If you pass in parameters through the patch method that are read in as formData then the request
+will be of multipart/form-data content-type. Swagger 2.0 does not care whether it is a Post or Patch method.
+Due to the swagger 2.0 specifications, data type of both formData and body cannot be present in the same request.
 If the type of formdata parameter is file then it will be read as a string literal by default unless you prefix an '@' to the string.
-Whenever the string starts with an '@' then it will assume it is a path to a file and try to open and read 
+Whenever the string starts with an '@' then it will assume it is a path to a file and try to open and read
 the contents of the file instead. For example resource.patch(file1="/u/name/1.txt") will be sent as a string
 literal while resource.patch(file1="@/u/name/1.txt") will open and read the file and send the contents instead.
 
@@ -153,11 +521,11 @@ volume = Volume.from_dict({
 volume.post()
 ```
 
-If you pass in parameters through the post method that are read in as formData then the request 
-will be of multipart/form-data content-type. Due to the swagger 2.0 specifications, data type of 
-both formData and body cannot be present in the same request. If the type of formdata parameter is 
+If you pass in parameters through the post method that are read in as formData then the request
+will be of multipart/form-data content-type. Due to the swagger 2.0 specifications, data type of
+both formData and body cannot be present in the same request. If the type of formdata parameter is
 file then it will be read as a string literal by default unless you prefix an @ to the string.
-Whenever the string starts with an @ then it will assume it is a path to a file and try to open and read 
+Whenever the string starts with an @ then it will assume it is a path to a file and try to open and read
 the contents of the file instead. For example resource.post("file1"="/u/name/1.txt") will be sent as a string
 literal while resource.post("file1"="@/u/name/1.txt") will open and read the file and send the contents instead.
 
@@ -210,7 +578,9 @@ URL|Resource
 `/api/cloud/targets`| <a title="netapp_ontap.resources.cloud_target.CloudTarget" href="../resources/cloud_target.html"><code>CloudTarget</code></a>
 `/api/network/ip/interfaces`| <a title="netapp_ontap.resources.ip_interface.IpInterface" href="../resources/ip_interface.html"><code>IpInterface</code></a>
 `/api/support/snmp`| <a title="netapp_ontap.resources.snmp.Snmp" href="../resources/snmp.html"><code>Snmp</code></a>
+`/api/dcn/security/node/certificates`| <a title="netapp_ontap.resources.dcn_node_certificate.DcnNodeCertificate" href="../resources/dcn_node_certificate.html"><code>DcnNodeCertificate</code></a>
 `/api/protocols/san/lun-maps`| <a title="netapp_ontap.resources.lun_map.LunMap" href="../resources/lun_map.html"><code>LunMap</code></a>
+`/api/data-engine/governance/aggregation/workspaces`| <a title="netapp_ontap.resources.governance_workspace_aggregations.GovernanceWorkspaceAggregations" href="../resources/governance_workspace_aggregations.html"><code>GovernanceWorkspaceAggregations</code></a>
 `/api/security/anti-ransomware/storage-unit/entropy-stats`| <a title="netapp_ontap.resources.storage_unit_anti_ransomware_entropy_stats.StorageUnitAntiRansomwareEntropyStats" href="../resources/storage_unit_anti_ransomware_entropy_stats.html"><code>StorageUnitAntiRansomwareEntropyStats</code></a>
 `/api/protocols/nfs/services`| <a title="netapp_ontap.resources.nfs_service.NfsService" href="../resources/nfs_service.html"><code>NfsService</code></a>
 `/api/protocols/fpolicy/{svm[uuid]}/policies`| <a title="netapp_ontap.resources.fpolicy_policy.FpolicyPolicy" href="../resources/fpolicy_policy.html"><code>FpolicyPolicy</code></a>
@@ -223,6 +593,7 @@ URL|Resource
 `/api/protocols/nfs/services/{svm[uuid]}/metrics`| <a title="netapp_ontap.resources.performance_svm_nfs.PerformanceSvmNfs" href="../resources/performance_svm_nfs.html"><code>PerformanceSvmNfs</code></a>
 `/api/security/authentication/publickeys`| <a title="netapp_ontap.resources.publickey.Publickey" href="../resources/publickey.html"><code>Publickey</code></a>
 `/api/name-services/cache/setting`| <a title="netapp_ontap.resources.global_cache_setting.GlobalCacheSetting" href="../resources/global_cache_setting.html"><code>GlobalCacheSetting</code></a>
+`/api/security/cluster-network/certificates`| <a title="netapp_ontap.resources.security_cluster_network_certificates.SecurityClusterNetworkCertificates" href="../resources/security_cluster_network_certificates.html"><code>SecurityClusterNetworkCertificates</code></a>
 `/api/protocols/nfs/connected-clients`| <a title="netapp_ontap.resources.nfs_clients.NfsClients" href="../resources/nfs_clients.html"><code>NfsClients</code></a>
 `/api/storage/storage-units`| <a title="netapp_ontap.resources.storage_unit.StorageUnit" href="../resources/storage_unit.html"><code>StorageUnit</code></a>
 `/api/support/ems`| <a title="netapp_ontap.resources.ems_config.EmsConfig" href="../resources/ems_config.html"><code>EmsConfig</code></a>
@@ -230,17 +601,24 @@ URL|Resource
 `/api/storage/file/copy`| <a title="netapp_ontap.resources.file_copy.FileCopy" href="../resources/file_copy.html"><code>FileCopy</code></a>
 `/api/protocols/vscan/server-status`| <a title="netapp_ontap.resources.vscan_server_status.VscanServerStatus" href="../resources/vscan_server_status.html"><code>VscanServerStatus</code></a>
 `/api/cluster/metrocluster/nodes`| <a title="netapp_ontap.resources.metrocluster_node.MetroclusterNode" href="../resources/metrocluster_node.html"><code>MetroclusterNode</code></a>
+`/api/data-engine/governance/audit/policies`| <a title="netapp_ontap.resources.data_engine_governance_audit_count.DataEngineGovernanceAuditCount" href="../resources/data_engine_governance_audit_count.html"><code>DataEngineGovernanceAuditCount</code></a>
 `/api/name-services/netgroup-files`| <a title="netapp_ontap.resources.netgroup_file.NetgroupFile" href="../resources/netgroup_file.html"><code>NetgroupFile</code></a>
+`/api/data-engine/policies/{data_engine_policy[uuid]}/versions`| <a title="netapp_ontap.resources.data_engine_policy_version.DataEnginePolicyVersion" href="../resources/data_engine_policy_version.html"><code>DataEnginePolicyVersion</code></a>
 `/api/cluster`| <a title="netapp_ontap.resources.cluster.Cluster" href="../resources/cluster.html"><code>Cluster</code></a>
 `/api/protocols/nvme/services`| <a title="netapp_ontap.resources.nvme_service.NvmeService" href="../resources/nvme_service.html"><code>NvmeService</code></a>
 `/api/protocols/ndmp/svms`| <a title="netapp_ontap.resources.ndmp_svm.NdmpSvm" href="../resources/ndmp_svm.html"><code>NdmpSvm</code></a>
+`/api/data-engine/workspaces/{workspace[uuid]}/data-collections/{datacollection[uuid]}/entities`| <a title="netapp_ontap.resources.datacollection_entity.DatacollectionEntity" href="../resources/datacollection_entity.html"><code>DatacollectionEntity</code></a>
+`/api/data-engine/workspaces/{workspace[uuid]}/data-collections/{datacollection[uuid]}/versions`| <a title="netapp_ontap.resources.datacollection_version.DatacollectionVersion" href="../resources/datacollection_version.html"><code>DatacollectionVersion</code></a>
+`/api/data-engine/data-sources`| <a title="netapp_ontap.resources.data_source.DataSource" href="../resources/data_source.html"><code>DataSource</code></a>
 `/api/support/snmp/users`| <a title="netapp_ontap.resources.snmp_user.SnmpUser" href="../resources/snmp_user.html"><code>SnmpUser</code></a>
 `/api/support/auto-update`| <a title="netapp_ontap.resources.auto_update_info.AutoUpdateInfo" href="../resources/auto_update_info.html"><code>AutoUpdateInfo</code></a>
 `/api/security/key-managers/{security_key_manager[uuid]}/auth-keys`| <a title="netapp_ontap.resources.key_manager_auth_key.KeyManagerAuthKey" href="../resources/key_manager_auth_key.html"><code>KeyManagerAuthKey</code></a>
 `/api/security/anti-ransomware`| <a title="netapp_ontap.resources.anti_ransomware.AntiRansomware" href="../resources/anti_ransomware.html"><code>AntiRansomware</code></a>
 `/api/security/authentication/cluster/oauth2`| <a title="netapp_ontap.resources.security_oauth2_global.SecurityOauth2Global" href="../resources/security_oauth2_global.html"><code>SecurityOauth2Global</code></a>
 `/api/protocols/nvme/services/{svm[uuid]}/metrics`| <a title="netapp_ontap.resources.performance_nvme_metric.PerformanceNvmeMetric" href="../resources/performance_nvme_metric.html"><code>PerformanceNvmeMetric</code></a>
+`/api/data-engine/workspaces/{workspace[uuid]}/queries`| <a title="netapp_ontap.resources.workspace_query.WorkspaceQuery" href="../resources/workspace_query.html"><code>WorkspaceQuery</code></a>
 `/api/security/certificates`| <a title="netapp_ontap.resources.security_certificate.SecurityCertificate" href="../resources/security_certificate.html"><code>SecurityCertificate</code></a>
+`/api/data-engine/governance/policies/classification/categories`| <a title="netapp_ontap.resources.data_engine_governance_policies_classification_category.DataEngineGovernancePoliciesClassificationCategory" href="../resources/data_engine_governance_policies_classification_category.html"><code>DataEngineGovernancePoliciesClassificationCategory</code></a>
 `/api/svm/svms/{svm[uuid]}/top-metrics/users`| <a title="netapp_ontap.resources.top_metrics_svm_user.TopMetricsSvmUser" href="../resources/top_metrics_svm_user.html"><code>TopMetricsSvmUser</code></a>
 `/api/protocols/s3/services`| <a title="netapp_ontap.resources.s3_service.S3Service" href="../resources/s3_service.html"><code>S3Service</code></a>
 `/api/resource-tags`| <a title="netapp_ontap.resources.resource_tag.ResourceTag" href="../resources/resource_tag.html"><code>ResourceTag</code></a>
@@ -254,13 +632,16 @@ URL|Resource
 `/api/protocols/s3/services/{svm[uuid]}/policies`| <a title="netapp_ontap.resources.s3_policy.S3Policy" href="../resources/s3_policy.html"><code>S3Policy</code></a>
 `/api/storage/snapshot-policies`| <a title="netapp_ontap.resources.snapshot_policy.SnapshotPolicy" href="../resources/snapshot_policy.html"><code>SnapshotPolicy</code></a>
 `/api/protocols/ndmp/nodes`| <a title="netapp_ontap.resources.ndmp_node.NdmpNode" href="../resources/ndmp_node.html"><code>NdmpNode</code></a>
+`/api/security/authentication/cluster/oidc`| <a title="netapp_ontap.resources.security_oidc.SecurityOidc" href="../resources/security_oidc.html"><code>SecurityOidc</code></a>
 `/api/security/ssh/svms`| <a title="netapp_ontap.resources.svm_ssh_server.SvmSshServer" href="../resources/svm_ssh_server.html"><code>SvmSshServer</code></a>
 `/api/storage/volume-efficiency-policies`| <a title="netapp_ontap.resources.volume_efficiency_policy.VolumeEfficiencyPolicy" href="../resources/volume_efficiency_policy.html"><code>VolumeEfficiencyPolicy</code></a>
 `/api/security/external-role-mappings`| <a title="netapp_ontap.resources.security_external_role_mapping.SecurityExternalRoleMapping" href="../resources/security_external_role_mapping.html"><code>SecurityExternalRoleMapping</code></a>
 `/api/protocols/s3/services/{svm[uuid]}/groups`| <a title="netapp_ontap.resources.s3_group.S3Group" href="../resources/s3_group.html"><code>S3Group</code></a>
+`/api/data-engine/governance/file-preview/file-content`| <a title="netapp_ontap.resources.data_engine_governance_file_preview_file_content_request.DataEngineGovernanceFilePreviewFileContentRequest" href="../resources/data_engine_governance_file_preview_file_content_request.html"><code>DataEngineGovernanceFilePreviewFileContentRequest</code></a>
 `/api/application/applications/{application[uuid]}/snapshots`| <a title="netapp_ontap.resources.application_snapshot.ApplicationSnapshot" href="../resources/application_snapshot.html"><code>ApplicationSnapshot</code></a>
 `/api/protocols/ndmp`| <a title="netapp_ontap.resources.cluster_ndmp_properties.ClusterNdmpProperties" href="../resources/cluster_ndmp_properties.html"><code>ClusterNdmpProperties</code></a>
 `/api/storage/volumes/{volume[uuid]}/top-metrics/directories`| <a title="netapp_ontap.resources.top_metrics_directory.TopMetricsDirectory" href="../resources/top_metrics_directory.html"><code>TopMetricsDirectory</code></a>
+`/api/data-engine/governance/aggregation`| <a title="netapp_ontap.resources.governance_aggregations.GovernanceAggregations" href="../resources/governance_aggregations.html"><code>GovernanceAggregations</code></a>
 `/api/protocols/cifs/domains/{svm[uuid]}/preferred-domain-controllers`| <a title="netapp_ontap.resources.cifs_domain_preferred_dc.CifsDomainPreferredDc" href="../resources/cifs_domain_preferred_dc.html"><code>CifsDomainPreferredDc</code></a>
 `/api/security/roles/{owner[uuid]}/{role[name]}/privileges`| <a title="netapp_ontap.resources.role_privilege.RolePrivilege" href="../resources/role_privilege.html"><code>RolePrivilege</code></a>
 `/api/cluster/software/history`| <a title="netapp_ontap.resources.software_history.SoftwareHistory" href="../resources/software_history.html"><code>SoftwareHistory</code></a>
@@ -279,11 +660,15 @@ URL|Resource
 `/api/storage/flexcache/flexcaches`| <a title="netapp_ontap.resources.flexcache.Flexcache" href="../resources/flexcache.html"><code>Flexcache</code></a>
 `/api/cluster/metrocluster/svms`| <a title="netapp_ontap.resources.metrocluster_svm.MetroclusterSvm" href="../resources/metrocluster_svm.html"><code>MetroclusterSvm</code></a>
 `/api/protocols/nfs/kerberos/realms`| <a title="netapp_ontap.resources.kerberos_realm.KerberosRealm" href="../resources/kerberos_realm.html"><code>KerberosRealm</code></a>
+`/api/data-engine/workspaces/{workspace[uuid]}/data-collections/{datacollection[uuid]}/search`| <a title="netapp_ontap.resources.datacollection_search_data.DatacollectionSearchData" href="../resources/datacollection_search_data.html"><code>DatacollectionSearchData</code></a>
 `/api/storage/flexcache/origins`| <a title="netapp_ontap.resources.flexcache_origin.FlexcacheOrigin" href="../resources/flexcache_origin.html"><code>FlexcacheOrigin</code></a>
 `/api/protocols/locks`| <a title="netapp_ontap.resources.client_lock.ClientLock" href="../resources/client_lock.html"><code>ClientLock</code></a>
+`/api/dcn/cluster/software/packages`| <a title="netapp_ontap.resources.dcn_cluster_software_package.DcnClusterSoftwarePackage" href="../resources/dcn_cluster_software_package.html"><code>DcnClusterSoftwarePackage</code></a>
+`/api/security/ha-network`| <a title="netapp_ontap.resources.security_ha_network.SecurityHaNetwork" href="../resources/security_ha_network.html"><code>SecurityHaNetwork</code></a>
 `/api/support/ems/filters`| <a title="netapp_ontap.resources.ems_filter.EmsFilter" href="../resources/ems_filter.html"><code>EmsFilter</code></a>
 `/api/cluster/metrocluster/operations`| <a title="netapp_ontap.resources.metrocluster_operation.MetroclusterOperation" href="../resources/metrocluster_operation.html"><code>MetroclusterOperation</code></a>
 `/api/cluster/schedules`| <a title="netapp_ontap.resources.schedule.Schedule" href="../resources/schedule.html"><code>Schedule</code></a>
+`/api/data-engine/events`| <a title="netapp_ontap.resources.data_engine_event.DataEngineEvent" href="../resources/data_engine_event.html"><code>DataEngineEvent</code></a>
 `/api/security/azure-key-vaults`| <a title="netapp_ontap.resources.azure_key_vault.AzureKeyVault" href="../resources/azure_key_vault.html"><code>AzureKeyVault</code></a>
 `/api/support/ems/application-logs`| <a title="netapp_ontap.resources.ems_application_log.EmsApplicationLog" href="../resources/ems_application_log.html"><code>EmsApplicationLog</code></a>
 `/api/network/ethernet/ports/{port[uuid]}/metrics`| <a title="netapp_ontap.resources.port_metrics.PortMetrics" href="../resources/port_metrics.html"><code>PortMetrics</code></a>
@@ -300,20 +685,24 @@ URL|Resource
 `/api/network/fc/interfaces/{fc_interface[uuid]}/metrics`| <a title="netapp_ontap.resources.performance_fc_interface_metric.PerformanceFcInterfaceMetric" href="../resources/performance_fc_interface_metric.html"><code>PerformanceFcInterfaceMetric</code></a>
 `/api/protocols/cifs/home-directory/search-paths`| <a title="netapp_ontap.resources.cifs_search_path.CifsSearchPath" href="../resources/cifs_search_path.html"><code>CifsSearchPath</code></a>
 `/api/storage/snaplock/litigations/{litigation[id]}/files`| <a title="netapp_ontap.resources.snaplock_litigation_file.SnaplockLitigationFile" href="../resources/snaplock_litigation_file.html"><code>SnaplockLitigationFile</code></a>
+`/api/data-engine/workspaces/{workspace[uuid]}/versions/{workspace_version[uuid]}/diffs`| <a title="netapp_ontap.resources.workspace_version_diff.WorkspaceVersionDiff" href="../resources/workspace_version_diff.html"><code>WorkspaceVersionDiff</code></a>
 `/api/name-services/ldap-schemas`| <a title="netapp_ontap.resources.ldap_schema.LdapSchema" href="../resources/ldap_schema.html"><code>LdapSchema</code></a>
 `/api/storage/qtrees`| <a title="netapp_ontap.resources.qtree.Qtree" href="../resources/qtree.html"><code>Qtree</code></a>
 `/api/security/authentication/cluster/oauth2/clients`| <a title="netapp_ontap.resources.security_oauth2.SecurityOauth2" href="../resources/security_oauth2.html"><code>SecurityOauth2</code></a>
 `/api/protocols/nvme/subsystems`| <a title="netapp_ontap.resources.nvme_subsystem.NvmeSubsystem" href="../resources/nvme_subsystem.html"><code>NvmeSubsystem</code></a>
+`/api/data-engine/workspaces/{workspace[uuid]}/versions`| <a title="netapp_ontap.resources.workspace_version.WorkspaceVersion" href="../resources/workspace_version.html"><code>WorkspaceVersion</code></a>
 `/api/cluster/sensors`| <a title="netapp_ontap.resources.sensors.Sensors" href="../resources/sensors.html"><code>Sensors</code></a>
 `/api/security/key-stores`| <a title="netapp_ontap.resources.security_keystore.SecurityKeystore" href="../resources/security_keystore.html"><code>SecurityKeystore</code></a>
 `/api/security/authentication/duo/profiles`| <a title="netapp_ontap.resources.duo.Duo" href="../resources/duo.html"><code>Duo</code></a>
 `/api/svm/svms/{svm[uuid]}/web`| <a title="netapp_ontap.resources.web_svm.WebSvm" href="../resources/web_svm.html"><code>WebSvm</code></a>
+`/api/security/cluster-network`| <a title="netapp_ontap.resources.security_cluster_network.SecurityClusterNetwork" href="../resources/security_cluster_network.html"><code>SecurityClusterNetwork</code></a>
 `/api/storage/availability-zones`| <a title="netapp_ontap.resources.storage_availability_zone.StorageAvailabilityZone" href="../resources/storage_availability_zone.html"><code>StorageAvailabilityZone</code></a>
 `/api/storage/pools`| <a title="netapp_ontap.resources.storage_pool.StoragePool" href="../resources/storage_pool.html"><code>StoragePool</code></a>
 `/api/storage/snaplock/event-retention/policies`| <a title="netapp_ontap.resources.snaplock_retention_policy.SnaplockRetentionPolicy" href="../resources/snaplock_retention_policy.html"><code>SnaplockRetentionPolicy</code></a>
 `/api/storage/file/clone`| <a title="netapp_ontap.resources.file_clone.FileClone" href="../resources/file_clone.html"><code>FileClone</code></a>
 `/api/security/webauthn/global-settings`| <a title="netapp_ontap.resources.webauthn_global.WebauthnGlobal" href="../resources/webauthn_global.html"><code>WebauthnGlobal</code></a>
 `/api/support/coredump/coredumps`| <a title="netapp_ontap.resources.coredump.Coredump" href="../resources/coredump.html"><code>Coredump</code></a>
+`/api/dcn/cluster/nodes`| <a title="netapp_ontap.resources.dcn_node.DcnNode" href="../resources/dcn_node.html"><code>DcnNode</code></a>
 `/api/network/fc/interfaces`| <a title="netapp_ontap.resources.fc_interface.FcInterface" href="../resources/fc_interface.html"><code>FcInterface</code></a>
 `/api/security/multi-admin-verify`| <a title="netapp_ontap.resources.multi_admin_verify_config.MultiAdminVerifyConfig" href="../resources/multi_admin_verify_config.html"><code>MultiAdminVerifyConfig</code></a>
 `/api/protocols/cifs/services/{svm[uuid]}/metrics`| <a title="netapp_ontap.resources.performance_cifs_metric.PerformanceCifsMetric" href="../resources/performance_cifs_metric.html"><code>PerformanceCifsMetric</code></a>
@@ -332,8 +721,10 @@ URL|Resource
 `/api/cluster/metrocluster/diagnostics`| <a title="netapp_ontap.resources.metrocluster_diagnostics.MetroclusterDiagnostics" href="../resources/metrocluster_diagnostics.html"><code>MetroclusterDiagnostics</code></a>
 `/api/protocols/s3/services/{svm[uuid]}/buckets/{s3_bucket[uuid]}/snapshots`| <a title="netapp_ontap.resources.s3_bucket_snapshot.S3BucketSnapshot" href="../resources/s3_bucket_snapshot.html"><code>S3BucketSnapshot</code></a>
 `/api/storage/storage-units/{storage_unit[uuid]}/snapshots`| <a title="netapp_ontap.resources.storage_unit_snapshot.StorageUnitSnapshot" href="../resources/storage_unit_snapshot.html"><code>StorageUnitSnapshot</code></a>
+`/api/storage/flexcache/connection-status`| <a title="netapp_ontap.resources.connection_status.ConnectionStatus" href="../resources/connection_status.html"><code>ConnectionStatus</code></a>
 `/api/protocols/active-directory/{svm[uuid]}/preferred-domain-controllers`| <a title="netapp_ontap.resources.active_directory_preferred_dc.ActiveDirectoryPreferredDc" href="../resources/active_directory_preferred_dc.html"><code>ActiveDirectoryPreferredDc</code></a>
 `/api/name-services/unix-groups`| <a title="netapp_ontap.resources.unix_group.UnixGroup" href="../resources/unix_group.html"><code>UnixGroup</code></a>
+`/api/data-engine/governance/policies/classification/classifiers`| <a title="netapp_ontap.resources.data_engine_governance_policies_classification_classifier.DataEngineGovernancePoliciesClassificationClassifier" href="../resources/data_engine_governance_policies_classification_classifier.html"><code>DataEngineGovernancePoliciesClassificationClassifier</code></a>
 `/api/protocols/nfs/export-policies/{policy[id]}/rules/{export_rule[index]}/clients`| <a title="netapp_ontap.resources.export_client.ExportClient" href="../resources/export_client.html"><code>ExportClient</code></a>
 `/api/security/audit/destinations`| <a title="netapp_ontap.resources.security_audit_log_forward.SecurityAuditLogForward" href="../resources/security_audit_log_forward.html"><code>SecurityAuditLogForward</code></a>
 `/api/storage/qos/workloads`| <a title="netapp_ontap.resources.qos_workload.QosWorkload" href="../resources/qos_workload.html"><code>QosWorkload</code></a>
@@ -354,6 +745,7 @@ URL|Resource
 `/api/protocols/nfs/export-policies`| <a title="netapp_ontap.resources.export_policy.ExportPolicy" href="../resources/export_policy.html"><code>ExportPolicy</code></a>
 `/api/protocols/fpolicy`| <a title="netapp_ontap.resources.fpolicy.Fpolicy" href="../resources/fpolicy.html"><code>Fpolicy</code></a>
 `/api/svm/migrations/{svm_migration[uuid]}/volumes`| <a title="netapp_ontap.resources.svm_migration_volume.SvmMigrationVolume" href="../resources/svm_migration_volume.html"><code>SvmMigrationVolume</code></a>
+`/api/data-engine/workspaces/{workspace[uuid]}/data-collections`| <a title="netapp_ontap.resources.datacollection.Datacollection" href="../resources/datacollection.html"><code>Datacollection</code></a>
 `/api/cluster/licensing/capacity-pools`| <a title="netapp_ontap.resources.capacity_pool.CapacityPool" href="../resources/capacity_pool.html"><code>CapacityPool</code></a>
 `/api/protocols/nfs/kerberos/interfaces`| <a title="netapp_ontap.resources.kerberos_interface.KerberosInterface" href="../resources/kerberos_interface.html"><code>KerberosInterface</code></a>
 `/api/storage/shelves`| <a title="netapp_ontap.resources.shelf.Shelf" href="../resources/shelf.html"><code>Shelf</code></a>
@@ -361,6 +753,7 @@ URL|Resource
 `/api/network/ethernet/ports`| <a title="netapp_ontap.resources.port.Port" href="../resources/port.html"><code>Port</code></a>
 `/api/protocols/cifs/shadowcopy-sets`| <a title="netapp_ontap.resources.shadowcopy_set.ShadowcopySet" href="../resources/shadowcopy_set.html"><code>ShadowcopySet</code></a>
 `/api/storage/snaplock/compliance-clocks`| <a title="netapp_ontap.resources.snaplock_compliance_clock.SnaplockComplianceClock" href="../resources/snaplock_compliance_clock.html"><code>SnaplockComplianceClock</code></a>
+`/api/data-engine/jobs`| <a title="netapp_ontap.resources.data_engine_job.DataEngineJob" href="../resources/data_engine_job.html"><code>DataEngineJob</code></a>
 `/api/network/ip/bgp/peer-groups`| <a title="netapp_ontap.resources.bgp_peer_group.BgpPeerGroup" href="../resources/bgp_peer_group.html"><code>BgpPeerGroup</code></a>
 `/api/protocols/san/vvol-bindings`| <a title="netapp_ontap.resources.vvol_binding.VvolBinding" href="../resources/vvol_binding.html"><code>VvolBinding</code></a>
 `/api/svm/svms/{svm[uuid]}/top-metrics/directories`| <a title="netapp_ontap.resources.top_metrics_svm_directory.TopMetricsSvmDirectory" href="../resources/top_metrics_svm_directory.html"><code>TopMetricsSvmDirectory</code></a>
@@ -376,12 +769,16 @@ URL|Resource
 `/api/security/login/totps`| <a title="netapp_ontap.resources.totp.Totp" href="../resources/totp.html"><code>Totp</code></a>
 `/api/protocols/san/iscsi/sessions`| <a title="netapp_ontap.resources.iscsi_session.IscsiSession" href="../resources/iscsi_session.html"><code>IscsiSession</code></a>
 `/api/name-services/unix-groups/{svm[uuid]}/{unix_group[name]}/users`| <a title="netapp_ontap.resources.unix_group_users.UnixGroupUsers" href="../resources/unix_group_users.html"><code>UnixGroupUsers</code></a>
+`/api/data-engine/workspaces/{workspace[uuid]}/data-collections/{datacollection[uuid]}/acls`| <a title="netapp_ontap.resources.data_engine_datacollection_acl.DataEngineDatacollectionAcl" href="../resources/data_engine_datacollection_acl.html"><code>DataEngineDatacollectionAcl</code></a>
+`/api/dcn/cluster`| <a title="netapp_ontap.resources.dcn_cluster.DcnCluster" href="../resources/dcn_cluster.html"><code>DcnCluster</code></a>
 `/api/protocols/cifs/local-groups/{svm[uuid]}/{local_cifs_group[sid]}/members`| <a title="netapp_ontap.resources.local_cifs_group_members.LocalCifsGroupMembers" href="../resources/local_cifs_group_members.html"><code>LocalCifsGroupMembers</code></a>
 `/api/storage/snaplock/file`| <a title="netapp_ontap.resources.snaplock_file_retention.SnaplockFileRetention" href="../resources/snaplock_file_retention.html"><code>SnaplockFileRetention</code></a>
 `/api/cluster/chassis`| <a title="netapp_ontap.resources.chassis.Chassis" href="../resources/chassis.html"><code>Chassis</code></a>
 `/api/application/templates`| <a title="netapp_ontap.resources.application_template.ApplicationTemplate" href="../resources/application_template.html"><code>ApplicationTemplate</code></a>
 `/api/protocols/cifs/netbios`| <a title="netapp_ontap.resources.netbios.Netbios" href="../resources/netbios.html"><code>Netbios</code></a>
+`/api/dcn/cluster/nodes/{node[uuid]}/metrics`| <a title="netapp_ontap.resources.dcn_node_metrics.DcnNodeMetrics" href="../resources/dcn_node_metrics.html"><code>DcnNodeMetrics</code></a>
 `/api/name-services/unix-users`| <a title="netapp_ontap.resources.unix_user.UnixUser" href="../resources/unix_user.html"><code>UnixUser</code></a>
+`/api/data-engine/workspaces/{workspace[uuid]}/entities/{data_engine_entity[uuid]}/custom-attributes`| <a title="netapp_ontap.resources.data_engine_entity_custom_attribute.DataEngineEntityCustomAttribute" href="../resources/data_engine_entity_custom_attribute.html"><code>DataEngineEntityCustomAttribute</code></a>
 `/api/application/applications/{application[uuid]}/components`| <a title="netapp_ontap.resources.application_component.ApplicationComponent" href="../resources/application_component.html"><code>ApplicationComponent</code></a>
 `/api/svm/migrations`| <a title="netapp_ontap.resources.svm_migration.SvmMigration" href="../resources/svm_migration.html"><code>SvmMigration</code></a>
 `/api/support/snmp/traphosts`| <a title="netapp_ontap.resources.snmp_traphost.SnmpTraphost" href="../resources/snmp_traphost.html"><code>SnmpTraphost</code></a>
@@ -389,12 +786,14 @@ URL|Resource
 `/api/name-services/ldap`| <a title="netapp_ontap.resources.ldap_service.LdapService" href="../resources/ldap_service.html"><code>LdapService</code></a>
 `/api/protocols/file-security/permissions/{svm[uuid]}/{file_directory_security_acl[path]}/acl`| <a title="netapp_ontap.resources.file_directory_security_acl.FileDirectorySecurityAcl" href="../resources/file_directory_security_acl.html"><code>FileDirectorySecurityAcl</code></a>
 `/api/protocols/nvme/subsystem-controllers`| <a title="netapp_ontap.resources.nvme_subsystem_controller.NvmeSubsystemController" href="../resources/nvme_subsystem_controller.html"><code>NvmeSubsystemController</code></a>
+`/api/data-engine/workspaces/{workspace[uuid]}/data-sources`| <a title="netapp_ontap.resources.workspace_data_source.WorkspaceDataSource" href="../resources/workspace_data_source.html"><code>WorkspaceDataSource</code></a>
 `/api/security/groups`| <a title="netapp_ontap.resources.security_group.SecurityGroup" href="../resources/security_group.html"><code>SecurityGroup</code></a>
 `/api/storage/snaplock/event-retention/operations`| <a title="netapp_ontap.resources.ebr_operation.EbrOperation" href="../resources/ebr_operation.html"><code>EbrOperation</code></a>
 `/api/application/containers`| <a title="netapp_ontap.resources.container.Container" href="../resources/container.html"><code>Container</code></a>
 `/api/protocols/nvme/subsystem-maps`| <a title="netapp_ontap.resources.nvme_subsystem_map.NvmeSubsystemMap" href="../resources/nvme_subsystem_map.html"><code>NvmeSubsystemMap</code></a>
 `/api/support/ems/destinations`| <a title="netapp_ontap.resources.ems_destination.EmsDestination" href="../resources/ems_destination.html"><code>EmsDestination</code></a>
 `/api/svm/svms/{svm[uuid]}/top-metrics/files`| <a title="netapp_ontap.resources.top_metrics_svm_file.TopMetricsSvmFile" href="../resources/top_metrics_svm_file.html"><code>TopMetricsSvmFile</code></a>
+`/api/dcn/security/client`| <a title="netapp_ontap.resources.dcn_certificate.DcnCertificate" href="../resources/dcn_certificate.html"><code>DcnCertificate</code></a>
 `/api/security/authentication/duo/groups`| <a title="netapp_ontap.resources.duogroup.Duogroup" href="../resources/duogroup.html"><code>Duogroup</code></a>
 `/api/protocols/san/igroups/{igroup[uuid]}/igroups`| <a title="netapp_ontap.resources.igroup_nested.IgroupNested" href="../resources/igroup_nested.html"><code>IgroupNested</code></a>
 `/api/protocols/cifs/group-policies`| <a title="netapp_ontap.resources.policies_and_rules_to_be_applied.PoliciesAndRulesToBeApplied" href="../resources/policies_and_rules_to_be_applied.html"><code>PoliciesAndRulesToBeApplied</code></a>
@@ -417,6 +816,7 @@ URL|Resource
 `/api/security/key-managers`| <a title="netapp_ontap.resources.security_key_manager.SecurityKeyManager" href="../resources/security_key_manager.html"><code>SecurityKeyManager</code></a>
 `/api/application/consistency-groups`| <a title="netapp_ontap.resources.consistency_group.ConsistencyGroup" href="../resources/consistency_group.html"><code>ConsistencyGroup</code></a>
 `/api/protocols/vscan/{svm[uuid]}/on-demand-policies`| <a title="netapp_ontap.resources.vscan_on_demand.VscanOnDemand" href="../resources/vscan_on_demand.html"><code>VscanOnDemand</code></a>
+`/api/data-engine/workspaces/{workspace[uuid]}/acls`| <a title="netapp_ontap.resources.data_engine_acl.DataEngineAcl" href="../resources/data_engine_acl.html"><code>DataEngineAcl</code></a>
 `/api/storage/switches`| <a title="netapp_ontap.resources.storage_switch.StorageSwitch" href="../resources/storage_switch.html"><code>StorageSwitch</code></a>
 `/api/network/ip/service-policies`| <a title="netapp_ontap.resources.ip_service_policy.IpServicePolicy" href="../resources/ip_service_policy.html"><code>IpServicePolicy</code></a>
 `/api/network/ipspaces`| <a title="netapp_ontap.resources.ipspace.Ipspace" href="../resources/ipspace.html"><code>Ipspace</code></a>
@@ -425,9 +825,11 @@ URL|Resource
 `/api/name-services/cache/netgroup/settings`| <a title="netapp_ontap.resources.netgroups_settings.NetgroupsSettings" href="../resources/netgroups_settings.html"><code>NetgroupsSettings</code></a>
 `/api/security/anti-ransomware/storage-unit/suspects`| <a title="netapp_ontap.resources.storage_unit_anti_ransomware_suspect.StorageUnitAntiRansomwareSuspect" href="../resources/storage_unit_anti_ransomware_suspect.html"><code>StorageUnitAntiRansomwareSuspect</code></a>
 `/api/protocols/cifs/group-policies/{svm[uuid]}/objects`| <a title="netapp_ontap.resources.group_policy_object.GroupPolicyObject" href="../resources/group_policy_object.html"><code>GroupPolicyObject</code></a>
+`/api/data-engine/governance/file-preview/jobs`| <a title="netapp_ontap.resources.data_engine_governance_file_preview_job.DataEngineGovernanceFilePreviewJob" href="../resources/data_engine_governance_file_preview_job.html"><code>DataEngineGovernanceFilePreviewJob</code></a>
 `/api/protocols/fpolicy/{svm[uuid]}/events`| <a title="netapp_ontap.resources.fpolicy_event.FpolicyEvent" href="../resources/fpolicy_event.html"><code>FpolicyEvent</code></a>
 `/api/network/fc/logins`| <a title="netapp_ontap.resources.fc_login.FcLogin" href="../resources/fc_login.html"><code>FcLogin</code></a>
 `/api/security/jit-privilege-users`| <a title="netapp_ontap.resources.security_jit_privilege_user.SecurityJitPrivilegeUser" href="../resources/security_jit_privilege_user.html"><code>SecurityJitPrivilegeUser</code></a>
+`/api/dcn/security/cluster/certificate`| <a title="netapp_ontap.resources.dcn_cluster_certificate.DcnClusterCertificate" href="../resources/dcn_cluster_certificate.html"><code>DcnClusterCertificate</code></a>
 `/api/support/ems/role-configs`| <a title="netapp_ontap.resources.ems_role_config.EmsRoleConfig" href="../resources/ems_role_config.html"><code>EmsRoleConfig</code></a>
 `/api/protocols/cifs/services`| <a title="netapp_ontap.resources.cifs_service.CifsService" href="../resources/cifs_service.html"><code>CifsService</code></a>
 `/api/protocols/nvme/subsystems/{subsystem[uuid]}/hosts`| <a title="netapp_ontap.resources.nvme_subsystem_host.NvmeSubsystemHost" href="../resources/nvme_subsystem_host.html"><code>NvmeSubsystemHost</code></a>
@@ -437,7 +839,10 @@ URL|Resource
 `/api/protocols/san/igroups/{igroup[uuid]}/initiators`| <a title="netapp_ontap.resources.igroup_initiator.IgroupInitiator" href="../resources/igroup_initiator.html"><code>IgroupInitiator</code></a>
 `/api/security/group/role-mappings`| <a title="netapp_ontap.resources.group_role_mappings.GroupRoleMappings" href="../resources/group_role_mappings.html"><code>GroupRoleMappings</code></a>
 `/api/cluster/mediators`| <a title="netapp_ontap.resources.mediator.Mediator" href="../resources/mediator.html"><code>Mediator</code></a>
+`/api/data-engine/governance/policies/guardrails`| <a title="netapp_ontap.resources.data_engine_governance_policies_guardrail.DataEngineGovernancePoliciesGuardrail" href="../resources/data_engine_governance_policies_guardrail.html"><code>DataEngineGovernancePoliciesGuardrail</code></a>
 `/api/support/autosupport/messages`| <a title="netapp_ontap.resources.autosupport_message.AutosupportMessage" href="../resources/autosupport_message.html"><code>AutosupportMessage</code></a>
+`/api/data-engine`| <a title="netapp_ontap.resources.data_engine.DataEngine" href="../resources/data_engine.html"><code>DataEngine</code></a>
+`/api/data-engine/workspaces/{workspace[uuid]}/entities`| <a title="netapp_ontap.resources.data_engine_entity.DataEngineEntity" href="../resources/data_engine_entity.html"><code>DataEngineEntity</code></a>
 `/api/cluster/metrocluster/dr-groups`| <a title="netapp_ontap.resources.metrocluster_dr_group.MetroclusterDrGroup" href="../resources/metrocluster_dr_group.html"><code>MetroclusterDrGroup</code></a>
 `/api/protocols/fpolicy/{svm[uuid]}/connections`| <a title="netapp_ontap.resources.fpolicy_connection.FpolicyConnection" href="../resources/fpolicy_connection.html"><code>FpolicyConnection</code></a>
 `/api/cluster/nodes/{node[uuid]}/metrics`| <a title="netapp_ontap.resources.node_metrics.NodeMetrics" href="../resources/node_metrics.html"><code>NodeMetrics</code></a>
@@ -447,31 +852,39 @@ URL|Resource
 `/api/storage/file/moves`| <a title="netapp_ontap.resources.file_move.FileMove" href="../resources/file_move.html"><code>FileMove</code></a>
 `/api/protocols/vscan`| <a title="netapp_ontap.resources.vscan.Vscan" href="../resources/vscan.html"><code>Vscan</code></a>
 `/api/name-services/cache/unix-group/settings`| <a title="netapp_ontap.resources.unix_group_settings.UnixGroupSettings" href="../resources/unix_group_settings.html"><code>UnixGroupSettings</code></a>
+`/api/data-engine/governance/audit/data-collections`| <a title="netapp_ontap.resources.data_engine_governance_audit_datacollection_count.DataEngineGovernanceAuditDatacollectionCount" href="../resources/data_engine_governance_audit_datacollection_count.html"><code>DataEngineGovernanceAuditDatacollectionCount</code></a>
 `/api/security/webauthn/credentials`| <a title="netapp_ontap.resources.webauthn_credentials.WebauthnCredentials" href="../resources/webauthn_credentials.html"><code>WebauthnCredentials</code></a>
 `/api/cluster/firmware/history`| <a title="netapp_ontap.resources.firmware_history.FirmwareHistory" href="../resources/firmware_history.html"><code>FirmwareHistory</code></a>
 `/api/protocols/vscan/{svm[uuid]}/scanner-pools`| <a title="netapp_ontap.resources.vscan_scanner_pool.VscanScannerPool" href="../resources/vscan_scanner_pool.html"><code>VscanScannerPool</code></a>
+`/api/security/anti-ransomware/auto-enable`| <a title="netapp_ontap.resources.anti_ransomware_auto_enable.AntiRansomwareAutoEnable" href="../resources/anti_ransomware_auto_enable.html"><code>AntiRansomwareAutoEnable</code></a>
 `/api/network/fc/ports/{fc_port[uuid]}/metrics`| <a title="netapp_ontap.resources.performance_fc_port_metric.PerformanceFcPortMetric" href="../resources/performance_fc_port_metric.html"><code>PerformanceFcPortMetric</code></a>
 `/api/storage/snapshot-policies/{snapshot_policy[uuid]}/schedules`| <a title="netapp_ontap.resources.snapshot_policy_schedule.SnapshotPolicySchedule" href="../resources/snapshot_policy_schedule.html"><code>SnapshotPolicySchedule</code></a>
 `/api/protocols/cifs/connections`| <a title="netapp_ontap.resources.cifs_connection.CifsConnection" href="../resources/cifs_connection.html"><code>CifsConnection</code></a>
 `/api/security/authentication/cluster/ldap`| <a title="netapp_ontap.resources.cluster_ldap.ClusterLdap" href="../resources/cluster_ldap.html"><code>ClusterLdap</code></a>
 `/api/storage/disks`| <a title="netapp_ontap.resources.disk.Disk" href="../resources/disk.html"><code>Disk</code></a>
+`/api/security/login/whoami`| <a title="netapp_ontap.resources.whoami.Whoami" href="../resources/whoami.html"><code>Whoami</code></a>
 `/api/network/ethernet/switches`| <a title="netapp_ontap.resources.switch.Switch" href="../resources/switch.html"><code>Switch</code></a>
 `/api/support/auto-update/configurations`| <a title="netapp_ontap.resources.auto_update_configuration.AutoUpdateConfiguration" href="../resources/auto_update_configuration.html"><code>AutoUpdateConfiguration</code></a>
 `/api/security/jit-privileges`| <a title="netapp_ontap.resources.security_jit_privilege.SecurityJitPrivilege" href="../resources/security_jit_privilege.html"><code>SecurityJitPrivilege</code></a>
 `/api/protocols/ndmp/sessions`| <a title="netapp_ontap.resources.ndmp_session.NdmpSession" href="../resources/ndmp_session.html"><code>NdmpSession</code></a>
+`/api/data-engine/workspaces/{workspace[uuid]}/data-collections/{datacollection[uuid]}/versions/{datacollection_version[uuid]}/diffs`| <a title="netapp_ontap.resources.datacollection_version_diff.DatacollectionVersionDiff" href="../resources/datacollection_version_diff.html"><code>DatacollectionVersionDiff</code></a>
 `/api/storage/bridges`| <a title="netapp_ontap.resources.storage_bridge.StorageBridge" href="../resources/storage_bridge.html"><code>StorageBridge</code></a>
 `/api/cluster/metrocluster`| <a title="netapp_ontap.resources.metrocluster.Metrocluster" href="../resources/metrocluster.html"><code>Metrocluster</code></a>
 `/api/storage/quota/reports`| <a title="netapp_ontap.resources.quota_report.QuotaReport" href="../resources/quota_report.html"><code>QuotaReport</code></a>
 `/api/security/ipsec/security-associations`| <a title="netapp_ontap.resources.security_association.SecurityAssociation" href="../resources/security_association.html"><code>SecurityAssociation</code></a>
+`/api/data-engine/governance/audit/files`| <a title="netapp_ontap.resources.data_engine_governance_audit_impacted_files.DataEngineGovernanceAuditImpactedFiles" href="../resources/data_engine_governance_audit_impacted_files.html"><code>DataEngineGovernanceAuditImpactedFiles</code></a>
+`/api/data-engine/workspaces/{workspace[uuid]}/queries/{workspace_query[uuid]}/entities`| <a title="netapp_ontap.resources.workspace_query_entity.WorkspaceQueryEntity" href="../resources/workspace_query_entity.html"><code>WorkspaceQueryEntity</code></a>
 `/api/cluster/nodes`| <a title="netapp_ontap.resources.node.Node" href="../resources/node.html"><code>Node</code></a>
 `/api/security/ipsec/ca-certificates`| <a title="netapp_ontap.resources.ipsec_ca_certificate.IpsecCaCertificate" href="../resources/ipsec_ca_certificate.html"><code>IpsecCaCertificate</code></a>
 `/api/protocols/audit`| <a title="netapp_ontap.resources.audit.Audit" href="../resources/audit.html"><code>Audit</code></a>
 `/api/security/multi-admin-verify/approval-groups`| <a title="netapp_ontap.resources.multi_admin_verify_approval_group.MultiAdminVerifyApprovalGroup" href="../resources/multi_admin_verify_approval_group.html"><code>MultiAdminVerifyApprovalGroup</code></a>
 `/api/svm/svms`| <a title="netapp_ontap.resources.svm.Svm" href="../resources/svm.html"><code>Svm</code></a>
 `/api/svm/svms/{svm[uuid]}/top-metrics/clients`| <a title="netapp_ontap.resources.top_metrics_svm_client.TopMetricsSvmClient" href="../resources/top_metrics_svm_client.html"><code>TopMetricsSvmClient</code></a>
+`/api/data-engine/workspaces`| <a title="netapp_ontap.resources.workspace.Workspace" href="../resources/workspace.html"><code>Workspace</code></a>
 `/api/name-services/cache/unix-user/settings`| <a title="netapp_ontap.resources.unix_user_settings.UnixUserSettings" href="../resources/unix_user_settings.html"><code>UnixUserSettings</code></a>
 `/api/security/multi-admin-verify/requests`| <a title="netapp_ontap.resources.multi_admin_verify_request.MultiAdminVerifyRequest" href="../resources/multi_admin_verify_request.html"><code>MultiAdminVerifyRequest</code></a>
 `/api/storage/volumes/{volume[uuid]}/metrics`| <a title="netapp_ontap.resources.volume_metrics.VolumeMetrics" href="../resources/volume_metrics.html"><code>VolumeMetrics</code></a>
+`/api/data-engine/policies`| <a title="netapp_ontap.resources.data_engine_policy.DataEnginePolicy" href="../resources/data_engine_policy.html"><code>DataEnginePolicy</code></a>
 `/api/protocols/nvme/interfaces`| <a title="netapp_ontap.resources.nvme_interface.NvmeInterface" href="../resources/nvme_interface.html"><code>NvmeInterface</code></a>
 `/api/application/consistency-groups/{consistency_group[uuid]}/snapshots`| <a title="netapp_ontap.resources.consistency_group_snapshot.ConsistencyGroupSnapshot" href="../resources/consistency_group_snapshot.html"><code>ConsistencyGroupSnapshot</code></a>
 `/api/snapmirror/policies`| <a title="netapp_ontap.resources.snapmirror_policy.SnapmirrorPolicy" href="../resources/snapmirror_policy.html"><code>SnapmirrorPolicy</code></a>
@@ -503,642 +916,11 @@ URL|Resource
 `/api/security/webauthn/supported-algorithms`| <a title="netapp_ontap.resources.supported_algorithms.SupportedAlgorithms" href="../resources/supported_algorithms.html"><code>SupportedAlgorithms</code></a>
 `/api/protocols/san/iscsi/credentials`| <a title="netapp_ontap.resources.iscsi_credentials.IscsiCredentials" href="../resources/iscsi_credentials.html"><code>IscsiCredentials</code></a>
 `/api/network/fc/fabrics/{fabric[name]}/zones`| <a title="netapp_ontap.resources.fc_zone.FcZone" href="../resources/fc_zone.html"><code>FcZone</code></a>
-"""
+""" if GENERATE_DOCS else """
+Copyright &copy; 2026 NetApp Inc. All rights reserved.
 
-# pylint: disable=trailing-newlines
-# pylint: disable=too-many-lines
-
-from netapp_ontap.models import *
-
-from netapp_ontap.resources.cli import CLI
-
-from netapp_ontap.resources.key_manager_keys import KeyManagerKeys
-from netapp_ontap.resources.performance_namespace_metric import PerformanceNamespaceMetric
-from netapp_ontap.resources.role import Role
-from netapp_ontap.resources.top_metrics_client import TopMetricsClient
-from netapp_ontap.resources.file_directory_security import FileDirectorySecurity
-from netapp_ontap.resources.counter_row import CounterRow
-from netapp_ontap.resources.lun_map_reporting_node import LunMapReportingNode
-from netapp_ontap.resources.application_component_snapshot import ApplicationComponentSnapshot
-from netapp_ontap.resources.cifs_session import CifsSession
-from netapp_ontap.resources.cifs_share import CifsShare
-from netapp_ontap.resources.cluster_ssh_server import ClusterSshServer
-from netapp_ontap.resources.wwpn_alias import WwpnAlias
-from netapp_ontap.resources.qos_option import QosOption
-from netapp_ontap.resources.local_cifs_user import LocalCifsUser
-from netapp_ontap.resources.resource_tag_resource import ResourceTagResource
-from netapp_ontap.resources.fc_port import FcPort
-from netapp_ontap.resources.portset import Portset
-from netapp_ontap.resources.cloud_target import CloudTarget
-from netapp_ontap.resources.ip_interface import IpInterface
-from netapp_ontap.resources.snmp import Snmp
-from netapp_ontap.resources.lun_map import LunMap
-from netapp_ontap.resources.storage_unit_anti_ransomware_entropy_stats import StorageUnitAntiRansomwareEntropyStats
-from netapp_ontap.resources.nfs_service import NfsService
-from netapp_ontap.resources.fpolicy_policy import FpolicyPolicy
-from netapp_ontap.resources.cluster_ad_proxy import ClusterAdProxy
-from netapp_ontap.resources.fpolicy_persistent_store import FpolicyPersistentStore
-from netapp_ontap.resources.ntp_server import NtpServer
-from netapp_ontap.resources.consistency_group_metrics import ConsistencyGroupMetrics
-from netapp_ontap.resources.nfs_tls_interface import NfsTlsInterface
-from netapp_ontap.resources.snaplock_log import SnaplockLog
-from netapp_ontap.resources.performance_svm_nfs import PerformanceSvmNfs
-from netapp_ontap.resources.publickey import Publickey
-from netapp_ontap.resources.global_cache_setting import GlobalCacheSetting
-from netapp_ontap.resources.nfs_clients import NfsClients
-from netapp_ontap.resources.storage_unit import StorageUnit
-from netapp_ontap.resources.ems_config import EmsConfig
-from netapp_ontap.resources.user_group_privileges import UserGroupPrivileges
-from netapp_ontap.resources.file_copy import FileCopy
-from netapp_ontap.resources.vscan_server_status import VscanServerStatus
-from netapp_ontap.resources.metrocluster_node import MetroclusterNode
-from netapp_ontap.resources.netgroup_file import NetgroupFile
-from netapp_ontap.resources.cluster import Cluster
-from netapp_ontap.resources.nvme_service import NvmeService
-from netapp_ontap.resources.ndmp_svm import NdmpSvm
-from netapp_ontap.resources.snmp_user import SnmpUser
-from netapp_ontap.resources.auto_update_info import AutoUpdateInfo
-from netapp_ontap.resources.key_manager_auth_key import KeyManagerAuthKey
-from netapp_ontap.resources.anti_ransomware import AntiRansomware
-from netapp_ontap.resources.security_oauth2_global import SecurityOauth2Global
-from netapp_ontap.resources.performance_nvme_metric import PerformanceNvmeMetric
-from netapp_ontap.resources.security_certificate import SecurityCertificate
-from netapp_ontap.resources.top_metrics_svm_user import TopMetricsSvmUser
-from netapp_ontap.resources.s3_service import S3Service
-from netapp_ontap.resources.resource_tag import ResourceTag
-from netapp_ontap.resources.initiator import Initiator
-from netapp_ontap.resources.metrocluster_interconnect import MetroclusterInterconnect
-from netapp_ontap.resources.lun_attribute import LunAttribute
-from netapp_ontap.resources.group_policy_object_restricted_group import GroupPolicyObjectRestrictedGroup
-from netapp_ontap.resources.hosts_settings import HostsSettings
-from netapp_ontap.resources.fc_switch import FcSwitch
-from netapp_ontap.resources.ntp_key import NtpKey
-from netapp_ontap.resources.s3_policy import S3Policy
-from netapp_ontap.resources.snapshot_policy import SnapshotPolicy
-from netapp_ontap.resources.ndmp_node import NdmpNode
-from netapp_ontap.resources.svm_ssh_server import SvmSshServer
-from netapp_ontap.resources.volume_efficiency_policy import VolumeEfficiencyPolicy
-from netapp_ontap.resources.security_external_role_mapping import SecurityExternalRoleMapping
-from netapp_ontap.resources.s3_group import S3Group
-from netapp_ontap.resources.application_snapshot import ApplicationSnapshot
-from netapp_ontap.resources.cluster_ndmp_properties import ClusterNdmpProperties
-from netapp_ontap.resources.top_metrics_directory import TopMetricsDirectory
-from netapp_ontap.resources.cifs_domain_preferred_dc import CifsDomainPreferredDc
-from netapp_ontap.resources.role_privilege import RolePrivilege
-from netapp_ontap.resources.software_history import SoftwareHistory
-from netapp_ontap.resources.account import Account
-from netapp_ontap.resources.nfs_clients_cache import NfsClientsCache
-from netapp_ontap.resources.lun import Lun
-from netapp_ontap.resources.autosupport import Autosupport
-from netapp_ontap.resources.file_info import FileInfo
-from netapp_ontap.resources.snaplock_file_fingerprint import SnaplockFileFingerprint
-from netapp_ontap.resources.active_directory import ActiveDirectory
-from netapp_ontap.resources.performance_s3_metric import PerformanceS3Metric
-from netapp_ontap.resources.switch_port import SwitchPort
-from netapp_ontap.resources.gcp_kms import GcpKms
-from netapp_ontap.resources.local_host import LocalHost
-from netapp_ontap.resources.ems_filter_rule import EmsFilterRule
-from netapp_ontap.resources.flexcache import Flexcache
-from netapp_ontap.resources.metrocluster_svm import MetroclusterSvm
-from netapp_ontap.resources.kerberos_realm import KerberosRealm
-from netapp_ontap.resources.flexcache_origin import FlexcacheOrigin
-from netapp_ontap.resources.client_lock import ClientLock
-from netapp_ontap.resources.ems_filter import EmsFilter
-from netapp_ontap.resources.metrocluster_operation import MetroclusterOperation
-from netapp_ontap.resources.schedule import Schedule
-from netapp_ontap.resources.azure_key_vault import AzureKeyVault
-from netapp_ontap.resources.ems_application_log import EmsApplicationLog
-from netapp_ontap.resources.port_metrics import PortMetrics
-from netapp_ontap.resources.security_config import SecurityConfig
-from netapp_ontap.resources.dns import Dns
-from netapp_ontap.resources.ems_message import EmsMessage
-from netapp_ontap.resources.snapshot import Snapshot
-from netapp_ontap.resources.nvme_namespace import NvmeNamespace
-from netapp_ontap.resources.s3_user import S3User
-from netapp_ontap.resources.performance_lun_metric import PerformanceLunMetric
-from netapp_ontap.resources.qos_policy import QosPolicy
-from netapp_ontap.resources.svm_peer import SvmPeer
-from netapp_ontap.resources.cluster_space import ClusterSpace
-from netapp_ontap.resources.performance_fc_interface_metric import PerformanceFcInterfaceMetric
-from netapp_ontap.resources.cifs_search_path import CifsSearchPath
-from netapp_ontap.resources.snaplock_litigation_file import SnaplockLitigationFile
-from netapp_ontap.resources.ldap_schema import LdapSchema
-from netapp_ontap.resources.qtree import Qtree
-from netapp_ontap.resources.security_oauth2 import SecurityOauth2
-from netapp_ontap.resources.nvme_subsystem import NvmeSubsystem
-from netapp_ontap.resources.sensors import Sensors
-from netapp_ontap.resources.security_keystore import SecurityKeystore
-from netapp_ontap.resources.duo import Duo
-from netapp_ontap.resources.web_svm import WebSvm
-from netapp_ontap.resources.storage_availability_zone import StorageAvailabilityZone
-from netapp_ontap.resources.storage_pool import StoragePool
-from netapp_ontap.resources.snaplock_retention_policy import SnaplockRetentionPolicy
-from netapp_ontap.resources.file_clone import FileClone
-from netapp_ontap.resources.webauthn_global import WebauthnGlobal
-from netapp_ontap.resources.coredump import Coredump
-from netapp_ontap.resources.fc_interface import FcInterface
-from netapp_ontap.resources.multi_admin_verify_config import MultiAdminVerifyConfig
-from netapp_ontap.resources.performance_cifs_metric import PerformanceCifsMetric
-from netapp_ontap.resources.barbican import Barbican
-from netapp_ontap.resources.nis_service import NisService
-from netapp_ontap.resources.anti_ransomware_suspect import AntiRansomwareSuspect
-from netapp_ontap.resources.split_status import SplitStatus
-from netapp_ontap.resources.group_membership_settings import GroupMembershipSettings
-from netapp_ontap.resources.name_mapping import NameMapping
-from netapp_ontap.resources.s3_bucket_svm import S3BucketSvm
-from netapp_ontap.resources.storage_port import StoragePort
-from netapp_ontap.resources.igroup import Igroup
-from netapp_ontap.resources.snapmirror_relationship import SnapmirrorRelationship
-from netapp_ontap.resources.group_policy_object_central_access_policy import GroupPolicyObjectCentralAccessPolicy
-from netapp_ontap.resources.top_metrics_user import TopMetricsUser
-from netapp_ontap.resources.metrocluster_diagnostics import MetroclusterDiagnostics
-from netapp_ontap.resources.s3_bucket_snapshot import S3BucketSnapshot
-from netapp_ontap.resources.storage_unit_snapshot import StorageUnitSnapshot
-from netapp_ontap.resources.active_directory_preferred_dc import ActiveDirectoryPreferredDc
-from netapp_ontap.resources.unix_group import UnixGroup
-from netapp_ontap.resources.export_client import ExportClient
-from netapp_ontap.resources.security_audit_log_forward import SecurityAuditLogForward
-from netapp_ontap.resources.qos_workload import QosWorkload
-from netapp_ontap.resources.ip_subnet import IpSubnet
-from netapp_ontap.resources.cifs_share_acl import CifsShareAcl
-from netapp_ontap.resources.cifs_open_file import CifsOpenFile
-from netapp_ontap.resources.aggregate import Aggregate
-from netapp_ontap.resources.cloud_store import CloudStore
-from netapp_ontap.resources.auto_update_status import AutoUpdateStatus
-from netapp_ontap.resources.cluster_peer import ClusterPeer
-from netapp_ontap.resources.performance_fcp_metric import PerformanceFcpMetric
-from netapp_ontap.resources.iscsi_service import IscsiService
-from netapp_ontap.resources.cifs_symlink_mapping import CifsSymlinkMapping
-from netapp_ontap.resources.s3_bucket_lifecycle_rule import S3BucketLifecycleRule
-from netapp_ontap.resources.software_package_download import SoftwarePackageDownload
-from netapp_ontap.resources.key_manager_config import KeyManagerConfig
-from netapp_ontap.resources.group_policy_object_central_access_rule import GroupPolicyObjectCentralAccessRule
-from netapp_ontap.resources.export_policy import ExportPolicy
-from netapp_ontap.resources.fpolicy import Fpolicy
-from netapp_ontap.resources.svm_migration_volume import SvmMigrationVolume
-from netapp_ontap.resources.capacity_pool import CapacityPool
-from netapp_ontap.resources.kerberos_interface import KerberosInterface
-from netapp_ontap.resources.shelf import Shelf
-from netapp_ontap.resources.volume import Volume
-from netapp_ontap.resources.port import Port
-from netapp_ontap.resources.shadowcopy_set import ShadowcopySet
-from netapp_ontap.resources.snaplock_compliance_clock import SnaplockComplianceClock
-from netapp_ontap.resources.bgp_peer_group import BgpPeerGroup
-from netapp_ontap.resources.vvol_binding import VvolBinding
-from netapp_ontap.resources.top_metrics_svm_directory import TopMetricsSvmDirectory
-from netapp_ontap.resources.configuration_backup_file import ConfigurationBackupFile
-from netapp_ontap.resources.split_load import SplitLoad
-from netapp_ontap.resources.login_messages import LoginMessages
-from netapp_ontap.resources.svm_peer_permission import SvmPeerPermission
-from netapp_ontap.resources.fcp_service import FcpService
-from netapp_ontap.resources.performance_metric import PerformanceMetric
-from netapp_ontap.resources.application import Application
-from netapp_ontap.resources.host_record import HostRecord
-from netapp_ontap.resources.quota_rule import QuotaRule
-from netapp_ontap.resources.totp import Totp
-from netapp_ontap.resources.iscsi_session import IscsiSession
-from netapp_ontap.resources.unix_group_users import UnixGroupUsers
-from netapp_ontap.resources.local_cifs_group_members import LocalCifsGroupMembers
-from netapp_ontap.resources.snaplock_file_retention import SnaplockFileRetention
-from netapp_ontap.resources.chassis import Chassis
-from netapp_ontap.resources.application_template import ApplicationTemplate
-from netapp_ontap.resources.netbios import Netbios
-from netapp_ontap.resources.unix_user import UnixUser
-from netapp_ontap.resources.application_component import ApplicationComponent
-from netapp_ontap.resources.svm_migration import SvmMigration
-from netapp_ontap.resources.snmp_traphost import SnmpTraphost
-from netapp_ontap.resources.snapmirror_transfer import SnapmirrorTransfer
-from netapp_ontap.resources.ldap_service import LdapService
-from netapp_ontap.resources.file_directory_security_acl import FileDirectorySecurityAcl
-from netapp_ontap.resources.nvme_subsystem_controller import NvmeSubsystemController
-from netapp_ontap.resources.security_group import SecurityGroup
-from netapp_ontap.resources.ebr_operation import EbrOperation
-from netapp_ontap.resources.container import Container
-from netapp_ontap.resources.nvme_subsystem_map import NvmeSubsystemMap
-from netapp_ontap.resources.ems_destination import EmsDestination
-from netapp_ontap.resources.top_metrics_svm_file import TopMetricsSvmFile
-from netapp_ontap.resources.duogroup import Duogroup
-from netapp_ontap.resources.igroup_nested import IgroupNested
-from netapp_ontap.resources.policies_and_rules_to_be_applied import PoliciesAndRulesToBeApplied
-from netapp_ontap.resources.license_package import LicensePackage
-from netapp_ontap.resources.vscan_event import VscanEvent
-from netapp_ontap.resources.web import Web
-from netapp_ontap.resources.ndmp_password import NdmpPassword
-from netapp_ontap.resources.software_package import SoftwarePackage
-from netapp_ontap.resources.configuration_backup import ConfigurationBackup
-from netapp_ontap.resources.multi_admin_verify_rule import MultiAdminVerifyRule
-from netapp_ontap.resources.plex import Plex
-from netapp_ontap.resources.ipsec_policy import IpsecPolicy
-from netapp_ontap.resources.security_saml_def_metadata import SecuritySamlDefMetadata
-from netapp_ontap.resources.shadowcopy import Shadowcopy
-from netapp_ontap.resources.key_server import KeyServer
-from netapp_ontap.resources.job import Job
-from netapp_ontap.resources.local_cifs_users_and_groups_import import LocalCifsUsersAndGroupsImport
-from netapp_ontap.resources.local_cifs_group import LocalCifsGroup
-from netapp_ontap.resources.cluster_metrics import ClusterMetrics
-from netapp_ontap.resources.security_key_manager import SecurityKeyManager
-from netapp_ontap.resources.consistency_group import ConsistencyGroup
-from netapp_ontap.resources.vscan_on_demand import VscanOnDemand
-from netapp_ontap.resources.storage_switch import StorageSwitch
-from netapp_ontap.resources.ip_service_policy import IpServicePolicy
-from netapp_ontap.resources.ipspace import Ipspace
-from netapp_ontap.resources.network_http_proxy import NetworkHttpProxy
-from netapp_ontap.resources.ipsec import Ipsec
-from netapp_ontap.resources.netgroups_settings import NetgroupsSettings
-from netapp_ontap.resources.storage_unit_anti_ransomware_suspect import StorageUnitAntiRansomwareSuspect
-from netapp_ontap.resources.group_policy_object import GroupPolicyObject
-from netapp_ontap.resources.fpolicy_event import FpolicyEvent
-from netapp_ontap.resources.fc_login import FcLogin
-from netapp_ontap.resources.security_jit_privilege_user import SecurityJitPrivilegeUser
-from netapp_ontap.resources.ems_role_config import EmsRoleConfig
-from netapp_ontap.resources.cifs_service import CifsService
-from netapp_ontap.resources.nvme_subsystem_host import NvmeSubsystemHost
-from netapp_ontap.resources.cifs_domain import CifsDomain
-from netapp_ontap.resources.anti_ransomware_volume_entropy_stats import AntiRansomwareVolumeEntropyStats
-from netapp_ontap.resources.top_metrics_file import TopMetricsFile
-from netapp_ontap.resources.igroup_initiator import IgroupInitiator
-from netapp_ontap.resources.group_role_mappings import GroupRoleMappings
-from netapp_ontap.resources.mediator import Mediator
-from netapp_ontap.resources.autosupport_message import AutosupportMessage
-from netapp_ontap.resources.metrocluster_dr_group import MetroclusterDrGroup
-from netapp_ontap.resources.fpolicy_connection import FpolicyConnection
-from netapp_ontap.resources.node_metrics import NodeMetrics
-from netapp_ontap.resources.account_password import AccountPassword
-from netapp_ontap.resources.vscan_on_access import VscanOnAccess
-from netapp_ontap.resources.portset_interface import PortsetInterface
-from netapp_ontap.resources.file_move import FileMove
-from netapp_ontap.resources.vscan import Vscan
-from netapp_ontap.resources.unix_group_settings import UnixGroupSettings
-from netapp_ontap.resources.webauthn_credentials import WebauthnCredentials
-from netapp_ontap.resources.firmware_history import FirmwareHistory
-from netapp_ontap.resources.vscan_scanner_pool import VscanScannerPool
-from netapp_ontap.resources.performance_fc_port_metric import PerformanceFcPortMetric
-from netapp_ontap.resources.snapshot_policy_schedule import SnapshotPolicySchedule
-from netapp_ontap.resources.cifs_connection import CifsConnection
-from netapp_ontap.resources.cluster_ldap import ClusterLdap
-from netapp_ontap.resources.disk import Disk
-from netapp_ontap.resources.switch import Switch
-from netapp_ontap.resources.auto_update_configuration import AutoUpdateConfiguration
-from netapp_ontap.resources.security_jit_privilege import SecurityJitPrivilege
-from netapp_ontap.resources.ndmp_session import NdmpSession
-from netapp_ontap.resources.storage_bridge import StorageBridge
-from netapp_ontap.resources.metrocluster import Metrocluster
-from netapp_ontap.resources.quota_report import QuotaReport
-from netapp_ontap.resources.security_association import SecurityAssociation
-from netapp_ontap.resources.node import Node
-from netapp_ontap.resources.ipsec_ca_certificate import IpsecCaCertificate
-from netapp_ontap.resources.audit import Audit
-from netapp_ontap.resources.multi_admin_verify_approval_group import MultiAdminVerifyApprovalGroup
-from netapp_ontap.resources.svm import Svm
-from netapp_ontap.resources.top_metrics_svm_client import TopMetricsSvmClient
-from netapp_ontap.resources.unix_user_settings import UnixUserSettings
-from netapp_ontap.resources.multi_admin_verify_request import MultiAdminVerifyRequest
-from netapp_ontap.resources.volume_metrics import VolumeMetrics
-from netapp_ontap.resources.nvme_interface import NvmeInterface
-from netapp_ontap.resources.consistency_group_snapshot import ConsistencyGroupSnapshot
-from netapp_ontap.resources.snapmirror_policy import SnapmirrorPolicy
-from netapp_ontap.resources.software import Software
-from netapp_ontap.resources.tape_device import TapeDevice
-from netapp_ontap.resources.nfs_clients_map import NfsClientsMap
-from netapp_ontap.resources.ems_event import EmsEvent
-from netapp_ontap.resources.s3_bucket import S3Bucket
-from netapp_ontap.resources.network_route import NetworkRoute
-from netapp_ontap.resources.counter_table import CounterTable
-from netapp_ontap.resources.broadcast_domain import BroadcastDomain
-from netapp_ontap.resources.performance_iscsi_metric import PerformanceIscsiMetric
-from netapp_ontap.resources.fabric import Fabric
-from netapp_ontap.resources.interface_metrics import InterfaceMetrics
-from netapp_ontap.resources.snaplock_legal_hold_operation import SnaplockLegalHoldOperation
-from netapp_ontap.resources.effective_permission import EffectivePermission
-from netapp_ontap.resources.license_manager import LicenseManager
-from netapp_ontap.resources.s3_audit import S3Audit
-from netapp_ontap.resources.snaplock_litigation import SnaplockLitigation
-from netapp_ontap.resources.token import Token
-from netapp_ontap.resources.cluster_nis_service import ClusterNisService
-from netapp_ontap.resources.fpolicy_engine import FpolicyEngine
-from netapp_ontap.resources.export_rule import ExportRule
-from netapp_ontap.resources.security_saml_sp import SecuritySamlSp
-from netapp_ontap.resources.performance_qtree_metric import PerformanceQtreeMetric
-from netapp_ontap.resources.security_audit_log import SecurityAuditLog
-from netapp_ontap.resources.aws_kms import AwsKms
-from netapp_ontap.resources.security_audit import SecurityAudit
-from netapp_ontap.resources.supported_algorithms import SupportedAlgorithms
-from netapp_ontap.resources.iscsi_credentials import IscsiCredentials
-from netapp_ontap.resources.fc_zone import FcZone
-
-__all__ = [
-    "KeyManagerKeys",
-    "PerformanceNamespaceMetric",
-    "Role",
-    "TopMetricsClient",
-    "FileDirectorySecurity",
-    "CounterRow",
-    "LunMapReportingNode",
-    "ApplicationComponentSnapshot",
-    "CifsSession",
-    "CifsShare",
-    "ClusterSshServer",
-    "WwpnAlias",
-    "QosOption",
-    "LocalCifsUser",
-    "ResourceTagResource",
-    "FcPort",
-    "Portset",
-    "CloudTarget",
-    "IpInterface",
-    "Snmp",
-    "LunMap",
-    "StorageUnitAntiRansomwareEntropyStats",
-    "NfsService",
-    "FpolicyPolicy",
-    "ClusterAdProxy",
-    "FpolicyPersistentStore",
-    "NtpServer",
-    "ConsistencyGroupMetrics",
-    "NfsTlsInterface",
-    "SnaplockLog",
-    "PerformanceSvmNfs",
-    "Publickey",
-    "GlobalCacheSetting",
-    "NfsClients",
-    "StorageUnit",
-    "EmsConfig",
-    "UserGroupPrivileges",
-    "FileCopy",
-    "VscanServerStatus",
-    "MetroclusterNode",
-    "NetgroupFile",
-    "Cluster",
-    "NvmeService",
-    "NdmpSvm",
-    "SnmpUser",
-    "AutoUpdateInfo",
-    "KeyManagerAuthKey",
-    "AntiRansomware",
-    "SecurityOauth2Global",
-    "PerformanceNvmeMetric",
-    "SecurityCertificate",
-    "TopMetricsSvmUser",
-    "S3Service",
-    "ResourceTag",
-    "Initiator",
-    "MetroclusterInterconnect",
-    "LunAttribute",
-    "GroupPolicyObjectRestrictedGroup",
-    "HostsSettings",
-    "FcSwitch",
-    "NtpKey",
-    "S3Policy",
-    "SnapshotPolicy",
-    "NdmpNode",
-    "SvmSshServer",
-    "VolumeEfficiencyPolicy",
-    "SecurityExternalRoleMapping",
-    "S3Group",
-    "ApplicationSnapshot",
-    "ClusterNdmpProperties",
-    "TopMetricsDirectory",
-    "CifsDomainPreferredDc",
-    "RolePrivilege",
-    "SoftwareHistory",
-    "Account",
-    "NfsClientsCache",
-    "Lun",
-    "Autosupport",
-    "FileInfo",
-    "SnaplockFileFingerprint",
-    "ActiveDirectory",
-    "PerformanceS3Metric",
-    "SwitchPort",
-    "GcpKms",
-    "LocalHost",
-    "EmsFilterRule",
-    "Flexcache",
-    "MetroclusterSvm",
-    "KerberosRealm",
-    "FlexcacheOrigin",
-    "ClientLock",
-    "EmsFilter",
-    "MetroclusterOperation",
-    "Schedule",
-    "AzureKeyVault",
-    "EmsApplicationLog",
-    "PortMetrics",
-    "SecurityConfig",
-    "Dns",
-    "EmsMessage",
-    "Snapshot",
-    "NvmeNamespace",
-    "S3User",
-    "PerformanceLunMetric",
-    "QosPolicy",
-    "SvmPeer",
-    "ClusterSpace",
-    "PerformanceFcInterfaceMetric",
-    "CifsSearchPath",
-    "SnaplockLitigationFile",
-    "LdapSchema",
-    "Qtree",
-    "SecurityOauth2",
-    "NvmeSubsystem",
-    "Sensors",
-    "SecurityKeystore",
-    "Duo",
-    "WebSvm",
-    "StorageAvailabilityZone",
-    "StoragePool",
-    "SnaplockRetentionPolicy",
-    "FileClone",
-    "WebauthnGlobal",
-    "Coredump",
-    "FcInterface",
-    "MultiAdminVerifyConfig",
-    "PerformanceCifsMetric",
-    "Barbican",
-    "NisService",
-    "AntiRansomwareSuspect",
-    "SplitStatus",
-    "GroupMembershipSettings",
-    "NameMapping",
-    "S3BucketSvm",
-    "StoragePort",
-    "Igroup",
-    "SnapmirrorRelationship",
-    "GroupPolicyObjectCentralAccessPolicy",
-    "TopMetricsUser",
-    "MetroclusterDiagnostics",
-    "S3BucketSnapshot",
-    "StorageUnitSnapshot",
-    "ActiveDirectoryPreferredDc",
-    "UnixGroup",
-    "ExportClient",
-    "SecurityAuditLogForward",
-    "QosWorkload",
-    "IpSubnet",
-    "CifsShareAcl",
-    "CifsOpenFile",
-    "Aggregate",
-    "CloudStore",
-    "AutoUpdateStatus",
-    "ClusterPeer",
-    "PerformanceFcpMetric",
-    "IscsiService",
-    "CifsSymlinkMapping",
-    "S3BucketLifecycleRule",
-    "SoftwarePackageDownload",
-    "KeyManagerConfig",
-    "GroupPolicyObjectCentralAccessRule",
-    "ExportPolicy",
-    "Fpolicy",
-    "SvmMigrationVolume",
-    "CapacityPool",
-    "KerberosInterface",
-    "Shelf",
-    "Volume",
-    "Port",
-    "ShadowcopySet",
-    "SnaplockComplianceClock",
-    "BgpPeerGroup",
-    "VvolBinding",
-    "TopMetricsSvmDirectory",
-    "ConfigurationBackupFile",
-    "SplitLoad",
-    "LoginMessages",
-    "SvmPeerPermission",
-    "FcpService",
-    "PerformanceMetric",
-    "Application",
-    "HostRecord",
-    "QuotaRule",
-    "Totp",
-    "IscsiSession",
-    "UnixGroupUsers",
-    "LocalCifsGroupMembers",
-    "SnaplockFileRetention",
-    "Chassis",
-    "ApplicationTemplate",
-    "Netbios",
-    "UnixUser",
-    "ApplicationComponent",
-    "SvmMigration",
-    "SnmpTraphost",
-    "SnapmirrorTransfer",
-    "LdapService",
-    "FileDirectorySecurityAcl",
-    "NvmeSubsystemController",
-    "SecurityGroup",
-    "EbrOperation",
-    "Container",
-    "NvmeSubsystemMap",
-    "EmsDestination",
-    "TopMetricsSvmFile",
-    "Duogroup",
-    "IgroupNested",
-    "PoliciesAndRulesToBeApplied",
-    "LicensePackage",
-    "VscanEvent",
-    "Web",
-    "NdmpPassword",
-    "SoftwarePackage",
-    "ConfigurationBackup",
-    "MultiAdminVerifyRule",
-    "Plex",
-    "IpsecPolicy",
-    "SecuritySamlDefMetadata",
-    "Shadowcopy",
-    "KeyServer",
-    "Job",
-    "LocalCifsUsersAndGroupsImport",
-    "LocalCifsGroup",
-    "ClusterMetrics",
-    "SecurityKeyManager",
-    "ConsistencyGroup",
-    "VscanOnDemand",
-    "StorageSwitch",
-    "IpServicePolicy",
-    "Ipspace",
-    "NetworkHttpProxy",
-    "Ipsec",
-    "NetgroupsSettings",
-    "StorageUnitAntiRansomwareSuspect",
-    "GroupPolicyObject",
-    "FpolicyEvent",
-    "FcLogin",
-    "SecurityJitPrivilegeUser",
-    "EmsRoleConfig",
-    "CifsService",
-    "NvmeSubsystemHost",
-    "CifsDomain",
-    "AntiRansomwareVolumeEntropyStats",
-    "TopMetricsFile",
-    "IgroupInitiator",
-    "GroupRoleMappings",
-    "Mediator",
-    "AutosupportMessage",
-    "MetroclusterDrGroup",
-    "FpolicyConnection",
-    "NodeMetrics",
-    "AccountPassword",
-    "VscanOnAccess",
-    "PortsetInterface",
-    "FileMove",
-    "Vscan",
-    "UnixGroupSettings",
-    "WebauthnCredentials",
-    "FirmwareHistory",
-    "VscanScannerPool",
-    "PerformanceFcPortMetric",
-    "SnapshotPolicySchedule",
-    "CifsConnection",
-    "ClusterLdap",
-    "Disk",
-    "Switch",
-    "AutoUpdateConfiguration",
-    "SecurityJitPrivilege",
-    "NdmpSession",
-    "StorageBridge",
-    "Metrocluster",
-    "QuotaReport",
-    "SecurityAssociation",
-    "Node",
-    "IpsecCaCertificate",
-    "Audit",
-    "MultiAdminVerifyApprovalGroup",
-    "Svm",
-    "TopMetricsSvmClient",
-    "UnixUserSettings",
-    "MultiAdminVerifyRequest",
-    "VolumeMetrics",
-    "NvmeInterface",
-    "ConsistencyGroupSnapshot",
-    "SnapmirrorPolicy",
-    "Software",
-    "TapeDevice",
-    "NfsClientsMap",
-    "EmsEvent",
-    "S3Bucket",
-    "NetworkRoute",
-    "CounterTable",
-    "BroadcastDomain",
-    "PerformanceIscsiMetric",
-    "Fabric",
-    "InterfaceMetrics",
-    "SnaplockLegalHoldOperation",
-    "EffectivePermission",
-    "LicenseManager",
-    "S3Audit",
-    "SnaplockLitigation",
-    "Token",
-    "ClusterNisService",
-    "FpolicyEngine",
-    "ExportRule",
-    "SecuritySamlSp",
-    "PerformanceQtreeMetric",
-    "SecurityAuditLog",
-    "AwsKms",
-    "SecurityAudit",
-    "SupportedAlgorithms",
-    "IscsiCredentials",
-    "FcZone",
-]
-__all__.append('CLI')
+All of the modules in this package represent individual object models which can
+be imported and used for communicating with the REST APIs. To see their interface,
+look at `netapp_ontap.resource.Resource`.
+"""}
+)

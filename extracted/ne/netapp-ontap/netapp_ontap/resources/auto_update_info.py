@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -43,13 +43,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AutoUpdateInfo(
     {
+        "_links": {"self": {}},
         "eula": {
-            "accepted_ip_address": "192.168.1.125",
-            "user_id_accepted": "admin",
             "accepted_timestamp": "2020-12-01T21:24:44-04:00",
             "accepted": True,
+            "accepted_ip_address": "192.168.1.125",
+            "user_id_accepted": "admin",
         },
-        "_links": {"self": {}},
         "enabled": True,
     }
 )
@@ -77,11 +77,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -95,11 +94,15 @@ __pdoc__ = {
     "AutoUpdateInfoSchema.opts": False,
 }
 
-
 class AutoUpdateInfoSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the AutoUpdateInfo object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.application_nvme_access_subsystem_map_subsystem_hosts_links.ApplicationNvmeAccessSubsystemMapSubsystemHostsLinksSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.application_nvme_access_subsystem_map_subsystem_hosts_links", "ApplicationNvmeAccessSubsystemMapSubsystemHostsLinksSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the auto_update_info."""
 
     enabled = marshmallow_fields.Boolean(
@@ -110,7 +113,12 @@ class AutoUpdateInfoSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: true"""
 
-    eula = marshmallow_fields.Nested("netapp_ontap.models.auto_update_info_eula.AutoUpdateInfoEulaSchema", data_key="eula", unknown=EXCLUDE, allow_none=True)
+    eula = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.auto_update_info_eula", "AutoUpdateInfoEulaSchema"),
+                data_key="eula",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The eula field of the auto_update_info."""
 
     @property

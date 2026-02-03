@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["StorageUnitMaps", "StorageUnitMapsSchema"]
@@ -17,17 +16,31 @@ __pdoc__ = {
     "StorageUnitMaps": False,
 }
 
-
 class StorageUnitMapsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the StorageUnitMaps object"""
 
-    host_group = marshmallow_fields.Nested("netapp_ontap.models.storage_unit_maps_host_group.StorageUnitMapsHostGroupSchema", unknown=EXCLUDE, data_key="host_group", allow_none=True)
+    host_group = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_unit_maps_host_group", "StorageUnitMapsHostGroupSchema"),
+                unknown=EXCLUDE,
+                data_key="host_group",
+                allow_none=True
+            )
     r""" A host group mapped to the storage unit. A host group is either an initiator group or an NVMe subsystem. """
 
-    lun_map = marshmallow_fields.Nested("netapp_ontap.models.storage_unit_maps_lun_map.StorageUnitMapsLunMapSchema", unknown=EXCLUDE, data_key="lun_map", allow_none=True)
+    lun_map = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_unit_maps_lun_map", "StorageUnitMapsLunMapSchema"),
+                unknown=EXCLUDE,
+                data_key="lun_map",
+                allow_none=True
+            )
     r""" A map between the storage unit and an initiator group. """
 
-    subsystem_map = marshmallow_fields.Nested("netapp_ontap.models.storage_unit_maps_subsystem_map.StorageUnitMapsSubsystemMapSchema", unknown=EXCLUDE, data_key="subsystem_map", allow_none=True)
+    subsystem_map = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_unit_maps_subsystem_map", "StorageUnitMapsSubsystemMapSchema"),
+                unknown=EXCLUDE,
+                data_key="subsystem_map",
+                allow_none=True
+            )
     r""" A map between the storage unit and an NVMe subsystem. """
 
     @property

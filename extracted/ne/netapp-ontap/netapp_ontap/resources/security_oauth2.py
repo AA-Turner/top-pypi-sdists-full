@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -30,27 +30,27 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SecurityOauth2(
     {
-        "use_local_roles_if_present": False,
-        "issuer": "https://examplelab.customer.com",
-        "name": "auth0",
-        "audience": "aud",
-        "outgoing_proxy": "https://johndoe:secretpass@proxy.example.com:8080",
-        "remote_user_claim": "user_claim",
-        "client_id": "client_id",
-        "introspection": {
-            "interval": "PT1H",
-            "endpoint_uri": "https://examplelab.customer.com/server/endpoint",
+        "jwks": {
+            "provider_uri": "https://examplelab.customer.com/pf/JWKS",
+            "refresh_interval": "PT1H",
         },
         "application": "http",
-        "use_mutual_tls": "required",
-        "hashed_client_secret": "(hashed_client_secret)",
         "_links": {
             "self": {"href": "/api/security/authentication/cluster/oauth2/clients"}
         },
-        "jwks": {
-            "refresh_interval": "PT1H",
-            "provider_uri": "https://examplelab.customer.com/pf/JWKS",
+        "hashed_client_secret": "<HASHED-CLIENT-SECRET>",
+        "remote_user_claim": "user_claim",
+        "audience": "aud",
+        "name": "auth0",
+        "use_mutual_tls": "required",
+        "issuer": "https://examplelab.customer.com",
+        "client_id": "client_id",
+        "use_local_roles_if_present": False,
+        "introspection": {
+            "endpoint_uri": "https://examplelab.customer.com/server/endpoint",
+            "interval": "PT1H",
         },
+        "outgoing_proxy": "https://johndoe:secretpass@proxy.example.com:8080",
     }
 )
 
@@ -77,11 +77,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -95,11 +94,15 @@ __pdoc__ = {
     "SecurityOauth2Schema.opts": False,
 }
 
-
 class SecurityOauth2Schema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SecurityOauth2 object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the security_oauth2."""
 
     application = marshmallow_fields.Str(
@@ -137,7 +140,12 @@ Valid choices:
     )
     r""" The OAuth 2.0 client secret as a SHA256 HMAC hashed value created with the cluster UUID as its HMAC secret key."""
 
-    introspection = marshmallow_fields.Nested("netapp_ontap.models.security_oauth2_introspection.SecurityOauth2IntrospectionSchema", data_key="introspection", unknown=EXCLUDE, allow_none=True)
+    introspection = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.security_oauth2_introspection", "SecurityOauth2IntrospectionSchema"),
+                data_key="introspection",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The introspection field of the security_oauth2."""
 
     issuer = marshmallow_fields.Str(
@@ -148,7 +156,12 @@ Valid choices:
 
 Example: https://examplelab.customer.com"""
 
-    jwks = marshmallow_fields.Nested("netapp_ontap.models.security_oauth2_jwks.SecurityOauth2JwksSchema", data_key="jwks", unknown=EXCLUDE, allow_none=True)
+    jwks = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.security_oauth2_jwks", "SecurityOauth2JwksSchema"),
+                data_key="jwks",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The jwks field of the security_oauth2."""
 
     name = marshmallow_fields.Str(

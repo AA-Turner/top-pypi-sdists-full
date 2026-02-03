@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,42 +28,42 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NisService(
         {
-            "domain": "domainA.example.com",
             "servers": ["10.10.10.10", "example.com"],
+            "_links": {
+                "self": {
+                    "href": "/api/name-services/nis/179d3c85-7053-11e8-b9b8-005056b41bd1"
+                }
+            },
             "svm": {
-                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"
                     }
                 },
+                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
             },
-            "_links": {
-                "self": {
-                    "href": "/api/name-services/nis/179d3c85-7053-11e8-b9b8-005056b41bd1"
-                }
-            },
+            "domain": "domainA.example.com",
         }
     ),
     NisService(
         {
-            "domain": "domainB.example.com",
             "servers": ["2.2.2.2", "3.3.3.3", "4.4.4.4"],
+            "_links": {
+                "self": {
+                    "href": "/api/name-services/nis/6a52023b-7066-11e8-b9b8-005056b41bd1"
+                }
+            },
             "svm": {
-                "uuid": "6a52023b-7066-11e8-b9b8-005056b41bd1",
                 "name": "vs2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/6a52023b-7066-11e8-b9b8-005056b41bd1"
                     }
                 },
+                "uuid": "6a52023b-7066-11e8-b9b8-005056b41bd1",
             },
-            "_links": {
-                "self": {
-                    "href": "/api/name-services/nis/6a52023b-7066-11e8-b9b8-005056b41bd1"
-                }
-            },
+            "domain": "domainB.example.com",
         }
     ),
 ]
@@ -91,19 +91,19 @@ with HostConnection("<mgmt-ip", username="admin", password="password", verify=Fa
 [
     NisService(
         {
+            "_links": {
+                "self": {
+                    "href": "/api/name-services/nis/6a52023b-7066-11e8-b9b8-005056b41bd1"
+                }
+            },
             "svm": {
-                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"
                     }
                 },
-            },
-            "_links": {
-                "self": {
-                    "href": "/api/name-services/nis/6a52023b-7066-11e8-b9b8-005056b41bd1"
-                }
+                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
             },
         }
     )
@@ -133,10 +133,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NisService(
     {
-        "domain": "domainA.example.com",
-        "bound_servers": ["10.10.10.10"],
         "servers": ["10.10.10.10", "example.com"],
-        "svm": {"uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1", "name": "vs1"},
+        "svm": {"name": "vs1", "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1"},
+        "bound_servers": ["10.10.10.10"],
+        "domain": "domainA.example.com",
     }
 )
 
@@ -217,11 +217,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -235,14 +234,26 @@ __pdoc__ = {
     "NisServiceSchema.opts": False,
 }
 
-
 class NisServiceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the NisService object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the nis_service."""
 
-    binding_details = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.cluster_nis_service_binding_details.ClusterNisServiceBindingDetailsSchema", unknown=EXCLUDE, allow_none=True), data_key="binding_details", allow_none=True)
+    binding_details = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.cluster_nis_service_binding_details", "ClusterNisServiceBindingDetailsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="binding_details",
+                allow_none=True
+            )
     r""" An array of objects where each object represents the NIS server and it's status for a given NIS domain. It is an advanced field."""
 
     bound_servers = marshmallow_fields.List(marshmallow_fields.Str, data_key="bound_servers", allow_none=True)
@@ -265,7 +276,12 @@ by the NIS domain configuration.
 
 Example: ["10.10.10.10","example.com"]"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the nis_service."""
 
     @property

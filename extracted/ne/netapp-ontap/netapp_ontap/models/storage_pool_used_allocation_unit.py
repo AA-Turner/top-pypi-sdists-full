@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["StoragePoolUsedAllocationUnit", "StoragePoolUsedAllocationUnitSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "StoragePoolUsedAllocationUnit": False,
 }
 
-
 class StoragePoolUsedAllocationUnitSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the StoragePoolUsedAllocationUnit object"""
 
-    aggregate = marshmallow_fields.Nested("netapp_ontap.resources.aggregate.AggregateSchema", unknown=EXCLUDE, data_key="aggregate", allow_none=True)
+    aggregate = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.aggregate", "AggregateSchema"),
+                unknown=EXCLUDE,
+                data_key="aggregate",
+                allow_none=True
+            )
     r""" The aggregate field of the storage_pool_used_allocation_unit. """
 
     count = Size(data_key="count", allow_none=True)
@@ -30,7 +33,12 @@ class StoragePoolUsedAllocationUnitSchema(ResourceSchema, metaclass=ResourceSche
     current_usage = Size(data_key="current_usage", allow_none=True)
     r""" The amount of cache space used by this aggregate. """
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", unknown=EXCLUDE, data_key="node", allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                unknown=EXCLUDE,
+                data_key="node",
+                allow_none=True
+            )
     r""" The node field of the storage_pool_used_allocation_unit. """
 
     @property

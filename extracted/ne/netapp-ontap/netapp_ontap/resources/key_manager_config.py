@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -29,18 +29,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 KeyManagerConfig(
     {
-        "cloud_kms_retry_count": 3,
-        "health_monitor_policy": {
-            "ikp": {"manage_volume_offline": True, "enabled": True},
-            "aws": {"manage_volume_offline": True, "enabled": True},
-            "kmip": {"manage_volume_offline": True, "enabled": True},
-            "akv": {"manage_volume_offline": True, "enabled": True},
-            "okm": {"manage_volume_offline": True, "enabled": True},
-            "gcp": {"manage_volume_offline": True, "enabled": True},
-        },
-        "health_monitor_polling_interval": 15,
         "_links": {"self": {"href": "/api/security/key-manager-configs"}},
+        "health_monitor_policy": {
+            "kmip": {"manage_volume_offline": True, "enabled": True},
+            "okm": {"manage_volume_offline": True, "enabled": True},
+            "aws": {"manage_volume_offline": True, "enabled": True},
+            "gcp": {"manage_volume_offline": True, "enabled": True},
+            "akv": {"manage_volume_offline": True, "enabled": True},
+            "ikp": {"manage_volume_offline": True, "enabled": True},
+        },
+        "cloud_kms_retry_count": 3,
         "cc_mode_enabled": False,
+        "health_monitor_polling_interval": 15,
     }
 )
 
@@ -98,11 +98,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 KeyManagerConfig(
     {
+        "_links": {"self": {"href": "/api/security/key-manager-configs"}},
         "health_monitor_policy": {
             "aws": {"manage_volume_offline": False, "enabled": False},
             "gcp": {"manage_volume_offline": False, "enabled": False},
         },
-        "_links": {"self": {"href": "/api/security/key-manager-configs"}},
     }
 )
 
@@ -133,11 +133,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -151,11 +150,15 @@ __pdoc__ = {
     "KeyManagerConfigSchema.opts": False,
 }
 
-
 class KeyManagerConfigSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the KeyManagerConfig object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the key_manager_config."""
 
     cc_mode_enabled = marshmallow_fields.Boolean(
@@ -172,7 +175,12 @@ class KeyManagerConfigSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 3"""
 
-    health_monitor_policy = marshmallow_fields.Nested("netapp_ontap.models.key_manager_config_health_monitor_policy.KeyManagerConfigHealthMonitorPolicySchema", data_key="health_monitor_policy", unknown=EXCLUDE, allow_none=True)
+    health_monitor_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.key_manager_config_health_monitor_policy", "KeyManagerConfigHealthMonitorPolicySchema"),
+                data_key="health_monitor_policy",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Manages the keystore configurations."""
 
     health_monitor_polling_interval = Size(

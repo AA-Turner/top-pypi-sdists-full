@@ -47,20 +47,27 @@ class ApplicationSummary(object):
             The value to assign to the parent_resource_id property of this ApplicationSummary.
         :type parent_resource_id: str
 
+        :param description:
+            The value to assign to the description property of this ApplicationSummary.
+        :type description: str
+
         """
         self.swagger_types = {
             'type': 'str',
             'name': 'str',
-            'parent_resource_id': 'str'
+            'parent_resource_id': 'str',
+            'description': 'str'
         }
         self.attribute_map = {
             'type': 'type',
             'name': 'name',
-            'parent_resource_id': 'parentResourceId'
+            'parent_resource_id': 'parentResourceId',
+            'description': 'description'
         }
         self._type = None
         self._name = None
         self._parent_resource_id = None
+        self._description = None
 
     @staticmethod
     def get_subtype(object_dictionary):
@@ -155,6 +162,30 @@ class ApplicationSummary(object):
         :type: str
         """
         self._parent_resource_id = parent_resource_id
+
+    @property
+    def description(self):
+        """
+        Gets the description of this ApplicationSummary.
+        The description of the application. This field can be used to add additional info.
+
+
+        :return: The description of this ApplicationSummary.
+        :rtype: str
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """
+        Sets the description of this ApplicationSummary.
+        The description of the application. This field can be used to add additional info.
+
+
+        :param description: The description of this ApplicationSummary.
+        :type: str
+        """
+        self._description = description
 
     def __repr__(self):
         return formatted_flat_dict(self)

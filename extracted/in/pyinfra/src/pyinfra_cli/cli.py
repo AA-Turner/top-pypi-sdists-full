@@ -595,10 +595,6 @@ def _set_config(
     if path.exists(config_filename):
         exec_file(config_filename)
 
-    # Lock the current config, this allows us to restore this version after
-    # executing deploy files that may alter them.
-    config.lock_current_state()
-
     # Arg based config overrides
     if sudo:
         config.SUDO = True
@@ -631,6 +627,11 @@ def _set_config(
 
     if retry_delay is not None:
         config.RETRY_DELAY = retry_delay
+
+    # Lock the current config, this allows us to restore this version after
+    # executing deploy files that may alter them. This must happen after CLI
+    # args are applied so they persist across multiple deploy files.
+    config.lock_current_state()
 
     return config
 
@@ -772,6 +773,8 @@ def _prepare_exec_operations(state, config, operations):
 def _prepare_deploy_operations(state, config, operations):
     # Number of "steps" to make = number of files * number of hosts
     for i, filename in enumerate(operations):
+        config.lock_current_state()
+
         _log_styled_msg = click.style(filename, bold=True)
         logger.info("Loading: {0}".format(_log_styled_msg))
 

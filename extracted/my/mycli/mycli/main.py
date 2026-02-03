@@ -10,7 +10,7 @@ import shutil
 import sys
 import threading
 import traceback
-from typing import Any, Generator, Iterable, Literal
+from typing import IO, Any, Generator, Iterable, Literal
 
 try:
     from pwd import getpwuid
@@ -28,6 +28,7 @@ from cli_helpers.tabular_output.output_formatter import MISSING_VALUE as DEFAULT
 from cli_helpers.utils import strip_ansi
 import click
 from configobj import ConfigObj
+import keyring
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completion, DynamicCompleter
 from prompt_toolkit.document import Document
@@ -90,7 +91,7 @@ class MyCli:
     defaults_suffix = None
 
     # In order of being loaded. Files lower in list override earlier ones.
-    cnf_files: list[str | TextIOWrapper] = [
+    cnf_files: list[str | IO[str]] = [
         "/etc/my.cnf",
         "/etc/mysql/my.cnf",
         "/usr/local/etc/my.cnf",
@@ -99,7 +100,7 @@ class MyCli:
 
     # check XDG_CONFIG_HOME exists and not an empty string
     xdg_config_home = os.environ.get("XDG_CONFIG_HOME", "~/.config")
-    system_config_files: list[str | TextIOWrapper] = [
+    system_config_files: list[str | IO[str]] = [
         "/etc/myclirc",
         os.path.join(os.path.expanduser(xdg_config_home), "mycli", "myclirc"),
     ]
@@ -134,7 +135,7 @@ class MyCli:
             self.cnf_files = [defaults_file]
 
         # Load config.
-        config_files: list[str | TextIOWrapper] = self.system_config_files + [myclirc] + [self.pwd_config_file]
+        config_files: list[str | IO[str]] = self.system_config_files + [myclirc] + [self.pwd_config_file]
         c = self.config = read_config_files(config_files)
         self.multi_line = c["main"].as_bool("multi_line")
         self.key_bindings = c["main"]["key_bindings"]
@@ -480,7 +481,8 @@ class MyCli:
         ssh_key_filename: str | None = "",
         init_command: str | None = "",
         unbuffered: bool | None = None,
-        password_file: str | None = "",
+        use_keyring: bool | None = None,
+        reset_keyring: bool | None = None,
     ) -> None:
         cnf = {
             "database": None,
@@ -532,20 +534,32 @@ class MyCli:
         if not any(v for v in ssl_config.values()):
             ssl_config_or_none = None
 
-        # if the passwd is not specified try to set it using the password_file option
-        password_from_file = self.get_password_from_file(password_file)
-        passwd = passwd if isinstance(passwd, str) else password_from_file
-
         # password hierarchy
         # 1. -p / --pass/--password CLI options
-        # 2. envvar (MYSQL_PWD)
-        # 3. DSN (mysql://user:password)
-        # 4. cnf (.my.cnf / etc)
-        # 5. --password-file CLI option
+        # 2. --password-file CLI option
+        # 3. envvar (MYSQL_PWD)
+        # 4. DSN (mysql://user:password)
+        # 5. cnf (.my.cnf / etc)
+        # 6. keyring
+
+        keychain_user = f'{user}@{host}'
+        keychain_domain = 'mycli.net'
+        keychain_retrieved = False
+
+        if passwd is None and use_keyring and not reset_keyring:
+            passwd = keyring.get_password(keychain_domain, keychain_user)
+            keychain_retrieved = True
 
         # if no password was found from all of the above sources, ask for a password
-        if passwd is None:
-            passwd = click.prompt("Enter password", hide_input=True, show_default=False, default='', type=str, err=True)
+        if passwd is None or passwd == "MYCLI_ASK_PASSWORD":
+            passwd = click.prompt(f"Enter password for {user}", hide_input=True, show_default=False, default='', type=str, err=True)
+
+        if reset_keyring or (use_keyring and not keychain_retrieved):
+            try:
+                keyring.set_password(keychain_domain, keychain_user, passwd)
+                click.secho('Password saved to the system keychain', err=True)
+            except Exception as e:
+                click.secho(f'Password not saved to the system keychain: {e}', err=True, fg='red')
 
         # Connect to the database.
         def _connect() -> None:
@@ -633,26 +647,6 @@ class MyCli:
             self.logger.debug("Database connection failed: %r.", e)
             self.logger.error("traceback: %r", traceback.format_exc())
             self.echo(str(e), err=True, fg="red")
-            sys.exit(1)
-
-    def get_password_from_file(self, password_file: str | None) -> str | None:
-        if not password_file:
-            return None
-        try:
-            with open(password_file) as fp:
-                password = fp.readline().strip()
-                return password
-        except FileNotFoundError:
-            click.secho(f"Password file '{password_file}' not found", err=True, fg="red")
-            sys.exit(1)
-        except PermissionError:
-            click.secho(f"Permission denied reading password file '{password_file}'", err=True, fg="red")
-            sys.exit(1)
-        except IsADirectoryError:
-            click.secho(f"Path '{password_file}' is a directory, not a file", err=True, fg="red")
-            sys.exit(1)
-        except Exception as e:
-            click.secho(f"Error reading password file '{password_file}': {str(e)}", err=True, fg="red")
             sys.exit(1)
 
     def handle_editor_command(self, text: str) -> str:
@@ -1409,10 +1403,7 @@ class MyCli:
 
         if use_formatter.format_name not in sql_format.supported_formats:
             # will run before preprocessors defined as part of the format in cli_helpers
-            output_kwargs["preprocessors"] = (
-                preprocessors.convert_to_undecoded_string,
-                preprocessors.align_decimals,
-            )
+            output_kwargs["preprocessors"] = (preprocessors.convert_to_undecoded_string,)
 
         if title:  # Only print the title if it's not None.
             output = itertools.chain(output, [title])
@@ -1566,6 +1557,13 @@ class MyCli:
     '--format', 'batch_format', type=click.Choice(['default', 'csv', 'tsv', 'table']), help='Format for batch or --execute output.'
 )
 @click.option('--throttle', type=float, default=0.0, help='Pause in seconds between queries in batch mode.')
+@click.option(
+    '--use-keyring',
+    'use_keyring_cli_opt',
+    type=click.Choice(['true', 'false', 'reset']),
+    default=None,
+    help='Store and retrieve passwords from the system keyring: true/false/reset.',
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -1618,6 +1616,7 @@ def cli(
     noninteractive: bool,
     batch_format: str | None,
     throttle: float,
+    use_keyring_cli_opt: str | None,
 ) -> None:
     """A MySQL terminal client with auto-completion and syntax highlighting.
 
@@ -1628,13 +1627,30 @@ def cli(
       - mycli mysql://my_user@my_host.com:3306/my_database
 
     """
-    # if user passes the --p* flag, ask for the password right away
-    # to reduce lag as much as possible
-    if password == "MYCLI_ASK_PASSWORD":
-        password = click.prompt("Enter password", hide_input=True, show_default=False, default='', type=str, err=True)
+
+    def get_password_from_file(password_file: str | None) -> str | None:
+        if not password_file:
+            return None
+        try:
+            with open(password_file) as fp:
+                password = fp.readline().strip()
+                return password
+        except FileNotFoundError:
+            click.secho(f"Password file '{password_file}' not found", err=True, fg="red")
+            sys.exit(1)
+        except PermissionError:
+            click.secho(f"Permission denied reading password file '{password_file}'", err=True, fg="red")
+            sys.exit(1)
+        except IsADirectoryError:
+            click.secho(f"Path '{password_file}' is a directory, not a file", err=True, fg="red")
+            sys.exit(1)
+        except Exception as e:
+            click.secho(f"Error reading password file '{password_file}': {str(e)}", err=True, fg="red")
+            sys.exit(1)
+
     # if the password value looks like a DSN, treat it as such and
     # prompt for password
-    elif database is None and password is not None and "://" in password:
+    if database is None and password is not None and "://" in password:
         # check if the scheme is valid. We do not actually have any logic for these, but
         # it will most usefully catch the case where we erroneously catch someone's
         # password, and give them an easy error message to follow / report
@@ -1643,10 +1659,17 @@ def cli(
             click.secho(f"Error: Unknown connection scheme provided for DSN URI ({scheme}://)", err=True, fg="red")
             sys.exit(1)
         database = password
-        password = click.prompt("Enter password", hide_input=True, show_default=False, default='', type=str, err=True)
+        password = "MYCLI_ASK_PASSWORD"
+
+    # if the password is not specified try to set it using the password_file option
+    if password is None and password_file:
+        password_from_file = get_password_from_file(password_file)
+        if password_from_file is not None:
+            password = password_from_file
+
     # getting the envvar ourselves because the envvar from a click
     # option cannot be an empty string, but a password can be
-    elif password is None and os.environ.get("MYSQL_PWD") is not None:
+    if password is None and os.environ.get("MYSQL_PWD") is not None:
         password = os.environ.get("MYSQL_PWD")
 
     mycli = MyCli(
@@ -1864,6 +1887,16 @@ def cli(
     if show_warnings:
         mycli.show_warnings = show_warnings
 
+    if use_keyring_cli_opt is not None and use_keyring_cli_opt.lower() == 'reset':
+        use_keyring = True
+        reset_keyring = True
+    elif use_keyring_cli_opt is None:
+        use_keyring = str_to_bool(mycli.config['main'].get('use_keyring', 'False'))
+        reset_keyring = False
+    else:
+        use_keyring = str_to_bool(use_keyring_cli_opt)
+        reset_keyring = False
+
     mycli.connect(
         database=database,
         user=user,
@@ -1881,7 +1914,8 @@ def cli(
         init_command=combined_init_cmd,
         unbuffered=unbuffered,
         charset=charset,
-        password_file=password_file,
+        use_keyring=use_keyring,
+        reset_keyring=reset_keyring,
     )
 
     if combined_init_cmd:
@@ -2007,10 +2041,15 @@ def is_select(status: str | None) -> bool:
 def thanks_picker() -> str:
     import mycli
 
-    lines = (resources.read_text(mycli, "AUTHORS") + resources.read_text(mycli, "SPONSORS")).split("\n")
+    lines: str = ""
+    with resources.files(mycli).joinpath("AUTHORS").open('r') as f:
+        lines += f.read()
+
+    with resources.files(mycli).joinpath("SPONSORS").open('r') as f:
+        lines += f.read()
 
     contents = []
-    for line in lines:
+    for line in lines.split("\n"):
         if m := re.match(r"^ *\* (.*)", line):
             contents.append(m.group(1))
     return choice(contents) if contents else 'our sponsors'

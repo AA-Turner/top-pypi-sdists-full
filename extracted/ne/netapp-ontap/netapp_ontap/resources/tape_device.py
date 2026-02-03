@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,114 +28,114 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TapeDevice(
         {
+            "node": {
+                "name": "st-8020-1-01",
+                "_links": {
+                    "self": {
+                        "href": "/api/cluster/nodes/4083be52-5315-11eb-a839-00a0985ebbe7"
+                    }
+                },
+                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
+            },
             "device_id": "2d.0",
+        }
+    ),
+    TapeDevice(
+        {
             "node": {
-                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
                 "name": "st-8020-1-01",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/4083be52-5315-11eb-a839-00a0985ebbe7"
                     }
                 },
+                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
             },
-        }
-    ),
-    TapeDevice(
-        {
             "device_id": "2d.0L1",
+        }
+    ),
+    TapeDevice(
+        {
             "node": {
-                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
                 "name": "st-8020-1-01",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/4083be52-5315-11eb-a839-00a0985ebbe7"
                     }
                 },
+                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
             },
-        }
-    ),
-    TapeDevice(
-        {
             "device_id": "qeg-tape-brocade2-8g:0.126",
+        }
+    ),
+    TapeDevice(
+        {
             "node": {
-                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
                 "name": "st-8020-1-01",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/4083be52-5315-11eb-a839-00a0985ebbe7"
                     }
                 },
+                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
             },
-        }
-    ),
-    TapeDevice(
-        {
             "device_id": "stsw-broc6510-01:11.126",
+        }
+    ),
+    TapeDevice(
+        {
             "node": {
-                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
                 "name": "st-8020-1-01",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/4083be52-5315-11eb-a839-00a0985ebbe7"
                     }
                 },
+                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
             },
-        }
-    ),
-    TapeDevice(
-        {
             "device_id": "stsw-broc6510-01:15.126",
+        }
+    ),
+    TapeDevice(
+        {
             "node": {
-                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
                 "name": "st-8020-1-01",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/4083be52-5315-11eb-a839-00a0985ebbe7"
                     }
                 },
+                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
             },
-        }
-    ),
-    TapeDevice(
-        {
             "device_id": "stsw-broc6510-01:15.126L1",
+        }
+    ),
+    TapeDevice(
+        {
             "node": {
-                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
                 "name": "st-8020-1-01",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/4083be52-5315-11eb-a839-00a0985ebbe7"
                     }
                 },
+                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
             },
-        }
-    ),
-    TapeDevice(
-        {
             "device_id": "stsw-broc6510-01:22.126",
-            "node": {
-                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
-                "name": "st-8020-1-01",
-                "_links": {
-                    "self": {
-                        "href": "/api/cluster/nodes/4083be52-5315-11eb-a839-00a0985ebbe7"
-                    }
-                },
-            },
         }
     ),
     TapeDevice(
         {
-            "device_id": "stsw-broc6510-01:23.126",
             "node": {
-                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
                 "name": "st-8020-1-01",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/4083be52-5315-11eb-a839-00a0985ebbe7"
                     }
                 },
+                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
             },
+            "device_id": "stsw-broc6510-01:23.126",
         }
     ),
 ]
@@ -168,58 +168,58 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 TapeDevice(
     {
         "serial_number": "1068000245",
-        "wwpn": "5001697722ee0011",
-        "description": "IBM LTO-6 ULT3580",
-        "device_state": "offline",
-        "type": "tape",
+        "interface": "sas",
+        "alias": {"mapping": "SN[1068000245]", "name": "st7"},
+        "aliases": [{"mapping": "SN[1068000245]", "name": "st7"}],
+        "wwnn": "5001697722ee0010",
         "device_names": [
             {
-                "rewind_device": "rst0l",
-                "unload_reload_device": "urst0l",
                 "no_rewind_device": "nrst0l",
+                "unload_reload_device": "urst0l",
+                "rewind_device": "rst0l",
             },
             {
-                "rewind_device": "rst0m",
-                "unload_reload_device": "urst0m",
                 "no_rewind_device": "nrst0m",
+                "unload_reload_device": "urst0m",
+                "rewind_device": "rst0m",
             },
             {
-                "rewind_device": "rst0h",
-                "unload_reload_device": "urst0h",
                 "no_rewind_device": "nrst0h",
+                "unload_reload_device": "urst0h",
+                "rewind_device": "rst0h",
             },
             {
-                "rewind_device": "rst0a",
-                "unload_reload_device": "urst0a",
                 "no_rewind_device": "nrst0a",
+                "unload_reload_device": "urst0a",
+                "rewind_device": "rst0a",
             },
         ],
-        "block_number": -1,
-        "residual_count": 0,
-        "device_id": "2d.0",
-        "aliases": [{"mapping": "SN[1068000245]", "name": "st7"}],
-        "density": "low",
-        "formats": [
-            "LTO-4/5 Native Density",
-            "LTO-4/5 Compressed",
-            "LTO-6 2.5TB",
-            "LTO-6 6.25TB Compressed",
-        ],
-        "storage_port": {"name": "2d"},
         "node": {
-            "uuid": "5f5275eb-5315-11eb-8ac4-00a0985e0dcf",
             "name": "st-8020-1-02",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/5f5275eb-5315-11eb-8ac4-00a0985e0dcf"
                 }
             },
+            "uuid": "5f5275eb-5315-11eb-8ac4-00a0985e0dcf",
         },
-        "alias": {"mapping": "SN[1068000245]", "name": "st7"},
-        "wwnn": "5001697722ee0010",
-        "reservation_type": "off",
-        "interface": "sas",
+        "block_number": -1,
+        "wwpn": "5001697722ee0011",
+        "formats": [
+            "LTO-4/5 Native Density",
+            "LTO-4/5 Compressed",
+            "LTO-6 2.5TB",
+            "LTO-6 6.25TB Compressed",
+        ],
         "file_number": -1,
+        "residual_count": 0,
+        "storage_port": {"name": "2d"},
+        "type": "tape",
+        "density": "low",
+        "device_state": "offline",
+        "device_id": "2d.0",
+        "description": "IBM LTO-6 ULT3580",
+        "reservation_type": "off",
     }
 )
 
@@ -339,11 +339,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -357,14 +356,26 @@ __pdoc__ = {
     "TapeDeviceSchema.opts": False,
 }
 
-
 class TapeDeviceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the TapeDevice object"""
 
-    alias = marshmallow_fields.Nested("netapp_ontap.models.tape_device_alias.TapeDeviceAliasSchema", data_key="alias", unknown=EXCLUDE, allow_none=True)
+    alias = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.tape_device_alias", "TapeDeviceAliasSchema"),
+                data_key="alias",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The alias field of the tape_device."""
 
-    aliases = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.tape_device_aliases.TapeDeviceAliasesSchema", unknown=EXCLUDE, allow_none=True), data_key="aliases", allow_none=True)
+    aliases = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.tape_device_aliases", "TapeDeviceAliasesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="aliases",
+                allow_none=True
+            )
     r""" The aliases field of the tape_device."""
 
     block_number = Size(
@@ -405,7 +416,15 @@ Example: QUANTUM LTO-8 ULTRIUM"""
 
 Example: 1a.0"""
 
-    device_names = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.tape_device_device_names.TapeDeviceDeviceNamesSchema", unknown=EXCLUDE, allow_none=True), data_key="device_names", allow_none=True)
+    device_names = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.tape_device_device_names", "TapeDeviceDeviceNamesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="device_names",
+                allow_none=True
+            )
     r""" The device_names field of the tape_device."""
 
     device_state = marshmallow_fields.Str(
@@ -456,7 +475,12 @@ Valid choices:
 * sas
 * pscsi"""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the tape_device."""
 
     online = marshmallow_fields.Boolean(
@@ -465,7 +489,12 @@ Valid choices:
     )
     r""" The online field of the tape_device."""
 
-    position = marshmallow_fields.Nested("netapp_ontap.models.tape_device_position.TapeDevicePositionSchema", data_key="position", unknown=EXCLUDE, allow_none=True)
+    position = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.tape_device_position", "TapeDevicePositionSchema"),
+                data_key="position",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The position field of the tape_device."""
 
     reservation_type = marshmallow_fields.Str(
@@ -497,7 +526,12 @@ Example: 0"""
 
 Example: 10WT00093"""
 
-    storage_port = marshmallow_fields.Nested("netapp_ontap.models.tape_device_storage_port.TapeDeviceStoragePortSchema", data_key="storage_port", unknown=EXCLUDE, allow_none=True)
+    storage_port = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.tape_device_storage_port", "TapeDeviceStoragePortSchema"),
+                data_key="storage_port",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The storage_port field of the tape_device."""
 
     type = marshmallow_fields.Str(

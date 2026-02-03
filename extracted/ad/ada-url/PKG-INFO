@@ -1,13 +1,12 @@
 Metadata-Version: 2.4
 Name: ada-url
-Version: 1.28.0
+Version: 1.29.0
 Summary: URL parser and manipulator based on the WHAT WG URL standard
 Author-email: Bo Bayles <bo@bbayles.com>
-License: Apache 2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://www.ada-url.com/
 Project-URL: Documentation, https://ada-url.readthedocs.io
 Project-URL: Repository, https://github.com/ada-url/ada-python
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.10

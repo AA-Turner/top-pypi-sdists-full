@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ConsistencyGroupLunSpace", "ConsistencyGroupLunSpaceSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "ConsistencyGroupLunSpace": False,
 }
 
-
 class ConsistencyGroupLunSpaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ConsistencyGroupLunSpace object"""
 
-    guarantee = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_lun_space_guarantee.ConsistencyGroupLunSpaceGuaranteeSchema", unknown=EXCLUDE, data_key="guarantee", allow_none=True)
+    guarantee = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_lun_space_guarantee", "ConsistencyGroupLunSpaceGuaranteeSchema"),
+                unknown=EXCLUDE,
+                data_key="guarantee",
+                allow_none=True
+            )
     r""" Properties that request and report the space guarantee for the LUN. """
 
     size = Size(data_key="size", allow_none=True)
@@ -31,6 +34,14 @@ For more information, see _Size properties_ in the _docs_ section of the ONTAP R
 
 
 Example: 1073741824 """
+
+    snapshot = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.vdisk_space_snapshot", "VdiskSpaceSnapshotSchema"),
+                unknown=EXCLUDE,
+                data_key="snapshot",
+                allow_none=True
+            )
+    r""" The snapshot field of the consistency_group_lun_space. """
 
     used = Size(data_key="used", allow_none=True)
     r""" The amount of space consumed by the main data stream of the LUN.<br/>
@@ -44,21 +55,24 @@ For more information, see _Size properties_ in the _docs_ section of the ONTAP R
     gettable_fields = [
         "guarantee",
         "size",
+        "snapshot",
         "used",
     ]
-    """guarantee,size,used,"""
+    """guarantee,size,snapshot,used,"""
 
     patchable_fields = [
         "guarantee",
         "size",
+        "snapshot",
     ]
-    """guarantee,size,"""
+    """guarantee,size,snapshot,"""
 
     postable_fields = [
         "guarantee",
         "size",
+        "snapshot",
     ]
-    """guarantee,size,"""
+    """guarantee,size,snapshot,"""
 
 
 class ConsistencyGroupLunSpace(Resource):

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -42,14 +42,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 CifsSymlinkMapping(
     {
         "unix_path": "/mnt/eng_volume/",
-        "svm": {"uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb", "name": "vs1"},
         "target": {
-            "share": "sh1",
-            "path": "/dir1/dir2/",
-            "locality": "local",
-            "server": "cifs123",
             "home_directory": False,
+            "locality": "local",
+            "path": "/dir1/dir2/",
+            "server": "cifs123",
+            "share": "sh1",
         },
+        "svm": {"name": "vs1", "uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb"},
     }
 )
 
@@ -81,21 +81,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/protocols/cifs/unix-symlink-mapping/000c5cd2-ebdf-11e8-a96e-0050568ea3cb/%2Fmnt%2Feng_volume%2F"
                 }
             },
+            "target": {
+                "home_directory": False,
+                "locality": "local",
+                "path": "/dir1/dir2/",
+                "server": "CIFS123",
+                "share": "sh1",
+            },
             "svm": {
-                "uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/000c5cd2-ebdf-11e8-a96e-0050568ea3cb"
                     }
                 },
-            },
-            "target": {
-                "share": "sh1",
-                "path": "/dir1/dir2/",
-                "locality": "local",
-                "server": "CIFS123",
-                "home_directory": False,
+                "uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb",
             },
         }
     ),
@@ -107,21 +107,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/protocols/cifs/unix-symlink-mapping/1d30d1b1-ebdf-11e8-a96e-0050568ea3cb/%2Fmnt%2Feng_volume%2F"
                 }
             },
+            "target": {
+                "home_directory": False,
+                "locality": "widelink",
+                "path": "/dir1/dir2/",
+                "server": "ENGCIFS",
+                "share": "ENG_SHARE",
+            },
             "svm": {
-                "uuid": "1d30d1b1-ebdf-11e8-a96e-0050568ea3cb",
                 "name": "vs2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/1d30d1b1-ebdf-11e8-a96e-0050568ea3cb"
                     }
                 },
-            },
-            "target": {
-                "share": "ENG_SHARE",
-                "path": "/dir1/dir2/",
-                "locality": "widelink",
-                "server": "ENGCIFS",
-                "home_directory": False,
+                "uuid": "1d30d1b1-ebdf-11e8-a96e-0050568ea3cb",
             },
         }
     ),
@@ -155,14 +155,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 CifsSymlinkMapping(
     {
         "unix_path": "/mnt/eng_volume/",
-        "svm": {"uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb", "name": "vs1"},
         "target": {
-            "share": "sh1",
-            "path": "/dir1/dir2/",
-            "locality": "local",
-            "server": "CIFS123",
             "home_directory": False,
+            "locality": "local",
+            "path": "/dir1/dir2/",
+            "server": "CIFS123",
+            "share": "sh1",
         },
+        "svm": {"name": "vs1", "uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb"},
     }
 )
 
@@ -214,11 +214,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -232,17 +231,31 @@ __pdoc__ = {
     "CifsSymlinkMappingSchema.opts": False,
 }
 
-
 class CifsSymlinkMappingSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the CifsSymlinkMapping object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the cifs_symlink_mapping."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the cifs_symlink_mapping."""
 
-    target = marshmallow_fields.Nested("netapp_ontap.models.cifs_target.CifsTargetSchema", data_key="target", unknown=EXCLUDE, allow_none=True)
+    target = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cifs_target", "CifsTargetSchema"),
+                data_key="target",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The target field of the cifs_symlink_mapping."""
 
     unix_path = marshmallow_fields.Str(

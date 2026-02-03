@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -16,6 +16,7 @@ The API can sometimes fail to return the list of files with the most I/O activit
 * The NFS/CIFS client operations are being served by the client-side filesystem cache.
 * The NFS/CIFS client operations are being buffered by the client operating system.
 * On rare occasions, the incoming traffic pattern is not suitable to obtain the list of files with the most I/O activity.
+* NFSv4 client read operations using Multi-Processor I/O (MPIO) are not tracked.
 ## Failure to return pathnames
 The API can sometimes fail to obtain the filesystem pathnames for certain files, either due to internal transient errors or if those files have been recently deleted.
 In such cases, instead of the pathname, the API will return "{<volume_instance_uuid>.<fileid>}" for that file.
@@ -47,71 +48,71 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsFile(
         {
-            "path": "/d5/f5",
-            "throughput": {
-                "error": {"upper_bound": 29, "lower_bound": 24},
-                "write": 24,
-            },
-            "svm": {
-                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
-                "name": "vs0",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/0ba74c3e-d5ca-11eb-8fbb-005056ac0f77"
-                    }
-                },
-            },
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/4ec6d1ea-d5da-11eb-a25f-005056ac0f77/files/d5%2Ff5?return_metadata=true"
                 }
             },
             "volume": {"name": "fv"},
-        }
-    ),
-    TopMetricsFile(
-        {
-            "path": "/d6/f6",
+            "path": "/d5/f5",
             "throughput": {
-                "error": {"upper_bound": 22, "lower_bound": 12},
-                "write": 12,
+                "error": {"lower_bound": 24, "upper_bound": 29},
+                "write": 24,
             },
             "svm": {
-                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
                 "name": "vs0",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/0ba74c3e-d5ca-11eb-8fbb-005056ac0f77"
                     }
                 },
+                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
             },
+        }
+    ),
+    TopMetricsFile(
+        {
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/4ec6d1ea-d5da-11eb-a25f-005056ac0f77/files/d6%2Ff6?return_metadata=true"
                 }
             },
             "volume": {"name": "fv"},
-        }
-    ),
-    TopMetricsFile(
-        {
-            "path": "/d3/f3",
-            "throughput": {"error": {"upper_bound": 10, "lower_bound": 8}, "write": 8},
+            "path": "/d6/f6",
+            "throughput": {
+                "error": {"lower_bound": 12, "upper_bound": 22},
+                "write": 12,
+            },
             "svm": {
-                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
                 "name": "vs0",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/0ba74c3e-d5ca-11eb-8fbb-005056ac0f77"
                     }
                 },
+                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
             },
+        }
+    ),
+    TopMetricsFile(
+        {
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/4ec6d1ea-d5da-11eb-a25f-005056ac0f77/files/d3%2Ff3?return_metadata=true"
                 }
             },
             "volume": {"name": "fv"},
+            "path": "/d3/f3",
+            "throughput": {"error": {"lower_bound": 8, "upper_bound": 10}, "write": 8},
+            "svm": {
+                "name": "vs0",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/0ba74c3e-d5ca-11eb-8fbb-005056ac0f77"
+                    }
+                },
+                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
+            },
         }
     ),
 ]
@@ -143,56 +144,56 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsFile(
         {
+            "volume": {"name": "fv"},
             "path": "{4ec6d1ea-d5da-11eb-a25f-005056ac0f77:1232}",
             "throughput": {
-                "error": {"upper_bound": 29, "lower_bound": 24},
+                "error": {"lower_bound": 24, "upper_bound": 29},
                 "write": 24,
             },
             "svm": {
-                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
                 "name": "vs0",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/0ba74c3e-d5ca-11eb-8fbb-005056ac0f77"
                     }
                 },
+                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
             },
-            "volume": {"name": "fv"},
         }
     ),
     TopMetricsFile(
         {
+            "volume": {"name": "fv"},
             "path": "{4ec6d1ea-d5da-11eb-a25f-005056ac0f77:6754}",
             "throughput": {
-                "error": {"upper_bound": 22, "lower_bound": 12},
+                "error": {"lower_bound": 12, "upper_bound": 22},
                 "write": 12,
             },
             "svm": {
-                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
                 "name": "vs0",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/0ba74c3e-d5ca-11eb-8fbb-005056ac0f77"
                     }
                 },
+                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
             },
-            "volume": {"name": "fv"},
         }
     ),
     TopMetricsFile(
         {
+            "volume": {"name": "fv"},
             "path": "{4ec6d1ea-d5da-11eb-a25f-005056ac0f77:8654}",
-            "throughput": {"error": {"upper_bound": 10, "lower_bound": 8}, "write": 8},
+            "throughput": {"error": {"lower_bound": 8, "upper_bound": 10}, "write": 8},
             "svm": {
-                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
                 "name": "vs0",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/0ba74c3e-d5ca-11eb-8fbb-005056ac0f77"
                     }
                 },
+                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
             },
-            "volume": {"name": "fv"},
         }
     ),
 ]
@@ -232,11 +233,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -250,14 +250,23 @@ __pdoc__ = {
     "TopMetricsFileSchema.opts": False,
 }
 
-
 class TopMetricsFileSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the TopMetricsFile object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.file_info_links.FileInfoLinksSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.file_info_links", "FileInfoLinksSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the top_metrics_file."""
 
-    iops = marshmallow_fields.Nested("netapp_ontap.models.top_metrics_file_iops.TopMetricsFileIopsSchema", data_key="iops", unknown=EXCLUDE, allow_none=True)
+    iops = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.top_metrics_file_iops", "TopMetricsFileIopsSchema"),
+                data_key="iops",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The iops field of the top_metrics_file."""
 
     path = marshmallow_fields.Str(
@@ -268,13 +277,28 @@ class TopMetricsFileSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: /dir_abc/dir_123/file_1"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the top_metrics_file."""
 
-    throughput = marshmallow_fields.Nested("netapp_ontap.models.top_metrics_file_throughput.TopMetricsFileThroughputSchema", data_key="throughput", unknown=EXCLUDE, allow_none=True)
+    throughput = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.top_metrics_file_throughput", "TopMetricsFileThroughputSchema"),
+                data_key="throughput",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The throughput field of the top_metrics_file."""
 
-    volume = marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", data_key="volume", unknown=EXCLUDE, allow_none=True)
+    volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                data_key="volume",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The volume field of the top_metrics_file."""
 
     @property

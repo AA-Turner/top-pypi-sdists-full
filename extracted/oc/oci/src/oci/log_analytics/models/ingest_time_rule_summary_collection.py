@@ -12,7 +12,7 @@ from oci.decorators import init_model_state_from_kwargs
 @init_model_state_from_kwargs
 class IngestTimeRuleSummaryCollection(object):
     """
-    A collection of Logging Analytics ingest time rules.
+    A collection of Log Analytics ingest time rules.
     """
 
     def __init__(self, **kwargs):

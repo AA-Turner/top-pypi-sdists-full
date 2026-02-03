@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -30,10 +30,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="<password>", verify
 ```
 S3BucketLifecycleRule(
     {
-        "abort_incomplete_multipart_upload": {"after_initiation_days": 200},
-        "object_filter": {"prefix": "obj1*/", "size_greater_than": 1000},
-        "expiration": {"object_age_days": 1000},
+        "object_filter": {"size_greater_than": 1000, "prefix": "obj1*/"},
         "name": "rule1",
+        "abort_incomplete_multipart_upload": {"after_initiation_days": 200},
+        "expiration": {"object_age_days": 1000},
     }
 )
 
@@ -94,11 +94,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -112,14 +111,23 @@ __pdoc__ = {
     "S3BucketLifecycleRuleSchema.opts": False,
 }
 
-
 class S3BucketLifecycleRuleSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the S3BucketLifecycleRule object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the s3_bucket_lifecycle_rule."""
 
-    abort_incomplete_multipart_upload = marshmallow_fields.Nested("netapp_ontap.models.s3_bucket_lifecycle_abort_incomplete_multipart_upload.S3BucketLifecycleAbortIncompleteMultipartUploadSchema", data_key="abort_incomplete_multipart_upload", unknown=EXCLUDE, allow_none=True)
+    abort_incomplete_multipart_upload = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.s3_bucket_lifecycle_abort_incomplete_multipart_upload", "S3BucketLifecycleAbortIncompleteMultipartUploadSchema"),
+                data_key="abort_incomplete_multipart_upload",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Information about the abort-incomplete-multipart-upload lifecycle management action."""
 
     bucket_name = marshmallow_fields.Str(
@@ -137,7 +145,12 @@ Example: bucket1"""
     )
     r""" Specifies whether or not the associated rule is enabled."""
 
-    expiration = marshmallow_fields.Nested("netapp_ontap.models.s3_bucket_lifecycle_expiration.S3BucketLifecycleExpirationSchema", data_key="expiration", unknown=EXCLUDE, allow_none=True)
+    expiration = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.s3_bucket_lifecycle_expiration", "S3BucketLifecycleExpirationSchema"),
+                data_key="expiration",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Information about the expiration lifecycle management action."""
 
     name = marshmallow_fields.Str(
@@ -147,13 +160,28 @@ Example: bucket1"""
     )
     r""" Bucket lifecycle management rule identifier. The length of the name can range from 0 to 256 characters."""
 
-    non_current_version_expiration = marshmallow_fields.Nested("netapp_ontap.models.s3_bucket_lifecycle_non_current_version_expiration.S3BucketLifecycleNonCurrentVersionExpirationSchema", data_key="non_current_version_expiration", unknown=EXCLUDE, allow_none=True)
+    non_current_version_expiration = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.s3_bucket_lifecycle_non_current_version_expiration", "S3BucketLifecycleNonCurrentVersionExpirationSchema"),
+                data_key="non_current_version_expiration",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Information about the non-current-version-expiration lifecycle management action."""
 
-    object_filter = marshmallow_fields.Nested("netapp_ontap.models.s3_bucket_lifecycle_object_filter.S3BucketLifecycleObjectFilterSchema", data_key="object_filter", unknown=EXCLUDE, allow_none=True)
+    object_filter = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.s3_bucket_lifecycle_object_filter", "S3BucketLifecycleObjectFilterSchema"),
+                data_key="object_filter",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Information about the lifecycle management rule of a bucket."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the s3_bucket_lifecycle_rule."""
 
     uuid = marshmallow_fields.Str(
@@ -306,7 +334,8 @@ class S3BucketLifecycleRule(Resource):
         r"""Creates the S3 bucket lifecycle rule configuration.
 ### Required properties
 * `name` - Lifecycle Management rule to be created.
-* `actions` - Lifecycle Management actions associated with the rule.
+* `expiration` and/or `non_current_version_expiration` and/or `abort_incomplete_multipart_upload`
+  * Lifecycle Management actions associated with the lifecycle rule.
 ### Recommended optional properties
 * `enabled` - Lifecycle Management rule is enabled or not.
 * `object_filter.prefix` - Lifecycle Management rule filter prefix.
@@ -390,7 +419,8 @@ class S3BucketLifecycleRule(Resource):
         r"""Creates the S3 bucket lifecycle rule configuration.
 ### Required properties
 * `name` - Lifecycle Management rule to be created.
-* `actions` - Lifecycle Management actions associated with the rule.
+* `expiration` and/or `non_current_version_expiration` and/or `abort_incomplete_multipart_upload`
+  * Lifecycle Management actions associated with the lifecycle rule.
 ### Recommended optional properties
 * `enabled` - Lifecycle Management rule is enabled or not.
 * `object_filter.prefix` - Lifecycle Management rule filter prefix.

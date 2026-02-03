@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -57,236 +57,236 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StorageSwitch(
     {
-        "wwn": "100050eb1a1ef7d7",
-        "state": "ok",
-        "temperature_sensors": [
-            {"state": "ok", "name": "SLOT #0: TEMP #1", "reading": 52}
-        ],
+        "name": "Brocade_10.226.57.206",
         "connections": [
             {
+                "peer_port": {
+                    "wwn": "2100000e1e30ac5f",
+                    "unique_id": "38993dc0-4ea1-11eb-9331-00a0985bd455",
+                    "connection": "sti8020mcc-htp-006:fcvi_device_1",
+                    "type": "fcvi_adapter",
+                },
                 "source_port": {
-                    "mode": "f_port",
                     "wwn": "200050eb1a236efd",
                     "name": "FC port 0/0",
-                },
-                "peer_port": {
-                    "unique_id": "38993dc0-4ea1-11eb-9331-00a0985bd455",
-                    "wwn": "2100000e1e30ac5f",
-                    "type": "fcvi_adapter",
-                    "connection": "sti8020mcc-htp-006:fcvi_device_1",
+                    "mode": "f_port",
                 },
             },
             {
+                "peer_port": {
+                    "wwn": "21000024ff72c0c9",
+                    "unique_id": "38993dc0-4ea1-11eb-9331-00a0985bd455",
+                    "connection": "sti8020mcc-htp-006:2b",
+                    "type": "fcp_adapter",
+                },
                 "source_port": {
-                    "mode": "f_port",
                     "wwn": "200150eb1a236efd",
                     "name": "FC port 0/1",
-                },
-                "peer_port": {
-                    "unique_id": "38993dc0-4ea1-11eb-9331-00a0985bd455",
-                    "wwn": "21000024ff72c0c9",
-                    "type": "fcp_adapter",
-                    "connection": "sti8020mcc-htp-006:2b",
+                    "mode": "f_port",
                 },
             },
             {
+                "peer_port": {
+                    "wwn": "21000024ff72c0cb",
+                    "unique_id": "38993dc0-4ea1-11eb-9331-00a0985bd455",
+                    "connection": "sti8020mcc-htp-006:2d",
+                    "type": "fcp_adapter",
+                },
                 "source_port": {
-                    "mode": "f_port",
                     "wwn": "200250eb1a236efd",
                     "name": "FC port 0/2",
-                },
-                "peer_port": {
-                    "unique_id": "38993dc0-4ea1-11eb-9331-00a0985bd455",
-                    "wwn": "21000024ff72c0cb",
-                    "type": "fcp_adapter",
-                    "connection": "sti8020mcc-htp-006:2d",
+                    "mode": "f_port",
                 },
             },
         ],
-        "role": "subordinate",
-        "model": "Brocade6510",
+        "wwn": "100050eb1a1ef7d7",
         "paths": [
             {
+                "port": {"speed": 8, "name": "FC port 0/4"},
+                "node": {
+                    "name": "sti8020mcc-htp-005",
+                    "_links": {
+                        "self": {
+                            "href": "/api/cluster/nodes/382cb083-4416-11eb-ad1d-00a0985bd455"
+                        }
+                    },
+                    "uuid": "382cb083-4416-11eb-ad1d-00a0985bd455",
+                },
                 "adapter": {
                     "wwn": "21000024ff6c4bc0",
-                    "type": "fcp_initiator",
                     "name": "2a",
+                    "type": "fcp_initiator",
                 },
+            },
+            {
+                "port": {"speed": 8, "name": "FC port 0/5"},
                 "node": {
-                    "uuid": "382cb083-4416-11eb-ad1d-00a0985bd455",
                     "name": "sti8020mcc-htp-005",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/382cb083-4416-11eb-ad1d-00a0985bd455"
                         }
                     },
+                    "uuid": "382cb083-4416-11eb-ad1d-00a0985bd455",
                 },
-                "port": {"speed": 8, "name": "FC port 0/4"},
-            },
-            {
                 "adapter": {
                     "wwn": "21000024ff6c4bc2",
-                    "type": "fcp_initiator",
                     "name": "2c",
+                    "type": "fcp_initiator",
                 },
+            },
+            {
+                "port": {"speed": 16, "name": "FC port 0/3"},
                 "node": {
-                    "uuid": "382cb083-4416-11eb-ad1d-00a0985bd455",
                     "name": "sti8020mcc-htp-005",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/382cb083-4416-11eb-ad1d-00a0985bd455"
                         }
                     },
+                    "uuid": "382cb083-4416-11eb-ad1d-00a0985bd455",
                 },
-                "port": {"speed": 8, "name": "FC port 0/5"},
-            },
-            {
                 "adapter": {
                     "wwn": "2100000e1e09d5d2",
-                    "type": "fc_vi",
                     "name": "fcvi_device_0",
+                    "type": "fc_vi",
                 },
-                "node": {
-                    "uuid": "382cb083-4416-11eb-ad1d-00a0985bd455",
-                    "name": "sti8020mcc-htp-005",
-                    "_links": {
-                        "self": {
-                            "href": "/api/cluster/nodes/382cb083-4416-11eb-ad1d-00a0985bd455"
-                        }
-                    },
-                },
-                "port": {"speed": 16, "name": "FC port 0/3"},
             },
             {
+                "port": {"speed": 8, "name": "FC port 0/1"},
+                "node": {
+                    "name": "sti8020mcc-htp-006",
+                    "_links": {
+                        "self": {
+                            "href": "/api/cluster/nodes/364fbba8-4416-11eb-8e72-00a098431045"
+                        }
+                    },
+                    "uuid": "364fbba8-4416-11eb-8e72-00a098431045",
+                },
                 "adapter": {
                     "wwn": "21000024ff72c0c8",
-                    "type": "fcp_initiator",
                     "name": "2a",
+                    "type": "fcp_initiator",
                 },
-                "node": {
-                    "uuid": "364fbba8-4416-11eb-8e72-00a098431045",
-                    "name": "sti8020mcc-htp-006",
-                    "_links": {
-                        "self": {
-                            "href": "/api/cluster/nodes/364fbba8-4416-11eb-8e72-00a098431045"
-                        }
-                    },
-                },
-                "port": {"speed": 8, "name": "FC port 0/1"},
             },
             {
-                "adapter": {
-                    "wwn": "21000024ff72c0ca",
-                    "type": "fcp_initiator",
-                    "name": "2c",
-                },
+                "port": {"speed": 8, "name": "FC port 0/2"},
                 "node": {
-                    "uuid": "364fbba8-4416-11eb-8e72-00a098431045",
                     "name": "sti8020mcc-htp-006",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/364fbba8-4416-11eb-8e72-00a098431045"
                         }
                     },
+                    "uuid": "364fbba8-4416-11eb-8e72-00a098431045",
                 },
-                "port": {"speed": 8, "name": "FC port 0/2"},
+                "adapter": {
+                    "wwn": "21000024ff72c0ca",
+                    "name": "2c",
+                    "type": "fcp_initiator",
+                },
             },
         ],
+        "vendor": "brocade",
         "monitoring_enabled": True,
-        "ip_address": "10.226.57.206",
-        "domain_id": 5,
+        "symbolic_name": "rtp-fc01-41kk11",
+        "role": "subordinate",
+        "fans": [
+            {"speed": 7336, "state": "ok", "name": "FAN #1"},
+            {"speed": 7336, "state": "ok", "name": "FAN #2"},
+        ],
+        "state": "ok",
+        "temperature_sensors": [
+            {"reading": 52, "state": "ok", "name": "SLOT #0: TEMP #1"}
+        ],
+        "ports": [
+            {
+                "speed": 16,
+                "sfp": {
+                    "serial_number": "HAA2140310058E5",
+                    "transmitter_type": "short_wave_laser",
+                    "type": "small_form_factor",
+                },
+                "mode": "f_port",
+                "name": "FC port 0/0",
+                "state": "online",
+                "wwn": "200050eb1a1ef7d7",
+                "enabled": True,
+            },
+            {
+                "speed": 16,
+                "sfp": {
+                    "serial_number": "HAA2140310058E5",
+                    "transmitter_type": "short_wave_laser",
+                    "type": "small_form_factor",
+                },
+                "mode": "f_port",
+                "name": "FC port 0/1",
+                "state": "online",
+                "wwn": "200050eb1a1ef2d7",
+                "enabled": True,
+            },
+            {
+                "speed": 16,
+                "sfp": {
+                    "serial_number": "HAA2140310058E5",
+                    "transmitter_type": "short_wave_laser",
+                    "type": "small_form_factor",
+                },
+                "mode": "f_port",
+                "name": "FC port 0/2",
+                "state": "online",
+                "wwn": "200050eb1a1ef7d0",
+                "enabled": True,
+            },
+            {
+                "speed": 16,
+                "sfp": {
+                    "serial_number": "HAA2140310058E5",
+                    "transmitter_type": "short_wave_laser",
+                    "type": "small_form_factor",
+                },
+                "mode": "f_port",
+                "name": "FC port 0/3",
+                "state": "online",
+                "wwn": "200050eb1a1ef7d7",
+                "enabled": True,
+            },
+            {
+                "speed": 16,
+                "sfp": {
+                    "serial_number": "HAA2140310058E5",
+                    "transmitter_type": "short_wave_laser",
+                    "type": "small_form_factor",
+                },
+                "mode": "f_port",
+                "name": "FC port 0/4",
+                "state": "online",
+                "wwn": "200050eb1a1ef2d7",
+                "enabled": True,
+            },
+            {
+                "speed": 16,
+                "sfp": {
+                    "serial_number": "HAA2140310058E5",
+                    "transmitter_type": "short_wave_laser",
+                    "type": "small_form_factor",
+                },
+                "mode": "f_port",
+                "name": "FC port 0/5",
+                "state": "online",
+                "wwn": "200050eb1a1ef7d0",
+                "enabled": True,
+            },
+        ],
+        "model": "Brocade6510",
         "power_supply_units": [
             {"state": "ok", "name": "Power Supply #1"},
             {"state": "ok", "name": "Power Supply #2"},
         ],
-        "fans": [
-            {"state": "ok", "speed": 7336, "name": "FAN #1"},
-            {"state": "ok", "speed": 7336, "name": "FAN #2"},
-        ],
-        "name": "Brocade_10.226.57.206",
-        "vendor": "brocade",
-        "symbolic_name": "rtp-fc01-41kk11",
-        "ports": [
-            {
-                "enabled": True,
-                "wwn": "200050eb1a1ef7d7",
-                "mode": "f_port",
-                "state": "online",
-                "speed": 16,
-                "sfp": {
-                    "transmitter_type": "short_wave_laser",
-                    "serial_number": "HAA2140310058E5",
-                    "type": "small_form_factor",
-                },
-                "name": "FC port 0/0",
-            },
-            {
-                "enabled": True,
-                "wwn": "200050eb1a1ef2d7",
-                "mode": "f_port",
-                "state": "online",
-                "speed": 16,
-                "sfp": {
-                    "transmitter_type": "short_wave_laser",
-                    "serial_number": "HAA2140310058E5",
-                    "type": "small_form_factor",
-                },
-                "name": "FC port 0/1",
-            },
-            {
-                "enabled": True,
-                "wwn": "200050eb1a1ef7d0",
-                "mode": "f_port",
-                "state": "online",
-                "speed": 16,
-                "sfp": {
-                    "transmitter_type": "short_wave_laser",
-                    "serial_number": "HAA2140310058E5",
-                    "type": "small_form_factor",
-                },
-                "name": "FC port 0/2",
-            },
-            {
-                "enabled": True,
-                "wwn": "200050eb1a1ef7d7",
-                "mode": "f_port",
-                "state": "online",
-                "speed": 16,
-                "sfp": {
-                    "transmitter_type": "short_wave_laser",
-                    "serial_number": "HAA2140310058E5",
-                    "type": "small_form_factor",
-                },
-                "name": "FC port 0/3",
-            },
-            {
-                "enabled": True,
-                "wwn": "200050eb1a1ef2d7",
-                "mode": "f_port",
-                "state": "online",
-                "speed": 16,
-                "sfp": {
-                    "transmitter_type": "short_wave_laser",
-                    "serial_number": "HAA2140310058E5",
-                    "type": "small_form_factor",
-                },
-                "name": "FC port 0/4",
-            },
-            {
-                "enabled": True,
-                "wwn": "200050eb1a1ef7d0",
-                "mode": "f_port",
-                "state": "online",
-                "speed": 16,
-                "sfp": {
-                    "transmitter_type": "short_wave_laser",
-                    "serial_number": "HAA2140310058E5",
-                    "type": "small_form_factor",
-                },
-                "name": "FC port 0/5",
-            },
-        ],
         "local": False,
+        "domain_id": 5,
+        "ip_address": "10.226.57.206",
     }
 )
 
@@ -300,11 +300,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -318,11 +317,18 @@ __pdoc__ = {
     "StorageSwitchSchema.opts": False,
 }
 
-
 class StorageSwitchSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the StorageSwitch object"""
 
-    connections = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.storage_switch_connections.StorageSwitchConnectionsSchema", unknown=EXCLUDE, allow_none=True), data_key="connections", allow_none=True)
+    connections = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.storage_switch_connections", "StorageSwitchConnectionsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="connections",
+                allow_none=True
+            )
     r""" The connections field of the storage_switch."""
 
     director_class = marshmallow_fields.Boolean(
@@ -337,7 +343,15 @@ class StorageSwitchSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Domain ID"""
 
-    errors = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.storage_switch_errors.StorageSwitchErrorsSchema", unknown=EXCLUDE, allow_none=True), data_key="errors", allow_none=True)
+    errors = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.storage_switch_errors", "StorageSwitchErrorsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="errors",
+                allow_none=True
+            )
     r""" The errors field of the storage_switch."""
 
     fabric_name = marshmallow_fields.Str(
@@ -346,7 +360,15 @@ class StorageSwitchSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Storage switch fabric name"""
 
-    fans = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.storage_switch_fans.StorageSwitchFansSchema", unknown=EXCLUDE, allow_none=True), data_key="fans", allow_none=True)
+    fans = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.storage_switch_fans", "StorageSwitchFansSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="fans",
+                allow_none=True
+            )
     r""" The fans field of the storage_switch."""
 
     firmware_version = marshmallow_fields.Str(
@@ -388,13 +410,37 @@ class StorageSwitchSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Storage switch name"""
 
-    paths = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.storage_switch_paths.StorageSwitchPathsSchema", unknown=EXCLUDE, allow_none=True), data_key="paths", allow_none=True)
+    paths = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.storage_switch_paths", "StorageSwitchPathsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="paths",
+                allow_none=True
+            )
     r""" The paths field of the storage_switch."""
 
-    ports = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.storage_switch_ports.StorageSwitchPortsSchema", unknown=EXCLUDE, allow_none=True), data_key="ports", allow_none=True)
+    ports = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.storage_switch_ports", "StorageSwitchPortsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="ports",
+                allow_none=True
+            )
     r""" The ports field of the storage_switch."""
 
-    power_supply_units = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.storage_bridge_power_supply_units.StorageBridgePowerSupplyUnitsSchema", unknown=EXCLUDE, allow_none=True), data_key="power_supply_units", allow_none=True)
+    power_supply_units = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.storage_bridge_power_supply_units", "StorageBridgePowerSupplyUnitsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="power_supply_units",
+                allow_none=True
+            )
     r""" The power_supply_units field of the storage_switch."""
 
     role = marshmallow_fields.Str(
@@ -428,7 +474,15 @@ Valid choices:
     )
     r""" Storage switch symbolic name"""
 
-    temperature_sensors = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.storage_switch_temperature_sensors.StorageSwitchTemperatureSensorsSchema", unknown=EXCLUDE, allow_none=True), data_key="temperature_sensors", allow_none=True)
+    temperature_sensors = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.storage_switch_temperature_sensors", "StorageSwitchTemperatureSensorsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="temperature_sensors",
+                allow_none=True
+            )
     r""" The temperature_sensors field of the storage_switch."""
 
     vendor = marshmallow_fields.Str(
@@ -444,7 +498,15 @@ Valid choices:
 * brocade
 * cisco"""
 
-    vsans = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.storage_switch_vsans.StorageSwitchVsansSchema", unknown=EXCLUDE, allow_none=True), data_key="vsans", allow_none=True)
+    vsans = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.storage_switch_vsans", "StorageSwitchVsansSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="vsans",
+                allow_none=True
+            )
     r""" The vsans field of the storage_switch."""
 
     wwn = marshmallow_fields.Str(
@@ -453,7 +515,15 @@ Valid choices:
     )
     r""" Storage switch world wide name"""
 
-    zones = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.storage_switch_zones.StorageSwitchZonesSchema", unknown=EXCLUDE, allow_none=True), data_key="zones", allow_none=True)
+    zones = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.storage_switch_zones", "StorageSwitchZonesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="zones",
+                allow_none=True
+            )
     r""" The zones field of the storage_switch."""
 
     @property

@@ -2,18 +2,17 @@
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 import sys
 
-from contrast_vendor.wrapt import CallableObjectProxy
-
-from contrast.agent.assess.policy.preshift import Preshift
 from contrast.agent.assess.policy.analysis import _analyze
+from contrast.agent.assess.policy.preshift import Preshift
 from contrast.agent.policy import patch_manager, registry
 from contrast.utils.decorators import fail_quietly
 from contrast.utils.patch_utils import (
     build_and_apply_patch,
+    register_module_patcher,
     unregister_module_patcher,
     wrap_and_watermark,
-    register_module_patcher,
 )
+from contrast_vendor import wrapt
 
 
 @fail_quietly("Failed to apply assess xpath-injection")
@@ -36,7 +35,7 @@ def apply_call(class_name, orig_func, self, args, kwargs):
     return result
 
 
-class ContrastXPathEvaluatorProxy(CallableObjectProxy):
+class ContrastXPathEvaluatorProxy(wrapt.CallableObjectProxy):
     """
     Proxy class that wraps instances returned by XPathEvaluator factory
 

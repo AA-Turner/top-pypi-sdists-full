@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -52,34 +52,34 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsShare(
     {
-        "show_snapshot": True,
-        "unix_symlink": "local",
-        "svm": {"uuid": "6d8e8870-8753-11eb-8d86-0050568ea61a", "name": "vs1"},
-        "oplocks": True,
-        "comment": "HR Department Share",
         "access_based_enumeration": False,
+        "oplocks": True,
+        "name": "TEST",
+        "no_strict_security": True,
+        "offline_files": "documents",
+        "continuously_available": False,
         "file_umask": "25",
-        "change_notify": True,
-        "vscan_profile": "standard",
         "home_directory": False,
+        "force_group_for_create": "root",
+        "path": "/",
+        "dir_umask": "26",
         "acls": [
             {
+                "user_or_group": "root",
                 "permission": "no_access",
                 "win_sid_unix_id": "0",
-                "user_or_group": "root",
                 "type": "unix_user",
             }
         ],
-        "path": "/",
+        "unix_symlink": "local",
+        "vscan_profile": "standard",
+        "show_snapshot": True,
+        "comment": "HR Department Share",
         "namespace_caching": True,
-        "allow_unencrypted_access": False,
-        "continuously_available": False,
-        "force_group_for_create": "root",
-        "no_strict_security": True,
-        "name": "TEST",
-        "dir_umask": "26",
         "encryption": False,
-        "offline_files": "documents",
+        "change_notify": True,
+        "allow_unencrypted_access": False,
+        "svm": {"name": "vs1", "uuid": "6d8e8870-8753-11eb-8d86-0050568ea61a"},
     }
 )
 
@@ -106,124 +106,124 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     CifsShare(
         {
-            "show_snapshot": False,
-            "unix_symlink": "local",
-            "svm": {
-                "uuid": "6d8e8870-8753-11eb-8d86-0050568ea61a",
-                "name": "vs1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/6d8e8870-8753-11eb-8d86-0050568ea61a"
-                    }
-                },
-            },
-            "oplocks": True,
             "access_based_enumeration": False,
-            "change_notify": True,
-            "vscan_profile": "standard",
+            "oplocks": True,
+            "volume": {"name": "vol1", "uuid": "6f4fb33a-8753-11eb-8d86-0050568ea61a"},
+            "name": "c$",
+            "continuously_available": False,
             "home_directory": False,
-            "volume": {"uuid": "6f4fb33a-8753-11eb-8d86-0050568ea61a", "name": "vol1"},
+            "path": "/",
             "acls": [
                 {
+                    "user_or_group": "BUILTIN\\Administrators",
                     "permission": "full_control",
                     "win_sid_unix_id": "S-1-1-0",
-                    "user_or_group": "BUILTIN\\Administrators",
                     "type": "windows",
                 }
             ],
-            "path": "/",
-            "namespace_caching": False,
-            "allow_unencrypted_access": True,
-            "continuously_available": False,
-            "name": "c$",
-            "encryption": False,
+            "unix_symlink": "local",
             "_links": {
                 "self": {
                     "href": "/api/protocols/cifs/shares/6d8e8870-8753-11eb-8d86-0050568ea61a/c%24"
                 }
             },
-        }
-    ),
-    CifsShare(
-        {
+            "vscan_profile": "standard",
             "show_snapshot": False,
+            "namespace_caching": False,
+            "encryption": False,
+            "change_notify": True,
+            "allow_unencrypted_access": True,
             "svm": {
-                "uuid": "6d8e8870-8753-11eb-8d86-0050568ea61a",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/6d8e8870-8753-11eb-8d86-0050568ea61a"
                     }
                 },
+                "uuid": "6d8e8870-8753-11eb-8d86-0050568ea61a",
             },
-            "oplocks": False,
+        }
+    ),
+    CifsShare(
+        {
             "access_based_enumeration": False,
-            "change_notify": False,
-            "vscan_profile": "standard",
-            "home_directory": False,
-            "volume": {"uuid": "6f4fb33a-8753-11eb-8d86-0050568ea61a", "name": "vol1"},
-            "path": "/",
-            "namespace_caching": False,
-            "allow_unencrypted_access": False,
-            "continuously_available": False,
+            "oplocks": False,
+            "volume": {"name": "vol1", "uuid": "6f4fb33a-8753-11eb-8d86-0050568ea61a"},
             "name": "ipc$",
-            "encryption": False,
+            "continuously_available": False,
+            "home_directory": False,
+            "path": "/",
             "_links": {
                 "self": {
                     "href": "/api/protocols/cifs/shares/6d8e8870-8753-11eb-8d86-0050568ea61a/ipc%24"
                 }
             },
-        }
-    ),
-    CifsShare(
-        {
-            "show_snapshot": True,
-            "unix_symlink": "local",
+            "vscan_profile": "standard",
+            "show_snapshot": False,
+            "namespace_caching": False,
+            "encryption": False,
+            "change_notify": False,
+            "allow_unencrypted_access": False,
             "svm": {
-                "uuid": "6d8e8870-8753-11eb-8d86-0050568ea61a",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/6d8e8870-8753-11eb-8d86-0050568ea61a"
                     }
                 },
+                "uuid": "6d8e8870-8753-11eb-8d86-0050568ea61a",
             },
-            "oplocks": True,
-            "comment": "HR Department Share",
+        }
+    ),
+    CifsShare(
+        {
             "access_based_enumeration": False,
+            "oplocks": True,
+            "volume": {"name": "vol1", "uuid": "6f4fb33a-8753-11eb-8d86-0050568ea61a"},
+            "name": "TEST",
+            "no_strict_security": True,
+            "offline_files": "documents",
+            "continuously_available": False,
             "file_umask": "25",
-            "change_notify": True,
-            "vscan_profile": "standard",
             "home_directory": False,
-            "volume": {"uuid": "6f4fb33a-8753-11eb-8d86-0050568ea61a", "name": "vol1"},
+            "force_group_for_create": "root",
+            "path": "/",
+            "dir_umask": "26",
             "acls": [
                 {
+                    "user_or_group": "Everyone",
                     "permission": "full_control",
                     "win_sid_unix_id": "S-1-1-0",
-                    "user_or_group": "Everyone",
                     "type": "windows",
                 },
                 {
+                    "user_or_group": "root",
                     "permission": "no_access",
                     "win_sid_unix_id": "0",
-                    "user_or_group": "root",
                     "type": "unix_user",
                 },
             ],
-            "path": "/",
-            "namespace_caching": True,
-            "allow_unencrypted_access": True,
-            "continuously_available": False,
-            "force_group_for_create": "root",
-            "no_strict_security": True,
-            "name": "TEST",
-            "dir_umask": "26",
-            "encryption": False,
-            "offline_files": "documents",
+            "unix_symlink": "local",
             "_links": {
                 "self": {
                     "href": "/api/protocols/cifs/shares/6d8e8870-8753-11eb-8d86-0050568ea61a/TEST"
                 }
+            },
+            "vscan_profile": "standard",
+            "show_snapshot": True,
+            "comment": "HR Department Share",
+            "namespace_caching": True,
+            "encryption": False,
+            "change_notify": True,
+            "allow_unencrypted_access": True,
+            "svm": {
+                "name": "vs1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/6d8e8870-8753-11eb-8d86-0050568ea61a"
+                    }
+                },
+                "uuid": "6d8e8870-8753-11eb-8d86-0050568ea61a",
             },
         }
     ),
@@ -258,41 +258,41 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     CifsShare(
         {
-            "show_snapshot": True,
-            "unix_symlink": "local",
-            "svm": {"uuid": "6d8e8870-8753-11eb-8d86-0050568ea61a", "name": "vs1"},
-            "oplocks": True,
-            "comment": "HR Department Share",
             "access_based_enumeration": False,
+            "oplocks": True,
+            "volume": {"name": "vol1", "uuid": "6f4fb33a-8753-11eb-8d86-0050568ea61a"},
+            "name": "TEST",
+            "no_strict_security": True,
+            "offline_files": "documents",
+            "continuously_available": False,
             "file_umask": "25",
-            "change_notify": True,
-            "vscan_profile": "standard",
             "home_directory": False,
-            "volume": {"uuid": "6f4fb33a-8753-11eb-8d86-0050568ea61a", "name": "vol1"},
+            "force_group_for_create": "root",
+            "path": "/",
+            "dir_umask": "26",
             "acls": [
                 {
+                    "user_or_group": "Everyone",
                     "permission": "full_control",
                     "win_sid_unix_id": "S-1-1-0",
-                    "user_or_group": "Everyone",
                     "type": "windows",
                 },
                 {
+                    "user_or_group": "root",
                     "permission": "no_access",
                     "win_sid_unix_id": "0",
-                    "user_or_group": "root",
                     "type": "unix_user",
                 },
             ],
-            "path": "/",
+            "unix_symlink": "local",
+            "vscan_profile": "standard",
+            "show_snapshot": True,
+            "comment": "HR Department Share",
             "namespace_caching": True,
-            "allow_unencrypted_access": True,
-            "continuously_available": False,
-            "force_group_for_create": "root",
-            "no_strict_security": True,
-            "name": "TEST",
-            "dir_umask": "26",
             "encryption": False,
-            "offline_files": "documents",
+            "change_notify": True,
+            "allow_unencrypted_access": True,
+            "svm": {"name": "vs1", "uuid": "6d8e8870-8753-11eb-8d86-0050568ea61a"},
         }
     )
 ]
@@ -322,41 +322,41 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsShare(
     {
-        "show_snapshot": True,
-        "unix_symlink": "local",
-        "svm": {"uuid": "6d8e8870-8753-11eb-8d86-0050568ea61a", "name": "vs1"},
-        "oplocks": True,
-        "comment": "HR Department Share",
         "access_based_enumeration": False,
+        "oplocks": True,
+        "volume": {"name": "vol1", "uuid": "6f4fb33a-8753-11eb-8d86-0050568ea61a"},
+        "name": "TEST",
+        "no_strict_security": True,
+        "offline_files": "documents",
+        "continuously_available": False,
         "file_umask": "25",
-        "change_notify": True,
-        "vscan_profile": "standard",
         "home_directory": False,
-        "volume": {"uuid": "6f4fb33a-8753-11eb-8d86-0050568ea61a", "name": "vol1"},
+        "force_group_for_create": "root",
+        "path": "/",
+        "dir_umask": "26",
         "acls": [
             {
+                "user_or_group": "Everyone",
                 "permission": "full_control",
                 "win_sid_unix_id": "S-1-1-0",
-                "user_or_group": "Everyone",
                 "type": "windows",
             },
             {
+                "user_or_group": "root",
                 "permission": "no_access",
                 "win_sid_unix_id": "0",
-                "user_or_group": "root",
                 "type": "unix_user",
             },
         ],
-        "path": "/",
+        "unix_symlink": "local",
+        "vscan_profile": "standard",
+        "show_snapshot": True,
+        "comment": "HR Department Share",
         "namespace_caching": True,
-        "allow_unencrypted_access": True,
-        "continuously_available": False,
-        "force_group_for_create": "root",
-        "no_strict_security": True,
-        "name": "TEST",
-        "dir_umask": "26",
         "encryption": False,
-        "offline_files": "documents",
+        "change_notify": True,
+        "allow_unencrypted_access": True,
+        "svm": {"name": "vs1", "uuid": "6d8e8870-8753-11eb-8d86-0050568ea61a"},
     }
 )
 
@@ -415,11 +415,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -433,11 +432,15 @@ __pdoc__ = {
     "CifsShareSchema.opts": False,
 }
 
-
 class CifsShareSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the CifsShare object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the cifs_share."""
 
     access_based_enumeration = marshmallow_fields.Boolean(
@@ -447,7 +450,15 @@ class CifsShareSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     r""" If enabled, all folders inside this share are visible to a user based on that individual user access right; prevents
 the display of folders or other shared resources that the user does not have access to."""
 
-    acls = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.share_acl.ShareAclSchema", unknown=EXCLUDE, allow_none=True), data_key="acls", allow_none=True)
+    acls = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.share_acl", "ShareAclSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="acls",
+                allow_none=True
+            )
     r""" The permissions that users and groups have on a CIFS share."""
 
     allow_unencrypted_access = marshmallow_fields.Boolean(
@@ -623,7 +634,12 @@ Example: /volume_1/eng_vol/"""
     )
     r""" Specifies whether or not the snapshots can be viewed and traversed by clients."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the cifs_share."""
 
     unix_symlink = marshmallow_fields.Str(
@@ -645,7 +661,12 @@ Valid choices:
 * widelink
 * disable"""
 
-    volume = marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", data_key="volume", unknown=EXCLUDE, allow_none=True)
+    volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                data_key="volume",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The volume field of the cifs_share."""
 
     vscan_profile = marshmallow_fields.Str(

@@ -1,15 +1,26 @@
 import logging
 import os
+from types import TracebackType
+from typing import TYPE_CHECKING, Any, Literal
 
+import pandas as pd
 import tdclient
+from tdclient.models import Database as TDClientDatabase
+from tdclient.models import Job as TDClientJob
+from tdclient.models import Table as TDClientTable
 
-from .query_engine import HiveQueryEngine, PrestoQueryEngine, QueryEngine
+from .query_engine import HiveQueryEngine, PrestoQueryEngine, QueryEngine, QueryResult
 from .table import Table
+
+if TYPE_CHECKING:
+    import trino.client
+
+    from .writer import Writer
 
 logger = logging.getLogger(__name__)
 
 
-class Client(object):
+class Client:
     """Treasure Data client interface.
 
     A client instance establishes a connection to Treasure Data. This interface
@@ -25,7 +36,7 @@ class Client(object):
     endpoint : str, optional
         Treasure Data API server. If not given, ``https://api.treasuredata.com`` is
         used by default. List of available endpoints is:
-        https://docs.treasuredata.com/display/public/PD/Sites+and+Endpoints
+        https://api-docs.treasuredata.com/en/overview/aboutendpoints#treasure-data-api-baseurls
 
     database : str, default: 'sample_datasets'
         Name of connected database.
@@ -73,13 +84,13 @@ class Client(object):
 
     def __init__(
         self,
-        apikey=None,
-        endpoint=None,
-        database="sample_datasets",
-        default_engine="presto",
-        header=True,
-        **kwargs,
-    ):
+        apikey: str | None = None,
+        endpoint: str | None = None,
+        database: str = "sample_datasets",
+        default_engine: Literal["presto", "hive"] | QueryEngine = "presto",
+        header: str | bool = True,
+        **kwargs: Any,
+    ) -> None:
         if isinstance(default_engine, QueryEngine):
             apikey = default_engine.apikey
             endpoint = default_engine.endpoint
@@ -97,21 +108,21 @@ class Client(object):
                 default_engine, apikey, endpoint, database, header
             )
 
-        self.apikey = apikey
-        self.endpoint = endpoint
-        self.database = database
+        self.apikey: str = apikey
+        self.endpoint: str = endpoint
+        self.database: str = database
 
-        self.default_engine = default_engine
-        self.query_executed = None
+        self.default_engine: QueryEngine = default_engine
+        self.query_executed: str | trino.client.TrinoResult | None = None
 
-        self.api_client = tdclient.Client(
+        self.api_client: tdclient.Client = tdclient.Client(
             apikey=apikey,
             endpoint=endpoint,
             user_agent=default_engine.user_agent,
             **kwargs,
         )
 
-    def list_databases(self):
+    def list_databases(self) -> list[TDClientDatabase]:
         """Get a list of td-client-python Database objects.
 
         Returns
@@ -120,7 +131,7 @@ class Client(object):
         """
         return self.api_client.databases()
 
-    def list_tables(self, database=None):
+    def list_tables(self, database: str | None = None) -> list[TDClientTable]:
         """Get a list of td-client-python Table objects.
 
         Parameters
@@ -137,7 +148,7 @@ class Client(object):
             database = self.database
         return self.api_client.tables(database)
 
-    def list_jobs(self):
+    def list_jobs(self) -> list[TDClientJob]:
         """Get a list of td-client-python Job objects.
 
         Returns
@@ -146,7 +157,7 @@ class Client(object):
         """
         return self.api_client.jobs()
 
-    def get_job(self, job_id):
+    def get_job(self, job_id: int) -> TDClientJob:
         """Get a td-client-python Job object from ``job_id``.
 
         Parameters
@@ -160,12 +171,17 @@ class Client(object):
         """
         return self.api_client.job(job_id)
 
-    def close(self):
+    def close(self) -> None:
         """Close a client I/O session to Treasure Data."""
         self.default_engine.close()
         self.api_client.close()
 
-    def query(self, query, engine=None, **kwargs):
+    def query(
+        self,
+        query: str,
+        engine: Literal["presto", "hive"] | QueryEngine | None = None,
+        **kwargs: Any,
+    ) -> QueryResult:
         """Run query and get results.
 
         Executed result stored in ``QueryEngine`` is retained in
@@ -202,7 +218,7 @@ class Client(object):
             - ``wait_callback`` (function): called every interval against job itself
             - ``engine_version`` (str): run query with Hive 2 if this parameter
               is set to ``"stable"`` and ``engine`` denotes Hive.
-              https://docs.treasuredata.com/display/public/PD/Writing+Hive+Queries
+              https://api-docs.treasuredata.com/en/tools/hive/writing_hive_queries
 
             Meanwhile, when a following argument is set to ``True``, query is
             deterministically issued via ``tdclient``.
@@ -245,7 +261,7 @@ class Client(object):
         self.query_executed = engine.executed
         return res
 
-    def get_table(self, database, table):
+    def get_table(self, database: str, table: str) -> Table:
         """Create a pytd table control instance.
 
         Parameters
@@ -262,7 +278,7 @@ class Client(object):
         """
         return Table(self, database, table)
 
-    def exists(self, database, table=None):
+    def exists(self, database: str, table: str | None = None) -> bool:
         """Check if a database and table exists.
 
         Parameters
@@ -277,15 +293,19 @@ class Client(object):
         -------
         bool
         """
+        if table is None:
+            try:
+                self.api_client.database(database)
+                return True
+            except Exception:
+                return False
         try:
             tbl = self.get_table(database, table)
         except ValueError:
             return False
-        if table is None:
-            return True
         return tbl.exists
 
-    def create_database_if_not_exists(self, database):
+    def create_database_if_not_exists(self, database: str) -> None:
         """Create a database on Treasure Data if it does not exist.
 
         Parameters
@@ -300,8 +320,15 @@ class Client(object):
             logger.info(f"created database `{database}`")
 
     def load_table_from_dataframe(
-        self, dataframe, destination, writer="bulk_import", if_exists="error", **kwargs
-    ):
+        self,
+        dataframe: pd.DataFrame,
+        destination: str | Table,
+        writer: (
+            Literal["bulk_import", "insert_into", "spark"] | "Writer"
+        ) = "bulk_import",
+        if_exists: Literal["error", "overwrite", "append", "ignore"] = "error",
+        **kwargs: Any,
+    ) -> None:
         """Write a given DataFrame to a Treasure Data table.
 
         This function may initialize a Writer instance. Note that, as a part of
@@ -338,13 +365,25 @@ class Client(object):
 
         destination.import_dataframe(dataframe, writer, if_exists, **kwargs)
 
-    def __enter__(self):
+    def __enter__(self) -> "Client":
         return self
 
-    def __exit__(self, exception_type, exception_value, traceback):
+    def __exit__(
+        self,
+        exception_type: type[BaseException] | None,
+        exception_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         self.close()
 
-    def _fetch_query_engine(self, engine, apikey, endpoint, database, header):
+    def _fetch_query_engine(
+        self,
+        engine: Literal["presto", "hive"],
+        apikey: str,
+        endpoint: str,
+        database: str,
+        header: str | bool,
+    ) -> QueryEngine:
         if engine == "presto":
             return PrestoQueryEngine(apikey, endpoint, database, header)
         elif engine == "hive":

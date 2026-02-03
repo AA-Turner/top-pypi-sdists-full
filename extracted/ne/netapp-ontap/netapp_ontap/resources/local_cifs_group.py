@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,111 +28,111 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LocalCifsGroup(
         {
+            "name": "BUILTIN\\Administrators",
             "sid": "S-1-5-32-544",
+            "description": "Built-in Administrators group",
             "members": [
                 {"name": "CIFS_SERVER\\Administrator"},
                 {"name": "AD_DOMAIN\\Domain Admins"},
             ],
-            "svm": {"uuid": "b009a9e7-4081-b576-7575-ada21efcaf16", "name": "vs1"},
-            "description": "Built-in Administrators group",
-            "name": "BUILTIN\\Administrators",
+            "svm": {"name": "vs1", "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16"},
         }
     ),
     LocalCifsGroup(
         {
-            "sid": "S-1-5-32-545",
-            "members": [{"name": "AD_DOMAIN\\Domain Users"}],
-            "svm": {"uuid": "b009a9e7-4081-b576-7575-ada21efcaf16", "name": "vs1"},
-            "description": "All users",
             "name": "BUILTIN\\Users",
+            "sid": "S-1-5-32-545",
+            "description": "All users",
+            "members": [{"name": "AD_DOMAIN\\Domain Users"}],
+            "svm": {"name": "vs1", "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16"},
         }
     ),
     LocalCifsGroup(
         {
-            "sid": "S-1-5-32-546",
-            "members": [{"name": "SACHILDAP02\\Domain Guests"}],
-            "svm": {"uuid": "b009a9e7-4081-b576-7575-ada21efcaf16", "name": "vs1"},
-            "description": "Built-in Guests Group",
             "name": "BUILTIN\\Guests",
+            "sid": "S-1-5-32-546",
+            "description": "Built-in Guests Group",
+            "members": [{"name": "SACHILDAP02\\Domain Guests"}],
+            "svm": {"name": "vs1", "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16"},
         }
     ),
     LocalCifsGroup(
         {
-            "sid": "S-1-5-32-547",
-            "svm": {"uuid": "b009a9e7-4081-b576-7575-ada21efcaf16", "name": "vs1"},
-            "description": "Restricted administrative privileges",
             "name": "BUILTIN\\Power Users",
+            "sid": "S-1-5-32-547",
+            "description": "Restricted administrative privileges",
+            "svm": {"name": "vs1", "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16"},
         }
     ),
     LocalCifsGroup(
         {
-            "sid": "S-1-5-32-551",
-            "svm": {"uuid": "b009a9e7-4081-b576-7575-ada21efcaf16", "name": "vs1"},
-            "description": "Backup Operators group",
             "name": "BUILTIN\\Backup Operators",
+            "sid": "S-1-5-32-551",
+            "description": "Backup Operators group",
+            "svm": {"name": "vs1", "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16"},
         }
     ),
     LocalCifsGroup(
         {
-            "sid": "S-1-5-21-256008430-3394229847-3930036330-1001",
-            "svm": {"uuid": "b009a9e7-4081-b576-7575-ada21efcaf16", "name": "vs1"},
-            "description": "local group2",
             "name": "CIFS_SERVER\\group2",
+            "sid": "S-1-5-21-256008430-3394229847-3930036330-1001",
+            "description": "local group2",
+            "svm": {"name": "vs1", "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16"},
         }
     ),
     LocalCifsGroup(
         {
+            "name": "BUILTIN\\Administrators",
             "sid": "S-1-5-32-544",
+            "description": "Built-in Administrators group",
             "members": [
                 {"name": "VS2.CIFS\\Administrator"},
                 {"name": "VS2.CIFS\\user3"},
                 {"name": "SACHILDAP02\\Domain Admins"},
             ],
-            "svm": {"uuid": "5060077c-5be6-11eb-90b7-0050568e5169", "name": "vs2"},
-            "description": "Built-in Administrators group",
-            "name": "BUILTIN\\Administrators",
+            "svm": {"name": "vs2", "uuid": "5060077c-5be6-11eb-90b7-0050568e5169"},
         }
     ),
     LocalCifsGroup(
         {
-            "sid": "S-1-5-32-545",
-            "members": [{"name": "SACHILDAP02\\Domain Users"}],
-            "svm": {"uuid": "5060077c-5be6-11eb-90b7-0050568e5169", "name": "vs2"},
-            "description": "All users",
             "name": "BUILTIN\\Users",
+            "sid": "S-1-5-32-545",
+            "description": "All users",
+            "members": [{"name": "SACHILDAP02\\Domain Users"}],
+            "svm": {"name": "vs2", "uuid": "5060077c-5be6-11eb-90b7-0050568e5169"},
         }
     ),
     LocalCifsGroup(
         {
-            "sid": "S-1-5-32-546",
-            "members": [{"name": "SACHILDAP02\\Domain Guests"}],
-            "svm": {"uuid": "5060077c-5be6-11eb-90b7-0050568e5169", "name": "vs2"},
-            "description": "Built-in Guests Group",
             "name": "BUILTIN\\Guests",
+            "sid": "S-1-5-32-546",
+            "description": "Built-in Guests Group",
+            "members": [{"name": "SACHILDAP02\\Domain Guests"}],
+            "svm": {"name": "vs2", "uuid": "5060077c-5be6-11eb-90b7-0050568e5169"},
         }
     ),
     LocalCifsGroup(
         {
-            "sid": "S-1-5-32-547",
-            "svm": {"uuid": "5060077c-5be6-11eb-90b7-0050568e5169", "name": "vs2"},
-            "description": "Restricted administrative privileges",
             "name": "BUILTIN\\Power Users",
+            "sid": "S-1-5-32-547",
+            "description": "Restricted administrative privileges",
+            "svm": {"name": "vs2", "uuid": "5060077c-5be6-11eb-90b7-0050568e5169"},
         }
     ),
     LocalCifsGroup(
         {
-            "sid": "S-1-5-32-551",
-            "svm": {"uuid": "5060077c-5be6-11eb-90b7-0050568e5169", "name": "vs2"},
-            "description": "Backup Operators group",
             "name": "BUILTIN\\Backup Operators",
+            "sid": "S-1-5-32-551",
+            "description": "Backup Operators group",
+            "svm": {"name": "vs2", "uuid": "5060077c-5be6-11eb-90b7-0050568e5169"},
         }
     ),
     LocalCifsGroup(
         {
-            "sid": "S-1-5-21-1625922807-3304708894-3529444428-1001",
-            "svm": {"uuid": "5060077c-5be6-11eb-90b7-0050568e5169", "name": "vs2"},
-            "description": "local group1",
             "name": "CIFS_SERVER\\group1",
+            "sid": "S-1-5-21-1625922807-3304708894-3529444428-1001",
+            "description": "local group1",
+            "svm": {"name": "vs2", "uuid": "5060077c-5be6-11eb-90b7-0050568e5169"},
         }
     ),
 ]
@@ -163,10 +163,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 LocalCifsGroup(
     {
-        "sid": "S-1-5-21-256008430-3394229847-3930036330-1001",
-        "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
-        "description": "local group",
         "name": "CIFS_SERVER\\group1",
+        "sid": "S-1-5-21-256008430-3394229847-3930036330-1001",
+        "description": "local group",
+        "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
     }
 )
 
@@ -231,11 +231,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -249,11 +248,15 @@ __pdoc__ = {
     "LocalCifsGroupSchema.opts": False,
 }
 
-
 class LocalCifsGroupSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LocalCifsGroup object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the local_cifs_group."""
 
     description = marshmallow_fields.Str(
@@ -266,7 +269,15 @@ class LocalCifsGroupSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: This is a local group"""
 
-    members = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.local_cifs_group_members_no_records.LocalCifsGroupMembersNoRecordsSchema", unknown=EXCLUDE, allow_none=True), data_key="members", allow_none=True)
+    members = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.local_cifs_group_members_no_records", "LocalCifsGroupMembersNoRecordsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="members",
+                allow_none=True
+            )
     r""" The members field of the local_cifs_group."""
 
     name = marshmallow_fields.Str(
@@ -288,7 +299,12 @@ Example: SMB_SERVER01\group"""
 
 Example: S-1-5-21-256008430-3394229847-3930036330-1001"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the local_cifs_group."""
 
     @property

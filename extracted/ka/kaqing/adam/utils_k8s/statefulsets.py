@@ -4,6 +4,8 @@ import re
 from typing import List, TypeVar, cast
 from kubernetes import client
 
+from adam.utils_k8s.pods import Pods
+
 from .kube_context import KubeContext
 from adam.utils import log2
 
@@ -67,6 +69,9 @@ class StatefulSets:
             return []
 
         return [(pod.metadata.name, pod.status.pod_ip) for pod in StatefulSets.pods(sts, ns)]
+
+    def running_pods(sts: str, namespace: str):
+        return [p.metadata.name for p in StatefulSets.pods(sts, namespace) if Pods.pod_status(p) == 'Running']
 
     def restarted_at(ss: str, ns: str):
         # returns timestamp and if being rolled out

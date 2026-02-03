@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -35,57 +35,57 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     IpInterface(
         {
-            "uuid": "14531286-59fc-11e8-ba55-005056b4340f",
             "name": "user-cluster-01_mgmt1",
             "_links": {
                 "self": {
                     "href": "/api/network/ip/interfaces/14531286-59fc-11e8-ba55-005056b4340f"
                 }
             },
+            "uuid": "14531286-59fc-11e8-ba55-005056b4340f",
         }
     ),
     IpInterface(
         {
-            "uuid": "145318ba-59fc-11e8-ba55-005056b4340f",
             "name": "user-cluster-01_clus2",
             "_links": {
                 "self": {
                     "href": "/api/network/ip/interfaces/145318ba-59fc-11e8-ba55-005056b4340f"
                 }
             },
+            "uuid": "145318ba-59fc-11e8-ba55-005056b4340f",
         }
     ),
     IpInterface(
         {
-            "uuid": "14531e45-59fc-11e8-ba55-005056b4340f",
             "name": "user-cluster-01_clus1",
             "_links": {
                 "self": {
                     "href": "/api/network/ip/interfaces/14531e45-59fc-11e8-ba55-005056b4340f"
                 }
             },
+            "uuid": "14531e45-59fc-11e8-ba55-005056b4340f",
         }
     ),
     IpInterface(
         {
-            "uuid": "245979de-59fc-11e8-ba55-005056b4340f",
             "name": "cluster_mgmt",
             "_links": {
                 "self": {
                     "href": "/api/network/ip/interfaces/245979de-59fc-11e8-ba55-005056b4340f"
                 }
             },
+            "uuid": "245979de-59fc-11e8-ba55-005056b4340f",
         }
     ),
     IpInterface(
         {
-            "uuid": "c670707c-5a11-11e8-8fcb-005056b4340f",
             "name": "lif1",
             "_links": {
                 "self": {
                     "href": "/api/network/ip/interfaces/c670707c-5a11-11e8-8fcb-005056b4340f"
                 }
             },
+            "uuid": "c670707c-5a11-11e8-8fcb-005056b4340f",
         }
     ),
 ]
@@ -116,75 +116,75 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IpInterface(
     {
-        "state": "up",
-        "service_policy": {
-            "uuid": "9e0f4151-141b-11e9-851e-005056ac1ce0",
-            "name": "default-management",
-        },
-        "uuid": "245979de-59fc-11e8-ba55-005056b4340f",
-        "services": ["management_core", "management_autosupport", "management_access"],
-        "ip": {"address": "10.63.41.6", "netmask": "18", "family": "ipv4"},
+        "ip": {"netmask": "18", "family": "ipv4", "address": "10.63.41.6"},
         "name": "cluster_mgmt",
-        "scope": "cluster",
-        "vip": False,
-        "enabled": True,
-        "location": {
-            "port": {
-                "uuid": "c84d5337-1397-11e9-87c2-005056acfcbb",
-                "node": {"name": "user-cluster-01-a"},
-                "name": "e0d",
-                "_links": {
-                    "self": {
-                        "href": "/api/network/ethernet/ports/c84d5337-1397-11e9-87c2-005056acfcbb"
-                    }
-                },
-            },
-            "home_node": {
-                "uuid": "c1db2904-1396-11e9-bb7d-005056acfcbb",
-                "name": "user-cluster-01-a",
-                "_links": {
-                    "self": {
-                        "href": "/api/cluster/nodes/c1db2904-1396-11e9-bb7d-005056acfcbb"
-                    }
-                },
-            },
-            "auto_revert": False,
-            "home_port": {
-                "uuid": "c84d5337-1397-11e9-87c2-005056acfcbb",
-                "node": {"name": "user-cluster-01-a"},
-                "name": "e0d",
-                "_links": {
-                    "self": {
-                        "href": "/api/network/ethernet/ports/c84d5337-1397-11e9-87c2-005056acfcbb"
-                    }
-                },
-            },
-            "failover": "broadcast_domain_only",
-            "node": {
-                "uuid": "c1db2904-1396-11e9-bb7d-005056acfcbb",
-                "name": "user-cluster-01-a",
-                "_links": {
-                    "self": {
-                        "href": "/api/cluster/nodes/c1db2904-1396-11e9-bb7d-005056acfcbb"
-                    }
-                },
-            },
-            "is_home": True,
-        },
         "ipspace": {
-            "uuid": "114ecfb5-59fc-11e8-ba55-005056b4340f",
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/114ecfb5-59fc-11e8-ba55-005056b4340f"
                 }
             },
             "name": "Default",
+            "uuid": "114ecfb5-59fc-11e8-ba55-005056b4340f",
         },
+        "location": {
+            "auto_revert": False,
+            "failover": "broadcast_domain_only",
+            "port": {
+                "name": "e0d",
+                "node": {"name": "user-cluster-01-a"},
+                "_links": {
+                    "self": {
+                        "href": "/api/network/ethernet/ports/c84d5337-1397-11e9-87c2-005056acfcbb"
+                    }
+                },
+                "uuid": "c84d5337-1397-11e9-87c2-005056acfcbb",
+            },
+            "is_home": True,
+            "node": {
+                "name": "user-cluster-01-a",
+                "_links": {
+                    "self": {
+                        "href": "/api/cluster/nodes/c1db2904-1396-11e9-bb7d-005056acfcbb"
+                    }
+                },
+                "uuid": "c1db2904-1396-11e9-bb7d-005056acfcbb",
+            },
+            "home_port": {
+                "name": "e0d",
+                "node": {"name": "user-cluster-01-a"},
+                "_links": {
+                    "self": {
+                        "href": "/api/network/ethernet/ports/c84d5337-1397-11e9-87c2-005056acfcbb"
+                    }
+                },
+                "uuid": "c84d5337-1397-11e9-87c2-005056acfcbb",
+            },
+            "home_node": {
+                "name": "user-cluster-01-a",
+                "_links": {
+                    "self": {
+                        "href": "/api/cluster/nodes/c1db2904-1396-11e9-bb7d-005056acfcbb"
+                    }
+                },
+                "uuid": "c1db2904-1396-11e9-bb7d-005056acfcbb",
+            },
+        },
+        "vip": False,
+        "enabled": True,
         "_links": {
             "self": {
                 "href": "/api/network/ip/interfaces/245979de-59fc-11e8-ba55-005056b4340f"
             }
         },
+        "services": ["management_core", "management_autosupport", "management_access"],
+        "service_policy": {
+            "name": "default-management",
+            "uuid": "9e0f4151-141b-11e9-851e-005056ac1ce0",
+        },
+        "state": "up",
+        "uuid": "245979de-59fc-11e8-ba55-005056b4340f",
+        "scope": "cluster",
     }
 )
 
@@ -213,83 +213,83 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     IpInterface(
         {
-            "state": "up",
-            "svm": {
-                "uuid": "c2134665-5a11-11e8-8fcb-005056b4340f",
-                "name": "user_vs0",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/c2134665-5a11-11e8-8fcb-005056b4340f"
-                    }
-                },
-            },
-            "service_policy": {
-                "uuid": "9e53525f-141b-11e9-851e-005056ac1ce0",
-                "name": "default-data-files",
-            },
-            "uuid": "c670707c-5a11-11e8-8fcb-005056b4340f",
-            "services": ["data_core", "data_nfs", "data_cifs", "data_flexcache"],
-            "ip": {"address": "10.10.10.11", "netmask": "24", "family": "ipv4"},
+            "ip": {"netmask": "24", "family": "ipv4", "address": "10.10.10.11"},
             "name": "lif1",
-            "scope": "svm",
-            "vip": False,
-            "enabled": True,
-            "location": {
-                "port": {
-                    "uuid": "c84d5337-1397-11e9-87c2-005056acfcbb",
-                    "node": {"name": "user-cluster-01-a"},
-                    "name": "e0d",
-                    "_links": {
-                        "self": {
-                            "href": "/api/network/ethernet/ports/c84d5337-1397-11e9-87c2-005056acfcbb"
-                        }
-                    },
-                },
-                "home_node": {
-                    "uuid": "c1db2904-1396-11e9-bb7d-005056acfcbb",
-                    "name": "user-cluster-01-a",
-                    "_links": {
-                        "self": {
-                            "href": "/api/cluster/nodes/c1db2904-1396-11e9-bb7d-005056acfcbb"
-                        }
-                    },
-                },
-                "auto_revert": False,
-                "home_port": {
-                    "uuid": "c84d5337-1397-11e9-87c2-005056acfcbb",
-                    "node": {"name": "user-cluster-01-a"},
-                    "name": "e0d",
-                    "_links": {
-                        "self": {
-                            "href": "/api/network/ethernet/ports/c84d5337-1397-11e9-87c2-005056acfcbb"
-                        }
-                    },
-                },
-                "failover": "broadcast_domain_only",
-                "node": {
-                    "uuid": "c1db2904-1396-11e9-bb7d-005056acfcbb",
-                    "name": "user-cluster-01-a",
-                    "_links": {
-                        "self": {
-                            "href": "/api/cluster/nodes/c1db2904-1396-11e9-bb7d-005056acfcbb"
-                        }
-                    },
-                },
-                "is_home": True,
-            },
             "ipspace": {
-                "uuid": "114ecfb5-59fc-11e8-ba55-005056b4340f",
                 "_links": {
                     "self": {
                         "href": "/api/network/ipspaces/114ecfb5-59fc-11e8-ba55-005056b4340f"
                     }
                 },
                 "name": "Default",
+                "uuid": "114ecfb5-59fc-11e8-ba55-005056b4340f",
             },
+            "location": {
+                "auto_revert": False,
+                "failover": "broadcast_domain_only",
+                "port": {
+                    "name": "e0d",
+                    "node": {"name": "user-cluster-01-a"},
+                    "_links": {
+                        "self": {
+                            "href": "/api/network/ethernet/ports/c84d5337-1397-11e9-87c2-005056acfcbb"
+                        }
+                    },
+                    "uuid": "c84d5337-1397-11e9-87c2-005056acfcbb",
+                },
+                "is_home": True,
+                "node": {
+                    "name": "user-cluster-01-a",
+                    "_links": {
+                        "self": {
+                            "href": "/api/cluster/nodes/c1db2904-1396-11e9-bb7d-005056acfcbb"
+                        }
+                    },
+                    "uuid": "c1db2904-1396-11e9-bb7d-005056acfcbb",
+                },
+                "home_port": {
+                    "name": "e0d",
+                    "node": {"name": "user-cluster-01-a"},
+                    "_links": {
+                        "self": {
+                            "href": "/api/network/ethernet/ports/c84d5337-1397-11e9-87c2-005056acfcbb"
+                        }
+                    },
+                    "uuid": "c84d5337-1397-11e9-87c2-005056acfcbb",
+                },
+                "home_node": {
+                    "name": "user-cluster-01-a",
+                    "_links": {
+                        "self": {
+                            "href": "/api/cluster/nodes/c1db2904-1396-11e9-bb7d-005056acfcbb"
+                        }
+                    },
+                    "uuid": "c1db2904-1396-11e9-bb7d-005056acfcbb",
+                },
+            },
+            "vip": False,
+            "enabled": True,
             "_links": {
                 "self": {
                     "href": "/api/network/ip/interfaces/c670707c-5a11-11e8-8fcb-005056b4340f"
                 }
+            },
+            "services": ["data_core", "data_nfs", "data_cifs", "data_flexcache"],
+            "service_policy": {
+                "name": "default-data-files",
+                "uuid": "9e53525f-141b-11e9-851e-005056ac1ce0",
+            },
+            "state": "up",
+            "uuid": "c670707c-5a11-11e8-8fcb-005056b4340f",
+            "scope": "svm",
+            "svm": {
+                "name": "user_vs0",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/c2134665-5a11-11e8-8fcb-005056b4340f"
+                    }
+                },
+                "uuid": "c2134665-5a11-11e8-8fcb-005056b4340f",
             },
         }
     )
@@ -327,38 +327,38 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     IpInterface(
         {
-            "service_policy": {"name": "default-cluster"},
-            "uuid": "1d1c9dc8-4f17-11e9-9553-005056ac918a",
             "ip": {"address": "192.168.170.24"},
             "name": "user-cluster-01-a_clus1",
-            "enabled": True,
             "location": {
-                "home_node": {"name": "user-cluster-01-a"},
                 "home_port": {"name": "e0a"},
+                "home_node": {"name": "user-cluster-01-a"},
             },
+            "enabled": True,
             "_links": {
                 "self": {
                     "href": "/api/network/ip/interfaces/1d1c9dc8-4f17-11e9-9553-005056ac918a"
                 }
             },
+            "service_policy": {"name": "default-cluster"},
+            "uuid": "1d1c9dc8-4f17-11e9-9553-005056ac918a",
         }
     ),
     IpInterface(
         {
-            "service_policy": {"name": "default-cluster"},
-            "uuid": "d07782c1-4f16-11e9-86e7-005056ace7ee",
             "ip": {"address": "192.168.170.22"},
             "name": "user-cluster-01-b_clus1",
-            "enabled": True,
             "location": {
-                "home_node": {"name": "user-cluster-01-b"},
                 "home_port": {"name": "e0a"},
+                "home_node": {"name": "user-cluster-01-b"},
             },
+            "enabled": True,
             "_links": {
                 "self": {
                     "href": "/api/network/ip/interfaces/d07782c1-4f16-11e9-86e7-005056ace7ee"
                 }
             },
+            "service_policy": {"name": "default-cluster"},
+            "uuid": "d07782c1-4f16-11e9-86e7-005056ace7ee",
         }
     ),
 ]
@@ -405,23 +405,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IpInterface(
     {
-        "service_policy": {"name": "default-management"},
-        "uuid": "245979de-59fc-11e8-ba55-005056b4340f",
-        "ip": {"address": "10.63.41.6", "netmask": "18"},
+        "ip": {"netmask": "18", "address": "10.63.41.6"},
         "name": "cluster_mgmt",
-        "scope": "cluster",
-        "enabled": True,
+        "ipspace": {"name": "Default"},
         "location": {
             "auto_revert": False,
-            "home_port": {"node": {"name": "user-cluster-01-a"}, "name": "e0d"},
             "failover": "broadcast_domain_only",
+            "home_port": {"name": "e0d", "node": {"name": "user-cluster-01-a"}},
         },
-        "ipspace": {"name": "Default"},
+        "enabled": True,
         "_links": {
             "self": {
                 "href": "/api/network/ip/interfaces/245979de-59fc-11e8-ba55-005056b4340f"
             }
         },
+        "service_policy": {"name": "default-management"},
+        "uuid": "245979de-59fc-11e8-ba55-005056b4340f",
+        "scope": "cluster",
     }
 )
 
@@ -458,24 +458,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IpInterface(
     {
-        "svm": {
-            "uuid": "137f3618-1e89-11e9-803e-005056a7646a",
-            "name": "vs0",
-            "_links": {
-                "self": {"href": "/api/svm/svms/137f3618-1e89-11e9-803e-005056a7646a"}
-            },
-        },
-        "service_policy": {"name": "default-data-files"},
-        "uuid": "80d271c9-1f43-11e9-803e-005056a7646a",
-        "ip": {"address": "10.234.101.116", "netmask": "20"},
+        "ip": {"netmask": "20", "address": "10.234.101.116"},
         "name": "Data1",
-        "scope": "svm",
-        "enabled": True,
         "location": {"auto_revert": True},
+        "enabled": True,
         "_links": {
             "self": {
                 "href": "/api/network/ip/interfaces/80d271c9-1f43-11e9-803e-005056a7646a"
             }
+        },
+        "service_policy": {"name": "default-data-files"},
+        "uuid": "80d271c9-1f43-11e9-803e-005056a7646a",
+        "scope": "svm",
+        "svm": {
+            "name": "vs0",
+            "_links": {
+                "self": {"href": "/api/svm/svms/137f3618-1e89-11e9-803e-005056a7646a"}
+            },
+            "uuid": "137f3618-1e89-11e9-803e-005056a7646a",
         },
     }
 )
@@ -515,22 +515,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IpInterface(
     {
-        "service_policy": {"name": "default-management"},
-        "uuid": "245979de-59fc-11e8-ba55-005056b4340f",
-        "ip": {"address": "10.63.41.6", "netmask": "18"},
+        "ip": {"netmask": "18", "address": "10.63.41.6"},
         "name": "cluster_mgmt",
-        "scope": "cluster",
-        "enabled": True,
+        "ipspace": {"name": "Default"},
         "location": {
             "auto_revert": False,
-            "home_port": {"node": {"name": "user-cluster-01-a"}, "name": "e0d"},
+            "home_port": {"name": "e0d", "node": {"name": "user-cluster-01-a"}},
         },
-        "ipspace": {"name": "Default"},
+        "enabled": True,
         "_links": {
             "self": {
                 "href": "/api/network/ip/interfaces/245979de-59fc-11e8-ba55-005056b4340f"
             }
         },
+        "service_policy": {"name": "default-management"},
+        "uuid": "245979de-59fc-11e8-ba55-005056b4340f",
+        "scope": "cluster",
     }
 )
 
@@ -566,24 +566,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IpInterface(
     {
-        "svm": {
-            "uuid": "137f3618-1e89-11e9-803e-005056a7646a",
-            "name": "vs0",
-            "_links": {
-                "self": {"href": "/api/svms/137f3618-1e89-11e9-803e-005056a7646a"}
-            },
-        },
-        "service_policy": {"name": "default-data-files"},
-        "uuid": "80d271c9-1f43-11e9-803e-005056a7646a",
-        "ip": {"address": "10.234.101.116", "netmask": "20"},
+        "ip": {"netmask": "20", "address": "10.234.101.116"},
         "name": "Data1",
-        "scope": "svm",
-        "enabled": True,
         "location": {"auto_revert": True},
+        "enabled": True,
         "_links": {
             "self": {
                 "href": "/api/network/ip/interfaces/80d271c9-1f43-11e9-803e-005056a7646a"
             }
+        },
+        "service_policy": {"name": "default-data-files"},
+        "uuid": "80d271c9-1f43-11e9-803e-005056a7646a",
+        "scope": "svm",
+        "svm": {
+            "name": "vs0",
+            "_links": {
+                "self": {"href": "/api/svms/137f3618-1e89-11e9-803e-005056a7646a"}
+            },
+            "uuid": "137f3618-1e89-11e9-803e-005056a7646a",
         },
     }
 )
@@ -621,24 +621,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IpInterface(
     {
-        "svm": {
-            "uuid": "137f3618-1e89-11e9-803e-005056a7646a",
-            "name": "vs0",
-            "_links": {
-                "self": {"href": "/api/svm/svms/137f3618-1e89-11e9-803e-005056a7646a"}
-            },
-        },
-        "service_policy": {"name": "default-data-files"},
-        "uuid": "80d271c9-1f43-11e9-803e-005056a7646a",
         "name": "Data1",
-        "scope": "svm",
-        "enabled": True,
         "subnet": {"name": "testSubnet"},
         "location": {"auto_revert": True},
+        "enabled": True,
         "_links": {
             "self": {
                 "href": "/api/network/ip/interfaces/80d271c9-1f43-11e9-803e-005056a7646a"
             }
+        },
+        "service_policy": {"name": "default-data-files"},
+        "uuid": "80d271c9-1f43-11e9-803e-005056a7646a",
+        "scope": "svm",
+        "svm": {
+            "name": "vs0",
+            "_links": {
+                "self": {"href": "/api/svm/svms/137f3618-1e89-11e9-803e-005056a7646a"}
+            },
+            "uuid": "137f3618-1e89-11e9-803e-005056a7646a",
         },
     }
 )
@@ -710,11 +710,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -728,11 +727,15 @@ __pdoc__ = {
     "IpInterfaceSchema.opts": False,
 }
 
-
 class IpInterfaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the IpInterface object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the ip_interface."""
 
     ddns_enabled = marshmallow_fields.Boolean(
@@ -761,16 +764,36 @@ Example: storage.company.com"""
     )
     r""" This command fails if the specified IP address falls within the address range of a named subnet. Set this value to false to use the specified IP address and to assign the subnet owning that address to the interface."""
 
-    ip = marshmallow_fields.Nested("netapp_ontap.models.ip_info.IpInfoSchema", data_key="ip", unknown=EXCLUDE, allow_none=True)
+    ip = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ip_info", "IpInfoSchema"),
+                data_key="ip",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" IP information"""
 
-    ipspace = marshmallow_fields.Nested("netapp_ontap.resources.ipspace.IpspaceSchema", data_key="ipspace", unknown=EXCLUDE, allow_none=True)
+    ipspace = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.ipspace", "IpspaceSchema"),
+                data_key="ipspace",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The ipspace field of the ip_interface."""
 
-    location = marshmallow_fields.Nested("netapp_ontap.models.ip_interface_location.IpInterfaceLocationSchema", data_key="location", unknown=EXCLUDE, allow_none=True)
+    location = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ip_interface_location", "IpInterfaceLocationSchema"),
+                data_key="location",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Current or home location can be modified. Specifying a port implies a node. Specifying a node allows an appropriate port to be automatically selected. Ports are not valid and not shown for VIP interfaces. For POST, broadcast_domain can be specified alone or with home_node.  For PATCH, set is_home to true to revert a LIF back to its home port."""
 
-    metric = marshmallow_fields.Nested("netapp_ontap.models.interface_metrics_data.InterfaceMetricsDataSchema", data_key="metric", unknown=EXCLUDE, allow_none=True)
+    metric = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.interface_metrics_data", "InterfaceMetricsDataSchema"),
+                data_key="metric",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Throughput performance for the interfaces."""
 
     name = marshmallow_fields.Str(
@@ -804,7 +827,12 @@ Valid choices:
 * svm
 * cluster"""
 
-    service_policy = marshmallow_fields.Nested("netapp_ontap.resources.ip_service_policy.IpServicePolicySchema", data_key="service_policy", unknown=EXCLUDE, allow_none=True)
+    service_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.ip_service_policy", "IpServicePolicySchema"),
+                data_key="service_policy",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The service_policy field of the ip_interface."""
 
     services = marshmallow_fields.List(marshmallow_fields.Str, data_key="services", allow_none=True)
@@ -822,13 +850,28 @@ Valid choices:
 * up
 * down"""
 
-    statistics = marshmallow_fields.Nested("netapp_ontap.models.interface_statistics.InterfaceStatisticsSchema", data_key="statistics", unknown=EXCLUDE, allow_none=True)
+    statistics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.interface_statistics", "InterfaceStatisticsSchema"),
+                data_key="statistics",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" These are the total throughput raw performance data for the interface."""
 
-    subnet = marshmallow_fields.Nested("netapp_ontap.resources.ip_subnet.IpSubnetSchema", data_key="subnet", unknown=EXCLUDE, allow_none=True)
+    subnet = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.ip_subnet", "IpSubnetSchema"),
+                data_key="subnet",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Use this field to allocate an interface address from a subnet. If needed, a default route is created for this subnet."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the ip_interface."""
 
     uuid = marshmallow_fields.Str(

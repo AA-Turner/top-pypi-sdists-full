@@ -7390,6 +7390,7 @@ class CfnOutput(CfnElement, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnO
 
     Example::
 
+        import aws_cdk.aws_s3 as s3
         # cluster: eks.Cluster
         
         # add service account
@@ -7581,6 +7582,7 @@ class CfnOutputProps:
 
         Example::
 
+            import aws_cdk.aws_s3 as s3
             # cluster: eks.Cluster
             
             # add service account
@@ -20395,15 +20397,15 @@ typing.cast(typing.Any, Reference).__jsii_proxy_class__ = lambda : _ReferencePro
 class RemovalPolicies(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.RemovalPolicies"):
     '''Manages removal policies for all resources within a construct scope, overriding any existing policies by default.
 
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
         import aws_cdk as cdk
+        # cluster: eks.Cluster
         
-        removal_policies = cdk.RemovalPolicies.of(self)
+        
+        cdk.RemovalPolicies.of(cluster.open_id_connect_provider).apply(cdk.RemovalPolicy.RETAIN)
     '''
 
     @jsii.member(jsii_name="of")
@@ -20561,43 +20563,24 @@ class RemovalPolicy(enum.Enum):
        cfn_bucket = bucket.node.find_child("Resource")
        cfn_bucket.apply_removal_policy(RemovalPolicy.DESTROY)
 
-    :exampleMetadata: fixture=default infused
+    :exampleMetadata: infused
 
     Example::
 
-        bucket = s3.Bucket(self, "memoryBucket",
-            bucket_name="test-memory",
-            removal_policy=cdk.RemovalPolicy.DESTROY,
-            auto_delete_objects=True
-        )
+        # my_role: iam.Role
         
-        topic = sns.Topic(self, "topic")
-        
-        # Create a custom semantic memory strategy
-        self_managed_strategy = agentcore.MemoryStrategy.using_self_managed(
-            name="selfManagedStrategy",
-            description="self managed memory strategy",
-            historical_context_window_size=5,
-            invocation_configuration=agentcore.InvocationConfiguration(
-                topic=topic,
-                s3_location=s3.Location(
-                    bucket_name=bucket.bucket_name,
-                    object_key="memory/"
-                )
+        cr.AwsCustomResource(self, "Customized",
+            role=my_role,  # must be assumable by the `lambda.amazonaws.com` service principal
+            timeout=Duration.minutes(10),  # defaults to 2 minutes
+            memory_size=1025,  # defaults to 512 if installLatestAwsSdk is true
+            log_group=logs.LogGroup(self, "AwsCustomResourceLogs",
+                retention=logs.RetentionDays.ONE_DAY
             ),
-            trigger_conditions=agentcore.TriggerConditions(
-                message_based_trigger=1,
-                time_based_trigger=cdk.Duration.seconds(10),
-                token_based_trigger=100
+            function_name="my-custom-name",  # defaults to a CloudFormation generated name
+            removal_policy=RemovalPolicy.RETAIN,  # defaults to `RemovalPolicy.DESTROY`
+            policy=cr.AwsCustomResourcePolicy.from_sdk_calls(
+                resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE
             )
-        )
-        
-        # Create memory with custom strategy
-        memory = agentcore.Memory(self, "MyMemory",
-            memory_name="my-custom-memory",
-            description="Memory with custom strategy",
-            expiration_duration=cdk.Duration.days(90),
-            memory_strategies=[self_managed_strategy]
         )
     '''
 
@@ -39060,6 +39043,7 @@ __all__ = [
     "aws_mpa",
     "aws_msk",
     "aws_mwaa",
+    "aws_mwaaserverless",
     "aws_neptune",
     "aws_neptunegraph",
     "aws_networkfirewall",
@@ -39372,6 +39356,7 @@ from . import aws_memorydb
 from . import aws_mpa
 from . import aws_msk
 from . import aws_mwaa
+from . import aws_mwaaserverless
 from . import aws_neptune
 from . import aws_neptunegraph
 from . import aws_networkfirewall

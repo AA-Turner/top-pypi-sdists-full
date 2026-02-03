@@ -28,12 +28,18 @@ from meutils.apis.hailuoai.utils import PARAMS as params, get_access_token, uplo
 from meutils.schemas.image_types import ImageRequest, ImagesResponse
 from meutils.schemas.video_types import SoraVideoRequest, Video
 
+MODELS_MAPPING = {
+    "async/nano-banana-pro": "nano-banana2"
+}
+
 
 # @rcache(ttl=7 * 24 * 3600, skip_cache_func=skip_cache_func)
 
 async def generate(request: ImageRequest, api_key: Optional[str] = None, is_async: bool = False):
     refresh_token = api_key or os.getenv("HAILUOAI_API_KEY")
     token = await get_access_token(refresh_token)
+
+    request.model = MODELS_MAPPING.get(request.model, request.model)
 
     payload = {
         "quantity": request.n,
@@ -47,8 +53,6 @@ async def generate(request: ImageRequest, api_key: Optional[str] = None, is_asyn
         }
     }
 
-    # {"quantity":1,"parameter":{"modelID":"image-01","desc":"cat","fileList":[],"useOriginPrompt":false,"aspectRatio":"16:9","resolution":""}}
-
     if request.model.startswith('gpt'):
         if payload['parameter']['aspectRatio'] not in {"Auto", "1:1", "2:3", "3:2"}:
             payload['parameter']['aspectRatio'] = "Auto"
@@ -56,13 +60,19 @@ async def generate(request: ImageRequest, api_key: Optional[str] = None, is_asyn
     elif request.model.startswith('image'):
         payload['parameter']["resolution"] = ""
 
+    elif request.model.startswith('nano-banana'):
+        if payload['parameter']['aspectRatio'] not in {
+            "Auto", '1:1', '21:9', '16:9', '2:3', '3:4', '5:4', '4:5', '4:3', '9:16', '3:2'}:
+            payload['parameter']['aspectRatio'] = "Auto"
+            payload['parameter']['desc'] += f" --size {request.aspect_ratio}"
+
     if request.image:
         payload['parameter']['fileList'] = [
             {
                 # "url": url,
                 # "url": await to_url(url, filename='xx.jpeg'), # 不是真转换
 
-                "url": await to_image(url),
+                "url": await to_image(url, mini_aspect_ratio="2:5"),  # 重置为 jpg
 
                 # "id": "469899357624119304",
                 # "name": "image.png",
@@ -73,7 +83,7 @@ async def generate(request: ImageRequest, api_key: Optional[str] = None, is_asyn
         ]
 
     logger.debug(bjson(payload))
-
+    # return
     path = "/v2/api/multimodal/generate/image"
     headers = {
         'Content-Type': 'application/json',
@@ -170,9 +180,10 @@ if __name__ == '__main__':
     token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzIyODE1NzcsInVzZXIiOnsiaWQiOiI0NDQyMjk2MDAzMzA0OTgwNTUiLCJuYW1lIjoibWZ1aiBiamhuIiwiYXZhdGFyIjoiIiwiZGV2aWNlSUQiOiIzMzkxMTQ5Mjg4NjU1Mjk4NjQiLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.__NDyZQQqyYb7TLrumo944EfuCmrbzYngQloNBK4CmM"
     # token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzIzNTA5NjUsInVzZXIiOnsiaWQiOiI0Njk4ODIxOTY3NDM1Mjg0NDkiLCJuYW1lIjoiYWZzbCBkcnF2IiwiYXZhdGFyIjoiIiwiZGV2aWNlSUQiOiIzMTE2NzAxODUwMDg0ODg0NTIiLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.3pO0O36-um2fQs0ML0eHwpi0D7rV5yjmnjcpuiZcNKw"
     token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzIzNTA5NjUsInVzZXIiOnsiaWQiOiI0Njk4ODIxOTY3NDM1Mjg0NDkiLCJuYW1lIjoiYWZzbCBkcnF2IiwiYXZhdGFyIjoiIiwiZGV2aWNlSUQiOiIzMTE2NzAxODUwMDg0ODg0NTIiLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.3pO0O36-um2fQs0ML0eHwpi0D7rV5yjmnjcpuiZcNKw"
+    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzM0NzAyOTYsInVzZXIiOnsiaWQiOiI0Njk5MzQwNDI3MzI0MDA2NDciLCJuYW1lIjoiZm1vZyB0cm9nIiwiYXZhdGFyIjoiIiwiZGV2aWNlSUQiOiIzMTExNjM2MjIzODg4NTA2OTAiLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.DLSoWya89X6M3evyzBZjz4XLenvVS0cZtk4Xk9AAE-Q"
     model = "nano-banana2"
     # model = "nano-banana2_2k"
-    model = "nano-banana2_4k"
+    # model = "nano-banana2_4k"
 
     # model = "gpt-image-1.5_High"
     # model = "seedream-4.5_4k"
@@ -189,12 +200,11 @@ if __name__ == '__main__':
     # model = "seedream-4.5_2K"
     data = {
         "model": "nano-banana2",
-        "prompt": "Vertical Chinese-style product poster, clean and elegant layout, inspired by high-end Chinese beverage advertising. Product: 苹果黄芪茶 (Apple Astragalus Tea). Main visual shows a transparent glass cup with warm golden herbal tea, visible apple slices, astragalus (黄芪) slices, red dates (红枣), and goji berries (枸杞) gently floating. Surrounding ingredients neatly arranged at the bottom and sides, fresh and natural. Background minimalistic, light beige or soft cream with subtle Chinese texture. Soft natural lighting, premium health product feel. Chinese typography. Main title text: “苹果黄芪茶”. Subtitle: “温润滋养 · 日常养护”. Supporting text: “精选苹果片｜黄芪片｜红枣｜枸杞”. Small call-to-action suitable for WeChat private traffic: “每日一杯 轻松养生”. High clarity, commercial photography style, elegant, trustworthy, suitable for WeChat private domain marketing.",
-        "size": "21:9",
-        # "image": [
-        #     "https://cdn.hailuoai.video/moss/prod/2026-01-30-23/user/multi_chat_file/bc4d5a73-21d6-4b1b-bf9d-6da7f2b20fa3.jpeg?x-oss-process=image/resize,p_50/format,webp"
-        # ]
-
+        "prompt": "使图片变清晰，不改变原图比例 --4K",
+        "image": [
+            "https://cdnzjzai.m.nengshuohuihua.com/banana/refer/202602/02/20260202185746552733.jpeg?auth_key=1770029895-78f88911851543c692009bcfb89072b9-0-073258e5b2a3121093e5fc0875908869"
+        ],
+        "resolution": "4k"
     }
 
     request = ImageRequest(

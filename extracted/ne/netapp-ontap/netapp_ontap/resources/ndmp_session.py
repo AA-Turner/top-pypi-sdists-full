@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -35,11 +35,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -53,11 +52,15 @@ __pdoc__ = {
     "NdmpSessionSchema.opts": False,
 }
 
-
 class NdmpSessionSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the NdmpSession object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the ndmp_session."""
 
     backup_engine = marshmallow_fields.Str(
@@ -84,7 +87,12 @@ Valid choices:
     )
     r""" Indicates the NDMP client port."""
 
-    data = marshmallow_fields.Nested("netapp_ontap.models.ndmp_data.NdmpDataSchema", data_key="data", unknown=EXCLUDE, allow_none=True)
+    data = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ndmp_data", "NdmpDataSchema"),
+                data_key="data",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Information about the NDMP data server."""
 
     data_path = marshmallow_fields.Str(
@@ -101,13 +109,28 @@ Example: /vserver1/vol1"""
     )
     r""" NDMP session identifier."""
 
-    mover = marshmallow_fields.Nested("netapp_ontap.models.ndmp_mover.NdmpMoverSchema", data_key="mover", unknown=EXCLUDE, allow_none=True)
+    mover = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ndmp_mover", "NdmpMoverSchema"),
+                data_key="mover",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Information about the NDMP mover."""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the ndmp_session."""
 
-    scsi = marshmallow_fields.Nested("netapp_ontap.models.ndmp_scsi.NdmpScsiSchema", data_key="scsi", unknown=EXCLUDE, allow_none=True)
+    scsi = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ndmp_scsi", "NdmpScsiSchema"),
+                data_key="scsi",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Information about the NDMP SCSI server."""
 
     source_address = marshmallow_fields.Str(
@@ -116,7 +139,12 @@ Example: /vserver1/vol1"""
     )
     r""" Indicates the NDMP local address on which connection was established."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the ndmp_session."""
 
     tape_device = marshmallow_fields.Str(

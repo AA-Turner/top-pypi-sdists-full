@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -52,42 +52,42 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     WwpnAlias(
         {
+            "svm": {
+                "name": "svm1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/68589d3d-7efa-11e8-9eed-005056b43025"
+                    }
+                },
+                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
+            },
+            "wwpn": "20:00:00:50:56:b4:30:25",
             "_links": {
                 "self": {
                     "href": "/api/network/fc/wwpn-aliases/68589d3d-7efa-11e8-9eed-005056b43025/alias1"
                 }
             },
+            "alias": "alias1",
+        }
+    ),
+    WwpnAlias(
+        {
             "svm": {
-                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/68589d3d-7efa-11e8-9eed-005056b43025"
                     }
                 },
+                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
             },
-            "alias": "alias1",
-            "wwpn": "20:00:00:50:56:b4:30:25",
-        }
-    ),
-    WwpnAlias(
-        {
+            "wwpn": "50:0a:09:82:b4:30:25:00",
             "_links": {
                 "self": {
                     "href": "/api/network/fc/wwpn-aliases/68589d3d-7efa-11e8-9eed-005056b43025/alias2"
                 }
             },
-            "svm": {
-                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
-                "name": "svm1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/68589d3d-7efa-11e8-9eed-005056b43025"
-                    }
-                },
-            },
             "alias": "alias2",
-            "wwpn": "50:0a:09:82:b4:30:25:00",
         }
     ),
 ]
@@ -116,22 +116,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     WwpnAlias(
         {
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/wwpn-aliases/68589d3d-7efa-11e8-9eed-005056b43025/alias1"
-                }
-            },
             "svm": {
-                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/68589d3d-7efa-11e8-9eed-005056b43025"
                     }
                 },
+                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
+            },
+            "wwpn": "20:00:00:50:56:b4:30:25",
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/wwpn-aliases/68589d3d-7efa-11e8-9eed-005056b43025/alias1"
+                }
             },
             "alias": "alias1",
-            "wwpn": "20:00:00:50:56:b4:30:25",
         }
     )
 ]
@@ -164,22 +164,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     WwpnAlias(
         {
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/wwpn-aliases/68589d3d-7efa-11e8-9eed-005056b43025/alias1"
-                }
-            },
             "svm": {
-                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/68589d3d-7efa-11e8-9eed-005056b43025"
                     }
                 },
+                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
+            },
+            "wwpn": "50:0a:09:82:b4:30:25:00",
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/wwpn-aliases/68589d3d-7efa-11e8-9eed-005056b43025/alias1"
+                }
             },
             "alias": "alias2",
-            "wwpn": "50:0a:09:82:b4:30:25:00",
         }
     )
 ]
@@ -209,11 +209,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -227,11 +226,15 @@ __pdoc__ = {
     "WwpnAliasSchema.opts": False,
 }
 
-
 class WwpnAliasSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the WwpnAlias object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the wwpn_alias."""
 
     alias = marshmallow_fields.Str(
@@ -243,7 +246,12 @@ class WwpnAliasSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: host1"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the wwpn_alias."""
 
     wwpn = marshmallow_fields.Str(

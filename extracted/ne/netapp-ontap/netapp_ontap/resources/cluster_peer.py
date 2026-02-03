@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,16 +27,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterPeer(
     {
-        "authentication": {
-            "passphrase": "pLznaom1ctesJFq4kt5Qfghf",
-            "expiry_time": "2021-05-25T20:04:15-04:00",
-        },
-        "uuid": "86de6c46-bdad-11eb-83cd-005056bb267e",
-        "ip_address": "0.0.0.0",
         "_links": {
             "self": {"href": "/api/cluster/peers/86de6c46-bdad-11eb-83cd-005056bb267e"}
         },
+        "authentication": {
+            "expiry_time": "2021-05-25T20:04:15-04:00",
+            "passphrase": "pLznaom1ctesJFq4kt5Qfghf",
+        },
         "name": "Clus_fghf",
+        "ip_address": "0.0.0.0",
+        "uuid": "86de6c46-bdad-11eb-83cd-005056bb267e",
     }
 )
 
@@ -66,16 +66,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterPeer(
     {
-        "authentication": {
-            "passphrase": "dZNOKkpVfntNZHf3MjpNF6ht",
-            "expiry_time": "2021-05-26T12:34:56-04:00",
-        },
-        "uuid": "14c817c7-bdad-11eb-83cd-005056bb267e",
-        "ip_address": "0.0.0.0",
         "_links": {
             "self": {"href": "/api/cluster/peers/14c817c7-bdad-11eb-83cd-005056bb267e"}
         },
+        "authentication": {
+            "expiry_time": "2021-05-26T12:34:56-04:00",
+            "passphrase": "dZNOKkpVfntNZHf3MjpNF6ht",
+        },
         "name": "Clus_F6ht",
+        "ip_address": "0.0.0.0",
+        "uuid": "14c817c7-bdad-11eb-83cd-005056bb267e",
     }
 )
 
@@ -102,15 +102,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterPeer(
     {
-        "authentication": {
-            "passphrase": "yDhdOteVGEOhkeXF+DJYwDro",
-            "expiry_time": "2021-05-25T20:28:12-04:00",
-        },
-        "uuid": "b404cc52-bdae-11eb-812c-005056bb0af1",
         "_links": {
             "self": {"href": "/api/cluster/peers/b404cc52-bdae-11eb-812c-005056bb0af1"}
         },
+        "authentication": {
+            "expiry_time": "2021-05-25T20:28:12-04:00",
+            "passphrase": "yDhdOteVGEOhkeXF+DJYwDro",
+        },
         "name": "",
+        "uuid": "b404cc52-bdae-11eb-812c-005056bb0af1",
     }
 )
 
@@ -138,16 +138,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterPeer(
     {
-        "authentication": {
-            "passphrase": "eeGTerZlh2qSAt2akpYEcM1c",
-            "expiry_time": "2021-05-25T20:29:38-04:00",
-        },
-        "uuid": "125f8dc6-bdb1-11eb-83cd-005056bb267e",
-        "ip_address": "1.2.3.5",
         "_links": {
             "self": {"href": "/api/cluster/peers/125f8dc6-bdb1-11eb-83cd-005056bb267e"}
         },
+        "authentication": {
+            "expiry_time": "2021-05-25T20:29:38-04:00",
+            "passphrase": "eeGTerZlh2qSAt2akpYEcM1c",
+        },
         "name": "cp_xyz123",
+        "ip_address": "1.2.3.5",
+        "uuid": "125f8dc6-bdb1-11eb-83cd-005056bb267e",
     }
 )
 
@@ -176,11 +176,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterPeer(
     {
-        "authentication": {"expiry_time": "2021-05-25T20:32:49-04:00"},
-        "uuid": "b404cc52-bdae-11eb-812c-005056bb0af1",
         "_links": {
             "self": {"href": "/api/cluster/peers/b404cc52-bdae-11eb-812c-005056bb0af1"}
         },
+        "authentication": {"expiry_time": "2021-05-25T20:32:49-04:00"},
+        "uuid": "b404cc52-bdae-11eb-812c-005056bb0af1",
     }
 )
 
@@ -207,16 +207,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterPeer(
     {
-        "authentication": {
-            "passphrase": "Gy8SqsXVhcUkS1AfepH7Pslc",
-            "expiry_time": "2021-05-25T20:34:07-04:00",
-        },
-        "uuid": "b33a23a6-bdb1-11eb-83cd-005056bb267e",
-        "ip_address": "1.2.3.5",
         "_links": {
             "self": {"href": "/api/cluster/peers/b33a23a6-bdb1-11eb-83cd-005056bb267e"}
         },
+        "authentication": {
+            "expiry_time": "2021-05-25T20:34:07-04:00",
+            "passphrase": "Gy8SqsXVhcUkS1AfepH7Pslc",
+        },
         "name": "Clus_Pslc",
+        "ip_address": "1.2.3.5",
+        "uuid": "b33a23a6-bdb1-11eb-83cd-005056bb267e",
     }
 )
 
@@ -266,8 +266,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterPeer(
     {
-        "authentication": {"expiry_time": "2021-05-25T21:28:26-04:00"},
-        "uuid": "b404cc52-bdae-11eb-812c-005056bb0af1",
         "local_network": {
             "interfaces": [
                 {"ip_address": "1.2.3.4"},
@@ -278,6 +276,8 @@ ClusterPeer(
         "_links": {
             "self": {"href": "/api/cluster/peers/b404cc52-bdae-11eb-812c-005056bb0af1"}
         },
+        "authentication": {"expiry_time": "2021-05-25T21:28:26-04:00"},
+        "uuid": "b404cc52-bdae-11eb-812c-005056bb0af1",
     }
 )
 
@@ -306,7 +306,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ClusterPeer(
         {
-            "uuid": "a6001076-bdb2-11eb-83cd-005056bb267e",
             "_links": {
                 "interfaces": {
                     "href": "/api/network/ip/interfaces?services=intercluster_core&ipspace.uuid=0bac5ced-a911-11eb-83cd-005056bb267e"
@@ -316,11 +315,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 },
             },
             "name": "Clus_bH6l",
+            "uuid": "a6001076-bdb2-11eb-83cd-005056bb267e",
         }
     ),
     ClusterPeer(
         {
-            "uuid": "b404cc52-bdae-11eb-812c-005056bb0af1",
             "_links": {
                 "interfaces": {
                     "href": "/api/network/ip/interfaces?services=intercluster_core&ipspace.uuid=0bac5ced-a911-11eb-83cd-005056bb267e"
@@ -330,6 +329,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 },
             },
             "name": "remote-cluster",
+            "uuid": "b404cc52-bdae-11eb-812c-005056bb0af1",
         }
     ),
 ]
@@ -355,8 +355,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ClusterPeer(
         {
-            "status": {"state": "unidentified"},
-            "uuid": "a6001076-bdb2-11eb-83cd-005056bb267e",
             "_links": {
                 "interfaces": {
                     "href": "/api/network/ip/interfaces?services=intercluster_core&ipspace.uuid=0bac5ced-a911-11eb-83cd-005056bb267e"
@@ -366,6 +364,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 },
             },
             "name": "Clus_bH6l",
+            "status": {"state": "unidentified"},
+            "uuid": "a6001076-bdb2-11eb-83cd-005056bb267e",
         }
     )
 ]
@@ -392,29 +392,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterPeer(
     {
-        "authentication": {"state": "ok", "in_use": "ok"},
-        "encryption": {"state": "tls_psk"},
         "version": {
             "generation": 9,
-            "major": 10,
             "full": "NetApp Release 9.10.1: Tue May 25 08:08:44 UTC 2021",
             "minor": 1,
+            "major": 10,
         },
-        "status": {"update_time": "2021-05-25T19:38:55-04:00", "state": "available"},
         "remote": {
-            "ip_addresses": ["1.2.3.4"],
             "serial_number": "1-80-000011",
+            "ip_addresses": ["1.2.3.4"],
             "name": "remote-cluster",
-        },
-        "uuid": "b404cc52-bdae-11eb-812c-005056bb0af1",
-        "ipspace": {
-            "uuid": "0bac5ced-a911-11eb-83cd-005056bb267e",
-            "_links": {
-                "self": {
-                    "href": "/api/network/ipspaces/0bac5ced-a911-11eb-83cd-005056bb267e"
-                }
-            },
-            "name": "Default",
         },
         "_links": {
             "interfaces": {
@@ -422,7 +409,20 @@ ClusterPeer(
             },
             "self": {"href": "/api/cluster/peers/b404cc52-bdae-11eb-812c-005056bb0af1"},
         },
+        "authentication": {"state": "ok", "in_use": "ok"},
         "name": "remote-cluster",
+        "encryption": {"state": "tls_psk"},
+        "ipspace": {
+            "_links": {
+                "self": {
+                    "href": "/api/network/ipspaces/0bac5ced-a911-11eb-83cd-005056bb267e"
+                }
+            },
+            "name": "Default",
+            "uuid": "0bac5ced-a911-11eb-83cd-005056bb267e",
+        },
+        "status": {"update_time": "2021-05-25T19:38:55-04:00", "state": "available"},
+        "uuid": "b404cc52-bdae-11eb-812c-005056bb0af1",
     }
 )
 
@@ -501,11 +501,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -519,20 +518,42 @@ __pdoc__ = {
     "ClusterPeerSchema.opts": False,
 }
 
-
 class ClusterPeerSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ClusterPeer object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.cluster_peer_links.ClusterPeerLinksSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_peer_links", "ClusterPeerLinksSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the cluster_peer."""
 
-    authentication = marshmallow_fields.Nested("netapp_ontap.models.cluster_peer_authentication.ClusterPeerAuthenticationSchema", data_key="authentication", unknown=EXCLUDE, allow_none=True)
+    authentication = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_peer_authentication", "ClusterPeerAuthenticationSchema"),
+                data_key="authentication",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The authentication field of the cluster_peer."""
 
-    encryption = marshmallow_fields.Nested("netapp_ontap.models.cluster_peer_encryption.ClusterPeerEncryptionSchema", data_key="encryption", unknown=EXCLUDE, allow_none=True)
+    encryption = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_peer_encryption", "ClusterPeerEncryptionSchema"),
+                data_key="encryption",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The encryption field of the cluster_peer."""
 
-    initial_allowed_svms = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", unknown=EXCLUDE, allow_none=True), data_key="initial_allowed_svms", allow_none=True)
+    initial_allowed_svms = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="initial_allowed_svms",
+                allow_none=True
+            )
     r""" The local SVMs allowed to peer with the peer cluster's SVMs. This list can be modified until the remote cluster accepts this cluster peering relationship."""
 
     ip_address = marshmallow_fields.Str(
@@ -541,10 +562,20 @@ class ClusterPeerSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" A local intercluster IP address that a remote cluster can use, together with the passphrase, to create a cluster peer relationship with the local cluster."""
 
-    ipspace = marshmallow_fields.Nested("netapp_ontap.resources.ipspace.IpspaceSchema", data_key="ipspace", unknown=EXCLUDE, allow_none=True)
+    ipspace = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.ipspace", "IpspaceSchema"),
+                data_key="ipspace",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The ipspace field of the cluster_peer."""
 
-    local_network = marshmallow_fields.Nested("netapp_ontap.models.cluster_peer_local_network.ClusterPeerLocalNetworkSchema", data_key="local_network", unknown=EXCLUDE, allow_none=True)
+    local_network = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_peer_local_network", "ClusterPeerLocalNetworkSchema"),
+                data_key="local_network",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Cluster peering requires an intercluster LIF on each local node. These can be optionally created by specifying a list of IP addresses corresponding to each node."""
 
     name = marshmallow_fields.Str(
@@ -560,10 +591,20 @@ Example: cluster2"""
 
 Example: ["snapmirror","flexcache"]"""
 
-    remote = marshmallow_fields.Nested("netapp_ontap.models.cluster_peer_remote.ClusterPeerRemoteSchema", data_key="remote", unknown=EXCLUDE, allow_none=True)
+    remote = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_peer_remote", "ClusterPeerRemoteSchema"),
+                data_key="remote",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The remote field of the cluster_peer."""
 
-    status = marshmallow_fields.Nested("netapp_ontap.models.cluster_peer_status.ClusterPeerStatusSchema", data_key="status", unknown=EXCLUDE, allow_none=True)
+    status = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_peer_status", "ClusterPeerStatusSchema"),
+                data_key="status",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The status field of the cluster_peer."""
 
     uuid = marshmallow_fields.Str(
@@ -574,7 +615,12 @@ Example: ["snapmirror","flexcache"]"""
 
 Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
 
-    version = marshmallow_fields.Nested("netapp_ontap.models.version.VersionSchema", data_key="version", unknown=EXCLUDE, allow_none=True)
+    version = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.version", "VersionSchema"),
+                data_key="version",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" This returns the cluster version information.  When the cluster has more than one node, the cluster version is equivalent to the lowest of generation, major, and minor versions on all nodes."""
 
     @property

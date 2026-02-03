@@ -17,23 +17,9 @@ This module is part of the [AWS Cloud Development Kit](https://github.com/aws/aw
 import aws_cdk.aws_bedrockagentcore as bedrockagentcore
 ```
 
-<!--BEGIN CFNONLY DISCLAIMER-->
+L2 constructs for this service are available in the [`@aws-cdk/aws-bedrock-agentcore-alpha`](https://www.npmjs.com/package/@aws-cdk/aws-bedrock-agentcore-alpha) package.
 
-There are no official hand-written ([L2](https://docs.aws.amazon.com/cdk/latest/guide/constructs.html#constructs_lib)) constructs for this service yet. Here are some suggestions on how to proceed:
-
-* Search [Construct Hub for BedrockAgentCore construct libraries](https://constructs.dev/search?q=bedrockagentcore)
-* Use the automatically generated [L1](https://docs.aws.amazon.com/cdk/latest/guide/constructs.html#constructs_l1_using) constructs, in the same way you would use [the CloudFormation AWS::BedrockAgentCore resources](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/AWS_BedrockAgentCore.html) directly.
-
-<!--BEGIN CFNONLY DISCLAIMER-->
-
-There are no hand-written ([L2](https://docs.aws.amazon.com/cdk/latest/guide/constructs.html#constructs_lib)) constructs for this service yet.
-However, you can still use the automatically generated [L1](https://docs.aws.amazon.com/cdk/latest/guide/constructs.html#constructs_l1_using) constructs, and use this service exactly as you would using CloudFormation directly.
-
-For more information on the resources and properties available for this service, see the [CloudFormation documentation for AWS::BedrockAgentCore](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/AWS_BedrockAgentCore.html).
-
-(Read the [CDK Contributing Guide](https://github.com/aws/aws-cdk/blob/main/CONTRIBUTING.md) and submit an RFC if you are interested in contributing to this construct library.)
-
-<!--END CFNONLY DISCLAIMER-->
+You can also use the automatically generated [L1](https://docs.aws.amazon.com/cdk/latest/guide/constructs.html#constructs_l1_using) constructs, in the same way you would use [the CloudFormation AWS::BedrockAgentCore resources](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/AWS_BedrockAgentCore.html) directly.
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -9326,7 +9312,19 @@ class CfnRuntime(
         
                     # the properties below are optional
                     allowed_audience=["allowedAudience"],
-                    allowed_clients=["allowedClients"]
+                    allowed_clients=["allowedClients"],
+                    allowed_scopes=["allowedScopes"],
+                    custom_claims=[bedrockagentcore.CfnRuntime.CustomClaimValidationTypeProperty(
+                        authorizing_claim_match_value=bedrockagentcore.CfnRuntime.AuthorizingClaimMatchValueTypeProperty(
+                            claim_match_operator="claimMatchOperator",
+                            claim_match_value=bedrockagentcore.CfnRuntime.ClaimMatchValueTypeProperty(
+                                match_value_string="matchValueString",
+                                match_value_string_list=["matchValueStringList"]
+                            )
+                        ),
+                        inbound_token_claim_name="inboundTokenClaimName",
+                        inbound_token_claim_value_type="inboundTokenClaimValueType"
+                    )]
                 )
             ),
             description="description",
@@ -9839,7 +9837,19 @@ class CfnRuntime(
                 
                         # the properties below are optional
                         allowed_audience=["allowedAudience"],
-                        allowed_clients=["allowedClients"]
+                        allowed_clients=["allowedClients"],
+                        allowed_scopes=["allowedScopes"],
+                        custom_claims=[bedrockagentcore.CfnRuntime.CustomClaimValidationTypeProperty(
+                            authorizing_claim_match_value=bedrockagentcore.CfnRuntime.AuthorizingClaimMatchValueTypeProperty(
+                                claim_match_operator="claimMatchOperator",
+                                claim_match_value=bedrockagentcore.CfnRuntime.ClaimMatchValueTypeProperty(
+                                    match_value_string="matchValueString",
+                                    match_value_string_list=["matchValueStringList"]
+                                )
+                            ),
+                            inbound_token_claim_name="inboundTokenClaimName",
+                            inbound_token_claim_value_type="inboundTokenClaimValueType"
+                        )]
                     )
                 )
             '''
@@ -9869,6 +9879,158 @@ class CfnRuntime(
 
         def __repr__(self) -> str:
             return "AuthorizerConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnRuntime.AuthorizingClaimMatchValueTypeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "claim_match_operator": "claimMatchOperator",
+            "claim_match_value": "claimMatchValue",
+        },
+    )
+    class AuthorizingClaimMatchValueTypeProperty:
+        def __init__(
+            self,
+            *,
+            claim_match_operator: builtins.str,
+            claim_match_value: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuntime.ClaimMatchValueTypeProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The value or values in the custom claim to match and relationship of match.
+
+            :param claim_match_operator: The relationship between the claim field value and the value or values being matched.
+            :param claim_match_value: The value or values in the custom claim to match for.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-authorizingclaimmatchvaluetype.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                authorizing_claim_match_value_type_property = bedrockagentcore.CfnRuntime.AuthorizingClaimMatchValueTypeProperty(
+                    claim_match_operator="claimMatchOperator",
+                    claim_match_value=bedrockagentcore.CfnRuntime.ClaimMatchValueTypeProperty(
+                        match_value_string="matchValueString",
+                        match_value_string_list=["matchValueStringList"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__aec3caa15f03a36412929e5d8590d844c0a42d206d41633945c4edef06d42b12)
+                check_type(argname="argument claim_match_operator", value=claim_match_operator, expected_type=type_hints["claim_match_operator"])
+                check_type(argname="argument claim_match_value", value=claim_match_value, expected_type=type_hints["claim_match_value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "claim_match_operator": claim_match_operator,
+                "claim_match_value": claim_match_value,
+            }
+
+        @builtins.property
+        def claim_match_operator(self) -> builtins.str:
+            '''The relationship between the claim field value and the value or values being matched.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-authorizingclaimmatchvaluetype.html#cfn-bedrockagentcore-runtime-authorizingclaimmatchvaluetype-claimmatchoperator
+            '''
+            result = self._values.get("claim_match_operator")
+            assert result is not None, "Required property 'claim_match_operator' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def claim_match_value(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnRuntime.ClaimMatchValueTypeProperty"]:
+            '''The value or values in the custom claim to match for.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-authorizingclaimmatchvaluetype.html#cfn-bedrockagentcore-runtime-authorizingclaimmatchvaluetype-claimmatchvalue
+            '''
+            result = self._values.get("claim_match_value")
+            assert result is not None, "Required property 'claim_match_value' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuntime.ClaimMatchValueTypeProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AuthorizingClaimMatchValueTypeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnRuntime.ClaimMatchValueTypeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "match_value_string": "matchValueString",
+            "match_value_string_list": "matchValueStringList",
+        },
+    )
+    class ClaimMatchValueTypeProperty:
+        def __init__(
+            self,
+            *,
+            match_value_string: typing.Optional[builtins.str] = None,
+            match_value_string_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''The value or values in the custom claim to match for.
+
+            :param match_value_string: The string value to match for.
+            :param match_value_string_list: The list of strings to check for a match.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-claimmatchvaluetype.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                claim_match_value_type_property = bedrockagentcore.CfnRuntime.ClaimMatchValueTypeProperty(
+                    match_value_string="matchValueString",
+                    match_value_string_list=["matchValueStringList"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f1e5bed0c52ceaf858fa532930be858f1c52ad0f687c28a4365fff6aa1dde945)
+                check_type(argname="argument match_value_string", value=match_value_string, expected_type=type_hints["match_value_string"])
+                check_type(argname="argument match_value_string_list", value=match_value_string_list, expected_type=type_hints["match_value_string_list"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if match_value_string is not None:
+                self._values["match_value_string"] = match_value_string
+            if match_value_string_list is not None:
+                self._values["match_value_string_list"] = match_value_string_list
+
+        @builtins.property
+        def match_value_string(self) -> typing.Optional[builtins.str]:
+            '''The string value to match for.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-claimmatchvaluetype.html#cfn-bedrockagentcore-runtime-claimmatchvaluetype-matchvaluestring
+            '''
+            result = self._values.get("match_value_string")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def match_value_string_list(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The list of strings to check for a match.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-claimmatchvaluetype.html#cfn-bedrockagentcore-runtime-claimmatchvaluetype-matchvaluestringlist
+            '''
+            result = self._values.get("match_value_string_list")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ClaimMatchValueTypeProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -10088,12 +10250,112 @@ class CfnRuntime(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnRuntime.CustomClaimValidationTypeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "authorizing_claim_match_value": "authorizingClaimMatchValue",
+            "inbound_token_claim_name": "inboundTokenClaimName",
+            "inbound_token_claim_value_type": "inboundTokenClaimValueType",
+        },
+    )
+    class CustomClaimValidationTypeProperty:
+        def __init__(
+            self,
+            *,
+            authorizing_claim_match_value: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuntime.AuthorizingClaimMatchValueTypeProperty", typing.Dict[builtins.str, typing.Any]]],
+            inbound_token_claim_name: builtins.str,
+            inbound_token_claim_value_type: builtins.str,
+        ) -> None:
+            '''Required custom claim.
+
+            :param authorizing_claim_match_value: The value or values in the custom claim to match and relationship of match.
+            :param inbound_token_claim_name: The name of the custom claim to validate.
+            :param inbound_token_claim_value_type: Token claim data type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-customclaimvalidationtype.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                custom_claim_validation_type_property = bedrockagentcore.CfnRuntime.CustomClaimValidationTypeProperty(
+                    authorizing_claim_match_value=bedrockagentcore.CfnRuntime.AuthorizingClaimMatchValueTypeProperty(
+                        claim_match_operator="claimMatchOperator",
+                        claim_match_value=bedrockagentcore.CfnRuntime.ClaimMatchValueTypeProperty(
+                            match_value_string="matchValueString",
+                            match_value_string_list=["matchValueStringList"]
+                        )
+                    ),
+                    inbound_token_claim_name="inboundTokenClaimName",
+                    inbound_token_claim_value_type="inboundTokenClaimValueType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__711e5e4ff145f76afd81911a3f92a921a0e7add7ab92dc4fe87d49ff367447dd)
+                check_type(argname="argument authorizing_claim_match_value", value=authorizing_claim_match_value, expected_type=type_hints["authorizing_claim_match_value"])
+                check_type(argname="argument inbound_token_claim_name", value=inbound_token_claim_name, expected_type=type_hints["inbound_token_claim_name"])
+                check_type(argname="argument inbound_token_claim_value_type", value=inbound_token_claim_value_type, expected_type=type_hints["inbound_token_claim_value_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "authorizing_claim_match_value": authorizing_claim_match_value,
+                "inbound_token_claim_name": inbound_token_claim_name,
+                "inbound_token_claim_value_type": inbound_token_claim_value_type,
+            }
+
+        @builtins.property
+        def authorizing_claim_match_value(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnRuntime.AuthorizingClaimMatchValueTypeProperty"]:
+            '''The value or values in the custom claim to match and relationship of match.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-customclaimvalidationtype.html#cfn-bedrockagentcore-runtime-customclaimvalidationtype-authorizingclaimmatchvalue
+            '''
+            result = self._values.get("authorizing_claim_match_value")
+            assert result is not None, "Required property 'authorizing_claim_match_value' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuntime.AuthorizingClaimMatchValueTypeProperty"], result)
+
+        @builtins.property
+        def inbound_token_claim_name(self) -> builtins.str:
+            '''The name of the custom claim to validate.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-customclaimvalidationtype.html#cfn-bedrockagentcore-runtime-customclaimvalidationtype-inboundtokenclaimname
+            '''
+            result = self._values.get("inbound_token_claim_name")
+            assert result is not None, "Required property 'inbound_token_claim_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def inbound_token_claim_value_type(self) -> builtins.str:
+            '''Token claim data type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-customclaimvalidationtype.html#cfn-bedrockagentcore-runtime-customclaimvalidationtype-inboundtokenclaimvaluetype
+            '''
+            result = self._values.get("inbound_token_claim_value_type")
+            assert result is not None, "Required property 'inbound_token_claim_value_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CustomClaimValidationTypeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnRuntime.CustomJWTAuthorizerConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
             "discovery_url": "discoveryUrl",
             "allowed_audience": "allowedAudience",
             "allowed_clients": "allowedClients",
+            "allowed_scopes": "allowedScopes",
+            "custom_claims": "customClaims",
         },
     )
     class CustomJWTAuthorizerConfigurationProperty:
@@ -10103,12 +10365,16 @@ class CfnRuntime(
             discovery_url: builtins.str,
             allowed_audience: typing.Optional[typing.Sequence[builtins.str]] = None,
             allowed_clients: typing.Optional[typing.Sequence[builtins.str]] = None,
+            allowed_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
+            custom_claims: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuntime.CustomClaimValidationTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Configuration for custom JWT authorizer.
 
             :param discovery_url: The configuration authorization.
             :param allowed_audience: Represents inbound authorization configuration options used to authenticate incoming requests.
             :param allowed_clients: Represents individual client IDs that are validated in the incoming JWT token validation process.
+            :param allowed_scopes: List of allowed scopes.
+            :param custom_claims: List of required custom claims.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-customjwtauthorizerconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -10124,7 +10390,19 @@ class CfnRuntime(
                 
                     # the properties below are optional
                     allowed_audience=["allowedAudience"],
-                    allowed_clients=["allowedClients"]
+                    allowed_clients=["allowedClients"],
+                    allowed_scopes=["allowedScopes"],
+                    custom_claims=[bedrockagentcore.CfnRuntime.CustomClaimValidationTypeProperty(
+                        authorizing_claim_match_value=bedrockagentcore.CfnRuntime.AuthorizingClaimMatchValueTypeProperty(
+                            claim_match_operator="claimMatchOperator",
+                            claim_match_value=bedrockagentcore.CfnRuntime.ClaimMatchValueTypeProperty(
+                                match_value_string="matchValueString",
+                                match_value_string_list=["matchValueStringList"]
+                            )
+                        ),
+                        inbound_token_claim_name="inboundTokenClaimName",
+                        inbound_token_claim_value_type="inboundTokenClaimValueType"
+                    )]
                 )
             '''
             if __debug__:
@@ -10132,6 +10410,8 @@ class CfnRuntime(
                 check_type(argname="argument discovery_url", value=discovery_url, expected_type=type_hints["discovery_url"])
                 check_type(argname="argument allowed_audience", value=allowed_audience, expected_type=type_hints["allowed_audience"])
                 check_type(argname="argument allowed_clients", value=allowed_clients, expected_type=type_hints["allowed_clients"])
+                check_type(argname="argument allowed_scopes", value=allowed_scopes, expected_type=type_hints["allowed_scopes"])
+                check_type(argname="argument custom_claims", value=custom_claims, expected_type=type_hints["custom_claims"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "discovery_url": discovery_url,
             }
@@ -10139,6 +10419,10 @@ class CfnRuntime(
                 self._values["allowed_audience"] = allowed_audience
             if allowed_clients is not None:
                 self._values["allowed_clients"] = allowed_clients
+            if allowed_scopes is not None:
+                self._values["allowed_scopes"] = allowed_scopes
+            if custom_claims is not None:
+                self._values["custom_claims"] = custom_claims
 
         @builtins.property
         def discovery_url(self) -> builtins.str:
@@ -10167,6 +10451,26 @@ class CfnRuntime(
             '''
             result = self._values.get("allowed_clients")
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def allowed_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''List of allowed scopes.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-customjwtauthorizerconfiguration.html#cfn-bedrockagentcore-runtime-customjwtauthorizerconfiguration-allowedscopes
+            '''
+            result = self._values.get("allowed_scopes")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def custom_claims(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuntime.CustomClaimValidationTypeProperty"]]]]:
+            '''List of required custom claims.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-customjwtauthorizerconfiguration.html#cfn-bedrockagentcore-runtime-customjwtauthorizerconfiguration-customclaims
+            '''
+            result = self._values.get("custom_claims")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuntime.CustomClaimValidationTypeProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11108,7 +11412,19 @@ class CfnRuntimeProps:
             
                         # the properties below are optional
                         allowed_audience=["allowedAudience"],
-                        allowed_clients=["allowedClients"]
+                        allowed_clients=["allowedClients"],
+                        allowed_scopes=["allowedScopes"],
+                        custom_claims=[bedrockagentcore.CfnRuntime.CustomClaimValidationTypeProperty(
+                            authorizing_claim_match_value=bedrockagentcore.CfnRuntime.AuthorizingClaimMatchValueTypeProperty(
+                                claim_match_operator="claimMatchOperator",
+                                claim_match_value=bedrockagentcore.CfnRuntime.ClaimMatchValueTypeProperty(
+                                    match_value_string="matchValueString",
+                                    match_value_string_list=["matchValueStringList"]
+                                )
+                            ),
+                            inbound_token_claim_name="inboundTokenClaimName",
+                            inbound_token_claim_value_type="inboundTokenClaimValueType"
+                        )]
                     )
                 ),
                 description="description",
@@ -12807,6 +13123,22 @@ def _typecheckingstub__bb18338480d08b211086521e0155635de6c3b54cf6ebbb5a7ee690c69
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__aec3caa15f03a36412929e5d8590d844c0a42d206d41633945c4edef06d42b12(
+    *,
+    claim_match_operator: builtins.str,
+    claim_match_value: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuntime.ClaimMatchValueTypeProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f1e5bed0c52ceaf858fa532930be858f1c52ad0f687c28a4365fff6aa1dde945(
+    *,
+    match_value_string: typing.Optional[builtins.str] = None,
+    match_value_string_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7f41e2d1a7603e72b05b2b9f19fd3ed1212f3de3311dceb488af789649eda5a1(
     *,
     code: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuntime.CodeProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -12830,11 +13162,22 @@ def _typecheckingstub__f0740ce1d3425c4e128b2f49784ee2a02ae6e81129ade5290d001575f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__711e5e4ff145f76afd81911a3f92a921a0e7add7ab92dc4fe87d49ff367447dd(
+    *,
+    authorizing_claim_match_value: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuntime.AuthorizingClaimMatchValueTypeProperty, typing.Dict[builtins.str, typing.Any]]],
+    inbound_token_claim_name: builtins.str,
+    inbound_token_claim_value_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6479ff33c6925aa85dcd6d4587cd46a0d073bd9992bb93c306d366f07cda2391(
     *,
     discovery_url: builtins.str,
     allowed_audience: typing.Optional[typing.Sequence[builtins.str]] = None,
     allowed_clients: typing.Optional[typing.Sequence[builtins.str]] = None,
+    allowed_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    custom_claims: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuntime.CustomClaimValidationTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

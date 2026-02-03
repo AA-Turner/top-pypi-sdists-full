@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,38 +28,38 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConsistencyGroupMetrics(
         {
-            "timestamp": "2023-02-23T03:17:45+00:00",
-            "used_space": 1810432,
-            "throughput": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "iops": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "status": "ok",
-            "available_space": 862216192,
-            "size": 864026624,
-            "latency": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "duration": "PT15S",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/5069acd5-b325-11ed-a958-005056ac6b54/metrics/2023-02-23T03%3A17%3A45Z?fields=**"
                 }
             },
+            "latency": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "used_space": 1810432,
+            "timestamp": "2023-02-23T03:17:45+00:00",
+            "iops": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "size": 864026624,
+            "status": "ok",
+            "duration": "PT15S",
+            "throughput": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "available_space": 862216192,
         }
     ),
     ConsistencyGroupMetrics(
         {
-            "timestamp": "2023-02-23T02:18:00+00:00",
-            "used_space": 0,
-            "throughput": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "iops": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "status": "partial_no_data",
-            "available_space": 0,
-            "size": 0,
-            "latency": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "duration": "PT15S",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/5069acd5-b325-11ed-a958-005056ac6b54/metrics/2023-02-23T02%3A18%3A00Z?fields=**"
                 }
             },
+            "latency": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "used_space": 0,
+            "timestamp": "2023-02-23T02:18:00+00:00",
+            "iops": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "size": 0,
+            "status": "partial_no_data",
+            "duration": "PT15S",
+            "throughput": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "available_space": 0,
         }
     ),
 ]
@@ -93,38 +93,38 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConsistencyGroupMetrics(
         {
-            "timestamp": "2023-02-23T03:36:45+00:00",
-            "used_space": 1843200,
-            "throughput": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "iops": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "status": "ok",
-            "available_space": 862183424,
-            "size": 864026624,
-            "latency": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "duration": "PT15S",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/5069acd5-b325-11ed-a958-005056ac6b54/metrics/2023-02-23T03%3A36%3A45Z?fields=**"
                 }
             },
+            "latency": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "used_space": 1843200,
+            "timestamp": "2023-02-23T03:36:45+00:00",
+            "iops": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "size": 864026624,
+            "status": "ok",
+            "duration": "PT15S",
+            "throughput": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "available_space": 862183424,
         }
     ),
     ConsistencyGroupMetrics(
         {
-            "timestamp": "2023-02-23T03:36:30+00:00",
-            "used_space": 1843200,
-            "throughput": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "iops": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "status": "ok",
-            "available_space": 862183424,
-            "size": 864026624,
-            "latency": {"read": 0, "total": 0, "other": 0, "write": 0},
-            "duration": "PT15S",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/5069acd5-b325-11ed-a958-005056ac6b54/metrics/2023-02-23T03%3A36%3A30Z?fields=**"
                 }
             },
+            "latency": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "used_space": 1843200,
+            "timestamp": "2023-02-23T03:36:30+00:00",
+            "iops": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "size": 864026624,
+            "status": "ok",
+            "duration": "PT15S",
+            "throughput": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "available_space": 862183424,
         }
     ),
 ]
@@ -138,11 +138,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -156,11 +155,15 @@ __pdoc__ = {
     "ConsistencyGroupMetricsSchema.opts": False,
 }
 
-
 class ConsistencyGroupMetricsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ConsistencyGroupMetrics object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the consistency_group_metrics."""
 
     available_space = Size(
@@ -188,10 +191,20 @@ Valid choices:
 * P1D
 * PT5M"""
 
-    iops = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type.PerformanceMetricIoTypeSchema", data_key="iops", unknown=EXCLUDE, allow_none=True)
+    iops = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type", "PerformanceMetricIoTypeSchema"),
+                data_key="iops",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The iops field of the consistency_group_metrics."""
 
-    latency = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type.PerformanceMetricIoTypeSchema", data_key="latency", unknown=EXCLUDE, allow_none=True)
+    latency = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type", "PerformanceMetricIoTypeSchema"),
+                data_key="latency",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The latency field of the consistency_group_metrics."""
 
     size = Size(
@@ -222,7 +235,12 @@ Valid choices:
 * inconsistent_delta_time
 * inconsistent_old_data"""
 
-    throughput = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type.PerformanceMetricIoTypeSchema", data_key="throughput", unknown=EXCLUDE, allow_none=True)
+    throughput = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type", "PerformanceMetricIoTypeSchema"),
+                data_key="throughput",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The throughput field of the consistency_group_metrics."""
 
     timestamp = ImpreciseDateTime(

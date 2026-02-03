@@ -1,5 +1,9 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
+
+from typing import Any
+
 from contrast.configuration.agent_config import AgentConfig
 from contrast_vendor import structlog as logging
 
@@ -12,8 +16,15 @@ class DisableReaction:
     MESSAGE = "Contrast received instructions to disable itself - Disabling now"
 
     @staticmethod
-    def run(config: AgentConfig):
-        logger.warning(DisableReaction.MESSAGE)
+    def run(
+        config: AgentConfig,
+        *,
+        reason: str,
+        additional_info: dict[str, Any] | None = None,
+    ):
+        logger.warning(
+            DisableReaction.MESSAGE, reason=reason, **(additional_info or {})
+        )
 
         if config:
             enable_option = config.get_option("enable")

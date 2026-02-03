@@ -69,6 +69,7 @@ if TYPE_CHECKING:
         teardown as teardown,
     )
     from airflow.sdk._shared.listeners import hookimpl as hookimpl
+    from airflow.sdk._shared.observability.metrics.stats import Stats as Stats
     from airflow.sdk.bases.decorator import (
         DecoratedMappedOperator as DecoratedMappedOperator,
         DecoratedOperator as DecoratedOperator,
@@ -96,7 +97,6 @@ if TYPE_CHECKING:
     )
     from airflow.sdk.listener import get_listener_manager as get_listener_manager
     from airflow.sdk.log import redact as redact
-    from airflow.sdk.observability.stats import Stats as Stats
     from airflow.sdk.plugins_manager import AirflowPlugin as AirflowPlugin
 
     # Airflow 3-only exceptions (conditionally imported)
@@ -111,6 +111,7 @@ if TYPE_CHECKING:
     )
     from airflow.sdk.execution_time.timeout import timeout as timeout
     from airflow.sdk.execution_time.xcom import XCom as XCom
+    from airflow.sdk.types import TaskInstanceKey as TaskInstanceKey
 
 
 from airflow.providers.common.compat._compat_utils import create_module_getattr
@@ -185,6 +186,7 @@ _IMPORT_MAP: dict[str, str | tuple[str, ...]] = {
     # Operator Links & Task Groups
     # ============================================================================
     "BaseOperatorLink": ("airflow.sdk", "airflow.models.baseoperatorlink"),
+    "TaskInstanceKey": ("airflow.sdk.types", "airflow.models.taskinstancekey"),
     "TaskGroup": ("airflow.sdk", "airflow.utils.task_group"),
     # ============================================================================
     # Operator Utilities (chain, cross_downstream, etc.)
@@ -250,7 +252,7 @@ _IMPORT_MAP: dict[str, str | tuple[str, ...]] = {
     # ============================================================================
     # Observability
     # ============================================================================
-    "Stats": ("airflow.sdk.observability.stats", "airflow.stats"),
+    "Stats": ("airflow.sdk._shared.observability.metrics.stats", "airflow.stats"),
     # ============================================================================
     # Secrets Masking
     # ============================================================================

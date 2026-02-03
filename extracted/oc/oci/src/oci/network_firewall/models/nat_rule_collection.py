@@ -12,7 +12,7 @@ from oci.decorators import init_model_state_from_kwargs
 @init_model_state_from_kwargs
 class NatRuleCollection(object):
     """
-    Collection of Nat Rule Summaries in the network firewall policy
+    Collection of NAT rule summaries in the network firewall policy.
     """
 
     def __init__(self, **kwargs):

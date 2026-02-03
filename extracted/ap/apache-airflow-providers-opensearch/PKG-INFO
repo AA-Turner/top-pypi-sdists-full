@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-opensearch
-Version: 1.8.3
+Version: 1.8.4
 Summary: Provider package apache-airflow-providers-opensearch for Apache Airflow
 Keywords: airflow-provider,opensearch,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -26,8 +26,8 @@ Requires-Dist: apache-airflow>=2.11.0
 Requires-Dist: apache-airflow-providers-common-compat>=1.12.0
 Requires-Dist: opensearch-py>=2.2.0
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-opensearch/1.8.3/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-opensearch/1.8.3
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-opensearch/1.8.4/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-opensearch/1.8.4
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -58,7 +58,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-opensearch``
 
-Release: ``1.8.3``
+Release: ``1.8.4``
 
 
 `OpenSearch <https://opensearch.org/>`__
@@ -71,7 +71,7 @@ This is a provider package for ``opensearch`` provider. All classes for this pro
 are in ``airflow.providers.opensearch`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-opensearch/1.8.3/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-opensearch/1.8.4/>`_.
 
 Installation
 ------------
@@ -89,7 +89,7 @@ Requirements
 PIP package                                 Version required
 ==========================================  ==================
 ``apache-airflow``                          ``>=2.11.0``
-``apache-airflow-providers-common-compat``  ``>=1.11.0``
+``apache-airflow-providers-common-compat``  ``>=1.12.0``
 ``opensearch-py``                           ``>=2.2.0``
 ==========================================  ==================
 
@@ -113,5 +113,5 @@ Dependent package                                                               
 ==================================================================================================================  =================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-opensearch/1.8.3/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-opensearch/1.8.4/changelog.html>`_.
 

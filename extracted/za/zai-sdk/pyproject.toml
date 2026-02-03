@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "zai-sdk"
-version = "0.2.1"
+version = "0.2.2"
 description = "A SDK library for accessing big model apis from Z.ai"
 authors = ["Z.ai"]
 readme = "README.md"
@@ -14,6 +14,7 @@ pydantic = ">=1.9.0,<3.0"
 pydantic-core = ">=2.14.6"
 cachetools = ">=4.2.2"
 pyjwt = ">=2.9.0,<3.0.0"
+sniffio = ">=1.3.1"
 
 
 [tool.poetry.group.test.dependencies]

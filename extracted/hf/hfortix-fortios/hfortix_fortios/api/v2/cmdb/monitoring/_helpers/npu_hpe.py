@@ -54,10 +54,9 @@ DEPRECATED_FIELDS = {
 
 # Field types mapping
 FIELD_TYPES = {
-    "status": "option",  # Enable/disable HPE status monitoring.   
-enable:Enable setti
-    "interval": "integer",  # HPE status check interval (1 - 60 seconds, default = 1 secon
-    "multipliers": "string",  # HPE type interval multipliers (12 integers from <1> to <255>
+    "status": "option",  # Enable/disable HPE status monitoring.    enable:Enable setting.    disable:Disab
+    "interval": "integer",  # HPE status check interval (1 - 60 seconds, default = 1 second).
+    "multipliers": "string",  # HPE type interval multipliers (12 integers from <1> to <255>, default = 4, 4, 4,
 }
 
 # Field descriptions (help text from FortiOS API)

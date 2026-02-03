@@ -12,7 +12,9 @@ from oci.decorators import init_model_state_from_kwargs
 @init_model_state_from_kwargs
 class NatV4NatRule(NatRule):
     """
-    A Nat Rule is used to define to which traffic NAT should be applied by the firewall.
+    A `NAT rule`__ defines which traffic NAT should be applied to by the firewall.
+
+    __ https://docs.cloud.oracle.com/iaas/Content/network-firewall/policies.htm#network-firewall-policies__nat
     """
 
     #: A constant which can be used with the action property of a NatV4NatRule.

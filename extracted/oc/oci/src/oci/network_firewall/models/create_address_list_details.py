@@ -41,20 +41,27 @@ class CreateAddressListDetails(object):
             The value to assign to the addresses property of this CreateAddressListDetails.
         :type addresses: list[str]
 
+        :param description:
+            The value to assign to the description property of this CreateAddressListDetails.
+        :type description: str
+
         """
         self.swagger_types = {
             'name': 'str',
             'type': 'str',
-            'addresses': 'list[str]'
+            'addresses': 'list[str]',
+            'description': 'str'
         }
         self.attribute_map = {
             'name': 'name',
             'type': 'type',
-            'addresses': 'addresses'
+            'addresses': 'addresses',
+            'description': 'description'
         }
         self._name = None
         self._type = None
         self._addresses = None
+        self._description = None
 
     @property
     def name(self):
@@ -134,6 +141,30 @@ class CreateAddressListDetails(object):
         :type: list[str]
         """
         self._addresses = addresses
+
+    @property
+    def description(self):
+        """
+        Gets the description of this CreateAddressListDetails.
+        The description of the address list. This field can be used to add additional info.
+
+
+        :return: The description of this CreateAddressListDetails.
+        :rtype: str
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """
+        Sets the description of this CreateAddressListDetails.
+        The description of the address list. This field can be used to add additional info.
+
+
+        :param description: The description of this CreateAddressListDetails.
+        :type: str
+        """
+        self._description = description
 
     def __repr__(self):
         return formatted_flat_dict(self)

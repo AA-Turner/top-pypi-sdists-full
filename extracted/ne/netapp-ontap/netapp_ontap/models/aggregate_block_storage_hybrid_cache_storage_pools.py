@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["AggregateBlockStorageHybridCacheStoragePools", "AggregateBlockStorageHybridCacheStoragePoolsSchema"]
@@ -17,14 +16,18 @@ __pdoc__ = {
     "AggregateBlockStorageHybridCacheStoragePools": False,
 }
 
-
 class AggregateBlockStorageHybridCacheStoragePoolsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the AggregateBlockStorageHybridCacheStoragePools object"""
 
     allocation_units_count = Size(data_key="allocation_units_count", allow_none=True)
     r""" Allocation count of storage pool. """
 
-    storage_pool = marshmallow_fields.Nested("netapp_ontap.resources.storage_pool.StoragePoolSchema", unknown=EXCLUDE, data_key="storage_pool", allow_none=True)
+    storage_pool = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.storage_pool", "StoragePoolSchema"),
+                unknown=EXCLUDE,
+                data_key="storage_pool",
+                allow_none=True
+            )
     r""" The storage_pool field of the aggregate_block_storage_hybrid_cache_storage_pools. """
 
     @property

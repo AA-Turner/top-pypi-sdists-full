@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: axiom-py
-Version: 0.9.1
+Version: 0.10.0
 Summary: Official bindings for the Axiom API
 Project-URL: Homepage, https://axiom.co
 Project-URL: Repository, https://github.com/axiomhq/axiom-py.git
@@ -38,6 +38,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: System :: Logging
 Requires-Python: >=3.8
 Requires-Dist: dacite>=1.8.1
+Requires-Dist: httpx>=0.27.0
 Requires-Dist: iso8601>=1.0.2
 Requires-Dist: pyhumps>=3.8.0
 Requires-Dist: requests-toolbelt>=1.0.0
@@ -50,6 +51,14 @@ Description-Content-Type: text/markdown
 
 # axiom-py [![CI][ci_badge]][ci] [![PyPI version][pypi_badge]][pypi] [![Python version][version_badge]][pypi]
 
+## Install
+
+```sh
+pip install axiom-py
+```
+
+## Synchronous Client
+
 ```py
 import axiom_py
 
@@ -59,10 +68,71 @@ client.ingest_events(dataset="DATASET_NAME", events=[{"foo": "bar"}, {"bar": "ba
 client.query(r"['DATASET_NAME'] | where foo == 'bar' | limit 100")
 ```
 
-## Install
+## Edge Ingestion
 
-```sh
-pip install axiom-py
+For improved data locality, you can configure the client to use regional edge
+endpoints for ingest and query operations. All other API operations continue to
+use the main Axiom API endpoint.
+
+```python
+import axiom_py
+
+# Using a regional edge domain
+edge_client = axiom_py.Client(
+    token="xaat-your-api-token",
+    edge="eu-central-1.aws.edge.axiom.co"
+)
+
+# Or using an explicit edge URL
+edge_client = axiom_py.Client(
+    token="xaat-your-api-token",
+    edge_url="https://custom-edge.example.com"
+)
+```
+
+**Note:** Edge endpoints require API tokens (`xaat-`), not personal tokens.
+Edge configuration must be passed explicitly when creating the client.
+## Asynchronous Client
+
+The library also provides an async client for use with asyncio:
+
+```py
+import asyncio
+from axiom_py import AsyncClient
+
+async def main():
+    async with AsyncClient() as client:
+        # Ingest events
+        await client.ingest_events(
+            dataset="DATASET_NAME",
+            events=[{"foo": "bar"}, {"bar": "baz"}]
+        )
+
+        # Query data
+        result = await client.query(r"['DATASET_NAME'] | where foo == 'bar' | limit 100")
+        print(f"Found {len(result.matches)} matches")
+
+asyncio.run(main())
+```
+
+### Concurrent Operations
+
+The async client enables efficient concurrent operations:
+
+```py
+import asyncio
+from axiom_py import AsyncClient
+
+async def main():
+    async with AsyncClient() as client:
+        # Ingest to multiple datasets concurrently
+        await asyncio.gather(
+            client.ingest_events("dataset1", [{"event": "data1"}]),
+            client.ingest_events("dataset2", [{"event": "data2"}]),
+            client.ingest_events("dataset3", [{"event": "data3"}]),
+        )
+
+asyncio.run(main())
 ```
 
 ## Documentation

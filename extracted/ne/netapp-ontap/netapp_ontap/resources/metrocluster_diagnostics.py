@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -476,11 +476,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -494,29 +493,63 @@ __pdoc__ = {
     "MetroclusterDiagnosticsSchema.opts": False,
 }
 
-
 class MetroclusterDiagnosticsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the MetroclusterDiagnostics object"""
 
-    aggregate = marshmallow_fields.Nested("netapp_ontap.models.metrocluster_diagnostics_aggregate.MetroclusterDiagnosticsAggregateSchema", data_key="aggregate", unknown=EXCLUDE, allow_none=True)
+    aggregate = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.metrocluster_diagnostics_aggregate", "MetroclusterDiagnosticsAggregateSchema"),
+                data_key="aggregate",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The aggregate field of the metrocluster_diagnostics."""
 
-    cluster = marshmallow_fields.Nested("netapp_ontap.models.metrocluster_diagnostics_cluster.MetroclusterDiagnosticsClusterSchema", data_key="cluster", unknown=EXCLUDE, allow_none=True)
+    cluster = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.metrocluster_diagnostics_cluster", "MetroclusterDiagnosticsClusterSchema"),
+                data_key="cluster",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The cluster field of the metrocluster_diagnostics."""
 
-    config_replication = marshmallow_fields.Nested("netapp_ontap.models.metrocluster_diagnostics_configreplication.MetroclusterDiagnosticsConfigreplicationSchema", data_key="config-replication", unknown=EXCLUDE, allow_none=True)
+    config_replication = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.metrocluster_diagnostics_configreplication", "MetroclusterDiagnosticsConfigreplicationSchema"),
+                data_key="config-replication",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The config_replication field of the metrocluster_diagnostics."""
 
-    connection = marshmallow_fields.Nested("netapp_ontap.models.metrocluster_diagnostics_connection.MetroclusterDiagnosticsConnectionSchema", data_key="connection", unknown=EXCLUDE, allow_none=True)
+    connection = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.metrocluster_diagnostics_connection", "MetroclusterDiagnosticsConnectionSchema"),
+                data_key="connection",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The connection field of the metrocluster_diagnostics."""
 
-    interface = marshmallow_fields.Nested("netapp_ontap.models.metrocluster_diagnostics_interface.MetroclusterDiagnosticsInterfaceSchema", data_key="interface", unknown=EXCLUDE, allow_none=True)
+    interface = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.metrocluster_diagnostics_interface", "MetroclusterDiagnosticsInterfaceSchema"),
+                data_key="interface",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The interface field of the metrocluster_diagnostics."""
 
-    node = marshmallow_fields.Nested("netapp_ontap.models.metrocluster_diagnostics_node.MetroclusterDiagnosticsNodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.metrocluster_diagnostics_node", "MetroclusterDiagnosticsNodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the metrocluster_diagnostics."""
 
-    volume = marshmallow_fields.Nested("netapp_ontap.models.metrocluster_diagnostics_volume.MetroclusterDiagnosticsVolumeSchema", data_key="volume", unknown=EXCLUDE, allow_none=True)
+    volume = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.metrocluster_diagnostics_volume", "MetroclusterDiagnosticsVolumeSchema"),
+                data_key="volume",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The volume field of the metrocluster_diagnostics."""
 
     @property

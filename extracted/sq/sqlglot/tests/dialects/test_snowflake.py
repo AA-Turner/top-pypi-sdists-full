@@ -2794,6 +2794,21 @@ class TestSnowflake(Validator):
         self.validate_identity("LOCALTIMESTAMP(3)", "CURRENT_TIMESTAMP(3)")
 
         self.validate_all(
+            "SELECT CURRENT_TIME(4)",
+            write={
+                "snowflake": "SELECT CURRENT_TIME(4)",
+                "duckdb": "SELECT LOCALTIME",
+            },
+        )
+
+        self.validate_all(
+            "SELECT CURRENT_TIME",
+            write={
+                "snowflake": "SELECT CURRENT_TIME",
+                "duckdb": "SELECT LOCALTIME",
+            },
+        )
+        self.validate_all(
             "SELECT DATE_FROM_PARTS(2026, 1, 100)",
             write={
                 "snowflake": "SELECT DATE_FROM_PARTS(2026, 1, 100)",
@@ -5139,6 +5154,37 @@ FROM SEMANTIC_VIEW(
         self.validate_identity("MD5_BINARY(col)")
         self.validate_identity("MD5_NUMBER_LOWER64(col)")
         self.validate_identity("MD5_NUMBER_UPPER64(col)")
+
+    def test_sha1(self):
+        self.validate_all(
+            "SHA1(x)",
+            write={
+                "snowflake": "SHA1(x)",
+                "duckdb": "SHA1(x)",
+            },
+        )
+
+        expr = self.validate_identity("SHA1('text')")
+        annotated = annotate_types(expr, dialect="snowflake")
+        self.assertEqual(annotated.sql("duckdb"), "SHA1('text')")
+        self.assertEqual(annotated.sql("snowflake"), "SHA1('text')")
+
+        self.validate_all(
+            "SHA1(X'002A'::BINARY)",
+            write={
+                "snowflake": "SHA1(CAST(x'002A' AS BINARY))",
+                "duckdb": "SHA1(CAST(UNHEX('002A') AS BLOB))",
+            },
+        )
+        expr = self.validate_identity("SHA1(123)")
+        annotated = annotate_types(expr, dialect="snowflake")
+        self.assertEqual(annotated.sql("snowflake"), "SHA1(123)")
+        self.assertEqual(annotated.sql("duckdb"), "SHA1(CAST(123 AS TEXT))")
+
+        expr = self.validate_identity("SHA1(DATE '2024-01-15')", "SHA1(CAST('2024-01-15' AS DATE))")
+        annotated = annotate_types(expr, dialect="snowflake")
+        self.assertEqual(annotated.sql("snowflake"), "SHA1(CAST('2024-01-15' AS DATE))")
+        self.assertEqual(annotated.sql("duckdb"), "SHA1(CAST(CAST('2024-01-15' AS DATE) AS TEXT))")
 
     def test_model_attribute(self):
         self.validate_identity("SELECT model!mladmin")

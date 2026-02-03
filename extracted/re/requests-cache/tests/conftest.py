@@ -11,6 +11,7 @@ https://requests-mock.readthedocs.io/en/latest/adapter.html
 
 import os
 import platform
+import threading
 import warnings
 from contextlib import contextmanager, nullcontext
 from datetime import datetime, timedelta, timezone
@@ -27,15 +28,8 @@ from requests import Request
 from requests_mock import ANY as ANY_METHOD
 from requests_mock import Adapter
 from rich.logging import RichHandler
-from timeout_decorator import timeout
 
-from requests_cache import (
-    ALL_METHODS,
-    CachedSession,
-    install_cache,
-    uninstall_cache,
-    utcnow,
-)
+from requests_cache import ALL_METHODS, CachedSession, install_cache, uninstall_cache, utcnow
 
 # ignore missing time-travel library on PyPy
 try:
@@ -64,7 +58,6 @@ N_REQUESTS_PER_ITERATION = 10 + 10 * STRESS_TEST_MULTIPLIER
 HTTPBIN_DEFAULT = 'http://localhost:8080'
 HTTPBIN_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
 HTTPBIN_FORMATS = [
-    'brotli',
     'deflate',
     'deny',
     'encoding/utf8',
@@ -99,6 +92,7 @@ MOCKED_URL_VARY_REDIRECT_TARGET = 'http+mock://requests-cache.com/vary-redirect-
 MOCKED_URL_404 = 'http+mock://requests-cache.com/nonexistent'
 MOCKED_URL_500 = 'http+mock://requests-cache.com/answer?q=this-statement-is-false'
 MOCKED_URL_200_404 = 'http+mock://requests-cache.com/200-404'
+MOCKED_URL_ETAG_200_404 = 'http+mock://requests-cache.com/etag-200-404'
 MOCK_PROTOCOLS = ['mock://', 'http+mock://', 'https+mock://']
 
 CACHE_NAME = 'pytest_cache'
@@ -113,12 +107,9 @@ def httpbin(path):
     return f'{base_url}/{path}'
 
 
-try:
+USE_PYTEST_HTTPBIN = os.getenv('USE_PYTEST_HTTPBIN', '').lower() == 'true'
+if USE_PYTEST_HTTPBIN:
     import pytest_httpbin  # noqa: F401
-
-    USE_PYTEST_HTTPBIN = os.getenv('USE_PYTEST_HTTPBIN', '').lower() == 'true'
-except ImportError:
-    USE_PYTEST_HTTPBIN = False
 
 
 @pytest.fixture(scope='session', autouse=USE_PYTEST_HTTPBIN)
@@ -274,6 +265,11 @@ def get_mock_adapter() -> Adapter:
     adapter.register_uri(
         ANY_METHOD, MOCKED_URL_200_404, [{'status_code': 200}, {'status_code': 404}]
     )
+    adapter.register_uri(
+        ANY_METHOD,
+        MOCKED_URL_ETAG_200_404,
+        [{'status_code': 200, 'headers': {'ETag': ETAG}}, {'status_code': 404}],
+    )
     return adapter
 
 
@@ -298,6 +294,40 @@ def assert_delta_approx_equal(dt1: datetime, dt2: datetime, target_delta, thresh
     assert abs(diff_in_seconds - target_delta) <= threshold_seconds
 
 
+def timeout(timeout_seconds: float):
+    """Timeout decorator that uses threading instead of multiprocessing, for compatibility with
+    pytest-xdist on python 3.14+.
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            result = None
+            exception = None
+
+            def target() -> None:
+                nonlocal result, exception
+                try:
+                    result = func(*args, **kwargs)
+                except Exception as e:
+                    exception = e
+
+            thread = threading.Thread(target=target)
+            thread.daemon = True
+            thread.start()
+            thread.join(timeout=timeout_seconds)
+
+            if thread.is_alive():
+                raise TimeoutError(f'Function timed out after {timeout_seconds} seconds')
+            if exception is not None:
+                raise exception
+            return result
+
+        return wrapper
+
+    return decorator
+
+
 def fail_if_no_connection(connect_timeout: float = 1.0) -> bool:
     """Decorator for testing a backend connection. This will intentionally cause a test failure if
     the wrapped function doesn't have dependencies installed, doesn't connect after a short timeout,
@@ -311,7 +341,7 @@ def fail_if_no_connection(connect_timeout: float = 1.0) -> bool:
         @wraps(func)
         def wrapper(*args, **kwargs):
             try:
-                timeout(connect_timeout, use_signals=False)(func)(*args, **kwargs)
+                timeout(connect_timeout)(func)(*args, **kwargs)
             except Exception as e:
                 logger.error(e)
                 pytest.fail('Could not connect to backend')

@@ -2,7 +2,7 @@ import asyncio
 import multiprocessing
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from functools import wraps
 from pathlib import Path
 from typing import Any
@@ -124,8 +124,9 @@ class Server(AbstractServer[AsyncWorker]):
         ssl_client_verify: bool = False,
         url_path_prefix: str | None = None,
         factory: bool = False,
-        static_path_route: str = '/static',
-        static_path_mount: Path | None = None,
+        static_path_route: Sequence[str] | None = None,
+        static_path_mount: Sequence[Path] | None = None,
+        static_path_dir_to_file: str | None = None,
         static_path_expires: int = 86400,
     ):
         super().__init__(
@@ -161,6 +162,7 @@ class Server(AbstractServer[AsyncWorker]):
             factory=factory,
             static_path_route=static_path_route,
             static_path_mount=static_path_mount,
+            static_path_dir_to_file=static_path_dir_to_file,
             static_path_expires=static_path_expires,
         )
         self.main_loop_interrupt = asyncio.Event()
@@ -213,7 +215,7 @@ class Server(AbstractServer[AsyncWorker]):
         http1_settings: HTTP1Settings | None,
         http2_settings: HTTP2Settings | None,
         websockets: bool,
-        static_path: tuple[str, str, str] | None,
+        static_path: tuple[str, str, str | None, str | None] | None,
         log_access_fmt: str | None,
         ssl_ctx: SSLCtx,
         scope_opts: dict[str, Any],
@@ -223,6 +225,7 @@ class Server(AbstractServer[AsyncWorker]):
         worker = ASGIWorker(
             worker_id,
             sock,
+            None,
             runtime_threads,
             runtime_blocking_threads,
             blocking_threads,
@@ -234,6 +237,7 @@ class Server(AbstractServer[AsyncWorker]):
             websockets,
             static_path,
             *ssl_ctx,
+            (None, None),
         )
         serve = worker.serve_async_uds if sock.is_uds() else worker.serve_async
         scheduler = _new_cbscheduler(loop, wcallback, impl_asyncio=task_impl == TaskImpl.asyncio)
@@ -257,7 +261,7 @@ class Server(AbstractServer[AsyncWorker]):
         http1_settings: HTTP1Settings | None,
         http2_settings: HTTP2Settings | None,
         websockets: bool,
-        static_path: tuple[str, str, str] | None,
+        static_path: tuple[str, str, str | None, str | None] | None,
         log_access_fmt: str | None,
         ssl_ctx: SSLCtx,
         scope_opts: dict[str, Any],
@@ -275,6 +279,7 @@ class Server(AbstractServer[AsyncWorker]):
         worker = ASGIWorker(
             worker_id,
             sock,
+            None,
             runtime_threads,
             runtime_blocking_threads,
             blocking_threads,
@@ -286,6 +291,7 @@ class Server(AbstractServer[AsyncWorker]):
             websockets,
             static_path,
             *ssl_ctx,
+            (None, None),
         )
         serve = worker.serve_async_uds if sock.is_uds() else worker.serve_async
         scheduler = _new_cbscheduler(loop, wcallback, impl_asyncio=task_impl == TaskImpl.asyncio)
@@ -310,7 +316,7 @@ class Server(AbstractServer[AsyncWorker]):
         http1_settings: HTTP1Settings | None,
         http2_settings: HTTP2Settings | None,
         websockets: bool,
-        static_path: tuple[str, str, str] | None,
+        static_path: tuple[str, str, str | None, str | None] | None,
         log_access_fmt: str | None,
         ssl_ctx: SSLCtx,
         scope_opts: dict[str, Any],
@@ -322,6 +328,7 @@ class Server(AbstractServer[AsyncWorker]):
         worker = RSGIWorker(
             worker_id,
             sock,
+            None,
             runtime_threads,
             runtime_blocking_threads,
             blocking_threads,
@@ -333,6 +340,7 @@ class Server(AbstractServer[AsyncWorker]):
             websockets,
             static_path,
             *ssl_ctx,
+            (None, None),
         )
         serve = worker.serve_async_uds if sock.is_uds() else worker.serve_async
         scheduler = _new_cbscheduler(loop, wcallback, impl_asyncio=task_impl == TaskImpl.asyncio)
@@ -434,6 +442,10 @@ class Server(AbstractServer[AsyncWorker]):
             logger.error('The resource monitor is not supported in embedded mode')
             raise ConfigurationError('workers_max_rss')
 
+        if self.metrics_enabled:
+            logger.error('Metrics are not available in embedded mode')
+            raise ConfigurationError('metrics_enabled')
+
         if not spawn_target:
             spawn_target = default_spawners[self.interface]
 
@@ -453,7 +465,7 @@ class Server(AbstractServer[AsyncWorker]):
             logger.error('Environment file(s) usage requires the granian[dotenv] extra')
             raise ConfigurationError('env_files')
 
-        if self.blocking_threads_idle_timeout < 10 or self.blocking_threads_idle_timeout > 600:
+        if self.blocking_threads_idle_timeout < 5 or self.blocking_threads_idle_timeout > 600:
             logger.error('Blocking threads idle timeout must be between 10 and 600 seconds')
             raise ConfigurationError('blocking_threads_idle_timeout')
 

@@ -62,8 +62,6 @@ class ThreadsResource(SyncAPIResource):
         authentication
 
         Args:
-          thread_id: The unique identifier of the thread
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -185,38 +183,6 @@ class ThreadsResource(SyncAPIResource):
         Search threads with various filtering options optimized for AI agents
 
         Args:
-          conversation_state: Filter threads by conversation state
-
-          created_after: Filter threads created after this date
-
-          created_before: Filter threads created before this date
-
-          has_email_from_address: Filter threads with emails from this address
-
-          has_email_to_address: Filter threads with emails to this address
-
-          has_participant_emails: Filter threads that include all of these email addresses as participants
-
-          last_email_after: Filter threads with last email after this date
-
-          last_email_before: Filter threads with last email before this date
-
-          limit: Number of threads to return (1-100)
-
-          offset: Number of threads to skip
-
-          some_email_has_direction: Filter threads containing emails with this direction
-
-          some_email_has_status: Filter threads containing emails with this status
-
-          sort_by: Field to sort by
-
-          sort_order: Sort order
-
-          stale_threshold_days: Days to consider a thread stale (used with conversationState=stale)
-
-          subject_contains: Filter threads where subject contains this text
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -291,8 +257,6 @@ class AsyncThreadsResource(AsyncAPIResource):
         authentication
 
         Args:
-          thread_id: The unique identifier of the thread
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -414,38 +378,6 @@ class AsyncThreadsResource(AsyncAPIResource):
         Search threads with various filtering options optimized for AI agents
 
         Args:
-          conversation_state: Filter threads by conversation state
-
-          created_after: Filter threads created after this date
-
-          created_before: Filter threads created before this date
-
-          has_email_from_address: Filter threads with emails from this address
-
-          has_email_to_address: Filter threads with emails to this address
-
-          has_participant_emails: Filter threads that include all of these email addresses as participants
-
-          last_email_after: Filter threads with last email after this date
-
-          last_email_before: Filter threads with last email before this date
-
-          limit: Number of threads to return (1-100)
-
-          offset: Number of threads to skip
-
-          some_email_has_direction: Filter threads containing emails with this direction
-
-          some_email_has_status: Filter threads containing emails with this status
-
-          sort_by: Field to sort by
-
-          sort_order: Sort order
-
-          stale_threshold_days: Days to consider a thread stale (used with conversationState=stale)
-
-          subject_contains: Filter threads where subject contains this text
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request

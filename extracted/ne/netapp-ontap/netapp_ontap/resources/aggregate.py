@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -67,97 +67,97 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Aggregate(
     {
         "block_storage": {
-            "primary": {
-                "disk_type": "ssd",
-                "disk_count": 6,
-                "checksum_style": "block",
-                "disk_class": "solid_state",
-                "raid_type": "raid_dp",
-                "raid_size": 24,
-            },
             "plexes": [{"name": "plex0"}],
-            "uses_partitions": False,
             "storage_type": "vmdisk",
+            "primary": {
+                "checksum_style": "block",
+                "raid_type": "raid_dp",
+                "disk_class": "solid_state",
+                "disk_count": 6,
+                "raid_size": 24,
+                "disk_type": "ssd",
+            },
+            "mirror": {"state": "unmirrored", "enabled": False},
             "hybrid_cache": {"enabled": False},
-            "mirror": {"enabled": False, "state": "unmirrored"},
+            "uses_partitions": False,
         },
-        "volume-count": 0,
-        "state": "online",
-        "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c",
-        "space": {
-            "snapshot": {
-                "used": 3000,
-                "used_percent": 45,
-                "total": 5000,
-                "available": 2000,
-                "reserve_percent": 20,
-            },
-            "block_storage": {
-                "used": 43061248,
-                "volume_footprints_percent": 14,
-                "aggregate_metadata": 2655,
-                "full_threshold_percent": 98,
-                "data_compaction_space_saved_percent": 47,
-                "data_compacted_count": 666666,
-                "used_percent": 50,
-                "physical_used_percent": 1,
-                "data_compaction_space_saved": 654566,
-                "used_including_snapshot_reserve": 674685,
-                "volume_deduplication_shared_count": 567543,
-                "volume_deduplication_space_saved_percent": 32,
-                "physical_used": 5271552,
-                "volume_deduplication_space_saved": 23765,
-                "available": 191942656,
-                "size": 235003904,
-                "used_including_snapshot_reserve_percent": 35,
-                "aggregate_metadata_percent": 8,
-            },
-            "efficiency_without_snapshots_flexclones": {
-                "ratio": 2.0,
-                "logical_used": 10000,
-                "savings": 5000,
-            },
-            "efficiency_without_snapshots": {
-                "ratio": 1.0,
-                "logical_used": 737280,
-                "savings": 0,
-            },
-            "efficiency": {
-                "cross_volume_dedupe_savings": True,
-                "cross_volume_inline_dedupe": False,
-                "logical_used": 1646350,
-                "wise_tsse_min_used_capacity_pct": 2,
-                "cross_volume_background_dedupe": True,
-                "ratio": 6.908119720880661,
-                "enable_workload_informed_tsse": True,
-                "savings": 1408029,
-                "auto_adaptive_compression_savings": False,
-            },
-            "cloud_storage": {"used": 0},
-        },
-        "cloud_storage": {"attach_eligible": False},
-        "snaplock_type": "non_snaplock",
-        "inode_attributes": {
-            "files_used": 97,
-            "max_files_possible": 2844525,
-            "used_percent": 5,
-            "files_total": 31136,
-            "max_files_available": 31136,
-            "max_files_used": 97,
-        },
-        "home_node": {"uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1", "name": "node-1"},
-        "create_time": "2018-12-04T15:40:38-05:00",
-        "node": {"uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1", "name": "node-1"},
         "name": "test1",
         "data_encryption": {
-            "software_encryption_enabled": False,
             "drive_protection_enabled": False,
+            "software_encryption_enabled": False,
         },
+        "node": {"name": "node-1", "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1"},
+        "snaplock_type": "non_snaplock",
+        "home_node": {"name": "node-1", "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1"},
+        "space": {
+            "efficiency_without_snapshots": {
+                "logical_used": 737280,
+                "savings": 0,
+                "ratio": 1.0,
+            },
+            "block_storage": {
+                "used_percent": 50,
+                "volume_deduplication_space_saved": 23765,
+                "available": 191942656,
+                "aggregate_metadata": 2655,
+                "size": 235003904,
+                "aggregate_metadata_percent": 8,
+                "data_compaction_space_saved": 654566,
+                "physical_used": 5271552,
+                "used": 43061248,
+                "volume_footprints_percent": 14,
+                "volume_deduplication_shared_count": 567543,
+                "data_compaction_space_saved_percent": 47,
+                "volume_deduplication_space_saved_percent": 32,
+                "used_including_snapshot_reserve": 674685,
+                "data_compacted_count": 666666,
+                "used_including_snapshot_reserve_percent": 35,
+                "physical_used_percent": 1,
+                "full_threshold_percent": 98,
+            },
+            "cloud_storage": {"used": 0},
+            "snapshot": {
+                "used_percent": 45,
+                "reserve_percent": 20,
+                "available": 2000,
+                "used": 3000,
+                "total": 5000,
+            },
+            "efficiency": {
+                "enable_workload_informed_tsse": True,
+                "wise_tsse_min_used_capacity_pct": 2,
+                "auto_adaptive_compression_savings": False,
+                "logical_used": 1646350,
+                "ratio": 6.908119720880661,
+                "cross_volume_background_dedupe": True,
+                "cross_volume_dedupe_savings": True,
+                "cross_volume_inline_dedupe": False,
+                "savings": 1408029,
+            },
+            "efficiency_without_snapshots_flexclones": {
+                "logical_used": 10000,
+                "savings": 5000,
+                "ratio": 2.0,
+            },
+        },
+        "state": "online",
+        "create_time": "2018-12-04T15:40:38-05:00",
+        "volume-count": 0,
+        "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c",
+        "cloud_storage": {"attach_eligible": False},
         "snapshot": {
             "files_used": 3,
-            "files_total": 10,
             "max_files_available": 5,
+            "files_total": 10,
             "max_files_used": 50,
+        },
+        "inode_attributes": {
+            "max_files_available": 31136,
+            "used_percent": 5,
+            "files_total": 31136,
+            "max_files_used": 97,
+            "max_files_possible": 2844525,
+            "files_used": 97,
         },
     }
 )
@@ -185,43 +185,43 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Aggregate(
     {
+        "name": "aggr4",
         "metric": {
+            "latency": {"write": 230, "total": 124, "other": 123, "read": 149},
             "timestamp": "2019-07-08T22:16:45+00:00",
+            "iops": {"write": 17, "total": 11682, "other": 11663, "read": 1},
+            "status": "ok",
+            "duration": "PT15S",
             "throughput": {
-                "read": 7099,
+                "write": 840226,
                 "total": 194141115,
                 "other": 193293789,
-                "write": 840226,
+                "read": 7099,
             },
-            "iops": {"read": 1, "total": 11682, "other": 11663, "write": 17},
-            "status": "ok",
-            "latency": {"read": 149, "total": 124, "other": 123, "write": 230},
-            "duration": "PT15S",
         },
-        "uuid": "538bf337-1b2c-11e8-bad0-005056b48388",
-        "name": "aggr4",
         "statistics": {
-            "timestamp": "2019-07-08T22:17:09+00:00",
-            "latency_raw": {
-                "read": 54072313,
-                "total": 844628724,
-                "other": 477201985,
-                "write": 313354426,
-            },
-            "iops_raw": {
-                "read": 328267,
-                "total": 3052032,
-                "other": 1586535,
-                "write": 1137230,
-            },
-            "status": "ok",
             "throughput_raw": {
-                "read": 3106045952,
+                "write": 63771742208,
                 "total": 213063348224,
                 "other": 146185560064,
-                "write": 63771742208,
+                "read": 3106045952,
+            },
+            "iops_raw": {
+                "write": 1137230,
+                "total": 3052032,
+                "other": 1586535,
+                "read": 328267,
+            },
+            "timestamp": "2019-07-08T22:17:09+00:00",
+            "status": "ok",
+            "latency_raw": {
+                "write": 313354426,
+                "total": 844628724,
+                "other": 477201985,
+                "read": 54072313,
             },
         },
+        "uuid": "538bf337-1b2c-11e8-bad0-005056b48388",
     }
 )
 
@@ -379,28 +379,28 @@ Aggregate(
     {
         "block_storage": {
             "primary": {
-                "disk_type": "ssd",
-                "disk_count": 12,
-                "disk_class": "solid_state",
                 "raid_type": "raid_dp",
+                "disk_class": "solid_state",
+                "disk_count": 12,
                 "simulated_raid_groups": [
                     {
-                        "parity_disk_count": 2,
-                        "name": "test/plex0/rg0",
-                        "data_disk_count": 10,
-                        "usable_size": 12309487,
                         "is_partition": False,
+                        "usable_size": 12309487,
+                        "name": "test/plex0/rg0",
+                        "parity_disk_count": 2,
+                        "data_disk_count": 10,
                     }
                 ],
                 "raid_size": 24,
+                "disk_type": "ssd",
             },
-            "hybrid_cache": {"enabled": False},
             "mirror": {"enabled": False},
+            "hybrid_cache": {"enabled": False},
         },
-        "uuid": "cae60cfe-deae-42bd-babb-ef437d118314",
-        "space": {"block_storage": {"size": 1116180480}},
-        "node": {"uuid": "4046dda8-f802-11e8-8f6d-005056bb2030", "name": "node-2"},
         "name": "node_2_SSD_1",
+        "node": {"name": "node-2", "uuid": "4046dda8-f802-11e8-8f6d-005056bb2030"},
+        "space": {"block_storage": {"size": 1116180480}},
+        "uuid": "cae60cfe-deae-42bd-babb-ef437d118314",
     }
 )
 
@@ -429,8 +429,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Aggregate(
     {
         "block_storage": {"primary": {"disk_count": 6}},
-        "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c",
         "name": "test1",
+        "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c",
     }
 )
 
@@ -469,8 +469,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Aggregate(
     {
         "block_storage": {"primary": {"disk_count": 8}},
-        "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c",
         "name": "test1",
+        "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c",
     }
 )
 
@@ -518,7 +518,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example12_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example12_result" class="try_it_out_content">
 ```
-Aggregate({"uuid": "19425837-f2fa-4a9f-8f01-712f626c983c", "name": "test1"})
+Aggregate({"name": "test1", "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c"})
 
 ```
 </div>
@@ -558,7 +558,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example14_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example14_result" class="try_it_out_content">
 ```
-Aggregate({"uuid": "caa8a9f1-0219-4eaf-bcad-e29c05042fe1", "name": "test1"})
+Aggregate({"name": "test1", "uuid": "caa8a9f1-0219-4eaf-bcad-e29c05042fe1"})
 
 ```
 </div>
@@ -605,9 +605,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Aggregate(
     {
-        "uuid": "f3aafdc6-be35-4d93-9590-5a402bffbe4b",
         "name": "aggr5",
         "data_encryption": {"software_encryption_enabled": False},
+        "uuid": "f3aafdc6-be35-4d93-9590-5a402bffbe4b",
     }
 )
 
@@ -645,9 +645,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Aggregate(
     {
-        "uuid": "f3aafdc6-be35-4d93-9590-5a402bffbe4b",
         "name": "aggr5",
         "data_encryption": {"software_encryption_enabled": True},
+        "uuid": "f3aafdc6-be35-4d93-9590-5a402bffbe4b",
     }
 )
 
@@ -660,11 +660,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -678,11 +677,15 @@ __pdoc__ = {
     "AggregateSchema.opts": False,
 }
 
-
 class AggregateSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Aggregate object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the aggregate."""
 
     tags = marshmallow_fields.List(marshmallow_fields.Str, data_key="_tags", allow_none=True)
@@ -690,10 +693,20 @@ class AggregateSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: ["team:csi","environment:test"]"""
 
-    block_storage = marshmallow_fields.Nested("netapp_ontap.models.aggregate_block_storage.AggregateBlockStorageSchema", data_key="block_storage", unknown=EXCLUDE, allow_none=True)
+    block_storage = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.aggregate_block_storage", "AggregateBlockStorageSchema"),
+                data_key="block_storage",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Configuration information for the locally attached portion of the aggregate. When a cloud store is also used by this aggregate, this is referred to as the performance tier."""
 
-    cloud_storage = marshmallow_fields.Nested("netapp_ontap.models.aggregate_cloud_storage.AggregateCloudStorageSchema", data_key="cloud_storage", unknown=EXCLUDE, allow_none=True)
+    cloud_storage = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.aggregate_cloud_storage", "AggregateCloudStorageSchema"),
+                data_key="cloud_storage",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Configuration information for the cloud storage portion of the aggregate. This is referred to as the capacity tier."""
 
     create_time = marshmallow_fields.Str(
@@ -704,19 +717,44 @@ Example: ["team:csi","environment:test"]"""
 
 Example: 2018-01-01T16:00:00.000+0000"""
 
-    data_encryption = marshmallow_fields.Nested("netapp_ontap.models.aggregate_data_encryption.AggregateDataEncryptionSchema", data_key="data_encryption", unknown=EXCLUDE, allow_none=True)
+    data_encryption = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.aggregate_data_encryption", "AggregateDataEncryptionSchema"),
+                data_key="data_encryption",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The data_encryption field of the aggregate."""
 
-    dr_home_node = marshmallow_fields.Nested("netapp_ontap.models.dr_node.DrNodeSchema", data_key="dr_home_node", unknown=EXCLUDE, allow_none=True)
+    dr_home_node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.dr_node", "DrNodeSchema"),
+                data_key="dr_home_node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The dr_home_node field of the aggregate."""
 
-    home_node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="home_node", unknown=EXCLUDE, allow_none=True)
+    home_node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="home_node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The home_node field of the aggregate."""
 
-    inactive_data_reporting = marshmallow_fields.Nested("netapp_ontap.models.aggregate_inactive_data_reporting.AggregateInactiveDataReportingSchema", data_key="inactive_data_reporting", unknown=EXCLUDE, allow_none=True)
+    inactive_data_reporting = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.aggregate_inactive_data_reporting", "AggregateInactiveDataReportingSchema"),
+                data_key="inactive_data_reporting",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The inactive_data_reporting field of the aggregate."""
 
-    inode_attributes = marshmallow_fields.Nested("netapp_ontap.models.aggregate_inode_attributes.AggregateInodeAttributesSchema", data_key="inode_attributes", unknown=EXCLUDE, allow_none=True)
+    inode_attributes = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.aggregate_inode_attributes", "AggregateInodeAttributesSchema"),
+                data_key="inode_attributes",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The inode_attributes field of the aggregate."""
 
     is_spare_low = marshmallow_fields.Boolean(
@@ -729,7 +767,12 @@ This is an advanced property; there is an added computational cost to retrieving
 
 Example: false"""
 
-    metric = marshmallow_fields.Nested("netapp_ontap.resources.performance_metric.PerformanceMetricSchema", data_key="metric", unknown=EXCLUDE, allow_none=True)
+    metric = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.performance_metric", "PerformanceMetricSchema"),
+                data_key="metric",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Performance numbers, such as IOPS latency and throughput."""
 
     name = marshmallow_fields.Str(
@@ -740,7 +783,12 @@ Example: false"""
 
 Example: node1_aggr_1"""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the aggregate."""
 
     sidl_enabled = marshmallow_fields.Boolean(
@@ -762,10 +810,20 @@ Valid choices:
 * compliance
 * enterprise"""
 
-    snapshot = marshmallow_fields.Nested("netapp_ontap.models.aggregate_snapshot.AggregateSnapshotSchema", data_key="snapshot", unknown=EXCLUDE, allow_none=True)
+    snapshot = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.aggregate_snapshot", "AggregateSnapshotSchema"),
+                data_key="snapshot",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The snapshot field of the aggregate."""
 
-    space = marshmallow_fields.Nested("netapp_ontap.models.aggregate_space.AggregateSpaceSchema", data_key="space", unknown=EXCLUDE, allow_none=True)
+    space = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.aggregate_space", "AggregateSpaceSchema"),
+                data_key="space",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The space field of the aggregate."""
 
     state = marshmallow_fields.Str(
@@ -788,7 +846,12 @@ Valid choices:
 * failed
 * unknown"""
 
-    statistics = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_raw.PerformanceMetricRawSchema", data_key="statistics", unknown=EXCLUDE, allow_none=True)
+    statistics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_raw", "PerformanceMetricRawSchema"),
+                data_key="statistics",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The statistics field of the aggregate."""
 
     uuid = marshmallow_fields.Str(

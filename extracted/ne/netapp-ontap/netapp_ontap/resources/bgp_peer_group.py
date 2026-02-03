@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -33,8 +33,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <div id="example0_result" class="try_it_out_content">
 ```
 [
-    BgpPeerGroup({"uuid": "5f22ae9d-87b2-11e9-a3a6-005056bb81a4", "name": "pg1"}),
-    BgpPeerGroup({"uuid": "5fd08be3-87b2-11e9-952f-005056bb2170", "name": "pg2"}),
+    BgpPeerGroup({"name": "pg1", "uuid": "5f22ae9d-87b2-11e9-a3a6-005056bb81a4"}),
+    BgpPeerGroup({"name": "pg2", "uuid": "5fd08be3-87b2-11e9-952f-005056bb2170"}),
 ]
 
 ```
@@ -63,31 +63,31 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 BgpPeerGroup(
     {
+        "peer": {"asn": 65501, "address": "10.10.10.1"},
         "state": "up",
-        "uuid": "5fd08be3-87b2-11e9-952f-005056bb2170",
+        "name": "pg2",
         "ipspace": {
-            "uuid": "84fd3375-879a-11e9-a3a6-005056bb81a4",
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/84fd3375-879a-11e9-a3a6-005056bb81a4"
                 }
             },
             "name": "Default",
+            "uuid": "84fd3375-879a-11e9-a3a6-005056bb81a4",
         },
         "local": {
             "port": {
-                "uuid": "f8ff73de-879a-11e9-952f-005056bb2170",
-                "node": {"name": "node1"},
                 "name": "e0h",
+                "node": {"name": "node1"},
+                "uuid": "f8ff73de-879a-11e9-952f-005056bb2170",
             },
             "interface": {
-                "uuid": "5e76a305-87b2-11e9-952f-005056bb2170",
                 "ip": {"address": "10.10.10.2"},
                 "name": "bgp2",
+                "uuid": "5e76a305-87b2-11e9-952f-005056bb2170",
             },
         },
-        "name": "pg2",
-        "peer": {"address": "10.10.10.1", "asn": 65501},
+        "uuid": "5fd08be3-87b2-11e9-952f-005056bb2170",
     }
 )
 
@@ -122,13 +122,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     BgpPeerGroup(
         {
-            "uuid": "5f22ae9d-87b2-11e9-a3a6-005056bb81a4",
+            "peer": {"asn": 65501, "address": "10.10.10.2"},
+            "name": "pg1",
             "local": {
                 "port": {"node": {"name": "node1"}},
                 "interface": {"ip": {"address": "10.10.10.1"}},
             },
-            "name": "pg1",
-            "peer": {"address": "10.10.10.2", "asn": 65501},
+            "uuid": "5f22ae9d-87b2-11e9-a3a6-005056bb81a4",
         }
     )
 ]
@@ -168,11 +168,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 BgpPeerGroup(
     {
-        "uuid": "e3faacc6-87cb-11e9-a3a6-005056bb81a4",
+        "peer": {"address": "10.10.10.10"},
+        "name": "newPg",
         "ipspace": {"name": "Default"},
         "local": {"interface": {"name": "bgp1"}},
-        "name": "newPg",
-        "peer": {"address": "10.10.10.10"},
+        "uuid": "e3faacc6-87cb-11e9-a3a6-005056bb81a4",
     }
 )
 
@@ -210,14 +210,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 BgpPeerGroup(
     {
-        "uuid": "c292f069-8872-11e9-a3a6-005056bb81a4",
+        "peer": {"address": "10.10.10.10"},
+        "name": "newPg1",
         "ipspace": {"name": "Default"},
         "local": {
-            "port": {"node": {"name": "node1"}, "name": "e0f"},
+            "port": {"name": "e0f", "node": {"name": "node1"}},
             "interface": {"name": "newlif"},
         },
-        "name": "newPg1",
-        "peer": {"address": "10.10.10.10"},
+        "uuid": "c292f069-8872-11e9-a3a6-005056bb81a4",
     }
 )
 
@@ -288,11 +288,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -306,14 +305,23 @@ __pdoc__ = {
     "BgpPeerGroupSchema.opts": False,
 }
 
-
 class BgpPeerGroupSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the BgpPeerGroup object"""
 
-    ipspace = marshmallow_fields.Nested("netapp_ontap.resources.ipspace.IpspaceSchema", data_key="ipspace", unknown=EXCLUDE, allow_none=True)
+    ipspace = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.ipspace", "IpspaceSchema"),
+                data_key="ipspace",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The ipspace field of the bgp_peer_group."""
 
-    local = marshmallow_fields.Nested("netapp_ontap.models.bgp_peer_group_local.BgpPeerGroupLocalSchema", data_key="local", unknown=EXCLUDE, allow_none=True)
+    local = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.bgp_peer_group_local", "BgpPeerGroupLocalSchema"),
+                data_key="local",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Information describing the local interface that is being used to peer with a router using BGP. On a POST operation, an existing BGP interface is used by specifying the interface, or create a new one by specifying the port and IP address."""
 
     name = marshmallow_fields.Str(
@@ -324,7 +332,12 @@ class BgpPeerGroupSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: bgpv4peer"""
 
-    peer = marshmallow_fields.Nested("netapp_ontap.models.bgp_peer_group_peer.BgpPeerGroupPeerSchema", data_key="peer", unknown=EXCLUDE, allow_none=True)
+    peer = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.bgp_peer_group_peer", "BgpPeerGroupPeerSchema"),
+                data_key="peer",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Information describing the router to peer with"""
 
     state = marshmallow_fields.Str(

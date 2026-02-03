@@ -1,7 +1,7 @@
 use tombi_ast::AstNode;
 use tombi_config::{
-    CONFIG_TOML_FILENAME, Config, ConfigLevel, PYPROJECT_TOML_FILENAME, TOMBI_CONFIG_TOML_VERSION,
-    TOMBI_TOML_FILENAME, TomlVersion,
+    CONFIG_TOML_FILENAME, Config, ConfigLevel, DOT_TOMBI_TOML_FILENAME, PYPROJECT_TOML_FILENAME,
+    TOMBI_CONFIG_TOML_VERSION, TOMBI_TOML_FILENAME, TomlVersion,
 };
 
 /// Parse the TOML text into a `Config` struct.
@@ -78,7 +78,7 @@ pub fn try_from_path<P: AsRef<std::path::Path>>(
     };
 
     match config_path.file_name().and_then(|name| name.to_str()) {
-        Some(TOMBI_TOML_FILENAME | CONFIG_TOML_FILENAME) => {
+        Some(DOT_TOMBI_TOML_FILENAME | TOMBI_TOML_FILENAME | CONFIG_TOML_FILENAME) => {
             match crate::config::from_str(&config_text, config_path) {
                 Ok(tombi_config) => Ok(Some(tombi_config)),
                 Err(_) => Err(tombi_config::Error::ConfigFileParseFailed {
@@ -112,22 +112,26 @@ pub fn load_with_path_and_level(
 ) -> Result<(Config, Option<std::path::PathBuf>, ConfigLevel), tombi_config::Error> {
     if let Some(mut current_dir) = search_dir {
         loop {
-            let config_path = current_dir.join(TOMBI_TOML_FILENAME);
-            tracing::trace!("Checking config file at {:?}", &config_path);
-            if config_path.is_file() {
-                tracing::debug!("\"{}\" found at {:?}", TOMBI_TOML_FILENAME, &config_path);
+            for tombi_config_filename in [DOT_TOMBI_TOML_FILENAME, TOMBI_TOML_FILENAME] {
+                let config_path = current_dir.join(tombi_config_filename);
+                log::trace!("Checking config file at {:?}", &config_path);
+                if config_path.is_file() {
+                    log::debug!("\"{}\" found at {:?}", tombi_config_filename, &config_path);
 
-                let Some(config) = try_from_path(&config_path)? else {
-                    unreachable!("tombi.toml should always be parsed successfully.");
-                };
+                    let Some(config) = try_from_path(&config_path)? else {
+                        unreachable!(
+                            "{tombi_config_filename} should always be parsed successfully."
+                        );
+                    };
 
-                return Ok((config, Some(config_path), ConfigLevel::Project));
+                    return Ok((config, Some(config_path), ConfigLevel::Project));
+                }
             }
 
             let pyproject_toml_path = current_dir.join(PYPROJECT_TOML_FILENAME);
-            tracing::trace!("Checking pyproject.toml file at {:?}", &pyproject_toml_path);
+            log::trace!("Checking pyproject.toml file at {:?}", &pyproject_toml_path);
             if pyproject_toml_path.exists() {
-                tracing::debug!(
+                log::debug!(
                     "\"{}\" found at {:?}",
                     PYPROJECT_TOML_FILENAME,
                     pyproject_toml_path
@@ -138,7 +142,7 @@ pub fn load_with_path_and_level(
                         return Ok((config, Some(pyproject_toml_path), ConfigLevel::Project));
                     }
                     None => {
-                        tracing::debug!("No [tool.tombi] found in {:?}", &pyproject_toml_path);
+                        log::debug!("No [tool.tombi] found in {:?}", &pyproject_toml_path);
                     }
                 };
             }
@@ -151,13 +155,13 @@ pub fn load_with_path_and_level(
 
     if let Some((user_config_path, config_level)) = get_user_or_system_tombi_config_path_and_level()
     {
-        tracing::debug!("{CONFIG_TOML_FILENAME} found at {:?}", &user_config_path);
+        log::debug!("{CONFIG_TOML_FILENAME} found at {:?}", &user_config_path);
         let Some(config) = try_from_path(&user_config_path)? else {
             unreachable!("{CONFIG_TOML_FILENAME} should always be parsed successfully.");
         };
         Ok((config, Some(user_config_path), config_level))
     } else {
-        tracing::debug!("config file not found, use default config");
+        log::debug!("config file not found, use default config");
 
         Ok((Config::default(), None, ConfigLevel::Default))
     }

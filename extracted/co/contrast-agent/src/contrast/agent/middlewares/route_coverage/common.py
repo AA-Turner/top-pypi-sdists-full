@@ -17,12 +17,12 @@ Example:
 
 import functools
 import inspect
-from typing import Callable
 import re
-
-from contrast.utils.decorators import fail_quietly
+from typing import Callable
 
 from contrast_fireball import DiscoveredRoute
+
+from contrast.utils.decorators import fail_quietly
 from contrast_vendor import structlog as logging
 
 logger = logging.getLogger("contrast")
@@ -115,33 +115,22 @@ def build_args_from_function(func):
     return method_arg_names
 
 
-@fail_quietly("Failed to perform route discovery")
 def handle_route_discovery(
     framework: str, discovery_func: Callable[..., set[DiscoveredRoute]], args
 ) -> None:
-    """
-    Start the route discovery background thread if inventory is enabled.
-    """
-    from contrast.agent import agent_state
-
-    if (
-        settings := agent_state.get_settings()
-    ) is None or not settings.is_inventory_enabled():
-        logger.debug("Inventory disabled - will not perform route discovery")
-        return
-
-    logger.debug("Starting route discovery background thread", framework=framework)
+    # This is a wrapper function for when _do_route_discovery can be moved to a background thread.
+    logger.debug("Starting route discovery", framework=framework)
     _do_route_discovery(framework, discovery_func, args)
 
 
-@fail_quietly("Failed to perform route discovery in background thread")
+@fail_quietly("Failed to perform route discovery")
 def _do_route_discovery(
     framework: str,
     discovery_func: Callable[..., set[DiscoveredRoute]],
     args: tuple,
 ) -> None:
     """
-    Top-level background thread function for route discovery.
+    Top-level function for route discovery.
     """
     from contrast.agent import agent_state
 

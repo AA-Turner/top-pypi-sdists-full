@@ -10,11 +10,12 @@ import traceback
 from websocket._core import WebSocket
 
 from adam.config import Config
+from adam.utils import log_timing
 from adam.utils_context import Context
+from adam.utils_k8s.kube_context import KubeContext
 from adam.utils_k8s.volumes import ConfigMapMount
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.utils import Color, ParallelMapHandler, PodLogFile, log2, debug, log_exc
-from .kube_context import KubeContext
 
 T = TypeVar('T')
 _TEST_POD_EXEC_OUTS: PodExecResult = None
@@ -43,14 +44,17 @@ class Pods:
         for i in ret.items:
             v1.delete_namespaced_pod(name=i.metadata.name, namespace=namespace, grace_period_seconds=grace_period_seconds)
 
-    def parallelize(collection: list, max_workers: int = 0, samples = sys.maxsize, msg: str = None, action: str = 'action'):
+    def parallelize(collection: list, max_workers: int = 0, samples = sys.maxsize, msg: str = None, collect = True, action: str = 'action'):
         if not max_workers:
             max_workers = Config().action_workers(action, 0)
         if samples == sys.maxsize:
             if not Config().action_node_always_parallelize(action, False):
                 samples = Config().action_node_samples(action, sys.maxsize)
+        elif samples == -1:
+            # override for calls from CassandraClusters
+            samples = sys.maxsize
 
-        return ParallelMapHandler(collection, max_workers, samples = samples, msg = msg, name=action)
+        return ParallelMapHandler(collection, max_workers, samples = samples, msg = msg, collect=collect, name=action)
 
     def get_command_printable(pod_name: str,
              container: str,
@@ -77,77 +81,83 @@ class Pods:
         if _TEST_POD_EXEC_OUTS:
             return _TEST_POD_EXEC_OUTS
 
-        ctx = ctx.copy(show_out=KubeContext.show_out(ctx.show_out))
+        ctx: Context = ctx.copy(show_out=KubeContext.show_out(ctx.show_out))
 
-        if command.endswith(' &') or ctx and ctx.background:
-            return Pods.exec_backgrounded_with_context(pod_name, container, namespace, command, shell, env_prefix, ctx=ctx)
+        with log_timing(f'Pods.exec({pod_name})'):
+            if command.endswith(' &') or ctx and ctx.background:
+                return Pods.exec_backgrounded_with_context(pod_name, container, namespace, command, shell, env_prefix, ctx=ctx)
 
-        api = client.CoreV1Api()
+            api = client.CoreV1Api()
 
-        tty = True
-        exec_command = [shell, '-c', command]
-        if env_prefix:
-            exec_command = [shell, '-c', f'{env_prefix} {command}']
+            tty = True
+            exec_command = [shell, '-c', command]
+            if env_prefix:
+                exec_command = [shell, '-c', f'{env_prefix} {command}']
 
-        k_command = f'kubectl exec {pod_name} -c {container} -n {namespace} -- {shell} -c "{command}"'
+            k_command = f'kubectl exec {pod_name} -c {container} -n {namespace} -- {shell} -c "{command}"'
 
-        text_color = ctx.text_color
-        if not text_color:
-            text_color = Color.gray
+            text_color = ctx.text_color
+            if not text_color:
+                text_color = Color.gray
 
-        if ctx.debug:
-            debug(k_command)
+            if ctx.debug:
+                debug(k_command)
 
-        resp: WSClient = stream(
-            api.connect_get_namespaced_pod_exec,
-            pod_name,
-            namespace,
-            command=exec_command,
-            container=container,
-            stderr=True,
-            stdin=True,
-            stdout=True,
-            tty=tty,
-            _preload_content=False,
-        )
+            # may cause kubernetes.client.exceptions.ApiException
+            resp: WSClient = None
+            try:
+                resp = stream(
+                    api.connect_get_namespaced_pod_exec,
+                    pod_name,
+                    namespace,
+                    command=exec_command,
+                    container=container,
+                    stderr=True,
+                    stdin=True,
+                    stdout=True,
+                    tty=tty,
+                    _preload_content=False,
+                )
+            except Exception as e:
+                return PodExecResult("", str(e), k_command, None, pod=pod_name, log_file=ctx.log_file if ctx else None, client_err=e)
 
-        s: WebSocket = resp.sock
-        stdout = []
-        stderr = []
-        error_output = None
-        try:
-            while resp.is_open():
-                resp.update(timeout=1)
-                if resp.peek_stdout():
-                    frag = resp.read_stdout()
-                    stdout.append(frag)
-                    if ctx.debug:
-                        ctx.log(frag, text_color=Color.gray, nl=False)
+            s: WebSocket = resp.sock
+            stdout = []
+            stderr = []
+            error_output = None
+            try:
+                while resp.is_open():
+                    resp.update(timeout=1)
+                    if resp.peek_stdout():
+                        frag = resp.read_stdout()
+                        stdout.append(frag)
+                        if ctx.debug:
+                            ctx.log(frag, text_color=Color.gray, nl=False)
 
-                    if interaction:
-                        interaction(resp, stdout)
-                if resp.peek_stderr():
-                    frag = resp.read_stderr()
-                    stderr.append(frag)
-                    if ctx.debug:
-                        ctx.log2(frag, text_color=Color.gray, nl=False)
+                        if interaction:
+                            interaction(resp, stdout)
+                    if resp.peek_stderr():
+                        frag = resp.read_stderr()
+                        stderr.append(frag)
+                        if ctx.debug:
+                            ctx.log2(frag, text_color=Color.gray, nl=False)
 
-            with log_exc():
-                # get the exit code from server
-                error_output = resp.read_channel(ERROR_CHANNEL)
-        except Exception as e:
-            if throw_err:
-                raise e
-            else:
-                traceback.print_exc()
-                log2(e, text_color=text_color)
-        finally:
-            resp.close()
-            if s and s.sock and Pods._TEST_POD_CLOSE_SOCKET:
                 with log_exc():
-                    s.sock.close()
+                    # get the exit code from server
+                    error_output = resp.read_channel(ERROR_CHANNEL)
+            except Exception as e:
+                if throw_err:
+                    raise e
+                else:
+                    # traceback.print_exc()
+                    log2(e, text_color=text_color)
+            finally:
+                resp.close()
+                if s and s.sock and Pods._TEST_POD_CLOSE_SOCKET:
+                    with log_exc():
+                        s.sock.close()
 
-        return PodExecResult("".join(stdout), "".join(stderr), k_command, error_output, pod=pod_name, log_file=ctx.log_file if ctx else None)
+            return PodExecResult("".join(stdout), "".join(stderr), k_command, error_output, pod=pod_name, log_file=ctx.log_file if ctx else None)
 
     def exec_backgrounded_with_context(pod_name: str,
                                        container: str,
@@ -299,3 +309,15 @@ class Pods:
 
     def completed(namespace: str, pod_name: str):
         return Pods.get(namespace, pod_name).status.phase in ['Succeeded', 'Failed']
+
+    def pod_status(pod: client.V1Pod):
+        s = 'Unknown'
+
+        try:
+            s = pod.status.phase
+            if pod.metadata.deletion_timestamp:
+                  s = 'Terminating'
+        except:
+            pass
+
+        return s

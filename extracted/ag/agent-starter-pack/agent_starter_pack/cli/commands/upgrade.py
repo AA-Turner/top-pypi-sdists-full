@@ -1,4 +1,4 @@
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -413,6 +413,7 @@ def upgrade(
     # Get language from metadata for language-aware operations
     language = metadata.get("language", "python")
 
+    # Version is normalized to asp_version by get_project_asp_config
     old_version = metadata.get("asp_version")
     if not old_version:
         console.print(

@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["LdapStatus", "LdapStatusSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "LdapStatusSchema.opts": False,
     "LdapStatus": False,
 }
-
 
 class LdapStatusSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LdapStatus object"""
@@ -30,7 +28,12 @@ Example: 65537300 """
     dn_message = marshmallow_fields.List(marshmallow_fields.Str, data_key="dn_message", allow_none=True)
     r""" The dn_message field of the ldap_status. """
 
-    ipv4 = marshmallow_fields.Nested("netapp_ontap.models.ldap_ip_status.LdapIpStatusSchema", unknown=EXCLUDE, data_key="ipv4", allow_none=True)
+    ipv4 = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ldap_ip_status", "LdapIpStatusSchema"),
+                unknown=EXCLUDE,
+                data_key="ipv4",
+                allow_none=True
+            )
     r""" The ipv4 field of the ldap_status. """
 
     ipv4_state = marshmallow_fields.Str(data_key="ipv4_state", allow_none=True)
@@ -42,7 +45,12 @@ Valid choices:
 * up
 * down """
 
-    ipv6 = marshmallow_fields.Nested("netapp_ontap.models.ldap_ip_status.LdapIpStatusSchema", unknown=EXCLUDE, data_key="ipv6", allow_none=True)
+    ipv6 = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ldap_ip_status", "LdapIpStatusSchema"),
+                unknown=EXCLUDE,
+                data_key="ipv6",
+                allow_none=True
+            )
     r""" The ipv6 field of the ldap_status. """
 
     ipv6_state = marshmallow_fields.Str(data_key="ipv6_state", allow_none=True)

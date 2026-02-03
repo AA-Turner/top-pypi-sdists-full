@@ -36,6 +36,10 @@ class UpdateNetworkFirewallDetails(object):
             The value to assign to the nat_configuration property of this UpdateNetworkFirewallDetails.
         :type nat_configuration: oci.network_firewall.models.NatConfigurationRequest
 
+        :param shape:
+            The value to assign to the shape property of this UpdateNetworkFirewallDetails.
+        :type shape: str
+
         :param freeform_tags:
             The value to assign to the freeform_tags property of this UpdateNetworkFirewallDetails.
         :type freeform_tags: dict(str, str)
@@ -50,6 +54,7 @@ class UpdateNetworkFirewallDetails(object):
             'network_firewall_policy_id': 'str',
             'network_security_group_ids': 'list[str]',
             'nat_configuration': 'NatConfigurationRequest',
+            'shape': 'str',
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))'
         }
@@ -58,6 +63,7 @@ class UpdateNetworkFirewallDetails(object):
             'network_firewall_policy_id': 'networkFirewallPolicyId',
             'network_security_group_ids': 'networkSecurityGroupIds',
             'nat_configuration': 'natConfiguration',
+            'shape': 'shape',
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags'
         }
@@ -65,6 +71,7 @@ class UpdateNetworkFirewallDetails(object):
         self._network_firewall_policy_id = None
         self._network_security_group_ids = None
         self._nat_configuration = None
+        self._shape = None
         self._freeform_tags = None
         self._defined_tags = None
 
@@ -167,6 +174,30 @@ class UpdateNetworkFirewallDetails(object):
         :type: oci.network_firewall.models.NatConfigurationRequest
         """
         self._nat_configuration = nat_configuration
+
+    @property
+    def shape(self):
+        """
+        Gets the shape of this UpdateNetworkFirewallDetails.
+        The shape of a firewall to determine the bandwidth that the firewall allows.
+
+
+        :return: The shape of this UpdateNetworkFirewallDetails.
+        :rtype: str
+        """
+        return self._shape
+
+    @shape.setter
+    def shape(self, shape):
+        """
+        Sets the shape of this UpdateNetworkFirewallDetails.
+        The shape of a firewall to determine the bandwidth that the firewall allows.
+
+
+        :param shape: The shape of this UpdateNetworkFirewallDetails.
+        :type: str
+        """
+        self._shape = shape
 
     @property
     def freeform_tags(self):

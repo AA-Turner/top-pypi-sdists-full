@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -54,112 +54,112 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     StorageUnitSnapshot(
         {
-            "name": "weekly.2024-06-02_0015",
-            "uuid": "f712e3ff-d958-47ba-89eb-d2a46bad7bd7",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/f712e3ff-d958-47ba-89eb-d2a46bad7bd7"
                 }
             },
+            "name": "weekly.2024-06-02_0015",
+            "uuid": "f712e3ff-d958-47ba-89eb-d2a46bad7bd7",
         }
     ),
     StorageUnitSnapshot(
         {
-            "name": "daily.2024-06-04_0010",
-            "uuid": "fd8b5ed5-fd24-45c6-bf96-996ab36bbb24",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/fd8b5ed5-fd24-45c6-bf96-996ab36bbb24"
                 }
             },
+            "name": "daily.2024-06-04_0010",
+            "uuid": "fd8b5ed5-fd24-45c6-bf96-996ab36bbb24",
         }
     ),
     StorageUnitSnapshot(
         {
-            "name": "daily.2024-06-05_0010",
-            "uuid": "e9f28652-9460-4eef-a8fd-fa0b0bfa97f3",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/e9f28652-9460-4eef-a8fd-fa0b0bfa97f3"
                 }
             },
+            "name": "daily.2024-06-05_0010",
+            "uuid": "e9f28652-9460-4eef-a8fd-fa0b0bfa97f3",
         }
     ),
     StorageUnitSnapshot(
         {
-            "name": "hourly.2024-06-05_0405",
-            "uuid": "c5620133-52d0-4821-8805-15bfcd1a7b1e",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/c5620133-52d0-4821-8805-15bfcd1a7b1e"
                 }
             },
+            "name": "hourly.2024-06-05_0405",
+            "uuid": "c5620133-52d0-4821-8805-15bfcd1a7b1e",
         }
     ),
     StorageUnitSnapshot(
         {
-            "name": "hourly.2024-06-05_0505",
-            "uuid": "4a83e47a-b865-416e-885e-d159e91e943b",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/4a83e47a-b865-416e-885e-d159e91e943b"
                 }
             },
+            "name": "hourly.2024-06-05_0505",
+            "uuid": "4a83e47a-b865-416e-885e-d159e91e943b",
         }
     ),
     StorageUnitSnapshot(
         {
-            "name": "hourly.2024-06-05_0605",
-            "uuid": "7dca6423-4fce-47ba-a4dc-b69e32bb30f4",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/7dca6423-4fce-47ba-a4dc-b69e32bb30f4"
                 }
             },
+            "name": "hourly.2024-06-05_0605",
+            "uuid": "7dca6423-4fce-47ba-a4dc-b69e32bb30f4",
         }
     ),
     StorageUnitSnapshot(
         {
-            "name": "hourly.2024-06-05_0705",
-            "uuid": "0bd1ca63-dbf8-41c3-a7ef-2023f28e622b",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/0bd1ca63-dbf8-41c3-a7ef-2023f28e622b"
                 }
             },
+            "name": "hourly.2024-06-05_0705",
+            "uuid": "0bd1ca63-dbf8-41c3-a7ef-2023f28e622b",
         }
     ),
     StorageUnitSnapshot(
         {
-            "name": "hourly.2024-06-05_0805",
-            "uuid": "71bdab1e-22b3-4b2f-9b2c-0d2072ab321a",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/71bdab1e-22b3-4b2f-9b2c-0d2072ab321a"
                 }
             },
+            "name": "hourly.2024-06-05_0805",
+            "uuid": "71bdab1e-22b3-4b2f-9b2c-0d2072ab321a",
         }
     ),
     StorageUnitSnapshot(
         {
-            "name": "hourly.2024-06-05_0905",
-            "uuid": "1341b465-e582-4b30-aa87-d4642fe9db51",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/1341b465-e582-4b30-aa87-d4642fe9db51"
                 }
             },
+            "name": "hourly.2024-06-05_0905",
+            "uuid": "1341b465-e582-4b30-aa87-d4642fe9db51",
         }
     ),
     StorageUnitSnapshot(
         {
-            "name": "snap1",
-            "uuid": "cb8b57a1-2342-11ef-97b9-005056bbbc7b",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/cb8b57a1-2342-11ef-97b9-005056bbbc7b"
                 }
             },
+            "name": "snap1",
+            "uuid": "cb8b57a1-2342-11ef-97b9-005056bbbc7b",
         }
     ),
 ]
@@ -196,35 +196,35 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     StorageUnitSnapshot(
         {
-            "name": "hourly.2024-06-05_0705",
-            "uuid": "0bd1ca63-dbf8-41c3-a7ef-2023f28e622b",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/0bd1ca63-dbf8-41c3-a7ef-2023f28e622b"
                 }
             },
+            "name": "hourly.2024-06-05_0705",
+            "uuid": "0bd1ca63-dbf8-41c3-a7ef-2023f28e622b",
         }
     ),
     StorageUnitSnapshot(
         {
-            "name": "hourly.2024-06-05_0805",
-            "uuid": "71bdab1e-22b3-4b2f-9b2c-0d2072ab321a",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/71bdab1e-22b3-4b2f-9b2c-0d2072ab321a"
                 }
             },
+            "name": "hourly.2024-06-05_0805",
+            "uuid": "71bdab1e-22b3-4b2f-9b2c-0d2072ab321a",
         }
     ),
     StorageUnitSnapshot(
         {
-            "name": "hourly.2024-06-05_0905",
-            "uuid": "1341b465-e582-4b30-aa87-d4642fe9db51",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/1341b465-e582-4b30-aa87-d4642fe9db51"
                 }
             },
+            "name": "hourly.2024-06-05_0905",
+            "uuid": "1341b465-e582-4b30-aa87-d4642fe9db51",
         }
     ),
 ]
@@ -261,38 +261,38 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     StorageUnitSnapshot(
         {
-            "delta": {"time_elapsed": "PT4H12M47S", "size_consumed": 1642496},
-            "name": "hourly.2024-06-05_0705",
-            "uuid": "0bd1ca63-dbf8-41c3-a7ef-2023f28e622b",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/0bd1ca63-dbf8-41c3-a7ef-2023f28e622b"
                 }
             },
+            "name": "hourly.2024-06-05_0705",
+            "uuid": "0bd1ca63-dbf8-41c3-a7ef-2023f28e622b",
+            "delta": {"time_elapsed": "PT4H12M47S", "size_consumed": 1642496},
         }
     ),
     StorageUnitSnapshot(
         {
-            "delta": {"time_elapsed": "PT3H12M47S", "size_consumed": 1331200},
-            "name": "hourly.2024-06-05_0805",
-            "uuid": "71bdab1e-22b3-4b2f-9b2c-0d2072ab321a",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/71bdab1e-22b3-4b2f-9b2c-0d2072ab321a"
                 }
             },
+            "name": "hourly.2024-06-05_0805",
+            "uuid": "71bdab1e-22b3-4b2f-9b2c-0d2072ab321a",
+            "delta": {"time_elapsed": "PT3H12M47S", "size_consumed": 1331200},
         }
     ),
     StorageUnitSnapshot(
         {
-            "delta": {"time_elapsed": "PT2H12M47S", "size_consumed": 1052672},
-            "name": "hourly.2024-06-05_0905",
-            "uuid": "1341b465-e582-4b30-aa87-d4642fe9db51",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/1341b465-e582-4b30-aa87-d4642fe9db51"
                 }
             },
+            "name": "hourly.2024-06-05_0905",
+            "uuid": "1341b465-e582-4b30-aa87-d4642fe9db51",
+            "delta": {"time_elapsed": "PT2H12M47S", "size_consumed": 1052672},
         }
     ),
 ]
@@ -324,34 +324,34 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StorageUnitSnapshot(
     {
-        "version_uuid": "f712e3ff-d958-47ba-89eb-d2a46bad7bd7",
-        "logical_size": 11259904,
+        "snapmirror_label": "weekly",
+        "_links": {
+            "self": {
+                "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/f712e3ff-d958-47ba-89eb-d2a46bad7bd7"
+            }
+        },
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/7cb65b79-1a0f-11ef-bd09-005056bbbc7b"}
+            },
+            "uuid": "7cb65b79-1a0f-11ef-bd09-005056bbbc7b",
+        },
+        "name": "weekly.2024-06-02_0015",
+        "uuid": "f712e3ff-d958-47ba-89eb-d2a46bad7bd7",
+        "size": 720896,
         "storage_unit": {
-            "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
             "name": "lun1",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b"
                 }
             },
+            "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
         },
-        "name": "weekly.2024-06-02_0015",
-        "uuid": "f712e3ff-d958-47ba-89eb-d2a46bad7bd7",
-        "size": 720896,
+        "version_uuid": "f712e3ff-d958-47ba-89eb-d2a46bad7bd7",
         "create_time": "2024-06-02T00:15:00-04:00",
-        "snapmirror_label": "weekly",
-        "svm": {
-            "uuid": "7cb65b79-1a0f-11ef-bd09-005056bbbc7b",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/7cb65b79-1a0f-11ef-bd09-005056bbbc7b"}
-            },
-        },
-        "_links": {
-            "self": {
-                "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/f712e3ff-d958-47ba-89eb-d2a46bad7bd7"
-            }
-        },
+        "logical_size": 11259904,
     }
 )
 
@@ -382,36 +382,36 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StorageUnitSnapshot(
     {
-        "reclaimable_space": 503808,
+        "snapmirror_label": "weekly",
+        "_links": {
+            "self": {
+                "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/f712e3ff-d958-47ba-89eb-d2a46bad7bd7?fields=**"
+            }
+        },
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/7cb65b79-1a0f-11ef-bd09-005056bbbc7b"}
+            },
+            "uuid": "7cb65b79-1a0f-11ef-bd09-005056bbbc7b",
+        },
+        "name": "weekly.2024-06-02_0015",
+        "uuid": "f712e3ff-d958-47ba-89eb-d2a46bad7bd7",
+        "size": 720896,
         "delta": {"time_elapsed": "P3DT11H16M8S", "size_consumed": 3395584},
-        "version_uuid": "f712e3ff-d958-47ba-89eb-d2a46bad7bd7",
-        "logical_size": 11259904,
         "storage_unit": {
-            "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
             "name": "lun1",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b"
                 }
             },
+            "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
         },
-        "name": "weekly.2024-06-02_0015",
-        "uuid": "f712e3ff-d958-47ba-89eb-d2a46bad7bd7",
-        "size": 720896,
+        "version_uuid": "f712e3ff-d958-47ba-89eb-d2a46bad7bd7",
         "create_time": "2024-06-02T00:15:00-04:00",
-        "snapmirror_label": "weekly",
-        "svm": {
-            "uuid": "7cb65b79-1a0f-11ef-bd09-005056bbbc7b",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/7cb65b79-1a0f-11ef-bd09-005056bbbc7b"}
-            },
-        },
-        "_links": {
-            "self": {
-                "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/f712e3ff-d958-47ba-89eb-d2a46bad7bd7?fields=**"
-            }
-        },
+        "logical_size": 11259904,
+        "reclaimable_space": 503808,
     }
 )
 
@@ -438,81 +438,81 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     StorageUnitSnapshot(
         {
-            "storage_unit": {
-                "uuid": "3d9c001f-227e-11ef-97b9-005056bbbc7b",
-                "name": "ns1",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/storage-units/3d9c001f-227e-11ef-97b9-005056bbbc7b"
-                    }
-                },
-            },
-            "name": "daily.2024-06-05_0010",
-            "uuid": "387d7ec5-1c56-4cbc-b50e-07ea67396712",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/3d9c001f-227e-11ef-97b9-005056bbbc7b/snapshots/387d7ec5-1c56-4cbc-b50e-07ea67396712"
                 }
             },
-        }
-    ),
-    StorageUnitSnapshot(
-        {
+            "name": "daily.2024-06-05_0010",
+            "uuid": "387d7ec5-1c56-4cbc-b50e-07ea67396712",
             "storage_unit": {
-                "uuid": "3d9c001f-227e-11ef-97b9-005056bbbc7b",
                 "name": "ns1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/storage-units/3d9c001f-227e-11ef-97b9-005056bbbc7b"
                     }
                 },
+                "uuid": "3d9c001f-227e-11ef-97b9-005056bbbc7b",
             },
-            "name": "hourly.2024-06-05_0805",
-            "uuid": "44bfa234-c978-423c-a0d5-14fe5427e7ab",
+        }
+    ),
+    StorageUnitSnapshot(
+        {
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/3d9c001f-227e-11ef-97b9-005056bbbc7b/snapshots/44bfa234-c978-423c-a0d5-14fe5427e7ab"
                 }
             },
+            "name": "hourly.2024-06-05_0805",
+            "uuid": "44bfa234-c978-423c-a0d5-14fe5427e7ab",
+            "storage_unit": {
+                "name": "ns1",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/storage-units/3d9c001f-227e-11ef-97b9-005056bbbc7b"
+                    }
+                },
+                "uuid": "3d9c001f-227e-11ef-97b9-005056bbbc7b",
+            },
         }
     ),
     StorageUnitSnapshot(
         {
-            "storage_unit": {
-                "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
-                "name": "lun1",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b"
-                    }
-                },
-            },
-            "name": "daily.2024-06-05_0010",
-            "uuid": "e9f28652-9460-4eef-a8fd-fa0b0bfa97f3",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/e9f28652-9460-4eef-a8fd-fa0b0bfa97f3"
                 }
             },
-        }
-    ),
-    StorageUnitSnapshot(
-        {
+            "name": "daily.2024-06-05_0010",
+            "uuid": "e9f28652-9460-4eef-a8fd-fa0b0bfa97f3",
             "storage_unit": {
-                "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
                 "name": "lun1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b"
                     }
                 },
+                "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
             },
-            "name": "hourly.2024-06-05_0805",
-            "uuid": "71bdab1e-22b3-4b2f-9b2c-0d2072ab321a",
+        }
+    ),
+    StorageUnitSnapshot(
+        {
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/71bdab1e-22b3-4b2f-9b2c-0d2072ab321a"
                 }
+            },
+            "name": "hourly.2024-06-05_0805",
+            "uuid": "71bdab1e-22b3-4b2f-9b2c-0d2072ab321a",
+            "storage_unit": {
+                "name": "lun1",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b"
+                    }
+                },
+                "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
             },
         }
     ),
@@ -613,11 +613,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -631,11 +630,15 @@ __pdoc__ = {
     "StorageUnitSnapshotSchema.opts": False,
 }
 
-
 class StorageUnitSnapshotSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the StorageUnitSnapshot object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the storage_unit_snapshot."""
 
     comment = marshmallow_fields.Str(
@@ -654,7 +657,12 @@ class StorageUnitSnapshotSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 2019-02-04T19:00:00.000+0000"""
 
-    delta = marshmallow_fields.Nested("netapp_ontap.models.snapshot_delta.SnapshotDeltaSchema", data_key="delta", unknown=EXCLUDE, allow_none=True)
+    delta = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.snapshot_delta", "SnapshotDeltaSchema"),
+                data_key="delta",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Reports the amount of space consumed between two WAFL file systems, in bytes. The two WAFL file systems should be specified in a comma-separated format using the "name" parameter. To determine the space consumed between a snapshot and the Active File System, only the snapshot name needs to be mentioned."""
 
     expiry_time = ImpreciseDateTime(
@@ -702,7 +710,12 @@ Example: this_snapshot"""
 
 Example: 122880"""
 
-    snaplock = marshmallow_fields.Nested("netapp_ontap.models.storage_unit_snapshot_snaplock.StorageUnitSnapshotSnaplockSchema", data_key="snaplock", unknown=EXCLUDE, allow_none=True)
+    snaplock = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_unit_snapshot_snaplock", "StorageUnitSnapshotSnaplockSchema"),
+                data_key="snaplock",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The snaplock field of the storage_unit_snapshot."""
 
     snapmirror_label = marshmallow_fields.Str(
@@ -725,10 +738,20 @@ Valid choices:
 * valid
 * unknown"""
 
-    storage_unit = marshmallow_fields.Nested("netapp_ontap.resources.storage_unit.StorageUnitSchema", data_key="storage_unit", unknown=EXCLUDE, allow_none=True)
+    storage_unit = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.storage_unit", "StorageUnitSchema"),
+                data_key="storage_unit",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The storage_unit field of the storage_unit_snapshot."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the storage_unit_snapshot."""
 
     uuid = marshmallow_fields.Str(

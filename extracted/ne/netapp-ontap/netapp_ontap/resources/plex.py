@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,74 +26,74 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Plex(
         {
-            "aggregate": {
-                "uuid": "04b7296e-a302-42a6-a2a9-dda6be054b29",
-                "name": "test2",
-            },
             "name": "plex0",
-        }
-    ),
-    Plex(
-        {
             "aggregate": {
-                "uuid": "04b7296e-a302-42a6-a2a9-dda6be054b29",
                 "name": "test2",
+                "uuid": "04b7296e-a302-42a6-a2a9-dda6be054b29",
             },
-            "name": "plex1",
         }
     ),
     Plex(
         {
+            "name": "plex1",
             "aggregate": {
-                "uuid": "66c4b221-65ff-4211-9b58-ada3c6fc41af",
-                "name": "test",
+                "name": "test2",
+                "uuid": "04b7296e-a302-42a6-a2a9-dda6be054b29",
             },
+        }
+    ),
+    Plex(
+        {
             "name": "plex0",
-        }
-    ),
-    Plex(
-        {
             "aggregate": {
-                "uuid": "66c4b221-65ff-4211-9b58-ada3c6fc41af",
                 "name": "test",
+                "uuid": "66c4b221-65ff-4211-9b58-ada3c6fc41af",
             },
-            "name": "plex1",
         }
     ),
     Plex(
         {
+            "name": "plex1",
             "aggregate": {
-                "uuid": "7ee89e48-5d81-4609-9e1b-5d8d0995a886",
+                "name": "test",
+                "uuid": "66c4b221-65ff-4211-9b58-ada3c6fc41af",
+            },
+        }
+    ),
+    Plex(
+        {
+            "name": "plex0",
+            "aggregate": {
                 "name": "aggr1",
+                "uuid": "7ee89e48-5d81-4609-9e1b-5d8d0995a886",
             },
-            "name": "plex0",
         }
     ),
     Plex(
         {
-            "aggregate": {
-                "uuid": "8bb2e3bf-c4f1-4748-9033-ca9231cf1c40",
-                "name": "test3",
-            },
             "name": "plex0",
+            "aggregate": {
+                "name": "test3",
+                "uuid": "8bb2e3bf-c4f1-4748-9033-ca9231cf1c40",
+            },
         }
     ),
     Plex(
         {
-            "aggregate": {
-                "uuid": "8bb2e3bf-c4f1-4748-9033-ca9231cf1c40",
-                "name": "test3",
-            },
             "name": "plex1",
+            "aggregate": {
+                "name": "test3",
+                "uuid": "8bb2e3bf-c4f1-4748-9033-ca9231cf1c40",
+            },
         }
     ),
     Plex(
         {
-            "aggregate": {
-                "uuid": "8f13de5c-99cf-4ada-884c-3cc32deb304a",
-                "name": "aggr2",
-            },
             "name": "plex0",
+            "aggregate": {
+                "name": "aggr2",
+                "uuid": "8f13de5c-99cf-4ada-884c-3cc32deb304a",
+            },
         }
     ),
 ]
@@ -122,47 +122,47 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Plex(
         {
+            "name": "plex0",
             "aggregate": {
-                "uuid": "04b7296e-a302-42a6-a2a9-dda6be054b29",
                 "name": "test2",
+                "uuid": "04b7296e-a302-42a6-a2a9-dda6be054b29",
             },
-            "name": "plex0",
         }
     ),
     Plex(
         {
+            "name": "plex0",
             "aggregate": {
-                "uuid": "66c4b221-65ff-4211-9b58-ada3c6fc41af",
                 "name": "test",
+                "uuid": "66c4b221-65ff-4211-9b58-ada3c6fc41af",
             },
-            "name": "plex0",
         }
     ),
     Plex(
         {
+            "name": "plex0",
             "aggregate": {
-                "uuid": "7ee89e48-5d81-4609-9e1b-5d8d0995a886",
                 "name": "aggr1",
+                "uuid": "7ee89e48-5d81-4609-9e1b-5d8d0995a886",
             },
-            "name": "plex0",
         }
     ),
     Plex(
         {
+            "name": "plex0",
             "aggregate": {
-                "uuid": "8bb2e3bf-c4f1-4748-9033-ca9231cf1c40",
                 "name": "test3",
+                "uuid": "8bb2e3bf-c4f1-4748-9033-ca9231cf1c40",
             },
-            "name": "plex0",
         }
     ),
     Plex(
         {
-            "aggregate": {
-                "uuid": "8f13de5c-99cf-4ada-884c-3cc32deb304a",
-                "name": "aggr2",
-            },
             "name": "plex0",
+            "aggregate": {
+                "name": "aggr2",
+                "uuid": "8f13de5c-99cf-4ada-884c-3cc32deb304a",
+            },
         }
     ),
 ]
@@ -211,66 +211,66 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Plex(
     {
-        "online": True,
         "resync": {"active": False},
+        "online": True,
+        "name": "plex0",
+        "state": "normal",
+        "aggregate": {"name": "test1", "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c"},
         "raid_groups": [
             {
-                "recomputing_parity": {"active": False},
                 "cache_tier": False,
+                "recomputing_parity": {"active": False},
                 "disks": [
                     {
+                        "usable_size": 86769664,
+                        "state": "normal",
                         "position": "dparity",
                         "disk": {"name": "1.1.29"},
-                        "state": "normal",
-                        "usable_size": 86769664,
                         "type": "ssd",
                     },
                     {
+                        "usable_size": 86769664,
+                        "state": "normal",
                         "position": "parity",
                         "disk": {"name": "1.1.4"},
-                        "state": "normal",
-                        "usable_size": 86769664,
                         "type": "ssd",
                     },
                     {
+                        "usable_size": 86769664,
+                        "state": "normal",
                         "position": "data",
                         "disk": {"name": "1.1.30"},
-                        "state": "normal",
-                        "usable_size": 86769664,
                         "type": "ssd",
                     },
                     {
+                        "usable_size": 86769664,
+                        "state": "normal",
                         "position": "data",
                         "disk": {"name": "1.1.5"},
-                        "state": "normal",
-                        "usable_size": 86769664,
                         "type": "ssd",
                     },
                     {
+                        "usable_size": 86769664,
+                        "state": "normal",
                         "position": "data",
                         "disk": {"name": "1.1.31"},
-                        "state": "normal",
-                        "usable_size": 86769664,
                         "type": "ssd",
                     },
                     {
+                        "usable_size": 86769664,
+                        "state": "normal",
                         "position": "data",
                         "disk": {"name": "1.1.6"},
-                        "state": "normal",
-                        "usable_size": 86769664,
                         "type": "ssd",
                     },
                 ],
-                "raid_type": "raid_dp",
-                "degraded": False,
-                "name": "rg0",
                 "reconstruct": {"active": False},
+                "name": "rg0",
+                "degraded": False,
+                "raid_type": "raid_dp",
             }
         ],
-        "state": "normal",
-        "aggregate": {"uuid": "19425837-f2fa-4a9f-8f01-712f626c983c", "name": "test1"},
         "pool": "pool0",
-        "name": "plex0",
     }
 )
 
@@ -283,11 +283,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -301,11 +300,15 @@ __pdoc__ = {
     "PlexSchema.opts": False,
 }
 
-
 class PlexSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Plex object"""
 
-    aggregate = marshmallow_fields.Nested("netapp_ontap.resources.aggregate.AggregateSchema", data_key="aggregate", unknown=EXCLUDE, allow_none=True)
+    aggregate = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.aggregate", "AggregateSchema"),
+                data_key="aggregate",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The aggregate field of the plex."""
 
     name = marshmallow_fields.Str(
@@ -334,10 +337,23 @@ Valid choices:
 * pool0
 * pool1"""
 
-    raid_groups = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.raid_group.RaidGroupSchema", unknown=EXCLUDE, allow_none=True), data_key="raid_groups", allow_none=True)
+    raid_groups = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.raid_group", "RaidGroupSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="raid_groups",
+                allow_none=True
+            )
     r""" The raid_groups field of the plex."""
 
-    resync = marshmallow_fields.Nested("netapp_ontap.models.plex_resync.PlexResyncSchema", data_key="resync", unknown=EXCLUDE, allow_none=True)
+    resync = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.plex_resync", "PlexResyncSchema"),
+                data_key="resync",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The resync field of the plex."""
 
     state = marshmallow_fields.Str(

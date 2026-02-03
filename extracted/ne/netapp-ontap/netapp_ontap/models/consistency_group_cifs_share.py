@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ConsistencyGroupCifsShare", "ConsistencyGroupCifsShareSchema"]
@@ -17,18 +16,30 @@ __pdoc__ = {
     "ConsistencyGroupCifsShare": False,
 }
 
-
 class ConsistencyGroupCifsShareSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ConsistencyGroupCifsShare object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", unknown=EXCLUDE, data_key="_links", allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                unknown=EXCLUDE,
+                data_key="_links",
+                allow_none=True
+            )
     r""" The links field of the consistency_group_cifs_share. """
 
     access_based_enumeration = marshmallow_fields.Boolean(data_key="access_based_enumeration", allow_none=True)
     r""" Specifies whether all folders inside this share are visible to a user based on that individual user's access right; prevents
 the display of folders or other shared resources that the user does not have access to. """
 
-    acls = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.cifs_share_acls.CifsShareAclsSchema", unknown=EXCLUDE, allow_none=True), data_key="acls", allow_none=True)
+    acls = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.cifs_share_acls", "CifsShareAclsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="acls",
+                allow_none=True
+                )
     r""" The permissions that users and groups have on a CIFS share. """
 
     allow_unencrypted_access = marshmallow_fields.Boolean(data_key="allow_unencrypted_access", allow_none=True)

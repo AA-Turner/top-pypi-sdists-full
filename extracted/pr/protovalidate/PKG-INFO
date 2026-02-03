@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: protovalidate
-Version: 1.1.0
+Version: 1.1.1
 Summary: Protocol Buffer Validation for Python
 Project-URL: Homepage, https://github.com/bufbuild/protovalidate-python
 Project-URL: Source, https://github.com/bufbuild/protovalidate-python
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: cel-python==0.2.*
+Requires-Dist: cel-python>=0.5
 Requires-Dist: google-re2>=1
 Requires-Dist: google-re2>=1.1.20250722; python_version == '3.13'
 Requires-Dist: google-re2>=1.1.20251105; python_version == '3.14'

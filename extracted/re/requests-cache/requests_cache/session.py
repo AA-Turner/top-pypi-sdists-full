@@ -49,6 +49,7 @@ class CacheMixin(MIXIN_BASE):
         expire_after: ExpirationTime = -1,
         urls_expire_after: Optional[ExpirationPatterns] = None,
         cache_control: bool = False,
+        content_root_key: Optional[str] = None,
         allowable_codes: Iterable[int] = DEFAULT_STATUS_CODES,
         allowable_methods: Iterable[str] = DEFAULT_METHODS,
         always_revalidate: bool = False,
@@ -56,7 +57,9 @@ class CacheMixin(MIXIN_BASE):
         match_headers: Union[Iterable[str], bool] = False,
         filter_fn: Optional[FilterCallback] = None,
         key_fn: Optional[KeyCallback] = None,
+        read_only: bool = False,
         stale_if_error: Union[bool, int] = False,
+        autoclose: bool = True,
         **kwargs,
     ):
         self.cache = init_backend(cache_name, backend, serializer=serializer, **kwargs)
@@ -64,6 +67,7 @@ class CacheMixin(MIXIN_BASE):
             expire_after=expire_after,
             urls_expire_after=urls_expire_after,
             cache_control=cache_control,
+            content_root_key=content_root_key,
             allowable_codes=allowable_codes,
             allowable_methods=allowable_methods,
             always_revalidate=always_revalidate,
@@ -71,7 +75,9 @@ class CacheMixin(MIXIN_BASE):
             match_headers=match_headers,
             filter_fn=filter_fn,
             key_fn=key_fn,
+            read_only=read_only,
             stale_if_error=stale_if_error,
+            autoclose=autoclose,
             **kwargs,
         )
         self._lock = RLock()
@@ -339,7 +345,8 @@ class CacheMixin(MIXIN_BASE):
     def close(self):
         """Close the session and any open backend connections"""
         super().close()
-        self.cache.close()
+        if self.settings.autoclose:
+            self.cache.close()
 
     def __getstate__(self):
         # Unlike requests.Session, CachedSession may contain backend connection objects that can't
@@ -375,10 +382,12 @@ class CachedSession(CacheMixin, OriginalSession):
             be a list of headers, or ``True`` to match all.
         ignored_parameters: Request parameters, headers, and/or JSON body params to exclude from both
             request matching and cached request data
+        read_only: Read existing cached responses, but do not write any new responses to the cache
         stale_if_error: Return a stale response if a new request raises an exception. Optionally
             accepts a time value representing maximum staleness to accept.
         stale_while_revalidate: Return a stale response initially, while a non-blocking request is
             sent to refresh the response for the next time it's requested
+        autoclose: Close the cache backend when the session is closed
         filter_fn: Response filtering function that indicates whether or not a given response should
             be cached. See :ref:`custom-filtering` for details.
         key_fn: Request matching function for generating custom cache keys. See

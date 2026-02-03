@@ -23,7 +23,6 @@ from __future__ import annotations
 import abc
 import itertools
 import typing
-import warnings
 import weakref
 
 if typing.TYPE_CHECKING:
@@ -99,9 +98,9 @@ class Signals:
         :type name: signal name
         :param callback: the function to call when that signal is sent
         :type callback: function
-        :param user_arg: deprecated additional argument to callback (appended
-                         after the arguments passed when the signal is
-                         emitted). If None no arguments will be added.
+        :param user_arg: additional argument to callback
+                         (appended  after the arguments passed when the signal is emitted).
+                         If None no arguments will be added.
                          Don't use this argument, use user_args instead.
         :param weak_args: additional arguments passed to the callback
                           (before any arguments passed when the signal
@@ -133,11 +132,11 @@ class Signals:
         As an example of using weak_args, consider the following snippet:
 
         >>> import urwid
-        >>> debug = urwid.Text('')
+        >>> debug = urwid.Text("")
         >>> def handler(widget, newtext):
-        ...    debug.set_text("Edit widget changed to %s" % newtext)
-        >>> edit = urwid.Edit('')
-        >>> key = urwid.connect_signal(edit, 'change', handler)
+        ...     debug.set_text("Edit widget changed to %s" % newtext)
+        >>> edit = urwid.Edit("")
+        >>> key = urwid.connect_signal(edit, "change", handler)
 
         If you now build some interface using "edit" and "debug", the
         "debug" widget will show whatever you type in the "edit" widget.
@@ -149,11 +148,11 @@ class Signals:
         (it's not really a closure, since it doesn't reference any
         outside variables, so it's just a dynamic function):
 
-        >>> debug = urwid.Text('')
+        >>> debug = urwid.Text("")
         >>> def handler(weak_debug, widget, newtext):
-        ...    weak_debug.set_text("Edit widget changed to %s" % newtext)
-        >>> edit = urwid.Edit('')
-        >>> key = urwid.connect_signal(edit, 'change', handler, weak_args=[debug])
+        ...     weak_debug.set_text("Edit widget changed to %s" % newtext)
+        >>> edit = urwid.Edit("")
+        >>> key = urwid.connect_signal(edit, "change", handler, weak_args=[debug])
 
         Here the weak_debug parameter in print_debug is the value passed
         in the weak_args list to connect_signal. Note that the
@@ -167,12 +166,6 @@ class Signals:
         handler can also be disconnected by calling
         urwid.disconnect_signal, which doesn't need this key.
         """
-        if user_arg is not None:
-            warnings.warn(
-                "Don't use user_arg argument, use user_args instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
 
         sig_cls = obj.__class__
         if name not in self._supported.get(sig_cls, ()):
@@ -195,9 +188,8 @@ class Signals:
         # their callbacks) from existing.
         obj_weak = weakref.ref(obj)
 
-        def weakref_callback(weakref):  # pylint: disable=redefined-outer-name  # bad, but not changing API
-            o = obj_weak()
-            if o:
+        def weakref_callback(_ref: weakref.ReferenceType[typing.Any]) -> None:
+            if o := obj_weak():
                 self.disconnect_by_key(o, name, key)
 
         user_args = self._prepare_user_args(weak_args, user_args, weakref_callback)
@@ -209,7 +201,7 @@ class Signals:
         self,
         weak_args: Iterable[typing.Any] = (),
         user_args: Iterable[typing.Any] = (),
-        callback: Callable[..., typing.Any] | None = None,
+        callback: Callable[[weakref.ReferenceType[typing.Any]], typing.Any] | None = None,
     ) -> tuple[Collection[weakref.ReferenceType], Collection[typing.Any]]:
         # Turn weak_args into weakrefs and prepend them to user_args
         w_args = tuple(weakref.ref(w_arg, callback) for w_arg in weak_args)
@@ -303,14 +295,13 @@ class Signals:
         self,
         callback,
         user_arg: typing.Any,
-        weak_args: Collection[weakref.ReferenceType],
-        user_args: Collection[typing.Any],
+        weak_args: Iterable[weakref.ReferenceType],
+        user_args: Iterable[typing.Any],
         emit_args: Iterable[typing.Any],
     ) -> bool:
         args_to_pass = []
         for w_arg in weak_args:
-            real_arg = w_arg()
-            if real_arg is not None:
+            if (real_arg := w_arg()) is not None:
                 args_to_pass.append(real_arg)
             else:
                 # de-referenced

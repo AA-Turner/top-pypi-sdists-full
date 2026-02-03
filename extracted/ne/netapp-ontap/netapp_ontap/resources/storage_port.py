@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,100 +28,100 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     StoragePort(
         {
-            "node": {
-                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
-                "name": "node-1",
-                "_links": {
-                    "self": {
-                        "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
-                    }
-                },
-            },
             "name": "0a",
-        }
-    ),
-    StoragePort(
-        {
             "node": {
-                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
                 "name": "node-1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
                     }
                 },
+                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
             },
+        }
+    ),
+    StoragePort(
+        {
             "name": "0b",
-        }
-    ),
-    StoragePort(
-        {
             "node": {
-                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
                 "name": "node-1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
                     }
                 },
+                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
             },
+        }
+    ),
+    StoragePort(
+        {
             "name": "0c",
-        }
-    ),
-    StoragePort(
-        {
             "node": {
-                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
                 "name": "node-1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
                     }
                 },
+                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
             },
+        }
+    ),
+    StoragePort(
+        {
             "name": "0d",
-        }
-    ),
-    StoragePort(
-        {
             "node": {
-                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
                 "name": "node-1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
                     }
                 },
+                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
             },
+        }
+    ),
+    StoragePort(
+        {
             "name": "0e",
-        }
-    ),
-    StoragePort(
-        {
             "node": {
-                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
                 "name": "node-1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
                     }
                 },
+                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
             },
+        }
+    ),
+    StoragePort(
+        {
             "name": "0f",
-        }
-    ),
-    StoragePort(
-        {
             "node": {
-                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
                 "name": "node-1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
                     }
                 },
+                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
             },
+        }
+    ),
+    StoragePort(
+        {
             "name": "0g",
+            "node": {
+                "name": "node-1",
+                "_links": {
+                    "self": {
+                        "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
+                    }
+                },
+                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
+            },
         }
     ),
 ]
@@ -153,33 +153,33 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StoragePort(
     {
+        "name": "0a",
         "wwn": "500a098003633df0",
-        "cable": {
-            "serial_number": "629230774",
-            "identifier": "500a0980066e2c01-500a098003633df0",
-            "vendor": "Molex Inc.",
-            "length": "0.5m",
-            "part_number": "112-00429+A0",
-            "transceiver": "mini_sas_hd",
-        },
-        "state": "online",
-        "description": "SAS Host Adapter 0a (PMC-Sierra PM8001 rev. C)",
-        "type": "sas",
-        "firmware_version": "01.12.09.00",
-        "in_use": True,
-        "speed": 6.0,
         "node": {
-            "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
             "name": "node-1",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
                 }
             },
+            "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
         },
-        "name": "0a",
-        "redundant": True,
+        "speed": 6.0,
         "enabled": True,
+        "state": "online",
+        "redundant": True,
+        "type": "sas",
+        "firmware_version": "01.12.09.00",
+        "description": "SAS Host Adapter 0a (PMC-Sierra PM8001 rev. C)",
+        "cable": {
+            "serial_number": "629230774",
+            "vendor": "Molex Inc.",
+            "identifier": "500a0980066e2c01-500a098003633df0",
+            "transceiver": "mini_sas_hd",
+            "part_number": "112-00429+A0",
+            "length": "0.5m",
+        },
+        "in_use": True,
     }
 )
 
@@ -231,11 +231,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -249,7 +248,6 @@ __pdoc__ = {
     "StoragePortSchema.opts": False,
 }
 
-
 class StoragePortSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the StoragePort object"""
 
@@ -259,7 +257,12 @@ class StoragePortSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" The board_name field of the storage_port."""
 
-    cable = marshmallow_fields.Nested("netapp_ontap.models.storage_port_cable.StoragePortCableSchema", data_key="cable", unknown=EXCLUDE, allow_none=True)
+    cable = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_port_cable", "StoragePortCableSchema"),
+                data_key="cable",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The cable field of the storage_port."""
 
     description = marshmallow_fields.Str(
@@ -276,7 +279,12 @@ Example: SAS Host Adapter 2a (PMC-Sierra PM8072 rev. C)"""
     )
     r""" The enabled field of the storage_port."""
 
-    error = marshmallow_fields.Nested("netapp_ontap.models.storage_port_error.StoragePortErrorSchema", data_key="error", unknown=EXCLUDE, allow_none=True)
+    error = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.storage_port_error", "StoragePortErrorSchema"),
+                data_key="error",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The error field of the storage_port."""
 
     firmware_version = marshmallow_fields.Str(
@@ -325,7 +333,12 @@ Valid choices:
 
 Example: 2a"""
 
-    node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
+    node = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node", "NodeSchema"),
+                data_key="node",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The node field of the storage_port."""
 
     part_number = marshmallow_fields.Str(

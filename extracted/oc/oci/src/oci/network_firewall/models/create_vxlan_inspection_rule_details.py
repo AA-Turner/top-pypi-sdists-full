@@ -39,6 +39,10 @@ class CreateVxlanInspectionRuleDetails(CreateTunnelInspectionRuleDetails):
             The value to assign to the position property of this CreateVxlanInspectionRuleDetails.
         :type position: oci.network_firewall.models.RulePosition
 
+        :param description:
+            The value to assign to the description property of this CreateVxlanInspectionRuleDetails.
+        :type description: str
+
         :param condition:
             The value to assign to the condition property of this CreateVxlanInspectionRuleDetails.
         :type condition: oci.network_firewall.models.VxlanInspectionRuleMatchCriteria
@@ -53,6 +57,7 @@ class CreateVxlanInspectionRuleDetails(CreateTunnelInspectionRuleDetails):
             'action': 'str',
             'protocol': 'str',
             'position': 'RulePosition',
+            'description': 'str',
             'condition': 'VxlanInspectionRuleMatchCriteria',
             'profile': 'VxlanInspectionRuleProfile'
         }
@@ -61,6 +66,7 @@ class CreateVxlanInspectionRuleDetails(CreateTunnelInspectionRuleDetails):
             'action': 'action',
             'protocol': 'protocol',
             'position': 'position',
+            'description': 'description',
             'condition': 'condition',
             'profile': 'profile'
         }
@@ -68,6 +74,7 @@ class CreateVxlanInspectionRuleDetails(CreateTunnelInspectionRuleDetails):
         self._action = None
         self._protocol = None
         self._position = None
+        self._description = None
         self._condition = None
         self._profile = None
         self._protocol = 'VXLAN'

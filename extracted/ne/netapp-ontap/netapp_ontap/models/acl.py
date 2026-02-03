@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["Acl", "AclSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "AclSchema.opts": False,
     "Acl": False,
 }
-
 
 class AclSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Acl object"""
@@ -70,11 +68,21 @@ Valid choices:
 * file_directory
 * slag """
 
-    advanced_rights = marshmallow_fields.Nested("netapp_ontap.models.advanced_rights.AdvancedRightsSchema", unknown=EXCLUDE, data_key="advanced_rights", allow_none=True)
+    advanced_rights = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.advanced_rights", "AdvancedRightsSchema"),
+                unknown=EXCLUDE,
+                data_key="advanced_rights",
+                allow_none=True
+            )
     r""" Specifies the advanced access right controlled by the ACE for the account specified.
  You can specify more than one "advanced-rights" value by using a comma-delimited list. """
 
-    apply_to = marshmallow_fields.Nested("netapp_ontap.models.apply_to.ApplyToSchema", unknown=EXCLUDE, data_key="apply_to", allow_none=True)
+    apply_to = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.apply_to", "ApplyToSchema"),
+                unknown=EXCLUDE,
+                data_key="apply_to",
+                allow_none=True
+            )
     r""" Specifies where to apply the DACL or SACL entries.
 You can specify more than one value by using a comma-delimited list. """
 

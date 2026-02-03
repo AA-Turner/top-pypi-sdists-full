@@ -2,11 +2,13 @@
 This just contains tests for some extra edge cases not covered elsewhere.
 """
 
+from io import BytesIO
 import json
 
 import pytest
 from requests import Request, Response
 from urllib3 import HTTPResponse
+from unittest.mock import patch
 
 from requests_cache.cache_keys import (
     MAX_NORM_BODY_SIZE,
@@ -30,6 +32,7 @@ CACHE_KEY = 'e25f7e6326966e82'
         ('https://example.com?param=1', {'foo': 'bar'}),
         ('https://example.com?foo=bar', {'param': '1'}),
         ('https://example.com', {'foo': 'bar', 'param': '1'}),
+        ('https://example.com', {'param': '1', 'foo': 'bar'}),
         ('https://example.com', {'foo': 'bar', 'param': 1}),
         ('https://example.com?', {'foo': 'bar', 'param': '1'}),
     ],
@@ -69,6 +72,23 @@ def test_create_key__normalize_duplicate_params():
         params={'k': 'v'},
     )
     assert create_key(request_1) == create_key(request_2)
+
+
+def test_create_key__fips_hash_fallback():
+    """Test that if blake2b fails due to FIPS mode, it creates a valid key using a different
+    hash function. Fallback on TypeError and ValueError - both are possible in FIPS mode.
+    """
+    request = Request(method='GET', url='https://example.com')
+    key_1 = create_key(request)
+
+    with patch('requests_cache.cache_keys.blake2b') as mock_blake2b:
+        mock_blake2b.side_effect = TypeError
+        key_2 = create_key(request)
+        mock_blake2b.side_effect = ValueError
+        key_3 = create_key(request)
+
+    assert key_1 != key_2
+    assert key_2 == key_3  # Fallback to the same algorithm
 
 
 def test_redact_response__escaped_params():
@@ -173,6 +193,42 @@ def test_normalize_request__oversized_body():
         headers={'Content-Type': 'application/octet-stream'},
     )
     assert normalize_request(request, ignored_parameters=['param']).body == encoded_body
+
+
+def test_normalize_request__file_like_body():
+    original_body = BytesIO(b'some bytes')
+    request = Request(
+        method='GET',
+        url='https://img.site.com/base/img.jpg',
+        data=original_body,
+        headers={'Content-Type': 'application/json'},
+    )
+    assert normalize_request(request).body == b'some bytes'
+    assert original_body.read() == b'some bytes'
+
+
+def test_normalize_request__file_like_reset_fails():
+    """Test a request body with a file-like class that doesn't support seek()"""
+
+    class CustomBytesIO:
+        def __init__(self, content):
+            self.content = content
+
+        def __len__(self):
+            return len(self.content)
+
+        def read(self):
+            return self.content
+
+    original_body = CustomBytesIO(b'some bytes')
+    request = Request(
+        method='GET',
+        url='https://img.site.com/base/img.jpg',
+        data=original_body,
+        headers={'Content-Type': 'application/json'},
+    )
+    assert normalize_request(request).body == b'some bytes'
+    assert original_body.read() == b'some bytes'
 
 
 def test_normalize_headers__single_header_value_as_bytes():

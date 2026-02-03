@@ -24,7 +24,8 @@ def dpp(
 
     This strategy selects a diverse and relevant subset of `k` items by
     maximizing the determinant of a kernel matrix that balances item relevance
-    and pairwise similarity. Note that
+    and pairwise similarity. It uses a greedy algorithm to iteratively select items
+    that contribute the most to the overall diversity and relevance of the set.
 
     :param embeddings: 2D array of shape (n_samples, n_features).
     :param scores: 1D array of relevance scores for each item.
@@ -56,6 +57,18 @@ def dpp(
         )
     # Normalize feature vectors to unit length for cosine similarity
     feature_matrix = normalize_rows(feature_matrix)
+
+    # Pure relevance: select top-k by relevance scores
+    if float(diversity) == 0.0:
+        topk = np.argsort(-relevance_scores)[:top_k].astype(np.int32)
+        gains = relevance_scores[topk].astype(np.float32, copy=False)
+        return DiversificationResult(
+            indices=topk,
+            selection_scores=gains,
+            strategy=Strategy.DPP,
+            diversity=diversity,
+            parameters={"scale": scale},
+        )
 
     num_items = feature_matrix.shape[0]
     weights = _exp_zscore_weights(relevance_scores, beta)

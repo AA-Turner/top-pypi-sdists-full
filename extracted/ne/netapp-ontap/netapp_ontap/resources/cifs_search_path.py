@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -31,7 +31,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 CifsSearchPath(
     {
         "path": "/",
-        "svm": {"uuid": "a41fd873-ecf8-11e8-899d-0050568e9333", "name": "vs1"},
+        "svm": {"name": "vs1", "uuid": "a41fd873-ecf8-11e8-899d-0050568e9333"},
     }
 )
 
@@ -57,30 +57,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     CifsSearchPath(
         {
-            "path": "/",
-            "svm": {"uuid": "2d96f9aa-f4ce-11e8-b075-0050568e278e", "name": "vs1"},
             "index": 1,
+            "path": "/",
+            "svm": {"name": "vs1", "uuid": "2d96f9aa-f4ce-11e8-b075-0050568e278e"},
         }
     ),
     CifsSearchPath(
         {
+            "index": 2,
             "path": "/a",
-            "svm": {"uuid": "2d96f9aa-f4ce-11e8-b075-0050568e278e", "name": "vs1"},
-            "index": 2,
+            "svm": {"name": "vs1", "uuid": "2d96f9aa-f4ce-11e8-b075-0050568e278e"},
         }
     ),
     CifsSearchPath(
         {
-            "path": "/",
-            "svm": {"uuid": "4f23449b-f4ce-11e8-b075-0050568e278e", "name": "vs2"},
             "index": 1,
+            "path": "/",
+            "svm": {"name": "vs2", "uuid": "4f23449b-f4ce-11e8-b075-0050568e278e"},
         }
     ),
     CifsSearchPath(
         {
-            "path": "/1",
-            "svm": {"uuid": "4f23449b-f4ce-11e8-b075-0050568e278e", "name": "vs2"},
             "index": 2,
+            "path": "/1",
+            "svm": {"name": "vs2", "uuid": "4f23449b-f4ce-11e8-b075-0050568e278e"},
         }
     ),
 ]
@@ -110,9 +110,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsSearchPath(
     {
-        "path": "/a",
-        "svm": {"uuid": "2d96f9aa-f4ce-11e8-b075-0050568e278e", "name": "vs1"},
         "index": 2,
+        "path": "/a",
+        "svm": {"name": "vs1", "uuid": "2d96f9aa-f4ce-11e8-b075-0050568e278e"},
     }
 )
 
@@ -153,11 +153,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -170,7 +169,6 @@ __pdoc__ = {
     "CifsSearchPathSchema.resource": False,
     "CifsSearchPathSchema.opts": False,
 }
-
 
 class CifsSearchPathSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the CifsSearchPath object"""
@@ -189,7 +187,12 @@ class CifsSearchPathSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: /HomeDirectory/EngDomain"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the cifs_search_path."""
 
     @property

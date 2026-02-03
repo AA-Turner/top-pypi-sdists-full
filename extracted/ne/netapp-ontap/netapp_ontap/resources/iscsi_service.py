@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -33,22 +33,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IscsiService(
     {
-        "enabled": True,
-        "svm": {
-            "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"}
-            },
-        },
-        "target": {
-            "alias": "svm1",
-            "name": "iqn.1992-08.com.netapp:sn.19d04b8e94d711e88370005056b48fd2:vs.4",
-        },
         "_links": {
             "self": {
                 "href": "/api/protocols/san/iscsi/services/19d04b8e-94d7-11e8-8370-005056b48fd2"
             }
+        },
+        "target": {
+            "name": "iqn.1992-08.com.netapp:sn.19d04b8e94d711e88370005056b48fd2:vs.4",
+            "alias": "svm1",
+        },
+        "enabled": True,
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"}
+            },
+            "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
         },
     }
 )
@@ -75,37 +75,37 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     IscsiService(
         {
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/iscsi/services/19d04b8e-94d7-11e8-8370-005056b48fd2"
+                }
+            },
             "svm": {
-                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"
                     }
                 },
-            },
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/iscsi/services/19d04b8e-94d7-11e8-8370-005056b48fd2"
-                }
+                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
             },
         }
     ),
     IscsiService(
         {
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/iscsi/services/25f617cf-94d7-11e8-8370-005056b48fd2"
+                }
+            },
             "svm": {
-                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
                 "name": "svm2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/25f617cf-94d7-11e8-8370-005056b48fd2"
                     }
                 },
-            },
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/iscsi/services/25f617cf-94d7-11e8-8370-005056b48fd2"
-                }
+                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
             },
         }
     ),
@@ -136,22 +136,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IscsiService(
     {
-        "enabled": True,
-        "svm": {
-            "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"}
-            },
-        },
-        "target": {
-            "alias": "svm1",
-            "name": "iqn.1992-08.com.netapp:sn.19d04b8e94d711e88370005056b48fd2:vs.4",
-        },
         "_links": {
             "self": {
                 "href": "/api/protocols/san/iscsi/services/19d04b8e-94d7-11e8-8370-005056b48fd2"
             }
+        },
+        "target": {
+            "name": "iqn.1992-08.com.netapp:sn.19d04b8e94d711e88370005056b48fd2:vs.4",
+            "alias": "svm1",
+        },
+        "enabled": True,
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"}
+            },
+            "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
         },
     }
 )
@@ -197,18 +197,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IscsiService(
     {
-        "enabled": False,
-        "svm": {
-            "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"}
-            },
-        },
         "_links": {
             "self": {
                 "href": "/api/protocols/san/iscsi/services/19d04b8e-94d7-11e8-8370-005056b48fd2"
             }
+        },
+        "enabled": False,
+        "svm": {
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"}
+            },
+            "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
         },
     }
 )
@@ -237,11 +237,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -255,11 +254,15 @@ __pdoc__ = {
     "IscsiServiceSchema.opts": False,
 }
 
-
 class IscsiServiceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the IscsiService object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the iscsi_service."""
 
     enabled = marshmallow_fields.Boolean(
@@ -269,16 +272,36 @@ class IscsiServiceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     r""" The administrative state of the iSCSI service. The iSCSI service can be disabled to block all iSCSI connectivity to the SVM.<br/>
 Optional in POST and PATCH. The default setting is _true_ (enabled) in POST."""
 
-    metric = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_svm.PerformanceMetricSvmSchema", data_key="metric", unknown=EXCLUDE, allow_none=True)
+    metric = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_svm", "PerformanceMetricSvmSchema"),
+                data_key="metric",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The metric field of the iscsi_service."""
 
-    statistics = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_raw_svm.PerformanceMetricRawSvmSchema", data_key="statistics", unknown=EXCLUDE, allow_none=True)
+    statistics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_raw_svm", "PerformanceMetricRawSvmSchema"),
+                data_key="statistics",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The statistics field of the iscsi_service."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the iscsi_service."""
 
-    target = marshmallow_fields.Nested("netapp_ontap.models.iscsi_service_target.IscsiServiceTargetSchema", data_key="target", unknown=EXCLUDE, allow_none=True)
+    target = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.iscsi_service_target", "IscsiServiceTargetSchema"),
+                data_key="target",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The target field of the iscsi_service."""
 
     @property

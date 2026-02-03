@@ -218,7 +218,7 @@ class LogAnalyticsSourceDataFilter(object):
     def is_enabled(self):
         """
         Gets the is_enabled of this LogAnalyticsSourceDataFilter.
-        A flag inidcating whether or not the filter is enabled.
+        A flag indicating whether or not the filter is enabled.
 
 
         :return: The is_enabled of this LogAnalyticsSourceDataFilter.
@@ -230,7 +230,7 @@ class LogAnalyticsSourceDataFilter(object):
     def is_enabled(self, is_enabled):
         """
         Sets the is_enabled of this LogAnalyticsSourceDataFilter.
-        A flag inidcating whether or not the filter is enabled.
+        A flag indicating whether or not the filter is enabled.
 
 
         :param is_enabled: The is_enabled of this LogAnalyticsSourceDataFilter.

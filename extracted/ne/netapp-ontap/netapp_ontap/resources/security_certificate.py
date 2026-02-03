@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,36 +26,36 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SecurityCertificate(
         {
-            "svm": {"name": "vs0"},
-            "uuid": "dad2363b-8ac0-11e8-9058-005056b482fc",
-            "common_name": "vs0",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/dad2363b-8ac0-11e8-9058-005056b482fc"
                 }
             },
+            "common_name": "vs0",
+            "uuid": "dad2363b-8ac0-11e8-9058-005056b482fc",
+            "svm": {"name": "vs0"},
         }
     ),
     SecurityCertificate(
         {
-            "uuid": "1941e048-8ac1-11e8-9058-005056b482fc",
-            "common_name": "ROOT",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/1941e048-8ac1-11e8-9058-005056b482fc"
                 }
             },
+            "common_name": "ROOT",
+            "uuid": "1941e048-8ac1-11e8-9058-005056b482fc",
         }
     ),
     SecurityCertificate(
         {
-            "uuid": "5a3a77a8-892d-11e8-b7da-005056b482fc",
-            "common_name": "cert_name",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/5a3a77a8-892d-11e8-b7da-005056b482fc"
                 }
             },
+            "common_name": "cert_name",
+            "uuid": "5a3a77a8-892d-11e8-b7da-005056b482fc",
         }
     ),
 ]
@@ -85,26 +85,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SecurityCertificate(
         {
-            "uuid": "1941e048-8ac1-11e8-9058-005056b482fc",
-            "common_name": "ROOT",
-            "scope": "cluster",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/1941e048-8ac1-11e8-9058-005056b482fc"
                 }
             },
+            "common_name": "ROOT",
+            "uuid": "1941e048-8ac1-11e8-9058-005056b482fc",
+            "scope": "cluster",
         }
     ),
     SecurityCertificate(
         {
-            "uuid": "5a3a77a8-892d-11e8-b7da-005056b482fc",
-            "common_name": "cert_name",
-            "scope": "cluster",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/5a3a77a8-892d-11e8-b7da-005056b482fc"
                 }
             },
+            "common_name": "cert_name",
+            "uuid": "5a3a77a8-892d-11e8-b7da-005056b482fc",
+            "scope": "cluster",
         }
     ),
 ]
@@ -138,14 +138,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SecurityCertificate(
         {
-            "svm": {"name": "vs0"},
-            "uuid": "dad2363b-8ac0-11e8-9058-005056b482fc",
-            "common_name": "vs0",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/dad2363b-8ac0-11e8-9058-005056b482fc"
                 }
             },
+            "common_name": "vs0",
+            "uuid": "dad2363b-8ac0-11e8-9058-005056b482fc",
+            "svm": {"name": "vs0"},
         }
     )
 ]
@@ -175,21 +175,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 SecurityCertificate(
     {
         "serial_number": "15428D45CF81CF56",
-        "public_certificate": "-----BEGIN CERTIFICATE-----\nMIIDQjCCAiqgAwIBAgIIFUKNRc+Bz1YwDQYJKoZIhvcNAQELBQAwGzEMMAoGA1UE\nAxMDdnMwMQswCQYDVQQGEwJVUzAeFw0xODA3MTgxOTI5MTRaFw0xOTA3MTgxOTI5\nMTRaMBsxDDAKBgNVBAMTA3ZzMDELMAkGA1UEBhMCVVMwggEiMA0GCSqGSIb3DQEB\nAQUAA4IBDwAwggEKAoIBAQCqFQb27th2ACOmJvWgLh1xRzobSb2ZTQfO561faXQ3\nIbiT+rnRWXetd/s2+iCv91d9LW0NOmP3MN2f3SFbyze3dl7WrnVbjLmYuI9MfOxs\nfmA+Bh6gpap5Yn2YddqoV6rfNGAuUveNLArNl8wODk/mpawpEQ93QSa1Zfg1gnoH\nRFrYqiSYT06X5g6RbUuEl4LTGXspz+plU46Za0i6QyxtvZ4bneibffXN3IigpqI6\nTGUV8R/J3Ps338VxVmSO9ZXBZmvbcJVoysYNICl/oi3fgPZlnBv0tbswqg4FoZO/\nWT+XHGhLep6cr/Aqg7u6C4RfqbCwzB/XFKDIqnmAQkDBAgMBAAGjgYkwgYYwDAYD\nVR0TBAUwAwEB/zALBgNVHQ8EBAMCAQYwHQYDVR0OBBYEFN/AnH8qLxocTtumNHIn\nEN4IFIDBMEoGA1UdIwRDMEGAFN/AnH8qLxocTtumNHInEN4IFIDBoR+kHTAbMQww\nCgYDVQQDEwN2czAxCzAJBgNVBAYTAlVTgggVQo1Fz4HPVjANBgkqhkiG9w0BAQsF\nAAOCAQEAa0pUEepdeQnd2Amwg8UFyxayb8eu3E6dlptvtyp+xtjhIC7Dh95CVXhy\nkJS3Tsu60PGR/b2vc3MZtAUpcL4ceD8XntKPQgBlqoB4bRogCe1TnlGswRXDX5TS\ngMVrRjaWTBF7ikT4UjR05rSxcDGplQRqjnOthqi+yPT+29+8a4Uu6J+3Kdrflj4p\n1nSWpuB9EyxtuCILNqXA2ncH7YKtoeNtChKCchhvPcoTy6Opma6UQn5UMxstkvGT\nVGaN5TlRWv0yiqPXIQblSqXi/uQsuRPcHDu7+KWRFn08USa6QVo2mDs9P7R9dd0K\n9QAsTjTOF9PlAKgNxGoOJl2y0+48AA==\n-----END CERTIFICATE-----\n",
-        "hash_function": "sha256",
-        "svm": {"uuid": "d817293c-8ac0-11e8-9058-005056b482fc", "name": "vs0"},
-        "ca": "vs0",
-        "uuid": "dad2363b-8ac0-11e8-9058-005056b482fc",
-        "type": "server",
-        "expiry_time": "2019-07-18T15:29:14-04:00",
-        "common_name": "vs0",
-        "scope": "svm",
+        "key_size": 2048,
         "_links": {
             "self": {
                 "href": "/api/security/certificates/dad2363b-8ac0-11e8-9058-005056b482fc"
             }
         },
-        "key_size": 2048,
+        "expiry_time": "2019-07-18T15:29:14-04:00",
+        "common_name": "vs0",
+        "hash_function": "sha256",
+        "uuid": "dad2363b-8ac0-11e8-9058-005056b482fc",
+        "type": "server",
+        "ca": "vs0",
+        "public_certificate": "<CERTIFICATE-CONTENT>",
+        "scope": "svm",
+        "svm": {"name": "vs0", "uuid": "d817293c-8ac0-11e8-9058-005056b482fc"},
     }
 )
 
@@ -221,35 +221,7 @@ from netapp_ontap.resources import SecurityCertificate
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
     resource = SecurityCertificate()
     resource.type = "server_ca"
-    resource.public_certificate = (
-        "-----BEGIN CERTIFICATE-----"
-        "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"
-        "cGzM7vRX+Bi6hG6H"
-        "-----END CERTIFICATE-----"
-    )
+    resource.public_certificate = "<CERTIFICATE-CONTENT>"
     resource.post(hydrate=True)
     print(resource)
 
@@ -266,35 +238,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource = SecurityCertificate()
     resource.svm = {"name": "vs0"}
     resource.type = "server_ca"
-    resource.public_certificate = (
-        "-----BEGIN CERTIFICATE-----"
-        "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"
-        "cGzM7vRX+Bi6hG6H"
-        "-----END CERTIFICATE-----"
-    )
+    resource.public_certificate = "<CERTIFICATE-CONTENT>"
     resource.post(hydrate=True)
     print(resource)
 
@@ -311,35 +255,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource = SecurityCertificate()
     resource.svm = {"name": "vs0"}
     resource.type = "server"
-    resource.public_certificate = (
-        "-----BEGIN CERTIFICATE-----"
-        "MIIDzzCCAregAwIBAgIEZjzc8TANBgkqhkiG9w0BAQsFADCBgTEYMBYGA1UEAxMP"
-        "ZWxzZS5uZXRhcHAuY29tMQswCQYDVQQGEwJVUzELMAkGA1UECBMCTkMxDDAKBgNV"
-        "BAcTA1JUUDEPMA0GA1UEChMGTmV0YXBwMQ0wCwYDVQQLEwRTREZJMR0wGwYJKoZI"
-        "hvcNAQkBFg5ydHBAbmV0YXBwLmNvbTAeFw0yNDA1MDkxNDI1NTNaFw0yNDA2MDgx"
-        "NDI1NTNaMIGBMRgwFgYDVQQDEw9lbHNlLm5ldGFwcC5jb20xCzAJBgNVBAYTAlVT"
-        "MQswCQYDVQQIEwJOQzEMMAoGA1UEBxMDUlRQMQ8wDQYDVQQKEwZOZXRhcHAxDTAL"
-        "BgNVBAsTBFNERkkxHTAbBgkqhkiG9w0BCQEWDnJ0cEBuZXRhcHAuY29tMIIBIjAN"
-        "BgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvKILXjqStcArpQc+9WbBf5SwGINK"
-        "fOJjMIAzB/Nt3VdL5Tmhem/JN7wjfdZgP0oUTugbppBz0DL+TcBrqBg1vvkJiEcn"
-        "rSBlGsRWy74nQb5aTdG14/25Xc5LmGRemJ1g7SY0ZYuRh9Gc+A/AigfATUpY4QwJ"
-        "pthqKvroSTyG57uAwno8DqqNkhrBNvmW1r97+8pOtL83/2io/1Bzn1Y45eW0xw+o"
-        "VjYpBemhWpTs/lZp5/hleaesDPeysP/oW6gCZXQP7uIT/qXbf6UnvclHXblGC/+Z"
-        "6ZsOakbCq+wJyU20YfFH5Gpc0s2w0geVYrboDcLNI9PSh9Fz9MHicFOY3wIDAQAB"
-        "o00wSzAJBgNVHRMEAjAAMB0GA1UdDgQWBBR0al7824VkIu11jvRxDJbfzgCU2TAf"
-        "BgNVHSMEGDAWgBQG5FApBQQpmBeEF2r834VP4NCSkjANBgkqhkiG9w0BAQsFAAOC"
-        "AQEABURkxch28DK1xsJgOQ0/Lk1chqoMg1mIf30WwqAYwAAcBudoHjF8hsGAibkX"
-        "+fu3l14FI02GcapQpJ63E8HpcthDPGhVBeTeKYVMctuLYNtM0fyucnxzDrTRjWCP"
-        "5tgBOfNFuEucwVu6wAtulZV31hwgYdE3Oj6/M/v6U3xLxXDV0HGC2lpRmWEO4a2j"
-        "TsGml0D2xtpfHqujxbmzv/Fw0FPNY0K6Ee4A1jDxQ+tKOYLHhXeZAoksLc/VqPWM"
-        "6uAYnxhm9FZiPNx5/ysV11yNmvTFARyLbj2CJog5jbld2so3liDBcEL1xy9/bToK"
-        "MoBBKg5TQ1r20GJ3XZ23sZTbUg=="
-        "-----END CERTIFICATE-----"
-    )
-    resource.private_key = "(private_key)"
+    resource.public_certificate = "<CERTIFICATE-CONTENT>"
     resource.intermediate_certificates = [
-        "-----BEGIN CERTIFICATE-----\nMIID0jCCArqgAwIBAgIEZjzc8TANBgkqhkiG9w0BAQsFADCBgTEYMBYGA1UEAxMP\nc2VsZi5uZXRhcHAuY29tMQswCQYDVQQGEwJVUzELMAkGA1UECBMCTkMxDDAKBgNV\nBAcTA1JUUDEPMA0GA1UEChMGTmV0QXBwMQ0wCwYDVQQLEwRTREZJMR0wGwYJKoZI\nhvcNAQkBFg5ydHBAbmV0YXBwLmNvbTAeFw0yNDA1MDkxNDI1NTNaFw0yNDA2MDgx\nNDI1NTNaMIGBMRgwFgYDVQQDEw9lbHNlLm5ldGFwcC5jb20xCzAJBgNVBAYTAlVT\nMQswCQYDVQQIEwJOQzEMMAoGA1UEBxMDUlRQMQ8wDQYDVQQKEwZOZXRhcHAxDTAL\nBgNVBAsTBFNERkkxHTAbBgkqhkiG9w0BCQEWDnJ0cEBuZXRhcHAuY29tMIIBIjAN\nBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp9N/ETcywcV2qieDVfzz1StpbFLp\n6t/nAvYiUbnnlzHOSbtckmu3aV9qWHaEJhN3Oflt85UWjWSJdJX7LZrNjiCA1J5H\ndcfa8k1utDwD4EMRFaSmFxOqqr//NGjlr5d5CBo38NRWDz73Czss7hITtSb+tZpI\nOuh69Irif6CsrJE2pSIzvJXOn8T2SvBxhK50z/iSY6eKWV9OObk1H0mBw/g6yRzY\n34n0/fyeQ2cpZcnHa3XN9B8KPMXF2aJiOGSxM1ZMJcomIbyrLl/ChiYNTfXbeZ12\naBjkpSfiyDlXLV6g+iQHmEQfvJdXljCG7Sfp6u9y0vNWKfRxrvx6vsKkVwIDAQAB\no1AwTjAMBgNVHRMEBTADAQH/MB0GA1UdDgQWBBQG5FApBQQpmBeEF2r834VP4NCS\nkjAfBgNVHSMEGDAWgBQgw94oenC0Ban0MZ9gTOJ4oHRPYDANBgkqhkiG9w0BAQsF\nAAOCAQEATrl8iDrEc69X3DfGwcuv7nzUif9Plk/w+3p/2lEMEVTuqkg4vHUcRwAZ\nblINoFJSkqxThWI0lDaDPUBKudchLGRiJdtmZWfU+hFWn2rGiKxB4Ejf3cULU87h\nvrGs2EoGb8hHxn0d2Kgth+vFbaPyFr+me4qWZwAmS58b2jtDkdFTjHae512/hyIZ\nXgf+0YUUQ2wyhsVquoLbWfL/RojPbyMWVGuTeiUXGoW6cw1G/jrxm0ZkSTfVMYjX\njLC1MjHH8I6n3GkVWnNe54+8Fhax8bUIOHhRQQJSzjezRS1Oik3mTMpn+gOi+udI\n+YmIPyvF2mFBxGdH7ORm3vPVX/TTFw==\n-----END CERTIFICATE-----\n",
-        "-----BEGIN CERTIFICATE-----\nMIIEejCCA2KgAwIBAgIEZjzc8TANBgkqhkiG9w0BAQsFADCBgTEYMBYGA1UEAxMP\nc2VsZi5uZXRhcHAuY29tMQswCQYDVQQGEwJVUzELMAkGA1UECBMCTkMxDDAKBgNV\nBAcTA1JUUDEPMA0GA1UEChMGTmV0QXBwMQ0wCwYDVQQLEwRTREZJMR0wGwYJKoZI\nhvcNAQkBFg5ydHBAbmV0YXBwLmNvbTAeFw0yNDA1MDkxNDI1NTNaFw0yNDA2MDgx\nNDI1NTNaMIGBMRgwFgYDVQQDEw9zZWxmLm5ldGFwcC5jb20xCzAJBgNVBAYTAlVT\nMQswCQYDVQQIEwJOQzEMMAoGA1UEBxMDUlRQMQ8wDQYDVQQKEwZOZXRBcHAxDTAL\nBgNVBAsTBFNERkkxHTAbBgkqhkiG9w0BCQEWDnJ0cEBuZXRhcHAuY29tMIIBIjAN\nBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAz+KWK+qQa9AEywWqerH+KnoqYUht\nX34BBjChubmVWos1HHdh3BIvC/Qh3xQPc5kQvd6LRER5kAkoLyxKHnzwKIU5reyg\n7i2HZ+2XChs2tF6HK6y1T57XObe4L7nwEL26I6E5bzUhVak/LYuzsMerm+sCEBi+\nB55dfLNrZN3St/S2fhiBe5dcsl+k+MI+TXnCBBM9ujYJaQ9dmWIxMbBtR8cynGKv\nG8pGisRstyueORRjRzelU8dl3Q1j6BcJ4RWl+GsLXSJ8tPa7uJ23elZrYpt2ed/z\nJApoo4N0oa3pjxSnwXGxXtp/9LSDzJ7wsTRm03+YFqAI+6QSJbzkaQrpvwIDAQAB\no4H3MIH0MA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQW\nBBQgw94oenC0Ban0MZ9gTOJ4oHRPYDCBsQYDVR0jBIGpMIGmgBQgw94oenC0Ban0\nMZ9gTOJ4oHRPYKGBh6SBhDCBgTEYMBYGA1UEAxMPc2VsZi5uZXRhcHAuY29tMQsw\nCQYDVQQGEwJVUzELMAkGA1UECBMCTkMxDDAKBgNVBAcTA1JUUDEPMA0GA1UEChMG\nTmV0QXBwMQ0wCwYDVQQLEwRTREZJMR0wGwYJKoZIhvcNAQkBFg5ydHBAbmV0YXBw\nLmNvbYIEZjzc8TANBgkqhkiG9w0BAQsFAAOCAQEAOoHdvKuRZHSBvShDvmk2bbOu\n0KOUQZsEWLhtSVHVh4vLNqiLpB29ztBNVHLHGBxX0rcWWLdQ/16R29mN7VE+CY/3\nu1ODXTrUB95jVfXRzDJRWZa6MGu4qCfkt61mYEstwXJP3Aoo9W2EgRE4IcxtaV0i\nS5XZucrWlLYSP+ZmxYgRp8Ru8KvMhv55jYNB290tYOBxuYc2XaaO41noLBu5/aaF\nthaCiuEDygqv8mYnnHlyf72qmmrgzq5NhTbmnAEiBnCFg3voDYUP4i+iq4eoiduZ\nxOAyTxVT+dZrQpWRbsp6CCRZDuvLWAStqoVpXqNV7UNZTYrXDYMXP+RxBdOEfA==\n-----END CERTIFICATE-----\n",
+        "<CERTIFICATE-CONTENT>",
+        "<CERTIFICATE-CONTENT>",
     ]
     resource.post(hydrate=True)
     print(resource)
@@ -368,10 +287,7 @@ from netapp_ontap.resources import SecurityCertificate
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
     resource = SecurityCertificate(uuid="253add53-8ac9-11e8-9058-005056b482fc")
     resource.sign(
-        body={
-            "signing_request": "-----BEGIN CERTIFICATE REQUEST-----\nMIICYTCCAUkCAQAwHDENMAsGA1UEAxMEVEVTVDELMAkGA1UEBhMCVVMwggEiMA0G\nCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCiBCuVfbYHNdOO7vjRQja4JqL2cHqK\ndrlTj5hz9RVqFKZ7VPh8DSP9LoTbYWsvrTkbuD0Wi715MVQCsbkq/mHos+Y5lfqs\nNP5K92fc6EhBzBDYFgZGFntZYJjEG5MPerIUE7CfVy7o6sjWOlxeY33pjefObyvP\nBcJkBHg6SFJK/TDLvIYJkonLkJEOJoTI6++a3I/1bCMfUeuRtLU9ThWlna1kMMYK\n4T16/Bxgm4bha2U2jtosc0Wltnld/capc+eqRV07WVbMmEOTtop3cv0h3N0S6lbn\nFkd96DXzeGWbSHFHckeCZ9bOHhnVbfEa/efkPLx7ziMC8GtRHHlwbnK7AgMBAAGg\nADANBgkqhkiG9w0BAQsFAAOCAQEAf+rs1i5PHaOSI2HtTM+Hcv/p71yzgoLL+aeU\ntB0V4iuoXdqY8oQeWoPI92ci0K08JuSpu6D0DwCKlstfwuGkAA2b0Wr7ZDRonTUq\nmJ4j3O47MLysW4Db2LbGws/AuDsCIrBJDWHMpHaqsvRbpMx2xQ/V5oagUw5eGGpN\ne4fg/E2k9mGkpxwkUzT7w1RZirpND4xL+XTzpzeZqgalpXug4yjIXlI5hpRESZ9/\nAkGJSCWxI15IZdxxFVXlBcmm6WpJnnboqkcKeXz95GM6Re+oBy9tlgvwvlVd5s8uHX+bycFiZp09Wsm8Ev727MziZ+0II9nxwkDKsdPvam+KLI9hLQ==\n-----END CERTIFICATE REQUEST-----\n",
-            "hash_function": "sha256",
-        }
+        body={"signing_request": "<CERTIFICATE-CONTENT>", "hash_function": "sha256"}
     )
 
 ```
@@ -380,11 +296,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example9_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example9_result" class="try_it_out_content">
 ```
-SecurityCertificate(
-    {
-        "public_certificate": "-----BEGIN CERTIFICATE-----\nMIIDBzCCAe+gAwIBAgIIFUKQpcqeaUAwDQYJKoZIhvcNAQELBQAwHDENMAsGA1UE\nAxMEUkFDWDELMAkGA1UEBhMCVVMwHhcNMTgwNzE4MjAzMTA1WhcNMTkwNzE4MjAz\nMTA1WjAcMQ0wCwYDVQQDEwRURVNUMQswCQYDVQQGEwJVUzCCASIwDQYJKoZIhvcN\nAQEBBQADggEPADCCAQoCggEBAKIEK5V9tgc1047u+NFCNrgmovZweop2uVOPmHP1\nFWoUpntU+HwNI/0uhNthay+tORu4PRaLvXkxVAKxuSr+Yeiz5jmV+qw0/kr3Z9zo\nSEHMENgWBkYWe1lgmMQbkw96shQTsJ9XLujqyNY6XF5jfemN585vK88FwmQEeDpI\nUkr9MMu8hgmSicuQkQ4mhMjr75rcj/VsIx9R65G0tT1OFaWdrWQwxgrhPXr8HGCb\nhuFrZTaO2ixzRaW2eV39xqlz56pFXTtZVsyYQ5O2indy/SHc3RLqVucWR33oNfN4\nZZtIcUdyR4Jn1s4eGdVt8Rr95+Q8vHvOIwLwa1EceXBucrsCAwEAAaNNMEswCQYD\nVR0TBAIwADAdBgNVHQ4EFgQUJMPxjeW1G76TbbD2tXB8dwSpI3MwHwYDVR0jBBgw\nFoAUu5aH0mWR4cFoN9i7k96d2op3sPwwDQYJKoZIhvcNAQELBQADggEBAI5ai+Zi\nFQZUXRTqJCgHsgBThARneVWQYkYpyAXmTR7QeLf1d4ZHL33i4xWCqX3uvW7SFJLe\nZajT2AVmgiDbaWIHtDtvqz1BY78PSgUwPH/IyARTEOBeikp6KdwMPraehDIBMAcc\nANY58wXiTBbsl8UMD6tGecgnzw6sxlMmadGvrfJeJmgY4zert6NNvgtTPhcZQdLS\nE0fGzHS6+3ajCCfEEhPNPeR9D0e5Me81i9EsQGENrnJzTci8rzXPuF4bC3gghrK1\nI1+kmJQ1kLYVUcsntcrIiHmNvtPFJY6stjDgQKS9aDd/THhPpokPtZoCmE6PDxh6\nR+dO6C0hcDKHFzA=\n-----END CERTIFICATE-----\n"
-    }
-)
+SecurityCertificate({"public_certificate": "<CERTIFICATE-CONTENT>"})
 
 ```
 </div>
@@ -440,17 +352,55 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 
+---
+```
+### Creating a root-ca certificate in a cluster when DCN cluster is configured.
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import SecurityCertificate
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = SecurityCertificate()
+    resource.common_name = "TEST-ROOT-CA"
+    resource.type = "root_ca"
+    resource.post(hydrate=True)
+    print(resource)
+
+```
+<div class="try_it_out">
+<input id="example12_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example12_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example12_result" class="try_it_out_content">
+```
+SecurityCertificate({"common_name": "TEST-ROOT-CA", "type": "root_ca"})
+
+```
+</div>
+</div>
+
+---
+### Deleting a CA certificate using its UUID when DCN cluster is configured.
+---
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import SecurityCertificate
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = SecurityCertificate(uuid="dad2363b-8ac0-11e8-9058-005056b482fc")
+    resource.delete(fields="*")
+
+```
+
 ---"""
 
 import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -464,11 +414,15 @@ __pdoc__ = {
     "SecurityCertificateSchema.opts": False,
 }
 
-
 class SecurityCertificateSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SecurityCertificate object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the security_certificate."""
 
     authority_key_identifier = marshmallow_fields.Str(
@@ -479,7 +433,12 @@ class SecurityCertificateSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 26:1F:C5:53:5B:D7:9E:E2:37:74:F4:F4:06:09:03:3D:EB:41:75:D7"""
 
-    azure = marshmallow_fields.Nested("netapp_ontap.models.security_azure.SecurityAzureSchema", data_key="azure", unknown=EXCLUDE, allow_none=True)
+    azure = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.security_azure", "SecurityAzureSchema"),
+                data_key="azure",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The azure field of the security_certificate."""
 
     ca = marshmallow_fields.Str(
@@ -550,18 +509,7 @@ Example: (private_key)\n"""
     )
     r""" Public key Certificate in PEM format. If this is not provided in POST, a self-signed certificate is created.
 
-Example: -----BEGIN CERTIFICATE-----
-MIIBuzCCAWWgAwIBAgIIFTZBrqZwUUMwDQYJKoZIhvcNAQELBQAwHDENMAsGA1UE
-AxMEVEVTVDELMAkGA1UEBhMCVVMwHhcNMTgwNjA4MTgwOTAxWhcNMTkwNjA4MTgw
-OTAxWjAcMQ0wCwYDVQQDEwRURVNUMQswCQYDVQQGEwJVUzBcMA0GCSqGSIb3DQEB
-AQUAA0sAMEgCQQDaPvbqUJJFJ6NNTyK3Yb+ytSjJ9aa3yUmYTD9uMiP+6ycjxHWB
-e8u9z6yCHsW03ync+dnhE5c5z8wuDAY0fv15AgMBAAGjgYowgYcwDAYDVR0TBAUw
-AwEB/zALBgNVHQ8EBAMCAQYwHQYDVR0OBBYEFMJ7Ev/o/3+YNzYh5XNlqqjnw4zm
-MEsGA1UdIwREMEKAFMJ7Ev/o/3+YNzYh5XNlqqjnw4zmoSCkHjAcMQ0wCwYDVQQD
-EwRURVNUMQswCQYDVQQGEwJVU4IIFTZBrqZwUUMwDQYJKoZIhvcNAQELBQADQQAv
-DovYeyGNnknjGI+TVNX6nDbyzf7zUPqnri0KuvObEeybrbPW45sgsnT5dyeE/32U
-9Yr6lklnkBtVBDTmLnrC
------END CERTIFICATE-----"""
+Example: <CERTIFICATE-CONTENT>"""
 
     scope = marshmallow_fields.Str(
         data_key="scope",
@@ -576,7 +524,12 @@ DovYeyGNnknjGI+TVNX6nDbyzf7zUPqnri0KuvObEeybrbPW45sgsnT5dyeE/32U
     )
     r""" Serial number of certificate."""
 
-    subject_alternatives = marshmallow_fields.Nested("netapp_ontap.models.subject_alternate_name.SubjectAlternateNameSchema", data_key="subject_alternatives", unknown=EXCLUDE, allow_none=True)
+    subject_alternatives = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.subject_alternate_name", "SubjectAlternateNameSchema"),
+                data_key="subject_alternatives",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The subject_alternatives field of the security_certificate."""
 
     subject_key_identifier = marshmallow_fields.Str(
@@ -587,7 +540,12 @@ DovYeyGNnknjGI+TVNX6nDbyzf7zUPqnri0KuvObEeybrbPW45sgsnT5dyeE/32U
 
 Example: 26:1F:C5:53:5B:D7:9E:E2:37:74:F4:F4:06:09:03:3D:EB:41:75:D8"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the security_certificate."""
 
     type = marshmallow_fields.Str(

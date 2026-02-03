@@ -161,6 +161,12 @@ GRPC_SERVER_ADDRESS = env(
     default="127.0.0.1:50051",
 )
 
+# Python gRPC server settings (for encryption/checkpointer services called by Go)
+# By default, binds to loopback interface only for security.
+# Set PYTHON_GRPC_BIND_HOST=0.0.0.0 to allow external connections (e.g., for CI testing).
+PYTHON_GRPC_SERVER_PORT = 50071
+PYTHON_GRPC_BIND_HOST = env("PYTHON_GRPC_BIND_HOST", cast=str, default="127.0.0.1")
+
 # Minimum payload size to use the dedicated thread pool for JSON parsing.
 # (Otherwise, the payload is parsed directly in the event loop.)
 JSON_THREAD_POOL_MINIMUM_SIZE_BYTES = 100 * 1024  # 100 KB
@@ -266,6 +272,7 @@ USE_CUSTOM_CHECKPOINTER = bool(
     and "path" in CHECKPOINTER_CONFIG
     and CHECKPOINTER_CONFIG["path"].strip()
 )
+
 SERDE: SerdeConfig | None = (
     CHECKPOINTER_CONFIG["serde"]
     if CHECKPOINTER_CONFIG and "serde" in CHECKPOINTER_CONFIG
@@ -448,6 +455,9 @@ SELF_HOSTED_OBSERVABILITY_SERVICE_NAME = "LGP_Self_Hosted"
 
 IS_QUEUE_ENTRYPOINT = False
 IS_EXECUTOR_ENTRYPOINT = False
+PYTHON_GRPC_SERVER_ENABLED = bool(LANGGRAPH_ENCRYPTION or USE_CUSTOM_CHECKPOINTER)
+
+
 ref_sha = None
 if not os.getenv("LANGCHAIN_REVISION_ID") and (
     ref_sha := os.getenv("LANGSMITH_LANGGRAPH_GIT_REF_SHA")
@@ -510,6 +520,9 @@ __all__ = [
     "N_JOBS_PER_WORKER",
     "OTEL_ENABLED",
     "POSTGRES_POOL_MAX_SIZE",
+    "PYTHON_GRPC_BIND_HOST",
+    "PYTHON_GRPC_SERVER_ENABLED",
+    "PYTHON_GRPC_SERVER_PORT",
     "REDIS_CLUSTER",
     "REDIS_CONNECT_TIMEOUT",
     "REDIS_HEALTH_CHECK_INTERVAL",
@@ -530,6 +543,7 @@ __all__ = [
     "USES_INDEXING",
     "USES_STORE_TTL",
     "USES_THREAD_TTL",
+    "USE_CUSTOM_CHECKPOINTER",
     "AuthConfig",
     "CheckpointerConfig",
     "CorsConfig",

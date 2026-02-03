@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -31,88 +31,88 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     BroadcastDomain(
         {
-            "mtu": 9000,
-            "ipspace": {
-                "uuid": "6267eff8-f34f-11e8-8373-005056bb6b85",
-                "_links": {
-                    "self": {
-                        "href": "/api/network/ipspaces/6267eff8-f34f-11e8-8373-005056bb6b85"
-                    }
-                },
-                "name": "Cluster",
-            },
-            "uuid": "6970c2a9-f34f-11e8-8373-005056bb6b85",
-            "ports": [
-                {
-                    "uuid": "626b4d19-f34f-11e8-8373-005056bb6b85",
-                    "node": {"name": "examplecluster-node01"},
-                    "name": "e0a",
-                    "_links": {
-                        "self": {
-                            "href": "/api/network/ethernet/ports/626b4d19-f34f-11e8-8373-005056bb6b85"
-                        }
-                    },
-                },
-                {
-                    "uuid": "626b77b9-f34f-11e8-8373-005056bb6b85",
-                    "node": {"name": "examplecluster-node01"},
-                    "name": "e0b",
-                    "_links": {
-                        "self": {
-                            "href": "/api/network/ethernet/ports/626b77b9-f34f-11e8-8373-005056bb6b85"
-                        }
-                    },
-                },
-            ],
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/broadcast-domains/6970c2a9-f34f-11e8-8373-005056bb6b85"
                 }
             },
             "name": "Cluster",
+            "ipspace": {
+                "_links": {
+                    "self": {
+                        "href": "/api/network/ipspaces/6267eff8-f34f-11e8-8373-005056bb6b85"
+                    }
+                },
+                "name": "Cluster",
+                "uuid": "6267eff8-f34f-11e8-8373-005056bb6b85",
+            },
+            "mtu": 9000,
+            "ports": [
+                {
+                    "name": "e0a",
+                    "node": {"name": "examplecluster-node01"},
+                    "_links": {
+                        "self": {
+                            "href": "/api/network/ethernet/ports/626b4d19-f34f-11e8-8373-005056bb6b85"
+                        }
+                    },
+                    "uuid": "626b4d19-f34f-11e8-8373-005056bb6b85",
+                },
+                {
+                    "name": "e0b",
+                    "node": {"name": "examplecluster-node01"},
+                    "_links": {
+                        "self": {
+                            "href": "/api/network/ethernet/ports/626b77b9-f34f-11e8-8373-005056bb6b85"
+                        }
+                    },
+                    "uuid": "626b77b9-f34f-11e8-8373-005056bb6b85",
+                },
+            ],
+            "uuid": "6970c2a9-f34f-11e8-8373-005056bb6b85",
         }
     ),
     BroadcastDomain(
         {
-            "mtu": 1500,
-            "ipspace": {
-                "uuid": "5f650349-f34f-11e8-8373-005056bb6b85",
-                "_links": {
-                    "self": {
-                        "href": "/api/network/ipspaces/5f650349-f34f-11e8-8373-005056bb6b85"
-                    }
-                },
-                "name": "Default",
-            },
-            "uuid": "6972416c-f34f-11e8-8373-005056bb6b85",
-            "ports": [
-                {
-                    "uuid": "626bae19-f34f-11e8-8373-005056bb6b85",
-                    "node": {"name": "examplecluster-node01"},
-                    "name": "e0c",
-                    "_links": {
-                        "self": {
-                            "href": "/api/network/ethernet/ports/626bae19-f34f-11e8-8373-005056bb6b85"
-                        }
-                    },
-                },
-                {
-                    "uuid": "626bd677-f34f-11e8-8373-005056bb6b85",
-                    "node": {"name": "examplecluster-node01"},
-                    "name": "e0d",
-                    "_links": {
-                        "self": {
-                            "href": "/api/network/ethernet/ports/626bd677-f34f-11e8-8373-005056bb6b85"
-                        }
-                    },
-                },
-            ],
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/broadcast-domains/6972416c-f34f-11e8-8373-005056bb6b85"
                 }
             },
             "name": "Default",
+            "ipspace": {
+                "_links": {
+                    "self": {
+                        "href": "/api/network/ipspaces/5f650349-f34f-11e8-8373-005056bb6b85"
+                    }
+                },
+                "name": "Default",
+                "uuid": "5f650349-f34f-11e8-8373-005056bb6b85",
+            },
+            "mtu": 1500,
+            "ports": [
+                {
+                    "name": "e0c",
+                    "node": {"name": "examplecluster-node01"},
+                    "_links": {
+                        "self": {
+                            "href": "/api/network/ethernet/ports/626bae19-f34f-11e8-8373-005056bb6b85"
+                        }
+                    },
+                    "uuid": "626bae19-f34f-11e8-8373-005056bb6b85",
+                },
+                {
+                    "name": "e0d",
+                    "node": {"name": "examplecluster-node01"},
+                    "_links": {
+                        "self": {
+                            "href": "/api/network/ethernet/ports/626bd677-f34f-11e8-8373-005056bb6b85"
+                        }
+                    },
+                    "uuid": "626bd677-f34f-11e8-8373-005056bb6b85",
+                },
+            ],
+            "uuid": "6972416c-f34f-11e8-8373-005056bb6b85",
         }
     ),
 ]
@@ -143,45 +143,45 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 BroadcastDomain(
     {
-        "mtu": 9000,
-        "ipspace": {
-            "uuid": "3e518ed5-f8a0-11e8-8d33-005056bb986f",
-            "_links": {
-                "self": {
-                    "href": "/api/network/ipspaces/3e518ed5-f8a0-11e8-8d33-005056bb986f"
-                }
-            },
-            "name": "Cluster",
-        },
-        "uuid": "4475a2c8-f8a0-11e8-8d33-005056bb986f",
-        "ports": [
-            {
-                "uuid": "3e539a62-f8a0-11e8-8d33-005056bb986f",
-                "node": {"name": "examplecluster-node01"},
-                "name": "e0a",
-                "_links": {
-                    "self": {
-                        "href": "/api/network/ethernet/ports/3e539a62-f8a0-11e8-8d33-005056bb986f"
-                    }
-                },
-            },
-            {
-                "uuid": "3e53c94a-f8a0-11e8-8d33-005056bb986f",
-                "node": {"name": "examplecluster-node01"},
-                "name": "e0b",
-                "_links": {
-                    "self": {
-                        "href": "/api/network/ethernet/ports/3e53c94a-f8a0-11e8-8d33-005056bb986f"
-                    }
-                },
-            },
-        ],
         "_links": {
             "self": {
                 "href": "/api/network/ethernet/broadcast-domains/4475a2c8-f8a0-11e8-8d33-005056bb986f/"
             }
         },
         "name": "Cluster",
+        "ipspace": {
+            "_links": {
+                "self": {
+                    "href": "/api/network/ipspaces/3e518ed5-f8a0-11e8-8d33-005056bb986f"
+                }
+            },
+            "name": "Cluster",
+            "uuid": "3e518ed5-f8a0-11e8-8d33-005056bb986f",
+        },
+        "mtu": 9000,
+        "ports": [
+            {
+                "name": "e0a",
+                "node": {"name": "examplecluster-node01"},
+                "_links": {
+                    "self": {
+                        "href": "/api/network/ethernet/ports/3e539a62-f8a0-11e8-8d33-005056bb986f"
+                    }
+                },
+                "uuid": "3e539a62-f8a0-11e8-8d33-005056bb986f",
+            },
+            {
+                "name": "e0b",
+                "node": {"name": "examplecluster-node01"},
+                "_links": {
+                    "self": {
+                        "href": "/api/network/ethernet/ports/3e53c94a-f8a0-11e8-8d33-005056bb986f"
+                    }
+                },
+                "uuid": "3e53c94a-f8a0-11e8-8d33-005056bb986f",
+            },
+        ],
+        "uuid": "4475a2c8-f8a0-11e8-8d33-005056bb986f",
     }
 )
 
@@ -212,13 +212,13 @@ with HostConnection(
 [
     BroadcastDomain(
         {
-            "uuid": "66b607e5-4bee-11e9-af6a-005056bb13c0",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/broadcast-domains/66b607e5-4bee-11e9-af6a-005056bb13c0"
                 }
             },
             "name": "bd1",
+            "uuid": "66b607e5-4bee-11e9-af6a-005056bb13c0",
         }
     )
 ]
@@ -252,45 +252,45 @@ with HostConnection(
 [
     BroadcastDomain(
         {
-            "mtu": 1500,
-            "ipspace": {
-                "uuid": "ac466a88-4bed-11e9-af6a-005056bb13c0",
-                "_links": {
-                    "self": {
-                        "href": "/api/network/ipspaces/ac466a88-4bed-11e9-af6a-005056bb13c0"
-                    }
-                },
-                "name": "Cluster",
-            },
-            "uuid": "ae69070c-4bed-11e9-af6a-005056bb13c0",
-            "ports": [
-                {
-                    "uuid": "acd67884-4bed-11e9-af6a-005056bb13c0",
-                    "node": {"name": "examplecluster-node-1"},
-                    "name": "e0a",
-                    "_links": {
-                        "self": {
-                            "href": "/api/network/ethernet/ports/acd67884-4bed-11e9-af6a-005056bb13c0"
-                        }
-                    },
-                },
-                {
-                    "uuid": "ace1a36f-4bed-11e9-af6a-005056bb13c0",
-                    "node": {"name": "examplecluster-node-1"},
-                    "name": "e0b",
-                    "_links": {
-                        "self": {
-                            "href": "/api/network/ethernet/ports/ace1a36f-4bed-11e9-af6a-005056bb13c0"
-                        }
-                    },
-                },
-            ],
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/broadcast-domains/ae69070c-4bed-11e9-af6a-005056bb13c0"
                 }
             },
             "name": "Cluster",
+            "ipspace": {
+                "_links": {
+                    "self": {
+                        "href": "/api/network/ipspaces/ac466a88-4bed-11e9-af6a-005056bb13c0"
+                    }
+                },
+                "name": "Cluster",
+                "uuid": "ac466a88-4bed-11e9-af6a-005056bb13c0",
+            },
+            "mtu": 1500,
+            "ports": [
+                {
+                    "name": "e0a",
+                    "node": {"name": "examplecluster-node-1"},
+                    "_links": {
+                        "self": {
+                            "href": "/api/network/ethernet/ports/acd67884-4bed-11e9-af6a-005056bb13c0"
+                        }
+                    },
+                    "uuid": "acd67884-4bed-11e9-af6a-005056bb13c0",
+                },
+                {
+                    "name": "e0b",
+                    "node": {"name": "examplecluster-node-1"},
+                    "_links": {
+                        "self": {
+                            "href": "/api/network/ethernet/ports/ace1a36f-4bed-11e9-af6a-005056bb13c0"
+                        }
+                    },
+                    "uuid": "ace1a36f-4bed-11e9-af6a-005056bb13c0",
+                },
+            ],
+            "uuid": "ae69070c-4bed-11e9-af6a-005056bb13c0",
         }
     )
 ]
@@ -328,9 +328,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 BroadcastDomain(
     {
-        "mtu": 1500,
         "_links": {"self": {"href": "/api/network/ethernet/broadcast-domains/"}},
         "name": "bd1",
+        "mtu": 1500,
     }
 )
 
@@ -400,11 +400,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -418,14 +417,23 @@ __pdoc__ = {
     "BroadcastDomainSchema.opts": False,
 }
 
-
 class BroadcastDomainSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the BroadcastDomain object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the broadcast_domain."""
 
-    ipspace = marshmallow_fields.Nested("netapp_ontap.resources.ipspace.IpspaceSchema", data_key="ipspace", unknown=EXCLUDE, allow_none=True)
+    ipspace = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.ipspace", "IpspaceSchema"),
+                data_key="ipspace",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The ipspace field of the broadcast_domain."""
 
     mtu = Size(
@@ -445,7 +453,15 @@ Example: 1500"""
 
 Example: bd1"""
 
-    ports = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.port.PortSchema", unknown=EXCLUDE, allow_none=True), data_key="ports", allow_none=True)
+    ports = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.port", "PortSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="ports",
+                allow_none=True
+            )
     r""" Ports that belong to the broadcast domain"""
 
     uuid = marshmallow_fields.Str(

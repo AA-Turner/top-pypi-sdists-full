@@ -2,8 +2,9 @@ import functools
 import inspect
 import re
 import traceback
+from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, Iterable, List, Optional, Tuple, Type, TypeVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, TypeVar, cast
 
 from django.template import Context, Library
 from django.template.base import Node, NodeList, Parser, Token
@@ -55,10 +56,10 @@ class NodeMeta(type):
     def __new__(
         mcs,
         name: str,
-        bases: Tuple[Type, ...],
-        attrs: Dict[str, Any],
-    ) -> Type["BaseNode"]:
-        cls = cast("Type[BaseNode]", super().__new__(mcs, name, bases, attrs))
+        bases: tuple[type, ...],
+        attrs: dict[str, Any],
+    ) -> type["BaseNode"]:
+        cls = cast("type[BaseNode]", super().__new__(mcs, name, bases, attrs))
 
         # Ignore the `BaseNode` class itself
         if attrs.get("__module__") == "django_components.node":
@@ -169,9 +170,9 @@ class BaseNode(Node, metaclass=NodeMeta):
     This class has a dual role:
 
     1. It declares how a particular template tag should be parsed - By setting the
-       [`tag`](../api#django_components.BaseNode.tag),
-       [`end_tag`](../api#django_components.BaseNode.end_tag),
-       and [`allowed_flags`](../api#django_components.BaseNode.allowed_flags) attributes:
+       [`tag`](api.md#django_components.BaseNode.tag),
+       [`end_tag`](api.md#django_components.BaseNode.end_tag),
+       and [`allowed_flags`](api.md#django_components.BaseNode.allowed_flags) attributes:
 
         ```python
         class SlotNode(BaseNode):
@@ -186,7 +187,7 @@ class BaseNode(Node, metaclass=NodeMeta):
         {% slot required %} ... {% endslot %}
         ```
 
-    2. The [`render`](../api#django_components.BaseNode.render) method is
+    2. The [`render`](api.md#django_components.BaseNode.render) method is
         the actual implementation of the template tag.
 
         This is where the tag's logic is implemented:
@@ -206,9 +207,9 @@ class BaseNode(Node, metaclass=NodeMeta):
         ```
 
     The template tag accepts parameters as defined on the
-    [`render`](../api#django_components.BaseNode.render) method's signature.
+    [`render`](api.md#django_components.BaseNode.render) method's signature.
 
-    For more info, see [`BaseNode.render()`](../api#django_components.BaseNode.render).
+    For more info, see [`BaseNode.render()`](api.md#django_components.BaseNode.render).
     """
 
     # #####################################
@@ -235,7 +236,7 @@ class BaseNode(Node, metaclass=NodeMeta):
     ```
     """
 
-    end_tag: ClassVar[Optional[str]] = None
+    end_tag: ClassVar[str | None] = None
     """
     The end tag name.
 
@@ -266,7 +267,7 @@ class BaseNode(Node, metaclass=NodeMeta):
     ```
     """
 
-    allowed_flags: ClassVar[Optional[Iterable[str]]] = None
+    allowed_flags: ClassVar[Iterable[str] | None] = None
     """
     The list of all *possible* flags for this tag.
 
@@ -315,7 +316,7 @@ class BaseNode(Node, metaclass=NodeMeta):
     # Attributes
     # #####################################
 
-    params: List[TagAttr]
+    params: list[TagAttr]
     """
     The parameters to the tag in the template.
 
@@ -334,7 +335,7 @@ class BaseNode(Node, metaclass=NodeMeta):
     - Keyword arg `key2='val2 two'`
     """
 
-    start_tag_source: Optional[str]
+    start_tag_source: str | None
     """
     The source code of the start tag with parameters as a string.
 
@@ -353,9 +354,9 @@ class BaseNode(Node, metaclass=NodeMeta):
     May be `None` if the `Node` instance was created manually.
     """
 
-    flags: Dict[str, bool]
+    flags: dict[str, bool]
     """
-    Dictionary of all [`allowed_flags`](../api#django_components.BaseNode.allowed_flags)
+    Dictionary of all [`allowed_flags`](api.md#django_components.BaseNode.allowed_flags)
     that were set on the tag.
 
     Flags that were set are `True`, and the rest are `False`.
@@ -392,14 +393,14 @@ class BaseNode(Node, metaclass=NodeMeta):
     ```
     """
 
-    filters: Dict[str, Callable]
+    filters: dict[str, Callable]
     """
     The filters available to the tag.
 
     This will be the same as the global Django filters.
     """
 
-    tags: Dict[str, Callable]
+    tags: dict[str, Callable]
     """
     The tags available to the tag.
 
@@ -422,11 +423,11 @@ class BaseNode(Node, metaclass=NodeMeta):
 
     The `nodelist` will contain the `<div> ... </div>` part.
 
-    Unlike [`contents`](../api#django_components.BaseNode.contents),
+    Unlike [`contents`](api.md#django_components.BaseNode.contents),
     the `nodelist` contains the actual Nodes, not just the text.
     """
 
-    contents: Optional[str]
+    contents: str | None
     """
     The body of the tag as a string.
 
@@ -450,7 +451,7 @@ class BaseNode(Node, metaclass=NodeMeta):
     Extensions can use this ID to store additional information.
     """
 
-    template_name: Optional[str]
+    template_name: str | None
     """
     The name of the [`Template`](https://docs.djangoproject.com/en/5.2/ref/templates/api/#django.template.Template)
     that contains this node.
@@ -465,10 +466,10 @@ class BaseNode(Node, metaclass=NodeMeta):
     ```
     """
 
-    template_component: Optional[Type["Component"]]
+    template_component: type["Component"] | None
     """
-    If the template that contains this node belongs to a [`Component`](../api#django_components.Component),
-    then this will be the [`Component`](../api#django_components.Component) class.
+    If the template that contains this node belongs to a [`Component`](api.md#django_components.Component),
+    then this will be the [`Component`](api.md#django_components.Component) class.
     """
 
     # #####################################
@@ -477,19 +478,19 @@ class BaseNode(Node, metaclass=NodeMeta):
 
     def __init__(
         self,
-        params: List[TagAttr],
-        filters: Dict[str, Callable[[Any, Any], Any]],
-        tags: Dict[str, Callable[[Any, Any], Any]],
-        flags: Optional[Dict[str, bool]] = None,
-        nodelist: Optional[NodeList] = None,
-        node_id: Optional[str] = None,
-        contents: Optional[str] = None,
-        template_name: Optional[str] = None,
-        template_component: Optional[Type["Component"]] = None,
-        start_tag_source: Optional[str] = None,
+        params: list[TagAttr],
+        filters: dict[str, Callable[[Any, Any], Any]],
+        tags: dict[str, Callable[[Any, Any], Any]],
+        flags: dict[str, bool] | None = None,
+        nodelist: NodeList | None = None,
+        node_id: str | None = None,
+        contents: str | None = None,
+        template_name: str | None = None,
+        template_component: type["Component"] | None = None,
+        start_tag_source: str | None = None,
     ) -> None:
         self.params = params
-        self._params_resolver: Optional[CompiledTagFn] = None
+        self._params_resolver: CompiledTagFn | None = None
         self.filters = filters
         self.tags = tags
         self.flags = flags or {flag: False for flag in self.allowed_flags or []}
@@ -504,7 +505,7 @@ class BaseNode(Node, metaclass=NodeMeta):
         return f"<{self.__class__.__name__}: {self.node_id}. Contents: {self.contents}. Flags: {self.active_flags}>"
 
     @property
-    def active_flags(self) -> List[str]:
+    def active_flags(self) -> list[str]:
         """
         Flags that were set for this specific instance as a list of strings.
 
@@ -535,7 +536,7 @@ class BaseNode(Node, metaclass=NodeMeta):
         In other words, this method is called by Django's template parser when we encounter
         a tag that matches this node's tag, e.g. `{% component %}` or `{% slot %}`.
 
-        To register the tag, you can use [`BaseNode.register()`](../api#django_components.BaseNode.register).
+        To register the tag, you can use [`BaseNode.register()`](api.md#django_components.BaseNode.register).
         """
         # NOTE: Avoids circular import
         from django_components.template import get_component_from_origin  # noqa: PLC0415
@@ -593,14 +594,14 @@ class BaseNode(Node, metaclass=NodeMeta):
 def template_tag(
     library: Library,
     tag: str,
-    end_tag: Optional[str] = None,
-    allowed_flags: Optional[List[str]] = None,
+    end_tag: str | None = None,
+    allowed_flags: Iterable[str] | None = None,
 ) -> Callable[[Callable], Callable]:
     """
-    A simplified version of creating a template tag based on [`BaseNode`](../api#django_components.BaseNode).
+    A simplified version of creating a template tag based on [`BaseNode`](api.md#django_components.BaseNode).
 
     Instead of defining the whole class, you can just define the
-    [`render()`](../api#django_components.BaseNode.render) method.
+    [`render()`](api.md#django_components.BaseNode.render) method.
 
     ```python
     from django.template import Context, Library
@@ -625,26 +626,26 @@ def template_tag(
     {% mytag name="John" required %} ... {% endmytag %}
     ```
 
-    The given function will be wrapped in a class that inherits from [`BaseNode`](../api#django_components.BaseNode).
+    The given function will be wrapped in a class that inherits from [`BaseNode`](api.md#django_components.BaseNode).
 
     And this class will be registered with the given library.
 
     The function MUST accept at least two positional arguments: `node` and `context`
 
-    - `node` is the [`BaseNode`](../api#django_components.BaseNode) instance.
+    - `node` is the [`BaseNode`](api.md#django_components.BaseNode) instance.
     - `context` is the [`Context`](https://docs.djangoproject.com/en/5.2/ref/templates/api/#django.template.Context)
         of the template.
 
     Any extra parameters defined on this function will be part of the tag's input parameters.
 
-    For more info, see [`BaseNode.render()`](../api#django_components.BaseNode.render).
+    For more info, see [`BaseNode.render()`](api.md#django_components.BaseNode.render).
     """
 
     def decorator(fn: Callable) -> Callable:
         subcls_name = fn.__name__.title().replace("_", "").replace("-", "") + "Node"
 
         try:
-            subcls: Type[BaseNode] = type(
+            subcls: type[BaseNode] = type(
                 subcls_name,
                 (BaseNode,),
                 {

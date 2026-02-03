@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ClusterNodes", "ClusterNodesSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "ClusterNodes": False,
 }
 
-
 class ClusterNodesSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ClusterNodes object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", unknown=EXCLUDE, data_key="_links", allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                unknown=EXCLUDE,
+                data_key="_links",
+                allow_none=True
+            )
     r""" The links field of the cluster_nodes. """
 
     anti_ransomware_version = marshmallow_fields.Str(data_key="anti_ransomware_version", allow_none=True)
@@ -29,13 +32,31 @@ class ClusterNodesSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 1.0 """
 
-    cluster_interface = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_cluster_interface.ClusterNodesClusterInterfaceSchema", unknown=EXCLUDE, data_key="cluster_interface", allow_none=True)
+    cluster_interface = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_cluster_interface", "ClusterNodesClusterInterfaceSchema"),
+                unknown=EXCLUDE,
+                data_key="cluster_interface",
+                allow_none=True
+            )
     r""" The cluster network IP address of the node to be added. """
 
-    cluster_interfaces = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.ip_interface.IpInterfaceSchema", unknown=EXCLUDE, allow_none=True), data_key="cluster_interfaces", allow_none=True)
+    cluster_interfaces = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.ip_interface", "IpInterfaceSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="cluster_interfaces",
+                allow_none=True
+                )
     r""" The cluster_interfaces field of the cluster_nodes. """
 
-    controller = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_controller.ClusterNodesControllerSchema", unknown=EXCLUDE, data_key="controller", allow_none=True)
+    controller = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_controller", "ClusterNodesControllerSchema"),
+                unknown=EXCLUDE,
+                data_key="controller",
+                allow_none=True
+            )
     r""" Controller information """
 
     date = ImpreciseDateTime(data_key="date", allow_none=True)
@@ -45,16 +66,36 @@ The ISO-8601 date and time are localized based on the ONTAP cluster's timezone s
 
 Example: 2019-04-17T15:49:26.000+0000 """
 
-    external_cache = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_external_cache.ClusterNodesExternalCacheSchema", unknown=EXCLUDE, data_key="external_cache", allow_none=True)
+    external_cache = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_external_cache", "ClusterNodesExternalCacheSchema"),
+                unknown=EXCLUDE,
+                data_key="external_cache",
+                allow_none=True
+            )
     r""" Cache used for buffer management. """
 
-    external_cache_bypass = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_external_cache_bypass.ClusterNodesExternalCacheBypassSchema", unknown=EXCLUDE, data_key="external_cache_bypass", allow_none=True)
+    external_cache_bypass = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_external_cache_bypass", "ClusterNodesExternalCacheBypassSchema"),
+                unknown=EXCLUDE,
+                data_key="external_cache_bypass",
+                allow_none=True
+            )
     r""" External cache bypass management. """
 
-    ha = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_ha.ClusterNodesHaSchema", unknown=EXCLUDE, data_key="ha", allow_none=True)
+    ha = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_ha", "ClusterNodesHaSchema"),
+                unknown=EXCLUDE,
+                data_key="ha",
+                allow_none=True
+            )
     r""" The ha field of the cluster_nodes. """
 
-    hw_assist = marshmallow_fields.Nested("netapp_ontap.models.hw_assist.HwAssistSchema", unknown=EXCLUDE, data_key="hw_assist", allow_none=True)
+    hw_assist = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.hw_assist", "HwAssistSchema"),
+                unknown=EXCLUDE,
+                data_key="hw_assist",
+                allow_none=True
+            )
     r""" The hardware assist information. """
 
     is_spares_low = marshmallow_fields.Boolean(data_key="is_spares_low", allow_none=True)
@@ -65,10 +106,23 @@ Example: 2019-04-17T15:49:26.000+0000 """
 
 Example: rack 2 row 5 """
 
-    management_interface = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_management_interface.ClusterNodesManagementInterfaceSchema", unknown=EXCLUDE, data_key="management_interface", allow_none=True)
+    management_interface = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_management_interface", "ClusterNodesManagementInterfaceSchema"),
+                unknown=EXCLUDE,
+                data_key="management_interface",
+                allow_none=True
+            )
     r""" The management interface of the node to be added. The subnet mask is set based on the management interface of the cluster or the management interfaces of other nodes. """
 
-    management_interfaces = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.ip_interface.IpInterfaceSchema", unknown=EXCLUDE, allow_none=True), data_key="management_interfaces", allow_none=True)
+    management_interfaces = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.ip_interface", "IpInterfaceSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="management_interfaces",
+                allow_none=True
+                )
     r""" The management_interfaces field of the cluster_nodes. """
 
     membership = marshmallow_fields.Str(data_key="membership", allow_none=True)
@@ -85,10 +139,20 @@ Valid choices:
 * joining
 * member """
 
-    metric = marshmallow_fields.Nested("netapp_ontap.resources.node_metrics.NodeMetricsSchema", unknown=EXCLUDE, data_key="metric", allow_none=True)
+    metric = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.node_metrics", "NodeMetricsSchema"),
+                unknown=EXCLUDE,
+                data_key="metric",
+                allow_none=True
+            )
     r""" CPU performance for the nodes. """
 
-    metrocluster = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_metrocluster.ClusterNodesMetroclusterSchema", unknown=EXCLUDE, data_key="metrocluster", allow_none=True)
+    metrocluster = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_metrocluster", "ClusterNodesMetroclusterSchema"),
+                unknown=EXCLUDE,
+                data_key="metrocluster",
+                allow_none=True
+            )
     r""" Metrocluster """
 
     model = marshmallow_fields.Str(data_key="model", allow_none=True)
@@ -101,10 +165,20 @@ Example: FAS3070 """
 
 Example: node-01 """
 
-    nvlog = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_nvlog.ClusterNodesNvlogSchema", unknown=EXCLUDE, data_key="nvlog", allow_none=True)
+    nvlog = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_nvlog", "ClusterNodesNvlogSchema"),
+                unknown=EXCLUDE,
+                data_key="nvlog",
+                allow_none=True
+            )
     r""" Non-volatile write log settings. """
 
-    nvram = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_nvram.ClusterNodesNvramSchema", unknown=EXCLUDE, data_key="nvram", allow_none=True)
+    nvram = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_nvram", "ClusterNodesNvramSchema"),
+                unknown=EXCLUDE,
+                data_key="nvram",
+                allow_none=True
+            )
     r""" The nvram field of the cluster_nodes. """
 
     owner = marshmallow_fields.Str(data_key="owner", allow_none=True)
@@ -117,10 +191,20 @@ Example: Example Corp """
 
 Example: 4048820-60-9 """
 
-    service_processor = marshmallow_fields.Nested("netapp_ontap.models.service_processor.ServiceProcessorSchema", unknown=EXCLUDE, data_key="service_processor", allow_none=True)
+    service_processor = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.service_processor", "ServiceProcessorSchema"),
+                unknown=EXCLUDE,
+                data_key="service_processor",
+                allow_none=True
+            )
     r""" The service_processor field of the cluster_nodes. """
 
-    snaplock = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_snaplock.ClusterNodesSnaplockSchema", unknown=EXCLUDE, data_key="snaplock", allow_none=True)
+    snaplock = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_snaplock", "ClusterNodesSnaplockSchema"),
+                unknown=EXCLUDE,
+                data_key="snaplock",
+                allow_none=True
+            )
     r""" SnapLock-related properties. """
 
     state = marshmallow_fields.Str(data_key="state", allow_none=True)
@@ -145,10 +229,23 @@ Valid choices:
 * degraded
 * unknown """
 
-    statistics = marshmallow_fields.Nested("netapp_ontap.models.node_statistics.NodeStatisticsSchema", unknown=EXCLUDE, data_key="statistics", allow_none=True)
+    statistics = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.node_statistics", "NodeStatisticsSchema"),
+                unknown=EXCLUDE,
+                data_key="statistics",
+                allow_none=True
+            )
     r""" Raw CPU performance for the nodes. """
 
-    storage_availability_zones = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.storage_availability_zone.StorageAvailabilityZoneSchema", unknown=EXCLUDE, allow_none=True), data_key="storage_availability_zones", allow_none=True)
+    storage_availability_zones = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.storage_availability_zone", "StorageAvailabilityZoneSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="storage_availability_zones",
+                allow_none=True
+                )
     r""" Storage availability zones associated with the node. """
 
     storage_configuration = marshmallow_fields.Str(data_key="storage_configuration", allow_none=True)
@@ -183,7 +280,12 @@ Valid choices:
 * tri_path_ha
 * virtual """
 
-    system_aggregate = marshmallow_fields.Nested("netapp_ontap.resources.aggregate.AggregateSchema", unknown=EXCLUDE, data_key="system_aggregate", allow_none=True)
+    system_aggregate = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.aggregate", "AggregateSchema"),
+                unknown=EXCLUDE,
+                data_key="system_aggregate",
+                allow_none=True
+            )
     r""" The system_aggregate field of the cluster_nodes. """
 
     system_id = marshmallow_fields.Str(data_key="system_id", allow_none=True)
@@ -211,10 +313,20 @@ Example: 4ea7a442-86d1-11e0-ae1c-123478563412 """
 
 Example: 791603000068 """
 
-    version = marshmallow_fields.Nested("netapp_ontap.models.version.VersionSchema", unknown=EXCLUDE, data_key="version", allow_none=True)
+    version = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.version", "VersionSchema"),
+                unknown=EXCLUDE,
+                data_key="version",
+                allow_none=True
+            )
     r""" This returns the cluster version information.  When the cluster has more than one node, the cluster version is equivalent to the lowest of generation, major, and minor versions on all nodes. """
 
-    vm = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_vm.ClusterNodesVmSchema", unknown=EXCLUDE, data_key="vm", allow_none=True)
+    vm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_vm", "ClusterNodesVmSchema"),
+                unknown=EXCLUDE,
+                data_key="vm",
+                allow_none=True
+            )
     r""" The vm field of the cluster_nodes. """
 
     @property

@@ -229,7 +229,7 @@ class ReportingClient(threading.Thread):
                 cert_file=settings.client_cert_file,
                 key_file=settings.client_private_key,
             )
-            DisableReaction.run(settings.config)
+            DisableReaction.run(settings.config, reason="Certificate misconfiguration")
             return
 
         if certificate_enable_config_option.source() != DEFAULT_VALUE_SRC and not any(

@@ -158,7 +158,7 @@ class OciCacheDefaultConfigSetClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/redis/get_oci_cache_default_config_set.py.html>`__ to see an example of how to use get_oci_cache_default_config_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/redis/get_oci_cache_default_config_set.py.html>`__ to see an example of how to use get_oci_cache_default_config_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['ociCacheDefaultConfigSetId', 'compartmentId']
@@ -302,7 +302,7 @@ class OciCacheDefaultConfigSetClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/redis/list_oci_cache_default_config_sets.py.html>`__ to see an example of how to use list_oci_cache_default_config_sets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/redis/list_oci_cache_default_config_sets.py.html>`__ to see an example of how to use list_oci_cache_default_config_sets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']

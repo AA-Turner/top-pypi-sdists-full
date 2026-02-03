@@ -12,7 +12,7 @@ from oci.decorators import init_model_state_from_kwargs
 @init_model_state_from_kwargs
 class RuleSummaryCollection(object):
     """
-    A collection of Logging Analytics rules.
+    A collection of Log Analytics rules.
     """
 
     def __init__(self, **kwargs):

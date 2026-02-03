@@ -276,7 +276,7 @@ class ReplState:
             if not self.namespace or not self.pod:
                 def error():
                     if self.in_repl:
-                        log2('cd to a pod first.')
+                        log2('cd to a pod first or use @<pod-name> command syntax.')
                     else:
                         log2('* Pod is missing.')
                         log2()

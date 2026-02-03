@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["LicenseManagerResponseRecords", "LicenseManagerResponseRecordsSchema"]
@@ -17,18 +16,27 @@ __pdoc__ = {
     "LicenseManagerResponseRecords": False,
 }
 
-
 class LicenseManagerResponseRecordsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LicenseManagerResponseRecords object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", unknown=EXCLUDE, data_key="_links", allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                unknown=EXCLUDE,
+                data_key="_links",
+                allow_none=True
+            )
     r""" The links field of the license_manager_response_records. """
 
     default = marshmallow_fields.Boolean(data_key="default", allow_none=True)
     r""" Flag that indicates whether it's the default license manager instance used by the cluster.'
 When a capacity pool is created and if the license manager field is omitted, it is assumed that the license of the capacity pool is installed on the default license manager instance. """
 
-    uri = marshmallow_fields.Nested("netapp_ontap.models.license_manager_uri.LicenseManagerUriSchema", unknown=EXCLUDE, data_key="uri", allow_none=True)
+    uri = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.license_manager_uri", "LicenseManagerUriSchema"),
+                unknown=EXCLUDE,
+                data_key="uri",
+                allow_none=True
+            )
     r""" License manager URI. """
 
     uuid = marshmallow_fields.Str(data_key="uuid", allow_none=True)

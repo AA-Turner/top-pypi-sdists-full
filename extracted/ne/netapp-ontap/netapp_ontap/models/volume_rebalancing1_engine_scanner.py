@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["VolumeRebalancing1EngineScanner", "VolumeRebalancing1EngineScannerSchema"]
@@ -17,20 +16,29 @@ __pdoc__ = {
     "VolumeRebalancing1EngineScanner": False,
 }
 
-
 class VolumeRebalancing1EngineScannerSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the VolumeRebalancing1EngineScanner object"""
 
     blocks_scanned = Size(data_key="blocks_scanned", allow_none=True)
     r""" Number of blocks scanned on this constituent. """
 
-    blocks_skipped = marshmallow_fields.Nested("netapp_ontap.models.volume_rebalancing1_engine_scanner_blocks_skipped.VolumeRebalancing1EngineScannerBlocksSkippedSchema", unknown=EXCLUDE, data_key="blocks_skipped", allow_none=True)
+    blocks_skipped = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_rebalancing1_engine_scanner_blocks_skipped", "VolumeRebalancing1EngineScannerBlocksSkippedSchema"),
+                unknown=EXCLUDE,
+                data_key="blocks_skipped",
+                allow_none=True
+            )
     r""" The blocks_skipped field of the volume_rebalancing1_engine_scanner. """
 
     files_scanned = Size(data_key="files_scanned", allow_none=True)
     r""" Number of files scanned on this constituent. """
 
-    files_skipped = marshmallow_fields.Nested("netapp_ontap.models.volume_rebalancing1_engine_scanner_files_skipped.VolumeRebalancing1EngineScannerFilesSkippedSchema", unknown=EXCLUDE, data_key="files_skipped", allow_none=True)
+    files_skipped = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.volume_rebalancing1_engine_scanner_files_skipped", "VolumeRebalancing1EngineScannerFilesSkippedSchema"),
+                unknown=EXCLUDE,
+                data_key="files_skipped",
+                allow_none=True
+            )
     r""" The files_skipped field of the volume_rebalancing1_engine_scanner. """
 
     @property

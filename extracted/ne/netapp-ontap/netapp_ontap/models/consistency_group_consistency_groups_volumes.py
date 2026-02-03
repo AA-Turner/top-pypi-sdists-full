@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ConsistencyGroupConsistencyGroupsVolumes", "ConsistencyGroupConsistencyGroupsVolumesSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "ConsistencyGroupConsistencyGroupsVolumesSchema.opts": False,
     "ConsistencyGroupConsistencyGroupsVolumes": False,
 }
-
 
 class ConsistencyGroupConsistencyGroupsVolumesSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ConsistencyGroupConsistencyGroupsVolumes object"""
@@ -29,22 +27,52 @@ class ConsistencyGroupConsistencyGroupsVolumesSchema(ResourceSchema, metaclass=R
 
 Example: vol_cs_dept """
 
-    nas = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_nas.ConsistencyGroupNasSchema", unknown=EXCLUDE, data_key="nas", allow_none=True)
+    nas = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_nas", "ConsistencyGroupNasSchema"),
+                unknown=EXCLUDE,
+                data_key="nas",
+                allow_none=True
+            )
     r""" The nas field of the consistency_group_consistency_groups_volumes. """
 
-    provisioning_options = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_volume_provisioning_options.ConsistencyGroupVolumeProvisioningOptionsSchema", unknown=EXCLUDE, data_key="provisioning_options", allow_none=True)
+    provisioning_options = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_volume_provisioning_options", "ConsistencyGroupVolumeProvisioningOptionsSchema"),
+                unknown=EXCLUDE,
+                data_key="provisioning_options",
+                allow_none=True
+            )
     r""" Options that are applied to the operation. """
 
-    qos = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_qos.ConsistencyGroupQosSchema", unknown=EXCLUDE, data_key="qos", allow_none=True)
+    qos = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_qos", "ConsistencyGroupQosSchema"),
+                unknown=EXCLUDE,
+                data_key="qos",
+                allow_none=True
+            )
     r""" The qos field of the consistency_group_consistency_groups_volumes. """
 
-    snapshot_policy = marshmallow_fields.Nested("netapp_ontap.resources.snapshot_policy.SnapshotPolicySchema", unknown=EXCLUDE, data_key="snapshot_policy", allow_none=True)
+    snapshot_policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.snapshot_policy", "SnapshotPolicySchema"),
+                unknown=EXCLUDE,
+                data_key="snapshot_policy",
+                allow_none=True
+            )
     r""" The snapshot policy for this volume. """
 
-    space = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_volume_space.ConsistencyGroupVolumeSpaceSchema", unknown=EXCLUDE, data_key="space", allow_none=True)
+    space = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_volume_space", "ConsistencyGroupVolumeSpaceSchema"),
+                unknown=EXCLUDE,
+                data_key="space",
+                allow_none=True
+            )
     r""" The space field of the consistency_group_consistency_groups_volumes. """
 
-    tiering = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_tiering.ConsistencyGroupTieringSchema", unknown=EXCLUDE, data_key="tiering", allow_none=True)
+    tiering = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_tiering", "ConsistencyGroupTieringSchema"),
+                unknown=EXCLUDE,
+                data_key="tiering",
+                allow_none=True
+            )
     r""" The tiering field of the consistency_group_consistency_groups_volumes. """
 
     uuid = marshmallow_fields.Str(data_key="uuid", allow_none=True)

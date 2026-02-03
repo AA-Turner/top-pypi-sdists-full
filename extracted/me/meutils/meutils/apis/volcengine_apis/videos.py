@@ -387,11 +387,12 @@ if __name__ == "__main__":
     tokens = arun(polling_keys('', channel_id=21385))
 
     tokens = list(set(tokens)) + ['68b877dc-a337-4a20-9091-738bb0fcd79c']
+
     from meutils.apis.oneapi.tasks import get_tasks
 
     ids = arun(get_tasks(return_ids=True))
 
-    ids = ['cgt-20260126144127-hghhr']
+    # ids = ['cgt-20260126144127-hghhr']
 
 
     arun(get_task_from_feishu(ids, tokens))

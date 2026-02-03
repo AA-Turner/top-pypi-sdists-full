@@ -23,6 +23,10 @@ class DisconnectConfig(object):
     #: This constant has a value of "STOP"
     ACTION_STOP = "STOP"
 
+    #: A constant which can be used with the action property of a DisconnectConfig.
+    #: This constant has a value of "DELETE"
+    ACTION_DELETE = "DELETE"
+
     def __init__(self, **kwargs):
         """
         Initializes a new DisconnectConfig object with values from keyword arguments.
@@ -30,7 +34,7 @@ class DisconnectConfig(object):
 
         :param action:
             The value to assign to the action property of this DisconnectConfig.
-            Allowed values for this property are: "NONE", "STOP", 'UNKNOWN_ENUM_VALUE'.
+            Allowed values for this property are: "NONE", "STOP", "DELETE", 'UNKNOWN_ENUM_VALUE'.
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type action: str
 
@@ -56,7 +60,7 @@ class DisconnectConfig(object):
         **[Required]** Gets the action of this DisconnectConfig.
         a disconnect action to be triggered
 
-        Allowed values for this property are: "NONE", "STOP", 'UNKNOWN_ENUM_VALUE'.
+        Allowed values for this property are: "NONE", "STOP", "DELETE", 'UNKNOWN_ENUM_VALUE'.
         Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
 
 
@@ -75,7 +79,7 @@ class DisconnectConfig(object):
         :param action: The action of this DisconnectConfig.
         :type: str
         """
-        allowed_values = ["NONE", "STOP"]
+        allowed_values = ["NONE", "STOP", "DELETE"]
         if not value_allowed_none_or_none_sentinel(action, allowed_values):
             action = 'UNKNOWN_ENUM_VALUE'
         self._action = action

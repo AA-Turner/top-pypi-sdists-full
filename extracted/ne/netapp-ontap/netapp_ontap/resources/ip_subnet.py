@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -35,24 +35,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     IpSubnet(
         {
-            "uuid": "451d8d99-582c-11ec-8572-005056acd597",
             "_links": {
                 "self": {
                     "href": "/api/network/ip/subnets/451d8d99-582c-11ec-8572-005056acd597"
                 }
             },
             "name": "Subnet-002",
+            "uuid": "451d8d99-582c-11ec-8572-005056acd597",
         }
     ),
     IpSubnet(
         {
-            "uuid": "615b722f-5795-11ec-8572-005056acd597",
             "_links": {
                 "self": {
                     "href": "/api/network/ip/subnets/615b722f-5795-11ec-8572-005056acd597"
                 }
             },
             "name": "Subnet-001",
+            "uuid": "615b722f-5795-11ec-8572-005056acd597",
         }
     ),
 ]
@@ -83,33 +83,33 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IpSubnet(
     {
-        "gateway": "10.2.1.1",
-        "subnet": {"address": "10.2.1.0", "netmask": "24", "family": "ipv4"},
-        "broadcast_domain": {
-            "uuid": "9a1dce3b-5780-11ec-8572-005056acd597",
-            "_links": {
-                "self": {
-                    "href": "/api/network/ethernet/broadcast-domains/9a1dce3b-5780-11ec-8572-005056acd597"
-                }
-            },
-            "name": "Default",
+        "_links": {
+            "self": {
+                "href": "/api/network/ip/subnets/451d8d99-582c-11ec-8572-005056acd597"
+            }
         },
+        "gateway": "10.2.1.1",
+        "name": "Subnet-002",
+        "subnet": {"netmask": "24", "family": "ipv4", "address": "10.2.1.0"},
         "uuid": "451d8d99-582c-11ec-8572-005056acd597",
         "ipspace": {
-            "uuid": "6f62c691-5780-11ec-8572-005056acd597",
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/6f62c691-5780-11ec-8572-005056acd597"
                 }
             },
             "name": "Default",
+            "uuid": "6f62c691-5780-11ec-8572-005056acd597",
         },
-        "_links": {
-            "self": {
-                "href": "/api/network/ip/subnets/451d8d99-582c-11ec-8572-005056acd597"
-            }
+        "broadcast_domain": {
+            "_links": {
+                "self": {
+                    "href": "/api/network/ethernet/broadcast-domains/9a1dce3b-5780-11ec-8572-005056acd597"
+                }
+            },
+            "name": "Default",
+            "uuid": "9a1dce3b-5780-11ec-8572-005056acd597",
         },
-        "name": "Subnet-002",
     }
 )
 
@@ -139,44 +139,44 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IpSubnet(
     {
-        "gateway": "10.2.1.1",
-        "available_count": 113,
-        "ip_ranges": [
-            {"end": "10.2.1.22", "start": "10.2.1.10", "family": "ipv4"},
-            {"end": "10.2.1.200", "start": "10.2.1.101", "family": "ipv4"},
-        ],
-        "subnet": {"address": "10.2.1.0", "netmask": "24", "family": "ipv4"},
-        "used_count": 0,
-        "available_ip_ranges": [
-            {"end": "10.2.1.22", "start": "10.2.1.10", "family": "ipv4"},
-            {"end": "10.2.1.200", "start": "10.2.1.101", "family": "ipv4"},
-        ],
-        "broadcast_domain": {
-            "uuid": "9a1dce3b-5780-11ec-8572-005056acd597",
-            "_links": {
-                "self": {
-                    "href": "/api/network/ethernet/broadcast-domains/9a1dce3b-5780-11ec-8572-005056acd597"
-                }
-            },
-            "name": "Default",
-        },
         "total_count": 113,
+        "_links": {
+            "self": {
+                "href": "/api/network/ip/subnets/451d8d99-582c-11ec-8572-005056acd597?fields=**"
+            }
+        },
+        "gateway": "10.2.1.1",
+        "available_ip_ranges": [
+            {"start": "10.2.1.10", "family": "ipv4", "end": "10.2.1.22"},
+            {"start": "10.2.1.101", "family": "ipv4", "end": "10.2.1.200"},
+        ],
+        "name": "Subnet-002",
+        "subnet": {"netmask": "24", "family": "ipv4", "address": "10.2.1.0"},
         "uuid": "451d8d99-582c-11ec-8572-005056acd597",
         "ipspace": {
-            "uuid": "6f62c691-5780-11ec-8572-005056acd597",
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/6f62c691-5780-11ec-8572-005056acd597"
                 }
             },
             "name": "Default",
+            "uuid": "6f62c691-5780-11ec-8572-005056acd597",
         },
-        "_links": {
-            "self": {
-                "href": "/api/network/ip/subnets/451d8d99-582c-11ec-8572-005056acd597?fields=**"
-            }
+        "ip_ranges": [
+            {"start": "10.2.1.10", "family": "ipv4", "end": "10.2.1.22"},
+            {"start": "10.2.1.101", "family": "ipv4", "end": "10.2.1.200"},
+        ],
+        "broadcast_domain": {
+            "_links": {
+                "self": {
+                    "href": "/api/network/ethernet/broadcast-domains/9a1dce3b-5780-11ec-8572-005056acd597"
+                }
+            },
+            "name": "Default",
+            "uuid": "9a1dce3b-5780-11ec-8572-005056acd597",
         },
-        "name": "Subnet-002",
+        "available_count": 113,
+        "used_count": 0,
     }
 )
 
@@ -303,11 +303,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -321,11 +320,15 @@ __pdoc__ = {
     "IpSubnetSchema.opts": False,
 }
 
-
 class IpSubnetSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the IpSubnet object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the ip_subnet."""
 
     available_count = Size(
@@ -334,10 +337,23 @@ class IpSubnetSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" The available_count field of the ip_subnet."""
 
-    available_ip_ranges = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.ip_address_range.IpAddressRangeSchema", unknown=EXCLUDE, allow_none=True), data_key="available_ip_ranges", allow_none=True)
+    available_ip_ranges = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.ip_address_range", "IpAddressRangeSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="available_ip_ranges",
+                allow_none=True
+            )
     r""" IP address range"""
 
-    broadcast_domain = marshmallow_fields.Nested("netapp_ontap.models.broadcast_domain_svm.BroadcastDomainSvmSchema", data_key="broadcast_domain", unknown=EXCLUDE, allow_none=True)
+    broadcast_domain = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.broadcast_domain_svm", "BroadcastDomainSvmSchema"),
+                data_key="broadcast_domain",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The broadcast_domain field of the ip_subnet."""
 
     fail_if_lifs_conflict = marshmallow_fields.Boolean(
@@ -354,10 +370,23 @@ class IpSubnetSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 10.1.1.1"""
 
-    ip_ranges = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.ip_address_range.IpAddressRangeSchema", unknown=EXCLUDE, allow_none=True), data_key="ip_ranges", allow_none=True)
+    ip_ranges = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.ip_address_range", "IpAddressRangeSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="ip_ranges",
+                allow_none=True
+            )
     r""" IP address range"""
 
-    ipspace = marshmallow_fields.Nested("netapp_ontap.resources.ipspace.IpspaceSchema", data_key="ipspace", unknown=EXCLUDE, allow_none=True)
+    ipspace = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.ipspace", "IpspaceSchema"),
+                data_key="ipspace",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The ipspace field of the ip_subnet."""
 
     name = marshmallow_fields.Str(
@@ -368,7 +397,12 @@ Example: 10.1.1.1"""
 
 Example: subnet1"""
 
-    subnet = marshmallow_fields.Nested("netapp_ontap.models.ip_info.IpInfoSchema", data_key="subnet", unknown=EXCLUDE, allow_none=True)
+    subnet = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ip_info", "IpInfoSchema"),
+                data_key="subnet",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" IP information"""
 
     total_count = Size(

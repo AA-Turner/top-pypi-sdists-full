@@ -12,8 +12,10 @@ from oci.decorators import init_model_state_from_kwargs
 @init_model_state_from_kwargs
 class UpdateNatRuleDetails(object):
     """
-    Request for updating NAT Rule used in the firewall policy.
-    A Nat Rule is used to define to which traffic NAT should be applied by the firewall, and how it should do so.
+    Request for updating a NAT rule used in the firewall policy.
+    A `NAT rule`__ defines which traffic NAT should be applied to by the firewall, and how it should do so.
+
+    __ https://docs.cloud.oracle.com/iaas/Content/network-firewall/policies.htm#network-firewall-policies__nat
     """
 
     #: A constant which can be used with the type property of a UpdateNatRuleDetails.

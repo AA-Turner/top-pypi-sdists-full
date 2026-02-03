@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["PerformanceQtreeMetricData", "PerformanceQtreeMetricDataSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "PerformanceQtreeMetricData": False,
 }
 
-
 class PerformanceQtreeMetricDataSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the PerformanceQtreeMetricData object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", unknown=EXCLUDE, data_key="_links", allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                unknown=EXCLUDE,
+                data_key="_links",
+                allow_none=True
+            )
     r""" The links field of the performance_qtree_metric_data. """
 
     duration = marshmallow_fields.Str(data_key="duration", allow_none=True)
@@ -36,10 +39,20 @@ Valid choices:
 * P1D
 * PT5M """
 
-    iops = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type.PerformanceMetricIoTypeSchema", unknown=EXCLUDE, data_key="iops", allow_none=True)
+    iops = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type", "PerformanceMetricIoTypeSchema"),
+                unknown=EXCLUDE,
+                data_key="iops",
+                allow_none=True
+            )
     r""" The iops field of the performance_qtree_metric_data. """
 
-    latency = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type.PerformanceMetricIoTypeSchema", unknown=EXCLUDE, data_key="latency", allow_none=True)
+    latency = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type", "PerformanceMetricIoTypeSchema"),
+                unknown=EXCLUDE,
+                data_key="latency",
+                allow_none=True
+            )
     r""" The latency field of the performance_qtree_metric_data. """
 
     status = marshmallow_fields.Str(data_key="status", allow_none=True)
@@ -59,7 +72,12 @@ Valid choices:
 * inconsistent_old_data
 * partial_no_uuid """
 
-    throughput = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_io_type.PerformanceMetricIoTypeSchema", unknown=EXCLUDE, data_key="throughput", allow_none=True)
+    throughput = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.performance_metric_io_type", "PerformanceMetricIoTypeSchema"),
+                unknown=EXCLUDE,
+                data_key="throughput",
+                allow_none=True
+            )
     r""" The throughput field of the performance_qtree_metric_data. """
 
     timestamp = ImpreciseDateTime(data_key="timestamp", allow_none=True)

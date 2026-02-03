@@ -140,7 +140,10 @@ def _evaluate_body(
         except Exception as e:
             logger.debug("WARNING: Failed to parse JSON in request body", exc_info=e)
             return results
-        results.extend(_evaluate_body_json(context, rules, json_body))
+        # "$" is the root identifier in JSONPath (RFC 9535)
+        results.extend(
+            _evaluate_body_json(context, rules, json_body, document_path="$")
+        )
     elif body_type == DocumentType.XML:
         try:
             data = xml.etree.ElementTree.fromstring(context.request.body)
@@ -165,8 +168,30 @@ def _evaluate_body(
     return results
 
 
+def _to_jsonpath_normalized_segment(key: int | str) -> str:
+    r"""
+    Converts a key to a JSONPath normalized path segment.
+    See https://www.rfc-editor.org/rfc/rfc9535.html#name-normalized-paths.
+    - Integers denote array index access. For example, `3` -> `[3]`
+    - Strings denote key-value access. For example, `"my_key"` -> `['my_key']`
+        - single-quotes in keys will be escaped with a backslash
+        - backslashes will be escaped with a backslash
+        - e.g. `"abc\def'ghi"` -> `['abc\\def\'ghi']`
+
+    The JSONPath spec contains a more complete set of rules for escaping out special
+    characters like whitespace and unicode. The simplified algorithm used here should be
+    a good enough approximation for our purposes.
+    """
+    if isinstance(key, int):
+        assert key >= 0
+        return f"[{key}]"
+
+    escaped = key.replace("\\", "\\\\").replace("'", "\\'")
+    return f"['{escaped}']"
+
+
 def _evaluate_body_json(
-    context: RequestContext, rules: int, body: Any
+    context: RequestContext, rules: int, body: Any, *, document_path: str
 ) -> list[input_tracing.InputAnalysisResult]:
     # Using recursion for now to get all the json values and keys and pass them
     # through agent_lib until agent_lib implements parsing of the body for python
@@ -179,18 +204,40 @@ def _evaluate_body_json(
                     constants.InputType["JsonKey"],
                     key,
                     rules,
+                    input_key=document_path,
                 )
             )
-            results.extend(_evaluate_body_json(context, rules, value))
+            updated_document_path = (
+                f"{document_path}{_to_jsonpath_normalized_segment(key)}"
+            )
+            results.extend(
+                _evaluate_body_json(
+                    context,
+                    rules,
+                    value,
+                    document_path=updated_document_path,
+                )
+            )
     elif isinstance(body, list):
-        for item in body:
-            results.extend(_evaluate_body_json(context, rules, item))
+        for index, item in enumerate(body):
+            updated_document_path = (
+                f"{document_path}{_to_jsonpath_normalized_segment(index)}"
+            )
+            results.extend(
+                _evaluate_body_json(
+                    context,
+                    rules,
+                    item,
+                    document_path=updated_document_path,
+                )
+            )
     elif isinstance(body, str):
         results.extend(
             _call_agent_lib_evaluate_input(
                 constants.InputType["JsonValue"],
                 body,
                 rules,
+                input_key=document_path,
             )
         )
 

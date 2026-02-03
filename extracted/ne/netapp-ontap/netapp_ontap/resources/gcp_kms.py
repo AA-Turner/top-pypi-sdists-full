@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -39,17 +39,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 GcpKms(
     {
-        "key_ring_name": "testKeyRing",
-        "svm": {"uuid": "f36ff553-e713-11ea-bd56-005056bb4222", "name": "vs0"},
-        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
-        "key_name": "key1",
         "key_ring_location": "global",
-        "project_id": "testProj",
         "_links": {
             "self": {
                 "href": "/api/security/gcp-kms/f72098a2-e908-11ea-bd56-005056bb4222"
             }
         },
+        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
+        "project_id": "testProj",
+        "key_name": "key1",
+        "key_ring_name": "testKeyRing",
+        "svm": {"name": "vs0", "uuid": "f36ff553-e713-11ea-bd56-005056bb4222"},
     }
 )
 
@@ -76,18 +76,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     GcpKms(
         {
-            "key_ring_name": "testKeyRing",
-            "svm": {"uuid": "f36ff553-e713-11ea-bd56-005056bb4222", "name": "vs0"},
-            "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
-            "key_name": "key1",
             "key_ring_location": "global",
-            "project_id": "testProj",
-            "scope": "svm",
             "_links": {
                 "self": {
                     "href": "/api/security/gcp-kms/f72098a2-e908-11ea-bd56-005056bb4222"
                 }
             },
+            "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
+            "project_id": "testProj",
+            "key_name": "key1",
+            "key_ring_name": "testKeyRing",
+            "scope": "svm",
+            "svm": {"name": "vs0", "uuid": "f36ff553-e713-11ea-bd56-005056bb4222"},
         }
     )
 ]
@@ -116,18 +116,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 GcpKms(
     {
-        "key_ring_name": "testKeyRing",
-        "svm": {"uuid": "f36ff553-e713-11ea-bd56-005056bb4222", "name": "vs0"},
-        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
-        "key_name": "key1",
         "key_ring_location": "global",
-        "project_id": "testProj",
-        "scope": "svm",
         "_links": {
             "self": {
                 "href": "/api/security/gcp-kms/f72098a2-e908-11ea-bd56-005056bb4222"
             }
         },
+        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
+        "project_id": "testProj",
+        "key_name": "key1",
+        "key_ring_name": "testKeyRing",
+        "scope": "svm",
+        "svm": {"name": "vs0", "uuid": "f36ff553-e713-11ea-bd56-005056bb4222"},
     }
 )
 
@@ -155,48 +155,48 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 GcpKms(
     {
+        "google_reachability": {"message": "", "code": "0", "reachable": True},
+        "_links": {
+            "self": {
+                "href": "/api/security/gcp-kms/f72098a2-e908-11ea-bd56-005056bb4222"
+            }
+        },
         "state": {
             "message": "The Google Cloud Key Management Service key protection is unavailable on the following nodes: cluster1-node1.",
-            "cluster_state": False,
             "code": "65537708",
+            "cluster_state": False,
         },
         "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
-        "google_reachability": {"message": "", "reachable": True, "code": "0"},
         "ekmip_reachability": [
             {
                 "message": "",
                 "node": {
-                    "uuid": "d208115f-7721-11eb-bf83-005056bb150e",
                     "name": "node1",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/d208115f-7721-11eb-bf83-005056bb150e"
                         }
                     },
+                    "uuid": "d208115f-7721-11eb-bf83-005056bb150e",
                 },
-                "reachable": True,
                 "code": "0",
+                "reachable": True,
             },
             {
                 "message": "",
                 "node": {
-                    "uuid": "e208115f-7721-11eb-bf83-005056bb150e",
                     "name": "node2",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/e208115f-7721-11eb-bf83-005056bb150e"
                         }
                     },
+                    "uuid": "e208115f-7721-11eb-bf83-005056bb150e",
                 },
-                "reachable": True,
                 "code": "0",
+                "reachable": True,
             },
         ],
-        "_links": {
-            "self": {
-                "href": "/api/security/gcp-kms/f72098a2-e908-11ea-bd56-005056bb4222"
-            }
-        },
     }
 )
 
@@ -250,6 +250,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 
 ---
+### Changing the GCKMS key
+The following example shows how to change the GCKMS key.
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import GcpKms
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = GcpKms(uuid="f72098a2-e908-11ea-bd56-005056bb4222")
+    resource.rekey_external(
+        body={
+            "key_name": "key2",
+            "key_ring_location": "global",
+            "key_ring_name": "testKeyRing2",
+            "project_id": "testProj2",
+        }
+    )
+
+```
+
+---
 ### Deleting a specific GCKMS configuration
 The following example shows how to delete a specific GCKMS configuration.
 ```python
@@ -281,11 +301,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -299,11 +318,15 @@ __pdoc__ = {
     "GcpKmsSchema.opts": False,
 }
 
-
 class GcpKmsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the GcpKms object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the gcp_kms."""
 
     application_credentials = marshmallow_fields.Str(
@@ -342,7 +365,15 @@ Example: myaccount@myproject.com"""
 
 Example: cloudkms.googleapis.com"""
 
-    ekmip_reachability = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.azure_key_vault_ekmip_reachability.AzureKeyVaultEkmipReachabilitySchema", unknown=EXCLUDE, allow_none=True), data_key="ekmip_reachability", allow_none=True)
+    ekmip_reachability = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.azure_key_vault_ekmip_reachability", "AzureKeyVaultEkmipReachabilitySchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="ekmip_reachability",
+                allow_none=True
+            )
     r""" Provides the connectivity status for the given SVM on the given node to all EKMIP servers configured on all nodes of the cluster.
 This is an advanced property; there is an added computational cost to retrieving its value. The property is not populated for either a collection GET or an instance GET unless it is explicitly requested using the `fields` query parameter or GET for all advanced properties is enabled."""
 
@@ -354,7 +385,12 @@ This is an advanced property; there is an added computational cost to retrieving
 
 Example: http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token"""
 
-    google_reachability = marshmallow_fields.Nested("netapp_ontap.models.gcp_connectivity.GcpConnectivitySchema", data_key="google_reachability", unknown=EXCLUDE, allow_none=True)
+    google_reachability = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.gcp_connectivity", "GcpConnectivitySchema"),
+                data_key="google_reachability",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Indicates whether or not the Google Cloud KMS is reachable from all nodes in the cluster.
 This is an advanced property; there is an added computational cost to retrieving its value. The property is not populated for either a collection GET or an instance GET unless it is explicitly requested using the `fields` query parameter or GET for all advanced properties is enabled."""
 
@@ -478,11 +514,21 @@ Valid choices:
 * svm
 * cluster"""
 
-    state = marshmallow_fields.Nested("netapp_ontap.models.gcp_kms_state.GcpKmsStateSchema", data_key="state", unknown=EXCLUDE, allow_none=True)
+    state = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.gcp_kms_state", "GcpKmsStateSchema"),
+                data_key="state",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Google Cloud Key Management Services is a cloud key management service (KMS) that provides a secure store for encryption keys. This object indicates whether or not the Google Cloud KMS key protection is available on all nodes in the cluster.
 This is an advanced property; there is an added computational cost to retrieving its value. The property is not populated for either a collection GET or an instance GET unless it is explicitly requested using the `fields` query parameter or GET for all advanced properties is enabled."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the gcp_kms."""
 
     uuid = marshmallow_fields.Str(
@@ -895,6 +941,12 @@ class GcpKms(Resource):
         **kwargs
     ) -> NetAppResponse:
         r"""Rekeys the external key in the key hierarchy for an SVM with a Google Cloud KMS configuration.
+### Required properties
+* `key_name` - Google Cloud KMS key name.
+### Optional properties
+* `project_id` - Google Cloud KMS project ID.
+* `key_ring_location` - Google Cloud KMS key ring location.
+* `key_ring_name` - Google Cloud KMS key ring name.
 ### Related ONTAP commands
 * `security key-manager external gcp rekey-external`
 """

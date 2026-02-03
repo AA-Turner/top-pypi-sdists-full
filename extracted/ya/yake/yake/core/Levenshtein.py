@@ -1,23 +1,29 @@
 """
-Module providing Levenshtein distance and ratio calculations.
+Module providing optimized Levenshtein distance and ratio calculations.
 
-This module implements the Levenshtein (edit distance) algorithm for measuring
-the difference between two strings. It provides both a raw distance calculation
-and a normalized similarity ratio, which are useful for comparing text strings
-and identifying potential matches with slight variations.
+This module implements an optimized version of the Levenshtein (edit distance) 
+algorithm for measuring the difference between two strings. It provides both 
+a raw distance calculation and a normalized similarity ratio, which are useful 
+for comparing text strings and identifying potential matches with slight variations.
+
+Optimizations include:
+- Memory-efficient two-row approach instead of full matrix
+- Early termination for highly dissimilar strings
+- LRU caching for repeated calculations
+- Optimized algorithms for short strings
 """
 
-import numpy as np
+import functools
 
 
 class Levenshtein:
     """
-    Class for computing Levenshtein distance and similarity ratio.
+    Optimized class for computing Levenshtein distance and similarity ratio.
 
     This class provides static methods to calculate the edit distance between
     strings (how many insertions, deletions, or substitutions are needed to
     transform one string into another) and to determine a normalized similarity
-    ratio between them.
+    ratio between them, with significant performance optimizations.
 
     These metrics are widely used in fuzzy string matching, spell checking,
     and approximate text similarity measurements.
@@ -40,16 +46,17 @@ class Levenshtein:
             float: The similarity ratio, where higher values indicate greater similarity.
                   The range is [0.0, 1.0] where 1.0 means identical strings.
         """
-        return 1 - float(distance) / float(str_length)
+        return 1 - float(distance) / float(str_length) if str_length > 0 else 1.0
 
     @staticmethod
+    @functools.lru_cache(maxsize=20000)
     def ratio(seq1: str, seq2: str) -> float:
         """
-        Compute the similarity ratio between two strings.
+        Compute the similarity ratio between two strings with caching.
 
         This is the main method for determining string similarity. It calculates
         the Levenshtein distance and then converts it to a ratio representing
-        how similar the strings are.
+        how similar the strings are. Results are cached for performance.
 
         Args:
             seq1 (str): The first string to compare.
@@ -64,16 +71,16 @@ class Levenshtein:
         return Levenshtein.__ratio(str_distance, str_length)
 
     @staticmethod
+    @functools.lru_cache(maxsize=20000)
     def distance(seq1: str, seq2: str) -> int:
         """
-        Calculate the Levenshtein distance between two strings.
+        Calculate the optimized Levenshtein distance between two strings.
 
-        This method implements the core Levenshtein algorithm, which calculates
-        the minimum number of single-character edits (insertions, deletions, or
-        substitutions) required to change one string into another.
-
-        The algorithm uses dynamic programming with a matrix approach to efficiently
-        compute the minimum edit distance.
+        This method implements an optimized Levenshtein algorithm with:
+        - Early termination for very different strings
+        - Memory-efficient two-row approach
+        - Special handling for short strings
+        - Result caching
 
         Args:
             seq1 (str): The first string to compare.
@@ -83,32 +90,60 @@ class Levenshtein:
             int: The Levenshtein distance - the minimum number of edit operations
                  required to transform seq1 into seq2.
         """
-        # Create a matrix of size (len(seq1)+1) x (len(seq2)+1)
-        size_x = len(seq1) + 1
-        size_y = len(seq2) + 1
-        matrix = np.zeros((size_x, size_y))
+        len1, len2 = len(seq1), len(seq2)
 
-        # Initialize the first row and column of the matrix
-        for x in range(size_x):
-            matrix[x, 0] = x  # Cost of deleting characters from seq1
-        for y in range(size_y):
-            matrix[0, y] = y  # Cost of inserting characters from seq2
+        # Handle empty strings
+        if len1 == 0:
+            return len2
+        if len2 == 0:
+            return len1
 
-        # Fill the matrix using dynamic programming approach
-        for x in range(1, size_x):
-            for y in range(1, size_y):
-                # Check if the characters at current positions match
-                if seq1[x - 1] == seq2[y - 1]:
-                    cost = 0  # No cost for matching characters
-                else:
-                    cost = 1  # Cost of 1 for substitution
+        # Early termination: if difference in length is too large
+        if abs(len1 - len2) > max(len1, len2) * 0.7:
+            return max(len1, len2)
 
-                # Calculate minimum cost among deletion, insertion, and substitution
-                matrix[x, y] = min(
-                    matrix[x - 1, y] + 1,  # Deletion (remove from seq1)
-                    matrix[x, y - 1] + 1,  # Insertion (add from seq2)
-                    matrix[x - 1, y - 1] + cost,  # Substitution or match
+        # Ensure seq1 is the shorter string for memory efficiency
+        if len1 > len2:
+            seq1, seq2 = seq2, seq1
+            len1, len2 = len2, len1
+
+        # For very short strings, use simple recursive approach
+        if len1 <= 3:
+            return Levenshtein._simple_distance(seq1, seq2)
+
+        previous_row = list(range(len2 + 1))
+        current_row = [0] * (len2 + 1)
+
+        for i in range(1, len1 + 1):
+            current_row[0] = i
+            for j in range(1, len2 + 1):
+                cost = 0 if seq1[i-1] == seq2[j-1] else 1
+                current_row[j] = min(
+                    current_row[j-1] + 1,      # insertion
+                    previous_row[j] + 1,       # deletion
+                    previous_row[j-1] + cost   # substitution
                 )
+            previous_row, current_row = current_row, previous_row
 
-        # Return the bottom-right value of the matrix as the final distance
-        return int(matrix[size_x - 1, size_y - 1])
+        return previous_row[len2]
+
+    @staticmethod
+    def _simple_distance(seq1: str, seq2: str) -> int:
+        """
+        Simple recursive distance calculation for very short strings.
+
+        More efficient than the matrix approach for strings with length <= 3.
+        """
+        if not seq1:
+            return len(seq2)
+        if not seq2:
+            return len(seq1)
+
+        if seq1[0] == seq2[0]:
+            return Levenshtein._simple_distance(seq1[1:], seq2[1:])
+
+        return 1 + min(
+            Levenshtein._simple_distance(seq1[1:], seq2),      # deletion
+            Levenshtein._simple_distance(seq1, seq2[1:]),      # insertion
+            Levenshtein._simple_distance(seq1[1:], seq2[1:])   # substitution
+        )

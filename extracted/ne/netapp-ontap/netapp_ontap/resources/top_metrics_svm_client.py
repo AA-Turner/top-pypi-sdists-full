@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -25,6 +25,7 @@ The API can sometimes fail to return the list of clients with the most I/O activ
 * The NFS/CIFS client operations are being served by the client-side filesystem cache.
 * The NFS/CIFS client operations are being buffered by the client operating system.
 * On rare occasions, the incoming traffic pattern is not suitable to obtain the list of clients with the most I/O activity.
+* NFSv4 client read operations using Multi-Processor I/O (MPIO) are not tracked.
 ## Retrieve a list of the clients with the most I/O activity
 For a report on the clients with the most I/O activity returned in descending order, specify the I/O activity type you want to filter for by passing the `iops` or `throughput` I/O activity type into the top_metric parameter. If the I/O activity type is not specified, by default the API returns a list of clients with the greatest number of average read operations per second. The current maximum number of clients returned by the API for an I/O activity type is 25.
 
@@ -50,29 +51,29 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsSvmClient(
         {
-            "client_ip": "172.28.71.128",
             "svm": {"name": "vs1"},
             "iops": {
-                "error": {"upper_bound": 1505, "lower_bound": 1495},
+                "error": {"lower_bound": 1495, "upper_bound": 1505},
                 "write": 1495,
             },
+            "client_ip": "172.28.71.128",
         }
     ),
     TopMetricsSvmClient(
         {
-            "client_ip": "172.28.71.179",
             "svm": {"name": "vs1"},
             "iops": {
-                "error": {"upper_bound": 1032, "lower_bound": 1022},
+                "error": {"lower_bound": 1022, "upper_bound": 1032},
                 "write": 1022,
             },
+            "client_ip": "172.28.71.179",
         }
     ),
     TopMetricsSvmClient(
         {
-            "client_ip": "172.28.51.62",
             "svm": {"name": "vs1"},
-            "iops": {"error": {"upper_bound": 355, "lower_bound": 345}, "write": 345},
+            "iops": {"error": {"lower_bound": 345, "upper_bound": 355}, "write": 345},
+            "client_ip": "172.28.51.62",
         }
     ),
 ]
@@ -114,11 +115,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -132,7 +132,6 @@ __pdoc__ = {
     "TopMetricsSvmClientSchema.opts": False,
 }
 
-
 class TopMetricsSvmClientSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the TopMetricsSvmClient object"""
 
@@ -144,13 +143,28 @@ class TopMetricsSvmClientSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 192.168.185.170"""
 
-    iops = marshmallow_fields.Nested("netapp_ontap.models.top_metrics_client_iops.TopMetricsClientIopsSchema", data_key="iops", unknown=EXCLUDE, allow_none=True)
+    iops = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.top_metrics_client_iops", "TopMetricsClientIopsSchema"),
+                data_key="iops",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The iops field of the top_metrics_svm_client."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the top_metrics_svm_client."""
 
-    throughput = marshmallow_fields.Nested("netapp_ontap.models.top_metrics_client_throughput.TopMetricsClientThroughputSchema", data_key="throughput", unknown=EXCLUDE, allow_none=True)
+    throughput = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.top_metrics_client_throughput", "TopMetricsClientThroughputSchema"),
+                data_key="throughput",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The throughput field of the top_metrics_svm_client."""
 
     @property

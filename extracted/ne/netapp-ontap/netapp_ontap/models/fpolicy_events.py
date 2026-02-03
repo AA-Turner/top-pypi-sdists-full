@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["FpolicyEvents", "FpolicyEventsSchema"]
@@ -17,15 +16,24 @@ __pdoc__ = {
     "FpolicyEvents": False,
 }
 
-
 class FpolicyEventsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the FpolicyEvents object"""
 
-    file_operations = marshmallow_fields.Nested("netapp_ontap.models.fpolicy_event_file_operations.FpolicyEventFileOperationsSchema", unknown=EXCLUDE, data_key="file_operations", allow_none=True)
+    file_operations = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fpolicy_event_file_operations", "FpolicyEventFileOperationsSchema"),
+                unknown=EXCLUDE,
+                data_key="file_operations",
+                allow_none=True
+            )
     r""" Specifies the file operations for the FPolicy event. You must specify a valid protocol in the protocol parameter.
 The event will check the operations specified from all client requests using the protocol. """
 
-    filters = marshmallow_fields.Nested("netapp_ontap.models.fpolicy_event_filters.FpolicyEventFiltersSchema", unknown=EXCLUDE, data_key="filters", allow_none=True)
+    filters = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fpolicy_event_filters", "FpolicyEventFiltersSchema"),
+                unknown=EXCLUDE,
+                data_key="filters",
+                allow_none=True
+            )
     r""" Specifies the list of filters for a given file operation for the specified protocol.
 When you specify the filters, you must specify the valid protocols and a valid file operations. """
 

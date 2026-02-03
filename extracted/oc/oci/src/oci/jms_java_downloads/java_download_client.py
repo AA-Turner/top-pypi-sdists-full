@@ -162,7 +162,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/cancel_work_request.py.html>`__ to see an example of how to use cancel_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/cancel_work_request.py.html>`__ to see an example of how to use cancel_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -275,7 +275,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/create_java_download_report.py.html>`__ to see an example of how to use create_java_download_report API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/create_java_download_report.py.html>`__ to see an example of how to use create_java_download_report API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -379,7 +379,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/create_java_download_token.py.html>`__ to see an example of how to use create_java_download_token API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/create_java_download_token.py.html>`__ to see an example of how to use create_java_download_token API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -484,7 +484,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/create_java_license_acceptance_record.py.html>`__ to see an example of how to use create_java_license_acceptance_record API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/create_java_license_acceptance_record.py.html>`__ to see an example of how to use create_java_license_acceptance_record API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -589,7 +589,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/delete_java_download_report.py.html>`__ to see an example of how to use delete_java_download_report API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/delete_java_download_report.py.html>`__ to see an example of how to use delete_java_download_report API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['javaDownloadReportId']
@@ -701,7 +701,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/delete_java_download_token.py.html>`__ to see an example of how to use delete_java_download_token API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/delete_java_download_token.py.html>`__ to see an example of how to use delete_java_download_token API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['javaDownloadTokenId']
@@ -813,7 +813,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/delete_java_license_acceptance_record.py.html>`__ to see an example of how to use delete_java_license_acceptance_record API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/delete_java_license_acceptance_record.py.html>`__ to see an example of how to use delete_java_license_acceptance_record API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['javaLicenseAcceptanceRecordId']
@@ -923,7 +923,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/generate_artifact_download_url.py.html>`__ to see an example of how to use generate_artifact_download_url API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/generate_artifact_download_url.py.html>`__ to see an example of how to use generate_artifact_download_url API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1018,7 +1018,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/get_java_download_report.py.html>`__ to see an example of how to use get_java_download_report API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/get_java_download_report.py.html>`__ to see an example of how to use get_java_download_report API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['javaDownloadReportId']
@@ -1123,7 +1123,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/get_java_download_report_content.py.html>`__ to see an example of how to use get_java_download_report_content API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/get_java_download_report_content.py.html>`__ to see an example of how to use get_java_download_report_content API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['javaDownloadReportId']
@@ -1228,7 +1228,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/get_java_download_token.py.html>`__ to see an example of how to use get_java_download_token API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/get_java_download_token.py.html>`__ to see an example of how to use get_java_download_token API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['javaDownloadTokenId']
@@ -1335,7 +1335,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/get_java_license.py.html>`__ to see an example of how to use get_java_license API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/get_java_license.py.html>`__ to see an example of how to use get_java_license API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['licenseType']
@@ -1440,7 +1440,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/get_java_license_acceptance_record.py.html>`__ to see an example of how to use get_java_license_acceptance_record API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/get_java_license_acceptance_record.py.html>`__ to see an example of how to use get_java_license_acceptance_record API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['javaLicenseAcceptanceRecordId']
@@ -1545,7 +1545,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1695,7 +1695,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/list_java_download_records.py.html>`__ to see an example of how to use list_java_download_records API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/list_java_download_records.py.html>`__ to see an example of how to use list_java_download_records API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1860,7 +1860,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/list_java_download_reports.py.html>`__ to see an example of how to use list_java_download_reports API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/list_java_download_reports.py.html>`__ to see an example of how to use list_java_download_reports API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2035,7 +2035,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/list_java_download_tokens.py.html>`__ to see an example of how to use list_java_download_tokens API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/list_java_download_tokens.py.html>`__ to see an example of how to use list_java_download_tokens API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2212,7 +2212,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/list_java_license_acceptance_records.py.html>`__ to see an example of how to use list_java_license_acceptance_records API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/list_java_license_acceptance_records.py.html>`__ to see an example of how to use list_java_license_acceptance_records API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2377,7 +2377,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/list_java_licenses.py.html>`__ to see an example of how to use list_java_licenses API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/list_java_licenses.py.html>`__ to see an example of how to use list_java_licenses API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2525,7 +2525,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2674,7 +2674,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2836,7 +2836,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2971,7 +2971,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/request_summarized_java_download_counts.py.html>`__ to see an example of how to use request_summarized_java_download_counts API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/request_summarized_java_download_counts.py.html>`__ to see an example of how to use request_summarized_java_download_counts API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3076,7 +3076,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/update_java_download_token.py.html>`__ to see an example of how to use update_java_download_token API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/update_java_download_token.py.html>`__ to see an example of how to use update_java_download_token API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['javaDownloadTokenId']
@@ -3193,7 +3193,7 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/jmsjavadownloads/update_java_license_acceptance_record.py.html>`__ to see an example of how to use update_java_license_acceptance_record API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/jmsjavadownloads/update_java_license_acceptance_record.py.html>`__ to see an example of how to use update_java_license_acceptance_record API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['javaLicenseAcceptanceRecordId']

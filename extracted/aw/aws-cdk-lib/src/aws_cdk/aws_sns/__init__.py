@@ -62,7 +62,7 @@ my_topic.add_subscription(subscriptions.SqsSubscription(queue))
 Note that subscriptions of queues in different accounts need to be manually confirmed by
 reading the initial message from the queue and visiting the link found in it.
 
-The `grantSubscribe` method adds a policy statement to the topic's resource policy, allowing the specified principal to perform the `sns:Subscribe` action.
+The `topic.grants.subscribe` method adds a policy statement to the topic's resource policy, allowing the specified principal to perform the `sns:Subscribe` action.
 It's useful when you want to allow entities, such as another AWS account or resources created later, to subscribe to the topic at their own pace, separating permission granting from the actual subscription process.
 
 ```python
@@ -70,7 +70,7 @@ It's useful when you want to allow entities, such as another AWS account or reso
 
 my_topic = sns.Topic(self, "MyTopic")
 
-my_topic.grant_subscribe(account_principal)
+my_topic.grants.subscribe(account_principal)
 ```
 
 ### Filter policy

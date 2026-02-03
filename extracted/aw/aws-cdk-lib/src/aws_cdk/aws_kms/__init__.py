@@ -2763,6 +2763,12 @@ class Key(
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
+    @jsii.member(jsii_name="grants")
+    def grants(self) -> "KeyGrants":
+        '''Collection of grant methods for a Key.'''
+        return typing.cast("KeyGrants", jsii.get(self, "grants"))
+
+    @builtins.property
     @jsii.member(jsii_name="keyArn")
     def key_arn(self) -> builtins.str:
         '''The ARN of the key.'''
@@ -2800,6 +2806,156 @@ class Key(
         Otherwise this method will no-op.
         '''
         return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], jsii.get(self, "policy"))
+
+
+class KeyGrants(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_kms.KeyGrants"):
+    '''Collection of grant methods for an IKey.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_kms as kms
+        from aws_cdk.interfaces import aws_kms as interfaces_kms
+        
+        # key_ref: interfaces_kms.IKeyRef
+        
+        key_grants = kms.KeyGrants.from_key(key_ref, False)
+    '''
+
+    @jsii.member(jsii_name="fromKey")
+    @builtins.classmethod
+    def from_key(
+        cls,
+        resource: "_IKeyRef_d4fc6ef3",
+        trust_account_identities: typing.Optional[builtins.bool] = None,
+    ) -> "KeyGrants":
+        '''Creates grants for an IKeyRef.
+
+        :param resource: -
+        :param trust_account_identities: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1b2b01253e0773a92bcebdd3242ee3352f5d017c956a05e704f35b95ad25ef7b)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+            check_type(argname="argument trust_account_identities", value=trust_account_identities, expected_type=type_hints["trust_account_identities"])
+        return typing.cast("KeyGrants", jsii.sinvoke(cls, "fromKey", [resource, trust_account_identities]))
+
+    @jsii.member(jsii_name="actions")
+    def actions(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        *actions: builtins.str,
+    ) -> "_Grant_a7ae64f8":
+        '''Grant the indicated permissions on this key to the given principal.
+
+        This modifies both the principal's policy as well as the resource policy,
+        since the default CloudFormation setup for KMS keys is that the policy
+        must not be empty and so default grants won't work.
+
+        :param grantee: -
+        :param actions: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__79fa7874c80970de0ffdac27ae68535e171c052f227cda4857a1f46121b137a5)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [grantee, *actions]))
+
+    @jsii.member(jsii_name="decrypt")
+    def decrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant decryption permissions using this key to the given principal.
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__45adaee91cc8d54ac08e68ff777a0b27a97afa7734b0944bcb801cd00af7203f)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "decrypt", [grantee]))
+
+    @jsii.member(jsii_name="encrypt")
+    def encrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant encryption permissions using this key to the given principal.
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__645b772e05c54b2a07b57f733d3935fdd5089e5d56a39826b4b91c5b7b6c7cac)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "encrypt", [grantee]))
+
+    @jsii.member(jsii_name="encryptDecrypt")
+    def encrypt_decrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant encryption and decryption permissions using this key to the given principal.
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e0f6aea767bb808e2f1f10e1ba74b4bc775b7855f592f4629abedabf97acc9d2)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "encryptDecrypt", [grantee]))
+
+    @jsii.member(jsii_name="generateMac")
+    def generate_mac(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant permissions to generating MACs to the given principal.
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c7ced7c1ae9e426c781df0c5b506c4cd217d31ce9b9687120d7ed76b5a68001e)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "generateMac", [grantee]))
+
+    @jsii.member(jsii_name="sign")
+    def sign(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant sign permissions using this key to the given principal.
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f859ed4093a1572119457784342815c76b88b60b8e757aea0120f0a70988bd67)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "sign", [grantee]))
+
+    @jsii.member(jsii_name="signVerify")
+    def sign_verify(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant sign and verify permissions using this key to the given principal.
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aa94383b8110c581c8127a2fbccc93692922eedc43bf82db288bd648c766fddc)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "signVerify", [grantee]))
+
+    @jsii.member(jsii_name="verify")
+    def verify(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant verify permissions using this key to the given principal.
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__14bdce0970c2aedbe99ae8c5e5974fed4efd38b7975be707653838211e33a57a)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "verify", [grantee]))
+
+    @jsii.member(jsii_name="verifyMac")
+    def verify_mac(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant permissions to verifying MACs to the given principal.
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c847f52116a9d36a26f92b6ec5505f92ac488aaa06906d7f3b88bf0eb734c152)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "verifyMac", [grantee]))
+
+    @builtins.property
+    @jsii.member(jsii_name="resource")
+    def _resource(self) -> "_IKeyRef_d4fc6ef3":
+        return typing.cast("_IKeyRef_d4fc6ef3", jsii.get(self, "resource"))
 
 
 @jsii.data_type(
@@ -3729,6 +3885,7 @@ __all__ = [
     "IAlias",
     "IKey",
     "Key",
+    "KeyGrants",
     "KeyLookupOptions",
     "KeyProps",
     "KeySpec",
@@ -4226,6 +4383,68 @@ def _typecheckingstub__6177dbf335c9d10ef7ab31fb9b38bda2e2a5301aaa124f44ce6112399
     pass
 
 def _typecheckingstub__de56bfcabbb83e3ba315f07ba084787bd71e82306a46ddc61555bc4f07b77538(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b2b01253e0773a92bcebdd3242ee3352f5d017c956a05e704f35b95ad25ef7b(
+    resource: _IKeyRef_d4fc6ef3,
+    trust_account_identities: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__79fa7874c80970de0ffdac27ae68535e171c052f227cda4857a1f46121b137a5(
+    grantee: _IGrantable_71c4f5de,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__45adaee91cc8d54ac08e68ff777a0b27a97afa7734b0944bcb801cd00af7203f(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__645b772e05c54b2a07b57f733d3935fdd5089e5d56a39826b4b91c5b7b6c7cac(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e0f6aea767bb808e2f1f10e1ba74b4bc775b7855f592f4629abedabf97acc9d2(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c7ced7c1ae9e426c781df0c5b506c4cd217d31ce9b9687120d7ed76b5a68001e(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f859ed4093a1572119457784342815c76b88b60b8e757aea0120f0a70988bd67(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa94383b8110c581c8127a2fbccc93692922eedc43bf82db288bd648c766fddc(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__14bdce0970c2aedbe99ae8c5e5974fed4efd38b7975be707653838211e33a57a(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c847f52116a9d36a26f92b6ec5505f92ac488aaa06906d7f3b88bf0eb734c152(
     grantee: _IGrantable_71c4f5de,
 ) -> None:
     """Type checking stubs"""

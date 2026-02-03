@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -25,50 +25,54 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     VscanOnAccess(
         {
-            "scope": {
-                "scan_without_extension": True,
-                "include_extensions": ["*"],
-                "scan_readonly_volumes": False,
-                "only_execute_access": False,
-                "max_file_size": 2147483648,
-            },
-            "enabled": True,
-            "mandatory": True,
+            "protocol": "CIFS",
             "svm": {
-                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"
                     }
                 },
+                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
             },
             "name": "default_CIFS",
+            "mandatory": True,
+            "owner": "cluster",
+            "scope": {
+                "scan_readonly_volumes": False,
+                "scan_without_extension": True,
+                "only_execute_access": False,
+                "max_file_size": 2147483648,
+                "include_extensions": ["*"],
+            },
+            "enabled": True,
         }
     ),
     VscanOnAccess(
         {
-            "scope": {
-                "exclude_paths": ["\\vol\\a b\\", "\\vol\\a,b\\"],
-                "scan_without_extension": True,
-                "include_extensions": ["mp*", "tx*"],
-                "scan_readonly_volumes": False,
-                "only_execute_access": True,
-                "max_file_size": 3221225472,
-                "exclude_extensions": ["mp3", "txt"],
-            },
-            "enabled": False,
-            "mandatory": True,
+            "protocol": "CIFS",
             "svm": {
-                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"
                     }
                 },
+                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
             },
             "name": "on-access-policy",
+            "mandatory": True,
+            "owner": "vserver",
+            "scope": {
+                "scan_readonly_volumes": False,
+                "scan_without_extension": True,
+                "only_execute_access": True,
+                "max_file_size": 3221225472,
+                "include_extensions": ["mp*", "tx*"],
+                "exclude_paths": ["\\vol\\a b\\", "\\vol\\a,b\\"],
+                "exclude_extensions": ["mp3", "txt"],
+            },
+            "enabled": False,
         }
     ),
 ]
@@ -99,25 +103,25 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VscanOnAccess(
     {
-        "scope": {
-            "exclude_paths": ["\\vol\\a b\\", "\\vol\\a,b\\"],
-            "scan_without_extension": True,
-            "include_extensions": ["mp*", "tx*"],
-            "scan_readonly_volumes": False,
-            "only_execute_access": True,
-            "max_file_size": 3221225472,
-            "exclude_extensions": ["mp3", "txt"],
-        },
-        "enabled": True,
-        "mandatory": True,
         "svm": {
-            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
             "name": "vs1",
             "_links": {
                 "self": {"href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"}
             },
+            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
         },
         "name": "on-access-policy",
+        "mandatory": True,
+        "scope": {
+            "scan_readonly_volumes": False,
+            "scan_without_extension": True,
+            "only_execute_access": True,
+            "max_file_size": 3221225472,
+            "include_extensions": ["mp*", "tx*"],
+            "exclude_paths": ["\\vol\\a b\\", "\\vol\\a,b\\"],
+            "exclude_extensions": ["mp3", "txt"],
+        },
+        "enabled": True,
     }
 )
 
@@ -158,19 +162,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VscanOnAccess(
     {
+        "svm": {"name": "vs1"},
+        "name": "on-access-policy",
+        "mandatory": True,
         "scope": {
-            "exclude_paths": ["\\dir1\\dir2\\ame", "\\vol\\a b"],
-            "scan_without_extension": True,
-            "include_extensions": ["mp*", "txt"],
             "scan_readonly_volumes": False,
+            "scan_without_extension": True,
             "only_execute_access": True,
             "max_file_size": 3221225472,
+            "include_extensions": ["mp*", "txt"],
+            "exclude_paths": ["\\dir1\\dir2\\ame", "\\vol\\a b"],
             "exclude_extensions": ["txt", "mp3"],
         },
         "enabled": False,
-        "mandatory": True,
-        "svm": {"name": "vs1"},
-        "name": "on-access-policy",
     }
 )
 
@@ -206,15 +210,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VscanOnAccess(
     {
-        "scope": {
-            "exclude_paths": ["\\vol\\a b", "\\vol\\a,b\\"],
-            "scan_without_extension": True,
-            "max_file_size": 1073741824,
-        },
-        "enabled": False,
-        "mandatory": True,
         "svm": {"name": "vs1"},
         "name": "on-access-policy",
+        "mandatory": True,
+        "scope": {
+            "scan_without_extension": True,
+            "max_file_size": 1073741824,
+            "exclude_paths": ["\\vol\\a b", "\\vol\\a,b\\"],
+        },
+        "enabled": False,
     }
 )
 
@@ -266,11 +270,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -283,7 +286,6 @@ __pdoc__ = {
     "VscanOnAccessSchema.resource": False,
     "VscanOnAccessSchema.opts": False,
 }
-
 
 class VscanOnAccessSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the VscanOnAccess object"""
@@ -309,10 +311,37 @@ class VscanOnAccessSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: on-access-test"""
 
-    scope = marshmallow_fields.Nested("netapp_ontap.models.vscan_on_access_scope.VscanOnAccessScopeSchema", data_key="scope", unknown=EXCLUDE, allow_none=True)
+    owner = marshmallow_fields.Str(
+        data_key="owner",
+        allow_none=True,
+    )
+    r""" Specifies the on-access policy owner."""
+
+    protocol = marshmallow_fields.Str(
+        data_key="protocol",
+        validate=enum_validation(['cifs']),
+        allow_none=True,
+    )
+    r""" Specifies the file access protocol for the on-access policy. The following lists the possible protocols. CIFS  - SMB protocol
+
+Valid choices:
+
+* cifs"""
+
+    scope = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.vscan_on_access_scope", "VscanOnAccessScopeSchema"),
+                data_key="scope",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The scope field of the vscan_on_access."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the vscan_on_access."""
 
     @property
@@ -323,27 +352,33 @@ Example: on-access-test"""
         "enabled",
         "mandatory",
         "name",
+        "owner",
+        "protocol",
         "scope",
         "svm.links",
         "svm.name",
         "svm.uuid",
     ]
-    """enabled,mandatory,name,scope,svm.links,svm.name,svm.uuid,"""
+    """enabled,mandatory,name,owner,protocol,scope,svm.links,svm.name,svm.uuid,"""
 
     patchable_fields = [
         "enabled",
         "mandatory",
+        "owner",
+        "protocol",
         "scope",
     ]
-    """enabled,mandatory,scope,"""
+    """enabled,mandatory,owner,protocol,scope,"""
 
     postable_fields = [
         "enabled",
         "mandatory",
         "name",
+        "owner",
+        "protocol",
         "scope",
     ]
-    """enabled,mandatory,name,scope,"""
+    """enabled,mandatory,name,owner,protocol,scope,"""
 
 class VscanOnAccess(Resource):
     r""" An On-Access policy that defines the scope of an On-Access scan. Use On-Access scanning to check for viruses when clients open, read, rename, or close files over CIFS. By default, ONTAP creates an On-Access policy named "default_CIFS" and enables it for all the SVMs in a cluster. """
@@ -462,6 +497,7 @@ If not specified in POST, the following default property values are assigned:
 * `only_execute_access` - _false_
 * `scan_readonly_volumes` - _false_
 * `scan_without_extension` - _true_
+* `protocol` - _CIFS_
 ### Related ONTAP commands
 * `vserver vscan on-access-policy create`
 * `vserver vscan on-access-policy enable`
@@ -557,6 +593,7 @@ If not specified in POST, the following default property values are assigned:
 * `only_execute_access` - _false_
 * `scan_readonly_volumes` - _false_
 * `scan_without_extension` - _true_
+* `protocol` - _CIFS_
 ### Related ONTAP commands
 * `vserver vscan on-access-policy create`
 * `vserver vscan on-access-policy enable`

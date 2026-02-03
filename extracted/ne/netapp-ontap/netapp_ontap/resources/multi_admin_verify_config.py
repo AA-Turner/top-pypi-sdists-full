@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -35,11 +35,11 @@ with HostConnection(
 ```
 MultiAdminVerifyConfig(
     {
-        "enabled": False,
-        "execution_expiry": "PT1H",
-        "approval_groups": [],
         "required_approvers": 1,
         "approval_expiry": "PT1H",
+        "approval_groups": [],
+        "execution_expiry": "PT1H",
+        "enabled": False,
     }
 )
 
@@ -76,11 +76,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -93,7 +92,6 @@ __pdoc__ = {
     "MultiAdminVerifyConfigSchema.resource": False,
     "MultiAdminVerifyConfigSchema.opts": False,
 }
-
 
 class MultiAdminVerifyConfigSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the MultiAdminVerifyConfig object"""

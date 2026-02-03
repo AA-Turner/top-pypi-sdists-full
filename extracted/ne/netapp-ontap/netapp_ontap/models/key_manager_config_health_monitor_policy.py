@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["KeyManagerConfigHealthMonitorPolicy", "KeyManagerConfigHealthMonitorPolicySchema"]
@@ -17,29 +16,63 @@ __pdoc__ = {
     "KeyManagerConfigHealthMonitorPolicy": False,
 }
 
-
 class KeyManagerConfigHealthMonitorPolicySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the KeyManagerConfigHealthMonitorPolicy object"""
 
-    akv = marshmallow_fields.Nested("netapp_ontap.models.health_monitor_policy_fields.HealthMonitorPolicyFieldsSchema", unknown=EXCLUDE, data_key="akv", allow_none=True)
+    akv = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.health_monitor_policy_fields", "HealthMonitorPolicyFieldsSchema"),
+                unknown=EXCLUDE,
+                data_key="akv",
+                allow_none=True
+            )
     r""" Manages the health monitor policy options. """
 
-    aws = marshmallow_fields.Nested("netapp_ontap.models.health_monitor_policy_fields.HealthMonitorPolicyFieldsSchema", unknown=EXCLUDE, data_key="aws", allow_none=True)
+    aws = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.health_monitor_policy_fields", "HealthMonitorPolicyFieldsSchema"),
+                unknown=EXCLUDE,
+                data_key="aws",
+                allow_none=True
+            )
     r""" Manages the health monitor policy options. """
 
-    barbican = marshmallow_fields.Nested("netapp_ontap.models.health_monitor_policy_fields.HealthMonitorPolicyFieldsSchema", unknown=EXCLUDE, data_key="barbican", allow_none=True)
+    barbican = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.health_monitor_policy_fields", "HealthMonitorPolicyFieldsSchema"),
+                unknown=EXCLUDE,
+                data_key="barbican",
+                allow_none=True
+            )
     r""" Manages the health monitor policy options. """
 
-    gcp = marshmallow_fields.Nested("netapp_ontap.models.health_monitor_policy_fields.HealthMonitorPolicyFieldsSchema", unknown=EXCLUDE, data_key="gcp", allow_none=True)
+    gcp = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.health_monitor_policy_fields", "HealthMonitorPolicyFieldsSchema"),
+                unknown=EXCLUDE,
+                data_key="gcp",
+                allow_none=True
+            )
     r""" Manages the health monitor policy options. """
 
-    ikp = marshmallow_fields.Nested("netapp_ontap.models.health_monitor_policy_fields.HealthMonitorPolicyFieldsSchema", unknown=EXCLUDE, data_key="ikp", allow_none=True)
+    ikp = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.health_monitor_policy_fields", "HealthMonitorPolicyFieldsSchema"),
+                unknown=EXCLUDE,
+                data_key="ikp",
+                allow_none=True
+            )
     r""" Manages the health monitor policy options. """
 
-    kmip = marshmallow_fields.Nested("netapp_ontap.models.health_monitor_policy_fields.HealthMonitorPolicyFieldsSchema", unknown=EXCLUDE, data_key="kmip", allow_none=True)
+    kmip = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.health_monitor_policy_fields", "HealthMonitorPolicyFieldsSchema"),
+                unknown=EXCLUDE,
+                data_key="kmip",
+                allow_none=True
+            )
     r""" Manages the health monitor policy options. """
 
-    okm = marshmallow_fields.Nested("netapp_ontap.models.health_monitor_policy_fields.HealthMonitorPolicyFieldsSchema", unknown=EXCLUDE, data_key="okm", allow_none=True)
+    okm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.health_monitor_policy_fields", "HealthMonitorPolicyFieldsSchema"),
+                unknown=EXCLUDE,
+                data_key="okm",
+                allow_none=True
+            )
     r""" Manages the health monitor policy options. """
 
     @property

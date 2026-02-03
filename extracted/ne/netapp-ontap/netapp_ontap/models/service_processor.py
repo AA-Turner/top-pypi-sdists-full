@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ServiceProcessor", "ServiceProcessorSchema"]
@@ -17,20 +16,34 @@ __pdoc__ = {
     "ServiceProcessor": False,
 }
 
-
 class ServiceProcessorSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ServiceProcessor object"""
 
-    api_service = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_service_processor_api_service.ClusterNodesServiceProcessorApiServiceSchema", unknown=EXCLUDE, data_key="api_service", allow_none=True)
+    api_service = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_service_processor_api_service", "ClusterNodesServiceProcessorApiServiceSchema"),
+                unknown=EXCLUDE,
+                data_key="api_service",
+                allow_none=True
+            )
     r""" Provides the properties of the service processor (SP) or baseboard management controller (BMC) API service. """
 
-    auto_config = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_service_processor_auto_config.ClusterNodesServiceProcessorAutoConfigSchema", unknown=EXCLUDE, data_key="auto_config", allow_none=True)
+    auto_config = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_service_processor_auto_config", "ClusterNodesServiceProcessorAutoConfigSchema"),
+                unknown=EXCLUDE,
+                data_key="auto_config",
+                allow_none=True
+            )
     r""" Provides the properties of the service processor auto configuration. """
 
     autoupdate_enabled = marshmallow_fields.Boolean(data_key="autoupdate_enabled", allow_none=True)
     r""" Indicates whether the service processor can be automatically updated from ONTAP. """
 
-    backup = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_service_processor_backup.ClusterNodesServiceProcessorBackupSchema", unknown=EXCLUDE, data_key="backup", allow_none=True)
+    backup = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_service_processor_backup", "ClusterNodesServiceProcessorBackupSchema"),
+                unknown=EXCLUDE,
+                data_key="backup",
+                allow_none=True
+            )
     r""" Provides the properties of the service processor backup partition. """
 
     dhcp_enabled = marshmallow_fields.Boolean(data_key="dhcp_enabled", allow_none=True)
@@ -39,10 +52,20 @@ class ServiceProcessorSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     firmware_version = marshmallow_fields.Str(data_key="firmware_version", allow_none=True)
     r""" The version of firmware installed. """
 
-    ipv4_interface = marshmallow_fields.Nested("netapp_ontap.models.ipv4_interface.Ipv4InterfaceSchema", unknown=EXCLUDE, data_key="ipv4_interface", allow_none=True)
+    ipv4_interface = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ipv4_interface", "Ipv4InterfaceSchema"),
+                unknown=EXCLUDE,
+                data_key="ipv4_interface",
+                allow_none=True
+            )
     r""" Object to set up an interface along with its default router. """
 
-    ipv6_interface = marshmallow_fields.Nested("netapp_ontap.models.ipv6_interface.Ipv6InterfaceSchema", unknown=EXCLUDE, data_key="ipv6_interface", allow_none=True)
+    ipv6_interface = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.ipv6_interface", "Ipv6InterfaceSchema"),
+                unknown=EXCLUDE,
+                data_key="ipv6_interface",
+                allow_none=True
+            )
     r""" Object to setup an interface along with its default router. """
 
     is_ip_configured = marshmallow_fields.Boolean(data_key="is_ip_configured", allow_none=True)
@@ -69,10 +92,20 @@ Valid choices:
     mac_address = marshmallow_fields.Str(data_key="mac_address", allow_none=True)
     r""" The mac_address field of the service_processor. """
 
-    primary = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_service_processor_primary.ClusterNodesServiceProcessorPrimarySchema", unknown=EXCLUDE, data_key="primary", allow_none=True)
+    primary = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_service_processor_primary", "ClusterNodesServiceProcessorPrimarySchema"),
+                unknown=EXCLUDE,
+                data_key="primary",
+                allow_none=True
+            )
     r""" Provides the properties of the service processor primary partition. """
 
-    ssh_info = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_service_processor_ssh_info.ClusterNodesServiceProcessorSshInfoSchema", unknown=EXCLUDE, data_key="ssh_info", allow_none=True)
+    ssh_info = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_service_processor_ssh_info", "ClusterNodesServiceProcessorSshInfoSchema"),
+                unknown=EXCLUDE,
+                data_key="ssh_info",
+                allow_none=True
+            )
     r""" Service processor SSH allowed IP address configuration applied across the cluster. """
 
     state = marshmallow_fields.Str(data_key="state", allow_none=True)
@@ -98,7 +131,12 @@ Valid choices:
 * none
 * bmc """
 
-    web_service = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_service_processor_web_service.ClusterNodesServiceProcessorWebServiceSchema", unknown=EXCLUDE, data_key="web_service", allow_none=True)
+    web_service = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_service_processor_web_service", "ClusterNodesServiceProcessorWebServiceSchema"),
+                unknown=EXCLUDE,
+                data_key="web_service",
+                allow_none=True
+            )
     r""" Provides the properties of SP or BMC web service. """
 
     @property

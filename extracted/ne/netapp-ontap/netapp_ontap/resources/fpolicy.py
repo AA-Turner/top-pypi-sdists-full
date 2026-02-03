@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -62,42 +62,42 @@ Fpolicy(
     {
         "policies": [
             {
-                "scope": {"include_volumes": ["vol1"]},
-                "priority": 1,
-                "mandatory": True,
                 "engine": {"name": "engine1"},
-                "events": [{"name": "event_cifs"}],
                 "name": "pol0",
-            }
-        ],
-        "persistent_stores": [
-            {
-                "size": 1073741824,
-                "autosize_mode": "off",
-                "volume": "psvol",
-                "name": "ps1",
+                "events": [{"name": "event_cifs"}],
+                "mandatory": True,
+                "priority": 1,
+                "scope": {"include_volumes": ["vol1"]},
             }
         ],
         "engines": [
             {
-                "port": 9876,
+                "name": "engine1",
                 "secondary_servers": ["10.132.145.20", "10.132.145.21"],
                 "format": "xml",
-                "type": "synchronous",
+                "port": 9876,
                 "primary_servers": ["10.132.145.22", "10.140.101.109"],
-                "name": "engine1",
+                "type": "synchronous",
             }
         ],
-        "svm": {"uuid": "b34f5e3d-01d0-11e9-8f63-0050568ea311", "name": "vs1"},
         "events": [
             {
-                "filters": {"monitor_ads": True},
                 "protocol": "cifs",
-                "file_operations": {"read": True, "write": True},
                 "volume_monitoring": True,
                 "name": "event_cifs",
+                "filters": {"monitor_ads": True},
+                "file_operations": {"read": True, "write": True},
             }
         ],
+        "persistent_stores": [
+            {
+                "autosize_mode": "off",
+                "size": 1073741824,
+                "name": "ps1",
+                "volume": "psvol",
+            }
+        ],
+        "svm": {"name": "vs1", "uuid": "b34f5e3d-01d0-11e9-8f63-0050568ea311"},
     }
 )
 
@@ -126,84 +126,84 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "policies": [
                 {
+                    "persistent_store": "ps1",
                     "allow_privileged_access": False,
+                    "engine": {"name": "engine1"},
+                    "name": "pol0",
+                    "events": [{"name": "event_cifs"}],
+                    "mandatory": True,
+                    "priority": 1,
+                    "passthrough_read": False,
                     "scope": {"include_volumes": ["vol1"]},
                     "enabled": True,
-                    "priority": 1,
-                    "mandatory": True,
-                    "persistent_store": "ps1",
-                    "engine": {"name": "engine1"},
-                    "passthrough_read": False,
-                    "events": [{"name": "event_cifs"}],
-                    "name": "pol0",
-                }
-            ],
-            "persistent_stores": [
-                {
-                    "size": 1073741824,
-                    "autosize_mode": "off",
-                    "volume": "psvol",
-                    "name": "ps1",
                 }
             ],
             "engines": [
                 {
-                    "port": 9876,
+                    "name": "engine1",
                     "secondary_servers": ["10.132.145.20", "10.132.145.21"],
                     "format": "xml",
-                    "type": "synchronous",
+                    "port": 9876,
                     "primary_servers": ["10.132.145.22", "10.140.101.109"],
-                    "name": "engine1",
+                    "type": "synchronous",
                 }
             ],
-            "svm": {"uuid": "b34f5e3d-01d0-11e9-8f63-0050568ea311", "name": "vs1"},
             "events": [
                 {
-                    "filters": {
-                        "write_with_size_change": False,
-                        "setattr_with_owner_change": False,
-                        "open_with_write_intent": False,
-                        "exclude_directory": False,
-                        "first_write": False,
-                        "monitor_ads": True,
-                        "open_with_delete_intent": False,
-                        "setattr_with_allocation_size_change": False,
-                        "setattr_with_mode_change": False,
-                        "setattr_with_access_time_change": False,
-                        "setattr_with_sacl_change": False,
-                        "close_with_read": False,
-                        "first_read": False,
-                        "setattr_with_size_change": False,
-                        "setattr_with_group_change": False,
-                        "close_with_modification": False,
-                        "setattr_with_modify_time_change": False,
-                        "offline_bit": False,
-                        "setattr_with_dacl_change": False,
-                        "setattr_with_creation_time_change": False,
-                        "close_without_modification": False,
-                    },
                     "protocol": "cifs",
-                    "file_operations": {
-                        "create": False,
-                        "delete": False,
-                        "create_dir": False,
-                        "setattr": False,
-                        "getattr": False,
-                        "delete_dir": False,
-                        "open": False,
-                        "rename": False,
-                        "read": True,
-                        "link": False,
-                        "lookup": False,
-                        "write": True,
-                        "symlink": False,
-                        "close": False,
-                        "rename_dir": False,
-                    },
                     "volume_monitoring": True,
                     "name": "event_cifs",
+                    "filters": {
+                        "open_with_delete_intent": False,
+                        "write_with_size_change": False,
+                        "open_with_write_intent": False,
+                        "offline_bit": False,
+                        "setattr_with_creation_time_change": False,
+                        "exclude_directory": False,
+                        "close_with_modification": False,
+                        "monitor_ads": True,
+                        "setattr_with_owner_change": False,
+                        "setattr_with_group_change": False,
+                        "setattr_with_sacl_change": False,
+                        "first_read": False,
+                        "setattr_with_access_time_change": False,
+                        "setattr_with_dacl_change": False,
+                        "close_without_modification": False,
+                        "setattr_with_allocation_size_change": False,
+                        "first_write": False,
+                        "setattr_with_mode_change": False,
+                        "close_with_read": False,
+                        "setattr_with_size_change": False,
+                        "setattr_with_modify_time_change": False,
+                    },
+                    "file_operations": {
+                        "read": True,
+                        "close": False,
+                        "symlink": False,
+                        "rename_dir": False,
+                        "link": False,
+                        "setattr": False,
+                        "create": False,
+                        "create_dir": False,
+                        "open": False,
+                        "delete_dir": False,
+                        "rename": False,
+                        "write": True,
+                        "lookup": False,
+                        "getattr": False,
+                        "delete": False,
+                    },
                 }
             ],
+            "persistent_stores": [
+                {
+                    "autosize_mode": "off",
+                    "size": 1073741824,
+                    "name": "ps1",
+                    "volume": "psvol",
+                }
+            ],
+            "svm": {"name": "vs1", "uuid": "b34f5e3d-01d0-11e9-8f63-0050568ea311"},
         }
     )
 ]
@@ -234,84 +234,84 @@ Fpolicy(
     {
         "policies": [
             {
+                "persistent_store": "ps1",
                 "allow_privileged_access": False,
+                "engine": {"name": "engine1"},
+                "name": "pol0",
+                "events": [{"name": "event_cifs"}],
+                "mandatory": True,
+                "priority": 1,
+                "passthrough_read": False,
                 "scope": {"include_volumes": ["vol1"]},
                 "enabled": True,
-                "priority": 1,
-                "mandatory": True,
-                "persistent_store": "ps1",
-                "engine": {"name": "engine1"},
-                "passthrough_read": False,
-                "events": [{"name": "event_cifs"}],
-                "name": "pol0",
-            }
-        ],
-        "persistent_stores": [
-            {
-                "size": 1073741824,
-                "autosize_mode": "off",
-                "volume": "psvol",
-                "name": "ps1",
             }
         ],
         "engines": [
             {
-                "port": 9876,
+                "name": "engine1",
                 "secondary_servers": ["10.132.145.20", "10.132.145.21"],
                 "format": "xml",
-                "type": "synchronous",
+                "port": 9876,
                 "primary_servers": ["10.132.145.22", "10.140.101.109"],
-                "name": "engine1",
+                "type": "synchronous",
             }
         ],
-        "svm": {"uuid": "b34f5e3d-01d0-11e9-8f63-0050568ea311", "name": "vs1"},
         "events": [
             {
-                "filters": {
-                    "write_with_size_change": False,
-                    "setattr_with_owner_change": False,
-                    "open_with_write_intent": False,
-                    "exclude_directory": False,
-                    "first_write": False,
-                    "monitor_ads": True,
-                    "open_with_delete_intent": False,
-                    "setattr_with_allocation_size_change": False,
-                    "setattr_with_mode_change": False,
-                    "setattr_with_access_time_change": False,
-                    "setattr_with_sacl_change": False,
-                    "close_with_read": False,
-                    "first_read": False,
-                    "setattr_with_size_change": False,
-                    "setattr_with_group_change": False,
-                    "close_with_modification": False,
-                    "setattr_with_modify_time_change": False,
-                    "offline_bit": False,
-                    "setattr_with_dacl_change": False,
-                    "setattr_with_creation_time_change": False,
-                    "close_without_modification": False,
-                },
                 "protocol": "cifs",
-                "file_operations": {
-                    "create": False,
-                    "delete": False,
-                    "create_dir": False,
-                    "setattr": False,
-                    "getattr": False,
-                    "delete_dir": False,
-                    "open": False,
-                    "rename": False,
-                    "read": True,
-                    "link": False,
-                    "lookup": False,
-                    "write": True,
-                    "symlink": False,
-                    "close": False,
-                    "rename_dir": False,
-                },
                 "volume_monitoring": True,
                 "name": "event_cifs",
+                "filters": {
+                    "open_with_delete_intent": False,
+                    "write_with_size_change": False,
+                    "open_with_write_intent": False,
+                    "offline_bit": False,
+                    "setattr_with_creation_time_change": False,
+                    "exclude_directory": False,
+                    "close_with_modification": False,
+                    "monitor_ads": True,
+                    "setattr_with_owner_change": False,
+                    "setattr_with_group_change": False,
+                    "setattr_with_sacl_change": False,
+                    "first_read": False,
+                    "setattr_with_access_time_change": False,
+                    "setattr_with_dacl_change": False,
+                    "close_without_modification": False,
+                    "setattr_with_allocation_size_change": False,
+                    "first_write": False,
+                    "setattr_with_mode_change": False,
+                    "close_with_read": False,
+                    "setattr_with_size_change": False,
+                    "setattr_with_modify_time_change": False,
+                },
+                "file_operations": {
+                    "read": True,
+                    "close": False,
+                    "symlink": False,
+                    "rename_dir": False,
+                    "link": False,
+                    "setattr": False,
+                    "create": False,
+                    "create_dir": False,
+                    "open": False,
+                    "delete_dir": False,
+                    "rename": False,
+                    "write": True,
+                    "lookup": False,
+                    "getattr": False,
+                    "delete": False,
+                },
             }
         ],
+        "persistent_stores": [
+            {
+                "autosize_mode": "off",
+                "size": 1073741824,
+                "name": "ps1",
+                "volume": "psvol",
+            }
+        ],
+        "svm": {"name": "vs1", "uuid": "b34f5e3d-01d0-11e9-8f63-0050568ea311"},
     }
 )
 
@@ -338,11 +338,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -356,26 +355,67 @@ __pdoc__ = {
     "FpolicySchema.opts": False,
 }
 
-
 class FpolicySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Fpolicy object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the fpolicy."""
 
-    engines = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.fpolicy_engines.FpolicyEnginesSchema", unknown=EXCLUDE, allow_none=True), data_key="engines", allow_none=True)
+    engines = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.fpolicy_engines", "FpolicyEnginesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="engines",
+                allow_none=True
+            )
     r""" Defines how ONTAP makes and manages connections to external FPolicy servers."""
 
-    events = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.fpolicy_events.FpolicyEventsSchema", unknown=EXCLUDE, allow_none=True), data_key="events", allow_none=True)
+    events = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.fpolicy_events", "FpolicyEventsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="events",
+                allow_none=True
+            )
     r""" The information that a FPolicy process needs to determine what file access operations to monitor and for which of the monitored events notifications should be sent to the external FPolicy server."""
 
-    persistent_stores = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.fpolicy_persistent_stores.FpolicyPersistentStoresSchema", unknown=EXCLUDE, allow_none=True), data_key="persistent_stores", allow_none=True)
+    persistent_stores = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.fpolicy_persistent_stores", "FpolicyPersistentStoresSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="persistent_stores",
+                allow_none=True
+            )
     r""" The information that an FPolicy process needs in order to configure a Persistent Store."""
 
-    policies = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.fpolicy_policies.FpolicyPoliciesSchema", unknown=EXCLUDE, allow_none=True), data_key="policies", allow_none=True)
+    policies = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.fpolicy_policies", "FpolicyPoliciesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="policies",
+                allow_none=True
+            )
     r""" The policies field of the fpolicy."""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the fpolicy."""
 
     @property

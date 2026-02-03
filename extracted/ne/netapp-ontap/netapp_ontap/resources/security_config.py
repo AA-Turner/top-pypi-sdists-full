@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -75,7 +75,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SecurityConfig(
     {
-        "management_protocols": {"telnet_enabled": False, "rsh_enabled": False},
         "tls": {
             "cipher_suites": [
                 "TLS_RSA_WITH_AES_128_CCM",
@@ -210,16 +209,17 @@ SecurityConfig(
             "protocol_versions": ["TLSv1.3", "TLSv1.2"],
         },
         "fips": {"enabled": False},
+        "software_data_encryption": {
+            "disabled_by_default": False,
+            "conversion_enabled": False,
+            "encryption_state": "unencrypted",
+        },
         "onboard_key_manager_configurable_status": {
             "message": "Onboard Key Manager cannot be configured on the cluster. There are no self-encrypting disks in the cluster, and the following nodes do not support volume granular encryption: ntap-vsim2.",
             "supported": False,
             "code": 65537300,
         },
-        "software_data_encryption": {
-            "disabled_by_default": False,
-            "encryption_state": "unencrypted",
-            "conversion_enabled": False,
-        },
+        "management_protocols": {"telnet_enabled": False, "rsh_enabled": False},
     }
 )
 
@@ -260,16 +260,16 @@ with HostConnection("<mgmt_ip>", username="admin", password="password", verify=F
 ```
 Job(
     {
-        "start_time": "2019-12-12T06:45:40-05:00",
         "message": "success",
-        "state": "success",
-        "code": 0,
-        "description": "PATCH /api/security",
-        "uuid": "ebcbd82d-1cd4-11ea-8f75-005056ac4adc",
         "_links": {
             "self": {"href": "/api/cluster/jobs/ebcbd82d-1cd4-11ea-8f75-005056ac4adc"}
         },
+        "code": 0,
+        "start_time": "2019-12-12T06:45:40-05:00",
+        "state": "success",
+        "uuid": "ebcbd82d-1cd4-11ea-8f75-005056ac4adc",
         "end_time": "2019-12-12T06:45:40-05:00",
+        "description": "PATCH /api/security",
     }
 )
 
@@ -309,16 +309,16 @@ with HostConnection("<mgmt_ip>", username="admin", password="password", verify=F
 ```
 Job(
     {
-        "start_time": "2019-12-12T06:45:40-05:00",
         "message": "success",
-        "state": "success",
-        "code": 0,
-        "description": "PATCH /api/security",
-        "uuid": "ebcbd82d-1cd4-11ea-8f75-005056ac4adc",
         "_links": {
             "self": {"href": "/api/cluster/jobs/ebcbd82d-1cd4-11ea-8f75-005056ac4adc"}
         },
+        "code": 0,
+        "start_time": "2019-12-12T06:45:40-05:00",
+        "state": "success",
+        "uuid": "ebcbd82d-1cd4-11ea-8f75-005056ac4adc",
         "end_time": "2019-12-12T06:45:40-05:00",
+        "description": "PATCH /api/security",
     }
 )
 
@@ -358,16 +358,16 @@ with HostConnection("<mgmt_ip>", username="admin", password="password", verify=F
 ```
 Job(
     {
-        "start_time": "2020-04-28T06:55:40-05:00",
         "message": "success",
-        "state": "success",
-        "code": 0,
-        "description": "PATCH /api/security",
-        "uuid": "8e7f59ee-a9c4-4faa-9513-bef689bbf2c2",
         "_links": {
             "self": {"href": "/api/cluster/jobs/8e7f59ee-a9c4-4faa-9513-bef689bbf2c2"}
         },
+        "code": 0,
+        "start_time": "2020-04-28T06:55:40-05:00",
+        "state": "success",
+        "uuid": "8e7f59ee-a9c4-4faa-9513-bef689bbf2c2",
         "end_time": "2020-04-28T06:55:41-05:00",
+        "description": "PATCH /api/security",
     }
 )
 
@@ -412,16 +412,16 @@ with HostConnection("<mgmt_ip>", username="admin", password="password", verify=F
 ```
 Job(
     {
-        "start_time": "2021-03-22T08:52:50-05:00",
         "message": "success",
-        "state": "success",
-        "code": 0,
-        "description": "PATCH /api/security",
-        "uuid": "b45b6290-f4f2-442a-aa0e-4d3ffefe5e0d",
         "_links": {
             "self": {"href": "/api/cluster/jobs/b45b6290-f4f2-442a-aa0e-4d3ffefe5e0d"}
         },
+        "code": 0,
+        "start_time": "2021-03-22T08:52:50-05:00",
+        "state": "success",
+        "uuid": "b45b6290-f4f2-442a-aa0e-4d3ffefe5e0d",
         "end_time": "2021-03-22T08:52:51-05:00",
+        "description": "PATCH /api/security",
     }
 )
 
@@ -447,11 +447,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -465,26 +464,55 @@ __pdoc__ = {
     "SecurityConfigSchema.opts": False,
 }
 
-
 class SecurityConfigSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SecurityConfig object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the security_config."""
 
-    fips = marshmallow_fields.Nested("netapp_ontap.models.fips.FipsSchema", data_key="fips", unknown=EXCLUDE, allow_none=True)
+    fips = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fips", "FipsSchema"),
+                data_key="fips",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Cluster-wide Federal Information Processing Standards (FIPS) mode information."""
 
-    management_protocols = marshmallow_fields.Nested("netapp_ontap.models.management_protocols.ManagementProtocolsSchema", data_key="management_protocols", unknown=EXCLUDE, allow_none=True)
+    management_protocols = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.management_protocols", "ManagementProtocolsSchema"),
+                data_key="management_protocols",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Cluster-wide security protocols related information."""
 
-    onboard_key_manager_configurable_status = marshmallow_fields.Nested("netapp_ontap.models.onboard_key_manager_configurable_status.OnboardKeyManagerConfigurableStatusSchema", data_key="onboard_key_manager_configurable_status", unknown=EXCLUDE, allow_none=True)
+    onboard_key_manager_configurable_status = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.onboard_key_manager_configurable_status", "OnboardKeyManagerConfigurableStatusSchema"),
+                data_key="onboard_key_manager_configurable_status",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Indicates whether the Onboard Key Manager can be configured in the cluster."""
 
-    software_data_encryption = marshmallow_fields.Nested("netapp_ontap.models.software_data_encryption.SoftwareDataEncryptionSchema", data_key="software_data_encryption", unknown=EXCLUDE, allow_none=True)
+    software_data_encryption = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.software_data_encryption", "SoftwareDataEncryptionSchema"),
+                data_key="software_data_encryption",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Cluster-wide software data encryption related information."""
 
-    tls = marshmallow_fields.Nested("netapp_ontap.models.tls.TlsSchema", data_key="tls", unknown=EXCLUDE, allow_none=True)
+    tls = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.tls", "TlsSchema"),
+                data_key="tls",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Cluster-wide Transport Layer Security (TLS) configuration information"""
 
     @property

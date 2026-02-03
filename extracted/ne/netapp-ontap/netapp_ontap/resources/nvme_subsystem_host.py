@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -10,11 +10,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -28,17 +27,31 @@ __pdoc__ = {
     "NvmeSubsystemHostSchema.opts": False,
 }
 
-
 class NvmeSubsystemHostSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the NvmeSubsystemHost object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                data_key="_links",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The links field of the nvme_subsystem_host."""
 
-    dh_hmac_chap = marshmallow_fields.Nested("netapp_ontap.models.nvme_dh_hmac_chap_authentication.NvmeDhHmacChapAuthenticationSchema", data_key="dh_hmac_chap", unknown=EXCLUDE, allow_none=True)
+    dh_hmac_chap = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_dh_hmac_chap_authentication", "NvmeDhHmacChapAuthenticationSchema"),
+                data_key="dh_hmac_chap",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" A container for the configuration of NVMe in-band authentication using the DH-HMAC-CHAP protocol for a host."""
 
-    io_queue = marshmallow_fields.Nested("netapp_ontap.models.nvme_subsystem_host_io_queue.NvmeSubsystemHostIoQueueSchema", data_key="io_queue", unknown=EXCLUDE, allow_none=True)
+    io_queue = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_subsystem_host_io_queue", "NvmeSubsystemHostIoQueueSchema"),
+                data_key="io_queue",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The properties of the submission queue used to submit I/O commands for execution by the NVMe controller."""
 
     nqn = marshmallow_fields.Str(
@@ -63,17 +76,40 @@ Valid choices:
 * regular
 * high"""
 
-    proximity = marshmallow_fields.Nested("netapp_ontap.models.nvme_host_proximity.NvmeHostProximitySchema", data_key="proximity", unknown=EXCLUDE, allow_none=True)
+    proximity = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_host_proximity", "NvmeHostProximitySchema"),
+                data_key="proximity",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" Properties that define the SVMs to which the host is proximal. This information is used to properly report active optimized and active non-optimized network paths using an NVMe controller. If no configuration has been specified for the host, the sub-object is not present in GET requests.<br/>
 These properties apply to all instances of the host in the NVMe subsystem in the SVM and its peers."""
 
-    records = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.nvme_subsystem_host_no_records.NvmeSubsystemHostNoRecordsSchema", unknown=EXCLUDE, allow_none=True), data_key="records", allow_none=True)
+    records = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.nvme_subsystem_host_no_records", "NvmeSubsystemHostNoRecordsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="records",
+                allow_none=True
+            )
     r""" An array of NVMe hosts specified to add multiple NVMe hosts to an NVMe subsystem in a single API call. Valid in POST only."""
 
-    subsystem = marshmallow_fields.Nested("netapp_ontap.models.nvme_subsystem_host_records_subsystem.NvmeSubsystemHostRecordsSubsystemSchema", data_key="subsystem", unknown=EXCLUDE, allow_none=True)
+    subsystem = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_subsystem_host_records_subsystem", "NvmeSubsystemHostRecordsSubsystemSchema"),
+                data_key="subsystem",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The NVMe subsystem to which the NVMe host has been provisioned."""
 
-    tls = marshmallow_fields.Nested("netapp_ontap.models.nvme_tcp_tls.NvmeTcpTlsSchema", data_key="tls", unknown=EXCLUDE, allow_none=True)
+    tls = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.nvme_tcp_tls", "NvmeTcpTlsSchema"),
+                data_key="tls",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" A container for the configuration for NVMe/TCP-TLS transport session for the host."""
 
     @property

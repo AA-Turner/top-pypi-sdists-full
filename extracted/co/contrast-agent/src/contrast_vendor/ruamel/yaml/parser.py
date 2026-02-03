@@ -1,4 +1,5 @@
-# coding: utf-8
+
+from __future__ import annotations
 
 # The following YAML grammar is LL(1) and is parsed by a recursive descent
 # parser.
@@ -83,7 +84,8 @@ from contrast_vendor.ruamel.yaml.comments import C_PRE, C_POST, C_SPLIT_ON_FIRST
 from contrast_vendor.ruamel.yaml.compat import nprint, nprintf  # NOQA
 from contrast_vendor.ruamel.yaml.tag import Tag
 
-from typing import Any, Dict, Optional, List, Optional  # NOQA
+if False:  # MYPY
+    from typing import Any, Dict, Optional, List, Optional  # NOQA
 
 __all__ = ['Parser', 'RoundTripParser', 'ParserError']
 
@@ -159,7 +161,7 @@ class Parser:
                 self.current_event = self.state()
         # assert self.current_event is not None
         # if self.current_event.end_mark.line != self.peek_event().start_mark.line:
-        xprintf('get_event', repr(self.current_event), self.peek_event().start_mark.line)
+        # xprintf('get_event', repr(self.current_event), self.peek_event().start_mark.line)
         self.last_event = value = self.current_event
         self.current_event = None
         return value
@@ -275,7 +277,7 @@ class Parser:
 
     def parse_document_content(self) -> Any:
         if self.scanner.check_token(
-            DirectiveToken, DocumentStartToken, DocumentEndToken, StreamEndToken
+            DirectiveToken, DocumentStartToken, DocumentEndToken, StreamEndToken,
         ):
             event = self.process_empty_scalar(self.scanner.peek_token().start_mark)
             self.state = self.states.pop()
@@ -291,7 +293,7 @@ class Parser:
             if token.name == 'YAML':
                 if yaml_version is not None:
                     raise ParserError(
-                        None, None, 'found duplicate YAML directive', token.start_mark
+                        None, None, 'found duplicate YAML directive', token.start_mark,
                     )
                 major, minor = token.value
                 if major != 1:
@@ -314,11 +316,14 @@ class Parser:
         else:
             value = yaml_version, None
         if self.loader is not None and hasattr(self.loader, 'tags'):
+            # ToDo: this is used to keep a single loaded file from losing its version
+            # info, but  it affects following versions that have no explicit directive
             self.loader.version = yaml_version
             if self.loader.tags is None:
                 self.loader.tags = {}
             for k in self.tag_handles:
                 self.loader.tags[k] = self.tag_handles[k]
+                self.loader.doc_infos[-1].tags.append((k, self.tag_handles[k]))
         for key in self.DEFAULT_TAGS:
             if key not in self.tag_handles:
                 self.tag_handles[key] = self.DEFAULT_TAGS[key]
@@ -383,6 +388,10 @@ class Parser:
                 )
         elif self.scanner.check_token(TagToken):
             token = self.scanner.get_token()
+            try:
+                self.move_token_comment(token)
+            except NotImplementedError:
+                pass
             start_mark = tag_mark = token.start_mark
             end_mark = token.end_mark
             # tag = token.value
@@ -412,6 +421,9 @@ class Parser:
                 if pt.comment and pt.comment[0]:
                     comment = [pt.comment[0], []]
                     pt.comment[0] = None
+                elif pt.comment and pt.comment[0] is None and pt.comment[1]:
+                    comment = [None, pt.comment[1]]
+                    pt.comment[1] = None
             elif self.loader:
                 if pt.comment:
                     comment = pt.comment
@@ -432,7 +444,6 @@ class Parser:
                 dimplicit = (False, True)
             else:
                 dimplicit = (False, False)
-            # nprint('se', token.value, token.comment)
             event = ScalarEvent(
                 anchor,
                 tag,
@@ -481,14 +492,14 @@ class Parser:
                 comment = pt.split_old_comment()
             # nprint('pt1', comment)
             event = SequenceStartEvent(
-                anchor, tag, implicit, start_mark, end_mark, flow_style=False, comment=comment
+                anchor, tag, implicit, start_mark, end_mark, flow_style=False, comment=comment,
             )
             self.state = self.parse_block_sequence_first_entry
         elif block and self.scanner.check_token(BlockMappingStartToken):
             end_mark = self.scanner.peek_token().start_mark
             comment = self.scanner.peek_token().comment
             event = MappingStartEvent(
-                anchor, tag, implicit, start_mark, end_mark, flow_style=False, comment=comment
+                anchor, tag, implicit, start_mark, end_mark, flow_style=False, comment=comment,
             )
             self.state = self.parse_block_mapping_first_key
         elif anchor is not None or tag is not None:
@@ -556,7 +567,7 @@ class Parser:
             token = self.scanner.get_token()
             self.move_token_comment(token)
             if not self.scanner.check_token(
-                BlockEntryToken, KeyToken, ValueToken, BlockEndToken
+                BlockEntryToken, KeyToken, ValueToken, BlockEndToken,
             ):
                 self.states.append(self.parse_indentless_sequence_entry)
                 return self.parse_block_node()
@@ -674,7 +685,7 @@ class Parser:
             if self.scanner.check_token(KeyToken):
                 token = self.scanner.peek_token()
                 event: Any = MappingStartEvent(
-                    None, None, True, token.start_mark, token.end_mark, flow_style=True
+                    None, None, True, token.start_mark, token.end_mark, flow_style=True,
                 )
                 self.state = self.parse_flow_sequence_entry_mapping_key
                 return event
@@ -742,7 +753,7 @@ class Parser:
             if self.scanner.check_token(KeyToken):
                 token = self.scanner.get_token()
                 if not self.scanner.check_token(
-                    ValueToken, FlowEntryToken, FlowMappingEndToken
+                    ValueToken, FlowEntryToken, FlowMappingEndToken,
                 ):
                     self.states.append(self.parse_flow_mapping_value)
                     return self.parse_flow_node()
@@ -750,7 +761,7 @@ class Parser:
                     self.state = self.parse_flow_mapping_value
                     return self.process_empty_scalar(token.end_mark)
             elif self.resolver.processing_version > (1, 1) and self.scanner.check_token(
-                ValueToken
+                ValueToken,
             ):
                 self.state = self.parse_flow_mapping_value
                 return self.process_empty_scalar(self.scanner.peek_token().end_mark)
@@ -785,7 +796,7 @@ class Parser:
         return ScalarEvent(None, None, (True, False), "", mark, mark, comment=comment)
 
     def move_token_comment(
-        self, token: Any, nt: Optional[Any] = None, empty: Optional[bool] = False
+        self, token: Any, nt: Optional[Any] = None, empty: Optional[bool] = False,
     ) -> Any:
         pass
 
@@ -799,7 +810,7 @@ class RoundTripParser(Parser):
         tag.select_transform(True)
 
     def move_token_comment(
-        self, token: Any, nt: Optional[Any] = None, empty: Optional[bool] = False
+        self, token: Any, nt: Optional[Any] = None, empty: Optional[bool] = False,
     ) -> Any:
         token.move_old_comment(self.scanner.peek_token() if nt is None else nt, empty=empty)
 
@@ -811,7 +822,7 @@ class RoundTripParserSC(RoundTripParser):
     # if self.loader.comment_handling is not None
 
     def move_token_comment(
-        self: Any, token: Any, nt: Any = None, empty: Optional[bool] = False
+        self: Any, token: Any, nt: Any = None, empty: Optional[bool] = False,
     ) -> None:
         token.move_new_comment(self.scanner.peek_token() if nt is None else nt, empty=empty)
 
@@ -821,8 +832,8 @@ class RoundTripParserSC(RoundTripParser):
             return None
         if not comment[0]:
             return None
-        if comment[0][0] != line + 1:
-            nprintf('>>>dcxxx', comment, line)
+        # if comment[0][0] != line + 1:
+        #     nprintf('>>>dcxxx', comment, line)
         assert comment[0][0] == line + 1
         # if comment[0] - line > 1:
         #     return

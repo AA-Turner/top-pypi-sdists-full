@@ -62,13 +62,32 @@ import yake
     type=int,
 )
 @click.option(
+    "--lemmatize/--no-lemmatize",
+    help="Enable lemmatization",
+    default=False,
+    is_flag=True,
+)
+@click.option(
+    "--lemma-aggregation",
+    help="Aggregation method for lemmatization",
+    default="min",
+    type=click.Choice(["min", "mean", "max", "harmonic"]),
+)
+@click.option(
+    "--lemmatizer",
+    help="Lemmatization backend",
+    default="spacy",
+    type=click.Choice(["spacy", "nltk"]),
+)
+@click.option(
     "-v",
     "--verbose",
     count=True,
     help="Verbose output",
 )
 @click.pass_context
-def keywords(
+def keywords(  # pylint: disable=too-many-arguments,too-many-positional-arguments,unused-argument
+    ctx,  # noqa: ARG001
     text_input,
     input_file,
     language,
@@ -77,6 +96,9 @@ def keywords(
     dedup_lim,
     window_size,
     top,
+    lemmatize,
+    lemma_aggregation,
+    lemmatizer,
     verbose,
 ):
     """Extract keywords using YAKE!"""
@@ -89,6 +111,9 @@ def keywords(
             dedupFunc=dedup_func,
             windowsSize=window_size,
             top=top,
+            lemmatize=lemmatize,
+            lemma_aggregation=lemma_aggregation,
+            lemmatizer=lemmatizer,
         )
         results = extractor.extract_keywords(text_content)
 

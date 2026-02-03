@@ -1,4 +1,4 @@
-from typing import Any, Dict, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 from django.template import Context, TemplateSyntaxError
 from django.utils.safestring import SafeString
@@ -11,13 +11,13 @@ from django_components.util.misc import gen_id
 
 class ProvideNode(BaseNode):
     """
-    The [`{% provide %}`](../template_tags#provide) tag is part of the "provider" part of
-    the [provide / inject feature](../../concepts/advanced/provide_inject).
+    The [`{% provide %}`](#provide) tag is part of the "provider" part of
+    the [provide / inject feature](../concepts/advanced/provide_inject.md).
 
     Pass kwargs to this tag to define the provider's data.
 
     Any components defined within the `{% provide %}..{% endprovide %}` tags will be able to access this data
-    with [`Component.inject()`](../api#django_components.Component.inject).
+    with [`Component.inject()`](api.md#django_components.Component.inject).
 
     This is similar to React's [`ContextProvider`](https://react.dev/learn/passing-data-deeply-with-context),
     or Vue's [`provide()`](https://vuejs.org/guide/components/provide-inject).
@@ -25,7 +25,7 @@ class ProvideNode(BaseNode):
     **Args:**
 
     - `name` (str, required): Provider name. This is the name you will then use in
-        [`Component.inject()`](../api#django_components.Component.inject).
+        [`Component.inject()`](api.md#django_components.Component.inject).
     - `**kwargs`: Any extra kwargs will be passed as the provided data.
 
     **Example:**
@@ -68,8 +68,8 @@ class ProvideNode(BaseNode):
             }
     ```
 
-    Notice that the keys defined on the [`{% provide %}`](../template_tags#provide) tag are then accessed as attributes
-    when accessing them with [`Component.inject()`](../api#django_components.Component.inject).
+    Notice that the keys defined on the [`{% provide %}`](#provide) tag are then accessed as attributes
+    when accessing them with [`Component.inject()`](api.md#django_components.Component.inject).
 
     ✅ Do this
     ```python
@@ -105,7 +105,7 @@ def get_injected_context_var(
     component_id: str,
     component_name: str,
     key: str,
-    default: Optional[Any] = None,
+    default: Any | None = None,
 ) -> Any:
     """
     Retrieve a 'provided' field. The field MUST have been previously 'provided'
@@ -136,7 +136,7 @@ def get_injected_context_var(
 def set_provided_context_var(
     context: Context,
     key: str,
-    provided_kwargs: Dict[str, Any],
+    provided_kwargs: dict[str, Any],
 ) -> str:
     """
     'Provide' given data under given key. In other words, this data can be retrieved

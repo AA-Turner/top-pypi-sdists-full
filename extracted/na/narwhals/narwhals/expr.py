@@ -1617,12 +1617,11 @@ class Expr:
             ExprNode(ExprKind.ELEMENTWISE, "clip", lower_bound, upper_bound)
         )
 
-    def first(self) -> Self:
+    def first(self, order_by: str | Iterable[str] | None = None) -> Self:
         """Get the first value.
 
         Notes:
-            For lazy backends, this can only be used with `over`. We may introduce
-            `min_by` in the future so it can be used as an aggregation.
+            For lazy backends, this can only be used with `over` or with `order_by`.
 
         Examples:
             >>> import pandas as pd
@@ -1647,14 +1646,21 @@ class Expr:
             |    1  2  None    |
             └──────────────────┘
         """
-        return self._append_node(ExprNode(ExprKind.ORDERABLE_AGGREGATION, "first"))
+        if order_by is None:
+            return self._append_node(ExprNode(ExprKind.ORDERABLE_AGGREGATION, "first"))
+        return self._append_node(
+            ExprNode(
+                ExprKind.AGGREGATION,
+                "first",
+                order_by=[order_by] if isinstance(order_by, str) else order_by,
+            )
+        )
 
-    def last(self) -> Self:
+    def last(self, order_by: str | Iterable[str] | None = None) -> Self:
         """Get the last value.
 
         Notes:
-            For lazy backends, this can only be used with `over`. We may introduce
-            `max_by` in the future so it can be used as an aggregation.
+            For lazy backends, this can only be used with `over` or with `order_by`.
 
         Examples:
             >>> import pyarrow as pa
@@ -1686,7 +1692,15 @@ class Expr:
             |b: [[null,"baz"]] |
             └──────────────────┘
         """
-        return self._append_node(ExprNode(ExprKind.ORDERABLE_AGGREGATION, "last"))
+        if order_by is None:
+            return self._append_node(ExprNode(ExprKind.ORDERABLE_AGGREGATION, "last"))
+        return self._append_node(
+            ExprNode(
+                ExprKind.AGGREGATION,
+                "last",
+                order_by=[order_by] if isinstance(order_by, str) else order_by,
+            )
+        )
 
     def mode(self, *, keep: ModeKeepStrategy = "all") -> Self:
         r"""Compute the most occurring value(s).
@@ -2252,6 +2266,32 @@ class Expr:
             └─────────────────────────────────────────────────┘
         """
         return self._append_node(ExprNode(ExprKind.ELEMENTWISE, "sin"))
+
+    def cos(self) -> Self:
+        r"""Compute the element-wise value for the cosine.
+
+        Examples:
+            >>> import pyarrow as pa
+            >>> import narwhals as nw
+            >>> from math import pi
+            >>> df_native = pa.table({"values": [0, pi / 2, pi]})
+            >>> df = nw.from_native(df_native)
+            >>> result = df.with_columns(cos=nw.col("values").cos()).select(
+            ...     nw.all().round(4)
+            ... )
+            >>> result
+            ┌───────────────────────────┐
+            |    Narwhals DataFrame     |
+            |---------------------------|
+            |pyarrow.Table              |
+            |values: double             |
+            |cos: double                |
+            |----                       |
+            |values: [[0,1.5708,3.1416]]|
+            |cos: [[1,0,-1]]            |
+            └───────────────────────────┘
+        """
+        return self._append_node(ExprNode(ExprKind.ELEMENTWISE, "cos"))
 
     def sqrt(self) -> Self:
         r"""Compute the square root of the elements.

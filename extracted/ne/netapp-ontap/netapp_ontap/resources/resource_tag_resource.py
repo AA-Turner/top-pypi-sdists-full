@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -58,20 +58,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ResourceTagResource(
         {
+            "label": "storage_volumes",
             "href": "/api/storage/volumes/558949d1-d4cf-445e-ada5-e340dee6a581",
-            "label": "storage_volumes",
         }
     ),
     ResourceTagResource(
         {
+            "label": "storage_volumes",
             "href": "/api/storage/volumes/64750961-fda7-4327-9f16-00034c3f5ad2",
-            "label": "storage_volumes",
         }
     ),
     ResourceTagResource(
         {
-            "href": "/api/storage/volumes/bee17b91-f90a-4854-b146-8b102a0a9882",
             "label": "storage_volumes",
+            "href": "/api/storage/volumes/bee17b91-f90a-4854-b146-8b102a0a9882",
         }
     ),
 ]
@@ -126,11 +126,10 @@ import asyncio
 from datetime import datetime
 import inspect
 from typing import Callable, Iterable, List, Optional, Union
-
 from marshmallow import fields as marshmallow_fields, EXCLUDE  # type: ignore
 
 import netapp_ontap
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 from netapp_ontap.raw_resource import RawResource
 
 from netapp_ontap import NetAppResponse, HostConnection
@@ -143,7 +142,6 @@ __pdoc__ = {
     "ResourceTagResourceSchema.resource": False,
     "ResourceTagResourceSchema.opts": False,
 }
-
 
 class ResourceTagResourceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ResourceTagResource object"""
@@ -163,7 +161,12 @@ endpoint to fetch the resource's properties."""
 
 Example: volume"""
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                data_key="svm",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
     r""" The svm field of the resource_tag_resource."""
 
     value = marshmallow_fields.Str(

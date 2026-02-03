@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["AntiRansomwareVolume", "AntiRansomwareVolumeSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "AntiRansomwareVolumeSchema.opts": False,
     "AntiRansomwareVolume": False,
 }
-
 
 class AntiRansomwareVolumeSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the AntiRansomwareVolume object"""
@@ -29,7 +27,12 @@ Valid choices:
 * file_analysis
 * encryption_percentage_analysis """
 
-    attack_detection_parameters = marshmallow_fields.Nested("netapp_ontap.models.anti_ransomware_volume_attack_detection_parameters.AntiRansomwareVolumeAttackDetectionParametersSchema", unknown=EXCLUDE, data_key="attack_detection_parameters", allow_none=True)
+    attack_detection_parameters = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.anti_ransomware_volume_attack_detection_parameters", "AntiRansomwareVolumeAttackDetectionParametersSchema"),
+                unknown=EXCLUDE,
+                data_key="attack_detection_parameters",
+                allow_none=True
+            )
     r""" The attack_detection_parameters field of the anti_ransomware_volume. """
 
     attack_probability = marshmallow_fields.Str(data_key="attack_probability", allow_none=True)
@@ -42,7 +45,15 @@ Valid choices:
 * moderate
 * high """
 
-    attack_reports = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.anti_ransomware_attack_report.AntiRansomwareAttackReportSchema", unknown=EXCLUDE, allow_none=True), data_key="attack_reports", allow_none=True)
+    attack_reports = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.anti_ransomware_attack_report", "AntiRansomwareAttackReportSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="attack_reports",
+                allow_none=True
+                )
     r""" The attack_reports field of the anti_ransomware_volume. """
 
     block_device_detection_start_time = ImpreciseDateTime(data_key="block_device_detection_start_time", allow_none=True)
@@ -57,13 +68,31 @@ Valid choices:
 * active_unsuitable_workload
 * active_suitable_workload """
 
-    dry_run_start_time = ImpreciseDateTime(data_key="dry_run_start_time", allow_none=True)
-    r""" Time when Anti-ransomware monitoring `state` is set to dry-run value for starting evaluation mode. """
+    clear_suspect = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.anti_ransomware_volume_clear_suspect", "AntiRansomwareVolumeClearSuspectSchema"),
+                unknown=EXCLUDE,
+                data_key="clear_suspect",
+                allow_none=True
+            )
+    r""" Clear suspect status. """
 
-    event_log = marshmallow_fields.Nested("netapp_ontap.models.anti_ransomware_volume_event_log.AntiRansomwareVolumeEventLogSchema", unknown=EXCLUDE, data_key="event_log", allow_none=True)
+    dry_run_start_time = ImpreciseDateTime(data_key="dry_run_start_time", allow_none=True)
+    r""" Time when anti-ransomware monitoring `state` is set to dry-run value for starting evaluation mode.This field will no longer be supported in a future release. """
+
+    event_log = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.anti_ransomware_volume_event_log", "AntiRansomwareVolumeEventLogSchema"),
+                unknown=EXCLUDE,
+                data_key="event_log",
+                allow_none=True
+            )
     r""" The event_log field of the anti_ransomware_volume. """
 
-    space = marshmallow_fields.Nested("netapp_ontap.models.anti_ransomware_volume_space.AntiRansomwareVolumeSpaceSchema", unknown=EXCLUDE, data_key="space", allow_none=True)
+    space = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.anti_ransomware_volume_space", "AntiRansomwareVolumeSpaceSchema"),
+                unknown=EXCLUDE,
+                data_key="space",
+                allow_none=True
+            )
     r""" The space field of the anti_ransomware_volume. """
 
     state = marshmallow_fields.Str(data_key="state", allow_none=True)
@@ -82,19 +111,42 @@ Valid choices:
     surge_as_normal = marshmallow_fields.Boolean(data_key="surge_as_normal", allow_none=True)
     r""" Indicates whether or not to set the surge values as historical values. This field is no longer supported. Use update_baseline_from_surge instead. """
 
-    surge_usage = marshmallow_fields.Nested("netapp_ontap.models.anti_ransomware_volume_surge_usage.AntiRansomwareVolumeSurgeUsageSchema", unknown=EXCLUDE, data_key="surge_usage", allow_none=True)
+    surge_usage = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.anti_ransomware_volume_surge_usage", "AntiRansomwareVolumeSurgeUsageSchema"),
+                unknown=EXCLUDE,
+                data_key="surge_usage",
+                allow_none=True
+            )
     r""" Usage values of the volume's workload during surge. This object is no longer supported use surge_statistics instead. """
 
-    suspect_files = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.anti_ransomware_volume_suspect_files.AntiRansomwareVolumeSuspectFilesSchema", unknown=EXCLUDE, allow_none=True), data_key="suspect_files", allow_none=True)
+    suspect_files = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.anti_ransomware_volume_suspect_files", "AntiRansomwareVolumeSuspectFilesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="suspect_files",
+                allow_none=True
+                )
     r""" The suspect_files field of the anti_ransomware_volume. """
 
-    typical_usage = marshmallow_fields.Nested("netapp_ontap.models.anti_ransomware_volume_typical_usage.AntiRansomwareVolumeTypicalUsageSchema", unknown=EXCLUDE, data_key="typical_usage", allow_none=True)
+    typical_usage = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.anti_ransomware_volume_typical_usage", "AntiRansomwareVolumeTypicalUsageSchema"),
+                unknown=EXCLUDE,
+                data_key="typical_usage",
+                allow_none=True
+            )
     r""" Typical usage values of volume workload. This object is no longer supported use historical_statistics instead. """
 
     update_baseline_from_surge = marshmallow_fields.Boolean(data_key="update_baseline_from_surge", allow_none=True)
     r""" Sets the observed surge value as the new baseline on a volume. """
 
-    workload = marshmallow_fields.Nested("netapp_ontap.models.anti_ransomware_volume_workload.AntiRansomwareVolumeWorkloadSchema", unknown=EXCLUDE, data_key="workload", allow_none=True)
+    workload = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.anti_ransomware_volume_workload", "AntiRansomwareVolumeWorkloadSchema"),
+                unknown=EXCLUDE,
+                data_key="workload",
+                allow_none=True
+            )
     r""" The workload field of the anti_ransomware_volume. """
 
     @property
@@ -108,6 +160,7 @@ Valid choices:
         "attack_reports",
         "block_device_detection_start_time",
         "block_device_detection_state",
+        "clear_suspect",
         "dry_run_start_time",
         "event_log",
         "space",
@@ -119,27 +172,29 @@ Valid choices:
         "update_baseline_from_surge",
         "workload",
     ]
-    """attack_detected_by,attack_detection_parameters,attack_probability,attack_reports,block_device_detection_start_time,block_device_detection_state,dry_run_start_time,event_log,space,state,surge_as_normal,surge_usage,suspect_files,typical_usage,update_baseline_from_surge,workload,"""
+    """attack_detected_by,attack_detection_parameters,attack_probability,attack_reports,block_device_detection_start_time,block_device_detection_state,clear_suspect,dry_run_start_time,event_log,space,state,surge_as_normal,surge_usage,suspect_files,typical_usage,update_baseline_from_surge,workload,"""
 
     patchable_fields = [
         "attack_detection_parameters",
+        "clear_suspect",
         "event_log",
         "state",
         "surge_as_normal",
         "update_baseline_from_surge",
         "workload",
     ]
-    """attack_detection_parameters,event_log,state,surge_as_normal,update_baseline_from_surge,workload,"""
+    """attack_detection_parameters,clear_suspect,event_log,state,surge_as_normal,update_baseline_from_surge,workload,"""
 
     postable_fields = [
         "attack_detection_parameters",
+        "clear_suspect",
         "event_log",
         "state",
         "surge_as_normal",
         "update_baseline_from_surge",
         "workload",
     ]
-    """attack_detection_parameters,event_log,state,surge_as_normal,update_baseline_from_surge,workload,"""
+    """attack_detection_parameters,clear_suspect,event_log,state,surge_as_normal,update_baseline_from_surge,workload,"""
 
 
 class AntiRansomwareVolume(Resource):

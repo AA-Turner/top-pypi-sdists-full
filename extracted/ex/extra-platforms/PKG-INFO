@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: extra-platforms
-Version: 7.0.0
+Version: 8.0.0
 Summary: 🔎 Detect architectures, platforms, and CI systems, grouped by family
 Keywords: ALT Linux,Amazon Linux,Android,Arch Linux,Architecture detection,ARM (32-bit),ARM64 (AArch64),ARMv5TE (little-endian),ARMv6 (little-endian),ARMv7 (little-endian),ARMv8 (32-bit, little-endian),AT&T System Five,Azure Pipelines,Bamboo,Buildkite,Buildroot,CachyOS,CentOS,Circle CI,Cirrus CI,CloudLinux OS,CodeBuild,Cygwin,Debian,DragonFly BSD,Exherbo Linux,Fedora,FreeBSD,Gentoo Linux,GitHub Actions runner,GitLab CI,GNU/Hurd,Guix System,Haiku,Heroku CI,IBM AIX,IBM PowerKVM,IBM z/Architecture (s390x),illumos,Intel 80386 (i386),Intel Pentium (i586),Intel Pentium Pro (i686),KVM for IBM z Systems,Linux Mint,LoongArch (64-bit),macOS,Mageia,Mandriva Linux,MidnightBSD,MIPS (32-bit, big-endian),MIPS (32-bit, little-endian),MIPS64 (big-endian),MIPS64 (little-endian),multiplatform,NetBSD,Nobara,OpenBSD,openSUSE,openSUSE Tumbleweed,Oracle Linux,OS detection,Parallels,Pidora,Platform detection,PowerPC (32-bit),PowerPC 64-bit (big-endian),PowerPC 64-bit (little-endian),Pytest,Raspbian,RedHat Enterprise Linux,RISC-V (32-bit),RISC-V (64-bit),Rocky Linux,Scientific Linux,Slackware,Solaris,SPARC (32-bit),SPARC (64-bit),SunOS,SUSE Linux Enterprise Server,TeamCity,Travis CI,Tuxedo OS,Ubuntu,Ultramarine,Unix,WebAssembly (32-bit),WebAssembly (64-bit),Windows,Windows Subsystem for Linux,x86-64 (AMD64),XenServer
 Author: Kevin Deldycke
@@ -18,6 +18,7 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
 Classifier: Operating System :: Android
 Classifier: Operating System :: BeOS
+Classifier: Operating System :: iOS
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: MacOS :: MacOS 9
 Classifier: Operating System :: MacOS :: MacOS X
@@ -40,6 +41,7 @@ Classifier: Operating System :: Microsoft :: Windows :: Windows XP
 Classifier: Operating System :: OS Independent
 Classifier: Operating System :: OS/2
 Classifier: Operating System :: Other OS
+Classifier: Operating System :: PalmOS
 Classifier: Operating System :: PDA Systems
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: AIX
@@ -55,11 +57,9 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: POSIX :: Other
 Classifier: Operating System :: POSIX :: SCO
 Classifier: Operating System :: POSIX :: SunOS/Solaris
-Classifier: Operating System :: PalmOS
 Classifier: Operating System :: RISC OS
 Classifier: Operating System :: Unix
-Classifier: Operating System :: iOS
-Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -75,12 +75,12 @@ Classifier: Topic :: System :: Operating System Kernels :: GNU Hurd
 Classifier: Topic :: System :: Operating System Kernels :: Linux
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
-Requires-Dist: distro>=1.9.0
+Requires-Dist: distro>=1.9
 Requires-Dist: pytest>=8.2.1 ; extra == 'pytest'
 Requires-Python: >=3.10
 Project-URL: Changelog, https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md
 Project-URL: Documentation, https://kdeldycke.github.io/extra-platforms
-Project-URL: Download, https://github.com/kdeldycke/extra-platforms/releases/tag/v7.0.0
+Project-URL: Download, https://github.com/kdeldycke/extra-platforms/releases/tag/v8.0.0
 Project-URL: Funding, https://github.com/sponsors/kdeldycke
 Project-URL: Homepage, https://github.com/kdeldycke/extra-platforms
 Project-URL: Issues, https://github.com/kdeldycke/extra-platforms/issues
@@ -107,7 +107,7 @@ Extra Platforms detects the runtime architecture, operating system (including Li
 - Grouping and API primitives: predefined families, `is_*()` predicates, `current_*()` accessors, and `Group` membership helpers.
 - Testing helpers: Pytest decorators and markers such as `@skip_<id>` and `@unless_<id>` for concise platform-aware tests.
 - Extensible and CI-friendly: designed to be lightweight, easy to extend, and suitable for CI-aware workflows.
-- Fixes/workarounds for Windows and macOS detection (see [`distro#177`](https://github.com/python-distro/distro/issues/177)).
+- Extend [`distro`](https://github.com/python-distro/distro) project with Windows and macOS detection.
 
 ## Quick start
 

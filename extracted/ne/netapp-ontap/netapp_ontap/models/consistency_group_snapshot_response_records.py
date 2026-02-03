@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ConsistencyGroupSnapshotResponseRecords", "ConsistencyGroupSnapshotResponseRecordsSchema"]
@@ -17,11 +16,15 @@ __pdoc__ = {
     "ConsistencyGroupSnapshotResponseRecords": False,
 }
 
-
 class ConsistencyGroupSnapshotResponseRecordsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ConsistencyGroupSnapshotResponseRecords object"""
 
-    links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", unknown=EXCLUDE, data_key="_links", allow_none=True)
+    links = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.self_link", "SelfLinkSchema"),
+                unknown=EXCLUDE,
+                data_key="_links",
+                allow_none=True
+            )
     r""" The links field of the consistency_group_snapshot_response_records. """
 
     comment = marshmallow_fields.Str(data_key="comment", allow_none=True)
@@ -30,7 +33,12 @@ class ConsistencyGroupSnapshotResponseRecordsSchema(ResourceSchema, metaclass=Re
 
 Example: My snapshot comment """
 
-    consistency_group = marshmallow_fields.Nested("netapp_ontap.resources.consistency_group.ConsistencyGroupSchema", unknown=EXCLUDE, data_key="consistency_group", allow_none=True)
+    consistency_group = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.consistency_group", "ConsistencyGroupSchema"),
+                unknown=EXCLUDE,
+                data_key="consistency_group",
+                allow_none=True
+            )
     r""" The consistency_group field of the consistency_group_snapshot_response_records. """
 
     consistency_type = marshmallow_fields.Str(data_key="consistency_type", allow_none=True)
@@ -54,22 +62,62 @@ Example: 2020-10-25T11:20:00.000+0000 """
 
 Example: false """
 
-    luns = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.consistency_group_snapshot_luns.ConsistencyGroupSnapshotLunsSchema", unknown=EXCLUDE, allow_none=True), data_key="luns", allow_none=True)
+    luns = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.consistency_group_snapshot_luns", "ConsistencyGroupSnapshotLunsSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="luns",
+                allow_none=True
+                )
     r""" The list of LUNs in this snapshot. """
 
-    missing_luns = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.lun.LunSchema", unknown=EXCLUDE, allow_none=True), data_key="missing_luns", allow_none=True)
+    missing_luns = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.lun", "LunSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="missing_luns",
+                allow_none=True
+                )
     r""" List of LUNs that are not in the snapshot. """
 
-    missing_namespaces = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.consistency_group_snapshot_missing_namespaces.ConsistencyGroupSnapshotMissingNamespacesSchema", unknown=EXCLUDE, allow_none=True), data_key="missing_namespaces", allow_none=True)
+    missing_namespaces = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.consistency_group_snapshot_missing_namespaces", "ConsistencyGroupSnapshotMissingNamespacesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="missing_namespaces",
+                allow_none=True
+                )
     r""" List of NVMe namespaces that are not in the snapshot. """
 
-    missing_volumes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.volume.VolumeSchema", unknown=EXCLUDE, allow_none=True), data_key="missing_volumes", allow_none=True)
+    missing_volumes = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="missing_volumes",
+                allow_none=True
+                )
     r""" List of volumes which are not in the snapshot. """
 
     name = marshmallow_fields.Str(data_key="name", allow_none=True)
     r""" Name of the snapshot. """
 
-    namespaces = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.consistency_group_snapshot_missing_namespaces.ConsistencyGroupSnapshotMissingNamespacesSchema", unknown=EXCLUDE, allow_none=True), data_key="namespaces", allow_none=True)
+    namespaces = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.consistency_group_snapshot_missing_namespaces", "ConsistencyGroupSnapshotMissingNamespacesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="namespaces",
+                allow_none=True
+                )
     r""" The list of NVMe namespaces in this snapshot. """
 
     reclaimable_space = Size(data_key="reclaimable_space", allow_none=True)
@@ -80,7 +128,12 @@ Example: false """
 
 Example: 4096 """
 
-    snaplock = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_snapshot_snaplock.ConsistencyGroupSnapshotSnaplockSchema", unknown=EXCLUDE, data_key="snaplock", allow_none=True)
+    snaplock = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_snapshot_snaplock", "ConsistencyGroupSnapshotSnaplockSchema"),
+                unknown=EXCLUDE,
+                data_key="snaplock",
+                allow_none=True
+            )
     r""" SnapLock Snapshot attributes. """
 
     snapmirror_label = marshmallow_fields.Str(data_key="snapmirror_label", allow_none=True)
@@ -89,10 +142,23 @@ Example: 4096 """
 
 Example: sm_label """
 
-    snapshot_volumes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.consistency_group_volume_snapshot.ConsistencyGroupVolumeSnapshotSchema", unknown=EXCLUDE, allow_none=True), data_key="snapshot_volumes", allow_none=True)
+    snapshot_volumes = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.consistency_group_volume_snapshot", "ConsistencyGroupVolumeSnapshotSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="snapshot_volumes",
+                allow_none=True
+                )
     r""" List of volume and snapshot identifiers for each volume in the snapshot. """
 
-    svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", unknown=EXCLUDE, data_key="svm", allow_none=True)
+    svm = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
+                unknown=EXCLUDE,
+                data_key="svm",
+                allow_none=True
+            )
     r""" The SVM in which the consistency group is located. """
 
     uuid = marshmallow_fields.Str(data_key="uuid", allow_none=True)

@@ -1,13 +1,12 @@
 r"""
-Copyright &copy; 2025 NetApp Inc.
+Copyright &copy; 2026 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 """
-
 from marshmallow import EXCLUDE, fields as marshmallow_fields  # type: ignore
-from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size
+from netapp_ontap.resource import Resource, ResourceSchema, ResourceSchemaMeta, ImpreciseDateTime, Size, lazy_import_schema
 
 
 __all__ = ["ContainerVolumeS3Bucket", "ContainerVolumeS3BucketSchema"]
@@ -16,7 +15,6 @@ __pdoc__ = {
     "ContainerVolumeS3BucketSchema.opts": False,
     "ContainerVolumeS3Bucket": False,
 }
-
 
 class ContainerVolumeS3BucketSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ContainerVolumeS3Bucket object"""
@@ -31,7 +29,12 @@ Example: bucket1 """
 
 Example: / """
 
-    policy = marshmallow_fields.Nested("netapp_ontap.models.container_volume_s3_bucket_policy.ContainerVolumeS3BucketPolicySchema", unknown=EXCLUDE, data_key="policy", allow_none=True)
+    policy = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.container_volume_s3_bucket_policy", "ContainerVolumeS3BucketPolicySchema"),
+                unknown=EXCLUDE,
+                data_key="policy",
+                allow_none=True
+            )
     r""" A policy is an object associated with a bucket. It defines resource (bucket, folder, or object) permissions. These policies are evaluated when an S3 user makes a request by executing a specific command. The user must be part of the principal (user or group) specified in the policy. Permissions in the policies determine whether the request is allowed or denied. """
 
     @property

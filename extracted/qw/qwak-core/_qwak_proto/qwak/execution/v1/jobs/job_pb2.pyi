@@ -162,23 +162,58 @@ class JobMetadata(google.protobuf.message.Message):
 
     BATCH_INGESTION_METADATA_FIELD_NUMBER: builtins.int
     BATCH_BACKFILL_INGESTION_METADATA_FIELD_NUMBER: builtins.int
+    BATCH_DELETION_METADATA_FIELD_NUMBER: builtins.int
+    EXPIRATION_WATERMARK_TIMESTAMP_FIELD_NUMBER: builtins.int
     @property
     def batch_ingestion_metadata(self) -> global___BatchIngestionMetadata:
         """"regular" batch job"""
     @property
     def batch_backfill_ingestion_metadata(self) -> global___BatchBackfillMetadata:
         """batch backfill"""
+    @property
+    def batch_deletion_metadata(self) -> global___BatchDeletionMetadata:
+        """Batch Deletion/Expiration job"""
+    @property
+    def expiration_watermark_timestamp(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
     def __init__(
         self,
         *,
         batch_ingestion_metadata: global___BatchIngestionMetadata | None = ...,
         batch_backfill_ingestion_metadata: global___BatchBackfillMetadata | None = ...,
+        batch_deletion_metadata: global___BatchDeletionMetadata | None = ...,
+        expiration_watermark_timestamp: google.protobuf.timestamp_pb2.Timestamp | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["batch_backfill_ingestion_metadata", b"batch_backfill_ingestion_metadata", "batch_ingestion_metadata", b"batch_ingestion_metadata", "metadata_type", b"metadata_type"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["batch_backfill_ingestion_metadata", b"batch_backfill_ingestion_metadata", "batch_ingestion_metadata", b"batch_ingestion_metadata", "metadata_type", b"metadata_type"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing_extensions.Literal["metadata_type", b"metadata_type"]) -> typing_extensions.Literal["batch_ingestion_metadata", "batch_backfill_ingestion_metadata"] | None: ...
+    def HasField(self, field_name: typing_extensions.Literal["batch_backfill_ingestion_metadata", b"batch_backfill_ingestion_metadata", "batch_deletion_metadata", b"batch_deletion_metadata", "batch_ingestion_metadata", b"batch_ingestion_metadata", "data_retention_state_type", b"data_retention_state_type", "expiration_watermark_timestamp", b"expiration_watermark_timestamp", "metadata_type", b"metadata_type"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["batch_backfill_ingestion_metadata", b"batch_backfill_ingestion_metadata", "batch_deletion_metadata", b"batch_deletion_metadata", "batch_ingestion_metadata", b"batch_ingestion_metadata", "data_retention_state_type", b"data_retention_state_type", "expiration_watermark_timestamp", b"expiration_watermark_timestamp", "metadata_type", b"metadata_type"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["data_retention_state_type", b"data_retention_state_type"]) -> typing_extensions.Literal["expiration_watermark_timestamp"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["metadata_type", b"metadata_type"]) -> typing_extensions.Literal["batch_ingestion_metadata", "batch_backfill_ingestion_metadata", "batch_deletion_metadata"] | None: ...
 
 global___JobMetadata = JobMetadata
+
+class BatchDeletionMetadata(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DELETION_CANDIDATES_TABLE_FIELD_NUMBER: builtins.int
+    DELETION_CANDIDATES_SIZE_IN_BYTES_ON_REDIS_FIELD_NUMBER: builtins.int
+    BILLING_SIZE_IN_BYTES_BEFORE_DELETION_FIELD_NUMBER: builtins.int
+    deletion_candidates_table: builtins.str
+    """The name of the table containing the keys that are currently in the process of being deleted."""
+    deletion_candidates_size_in_bytes_on_redis: builtins.int
+    """The size (in bytes) of the Redis keys that are being deleted."""
+    billing_size_in_bytes_before_deletion: builtins.int
+    """The captured billing size (in bytes) before deletion of the Redis keys."""
+    def __init__(
+        self,
+        *,
+        deletion_candidates_table: builtins.str = ...,
+        deletion_candidates_size_in_bytes_on_redis: builtins.int = ...,
+        billing_size_in_bytes_before_deletion: builtins.int = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["billing_size_in_bytes_before_deletion", b"billing_size_in_bytes_before_deletion", "deletion_candidates_size_in_bytes_on_redis", b"deletion_candidates_size_in_bytes_on_redis", "deletion_candidates_table", b"deletion_candidates_table"]) -> None: ...
+
+global___BatchDeletionMetadata = BatchDeletionMetadata
 
 class BatchIngestionMetadata(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
