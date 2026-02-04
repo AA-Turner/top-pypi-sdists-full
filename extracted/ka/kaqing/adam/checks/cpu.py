@@ -6,7 +6,7 @@ from adam.checks.check_result import CheckResult
 from adam.checks.issue import Issue
 from adam.config import Config
 from adam.utils import Color
-from adam.utils_k8s.cassandra_nodes import CassandraNodes
+from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 from adam.utils_k8s.custom_resources import CustomResources
 from adam.utils_k8s.pods import Pods
 
@@ -55,16 +55,17 @@ class Cpu(Check):
             if container:
                 usage = details['cpu'] = container["usage"]["cpu"]
 
-            cpu_threshold = Config().get('checks.cpu-threshold', 0.0)
-            if  cpu_threshold != 0.0 and usage != "Unknown" and parse_quantity(usage) > cpu_threshold:
-                issues.append(Issue(
-                    statefulset=ctx.statefulset,
-                    namespace=ctx.namespace,
-                    pod=ctx.pod,
-                    category='cpu',
-                    desc=f'CPU is too busy: {usage}',
-                    suggestion=f"qing restart {ctx.pod}@{ctx.namespace}"
-                ))
+            if ctx.find_issues:
+                cpu_threshold = Config().get('checks.cpu-threshold', 0.0)
+                if  cpu_threshold != 0.0 and usage != "Unknown" and parse_quantity(usage) > cpu_threshold:
+                    issues.append(Issue(
+                        statefulset=ctx.statefulset,
+                        namespace=ctx.namespace,
+                        pod=ctx.pod,
+                        category='cpu',
+                        desc=f'CPU is too busy: {usage}',
+                        suggestion=f"qing restart {ctx.pod}@{ctx.namespace}"
+                    ))
         except Exception as e:
             issues.append(self.issue_from_err(sts_name=ctx.statefulset, ns=ctx.namespace, pod_name=ctx.pod, exception=e))
 

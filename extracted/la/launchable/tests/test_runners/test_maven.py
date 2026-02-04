@@ -208,6 +208,25 @@ class MavenTest(CliTestCase):
                           str(self.test_files_dir) + "/maven/reports/TEST-nested.xml")
         self.assert_success(result)
 
+    @responses.activate
+    @mock.patch.dict(os.environ, {"LAUNCHABLE_TOKEN": CliTestCase.launchable_token})
+    def test_subset_with_exclude(self):
+        # Invalid regexp case
+        result = self.cli('subset', '--target', '10%', '--session',
+                          self.session, 'maven',
+                          '--exclude', r'[invalid',
+                          str(self.test_files_dir.joinpath('java/test/src/java/').resolve()))
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("Invalid regular expression", result.output)
+
+        # Success case
+        result = self.cli('subset', '--target', '10%', '--session',
+                          self.session, 'maven',
+                          '--exclude', r'\.e2e\.',
+                          str(self.test_files_dir.joinpath('java/test/src/java/').resolve()))
+        self.assert_success(result)
+        self.assert_subset_payload('subset_with_exclude_rules_result.json')
+
     def test_glob(self):
         for x in [
             'foo/BarTest.java',

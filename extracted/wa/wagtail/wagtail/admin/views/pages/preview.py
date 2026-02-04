@@ -18,8 +18,8 @@ def view_draft(request, page_id):
 
     try:
         preview_mode = request.GET.get("mode", page.default_preview_mode)
-    except IndexError:
-        raise PermissionDenied
+    except IndexError as e:
+        raise PermissionDenied from e
 
     return page.make_preview_request(request, preview_mode)
 
@@ -30,9 +30,13 @@ class PreviewOnEdit(GenericPreviewOnEdit):
         return "{}{}".format(self.session_key_prefix, self.kwargs["page_id"])
 
     def get_object(self):
-        return get_object_or_404(
+        page = get_object_or_404(
             Page, id=self.kwargs["page_id"]
         ).get_latest_revision_as_object()
+        page_perms = page.permissions_for_user(self.request.user)
+        if not page_perms.can_edit():
+            raise PermissionDenied
+        return page
 
     def get_form(self, query_dict):
         form_class = self.object.get_edit_handler().get_form_class()
@@ -82,11 +86,16 @@ class PreviewOnCreate(PreviewOnEdit):
             content_type = ContentType.objects.get_by_natural_key(
                 content_type_app_name, content_type_model_name
             )
-        except ContentType.DoesNotExist:
-            raise Http404
+        except ContentType.DoesNotExist as e:
+            raise Http404 from e
 
         page = content_type.model_class()()
         parent_page = get_object_or_404(Page, id=parent_page_id).specific
+
+        parent_page_perms = parent_page.permissions_for_user(self.request.user)
+        if not parent_page_perms.can_add_subpage():
+            raise PermissionDenied
+
         # We need to populate treebeard's path / depth fields in order to
         # pass validation. We can't make these 100% consistent with the rest
         # of the tree without making actual database changes (such as

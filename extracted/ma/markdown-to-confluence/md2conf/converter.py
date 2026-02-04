@@ -7,13 +7,13 @@ Copyright 2022-2026, Levente Hunyadi
 """
 
 import copy
-import hashlib
 import logging
 import os.path
 import re
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import ClassVar
 from urllib.parse import ParseResult, quote_plus, urlparse
@@ -32,17 +32,17 @@ from .extension import ExtensionOptions, MarketplaceExtension
 from .formatting import FormattingContext, ImageAlignment, ImageAttributes
 from .image import ImageGenerator, ImageGeneratorOptions
 from .latex import render_latex
-from .markdown import markdown_to_html
+from .markdown import markdown_to_html, markdown_with_line_numbers
 from .mermaid.extension import MermaidExtension
 from .metadata import ConfluenceSiteMetadata
 from .options import ConfluencePageID, ConverterOptions, DocumentOptions
 from .plantuml.extension import PlantUMLExtension
-from .png import extract_png_dimensions, remove_png_chunks
+from .png import remove_png_chunks
 from .scanner import ScannedDocument, Scanner
 from .serializer import JsonType
 from .toc import TableOfContentsBuilder
 from .uri import is_absolute_url, to_uuid_urn
-from .xml import element_to_text
+from .xml import element_to_text, remove_element
 
 ElementType = ET._Element  # pyright: ignore [reportPrivateUsage]
 
@@ -114,14 +114,18 @@ def fix_absolute_path(path: Path, root_path: Path) -> Path:
     return root_path / path.relative_to(path.root)
 
 
+_UNSAFE_CHAR_REGEXP = re.compile(r"[^A-Za-z0-9._~()'!*:@,;+?-]+")
+_MULTIPLE_SPACE_REGEXP = re.compile(r"\s\s+")
+
+
 def encode_title(text: str) -> str:
     "Converts a title string such that it is safe to embed into a Confluence URL."
 
     # replace unsafe characters with space
-    text = re.sub(r"[^A-Za-z0-9._~()'!*:@,;+?-]+", " ", text)
+    text = _UNSAFE_CHAR_REGEXP.sub(" ", text)
 
     # replace multiple consecutive spaces with single space
-    text = re.sub(r"\s\s+", " ", text)
+    text = _MULTIPLE_SPACE_REGEXP.sub(" ", text)
 
     # URL-encode
     return quote_plus(text.strip())
@@ -215,6 +219,13 @@ _LANGUAGES = {
 # spellchecker: enable
 
 
+class ElementAction(Enum):
+    "Captures standard actions a node visitor may take with the element."
+
+    RECURSE = "recurse"
+    REMOVE = "remove"
+
+
 class NodeVisitor(ABC):
     def visit(self, node: ElementType) -> None:
         "Recursively visits all descendants of this node."
@@ -222,29 +233,44 @@ class NodeVisitor(ABC):
         if len(node) < 1:
             return
 
-        for index in range(len(node)):
+        index = 0
+        count = len(node)
+        while index < count:
             source = node[index]
             target = self.transform(source)
-            if target is not None:
+            if isinstance(target, ElementAction):
+                match target:
+                    case ElementAction.RECURSE:
+                        # recurse into the element
+                        self.visit(source)
+                        index += 1
+                    case ElementAction.REMOVE:
+                        # remove the element from the tree
+                        remove_element(source)
+                        count -= 1
+            else:
                 # chain sibling text node that immediately follows original element
                 target.tail = source.tail
                 source.tail = None
 
                 # replace original element with transformed element
                 node[index] = target
-            else:
-                self.visit(source)
+                index += 1
 
     @abstractmethod
-    def transform(self, child: ElementType) -> ElementType | None: ...
+    def transform(self, child: ElementType) -> ElementType | ElementAction: ...
+
+
+_DISALLOWED_CHAR_REGEXP = re.compile(r"[^\sA-Za-z0-9_\-]")
+_SPACE_COLLAPSE_REGEXP = re.compile(r"\s+")
 
 
 def title_to_identifier(title: str) -> str:
     "Converts a section heading title to a GitHub-style Markdown same-page anchor."
 
     s = title.strip().lower()
-    s = re.sub(r"[^\sA-Za-z0-9_\-]", "", s)
-    s = re.sub(r"\s+", "-", s)
+    s = _DISALLOWED_CHAR_REGEXP.sub("", s)
+    s = _SPACE_COLLAPSE_REGEXP.sub("-", s)
     return s
 
 
@@ -256,6 +282,12 @@ def element_text_starts_with_any(node: ElementType, prefixes: list[str]) -> bool
     return starts_with_any(node.text, prefixes)
 
 
+def child_count(node: ElementType) -> int:
+    "Number of children, excluding special elements."
+
+    return len(node) - sum(1 for _ in node.iterchildren("line-number"))
+
+
 def is_placeholder_for(node: ElementType, name: str) -> bool:
     """
     Identifies a Confluence widget placeholder, e.g. `[[_TOC_]]` or `[[_LISTING_]]`.
@@ -265,7 +297,7 @@ def is_placeholder_for(node: ElementType, name: str) -> bool:
     """
 
     # `[[_TOC_]]` is represented in HTML as <p>[[<em>TOC</em>]]</p>
-    if node.text != "[[" or len(node) != 1:
+    if node.text != "[[" or child_count(node) != 1:
         return False
 
     child = node[0]
@@ -273,6 +305,65 @@ def is_placeholder_for(node: ElementType, name: str) -> bool:
         return False
 
     return True
+
+
+class PreprocessingError(RuntimeError):
+    "Raised when a preprocessing step has failed."
+
+
+class DocumentError(RuntimeError):
+    "Raised when a converted Markdown document has an unexpected element or attribute."
+
+    element: ElementType
+
+    def __init__(self, element: ElementType, message: str) -> None:
+        super().__init__(message)
+        self.element = element
+
+
+class ConversionError(RuntimeError):
+    "Raised when a Markdown document cannot be converted to Confluence Storage Format."
+
+
+def transform_skip_comments_in_html(html: str) -> str:
+    """
+    Transforms HTML comments marking skip sections into custom elements.
+
+    From:
+    ```
+        <!-- confluence-skip-start --> ... <!-- confluence-skip-end -->
+    ```
+    Into:
+    ```
+        <confluence-skip> ... </confluence-skip>
+    ```
+
+    This must run BEFORE the HTML (generated from Markdown) is parsed, as the XML parser strips comments (remove_comments=True).
+
+    :param html: HTML string with skip comment markers.
+    :returns: HTML string with comments replaced by custom elements.
+    """
+
+    start_pattern = re.compile(r"<!--\s*confluence-skip-start\s*-->")
+    end_pattern = re.compile(r"<!--\s*confluence-skip-end\s*-->")
+
+    start_count = sum(1 for _ in start_pattern.finditer(html))
+    end_count = sum(1 for _ in end_pattern.finditer(html))
+
+    if start_count != end_count:
+        raise PreprocessingError(f"unmatched confluence-skip markers: found {start_count} start marker(s) and {end_count} end marker(s)")
+
+    if start_count < 1:
+        return html
+
+    skip_pattern = re.compile(r"<!--\s*confluence-skip-start\s*-->(.*?)<!--\s*confluence-skip-end\s*-->", flags=re.DOTALL)
+    html = skip_pattern.sub(r"<confluence-skip>\1</confluence-skip>", html)
+
+    return html
+
+
+_FOOTNOTE_REF_REGEXP = re.compile(r"^fnref(\d*):(.+)$")
+_TASKLIST_REGEXP = re.compile(r"^\[([x X])\]")
 
 
 @dataclass
@@ -402,14 +493,14 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
     def _anchor_warn_or_raise(self, anchor: ElementType, msg: str) -> None:
         "Emit a warning or raise an exception when a path points to a resource that doesn't exist or is outside of the permitted hierarchy."
 
-        if self.options.ignore_invalid_url:
+        if self.options.force_valid_url:
+            raise DocumentError(anchor, msg)
+        else:
             LOGGER.warning(msg)
             if anchor.text:
                 anchor.text = "❌ " + anchor.text
             elif len(anchor) > 0:
                 anchor.text = "❌ "
-        else:
-            raise DocumentError(msg)
 
     def _transform_link(self, anchor: ElementType) -> ElementType | None:
         """
@@ -486,7 +577,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             space_key = link_metadata.space_key or self.site_metadata.space_key
 
             if space_key is None:
-                raise DocumentError("Confluence space key required for building full web URLs")
+                raise DocumentError(anchor, "Confluence space key required for building full web URLs")
 
             page_url = f"{self.site_metadata.base_path}spaces/{space_key}/pages/{link_metadata.page_id}/{encode_title(link_metadata.title)}"
 
@@ -563,7 +654,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
         src = image.get("src")
         if not src:
-            raise DocumentError("image lacks `src` attribute")
+            raise DocumentError(image, "image lacks `src` attribute")
 
         alt = image.get("alt")
         if alt is not None and src.startswith("urn:uuid:") and (color := status_images.get(src)) is not None:
@@ -589,7 +680,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         else:
             path = Path(src)
 
-            absolute_path = self._verify_image_path(path)
+            absolute_path = self._verify_image_path(image, path)
             if absolute_path is None:
                 return self._create_missing(path, attrs)
 
@@ -615,15 +706,15 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
         return AC_ELEM("image", attrs.as_dict(max_width=self.options.layout.image.max_width), *elements)
 
-    def _warn_or_raise(self, msg: str) -> None:
+    def _warn_or_raise(self, image: ElementType, msg: str) -> None:
         "Emit a warning or raise an exception when a path points to a resource that doesn't exist or is outside of the permitted hierarchy."
 
-        if self.options.ignore_invalid_url:
-            LOGGER.warning(msg)
+        if self.options.force_valid_url:
+            raise DocumentError(image, msg)
         else:
-            raise DocumentError(msg)
+            LOGGER.warning(msg)
 
-    def _verify_image_path(self, path: Path) -> Path | None:
+    def _verify_image_path(self, image: ElementType, path: Path) -> Path | None:
         "Checks whether an image path is safe to use."
 
         if path.is_absolute():
@@ -633,11 +724,11 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             absolute_path = (self.base_dir / path).resolve()
 
         if not absolute_path.exists():
-            self._warn_or_raise(f"path to image does not exist: {path}")
+            self._warn_or_raise(image, f"path to image does not exist: {path}")
             return None
 
         if not is_directory_within(absolute_path, self.root_dir):
-            self._warn_or_raise(f"path to image {path} points to outside root path {self.root_dir}")
+            self._warn_or_raise(image, f"path to image {path} points to outside root path {self.root_dir}")
             return None
 
         return absolute_path
@@ -744,15 +835,15 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         """
 
         if len(elem) < 1:
-            raise DocumentError("empty admonition")
+            raise DocumentError(elem, "empty admonition")
 
         # <div class="admonition note">
         class_list = elem.get("class", "").split(" ")
         class_list.remove("admonition")
         if len(class_list) > 1:
-            raise DocumentError(f"too many admonition types: {class_list}")
+            raise DocumentError(elem, f"too many admonition types: {class_list}")
         elif len(class_list) < 1:
-            raise DocumentError("missing specific admonition type")
+            raise DocumentError(elem, "missing specific admonition type")
         admonition = class_list[0]
 
         for e in elem:
@@ -761,11 +852,11 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         # <p class="admonition-title">Note</p>
         if "admonition-title" in elem[0].get("class", "").split(" "):
             content = [HTML.p(HTML.strong(elem[0].text or "")), *list(elem[1:])]
-        else:
-            content = list(elem)
+            elem.clear(keep_tail=True)
+            elem.extend(content)
 
         if self.options.use_panel:
-            return self._transform_panel(content, admonition)
+            return self._transform_panel(elem, admonition)
         else:
             admonition_to_csf = {
                 "attention": "note",
@@ -781,7 +872,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             }
             class_name = admonition_to_csf.get(admonition)
             if class_name is None:
-                raise DocumentError(f"unsupported admonition type: {admonition}")
+                raise DocumentError(elem, f"unsupported admonition type: {admonition}")
 
             return AC_ELEM(
                 "structured-macro",
@@ -789,7 +880,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
                     AC_ATTR("name"): class_name,
                     AC_ATTR("schema-version"): "1",
                 },
-                AC_ELEM("rich-text-body", {}, *content),
+                AC_ELEM("rich-text-body", {}, *list(elem)),
             )
 
     def _transform_github_alert(self, blockquote: ElementType) -> ElementType:
@@ -797,32 +888,32 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         Creates a GitHub-style panel, normally triggered with a block-quote starting with a capitalized string such as `[!TIP]`.
         """
 
+        for e in blockquote:
+            self.visit(e)
+
         if len(blockquote) < 1:
-            raise DocumentError("empty GitHub alert")
+            raise DocumentError(blockquote, "empty GitHub alert")
 
         content = blockquote[0]
         if content.text is None:
-            raise DocumentError("empty content for GitHub alert")
+            raise DocumentError(blockquote, "empty content for GitHub alert")
 
         pattern = re.compile(r"^\[!([A-Z]+)\]\s*")
         match = pattern.match(content.text)
         if not match:
-            raise DocumentError("not a GitHub alert")
+            raise DocumentError(blockquote, "not a GitHub alert")
+        alert = match.group(1)
 
         # remove alert indicator prefix
         content.text = content.text[len(match.group(0)) :]
 
-        for e in blockquote:
-            self.visit(e)
-
-        alert = match.group(1)
         if self.options.use_panel:
-            return self._transform_panel(list(blockquote), alert.lower())
+            return self._transform_panel(blockquote, alert.lower())
         else:
             alert_to_csf = {"NOTE": "info", "TIP": "tip", "IMPORTANT": "note", "WARNING": "note", "CAUTION": "warning"}
             class_name = alert_to_csf.get(alert)
             if class_name is None:
-                raise DocumentError(f"unsupported GitHub alert: {alert}")
+                raise DocumentError(blockquote, f"unsupported GitHub alert: {alert}")
 
             return self._transform_alert(blockquote, class_name)
 
@@ -834,32 +925,32 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         This syntax does not use Hugo shortcode.
         """
 
+        for e in blockquote:
+            self.visit(e)
+
         if len(blockquote) < 1:
-            raise DocumentError("empty GitLab alert")
+            raise DocumentError(blockquote, "empty GitLab alert")
 
         content = blockquote[0]
         if content.text is None:
-            raise DocumentError("empty content for GitLab alert")
+            raise DocumentError(blockquote, "empty content for GitLab alert")
 
         pattern = re.compile(r"^(FLAG|NOTE|WARNING|DISCLAIMER):\s*")
         match = pattern.match(content.text)
         if not match:
-            raise DocumentError("not a GitLab alert")
+            raise DocumentError(blockquote, "not a GitLab alert")
+        alert = match.group(1)
 
         # remove alert indicator prefix
         content.text = content.text[len(match.group(0)) :]
 
-        for e in blockquote:
-            self.visit(e)
-
-        alert = match.group(1)
         if self.options.use_panel:
-            return self._transform_panel(list(blockquote), alert.lower())
+            return self._transform_panel(blockquote, alert.lower())
         else:
             alert_to_csf = {"FLAG": "note", "NOTE": "info", "WARNING": "note", "DISCLAIMER": "info"}
             class_name = alert_to_csf.get(alert)
             if class_name is None:
-                raise DocumentError(f"unsupported GitLab alert: {alert}")
+                raise DocumentError(blockquote, f"unsupported GitLab alert: {alert}")
 
             return self._transform_alert(blockquote, class_name)
 
@@ -903,12 +994,12 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             AC_ELEM("rich-text-body", {}, *list(blockquote)),
         )
 
-    def _transform_panel(self, content: list[ElementType], class_name: str) -> ElementType:
+    def _transform_panel(self, elem: ElementType, class_name: str) -> ElementType:
         "Transforms a blockquote into a themed panel."
 
         panel = ConfluencePanel.from_class.get(class_name)
         if panel is None:
-            raise DocumentError(f"unsupported panel class: {class_name}")
+            raise DocumentError(elem, f"unsupported panel class: {class_name}")
 
         macro_id = str(uuid.uuid4())
         return AC_ELEM(
@@ -922,7 +1013,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             AC_ELEM("parameter", {AC_ATTR("name"): "panelIconId"}, panel.emoji_unicode),
             AC_ELEM("parameter", {AC_ATTR("name"): "panelIconText"}, panel.emoji),
             AC_ELEM("parameter", {AC_ATTR("name"): "bgColor"}, panel.background_color),
-            AC_ELEM("rich-text-body", {}, *content),
+            AC_ELEM("rich-text-body", {}, *list(elem)),
         )
 
     def _transform_collapsed(self, details: ElementType) -> ElementType:
@@ -936,7 +1027,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
         summary = details[0]
         if summary.tag != "summary":
-            raise DocumentError("expected: `<summary>` as first direct child of `<details>`")
+            raise DocumentError(details, "expected: `<summary>` as first direct child of `<details>`")
         if details.text is not None or summary.tail is not None:
             # when `<details>` has attribute `markdown=1`, content is parsed as Markdown:
             # ```
@@ -952,7 +1043,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             #   <summary>...</summary>
             #   Text with *emphasis*.
             # </details>
-            raise DocumentError('expected: attribute `markdown="1"` on `<details>`')
+            raise DocumentError(details, 'expected: attribute `markdown="1"` on `<details>`')
 
         summary_text = element_to_text(summary)
         details.remove(summary)
@@ -1020,29 +1111,22 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
         content = elem.text
         if not content:
-            raise DocumentError("empty LaTeX formula")
+            raise DocumentError(elem, "empty LaTeX formula")
 
         image_data = render_latex(content, format=self.options.diagram_output_format)
         if self.options.diagram_output_format == "png":
-            width, height = extract_png_dimensions(data=image_data)
             image_data = remove_png_chunks(["pHYs"], source_data=image_data)
-            attrs = ImageAttributes(
-                context,
-                width=width,
-                height=height,
-                alt=content,
-                title=None,
-                caption="",
-                alignment=ImageAlignment(self.options.layout.get_image_alignment()),
-            )
-        else:
-            attrs = ImageAttributes.empty(context)
 
-        image_hash = hashlib.md5(image_data).hexdigest()
-        image_filename = attachment_name(f"formula_{image_hash}.{self.options.diagram_output_format}")
-        self.attachments.add_embed(image_filename, EmbeddedFileData(image_data, content))
-        image = self.image_generator.create_attached_image(image_filename, attrs)
-        return image
+        attrs = ImageAttributes(
+            context,
+            width=None,
+            height=None,
+            alt=content,
+            title=None,
+            caption="",
+            alignment=ImageAlignment(self.options.layout.get_image_alignment()),
+        )
+        return self.image_generator.transform_attached_data(image_data, attrs, image_type="formula")
 
     def _transform_inline_math(self, elem: ElementType) -> ElementType:
         """
@@ -1053,7 +1137,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
         content = elem.text
         if not content:
-            raise DocumentError("empty inline LaTeX formula")
+            raise DocumentError(elem, "empty inline LaTeX formula")
 
         LOGGER.debug("Found inline LaTeX formula: %s", content)
 
@@ -1088,7 +1172,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
         content = elem.text
         if not content:
-            raise DocumentError("empty block-level LaTeX formula")
+            raise DocumentError(elem, "empty block-level LaTeX formula")
 
         LOGGER.debug("Found block-level LaTeX formula: %s", content)
 
@@ -1133,13 +1217,13 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         """
 
         if elem.tag != "sup":
-            raise DocumentError("expected: `<sup>` as the HTML element for a footnote reference")
+            raise DocumentError(elem, "expected: `<sup>` as the HTML element for a footnote reference")
 
         ref_id = elem.attrib.pop("id", "")
         # Match fnref:NAME, fnref2:NAME, fnref3:NAME, etc.
-        match = re.match(r"^fnref(\d*):(.+)$", ref_id)
+        match = _FOOTNOTE_REF_REGEXP.match(ref_id)
         if match is None:
-            raise DocumentError("expected: attribute `id` of format `fnref:NAME` or `fnrefN:NAME` applied on `<sup>` for a footnote reference")
+            raise DocumentError(elem, "expected: attribute `id` of format `fnref:NAME` or `fnrefN:NAME` applied on `<sup>` for a footnote reference")
         numeric_suffix = match.group(1)
         footnote_name = match.group(2)
         # Build anchor name: first reference uses NAME, subsequent references use NAME-N
@@ -1147,10 +1231,10 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
         link = next((elem.iterchildren(tag="a")), None)
         if link is None:
-            raise DocumentError("expected: `<a>` as the first HTML element in a footnote reference")
+            raise DocumentError(elem, "expected: `<a>` as the first HTML element in a footnote reference")
         def_href = link.attrib.pop("href", "")
         if not def_href.startswith("#fn:"):
-            raise DocumentError("expected: attribute `href` of format `#fn:NAME` applied on `<a>` for a footnote reference")
+            raise DocumentError(elem, "expected: attribute `href` of format `#fn:NAME` applied on `<a>` for a footnote reference")
         footnote_def = def_href.removeprefix("#fn:")
 
         text = link.text or ""
@@ -1217,21 +1301,21 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
         ordered_list = next((elem.iterchildren(tag="ol")), None)
         if ordered_list is None:
-            raise DocumentError("expected: `<ol>` as direct child of footnote definition block")
+            raise DocumentError(elem, "expected: `<ol>` as direct child of footnote definition block")
 
         for list_item in ordered_list:
             if list_item.tag != "li":
-                raise DocumentError("expected: `<li>` as children of `<ol>` in footnote definition block")
+                raise DocumentError(elem, "expected: `<li>` as children of `<ol>` in footnote definition block")
 
             def_id = list_item.attrib.pop("id", "")
             if not def_id.startswith("fn:"):
-                raise DocumentError("expected: attribute `id` of format `fn:NAME` applied on `<li>` for a footnote definition")
+                raise DocumentError(elem, "expected: attribute `id` of format `fn:NAME` applied on `<li>` for a footnote definition")
             footnote_def = def_id.removeprefix("fn:")
 
             # find the last paragraph, which is where the backref links are placed
             paragraphs = list(list_item.iterchildren(tag="p"))
             if not paragraphs:
-                raise DocumentError("expected: `<p>` as a child of `<li>` in a footnote definition")
+                raise DocumentError(elem, "expected: `<p>` as a child of `<li>` in a footnote definition")
             last_paragraph = paragraphs[-1]
 
             # collect all backref anchors (there may be multiple when a footnote is referenced multiple times)
@@ -1240,13 +1324,12 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             backref_info: list[tuple[ElementType, int | None, str]] = []
             for anchor in list(last_paragraph.iterchildren(tag="a")):
                 href = anchor.get("href", "")
-                match = re.match(r"^#fnref(\d*):(.+)$", href)
-                if match is not None:
+                if href.startswith("#") and (match := _FOOTNOTE_REF_REGEXP.match(href[1:])) is not None:
                     backref_info.append((anchor, int(match.group(1), base=10) if match.group(1) else None, match.group(2)))
 
             if not backref_info:
                 raise DocumentError(
-                    "expected: at least one `<a>` element with `href` attribute of format `#fnref:NAME` or `#fnrefN:NAME` in a footnote definition"
+                    elem, "expected: at least one `<a>` element with `href` attribute of format `#fnref:NAME` or `#fnrefN:NAME` in a footnote definition"
                 )
 
             # remove all back-links generated by Python-Markdown
@@ -1313,19 +1396,19 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         """
 
         if elem.tag != "ul":
-            raise DocumentError("expected: `<ul>` as the HTML element for a tasklist")
+            raise DocumentError(elem, "expected: `<ul>` as the HTML element for a tasklist")
 
         for item in elem:
             if item.tag != "li":
-                raise DocumentError("expected: `<li>` as the HTML element for a task")
-            if not element_text_starts_with_any(item, ["[ ]", "[x]", "[X]"]):
-                raise DocumentError("expected: each `<li>` in a task list starting with [ ] or [x]")
+                raise DocumentError(elem, "expected: `<li>` as the HTML element for a task")
+            if not _TASKLIST_REGEXP.match(item.text or ""):
+                raise DocumentError(elem, "expected: each `<li>` in a task list starting with [ ] or [x]")
 
         tasks: list[ElementType] = []
         for index, item in enumerate(elem, start=1):
             if item.text is None:
                 raise NotImplementedError("pre-condition check for tasklist not exhaustive")
-            match = re.match(r"^\[([x X])\]", item.text)
+            match = _TASKLIST_REGEXP.match(item.text)
             if match is None:
                 raise NotImplementedError("pre-condition check for tasklist not exhaustive")
 
@@ -1350,7 +1433,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         return AC_ELEM("task-list", {}, *tasks)
 
     @override
-    def transform(self, child: ElementType) -> ElementType | None:
+    def transform(self, child: ElementType) -> ElementType | ElementAction:
         """
         Transforms an HTML element tree obtained from a Markdown document into a Confluence Storage Format element tree.
         """
@@ -1362,13 +1445,17 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             child.tail = child.tail.replace("\n", " ")
 
         if not isinstance(child.tag, str):
-            return None
+            return ElementAction.RECURSE
 
         match child.tag:
+            # <line-number value="#" />
+            case "line-number":
+                return ElementAction.REMOVE
+
             # <p>...</p>
             case "p":
                 # <p><img src="..." /></p>
-                if len(child) == 1 and not child.text and child[0].tag == "img" and not child[0].tail:
+                if child_count(child) == 1 and not child.text and child[0].tag == "img" and not child[0].tail:
                     return self._transform_image(FormattingContext.BLOCK, child[0])
 
                 # <p>[[<em>TOC</em>]]</p> (represented in Markdown as `[[_TOC_]]`)
@@ -1390,7 +1477,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
                 # <div><ac:structured-macro ...>...</ac:structured-macro></div>
                 elif "csf" in classes:
                     if len(child) != 1:
-                        raise DocumentError("expected: single child in Confluence Storage Format block")
+                        raise DocumentError(child, "expected: single child in Confluence Storage Format block")
 
                     return child[0]
 
@@ -1402,7 +1489,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
                 # </div>
                 elif "footnote" in classes:
                     self._transform_footnote_def(child)
-                    return None
+                    return ElementAction.RECURSE
 
                 # <div class="admonition note">
                 # <p class="admonition-title">Note</p>
@@ -1444,7 +1531,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             case "ol":
                 # Confluence adds the attribute `start` for every ordered list
                 child.set("start", "1")
-                return None
+                return ElementAction.RECURSE
 
             # <ul>
             #   <li>[ ] ...</li>
@@ -1454,11 +1541,11 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
                 if len(child) > 0 and all(element_text_starts_with_any(item, ["[ ]", "[x]", "[X]"]) for item in child):
                     return self._transform_tasklist(child)
 
-                return None
+                return ElementAction.RECURSE
 
             case "li":
                 normalize_inline(child)
-                return None
+                return ElementAction.RECURSE
 
             # <pre><code class="language-java"> ... </code></pre>
             case "pre" if len(child) == 1 and child[0].tag == "code":
@@ -1479,7 +1566,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
                 if self.options.layout.table.width:
                     child.set("data-table-width", str(self.options.layout.table.width))
 
-                return None
+                return ElementAction.RECURSE
 
             # <img src="..." alt="..." />
             case "img":
@@ -1487,7 +1574,11 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
             # <a href="..."> ... </a>
             case "a":
-                return self._transform_link(child)
+                link = self._transform_link(child)
+                if link is not None:
+                    return link
+                else:
+                    return ElementAction.RECURSE
 
             # <mark>...</mark>
             case "mark":
@@ -1503,9 +1594,9 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
             # <sup id="fnref:NAME"><a class="footnote-ref" href="#fn:NAME">1</a></sup>
             # Multiple references: <sup id="fnref2:NAME">...</sup>, <sup id="fnref3:NAME">...</sup>
-            case "sup" if re.match(r"^fnref\d*:", child.get("id", "")):
+            case "sup" if _FOOTNOTE_REF_REGEXP.match(child.get("id", "")):
                 self._transform_footnote_ref(child)
-                return None
+                return ElementAction.RECURSE
 
             # <input type="date" value="1984-01-01" />
             case "input" if child.get("type", "") == "date":
@@ -1515,6 +1606,11 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             case "ins":
                 # Confluence prefers <u> over <ins> for underline, and replaces <ins> with <u>
                 child.tag = "u"
+
+            # <confluence-skip>...</confluence-skip>
+            case "confluence-skip":
+                # Content marked for exclusion from Confluence
+                return ElementAction.REMOVE
 
             # <x-emoji data-shortname="wink" data-unicode="1f609">😉</x-emoji>
             case "x-emoji":
@@ -1529,19 +1625,11 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
                 if self.options.heading_anchors:
                     self._transform_heading(child)
-                    return None
+                    return ElementAction.RECURSE
             case _:
                 pass
 
-        return None
-
-
-class DocumentError(RuntimeError):
-    "Raised when a converted Markdown document has an unexpected element or attribute."
-
-
-class ConversionError(RuntimeError):
-    "Raised when a Markdown document cannot be converted to Confluence Storage Format."
+        return ElementAction.RECURSE
 
 
 class ConfluenceDocument:
@@ -1602,10 +1690,20 @@ class ConfluenceDocument:
         lines: list[str] = []
         for data_uri, color in status_images.items():
             lines.append(f"[STATUS-{color.upper()}]: {data_uri}")
-        lines.append(document.text)
+
+        if options.line_numbers:
+            lines.extend(markdown_with_line_numbers(document.text.splitlines(), document.start_line_number))
+        else:
+            lines.append(document.text)
 
         # parse Markdown document and convert to HTML
         html = markdown_to_html("\n".join(lines))
+
+        try:
+            # Transform skip markers in HTML string before parsing
+            html = transform_skip_comments_in_html(html)
+        except PreprocessingError as ex:
+            raise ConversionError(f"failed to convert Markdown file: {path}") from ex
 
         # modify HTML as necessary
         if self.options.generated_by is not None:
@@ -1641,6 +1739,21 @@ class ConfluenceDocument:
         # execute HTML-to-Confluence converter
         try:
             converter.visit(self.root)
+        except DocumentError as ex:
+            if options.line_numbers:
+                # find closest paragraph ancestor
+                elem = ex.element
+                while elem.tag != "p" and (parent := elem.getparent()):
+                    elem = parent
+
+                # locate line number marker element
+                line_number = 0
+                for placeholder in elem.iterchildren("line-number"):
+                    line_number = int(placeholder.attrib["value"])
+
+                raise ConversionError(f"failed to convert Markdown file: {path} @ line {line_number}") from ex
+            else:
+                raise ConversionError(f"failed to convert Markdown file: {path}") from ex
         except RuntimeError as ex:
             raise ConversionError(f"failed to convert Markdown file: {path}") from ex
 
@@ -1671,40 +1784,19 @@ class ConfluenceDocument:
         Handles the case where a generated-by info panel may be present as the first child.
         """
 
-        # Find the first heading element (h1-h6) in the root
+        # find the first heading element (h1-h6) in the root
         heading_pattern = re.compile(r"^h[1-6]$", re.IGNORECASE)
 
-        for idx, child in enumerate(self.root):
+        for child in self.root:
             if not isinstance(child.tag, str):
                 continue
 
             if heading_pattern.match(child.tag) is None:
                 continue
 
-            # Preserve any text that comes after the heading (tail text)
-            tail = child.tail
+            remove_element(child)
 
-            # Remove the heading
-            self.root.remove(child)
-
-            # If there was tail text, attach it to the previous sibling's tail
-            # or to the parent's text if this was the first child
-            if tail:
-                if idx > 0:
-                    # Append to previous sibling's tail
-                    prev_sibling = self.root[idx - 1]
-                    if prev_sibling.tail:
-                        prev_sibling.tail += tail
-                    else:
-                        prev_sibling.tail = tail
-                else:
-                    # No previous sibling, append to parent's text
-                    if self.root.text:
-                        self.root.text += tail
-                    else:
-                        self.root.text = tail
-
-            # Only remove the FIRST heading, then stop
+            # only remove the FIRST heading, then stop
             break
 
     def xhtml(self) -> str:

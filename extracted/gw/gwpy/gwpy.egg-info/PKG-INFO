@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gwpy
-Version: 4.0.0
+Version: 4.0.1
 Summary: A python package for gravitational-wave astrophysics
 Author-email: Duncan Macleod <duncan.macleod@ligo.org>
 License-Expression: GPL-3.0-or-later

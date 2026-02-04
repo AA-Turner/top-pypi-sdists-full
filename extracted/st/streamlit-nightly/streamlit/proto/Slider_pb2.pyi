@@ -22,7 +22,7 @@ from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
-from streamlit.proto import LabelVisibilityMessage_pb2 as _LabelVisibilityMessage_pb2
+from streamlit.proto import LabelVisibility_pb2 as _LabelVisibility_pb2
 import builtins as _builtins
 import sys
 import typing as _typing
@@ -116,7 +116,7 @@ class Slider(_message.Message):
     @_builtins.property
     def options(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]: ...
     @_builtins.property
-    def label_visibility(self) -> _LabelVisibilityMessage_pb2.LabelVisibilityMessage: ...
+    def label_visibility(self) -> _LabelVisibility_pb2.LabelVisibility: ...
     @_builtins.property
     def raw_value(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
         """String-based value for select_slider to support dynamic option changes.
@@ -140,7 +140,7 @@ class Slider(_message.Message):
         options: _abc.Iterable[_builtins.str] | None = ...,
         help: _builtins.str = ...,
         disabled: _builtins.bool = ...,
-        label_visibility: _LabelVisibilityMessage_pb2.LabelVisibilityMessage | None = ...,
+        label_visibility: _LabelVisibility_pb2.LabelVisibility | None = ...,
         type: Global___Slider.Type.ValueType = ...,
         raw_value: _abc.Iterable[_builtins.str] | None = ...,
     ) -> None: ...

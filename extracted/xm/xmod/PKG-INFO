@@ -1,21 +1,20 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: xmod
-Version: 1.8.1
+Version: 1.9.0
 Summary: 🌱 Turn any object into a module 🌱
-Home-page: https://github.com/rec/xmod
-License: MIT
 Author: Tom Ritchford
-Author-email: tom@swirly.com
-Requires-Python: >=3.8
-Classifier: License :: OSI Approved :: MIT License
+Author-email: Tom Ritchford <tom@swirly.com>
+License-Expression: MIT
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Project-URL: Documentation, https://rec.github.io/xmod
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
+Project-URL: Homepage, https://github.com/rec/xmod
 Project-URL: Repository, https://github.com/rec/xmod
+Project-URL: Documentation, https://rec.github.io/xmod
 Description-Content-Type: text/markdown
 
 # 🌱 Turn any object into a module 🌱
@@ -62,4 +61,3 @@ only a class could do - handy for modules that "just do one thing".
 
 
 ### [API Documentation](https://rec.github.io/xmod#xmod--api-documentation)
-

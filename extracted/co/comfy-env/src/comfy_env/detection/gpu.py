@@ -95,7 +95,15 @@ def detect_cuda_environment(force_refresh: bool = False) -> CUDAEnvironment:
         return _cache[1]
 
     gpus, method = None, "none"
-    for name, fn in [("nvml", _detect_nvml), ("torch", _detect_torch), ("smi", _detect_smi), ("sysfs", _detect_sysfs)]:
+    # On Windows, try nvidia-smi first (subprocess, crash-safe) before torch/nvml
+    # which can cause hard crashes from DLL load failures
+    import sys
+    if sys.platform == "win32":
+        detection_order = [("smi", _detect_smi), ("nvml", _detect_nvml), ("torch", _detect_torch)]
+    else:
+        detection_order = [("nvml", _detect_nvml), ("torch", _detect_torch), ("smi", _detect_smi), ("sysfs", _detect_sysfs)]
+
+    for name, fn in detection_order:
         if result := fn():
             gpus, method = result, name
             break
@@ -207,6 +215,14 @@ def _detect_sysfs() -> list[GPUInfo] | None:
 
 
 def _get_driver_version() -> str:
+    # On Windows, try nvidia-smi first (crash-safe) before pynvml
+    import sys
+    if sys.platform == "win32":
+        try:
+            r = subprocess.run(["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"],
+                              capture_output=True, text=True, timeout=5)
+            if r.returncode == 0: return r.stdout.strip().split("\n")[0]
+        except Exception: pass
     try:
         import pynvml
         pynvml.nvmlInit()
@@ -214,15 +230,20 @@ def _get_driver_version() -> str:
         pynvml.nvmlShutdown()
         return v.decode() if isinstance(v, bytes) else v
     except Exception: pass
-    try:
-        r = subprocess.run(["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"],
-                          capture_output=True, text=True, timeout=5)
-        if r.returncode == 0: return r.stdout.strip().split("\n")[0]
-    except Exception: pass
+    if sys.platform != "win32":
+        try:
+            r = subprocess.run(["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"],
+                              capture_output=True, text=True, timeout=5)
+            if r.returncode == 0: return r.stdout.strip().split("\n")[0]
+        except Exception: pass
     return ""
 
 
 def _get_cuda_version() -> str:
+    # On Windows, skip torch import (can cause DLL crashes)
+    import sys
+    if sys.platform == "win32":
+        return ""
     try:
         import torch
         if torch.cuda.is_available() and torch.version.cuda: return torch.version.cuda

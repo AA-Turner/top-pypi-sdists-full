@@ -11,11 +11,13 @@ if TYPE_CHECKING:
     from ..models.whileloop_flow_modules_item_skip_if import WhileloopFlowModulesItemSkipIf
     from ..models.whileloop_flow_modules_item_sleep_type_0 import WhileloopFlowModulesItemSleepType0
     from ..models.whileloop_flow_modules_item_sleep_type_1 import WhileloopFlowModulesItemSleepType1
+    from ..models.whileloop_flow_modules_item_sleep_type_2 import WhileloopFlowModulesItemSleepType2
     from ..models.whileloop_flow_modules_item_stop_after_all_iters_if import WhileloopFlowModulesItemStopAfterAllItersIf
     from ..models.whileloop_flow_modules_item_stop_after_if import WhileloopFlowModulesItemStopAfterIf
     from ..models.whileloop_flow_modules_item_suspend import WhileloopFlowModulesItemSuspend
     from ..models.whileloop_flow_modules_item_timeout_type_0 import WhileloopFlowModulesItemTimeoutType0
     from ..models.whileloop_flow_modules_item_timeout_type_1 import WhileloopFlowModulesItemTimeoutType1
+    from ..models.whileloop_flow_modules_item_timeout_type_2 import WhileloopFlowModulesItemTimeoutType2
 
 
 T = TypeVar("T", bound="WhileloopFlowModulesItem")
@@ -34,14 +36,14 @@ class WhileloopFlowModulesItem:
             for a module
         skip_if (Union[Unset, WhileloopFlowModulesItemSkipIf]): Conditionally skip this step based on previous results
             or flow inputs
-        sleep (Union['WhileloopFlowModulesItemSleepType0', 'WhileloopFlowModulesItemSleepType1', Unset]): Maps input
-            parameters for a step. Can be a static value or a JavaScript expression that references previous results or flow
-            inputs
+        sleep (Union['WhileloopFlowModulesItemSleepType0', 'WhileloopFlowModulesItemSleepType1',
+            'WhileloopFlowModulesItemSleepType2', Unset]): Maps input parameters for a step. Can be a static value or a
+            JavaScript expression that references previous results or flow inputs
         cache_ttl (Union[Unset, float]): Cache duration in seconds for this step's results
         cache_ignore_s3_path (Union[Unset, bool]):
-        timeout (Union['WhileloopFlowModulesItemTimeoutType0', 'WhileloopFlowModulesItemTimeoutType1', Unset]): Maps
-            input parameters for a step. Can be a static value or a JavaScript expression that references previous results
-            or flow inputs
+        timeout (Union['WhileloopFlowModulesItemTimeoutType0', 'WhileloopFlowModulesItemTimeoutType1',
+            'WhileloopFlowModulesItemTimeoutType2', Unset]): Maps input parameters for a step. Can be a static value or a
+            JavaScript expression that references previous results or flow inputs
         delete_after_use (Union[Unset, bool]): If true, this step's result is deleted after use to save memory
         summary (Union[Unset, str]): Short description of what this step does
         mock (Union[Unset, WhileloopFlowModulesItemMock]): Mock configuration for testing without executing the actual
@@ -58,10 +60,20 @@ class WhileloopFlowModulesItem:
     stop_after_if: Union[Unset, "WhileloopFlowModulesItemStopAfterIf"] = UNSET
     stop_after_all_iters_if: Union[Unset, "WhileloopFlowModulesItemStopAfterAllItersIf"] = UNSET
     skip_if: Union[Unset, "WhileloopFlowModulesItemSkipIf"] = UNSET
-    sleep: Union["WhileloopFlowModulesItemSleepType0", "WhileloopFlowModulesItemSleepType1", Unset] = UNSET
+    sleep: Union[
+        "WhileloopFlowModulesItemSleepType0",
+        "WhileloopFlowModulesItemSleepType1",
+        "WhileloopFlowModulesItemSleepType2",
+        Unset,
+    ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
     cache_ignore_s3_path: Union[Unset, bool] = UNSET
-    timeout: Union["WhileloopFlowModulesItemTimeoutType0", "WhileloopFlowModulesItemTimeoutType1", Unset] = UNSET
+    timeout: Union[
+        "WhileloopFlowModulesItemTimeoutType0",
+        "WhileloopFlowModulesItemTimeoutType1",
+        "WhileloopFlowModulesItemTimeoutType2",
+        Unset,
+    ] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
     summary: Union[Unset, str] = UNSET
     mock: Union[Unset, "WhileloopFlowModulesItemMock"] = UNSET
@@ -73,7 +85,9 @@ class WhileloopFlowModulesItem:
 
     def to_dict(self) -> Dict[str, Any]:
         from ..models.whileloop_flow_modules_item_sleep_type_0 import WhileloopFlowModulesItemSleepType0
+        from ..models.whileloop_flow_modules_item_sleep_type_1 import WhileloopFlowModulesItemSleepType1
         from ..models.whileloop_flow_modules_item_timeout_type_0 import WhileloopFlowModulesItemTimeoutType0
+        from ..models.whileloop_flow_modules_item_timeout_type_1 import WhileloopFlowModulesItemTimeoutType1
 
         id = self.id
         value = self.value
@@ -98,6 +112,11 @@ class WhileloopFlowModulesItem:
             if not isinstance(self.sleep, Unset):
                 sleep = self.sleep.to_dict()
 
+        elif isinstance(self.sleep, WhileloopFlowModulesItemSleepType1):
+            sleep = UNSET
+            if not isinstance(self.sleep, Unset):
+                sleep = self.sleep.to_dict()
+
         else:
             sleep = UNSET
             if not isinstance(self.sleep, Unset):
@@ -110,6 +129,11 @@ class WhileloopFlowModulesItem:
             timeout = UNSET
 
         elif isinstance(self.timeout, WhileloopFlowModulesItemTimeoutType0):
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
+        elif isinstance(self.timeout, WhileloopFlowModulesItemTimeoutType1):
             timeout = UNSET
             if not isinstance(self.timeout, Unset):
                 timeout = self.timeout.to_dict()
@@ -181,6 +205,7 @@ class WhileloopFlowModulesItem:
         from ..models.whileloop_flow_modules_item_skip_if import WhileloopFlowModulesItemSkipIf
         from ..models.whileloop_flow_modules_item_sleep_type_0 import WhileloopFlowModulesItemSleepType0
         from ..models.whileloop_flow_modules_item_sleep_type_1 import WhileloopFlowModulesItemSleepType1
+        from ..models.whileloop_flow_modules_item_sleep_type_2 import WhileloopFlowModulesItemSleepType2
         from ..models.whileloop_flow_modules_item_stop_after_all_iters_if import (
             WhileloopFlowModulesItemStopAfterAllItersIf,
         )
@@ -188,6 +213,7 @@ class WhileloopFlowModulesItem:
         from ..models.whileloop_flow_modules_item_suspend import WhileloopFlowModulesItemSuspend
         from ..models.whileloop_flow_modules_item_timeout_type_0 import WhileloopFlowModulesItemTimeoutType0
         from ..models.whileloop_flow_modules_item_timeout_type_1 import WhileloopFlowModulesItemTimeoutType1
+        from ..models.whileloop_flow_modules_item_timeout_type_2 import WhileloopFlowModulesItemTimeoutType2
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -217,7 +243,12 @@ class WhileloopFlowModulesItem:
 
         def _parse_sleep(
             data: object,
-        ) -> Union["WhileloopFlowModulesItemSleepType0", "WhileloopFlowModulesItemSleepType1", Unset]:
+        ) -> Union[
+            "WhileloopFlowModulesItemSleepType0",
+            "WhileloopFlowModulesItemSleepType1",
+            "WhileloopFlowModulesItemSleepType2",
+            Unset,
+        ]:
             if isinstance(data, Unset):
                 return data
             try:
@@ -233,16 +264,29 @@ class WhileloopFlowModulesItem:
                 return sleep_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _sleep_type_1 = data
+                sleep_type_1: Union[Unset, WhileloopFlowModulesItemSleepType1]
+                if isinstance(_sleep_type_1, Unset):
+                    sleep_type_1 = UNSET
+                else:
+                    sleep_type_1 = WhileloopFlowModulesItemSleepType1.from_dict(_sleep_type_1)
+
+                return sleep_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _sleep_type_1 = data
-            sleep_type_1: Union[Unset, WhileloopFlowModulesItemSleepType1]
-            if isinstance(_sleep_type_1, Unset):
-                sleep_type_1 = UNSET
+            _sleep_type_2 = data
+            sleep_type_2: Union[Unset, WhileloopFlowModulesItemSleepType2]
+            if isinstance(_sleep_type_2, Unset):
+                sleep_type_2 = UNSET
             else:
-                sleep_type_1 = WhileloopFlowModulesItemSleepType1.from_dict(_sleep_type_1)
+                sleep_type_2 = WhileloopFlowModulesItemSleepType2.from_dict(_sleep_type_2)
 
-            return sleep_type_1
+            return sleep_type_2
 
         sleep = _parse_sleep(d.pop("sleep", UNSET))
 
@@ -252,7 +296,12 @@ class WhileloopFlowModulesItem:
 
         def _parse_timeout(
             data: object,
-        ) -> Union["WhileloopFlowModulesItemTimeoutType0", "WhileloopFlowModulesItemTimeoutType1", Unset]:
+        ) -> Union[
+            "WhileloopFlowModulesItemTimeoutType0",
+            "WhileloopFlowModulesItemTimeoutType1",
+            "WhileloopFlowModulesItemTimeoutType2",
+            Unset,
+        ]:
             if isinstance(data, Unset):
                 return data
             try:
@@ -268,16 +317,29 @@ class WhileloopFlowModulesItem:
                 return timeout_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _timeout_type_1 = data
+                timeout_type_1: Union[Unset, WhileloopFlowModulesItemTimeoutType1]
+                if isinstance(_timeout_type_1, Unset):
+                    timeout_type_1 = UNSET
+                else:
+                    timeout_type_1 = WhileloopFlowModulesItemTimeoutType1.from_dict(_timeout_type_1)
+
+                return timeout_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _timeout_type_1 = data
-            timeout_type_1: Union[Unset, WhileloopFlowModulesItemTimeoutType1]
-            if isinstance(_timeout_type_1, Unset):
-                timeout_type_1 = UNSET
+            _timeout_type_2 = data
+            timeout_type_2: Union[Unset, WhileloopFlowModulesItemTimeoutType2]
+            if isinstance(_timeout_type_2, Unset):
+                timeout_type_2 = UNSET
             else:
-                timeout_type_1 = WhileloopFlowModulesItemTimeoutType1.from_dict(_timeout_type_1)
+                timeout_type_2 = WhileloopFlowModulesItemTimeoutType2.from_dict(_timeout_type_2)
 
-            return timeout_type_1
+            return timeout_type_2
 
         timeout = _parse_timeout(d.pop("timeout", UNSET))
 

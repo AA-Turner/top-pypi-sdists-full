@@ -2,6 +2,7 @@ import ast
 import io
 import pathlib
 import shutil
+import sys
 import tempfile
 import time
 import typing as t
@@ -404,6 +405,61 @@ def silent_traverse_code(
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         yield from traverse_code(path, raise_on_syntax_errors, set())
+
+
+def clear_local_modules(filepath: Path, root: Path) -> Set[str]:
+    """
+    Clear all local project modules from sys.modules to ensure fresh imports.
+
+    This is necessary because executor processes persist between executions,
+    and Python caches imported modules in sys.modules. When a dependency file
+    is modified, we need to ensure the next execution loads the fresh version
+    from disk rather than using the stale cached version.
+
+    Args:
+        filepath: The entrypoint file to traverse for dependencies.
+        root: The project root path.
+
+    Returns:
+        The set of module names that were cleared.
+    """
+    resolved_root = root.resolve()
+    modules_to_remove: Set[str] = set()
+
+    try:
+        dependencies = list(silent_traverse_code(filepath))
+    except Exception:
+        return modules_to_remove
+
+    for dep_path in dependencies:
+        try:
+            # Construct module name from path relative to project root
+            # Always resolve to handle symlinks consistently (e.g., /var -> /private/var on macOS)
+            if dep_path.is_absolute():
+                resolved = dep_path.resolve()
+            else:
+                resolved = (resolved_root / dep_path).resolve()
+
+            relative_path = resolved.relative_to(resolved_root)
+            if relative_path.suffix == ".py":
+                dotted_name = ".".join(relative_path.with_suffix("").parts)
+                modules_to_remove.add(dotted_name)
+
+                parts = relative_path.with_suffix("").parts
+                for i in range(1, len(parts)):
+                    parent_module = ".".join(parts[:i])
+                    modules_to_remove.add(parent_module)
+
+        except (ValueError, OSError):
+            continue
+
+    cleared = set()
+    for module_name in modules_to_remove:
+        if module_name in sys.modules:
+            del sys.modules[module_name]
+            cleared.add(module_name)
+
+    return cleared
 
 
 def traverse_code(

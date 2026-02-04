@@ -27,15 +27,14 @@ classifiers = [
   "Programming Language :: Python :: 3.14",
   "Framework :: Django",
   "Framework :: Django :: 4.2",
-  "Framework :: Django :: 5.0",
-  "Framework :: Django :: 5.1",
   "Framework :: Django :: 5.2",
+  "Framework :: Django :: 6.0",
   "Framework :: Wagtail",
   "Topic :: Internet :: WWW/HTTP :: Site Management",
 ]
 dependencies = [
   "Django>=4.2",
-  "django-modelcluster>=6.2.1,<7.0",
+  "django-modelcluster>=6.4.1,<7.0",
   "django-permissionedforms>=0.1,<1.0",
   "django-taggit>=5.0,<7",
   "django-treebeard>=4.5.1,<5.0",
@@ -50,7 +49,7 @@ dependencies = [
   "anyascii>=0.1.5",
   "telepath>=0.3.1,<1",
   "laces>=0.1,<0.2",
-  "django-tasks>=0.8,<0.10",
+  "django-tasks>=0.9,<0.12",
   "modelsearch>=1.1,<1.2",
 ]
 
@@ -97,6 +96,7 @@ docs = [
   "sphinx-autobuild>=0.6.0",
   "sphinx-wagtail-theme==6.5.0",
   "myst_parser==2.0.0",
+  "sphinx_llm>=0.2.1",
 ]
 
 [project.scripts]
@@ -108,6 +108,33 @@ ignore_path = ["_build", "docs/_build"]
 
 [tool.setuptools.packages.find]
 include = ["wagtail*"]
+
+
+[tool.setuptools.package-data]
+# https://setuptools.pypa.io/en/latest/userguide/datafiles.html
+
+"wagtail" = ["**/*"]
+"*" = [ ".dockerignore",]
+
+[tool.setuptools.data-files]
+"." = [
+  "AGENTS.md",
+  "CHANGELOG.txt",
+  "CODE_OF_CONDUCT.md",
+  "CONTRIBUTORS.md",
+  "SPONSORS.md",
+]
+
+[tool.setuptools.exclude-package-data]
+"wagtail" = [
+    "*.md",
+    "*.stories.js",
+    "*.stories.tsx",
+    "*.py[co]",
+    "static_src/**",
+    "**/static_src/**"
+]
+
 
 [tool.setuptools.dynamic]
 version = { attr = "wagtail.__version__" }

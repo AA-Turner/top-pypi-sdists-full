@@ -31,7 +31,11 @@ from boto3.resources.base import ResourceMeta, ServiceResource
 from boto3.resources.collection import ResourceCollection
 
 from .client import DynamoDBClient
-from .literals import MultiRegionConsistencyType, TableStatusType
+from .literals import (
+    GlobalTableSettingsReplicationModeType,
+    MultiRegionConsistencyType,
+    TableStatusType,
+)
 from .type_defs import (
     ArchivalSummaryTypeDef,
     AttributeDefinitionTypeDef,
@@ -164,6 +168,7 @@ class Table(ServiceResource):
     global_table_version: str
     replicas: list[ReplicaDescriptionTypeDef]
     global_table_witnesses: list[GlobalTableWitnessDescriptionTypeDef]
+    global_table_settings_replication_mode: GlobalTableSettingsReplicationModeType
     restore_summary: RestoreSummaryTypeDef
     sse_description: SSEDescriptionTypeDef
     archival_summary: ArchivalSummaryTypeDef

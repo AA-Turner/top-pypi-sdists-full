@@ -1,6 +1,6 @@
 from cycler import cycler
 
-PLOTHIST = {
+plothist = {
     # General Settings
     "figure.figsize": (6, 4),
     "figure.facecolor": "white",
@@ -46,6 +46,9 @@ PLOTHIST = {
     "axes.facecolor": "white",
     # "axes.edgecolor"       : .0,
     "axes.linewidth": 1,
+    "lines.linewidth": 1,
+    "patch.linewidth": 1,
+    "lines.markersize": 6,
     "axes.formatter.limits": (-4, 4),
     "axes.prop_cycle": cycler(
         "color",

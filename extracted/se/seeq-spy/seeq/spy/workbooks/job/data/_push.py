@@ -1,23 +1,31 @@
 from __future__ import annotations
 
 import os
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Union
 
 import pandas as pd
 
 from seeq import spy
 from seeq.base import util
 from seeq.spy import _common
-from seeq.spy import _login
 from seeq.spy._errors import *
 from seeq.spy._session import Session
 from seeq.spy._status import Status
 
 
-@Status.handle_keyboard_interrupt()
-def push(job_folder, *, resume: bool = True, replace: Optional[dict] = None,
-         datasource: str = None, errors: Optional[str] = None, quiet: Optional[bool] = None,
-         status: Optional[Status] = None, session: Optional[Session] = None) -> pd.DataFrame:
+@Status.top_level_spy_function()
+def push(
+    job_folder: Union[str, Path],
+    *,
+    resume: bool = True,
+    replace: Optional[dict] = None,
+    datasource: Optional[str] = None,
+    errors: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None
+) -> pd.DataFrame:
     """
     Pulls all the data that is used by the workbooks according to the Data
     Usages sections of the data_usage.json file in the job folder.
@@ -75,19 +83,6 @@ def push(job_folder, *, resume: bool = True, replace: Optional[dict] = None,
         Seeq servers at the same time or with different credentials.
 
     """
-    _common.validate_argument_types([
-        (job_folder, 'job_folder', str),
-        (resume, 'resume', bool),
-        (replace, 'replace', dict),
-        (datasource, 'datasource', str),
-        (errors, 'errors', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session)
-    ])
-
-    _login.validate_login(session, status)
-
     data_results = load_data_results(job_folder, 'push')
     item_map = spy.workbooks.job._push.load_item_map(job_folder)
     all_usages = spy.workbooks.job.data._pull.load_data_usage(job_folder)

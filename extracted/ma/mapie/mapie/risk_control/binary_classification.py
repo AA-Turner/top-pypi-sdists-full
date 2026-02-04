@@ -6,16 +6,31 @@ from typing import Any, Callable, List, Literal, Optional, Tuple, Union
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
+from mapie.utils import check_valid_ltt_params_index
+
 from .methods import ltt_procedure
 from .risks import (
     BinaryClassificationRisk,
+    abstention_rate,
     accuracy,
     false_positive_rate,
     precision,
+    negative_predictive_value,
+    positive_predictive_value,
+    predicted_positive_fraction,
     recall,
 )
 
-Risk_str = Literal["precision", "recall", "accuracy", "fpr"]
+Risk_str = Literal[
+    "precision",
+    "recall",
+    "accuracy",
+    "fpr",
+    "predicted_positive_fraction",
+    "positive_predictive_value",
+    "negative_predictive_value",
+    "abstention_rate",
+]
 Risk = Union[
     BinaryClassificationRisk,
     Risk_str,
@@ -52,7 +67,7 @@ class BinaryClassificationController:
         Its output signature must be of shape (len(X), 2).
 
         Or, in the general case of multi-dimensional parameters (thresholds),
-        a function that takes (X, *params) and outputs 0 or 1. This can be useful to e.g.,
+        a function that takes (X, \\*params) and outputs 0 or 1. This can be useful to e.g.,
         ensemble multiple binary classifiers with different thresholds for each classifier.
         In that case, `predict_params` must be provided.
 
@@ -61,8 +76,8 @@ class BinaryClassificationController:
         Valid options:
 
         - An existing risk defined in `mapie.risk_control` accessible through
-        its string equivalent: "precision", "recall", "accuracy", or
-        "fpr" for false positive rate.
+          its string equivalent: "precision", "recall", "accuracy",
+          "fpr" for false positive rate, or "predicted_positive_fraction".
         - A custom instance of BinaryClassificationRisk object
 
         Can be a list of risks in the case of multi risk control.
@@ -84,10 +99,11 @@ class BinaryClassificationController:
         Valid options:
 
         - "auto" (default). For mono risk defined in mapie.risk_control, an automatic choice is made.
-        For multi risk, we use the first risk in the list.
+          For multi risk, we use the first risk in the list.
         - An existing risk defined in `mapie.risk_control` accessible through
-        its string equivalent: "precision", "recall", "accuracy", or
-        "fpr" for false positive rate.
+
+          its string equivalent: "precision", "recall", "accuracy",
+          "fpr" for false positive rate, or "predicted_positive_fraction".
         - A custom instance of BinaryClassificationRisk object
 
     list_predict_params : NDArray, default=np.linspace(0, 0.99, 100)
@@ -108,6 +124,10 @@ class BinaryClassificationController:
         The best threshold that control the risk (or performance). It is a tuple if multi-dimensional
         parameters are used.
         Use the calibrate method to compute it.
+
+    p_values : NDArray
+        P-values associated with each tested parameter in `list_predict_params`.
+        In the multi-risk setting, the value corresponds to the maximum over the tested risks.
 
     Examples
     --------
@@ -161,6 +181,10 @@ class BinaryClassificationController:
         "recall": recall,
         "accuracy": accuracy,
         "fpr": false_positive_rate,
+        "predicted_positive_fraction": predicted_positive_fraction,
+        "positive_predictive_value": positive_predictive_value,
+        "negative_predictive_value": negative_predictive_value,
+        "abstention_rate": abstention_rate,
     }
 
     def __init__(
@@ -206,6 +230,7 @@ class BinaryClassificationController:
 
         self.valid_predict_params: NDArray = np.array([])
         self.best_predict_param: Optional[Union[float, Tuple[float, ...]]] = None
+        self.p_values: Optional[NDArray] = None
 
     # All subfunctions are unit-tested. To avoid having to write
     # tests just to make sure those subfunctions are called,
@@ -240,30 +265,32 @@ class BinaryClassificationController:
         risk_values, eff_sample_sizes = self._get_risk_values_and_eff_sample_sizes(
             y_calibrate_, predictions_per_param, self._risk
         )
-        valid_params_index = ltt_procedure(
+        (valid_index, p_values) = ltt_procedure(
             risk_values,
             np.expand_dims(self._alpha, axis=1),
             self._delta,
             eff_sample_sizes,
             True,
-        )[0]
+        )
+        valid_params_index = valid_index[0]
 
         self.valid_predict_params = self._predict_params[valid_params_index]
 
+        check_valid_ltt_params_index(
+            predict_params=self._predict_params, valid_index=self.valid_predict_params
+        )
+
         if len(self.valid_predict_params) == 0:
-            self._set_risk_not_controlled()
+            self.best_predict_param = None
         else:
-            if len(self.valid_predict_params) == len(self._predict_params):
-                warnings.warn(
-                    "All provided predict_params control the risk at the given "
-                    "target and confidence levels. "
-                    "You may want to use more difficult target levels.",
-                )
             self._set_best_predict_param(
                 y_calibrate_,
                 predictions_per_param,
                 valid_params_index,
             )
+
+        self.p_values = p_values
+
         return self
 
     def predict(self, X_test: ArrayLike) -> NDArray:
@@ -316,19 +343,19 @@ class BinaryClassificationController:
                         "risk must be one of the risks defined in mapie.risk_control"
                         "(e.g. precision, accuracy, false_positive_rate)."
                     )
-        else:
-            if isinstance(best_predict_param_choice, str):
-                return BinaryClassificationController.risk_choice_map[
-                    best_predict_param_choice
-                ]
+        if isinstance(best_predict_param_choice, str):
+            return BinaryClassificationController.risk_choice_map[
+                best_predict_param_choice
+            ]
+        if isinstance(best_predict_param_choice, BinaryClassificationRisk):
             return best_predict_param_choice
 
-    def _set_risk_not_controlled(self) -> None:
-        self.best_predict_param = None
-        warnings.warn(
-            "No predict parameters were found to control the risk at the given "
-            "target and confidence levels. "
-            "Try using a larger calibration set or a better model.",
+        raise TypeError(
+            f"Got object of type {type(best_predict_param_choice)}. "
+            "best_predict_param_choice must be either 'auto', "
+            "a BinaryClassificationRisk instance, "
+            "or a risk name (str) among those defined in mapie.risk_control "
+            "(e.g. 'precision', 'accuracy', 'false_positive_rate')."
         )
 
     def _set_best_predict_param(
@@ -383,12 +410,11 @@ class BinaryClassificationController:
         n_params = len(params)
         n_samples = len(np.asarray(X))
         if self.is_multi_dimensional_param:
-            y_pred = np.empty((n_params, n_samples))
+            y_pred: NDArray[np.float_] = np.empty((n_params, n_samples), dtype=float)
             for i in range(n_params):
                 y_pred[i] = self._predict_function(X, *params[i])
             if is_calibration_step:
                 self._check_predictions(y_pred)
-            y_pred = y_pred.astype(int)
         else:
             try:
                 predictions_proba = self._predict_function(X)[:, 1]
@@ -494,11 +520,15 @@ class BinaryClassificationController:
 
         if (
             self.is_multi_dimensional_param
-            and not np.logical_or(
-                predictions_per_param == 0, predictions_per_param == 1
+            and not np.logical_or.reduce(
+                (
+                    predictions_per_param == 0,
+                    predictions_per_param == 1,
+                    np.isnan(predictions_per_param),
+                )
             ).all()
         ):
             raise ValueError(
                 "The provided predict_function with multi-dimensional "
-                "parameters must return binary predictions (0 or 1)."
+                "parameters must return binary predictions (0, 1, np.nan)."
             )

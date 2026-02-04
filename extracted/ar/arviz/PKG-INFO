@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arviz
-Version: 0.23.1
+Version: 0.23.3
 Summary: Exploratory analysis of Bayesian models
 Home-page: http://github.com/arviz-devs/arviz
 Author: ArviZ Developers
@@ -32,6 +32,7 @@ Requires-Dist: h5netcdf>=1.0.2
 Requires-Dist: h5py
 Requires-Dist: typing_extensions>=4.1.0
 Requires-Dist: xarray-einstats>=0.3
+Requires-Dist: platformdirs
 Provides-Extra: all
 Requires-Dist: numba; extra == "all"
 Requires-Dist: netcdf4; extra == "all"

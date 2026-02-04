@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wfdb
-Version: 4.3.0
+Version: 4.3.1
 Summary: The WFDB Python package: tools for reading, writing, and processing physiologic signals and annotations.
 Project-URL: homepage, https://github.com/MIT-LCP/wfdb-python/
 Project-URL: repository, https://github.com/MIT-LCP/wfdb-python/

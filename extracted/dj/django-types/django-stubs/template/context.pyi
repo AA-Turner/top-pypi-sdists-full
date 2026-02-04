@@ -1,12 +1,13 @@
 from collections.abc import Callable, Iterable, Iterator
-from typing import Any
+from types import TracebackType
+from typing import Any, TypeAlias
 
 from django.http.request import HttpRequest
 from django.template.base import Node, Origin, Template
 from django.template.defaulttags import IfChangedNode
 from django.template.loader_tags import IncludeNode
 
-_ContextValues = dict[str, Any] | Context
+_ContextValues: TypeAlias = dict[str, Any] | Context
 
 class ContextPopException(Exception): ...
 
@@ -14,7 +15,12 @@ class ContextDict(dict[Any, Any]):
     context: BaseContext = ...
     def __init__(self, context: BaseContext, *args: Any, **kwargs: Any) -> None: ...
     def __enter__(self) -> ContextDict: ...
-    def __exit__(self, *args: Any, **kwargs: Any) -> None: ...
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None: ...
 
 class BaseContext(Iterable[Any]):
     def __init__(self, dict_: Any = ...) -> None: ...

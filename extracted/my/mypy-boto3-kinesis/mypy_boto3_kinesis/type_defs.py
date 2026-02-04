@@ -3,7 +3,7 @@ Type annotations for kinesis service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -151,6 +151,7 @@ class AddTagsToStreamInputTypeDef(TypedDict):
     Tags: Mapping[str, str]
     StreamName: NotRequired[str]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
@@ -184,22 +185,26 @@ class DecreaseStreamRetentionPeriodInputTypeDef(TypedDict):
     RetentionPeriodHours: int
     StreamName: NotRequired[str]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class DeleteResourcePolicyInputTypeDef(TypedDict):
     ResourceARN: str
+    StreamId: NotRequired[str]
 
 
 class DeleteStreamInputTypeDef(TypedDict):
     StreamName: NotRequired[str]
     EnforceConsumerDeletion: NotRequired[bool]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class DeregisterStreamConsumerInputTypeDef(TypedDict):
     StreamARN: NotRequired[str]
     ConsumerName: NotRequired[str]
     ConsumerARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class MinimumThroughputBillingCommitmentOutputTypeDef(TypedDict):
@@ -221,6 +226,7 @@ class DescribeStreamConsumerInputTypeDef(TypedDict):
     StreamARN: NotRequired[str]
     ConsumerName: NotRequired[str]
     ConsumerARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -234,6 +240,7 @@ class DescribeStreamInputTypeDef(TypedDict):
     Limit: NotRequired[int]
     ExclusiveStartShardId: NotRequired[str]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class WaiterConfigTypeDef(TypedDict):
@@ -244,18 +251,21 @@ class WaiterConfigTypeDef(TypedDict):
 class DescribeStreamSummaryInputTypeDef(TypedDict):
     StreamName: NotRequired[str]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class DisableEnhancedMonitoringInputTypeDef(TypedDict):
     ShardLevelMetrics: Sequence[MetricsNameType]
     StreamName: NotRequired[str]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class EnableEnhancedMonitoringInputTypeDef(TypedDict):
     ShardLevelMetrics: Sequence[MetricsNameType]
     StreamName: NotRequired[str]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class EnhancedMetricsTypeDef(TypedDict):
@@ -266,6 +276,7 @@ class GetRecordsInputTypeDef(TypedDict):
     ShardIterator: str
     Limit: NotRequired[int]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class RecordTypeDef(TypedDict):
@@ -278,6 +289,7 @@ class RecordTypeDef(TypedDict):
 
 class GetResourcePolicyInputTypeDef(TypedDict):
     ResourceARN: str
+    StreamId: NotRequired[str]
 
 
 TimestampTypeDef = Union[datetime, str]
@@ -287,6 +299,7 @@ class IncreaseStreamRetentionPeriodInputTypeDef(TypedDict):
     RetentionPeriodHours: int
     StreamName: NotRequired[str]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class InternalFailureExceptionTypeDef(TypedDict):
@@ -325,6 +338,7 @@ class ListStreamsInputTypeDef(TypedDict):
 
 class ListTagsForResourceInputTypeDef(TypedDict):
     ResourceARN: str
+    StreamId: NotRequired[str]
 
 
 class TagTypeDef(TypedDict):
@@ -337,6 +351,7 @@ class ListTagsForStreamInputTypeDef(TypedDict):
     ExclusiveStartTagKey: NotRequired[str]
     Limit: NotRequired[int]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class MergeShardsInputTypeDef(TypedDict):
@@ -344,6 +359,7 @@ class MergeShardsInputTypeDef(TypedDict):
     AdjacentShardToMerge: str
     StreamName: NotRequired[str]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class MinimumThroughputBillingCommitmentInputTypeDef(TypedDict):
@@ -360,11 +376,13 @@ class PutRecordsResultEntryTypeDef(TypedDict):
 class PutResourcePolicyInputTypeDef(TypedDict):
     ResourceARN: str
     Policy: str
+    StreamId: NotRequired[str]
 
 
 class RegisterStreamConsumerInputTypeDef(TypedDict):
     StreamARN: str
     ConsumerName: str
+    StreamId: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
 
 
@@ -372,6 +390,7 @@ class RemoveTagsFromStreamInputTypeDef(TypedDict):
     TagKeys: Sequence[str]
     StreamName: NotRequired[str]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class ResourceInUseExceptionTypeDef(TypedDict):
@@ -392,6 +411,7 @@ class SplitShardInputTypeDef(TypedDict):
     NewStartingHashKey: str
     StreamName: NotRequired[str]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class StartStreamEncryptionInputTypeDef(TypedDict):
@@ -399,6 +419,7 @@ class StartStreamEncryptionInputTypeDef(TypedDict):
     KeyId: str
     StreamName: NotRequired[str]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class StopStreamEncryptionInputTypeDef(TypedDict):
@@ -406,6 +427,7 @@ class StopStreamEncryptionInputTypeDef(TypedDict):
     KeyId: str
     StreamName: NotRequired[str]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class WarmThroughputObjectTypeDef(TypedDict):
@@ -416,16 +438,19 @@ class WarmThroughputObjectTypeDef(TypedDict):
 class TagResourceInputTypeDef(TypedDict):
     Tags: Mapping[str, str]
     ResourceARN: str
+    StreamId: NotRequired[str]
 
 
 class UntagResourceInputTypeDef(TypedDict):
     TagKeys: Sequence[str]
     ResourceARN: str
+    StreamId: NotRequired[str]
 
 
 class UpdateMaxRecordSizeInputTypeDef(TypedDict):
     MaxRecordSizeInKiB: int
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class UpdateShardCountInputTypeDef(TypedDict):
@@ -433,12 +458,14 @@ class UpdateShardCountInputTypeDef(TypedDict):
     ScalingType: Literal["UNIFORM_SCALING"]
     StreamName: NotRequired[str]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class UpdateStreamWarmThroughputInputTypeDef(TypedDict):
     WarmThroughputMiBps: int
     StreamARN: NotRequired[str]
     StreamName: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class PutRecordInputTypeDef(TypedDict):
@@ -448,6 +475,7 @@ class PutRecordInputTypeDef(TypedDict):
     ExplicitHashKey: NotRequired[str]
     SequenceNumberForOrdering: NotRequired[str]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class PutRecordsRequestEntryTypeDef(TypedDict):
@@ -482,6 +510,7 @@ class StreamSummaryTypeDef(TypedDict):
 class UpdateStreamModeInputTypeDef(TypedDict):
     StreamARN: str
     StreamModeDetails: StreamModeDetailsTypeDef
+    StreamId: NotRequired[str]
     WarmThroughputMiBps: NotRequired[int]
 
 
@@ -559,6 +588,7 @@ class UpdateShardCountOutputTypeDef(TypedDict):
 class DescribeStreamInputPaginateTypeDef(TypedDict):
     StreamName: NotRequired[str]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -572,6 +602,7 @@ class DescribeStreamInputWaitExtraTypeDef(TypedDict):
     Limit: NotRequired[int]
     ExclusiveStartShardId: NotRequired[str]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 
@@ -580,6 +611,7 @@ class DescribeStreamInputWaitTypeDef(TypedDict):
     Limit: NotRequired[int]
     ExclusiveStartShardId: NotRequired[str]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 
@@ -590,11 +622,13 @@ class GetShardIteratorInputTypeDef(TypedDict):
     StartingSequenceNumber: NotRequired[str]
     Timestamp: NotRequired[TimestampTypeDef]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class ListStreamConsumersInputPaginateTypeDef(TypedDict):
     StreamARN: str
     StreamCreationTimestamp: NotRequired[TimestampTypeDef]
+    StreamId: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -603,6 +637,7 @@ class ListStreamConsumersInputTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
     StreamCreationTimestamp: NotRequired[TimestampTypeDef]
+    StreamId: NotRequired[str]
 
 
 ShardFilterTypeDef = TypedDict(
@@ -661,6 +696,7 @@ class StreamDescriptionSummaryTypeDef(TypedDict):
     StreamCreationTimestamp: datetime
     EnhancedMonitoring: list[EnhancedMetricsTypeDef]
     OpenShardCount: int
+    StreamId: NotRequired[str]
     StreamModeDetails: NotRequired[StreamModeDetailsTypeDef]
     EncryptionType: NotRequired[EncryptionTypeType]
     KeyId: NotRequired[str]
@@ -680,6 +716,7 @@ class PutRecordsInputTypeDef(TypedDict):
     Records: Sequence[PutRecordsRequestEntryTypeDef]
     StreamName: NotRequired[str]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class GetRecordsOutputTypeDef(TypedDict):
@@ -711,6 +748,7 @@ class ListShardsInputPaginateTypeDef(TypedDict):
     StreamCreationTimestamp: NotRequired[TimestampTypeDef]
     ShardFilter: NotRequired[ShardFilterTypeDef]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -722,12 +760,14 @@ class ListShardsInputTypeDef(TypedDict):
     StreamCreationTimestamp: NotRequired[TimestampTypeDef]
     ShardFilter: NotRequired[ShardFilterTypeDef]
     StreamARN: NotRequired[str]
+    StreamId: NotRequired[str]
 
 
 class SubscribeToShardInputTypeDef(TypedDict):
     ConsumerARN: str
     ShardId: str
     StartingPosition: StartingPositionTypeDef
+    StreamId: NotRequired[str]
 
 
 class ListShardsOutputTypeDef(TypedDict):

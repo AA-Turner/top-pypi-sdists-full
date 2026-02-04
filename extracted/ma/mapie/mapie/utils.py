@@ -1,9 +1,14 @@
+import copy
 import logging
 import warnings
+from collections.abc import Iterable as IterableType
+from decimal import Decimal
 from inspect import signature
-from typing import Any, Iterable, Optional, Tuple, Union, cast
+from math import isclose
+from typing import Any, Iterable, List, Optional, Tuple, Union, cast
 
 import numpy as np
+from numpy.typing import ArrayLike, NDArray
 from sklearn.base import ClassifierMixin, RegressorMixin
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import (
@@ -17,18 +22,7 @@ from sklearn.model_selection import (
 from sklearn.pipeline import Pipeline
 from sklearn.utils import _safe_indexing
 from sklearn.utils.multiclass import type_of_target
-from sklearn.utils.validation import (
-    _check_sample_weight,
-    _num_features,
-    check_is_fitted,
-    column_or_1d,
-)
-
-from numpy.typing import ArrayLike, NDArray
-import copy
-from collections.abc import Iterable as IterableType
-from decimal import Decimal
-from math import isclose
+from sklearn.utils.validation import _check_sample_weight, _num_features, column_or_1d
 
 
 # This function is the only public utility of MAPIE as of v1 release
@@ -287,12 +281,13 @@ def _fit_estimator(
     --------
     >>> import numpy as np
     >>> from sklearn.linear_model import LinearRegression
-    >>> from sklearn.utils.validation import check_is_fitted
+    >>> from mapie.utils import check_sklearn_user_model_is_fitted
     >>> X = np.array([[0], [1], [2], [3], [4], [5]])
     >>> y = np.array([5, 7, 9, 11, 13, 15])
     >>> estimator = LinearRegression()
     >>> estimator = _fit_estimator(estimator, X, y)
-    >>> check_is_fitted(estimator)
+    >>> check_sklearn_user_model_is_fitted(estimator)
+    True
     """
     fit_parameters = signature(estimator.fit).parameters
     supports_sw = "sample_weight" in fit_parameters
@@ -400,17 +395,6 @@ def _check_no_agg_cv(
 
     no_agg_cv_array: list
         List of all non-aggregated cv methods.
-
-    y: Optional[ArrayLike] of shape (n_samples,)
-        Input labels.
-
-        By default ``None``.
-
-    groups: Optional[ArrayLike] of shape (n_samples,)
-        Group labels for the samples used while splitting the dataset into
-        train/test set.
-
-        By default ``None``.
 
     y: Optional[ArrayLike] of shape (n_samples,)
         Input labels.
@@ -575,29 +559,6 @@ def _check_gamma(gamma: float) -> None:
         raise ValueError("Invalid gamma. Allowed values are between 0 and 1.")
 
 
-def _get_effective_calibration_samples(scores: NDArray, sym: bool):
-    """
-    Calculates the effective number of calibration samples.
-
-    Parameters
-    ----------
-    scores: NDArray
-        An array of scores.
-
-    sym: bool
-        A boolean indicating whether the scores are symmetric.
-
-    Returns
-    -------
-    n: int
-        The effective number of calibration samples.
-    """
-    n: int = np.sum(~np.isnan(scores))
-    if not sym:
-        n //= 2
-    return n
-
-
 def _check_alpha_and_n_samples(
     alphas: Union[Iterable[float], float],
     n: int,
@@ -744,55 +705,6 @@ def _check_lower_upper_bounds(
         logging.basicConfig(level=initial_logger_level)
 
 
-def _check_defined_variables_predict_cqr(
-    ensemble: bool,
-    alpha: Union[float, Iterable[float], None],
-) -> None:
-    """
-    Check that the parameters defined for the predict method
-    of ``_MapieQuantileRegressor`` are correct.
-
-    Parameters
-    ----------
-    ensemble: bool
-        Ensemble has not been defined in predict and therefore should
-        will not have any effects in this method.
-    alpha: Optional[Union[float, Iterable[float]]]
-        For ``MapieQuantileRegresor`` the alpha has to be defined
-        directly in initial arguments of the class.
-
-    Raises
-    ------
-    Warning
-        If the ensemble value is defined in the predict function
-        of ``_MapieQuantileRegressor``.
-    Warning
-        If the alpha value is defined in the predict function
-        of ``_MapieQuantileRegressor``.
-
-    Examples
-    --------
-    >>> import warnings
-    >>> warnings.filterwarnings("error")
-    >>> from mapie.utils import _check_defined_variables_predict_cqr
-    >>> try:
-    ...     _check_defined_variables_predict_cqr(True, None)
-    ... except Exception as exception:
-    ...     print(exception)
-    ...
-    WARNING: ensemble is not utilized in ``_MapieQuantileRegressor``.
-    """
-    if ensemble is True:
-        warnings.warn(
-            "WARNING: ensemble is not utilized in ``_MapieQuantileRegressor``."
-        )
-    if alpha is not None:
-        warnings.warn(
-            "WARNING: Alpha should not be specified in the prediction method\n"
-            + "with conformalized quantile regression."
-        )
-
-
 def _check_estimator_fit_predict(
     estimator: Union[RegressorMixin, ClassifierMixin],
 ) -> None:
@@ -884,83 +796,6 @@ def _compute_quantiles(vector: NDArray, alpha: NDArray) -> NDArray:
     return quantiles_
 
 
-def _get_calib_set(
-    X: ArrayLike,
-    y: ArrayLike,
-    sample_weight: Optional[NDArray] = None,
-    calib_size: Optional[float] = 0.3,
-    random_state: Optional[Union[int, np.random.RandomState]] = None,
-    shuffle: Optional[bool] = True,
-    stratify: Optional[ArrayLike] = None,
-) -> Tuple[
-    ArrayLike, ArrayLike, ArrayLike, ArrayLike, Optional[NDArray], Optional[NDArray]
-]:
-    """
-    Split the dataset into training and calibration sets.
-
-    Parameters
-    ----------
-    Same definition of parameters as for the ``fit`` method.
-
-    Returns
-    -------
-    Tuple[
-        ArrayLike, ArrayLike, ArrayLike, ArrayLike,
-        Optional[NDArray], Optional[NDArray]
-    ]
-    - [0]: ArrayLike of shape (n_samples_*(1-calib_size), n_features)
-        X_train
-    - [1]: ArrayLike of shape (n_samples_*(1-calib_size),)
-        y_train
-    - [2]: ArrayLike of shape (n_samples_*calib_size, n_features)
-        X_calib
-    - [3]: ArrayLike of shape (n_samples_*calib_size,)
-        y_calib
-    - [4]: Optional[NDArray] of shape (n_samples_*(1-calib_size),)
-        sample_weight_train
-    - [5]: Optional[NDArray] of shape (n_samples_*calib_size,)
-        sample_weight_calib
-    """
-    if sample_weight is None:
-        (X_train, X_calib, y_train, y_calib) = train_test_split(
-            X,
-            y,
-            test_size=calib_size,
-            random_state=random_state,
-            shuffle=shuffle,
-            stratify=stratify,
-        )
-        sample_weight_train = sample_weight
-        sample_weight_calib = None
-    else:
-        (
-            X_train,
-            X_calib,
-            y_train,
-            y_calib,
-            sample_weight_train,
-            sample_weight_calib,
-        ) = train_test_split(
-            X,
-            y,
-            sample_weight,
-            test_size=calib_size,
-            random_state=random_state,
-            shuffle=shuffle,
-            stratify=stratify,
-        )
-    X_train, X_calib = cast(ArrayLike, X_train), cast(ArrayLike, X_calib)
-    y_train, y_calib = cast(ArrayLike, y_train), cast(ArrayLike, y_calib)
-    return (
-        X_train,
-        y_train,
-        X_calib,
-        y_calib,
-        sample_weight_train,
-        sample_weight_calib,
-    )
-
-
 def _check_estimator_classification(
     X: ArrayLike,
     y: ArrayLike,
@@ -1012,13 +847,8 @@ def _check_estimator_classification(
             "predict, and predict_proba methods."
         )
     if cv == "prefit":
-        check_is_fitted(est)
-        if not hasattr(est, "classes_"):
-            raise AttributeError(
-                "Invalid classifier. "
-                "Fitted classifier does not contain "
-                "'classes_' attribute."
-            )
+        check_sklearn_user_model_is_fitted(est)
+
     return estimator
 
 
@@ -1049,89 +879,6 @@ def check_proba_normalized(y_pred_proba: NDArray, axis: int = -1) -> NDArray:
         rtol=1e-5,
     )
     return y_pred_proba.astype(np.float64)
-
-
-def _get_binning_groups(
-    y_score: NDArray,
-    num_bins: int,
-    strategy: str,
-) -> NDArray:
-    """
-    Parameters
-    ----------
-    y_score : NDArray of shape (n_samples,)
-        The scores given from the calibrator.
-    num_bins : int
-        Number of bins to make the split in the y_score.
-    strategy : string
-        The splitting strategy to split y_scores into different bins.
-    Returns
-    -------
-    NDArray of shape (num_bins,)
-        An array of all the splitting points for a new bin.
-    """
-    bins = None
-    if strategy == "quantile":
-        quantiles = np.linspace(0, 1, num_bins)
-        bins = np.percentile(y_score, quantiles * 100)
-    elif strategy == "uniform":
-        bins = np.linspace(0.0, 1.0, num_bins)
-    else:
-        bin_groups = np.array_split(y_score, num_bins)
-        bins = np.sort(
-            np.array([bin_group.max() for bin_group in bin_groups[:-1]] + [np.inf])
-        )
-    return bins
-
-
-def _calc_bins(
-    y_true: NDArray,
-    y_score: NDArray,
-    num_bins: int,
-    strategy: str,
-) -> Union[NDArray, NDArray, NDArray, NDArray]:
-    """
-    For each bins, calculate the accuracy, average confidence and size.
-    Parameters
-    ----------
-    y_true: NDArray of shape (n_samples,)
-        The "true" values, target for the calibrator.
-    y_score: NDArray of shape (n_samples,)
-        The scores given from the calibrator.
-    num_bins: int
-        Number of bins to make the split in the y_score.
-    strategy: str
-        The way of splitting the predictions into different bins.
-    Returns
-    -------
-    Union[NDArray, NDArray, NDArray, NDArray]
-    - [0]: NDArray of shape (num_bins,)
-    An array of all the splitting points for a new bin.
-    - [1]: NDArray of shape (num_bins,)
-    An array of the average accuracy in each of the bins.
-    - [2]: NDArray of shape (num_bins,)
-    An array of the average confidence in each of the bins.
-    - [3]: NDArray of shape (num_bins,)
-    An array of the number of observations in each of the bins.
-    """
-    bins = _get_binning_groups(y_score, num_bins, strategy)
-    binned = np.digitize(y_score, bins, right=True)
-    bin_accs = np.zeros(num_bins)
-    bin_confs = np.zeros(num_bins)
-    bin_sizes = np.zeros(num_bins)
-
-    for bin in range(num_bins):
-        bin_sizes[bin] = len(y_score[binned == bin])
-        if bin_sizes[bin] > 0:
-            bin_accs[bin] = np.divide(
-                np.sum(y_true[binned == bin]),
-                bin_sizes[bin],
-            )
-            bin_confs[bin] = np.divide(
-                np.sum(y_score[binned == bin]),
-                bin_sizes[bin],
-            )
-    return bins, bin_accs, bin_confs, bin_sizes  # type: ignore
 
 
 def _check_split_strategy(strategy: Optional[str]) -> str:
@@ -1226,32 +973,6 @@ def _check_binary_zero_one(y_true: ArrayLike) -> NDArray:
             return y_true
     else:
         raise ValueError("Please provide y_true as a binary array.")
-
-
-def _fix_number_of_classes(
-    n_classes_: int, n_classes_training: NDArray, y_proba: NDArray
-) -> NDArray:
-    """
-    Fix shape of y_proba of validation set if number of classes
-    of the training set used for cross-validation is different than
-    number of classes of the original dataset y.
-
-    Parameters
-    ----------
-    n_classes_training: NDArray
-        Classes of the training set.
-    y_proba: NDArray
-        Probabilities of the validation set.
-
-    Returns
-    -------
-    NDArray
-        Probabilities with the right number of classes.
-    """
-    y_pred_full = np.zeros(shape=(len(y_proba), n_classes_))
-    y_index = np.tile(n_classes_training, (len(y_proba), 1))
-    np.put_along_axis(y_pred_full, y_index, y_proba, axis=1)
-    return y_pred_full
 
 
 def _check_array_shape_classification(y_true: NDArray, y_pred_set: NDArray) -> NDArray:
@@ -1529,6 +1250,65 @@ def _check_predict_params(
             )
 
 
+def check_valid_ltt_params_index(
+    predict_params: NDArray,
+    valid_index: Union[List[List[Any]], NDArray],
+    alpha: Optional[NDArray] = None,
+) -> None:
+    """
+    Check that valid indices returned by the LTT procedure are not empty
+    and issue warnings if needed.
+
+    This function is generic and can be used for:
+    - BinaryClassificationController (simple list of valid indices)
+    - MultiLabelClassificationController (list of lists of valid indices, one per alpha)
+
+    Parameters
+    ----------
+    predict_params : NDArray
+        Array of tested thresholds / parameters.
+    valid_index : Union[List[List[Any]], NDArray]
+        List of valid indices returned by LTT.
+        - For multi-alpha cases, it should be a list of lists.
+        - For binary classification, it is a simple list of indices.
+    alpha : Optional[NDArray], default=None
+        Array of alpha values corresponding to each level in multi-level classification.
+        If None, alpha is omitted from the warning message.
+
+    Warnings
+    --------
+    - If a sub-list in valid_index is empty, a warning is issued.
+      If alpha is provided, it is included in the message.
+    - For a simple list, if all predict_params are valid, a warning suggests
+      choosing more difficult target levels.
+    """
+    warning_msg = (
+        "No predict parameters were found to control the risk at the "
+        "given target and confidence levels. Try using a larger calibration set or "
+        "a better model or less strict target and confidence levels."
+    )
+    if len(valid_index) > 0 and isinstance(valid_index[0], list):
+        for i, idx_list in enumerate(valid_index):
+            if idx_list == []:
+                warnings.warn(
+                    warning_msg
+                    + (
+                        f" The corresponding alpha={alpha[i]}"
+                        if alpha is not None
+                        else ""
+                    )
+                )
+    else:
+        if len(valid_index) == 0:
+            warnings.warn(warning_msg)
+        elif len(valid_index) == len(predict_params):
+            warnings.warn(
+                "All provided predict_params control the risk at the given "
+                "target and confidence levels. "
+                "You may want to use more difficult target levels."
+            )
+
+
 def _transform_confidence_level_to_alpha(
     confidence_level: float,
 ) -> float:
@@ -1637,3 +1417,65 @@ def _raise_error_if_fit_called_in_prefit_mode(
             "The fit method must be skipped when the prefit parameter is set to True. "
             "Use the conformalize method directly after instanciation."
         )
+
+
+class NotFittedError(ValueError):
+    pass
+
+
+def check_is_fitted(obj):
+    """Check that .is_fitted property is True"""
+    if not getattr(obj, "is_fitted", False):
+        raise NotFittedError(f"{obj.__class__.__name__} is not fitted yet. ")
+
+
+FIT_INDICATORS = [
+    "n_features_in_",
+    "classes_",
+    "coef_",
+    "feature_names_in_",
+    "tree_",
+    "estimators_",
+    "fitted_",
+]
+
+
+def check_sklearn_user_model_is_fitted(estimator):
+    """
+    Check whether a user-provided estimator is fitted.
+
+    Logic:
+    1. Raise AttributeError for classifiers missing 'classes_'.
+    2. Raise warning if no typical fit-related attributes are present.
+    3. If `n_features_in_` exists, try a minimal predict-probe.
+    """
+    if isinstance(estimator, ClassifierMixin) and not hasattr(estimator, "classes_"):
+        raise AttributeError(
+            "Invalid classifier. "
+            "Fitted classifier does not contain "
+            "'classes_' attribute."
+        )
+
+    present_attrs = [attr for attr in FIT_INDICATORS if hasattr(estimator, attr)]
+
+    if not present_attrs:
+        warnings.warn(
+            "Estimator does not appear fitted. "
+            f"At least one of the expected attributes is missing in : {FIT_INDICATORS}.",
+            UserWarning,
+        )
+
+    if hasattr(estimator, "n_features_in_"):
+        try:
+            if "Pipeline" in str(type(estimator)):
+                estimator = list(estimator.named_steps.values())[-1]
+            estimator.predict(np.zeros((1, estimator.n_features_in_)))
+            return True
+        except Exception as err:
+            raise UserWarning(
+                "Estimator does not appear fitted. "
+                "It has `n_features_in_` but failed a minimal prediction test "
+                f"(shape={(1, estimator.n_features_in_)}). Error: {err}",
+                UserWarning,
+            )
+    return True

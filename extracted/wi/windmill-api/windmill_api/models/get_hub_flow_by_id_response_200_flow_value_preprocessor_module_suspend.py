@@ -15,6 +15,9 @@ if TYPE_CHECKING:
     from ..models.get_hub_flow_by_id_response_200_flow_value_preprocessor_module_suspend_user_groups_required_type_1 import (
         GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType1,
     )
+    from ..models.get_hub_flow_by_id_response_200_flow_value_preprocessor_module_suspend_user_groups_required_type_2 import (
+        GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType2,
+    )
 
 
 T = TypeVar("T", bound="GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspend")
@@ -32,7 +35,8 @@ class GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspend:
         user_auth_required (Union[Unset, bool]): If true, only authenticated users can approve
         user_groups_required
             (Union['GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType0',
-            'GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType1', Unset]): Maps input
+            'GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType1',
+            'GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType2', Unset]): Maps input
             parameters for a step. Can be a static value or a JavaScript expression that references previous results or flow
             inputs
         self_approval_disabled (Union[Unset, bool]): If true, the user who started the flow cannot approve
@@ -47,6 +51,7 @@ class GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspend:
     user_groups_required: Union[
         "GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType0",
         "GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType1",
+        "GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType2",
         Unset,
     ] = UNSET
     self_approval_disabled: Union[Unset, bool] = UNSET
@@ -57,6 +62,9 @@ class GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspend:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.get_hub_flow_by_id_response_200_flow_value_preprocessor_module_suspend_user_groups_required_type_0 import (
             GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType0,
+        )
+        from ..models.get_hub_flow_by_id_response_200_flow_value_preprocessor_module_suspend_user_groups_required_type_1 import (
+            GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType1,
         )
 
         required_events = self.required_events
@@ -73,6 +81,14 @@ class GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspend:
         elif isinstance(
             self.user_groups_required,
             GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType0,
+        ):
+            user_groups_required = UNSET
+            if not isinstance(self.user_groups_required, Unset):
+                user_groups_required = self.user_groups_required.to_dict()
+
+        elif isinstance(
+            self.user_groups_required,
+            GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType1,
         ):
             user_groups_required = UNSET
             if not isinstance(self.user_groups_required, Unset):
@@ -120,6 +136,9 @@ class GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspend:
         from ..models.get_hub_flow_by_id_response_200_flow_value_preprocessor_module_suspend_user_groups_required_type_1 import (
             GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType1,
         )
+        from ..models.get_hub_flow_by_id_response_200_flow_value_preprocessor_module_suspend_user_groups_required_type_2 import (
+            GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType2,
+        )
 
         d = src_dict.copy()
         required_events = d.pop("required_events", UNSET)
@@ -140,6 +159,7 @@ class GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspend:
         ) -> Union[
             "GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType0",
             "GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType1",
+            "GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType2",
             Unset,
         ]:
             if isinstance(data, Unset):
@@ -163,22 +183,41 @@ class GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspend:
                 return user_groups_required_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _user_groups_required_type_1 = data
+                user_groups_required_type_1: Union[
+                    Unset, GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType1
+                ]
+                if isinstance(_user_groups_required_type_1, Unset):
+                    user_groups_required_type_1 = UNSET
+                else:
+                    user_groups_required_type_1 = (
+                        GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType1.from_dict(
+                            _user_groups_required_type_1
+                        )
+                    )
+
+                return user_groups_required_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _user_groups_required_type_1 = data
-            user_groups_required_type_1: Union[
-                Unset, GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType1
+            _user_groups_required_type_2 = data
+            user_groups_required_type_2: Union[
+                Unset, GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType2
             ]
-            if isinstance(_user_groups_required_type_1, Unset):
-                user_groups_required_type_1 = UNSET
+            if isinstance(_user_groups_required_type_2, Unset):
+                user_groups_required_type_2 = UNSET
             else:
-                user_groups_required_type_1 = (
-                    GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType1.from_dict(
-                        _user_groups_required_type_1
+                user_groups_required_type_2 = (
+                    GetHubFlowByIdResponse200FlowValuePreprocessorModuleSuspendUserGroupsRequiredType2.from_dict(
+                        _user_groups_required_type_2
                     )
                 )
 
-            return user_groups_required_type_1
+            return user_groups_required_type_2
 
         user_groups_required = _parse_user_groups_required(d.pop("user_groups_required", UNSET))
 

@@ -4,7 +4,8 @@ import functools
 import re
 import types
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Optional
+from pathlib import Path
+from typing import Callable, Optional, Union, List, Dict
 
 import numpy as np
 import pandas as pd
@@ -27,11 +28,25 @@ from seeq.spy.workbooks import _folder
 DATASOURCE_CLEANUP_ITEM_COUNT_THRESHOLD = 19_000
 
 
-@Status.handle_keyboard_interrupt()
-def push(data=None, *, metadata=None, replace=None, workbook=_common.DEFAULT_WORKBOOK_PATH,
-         worksheet=_common.DEFAULT_WORKSHEET_NAME, datasource=None, archive=False, type_mismatches='raise',
-         metadata_state_file: Optional[str] = None, include_workbook_inventory: Optional[bool] = None,
-         cleanse_data_ids: bool = True, errors=None, quiet=None, status=None, session: Optional[Session] = None):
+@Status.top_level_spy_function()
+def push(
+    data: Optional[Union[pd.DataFrame, Callable]] = None,
+    *,
+    metadata: Optional[pd.DataFrame] = None,
+    replace: Optional[Dict] = None,
+    workbook: Optional[Union[str, spy.workbooks.AnalysisTemplate, List, spy.workbooks.WorkbookList]] = _common.DEFAULT_WORKBOOK_PATH,
+    worksheet: Optional[Union[str, spy.workbooks.AnalysisWorksheetTemplate]] = _common.DEFAULT_WORKSHEET_NAME,
+    datasource: Optional[str] = None,
+    archive: bool = False,
+    type_mismatches: str = 'raise',
+    metadata_state_file: Optional[Union[str, Path]] = None,
+    include_workbook_inventory: Optional[bool] = None,
+    cleanse_data_ids: bool = True,
+    errors: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None
+):
     """
     Imports metadata and/or data into Seeq Server, possibly scoped to a
     workbook and/or datasource.
@@ -268,25 +283,7 @@ def push(data=None, *, metadata=None, replace=None, workbook=_common.DEFAULT_WOR
                             spy.push call
         =================== ===================================================
     """
-    input_args = _common.validate_argument_types([
-        (data, 'data', (pd.DataFrame, Callable)),
-        (metadata, 'metadata', pd.DataFrame),
-        (replace, 'replace', dict),
-        (workbook, 'workbook', (str, spy.workbooks.AnalysisTemplate, list, spy.workbooks.WorkbookList)),
-        (worksheet, 'worksheet', (str, spy.workbooks.AnalysisWorksheetTemplate)),
-        (datasource, 'datasource', str),
-        (archive, 'archive', bool),
-        (type_mismatches, 'type_mismatches', str),
-        (metadata_state_file, 'metadata_state_file', str),
-        (include_workbook_inventory, 'include_workbook_inventory', bool),
-        (cleanse_data_ids, 'cleanse_data_ids', bool),
-        (errors, 'errors', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session)
-    ])
-
-    _login.validate_login(session, status)
+    input_args = locals()
 
     if type_mismatches not in ['drop', 'raise', 'invalid']:
         raise SPyValueError("'type_mismatches' must be either 'drop', 'raise' or 'invalid'")

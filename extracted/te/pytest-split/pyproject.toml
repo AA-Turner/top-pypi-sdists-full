@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pytest-split"
-version = "0.10.0"
+version = "0.11.0"
 description = "Pytest plugin which splits the test suite to equally sized sub suites based on test execution time."
 authors = [
     "Jerry Pussinen <jerry.pussinen@gmail.com>",
@@ -18,12 +18,11 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Typing :: Typed",
 ]
@@ -33,11 +32,11 @@ packages = [{ include = 'pytest_split', from = 'src' }]
 
 
 [tool.poetry.dependencies]
-python = ">=3.8.1, <4.0"
-pytest = "^5 | ^6 | ^7 | ^8"
+python = ">=3.10, <4.0"
+pytest = "^5 | ^6 | ^7 | ^8 | ^9"
 
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 importlib-metadata = "==4.11.*"
 mkdocstrings = {version = ">=0.18", extras = ["python"]}
 mkdocs-material = "*"
@@ -61,7 +60,7 @@ slowest-tests = "pytest_split.cli:list_slowest_tests"
 pytest-split = "pytest_split.plugin"
 
 [tool.black]
-target-version = ["py37", "py38", "py39"]
+target-version = ["py310", "py311", "py312", "py313", "py314"]
 include = '\.pyi?$'
 
 [tool.pytest.ini_options]
@@ -93,7 +92,7 @@ disallow_untyped_calls = false
 
 
 [tool.ruff]
-target-version = "py38" # The lowest supported version
+target-version = "py310" # The lowest supported version
 
 [tool.ruff.lint]
 # By default, enable all the lint rules.

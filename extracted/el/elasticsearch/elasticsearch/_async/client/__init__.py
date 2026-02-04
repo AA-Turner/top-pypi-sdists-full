@@ -555,7 +555,7 @@ class AsyncElasticsearch(BaseClient):
         ] = None,
         require_alias: t.Optional[bool] = None,
         require_data_stream: t.Optional[bool] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         source: t.Optional[t.Union[bool, t.Union[str, t.Sequence[str]]]] = None,
         source_excludes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         source_includes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
@@ -868,7 +868,7 @@ class AsyncElasticsearch(BaseClient):
         )
 
     @_rewrite_parameters(
-        body_fields=("query",),
+        body_fields=("project_routing", "query"),
     )
     async def count(
         self,
@@ -899,7 +899,7 @@ class AsyncElasticsearch(BaseClient):
         project_routing: t.Optional[str] = None,
         q: t.Optional[str] = None,
         query: t.Optional[t.Mapping[str, t.Any]] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         terminate_after: t.Optional[int] = None,
         body: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> ObjectApiResponse[t.Any]:
@@ -951,10 +951,10 @@ class AsyncElasticsearch(BaseClient):
             in the result.
         :param preference: The node or shard the operation should be performed on. By
             default, it is random.
-        :param project_routing: Specifies a subset of projects to target for the search
-            using project metadata tags in a subset of Lucene query syntax. Allowed Lucene
-            queries: the _alias tag and a single value (possibly wildcarded). Examples:
-            _alias:my-project _alias:_origin _alias:*pr* Supported in serverless only.
+        :param project_routing: Specifies a subset of projects to target using project
+            metadata tags in a subset of Lucene query syntax. Allowed Lucene queries:
+            the _alias tag and a single value (possibly wildcarded). Examples: _alias:my-project
+            _alias:_origin _alias:*pr* Supported in serverless only.
         :param q: The query in Lucene query string syntax. This parameter cannot be used
             with a request body.
         :param query: Defines the search query using Query DSL. A request body query
@@ -1007,8 +1007,6 @@ class AsyncElasticsearch(BaseClient):
             __query["preference"] = preference
         if pretty is not None:
             __query["pretty"] = pretty
-        if project_routing is not None:
-            __query["project_routing"] = project_routing
         if q is not None:
             __query["q"] = q
         if routing is not None:
@@ -1016,6 +1014,8 @@ class AsyncElasticsearch(BaseClient):
         if terminate_after is not None:
             __query["terminate_after"] = terminate_after
         if not __body:
+            if project_routing is not None:
+                __body["project_routing"] = project_routing
             if query is not None:
                 __body["query"] = query
         if not __body:
@@ -1054,7 +1054,7 @@ class AsyncElasticsearch(BaseClient):
         ] = None,
         require_alias: t.Optional[bool] = None,
         require_data_stream: t.Optional[bool] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
@@ -1233,7 +1233,7 @@ class AsyncElasticsearch(BaseClient):
         refresh: t.Optional[
             t.Union[bool, str, t.Literal["false", "true", "wait_for"]]
         ] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
@@ -1376,7 +1376,7 @@ class AsyncElasticsearch(BaseClient):
         refresh: t.Optional[bool] = None,
         request_cache: t.Optional[bool] = None,
         requests_per_second: t.Optional[float] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         scroll: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         scroll_size: t.Optional[int] = None,
         search_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
@@ -1772,7 +1772,7 @@ class AsyncElasticsearch(BaseClient):
         pretty: t.Optional[bool] = None,
         realtime: t.Optional[bool] = None,
         refresh: t.Optional[bool] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         source: t.Optional[t.Union[bool, t.Union[str, t.Sequence[str]]]] = None,
         source_excludes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         source_includes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
@@ -1902,7 +1902,7 @@ class AsyncElasticsearch(BaseClient):
         pretty: t.Optional[bool] = None,
         realtime: t.Optional[bool] = None,
         refresh: t.Optional[bool] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         source: t.Optional[t.Union[bool, t.Union[str, t.Sequence[str]]]] = None,
         source_excludes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         source_includes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
@@ -2013,7 +2013,7 @@ class AsyncElasticsearch(BaseClient):
         pretty: t.Optional[bool] = None,
         q: t.Optional[str] = None,
         query: t.Optional[t.Mapping[str, t.Any]] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         source: t.Optional[t.Union[bool, t.Union[str, t.Sequence[str]]]] = None,
         source_excludes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         source_includes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
@@ -2124,7 +2124,7 @@ class AsyncElasticsearch(BaseClient):
         )
 
     @_rewrite_parameters(
-        body_fields=("fields", "index_filter", "runtime_mappings"),
+        body_fields=("fields", "index_filter", "project_routing", "runtime_mappings"),
     )
     async def field_caps(
         self,
@@ -2142,7 +2142,7 @@ class AsyncElasticsearch(BaseClient):
         ] = None,
         fields: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
-        filters: t.Optional[str] = None,
+        filters: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
         ignore_unavailable: t.Optional[bool] = None,
         include_empty_fields: t.Optional[bool] = None,
@@ -2235,8 +2235,6 @@ class AsyncElasticsearch(BaseClient):
             __query["include_unmapped"] = include_unmapped
         if pretty is not None:
             __query["pretty"] = pretty
-        if project_routing is not None:
-            __query["project_routing"] = project_routing
         if types is not None:
             __query["types"] = types
         if not __body:
@@ -2244,6 +2242,8 @@ class AsyncElasticsearch(BaseClient):
                 __body["fields"] = fields
             if index_filter is not None:
                 __body["index_filter"] = index_filter
+            if project_routing is not None:
+                __body["project_routing"] = project_routing
             if runtime_mappings is not None:
                 __body["runtime_mappings"] = runtime_mappings
         if not __body:
@@ -2282,7 +2282,7 @@ class AsyncElasticsearch(BaseClient):
         pretty: t.Optional[bool] = None,
         realtime: t.Optional[bool] = None,
         refresh: t.Optional[bool] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         source: t.Optional[t.Union[bool, t.Union[str, t.Sequence[str]]]] = None,
         source_exclude_vectors: t.Optional[bool] = None,
         source_excludes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
@@ -2574,7 +2574,7 @@ class AsyncElasticsearch(BaseClient):
         pretty: t.Optional[bool] = None,
         realtime: t.Optional[bool] = None,
         refresh: t.Optional[bool] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         source: t.Optional[t.Union[bool, t.Union[str, t.Sequence[str]]]] = None,
         source_excludes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         source_includes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
@@ -2756,7 +2756,7 @@ class AsyncElasticsearch(BaseClient):
         ] = None,
         require_alias: t.Optional[bool] = None,
         require_data_stream: t.Optional[bool] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
@@ -3038,7 +3038,7 @@ class AsyncElasticsearch(BaseClient):
         pretty: t.Optional[bool] = None,
         realtime: t.Optional[bool] = None,
         refresh: t.Optional[bool] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         source: t.Optional[t.Union[bool, t.Union[str, t.Sequence[str]]]] = None,
         source_excludes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         source_includes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
@@ -3175,7 +3175,7 @@ class AsyncElasticsearch(BaseClient):
         pretty: t.Optional[bool] = None,
         project_routing: t.Optional[str] = None,
         rest_total_hits_as_int: t.Optional[bool] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         search_type: t.Optional[
             t.Union[str, t.Literal["dfs_query_then_fetch", "query_then_fetch"]]
         ] = None,
@@ -3441,7 +3441,7 @@ class AsyncElasticsearch(BaseClient):
         preference: t.Optional[str] = None,
         pretty: t.Optional[bool] = None,
         realtime: t.Optional[bool] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         term_statistics: t.Optional[bool] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
@@ -3546,7 +3546,7 @@ class AsyncElasticsearch(BaseClient):
         )
 
     @_rewrite_parameters(
-        body_fields=("index_filter",),
+        body_fields=("index_filter", "project_routing"),
     )
     async def open_point_in_time(
         self,
@@ -3571,7 +3571,7 @@ class AsyncElasticsearch(BaseClient):
         preference: t.Optional[str] = None,
         pretty: t.Optional[bool] = None,
         project_routing: t.Optional[str] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         body: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
@@ -3663,13 +3663,13 @@ class AsyncElasticsearch(BaseClient):
             __query["preference"] = preference
         if pretty is not None:
             __query["pretty"] = pretty
-        if project_routing is not None:
-            __query["project_routing"] = project_routing
         if routing is not None:
             __query["routing"] = routing
         if not __body:
             if index_filter is not None:
                 __body["index_filter"] = index_filter
+            if project_routing is not None:
+                __body["project_routing"] = project_routing
         if not __body:
             __body = None  # type: ignore[assignment]
         __headers = {"accept": "application/json"}
@@ -3789,7 +3789,9 @@ class AsyncElasticsearch(BaseClient):
         ignore_unavailable: t.Optional[bool] = None,
         metric: t.Optional[t.Mapping[str, t.Any]] = None,
         pretty: t.Optional[bool] = None,
-        search_type: t.Optional[str] = None,
+        search_type: t.Optional[
+            t.Union[str, t.Literal["dfs_query_then_fetch", "query_then_fetch"]]
+        ] = None,
         body: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
@@ -3909,7 +3911,8 @@ class AsyncElasticsearch(BaseClient):
           <li>To automatically create a data stream or index with a reindex API request, you must have the <code>auto_configure</code>, <code>create_index</code>, or <code>manage</code> index privilege for the destination data stream, index, or alias.</li>
           <li>If reindexing from a remote cluster, the <code>source.remote.user</code> must have the <code>monitor</code> cluster privilege and the <code>read</code> index privilege for the source data stream, index, or alias.</li>
           </ul>
-          <p>If reindexing from a remote cluster, you must explicitly allow the remote host in the <code>reindex.remote.whitelist</code> setting.
+          <p>If reindexing from a remote cluster into a cluster using Elastic Stack, you must explicitly allow the remote host using the <code>reindex.remote.whitelist</code> node setting on the destination cluster.
+          If reindexing from a remote cluster into an Elastic Cloud Serverless project, only remote hosts from Elastic Cloud Hosted are allowed.
           Automatic data stream creation requires a matching index template with data stream enabled.</p>
           <p>The <code>dest</code> element can be configured like the index API to control optimistic concurrency control.
           Omitting <code>version_type</code> or setting it to <code>internal</code> causes Elasticsearch to blindly dump documents into the destination, overwriting any that happen to have the same ID.</p>
@@ -4333,6 +4336,7 @@ class AsyncElasticsearch(BaseClient):
             "pit",
             "post_filter",
             "profile",
+            "project_routing",
             "query",
             "rank",
             "rescore",
@@ -4421,7 +4425,7 @@ class AsyncElasticsearch(BaseClient):
         ] = None,
         rest_total_hits_as_int: t.Optional[bool] = None,
         retriever: t.Optional[t.Mapping[str, t.Any]] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         runtime_mappings: t.Optional[t.Mapping[str, t.Mapping[str, t.Any]]] = None,
         script_fields: t.Optional[t.Mapping[str, t.Mapping[str, t.Any]]] = None,
         scroll: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
@@ -4753,8 +4757,6 @@ class AsyncElasticsearch(BaseClient):
             __query["preference"] = preference
         if pretty is not None:
             __query["pretty"] = pretty
-        if project_routing is not None:
-            __query["project_routing"] = project_routing
         if q is not None:
             __query["q"] = q
         if request_cache is not None:
@@ -4814,6 +4816,8 @@ class AsyncElasticsearch(BaseClient):
                 __body["post_filter"] = post_filter
             if profile is not None:
                 __body["profile"] = profile
+            if project_routing is not None:
+                __body["project_routing"] = project_routing
             if query is not None:
                 __body["query"] = query
             if rank is not None:
@@ -5370,7 +5374,7 @@ class AsyncElasticsearch(BaseClient):
         master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         preference: t.Optional[str] = None,
         pretty: t.Optional[bool] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
         .. raw:: html
@@ -5479,7 +5483,7 @@ class AsyncElasticsearch(BaseClient):
         profile: t.Optional[bool] = None,
         project_routing: t.Optional[str] = None,
         rest_total_hits_as_int: t.Optional[bool] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         scroll: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         search_type: t.Optional[
             t.Union[str, t.Literal["dfs_query_then_fetch", "query_then_fetch"]]
@@ -5616,7 +5620,7 @@ class AsyncElasticsearch(BaseClient):
     async def terms_enum(
         self,
         *,
-        index: str,
+        index: t.Union[str, t.Sequence[str]],
         field: t.Optional[str] = None,
         case_insensitive: t.Optional[bool] = None,
         error_trace: t.Optional[bool] = None,
@@ -5742,7 +5746,7 @@ class AsyncElasticsearch(BaseClient):
         preference: t.Optional[str] = None,
         pretty: t.Optional[bool] = None,
         realtime: t.Optional[bool] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         term_statistics: t.Optional[bool] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
@@ -5926,7 +5930,7 @@ class AsyncElasticsearch(BaseClient):
         ] = None,
         require_alias: t.Optional[bool] = None,
         retry_on_conflict: t.Optional[int] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         script: t.Optional[t.Mapping[str, t.Any]] = None,
         scripted_upsert: t.Optional[bool] = None,
         source: t.Optional[t.Union[bool, t.Mapping[str, t.Any]]] = None,
@@ -6106,7 +6110,7 @@ class AsyncElasticsearch(BaseClient):
         refresh: t.Optional[bool] = None,
         request_cache: t.Optional[bool] = None,
         requests_per_second: t.Optional[float] = None,
-        routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         script: t.Optional[t.Mapping[str, t.Any]] = None,
         scroll: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         scroll_size: t.Optional[int] = None,

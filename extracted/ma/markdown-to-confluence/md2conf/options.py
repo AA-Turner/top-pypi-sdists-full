@@ -6,9 +6,10 @@ Copyright 2022-2026, Levente Hunyadi
 :see: https://github.com/hunyadi/md2conf
 """
 
-import dataclasses
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
+
+from .clio import boolean_option, composite_option, value_option
 
 
 @dataclass
@@ -25,8 +26,11 @@ class ImageLayoutOptions:
     :param max_width: Maximum display width for images [px]. Wider images are scaled down for page display. Original size kept for full-size viewing.
     """
 
-    alignment: Literal["center", "left", "right"] | None = None
-    max_width: int | None = None
+    alignment: Literal["center", "left", "right", None] = field(default=None, metadata=value_option("Alignment for block-level images and formulas."))
+    max_width: int | None = field(
+        default=None,
+        metadata=value_option("Maximum display width for images [px]. Wider images are scaled down for page display."),
+    )
 
 
 @dataclass
@@ -38,8 +42,8 @@ class TableLayoutOptions:
     :param display_mode: Whether to use fixed or responsive column widths.
     """
 
-    width: int | None = None
-    display_mode: Literal["fixed", "responsive"] | None = None
+    width: int | None = field(default=None, metadata=value_option("Maximum table width in pixels."))
+    display_mode: Literal["responsive", "fixed"] = field(default="responsive", metadata=value_option("Set table display mode."))
 
 
 @dataclass
@@ -54,9 +58,9 @@ class LayoutOptions:
     :param alignment: Default alignment (unless overridden with more specific setting).
     """
 
-    image: ImageLayoutOptions = dataclasses.field(default_factory=ImageLayoutOptions)
-    table: TableLayoutOptions = dataclasses.field(default_factory=TableLayoutOptions)
-    alignment: Literal["center", "left", "right"] | None = None
+    image: ImageLayoutOptions = field(default_factory=ImageLayoutOptions, metadata=composite_option())
+    table: TableLayoutOptions = field(default_factory=TableLayoutOptions, metadata=composite_option())
+    alignment: Literal["center", "left", "right", None] = field(default=None, metadata=value_option("Default alignment for block-level content."))
 
     def get_image_alignment(self) -> Literal["center", "left", "right"]:
         return self.image.alignment or self.alignment or "center"
@@ -69,8 +73,8 @@ class ConverterOptions:
 
     :param heading_anchors: When true, emit a structured macro *anchor* for each section heading using GitHub
         conversion rules for the identifier.
-    :param ignore_invalid_url: When true, ignore invalid URLs in input, emit a warning and replace the anchor with
-        plain text; when false, raise an exception.
+    :param force_valid_url: If enabled, raise an exception when relative URLs point to an invalid location. If disabled,
+        ignore invalid URLs, emit a warning and replace the anchor with plain text.
     :param skip_title_heading: Whether to remove the first heading from document body when used as page title.
     :param prefer_raster: Whether to choose PNG files over SVG files when available.
     :param render_drawio: Whether to pre-render (or use the pre-rendered version of) draw.io diagrams.
@@ -83,18 +87,81 @@ class ConverterOptions:
     :param layout: Layout options for content on a Confluence page.
     """
 
-    heading_anchors: bool = False
-    ignore_invalid_url: bool = False
-    skip_title_heading: bool = False
-    prefer_raster: bool = True
-    render_drawio: bool = False
-    render_mermaid: bool = False
-    render_plantuml: bool = False
-    render_latex: bool = False
-    diagram_output_format: Literal["png", "svg"] = "png"
-    webui_links: bool = False
-    use_panel: bool = False
-    layout: LayoutOptions = dataclasses.field(default_factory=LayoutOptions)
+    heading_anchors: bool = field(
+        default=False,
+        metadata=boolean_option(
+            "Place an anchor at each section heading with GitHub-style same-page identifiers.",
+            "Omit the extra anchor from section headings. (May break manually placed same-page references.)",
+        ),
+    )
+    force_valid_url: bool = field(
+        default=True,
+        metadata=boolean_option(
+            "Raise an error when relative URLs point to an invalid location.",
+            "Emit a warning but otherwise ignore relative URLs that point to an invalid location.",
+        ),
+    )
+    skip_title_heading: bool = field(
+        default=False,
+        metadata=boolean_option(
+            "Remove the first heading from document body when it is used as the page title (does not apply if title comes from front-matter).",
+            "Keep the first heading in document body even when used as page title.",
+        ),
+    )
+    prefer_raster: bool = field(
+        default=True,
+        metadata=boolean_option(
+            "Prefer PNG over SVG when both exist.",
+            "Use SVG files directly instead of preferring PNG equivalents.",
+        ),
+    )
+    render_drawio: bool = field(
+        default=True,
+        metadata=boolean_option(
+            "Render draw.io diagrams as image files. (Installed utility required to covert.)",
+            "Upload draw.io diagram sources as Confluence page attachments. (Marketplace app required to display.)",
+        ),
+    )
+    render_mermaid: bool = field(
+        default=True,
+        metadata=boolean_option(
+            "Render Mermaid diagrams as image files. (Installed utility required to convert.)",
+            "Upload Mermaid diagram sources as Confluence page attachments. (Marketplace app required to display.)",
+        ),
+    )
+    render_plantuml: bool = field(
+        default=True,
+        metadata=boolean_option(
+            "Render PlantUML diagrams as image files. (Installed utility required to convert.)",
+            "Upload PlantUML diagram sources as Confluence page attachments. (Marketplace app required to display.)",
+        ),
+    )
+    render_latex: bool = field(
+        default=True,
+        metadata=boolean_option(
+            "Render LaTeX formulas as image files. (Matplotlib required to convert.)",
+            "Inline LaTeX formulas in Confluence page. (Marketplace app required to display.)",
+        ),
+    )
+    diagram_output_format: Literal["png", "svg"] = field(
+        default="png",
+        metadata=value_option("Format for rendering Mermaid and draw.io diagrams."),
+    )
+    webui_links: bool = field(
+        default=False,
+        metadata=boolean_option(
+            "Enable Confluence Web UI links. (Typically required for on-prem versions of Confluence.)",
+            "Use hierarchical links including space and page ID.",
+        ),
+    )
+    use_panel: bool = field(
+        default=False,
+        metadata=boolean_option(
+            "Transform admonitions and alerts into a Confluence custom panel.",
+            "Use standard Confluence macro types for admonitions and alerts (info, tip, note and warning).",
+        ),
+    )
+    layout: LayoutOptions = field(default_factory=LayoutOptions, metadata=composite_option())
 
 
 @dataclass
@@ -108,6 +175,7 @@ class DocumentOptions:
     :param generated_by: Text to use as the generated-by prompt (or `None` to omit a prompt).
     :param skip_update: Whether to skip saving Confluence page ID in Markdown files.
     :param converter: Options for converting an HTML tree into Confluence Storage Format.
+    :param line_numbers: Inject line numbers in Markdown source to help localize conversion errors.
     """
 
     root_page_id: ConfluencePageID | None = None
@@ -115,4 +183,5 @@ class DocumentOptions:
     title_prefix: str | None = None
     generated_by: str | None = "This page has been generated with a tool."
     skip_update: bool = False
-    converter: ConverterOptions = dataclasses.field(default_factory=ConverterOptions)
+    converter: ConverterOptions = field(default_factory=ConverterOptions)
+    line_numbers: bool = False

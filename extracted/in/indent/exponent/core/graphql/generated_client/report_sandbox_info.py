@@ -12,7 +12,6 @@ class ReportSandboxInfo(BaseModel):
     report_sandbox_info: Union[
         "ReportSandboxInfoReportSandboxInfoSandboxInfoResponse",
         "ReportSandboxInfoReportSandboxInfoUnauthenticatedError",
-        "ReportSandboxInfoReportSandboxInfoError",
     ] = Field(alias="reportSandboxInfo", discriminator="typename__")
 
 
@@ -24,11 +23,6 @@ class ReportSandboxInfoReportSandboxInfoSandboxInfoResponse(BaseModel):
 
 class ReportSandboxInfoReportSandboxInfoUnauthenticatedError(BaseModel):
     typename__: Literal["UnauthenticatedError"] = Field(alias="__typename")
-    message: str
-
-
-class ReportSandboxInfoReportSandboxInfoError(BaseModel):
-    typename__: Literal["Error"] = Field(alias="__typename")
     message: str
 
 

@@ -44,10 +44,10 @@ class Check(Issues):
                     if not checks:
                         return 'invalid check name'
 
-                    results = run_checks(state.sts, state.namespace, state.pod, checks=checks, ctx=Context.new(show_verbose=show_out))
+                    results = run_checks(state.sts, state.namespace, state.pod, checks=checks, ctx=self.context().copy(show_verbose=show_out))
 
                     issues = CheckResult.collect_issues(results)
-                    IssuesUtils.show_issues(issues, in_repl=state.in_repl)
+                    IssuesUtils.show_issues(issues, in_repl=state.in_repl, ctx=self.context())
 
                     return issues if issues else 'no issues found'
 

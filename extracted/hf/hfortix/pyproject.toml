@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hfortix"
-version = "0.5.154"
-description = "Fully-typed Python SDK for Fortinet products (FortiOS, FortiManager, FortiAnalyzer) with complete API coverage, async support, and type safety"
+version = "0.5.158"
+description = "Type-safe Python SDK for FortiGate firewall automation and FortiOS REST API - 1,348+ endpoints with async support and complete type safety"
 authors = [{name = "Herman W. Jacobsen", email = "herman@wjacobsen.fo"}]
 maintainers = [{name = "Herman W. Jacobsen", email = "herman@wjacobsen.fo"}]
 readme = "README.md"
@@ -61,7 +61,7 @@ Changelog = "https://github.com/hermanwjacobsen/hfortix/blob/main/CHANGELOG.md"
 Download = "https://pypi.org/project/hfortix/#files"
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 
 [tool.setuptools.package-data]
 hfortix = ["py.typed"]

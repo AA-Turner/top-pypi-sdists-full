@@ -1,6 +1,6 @@
 [package]
 name = "pyqwest"
-version = "0.3.3"
+version = "0.4.0"
 edition = "2021"
 readme = "README.md"
 
@@ -11,6 +11,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 arc-swap = "1.8.0"
+backoff = "0.4.0"
 brotli = "8.0.2"
 bytes = "1"
 errors = "0.1.0"

@@ -1,6 +1,6 @@
 [project]
 name = "pyqwest"
-version = "0.3.3"
+version = "0.4.0"
 requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -20,6 +20,7 @@ classifiers = [
     "Programming Language :: Rust",
     "Topic :: Internet :: WWW/HTTP",
 ]
+dependencies = ["opentelemetry-api >=1.39.1"]
 
 [dependency-groups]
 dev = [
@@ -29,6 +30,7 @@ dev = [
     "httpx[http2]",
     "maturin",
     "niquests[http3]",
+    "opentelemetry-test-utils",
     "poethepoet",
     "psutil",
     "pyright[nodejs]",
@@ -36,6 +38,7 @@ dev = [
     "pytest-asyncio",
     "pytest-benchmark",
     "pytest-cov",
+    "pytest-order",
     "pyvoy",
     "ruff",
     "trustme",

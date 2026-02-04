@@ -28,6 +28,16 @@ interactive sessions.
 
 This may be fired multiple times per command, with other transformers input or
 output, so design any handlers for this carefully.
+
+.. code-block:: python
+
+    @events.on_transform_command
+    def _pipe_prev_command(cmd, **kw):
+        '''Pipe prev command e.g. `| grep 1` will be `<prev cmd> | grep 1`.'''
+        if cmd and cmd.startswith('| ') and __xonsh__.history:
+            return __xonsh__.history[-1].cmd.rstrip() + cmd.rstrip()
+        return cmd
+
 """,
 )
 
@@ -280,12 +290,14 @@ class Shell:
                 ts=[time.time(), None],
                 locked=True,
                 filename=env.get("XONSH_HISTORY_FILE", None),
+                sessionid=XSH.sessionid,
             )
             env["XONSH_HISTORY_FILE"] = hist.filename
         else:
             XSH.history = hist = DummyHistory()
             env["XONSH_HISTORY_FILE"] = None
 
+        XSH.interface.history = XSH.history
         shell_type = self.choose_shell_type(shell_type, env)
 
         self.shell_type = env["SHELL_TYPE"] = shell_type

@@ -46,7 +46,7 @@ DUNE1 = {
     "axes.formatter.use_mathtext": True,
     "axes.unicode_minus": False,  # Use ASCII minus for better compatibility
     "axes.xmargin": 0.0,  # Small margin for better plot bounds
-    "axes.ymargin": 0.0,
+    # "axes.ymargin": 0.0,
     # Enhanced color cycle - DUNE logo colors first, then accessibility-optimized sequence
     "axes.prop_cycle": cycler(
         "color",
@@ -130,7 +130,20 @@ DUNE1 = {k: v for k, v in DUNE1.items() if k in mpl.rcParams}
 DUNETex1 = {
     **DUNE1,
     "text.usetex": True,
-    "text.latex.preamble": r"\usepackage{siunitx}\sisetup{detect-all}\usepackage{tgheros}\renewcommand{\familydefault}{\sfdefault}\usepackage{sansmath}\sansmath\usepackage{amsmath}\usepackage{physics}",
+    "text.latex.preamble": "\n".join(
+        [
+            r"\usepackage[LGR,T1]{fontenc}",
+            r"\usepackage{tgheros}",
+            r"\renewcommand{\familydefault}{\sfdefault}",
+            r"\renewcommand{\rmdefault}{\sfdefault}",
+            r"\usepackage{amsmath}",
+            r"\usepackage[symbolgreek,symbolmax]{mathastext}",
+            r"\usepackage{physics}",
+            r"\usepackage{siunitx}",
+            r"\setlength{\parindent}{0pt}",
+            r"\def\mathdefault{}",
+        ]
+    ),
 }
 
 # moving targets

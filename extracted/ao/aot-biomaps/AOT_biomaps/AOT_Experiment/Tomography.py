@@ -1,5 +1,5 @@
 from ._mainExperiment import Experiment
-from AOT_biomaps.AOT_Acoustic.AcousticEnums import WaveType
+from AOT_biomaps.AOT_Acoustic.AcousticEnums import WaveType, PhantomType
 from AOT_biomaps.AOT_Acoustic.StructuredWave import StructuredWave
 from AOT_biomaps.Config import config
 from AOT_biomaps.AOT_Experiment.ExperimentTools import calc_mat_os, convert_to_hex_list, hex_to_binary_profile
@@ -67,11 +67,11 @@ class Tomography(Experiment):
         if self.TypeAcoustic.value == WaveType.StructuredWave.value:
             self.AcousticFields = self._generateAcousticFields_STRUCT_CPU(fieldDataPath, show_log, nameBlock)
             for i in range(len(self.AcousticFields)):
-                profile = hex_to_binary_profile(self.AcousticFields[i].getName_field()[6:-4], self.params.acoustic['num_elements'])
+                profile = hex_to_binary_profile(self.AcousticFields[i].getName_field()[6:-4], self.params.acoustic['probe']['num_elements'])
                 self.ActiveList.append(profile)
                 angle = self.AcousticFields[i].angle
                 self.theta.append(angle)
-                Delay = 1000 * (1/self.params.acoustic['c0']) * np.sin(np.deg2rad(angle)) * np.arange(1, self.params.acoustic['num_elements']  + 1) * self.params.acoustic['element_width']
+                Delay = 1000 * (1/self.params.acoustic['medium']['c0']) * np.sin(np.deg2rad(angle)) * np.arange(1, self.params.acoustic['probe']['num_elements']  + 1) * self.params.acoustic['probe']['element_width']
                 self.DelayLaw.append(Delay - np.min(Delay))
 
                 if set(self.AcousticFields[i].getName_field()[6:-4].lower().replace(" ", "")) == {'f'}:
@@ -184,7 +184,7 @@ class Tomography(Experiment):
         if self.patterns is None:
             raise ValueError("patterns is not initialized. Please load or generate the active list first.")
 
-        num_elements = self.params.acoustic['num_elements']
+        num_elements = self.params.acoustic['probe']['num_elements']
         divs = sorted([d for d in range(2, num_elements + 1) if num_elements % d == 0 and d % 2 == 0])
         if num_elements not in divs:
             divs.append(num_elements)
@@ -403,10 +403,10 @@ class Tomography(Experiment):
         angles = np.sort(angles)
         decimations = np.sort(decimations)
 
-        num_elements = self.params.acoustic['num_elements']
-        Width = self.params.acoustic['element_width']  # en m
-        kerf = self.params.acoustic.get('kerf', 0.00000)  # en m
-        Nactuators = self.params.acoustic['num_elements']
+        num_elements = self.params.acoustic['probe']['num_elements']
+        Width = self.params.acoustic['probe']['element_width']  # en m
+        kerf = self.params.acoustic['probe'].get('kerf', 0.00000)  # en m
+        Nactuators = self.params.acoustic['probe']['num_elements']
 
         # --- Calcul du nombre de Scans ---
         if 0 in decimations:
@@ -472,7 +472,7 @@ class Tomography(Experiment):
             hex_string = ''.join([f"{int(bit_string[i:i+4], 2):x}" for i in range(0, len(bit_string), 4)])
             return hex_string
 
-        num_elements = self.params.acoustic['num_elements']
+        num_elements = self.params.acoustic['probe']['num_elements']
         if angles is None:
             angle_choices = list(range(-20, 21))
         else:
@@ -535,7 +535,7 @@ class Tomography(Experiment):
             return False
 
         # 2. Vérifier chaque pattern individuellement
-        num_elements = self.params.acoustic['num_elements']
+        num_elements = self.params.acoustic['probe']['num_elements']
         for pattern in patterns:
             hex_part, angle_str = pattern["fileName"].split('_')
             bits = np.array([int(b) for b in bin(int(hex_part, 16))[2:].zfill(num_elements)])
@@ -584,7 +584,7 @@ class Tomography(Experiment):
         """
         print(f"Applying apodization (Alpha={alpha}, Div={divergence_deg}°) on {len(self.AcousticFields)} fields...")
         
-        probe_width = self.params.acoustic['num_elements'] * self.params.acoustic['element_width']
+        probe_width = self.params.acoustic['probe']['num_elements'] * self.params.acoustic['probe']['element_width']
 
         for i in trange(len(self.AcousticFields), desc="Apodisation"):
             # 1. Récupération des données et de l'angle
@@ -646,9 +646,11 @@ class Tomography(Experiment):
         print("Apodisation done.")
 
     # PRIVATE METHODS
-    def _generateAcousticFields_STRUCT_CPU(self, fieldDataPath=None, show_log=False, nameBlock=None):
+    def _generateAcousticFields_STRUCT_CPU(self, fieldDataPath=None, show_log=False, nameBlock=None, medium = None):
         if self.patterns is None:
             raise ValueError("patterns is not initialized. Please load or generate the active list first.")
+        if medium is not None and not isinstance(medium, PhantomType):
+            raise ValueError("medium must be of type PhantomType or None.")
         listAcousticFields = []
         progress_bar = trange(0, len(self.patterns), desc="Generating acoustic fields")
         for i in progress_bar:

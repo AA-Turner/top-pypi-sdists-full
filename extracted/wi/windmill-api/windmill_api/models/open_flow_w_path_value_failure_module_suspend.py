@@ -15,6 +15,9 @@ if TYPE_CHECKING:
     from ..models.open_flow_w_path_value_failure_module_suspend_user_groups_required_type_1 import (
         OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType1,
     )
+    from ..models.open_flow_w_path_value_failure_module_suspend_user_groups_required_type_2 import (
+        OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType2,
+    )
 
 
 T = TypeVar("T", bound="OpenFlowWPathValueFailureModuleSuspend")
@@ -31,7 +34,8 @@ class OpenFlowWPathValueFailureModuleSuspend:
             when resuming
         user_auth_required (Union[Unset, bool]): If true, only authenticated users can approve
         user_groups_required (Union['OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType0',
-            'OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType1', Unset]): Maps input parameters for a step. Can
+            'OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType1',
+            'OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType2', Unset]): Maps input parameters for a step. Can
             be a static value or a JavaScript expression that references previous results or flow inputs
         self_approval_disabled (Union[Unset, bool]): If true, the user who started the flow cannot approve
         hide_cancel (Union[Unset, bool]): If true, hide the cancel button on the approval form
@@ -45,6 +49,7 @@ class OpenFlowWPathValueFailureModuleSuspend:
     user_groups_required: Union[
         "OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType0",
         "OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType1",
+        "OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType2",
         Unset,
     ] = UNSET
     self_approval_disabled: Union[Unset, bool] = UNSET
@@ -55,6 +60,9 @@ class OpenFlowWPathValueFailureModuleSuspend:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.open_flow_w_path_value_failure_module_suspend_user_groups_required_type_0 import (
             OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType0,
+        )
+        from ..models.open_flow_w_path_value_failure_module_suspend_user_groups_required_type_1 import (
+            OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType1,
         )
 
         required_events = self.required_events
@@ -69,6 +77,11 @@ class OpenFlowWPathValueFailureModuleSuspend:
             user_groups_required = UNSET
 
         elif isinstance(self.user_groups_required, OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType0):
+            user_groups_required = UNSET
+            if not isinstance(self.user_groups_required, Unset):
+                user_groups_required = self.user_groups_required.to_dict()
+
+        elif isinstance(self.user_groups_required, OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType1):
             user_groups_required = UNSET
             if not isinstance(self.user_groups_required, Unset):
                 user_groups_required = self.user_groups_required.to_dict()
@@ -115,6 +128,9 @@ class OpenFlowWPathValueFailureModuleSuspend:
         from ..models.open_flow_w_path_value_failure_module_suspend_user_groups_required_type_1 import (
             OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType1,
         )
+        from ..models.open_flow_w_path_value_failure_module_suspend_user_groups_required_type_2 import (
+            OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType2,
+        )
 
         d = src_dict.copy()
         required_events = d.pop("required_events", UNSET)
@@ -135,6 +151,7 @@ class OpenFlowWPathValueFailureModuleSuspend:
         ) -> Union[
             "OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType0",
             "OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType1",
+            "OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType2",
             Unset,
         ]:
             if isinstance(data, Unset):
@@ -156,18 +173,35 @@ class OpenFlowWPathValueFailureModuleSuspend:
                 return user_groups_required_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _user_groups_required_type_1 = data
+                user_groups_required_type_1: Union[Unset, OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType1]
+                if isinstance(_user_groups_required_type_1, Unset):
+                    user_groups_required_type_1 = UNSET
+                else:
+                    user_groups_required_type_1 = (
+                        OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType1.from_dict(
+                            _user_groups_required_type_1
+                        )
+                    )
+
+                return user_groups_required_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _user_groups_required_type_1 = data
-            user_groups_required_type_1: Union[Unset, OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType1]
-            if isinstance(_user_groups_required_type_1, Unset):
-                user_groups_required_type_1 = UNSET
+            _user_groups_required_type_2 = data
+            user_groups_required_type_2: Union[Unset, OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType2]
+            if isinstance(_user_groups_required_type_2, Unset):
+                user_groups_required_type_2 = UNSET
             else:
-                user_groups_required_type_1 = OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType1.from_dict(
-                    _user_groups_required_type_1
+                user_groups_required_type_2 = OpenFlowWPathValueFailureModuleSuspendUserGroupsRequiredType2.from_dict(
+                    _user_groups_required_type_2
                 )
 
-            return user_groups_required_type_1
+            return user_groups_required_type_2
 
         user_groups_required = _parse_user_groups_required(d.pop("user_groups_required", UNSET))
 

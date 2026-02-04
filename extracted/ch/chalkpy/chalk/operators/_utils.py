@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import dataclasses
 import traceback
-from typing import Callable, Optional, Sequence, Union
+from typing import Callable, Optional, Protocol, Sequence, TypeVar, Union
 
 import pyarrow
 
 from chalk import DataFrame, Features, StaticOperator
+from chalk._gen.chalk.dataframe.v1 import dataframe_pb2
 from chalk._gen.chalk.expression.v1 import expression_pb2 as expr_pb
 from chalk.client import ChalkError, ChalkException, ErrorCode, ErrorCodeCategory
 from chalk.df.LazyFramePlaceholder import LazyFramePlaceholder
@@ -38,6 +39,14 @@ class _GetStaticOperatorError(Exception):
             if underlying_exception
             else None,
         )
+
+
+ProtoT = TypeVar("ProtoT", covariant=True)
+
+
+class _ToProto(Protocol[ProtoT]):
+    def _to_proto(self) -> ProtoT:
+        ...
 
 
 @dataclasses.dataclass
@@ -80,7 +89,7 @@ def static_resolver_to_operator(
     fn: Callable,
     inputs: Sequence[Union[Feature, type[DataFrame]]],
     output: Optional[type[Features]],
-) -> StaticOperator | DfPlaceholder | ChalkDataFrame | LazyFramePlaceholder:
+) -> StaticOperator | DfPlaceholder | ChalkDataFrame | _ToProto[dataframe_pb2.DataFramePlan]:
     if output is None:
         raise _GetStaticOperatorError(
             resolver_fqn=fqn,

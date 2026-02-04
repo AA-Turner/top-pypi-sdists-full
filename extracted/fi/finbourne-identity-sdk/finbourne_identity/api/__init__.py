@@ -7,6 +7,7 @@ from finbourne_identity.api.authentication_api import AuthenticationApi
 from finbourne_identity.api.external_token_issuers_api import ExternalTokenIssuersApi
 from finbourne_identity.api.identity_logs_api import IdentityLogsApi
 from finbourne_identity.api.identity_provider_api import IdentityProviderApi
+from finbourne_identity.api.mcp_tools_api import MCPToolsApi
 from finbourne_identity.api.me_api import MeApi
 from finbourne_identity.api.network_zones_api import NetworkZonesApi
 from finbourne_identity.api.personal_authentication_tokens_api import PersonalAuthenticationTokensApi
@@ -22,6 +23,7 @@ __all__ = [
     "ExternalTokenIssuersApi",
     "IdentityLogsApi",
     "IdentityProviderApi",
+    "MCPToolsApi",
     "MeApi",
     "NetworkZonesApi",
     "PersonalAuthenticationTokensApi",

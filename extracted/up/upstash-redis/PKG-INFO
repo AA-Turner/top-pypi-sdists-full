@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: upstash-redis
-Version: 1.5.0
+Version: 1.6.0
 Summary: Serverless Redis SDK from Upstash
 Home-page: https://github.com/upstash/redis-python
 License: MIT

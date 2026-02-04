@@ -42,11 +42,11 @@ from langgraph_api.grpc.ops import (
     Authenticated,
     _handle_grpc_error,
     grpc_error_guard,
+    transform_grpc_error_event,
 )
 from langgraph_api.serde import (
     json_dumpb,
     json_dumpb_optional,
-    json_loads,
     json_loads_optional,
 )
 
@@ -210,18 +210,8 @@ class GrpcStreamHandler:
             )
 
             # Transform error events from gRPC format to older Python format
-            if event.event_type == "error" and message_bytes:
-                try:
-                    error_data = json_loads(message_bytes)
-                    if "status_code" in error_data and "message" in error_data:
-                        message_bytes = json_dumpb(
-                            HTTPException(
-                                status_code=error_data["status_code"],
-                                detail=error_data["message"],
-                            )
-                        )
-                except Exception:
-                    pass  # Keep original message if transformation fails
+            if event.event_type == "error":
+                message_bytes = transform_grpc_error_event(message_bytes)
 
             yield (event_bytes, message_bytes, stream_id_bytes)
 

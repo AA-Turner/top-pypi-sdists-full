@@ -282,12 +282,15 @@ __all__ = (
 
 class ArrayPropertiesDetailTypeDef(TypedDict):
     statusSummary: NotRequired[dict[str, int]]
+    statusSummaryLastUpdatedAt: NotRequired[int]
     size: NotRequired[int]
     index: NotRequired[int]
 
 class ArrayPropertiesSummaryTypeDef(TypedDict):
     size: NotRequired[int]
     index: NotRequired[int]
+    statusSummary: NotRequired[dict[str, int]]
+    statusSummaryLastUpdatedAt: NotRequired[int]
 
 class ArrayPropertiesTypeDef(TypedDict):
     size: NotRequired[int]

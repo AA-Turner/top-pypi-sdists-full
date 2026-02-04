@@ -15,6 +15,9 @@ if TYPE_CHECKING:
     from ..models.completed_job_raw_flow_modules_item_suspend_user_groups_required_type_1 import (
         CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType1,
     )
+    from ..models.completed_job_raw_flow_modules_item_suspend_user_groups_required_type_2 import (
+        CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType2,
+    )
 
 
 T = TypeVar("T", bound="CompletedJobRawFlowModulesItemSuspend")
@@ -31,7 +34,8 @@ class CompletedJobRawFlowModulesItemSuspend:
             when resuming
         user_auth_required (Union[Unset, bool]): If true, only authenticated users can approve
         user_groups_required (Union['CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType0',
-            'CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType1', Unset]): Maps input parameters for a step. Can
+            'CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType1',
+            'CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType2', Unset]): Maps input parameters for a step. Can
             be a static value or a JavaScript expression that references previous results or flow inputs
         self_approval_disabled (Union[Unset, bool]): If true, the user who started the flow cannot approve
         hide_cancel (Union[Unset, bool]): If true, hide the cancel button on the approval form
@@ -45,6 +49,7 @@ class CompletedJobRawFlowModulesItemSuspend:
     user_groups_required: Union[
         "CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType0",
         "CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType1",
+        "CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType2",
         Unset,
     ] = UNSET
     self_approval_disabled: Union[Unset, bool] = UNSET
@@ -55,6 +60,9 @@ class CompletedJobRawFlowModulesItemSuspend:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.completed_job_raw_flow_modules_item_suspend_user_groups_required_type_0 import (
             CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType0,
+        )
+        from ..models.completed_job_raw_flow_modules_item_suspend_user_groups_required_type_1 import (
+            CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType1,
         )
 
         required_events = self.required_events
@@ -69,6 +77,11 @@ class CompletedJobRawFlowModulesItemSuspend:
             user_groups_required = UNSET
 
         elif isinstance(self.user_groups_required, CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType0):
+            user_groups_required = UNSET
+            if not isinstance(self.user_groups_required, Unset):
+                user_groups_required = self.user_groups_required.to_dict()
+
+        elif isinstance(self.user_groups_required, CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType1):
             user_groups_required = UNSET
             if not isinstance(self.user_groups_required, Unset):
                 user_groups_required = self.user_groups_required.to_dict()
@@ -115,6 +128,9 @@ class CompletedJobRawFlowModulesItemSuspend:
         from ..models.completed_job_raw_flow_modules_item_suspend_user_groups_required_type_1 import (
             CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType1,
         )
+        from ..models.completed_job_raw_flow_modules_item_suspend_user_groups_required_type_2 import (
+            CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType2,
+        )
 
         d = src_dict.copy()
         required_events = d.pop("required_events", UNSET)
@@ -135,6 +151,7 @@ class CompletedJobRawFlowModulesItemSuspend:
         ) -> Union[
             "CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType0",
             "CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType1",
+            "CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType2",
             Unset,
         ]:
             if isinstance(data, Unset):
@@ -156,18 +173,35 @@ class CompletedJobRawFlowModulesItemSuspend:
                 return user_groups_required_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _user_groups_required_type_1 = data
+                user_groups_required_type_1: Union[Unset, CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType1]
+                if isinstance(_user_groups_required_type_1, Unset):
+                    user_groups_required_type_1 = UNSET
+                else:
+                    user_groups_required_type_1 = (
+                        CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType1.from_dict(
+                            _user_groups_required_type_1
+                        )
+                    )
+
+                return user_groups_required_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _user_groups_required_type_1 = data
-            user_groups_required_type_1: Union[Unset, CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType1]
-            if isinstance(_user_groups_required_type_1, Unset):
-                user_groups_required_type_1 = UNSET
+            _user_groups_required_type_2 = data
+            user_groups_required_type_2: Union[Unset, CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType2]
+            if isinstance(_user_groups_required_type_2, Unset):
+                user_groups_required_type_2 = UNSET
             else:
-                user_groups_required_type_1 = CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType1.from_dict(
-                    _user_groups_required_type_1
+                user_groups_required_type_2 = CompletedJobRawFlowModulesItemSuspendUserGroupsRequiredType2.from_dict(
+                    _user_groups_required_type_2
                 )
 
-            return user_groups_required_type_1
+            return user_groups_required_type_2
 
         user_groups_required = _parse_user_groups_required(d.pop("user_groups_required", UNSET))
 

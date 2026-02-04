@@ -209,6 +209,10 @@ class SimplePage(Page):
         return "%s (simple page)" % super().get_admin_display_title()
 
 
+class NoPromotePage(Page):
+    promote_panels = []
+
+
 class MultiPreviewModesPage(Page):
     preview_templates = {
         "original": "tests/simple_page.html",
@@ -1162,6 +1166,9 @@ register_snippet(ModelWithCustomManager)
 # Models with RevisionMixin
 class RevisableModel(RevisionMixin, models.Model):
     text = models.TextField()
+
+    def __str__(self):
+        return self.text
 
 
 class RevisableChildModel(RevisableModel):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional, Union
 
 import pandas as pd
@@ -11,9 +12,15 @@ from seeq.spy._status import Status
 from seeq.spy.workbooks.job.data import _pull, _push
 
 
-@Status.handle_keyboard_interrupt(no_session=True)
-def redo(job_folder: str, items_df: Union[pd.DataFrame, str, list], *, action: Optional[str] = None,
-         quiet: Optional[bool] = None, status: Optional[Status] = None):
+@Status.top_level_spy_function(no_session=True)
+def redo(
+    job_folder: Union[str, Path],
+    items_df: Union[pd.DataFrame, str, list],
+    *,
+    action: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None
+):
     """
     Marks a set of data items to be redone in the specified job folder.
 
@@ -44,14 +51,6 @@ def redo(job_folder: str, items_df: Union[pd.DataFrame, str, list], *, action: O
         in Jupyter in the blue/green/red table below your code while the
         command is executed.
     """
-    _common.validate_argument_types([
-        (job_folder, 'job_folder', str),
-        (items_df, 'items_df', (pd.DataFrame, str, list)),
-        (action, 'action', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status)
-    ])
-
     if not util.safe_exists(job_folder):
         raise SPyValueError(f'Job folder "{job_folder}" does not exist.')
 

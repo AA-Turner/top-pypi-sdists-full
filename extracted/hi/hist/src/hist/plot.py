@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import inspect
 import sys
-from collections.abc import Iterable
-from typing import Any, Callable, Literal, NamedTuple, Union
+from collections.abc import Callable, Iterable
+from typing import Any, Literal, NamedTuple, TypeAlias
 
 import numpy as np
 
@@ -56,10 +56,10 @@ class PullArtists(NamedTuple):
     patch_artist: list[matplotlib.patches.Rectangle]
 
 
-MainAxisArtists = Union[FitResultArtists, Hist1DArtists]
+MainAxisArtists: TypeAlias = FitResultArtists | Hist1DArtists
 
-RatioArtists = Union[RatioErrorbarArtists, RatioBarArtists]
-RatiolikeArtists = Union[RatioArtists, PullArtists]
+RatioArtists = RatioErrorbarArtists | RatioBarArtists
+RatiolikeArtists = RatioArtists | PullArtists
 
 
 def __dir__() -> tuple[str, ...]:
@@ -198,7 +198,7 @@ def _plot_keywords_wrapper(ax: matplotlib.axes.Axes, legend: bool | None) -> Non
 
 
 def plot2d_full(
-    self: hist.BaseHist,
+    self: hist.BaseHist[Any],
     *,
     ax_dict: dict[str, matplotlib.axes.Axes] | None = None,
     **kwargs: Any,
@@ -296,7 +296,7 @@ def plot2d_full(
 
 
 def _construct_gaussian_callable(
-    __hist: hist.BaseHist,
+    __hist: hist.BaseHist[Any],
 ) -> Callable[[np.typing.NDArray[Any]], np.typing.NDArray[Any]]:
     x_values = __hist.axes[0].centers
     hist_values = __hist.values()
@@ -324,7 +324,7 @@ def _construct_gaussian_callable(
 
 def _fit_callable_to_hist(
     model: Callable[[np.typing.NDArray[Any]], np.typing.NDArray[Any]],
-    histogram: hist.BaseHist,
+    histogram: hist.BaseHist[Any],
     likelihood: bool = False,
 ) -> tuple[
     np.typing.NDArray[Any],
@@ -361,7 +361,7 @@ def _fit_callable_to_hist(
 
 
 def _plot_fit_result(
-    __hist: hist.BaseHist,
+    __hist: hist.BaseHist[Any],
     model_values: np.typing.NDArray[Any],
     model_uncert: np.typing.NDArray[Any],
     ax: matplotlib.axes.Axes,
@@ -401,7 +401,7 @@ def _plot_fit_result(
 
 
 def plot_ratio_array(
-    __hist: hist.BaseHist,
+    __hist: hist.BaseHist[Any],
     ratio: np.typing.NDArray[Any],
     ratio_uncert: np.typing.NDArray[Any],
     ax: matplotlib.axes.Axes,
@@ -512,7 +512,7 @@ def plot_ratio_array(
 
 
 def plot_pull_array(
-    __hist: hist.BaseHist,
+    __hist: hist.BaseHist[Any],
     pulls: np.typing.NDArray[Any],
     ax: matplotlib.axes.Axes,
     bar_kwargs: dict[str, Any],
@@ -562,8 +562,8 @@ def plot_pull_array(
 
 
 def _plot_ratiolike(
-    self: hist.BaseHist,
-    other: hist.BaseHist
+    self: hist.BaseHist[Any],
+    other: hist.BaseHist[Any]
     | Callable[[np.typing.NDArray[Any]], np.typing.NDArray[Any]]
     | str,
     likelihood: bool = False,
@@ -672,6 +672,7 @@ def _plot_ratiolike(
 
     # Computation and Fit
     hist_values = self.values()
+    hist_values_uncert: np.typing.NDArray[Any] | None = None
 
     main_ax_artists: MainAxisArtists  # Type now due to control flow
     if callable(other) or isinstance(other, str):
@@ -694,7 +695,7 @@ def _plot_ratiolike(
             perr = np.sqrt(np.diagonal(pcov))
 
             fp_label = "Fit"
-            for name, value, error in zip(parnames, popt, perr):
+            for name, value, error in zip(parnames, popt, perr, strict=True):
                 fp_label += "\n  "
                 fp_label += fit_fmt.format(name=name, value=value, error=error)
             fp_kwargs["label"] = fp_label
@@ -718,6 +719,11 @@ def _plot_ratiolike(
 
         main_ax_artists = self_artists, other_artists
 
+        # Compute histogram uncertainties for pull plots
+        variances = self.variances()
+        if variances is not None:
+            hist_values_uncert = np.sqrt(variances)
+
     subplot_ax_artists: RatiolikeArtists  # Type now due to control flow
     # Compute ratios: containing no INF values
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -734,6 +740,9 @@ def _plot_ratiolike(
             )
 
         elif view == "pull":
+            if hist_values_uncert is None:
+                msg = "Cannot compute from a variance-less histogram, try a Weight storage"
+                raise RuntimeError(msg)
             pulls: np.typing.NDArray[Any] = (
                 hist_values - compare_values
             ) / hist_values_uncert
@@ -756,7 +765,7 @@ def get_center(x: str | int | tuple[float, float]) -> str | float:
 
 
 def plot_pie(
-    self: hist.BaseHist,
+    self: hist.BaseHist[Any],
     *,
     ax: matplotlib.axes.Axes | None = None,
     **kwargs: Any,
@@ -773,7 +782,7 @@ def plot_pie(
 
 
 def plot_stack(
-    self: hist.stack.Stack,
+    self: hist.stack.Stack[Any],
     *,
     ax: matplotlib.axes.Axes | None = None,
     legend: bool | None = False,

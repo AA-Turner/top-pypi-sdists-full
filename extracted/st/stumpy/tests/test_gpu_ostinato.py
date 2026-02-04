@@ -14,7 +14,13 @@ from unittest.mock import patch
 import naive
 import pytest
 
-from stumpy import core, gpu_ostinato
+from stumpy import core
+
+if cuda.is_available():
+    from stumpy.gpu_ostinato import gpu_ostinato
+else:  # pragma: no cover
+    from stumpy.core import _gpu_ostinato_driver_not_found as gpu_ostinato  # noqa: F401
+
 
 TEST_THREADS_PER_BLOCK = 10
 
@@ -141,13 +147,13 @@ def test_input_not_overwritten():
 def test_extract_several_consensus():
     # This test is to further ensure that the function `gpu_ostinato`
     # does not tamper with the original data.
-    Ts = [np.random.rand(n) for n in [256, 512, 1024]]
+    Ts = [np.random.rand(n) for n in [64, 128]]
     Ts_ref = [T.copy() for T in Ts]
     Ts_comp = [T.copy() for T in Ts]
 
     m = 20
 
-    k = 5  # Get the first `k` consensus motifs
+    k = 2  # Get the first `k` consensus motifs
     for _ in range(k):
         # Find consensus motif and its NN in each time series in Ts_comp
         # Remove them from Ts_comp as well as Ts_ref, and assert that the

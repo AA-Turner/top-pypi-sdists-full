@@ -12,12 +12,21 @@ from seeq.spy._status import Status
 from seeq.spy.jobs import _schedule
 
 
-@Status.handle_keyboard_interrupt(errors='raise')
-def push(jobs_df: pd.DataFrame, spread: Optional[str] = None, datalab_notebook_url: Optional[str] = None,
-         label: Optional[str] = None, user: Optional[str] = None,
-         interactive_index: Union[Optional[int], Optional[str]] = None, suspend: bool = False,
-         notify_on_skipped_execution: bool = True, notify_on_automatic_unschedule: bool = True,
-         quiet: Optional[bool] = None, status: Optional[Status] = None, session: Optional[Session] = None):
+@Status.top_level_spy_function(errors='raise')
+def push(
+    jobs_df: pd.DataFrame,
+    spread: Optional[str] = None,
+    datalab_notebook_url: Optional[str] = None,
+    label: Optional[str] = None,
+    user: Optional[str] = None,
+    interactive_index: Union[Optional[int], Optional[str]] = None,
+    suspend: bool = False,
+    notify_on_skipped_execution: bool = True,
+    notify_on_automatic_unschedule: bool = True,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None
+):
     """
     Schedules the automatic execution of a notebook and returns the row
     corresponding for the currently running schedule.
@@ -131,21 +140,6 @@ def push(jobs_df: pd.DataFrame, spread: Optional[str] = None, datalab_notebook_u
         to the interactive_index parameter.
 
     """
-    _common.validate_argument_types([
-        (jobs_df, 'jobs_df', pd.DataFrame),
-        (spread, 'spread', str),
-        (datalab_notebook_url, 'datalab_notebook_url', str),
-        (label, 'label', str),
-        (user, 'user', str),
-        (interactive_index, 'interactive_index', (int, str)),
-        (suspend, 'suspend', bool),
-        (notify_on_skipped_execution, 'notify_on_skipped_execution', bool),
-        (notify_on_automatic_unschedule, 'notify_on_automatic_unschedule', bool),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session)
-    ])
-
     try:
         _schedule.schedule_df(session, jobs_df=jobs_df, spread=spread, datalab_notebook_url=datalab_notebook_url,
                               label=label, user=user, suspend=suspend,

@@ -4,19 +4,11 @@ import dataclasses as dc
 import logging
 import re
 from abc import ABCMeta, abstractmethod
+from collections.abc import Iterable, Mapping, MutableMapping, MutableSequence, Sequence
 from operator import itemgetter
 from pathlib import Path
 from typing import (
     Any,
-    Iterable,
-    Mapping,
-    MutableMapping,
-    MutableSequence,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    Union,
 )
 from urllib.parse import unquote
 
@@ -55,11 +47,11 @@ class ExposuresMixin(metaclass=ABCMeta):
     def extract_exposures(
         self,
         output_path: str = DEFAULT_EXPOSURES_OUTPUT_PATH,
-        output_grouping: Optional[str] = None,
-        collection_filter: Optional[Filter] = None,
+        output_grouping: str | None = None,
+        collection_filter: Filter | None = None,
         allow_personal_collections: bool = False,
         exclude_unverified: bool = False,
-        tags: Optional[Sequence[str]] = None,
+        tags: Sequence[str] | None = None,
     ) -> Iterable[Mapping]:
         """Extract dbt exposures from Metabase.
 
@@ -251,21 +243,86 @@ class ExposuresMixin(metaclass=ABCMeta):
         """Extracts exposures from Metabase questions."""
 
         dataset_query = card.get("dataset_query", {})
-        card_type = dataset_query.get("type")
-        if card_type == "query":
-            self.__exposure_query(ctx, exposure, card)
-        elif card_type == "native":
-            self.__exposure_native(ctx, exposure, card)
+        if dataset_query.get("lib/type") == "mbql/query":
+            # MBQL 5 format
+            for stage in dataset_query.get("stages", []):
+                self.__exposure_mbql5_stage(ctx, exposure, card, stage)
         else:
-            _logger.warning("Unsupported card type '%s'", card_type)
+            # Legacy (MBQL 4) format
+            card_type = dataset_query.get("type")
+            if card_type == "query":
+                self.__exposure_legacy_query(ctx, exposure, card)
+            elif card_type == "native":
+                self.__exposure_legacy_native(ctx, exposure, card)
+            else:
+                _logger.warning("Unsupported card type '%s'", card_type)
 
-    def __exposure_query(self, ctx: _Context, exposure: _Exposure, card: Mapping):
+    def __exposure_mbql5_stage(
+        self, ctx: _Context, exposure: _Exposure, card: Mapping, stage: Mapping
+    ):
+        """MBQL 5 queries use a stages-based format with lib/type props for each stage:
+        - "mbql/query" for the top-level query
+        - "mbql.stage/mbql" for GUI/structured query stages
+        - "mbql.stage/native" for native SQL query stages
+        """
+
+        stage_type = stage.get("lib/type")
+        if stage_type == "mbql.stage/mbql":
+            self.__exposure_mbql5_query(ctx, exposure, card, stage)
+        elif stage_type == "mbql.stage/native":
+            self.__exposure_mbql5_native(ctx, exposure, card, stage)
+        else:
+            _logger.debug("Unknown MBQL 5 stage type '%s'", stage_type)
+
+    def __exposure_mbql5_query(
+        self, ctx: _Context, exposure: _Exposure, card: Mapping, stage: Mapping
+    ):
+        """Extracts exposures from an MBQL 5 GUI stage."""
+
+        # Extract source-table or source-card
+        source_table: int | None = stage.get("source-table")
+        source_card: int | None = stage.get("source-card")
+
+        if source_card is not None:
+            # Stage based on another card/question
+            if found_card := self.metabase.find_card(uid=str(source_card)):
+                self._exposure_card(ctx, exposure, found_card)
+
+        elif source_table is not None and source_table in ctx.table_names:
+            # Stage based on a table
+            table_name = ctx.table_names[source_table].lower()
+            exposure.depends.add(table_name)
+            _logger.info("Extracted model '%s' from MBQL 5 stage", table_name)
+
+        # Process joins within the stage
+        # MBQL 5 joins have their own nested stages array with the same structure as top-level stages
+        for join in stage.get("joins", []):
+            for join_stage in join.get("stages", []):
+                self.__exposure_mbql5_stage(ctx, exposure, card, join_stage)
+
+    def __exposure_mbql5_native(
+        self, ctx: _Context, exposure: _Exposure, card: Mapping, stage: Mapping
+    ):
+        """Extracts exposures from an MBQL 5 native stage."""
+
+        dataset_query = card.get("dataset_query", {})
+        database = dataset_query.get("database")
+        native_query = stage.get("native")
+
+        if not native_query or not database:
+            return
+
+        self.__exposure_native_query(ctx, exposure, database, native_query)
+
+    def __exposure_legacy_query(
+        self, ctx: _Context, exposure: _Exposure, card: Mapping
+    ):
         """Extracts exposures from Metabase GUI queries."""
 
         dataset_query = card.get("dataset_query", {})
         query = dataset_query.get("query", {})
 
-        query_source: Union[str, int] = query.get("source-table", card.get("table_id"))
+        query_source: str | int = query.get("source-table", card.get("table_id"))
         if isinstance(query_source, str) and query_source.startswith("card__"):
             # Question based on another question
             source_card_uid = query_source.split("__")[-1]
@@ -280,7 +337,7 @@ class ExposuresMixin(metaclass=ABCMeta):
 
         # Find models in joins
         for join in query.get("joins", []):
-            join_source: Union[str, int] = join.get("source-table")
+            join_source: str | int = join.get("source-table")
             if isinstance(join_source, str) and join_source.startswith("card__"):
                 # Question based on another question
                 source_card_uid = join_source.split("__")[-1]
@@ -295,13 +352,23 @@ class ExposuresMixin(metaclass=ABCMeta):
                 exposure.depends.add(joined_table)
                 _logger.info("Extracted model '%s' from join", joined_table)
 
-    def __exposure_native(self, ctx: _Context, exposure: _Exposure, card: Mapping):
+    def __exposure_legacy_native(
+        self, ctx: _Context, exposure: _Exposure, card: Mapping
+    ):
         """Extracts exposures from Metabase native queries."""
 
         dataset_query = card.get("dataset_query", {})
-        database = dataset_query["database"]
+        database = dataset_query.get("database")
         native_query = dataset_query["native"]["query"]
 
+        if not native_query or not database:
+            return
+
+        self.__exposure_native_query(ctx, exposure, database, native_query)
+
+    def __exposure_native_query(
+        self, ctx: _Context, exposure: _Exposure, database: int, native_query: str
+    ):
         # Parse common table expressions for exclusion
         ctes: MutableSequence[str] = []
         for matched_cte in re.findall(_CTE_PARSER, native_query):
@@ -352,11 +419,11 @@ class ExposuresMixin(metaclass=ABCMeta):
         created_at: str,
         creator_name: str,
         creator_email: str,
-        last_used_at: Optional[str],
-        average_query_time: Optional[str],
-        native_query: Optional[str],
+        last_used_at: str | None,
+        average_query_time: str | None,
+        native_query: str | None,
         depends_on: Iterable[str],
-        tags: Optional[Sequence[str]],
+        tags: Sequence[str] | None,
     ) -> Mapping:
         """Builds dbt exposure representation (see https://docs.getdbt.com/reference/exposure-properties)."""
 
@@ -425,13 +492,13 @@ class ExposuresMixin(metaclass=ABCMeta):
         self,
         exposures: Iterable[Mapping],
         output_path: str,
-        output_grouping: Optional[str],
+        output_grouping: str | None,
     ):
         """Write exposures to output files."""
 
-        grouped: MutableMapping[Tuple[str, ...], MutableSequence[Mapping]] = {}
+        grouped: MutableMapping[tuple[str, ...], MutableSequence[Mapping]] = {}
         for exposure in exposures:
-            group: Tuple[str, ...] = ("exposures",)
+            group: tuple[str, ...] = ("exposures",)
             if output_grouping == "collection":
                 group = (exposure["collection"],)
             elif output_grouping == "type":
@@ -478,7 +545,7 @@ class _Exposure:
     header: str = ""
     creator_name: str = ""
     creator_email: str = ""
-    average_query_time: Optional[str] = None
-    last_used_at: Optional[str] = None
-    native_query: Optional[str] = None
-    depends: Set[str] = dc.field(default_factory=set)
+    average_query_time: str | None = None
+    last_used_at: str | None = None
+    native_query: str | None = None
+    depends: set[str] = dc.field(default_factory=set)

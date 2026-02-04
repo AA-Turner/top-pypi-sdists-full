@@ -741,6 +741,8 @@ class AssetFilterType(sgqlc.types.Enum):
     """Enumeration Choices:
 
     * `ACTIVITY_READ`None
+    * `ACTIVITY_READ_AND_WRITE`None
+    * `ACTIVITY_READ_AND_WRITE_IS_NULL`None
     * `ACTIVITY_READ_IS_NULL`None
     * `ACTIVITY_READ_WRITE`None
     * `ACTIVITY_READ_WRITE_IS_NULL`None
@@ -755,6 +757,8 @@ class AssetFilterType(sgqlc.types.Enum):
     __schema__ = schema
     __choices__ = (
         "ACTIVITY_READ",
+        "ACTIVITY_READ_AND_WRITE",
+        "ACTIVITY_READ_AND_WRITE_IS_NULL",
         "ACTIVITY_READ_IS_NULL",
         "ACTIVITY_READ_WRITE",
         "ACTIVITY_READ_WRITE_IS_NULL",
@@ -789,6 +793,28 @@ class AssetsSortDirection(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("ASC", "DESC")
+
+
+class AssignedAssetOperationEnum(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `ADD`None
+    * `REMOVE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ADD", "REMOVE")
+
+
+class AssignedAssetStatusEnum(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `ADDED`None
+    * `REMOVED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ADDED", "REMOVED")
 
 
 class AuthType(sgqlc.types.Enum):
@@ -6394,10 +6420,12 @@ class AssetFilterUnionInput(sgqlc.types.Input):
         "read_days",
         "write_days",
         "read_write_days",
+        "read_and_write_days",
         "volume_change_days",
         "read_activity_is_null",
         "write_activity_is_null",
         "read_write_activity_is_null",
+        "read_and_write_activity_is_null",
         "type",
         "negated",
     )
@@ -6423,6 +6451,8 @@ class AssetFilterUnionInput(sgqlc.types.Input):
 
     read_write_days = sgqlc.types.Field(Int, graphql_name="readWriteDays")
 
+    read_and_write_days = sgqlc.types.Field(Int, graphql_name="readAndWriteDays")
+
     volume_change_days = sgqlc.types.Field(Int, graphql_name="volumeChangeDays")
 
     read_activity_is_null = sgqlc.types.Field(Boolean, graphql_name="readActivityIsNull")
@@ -6430,6 +6460,10 @@ class AssetFilterUnionInput(sgqlc.types.Input):
     write_activity_is_null = sgqlc.types.Field(Boolean, graphql_name="writeActivityIsNull")
 
     read_write_activity_is_null = sgqlc.types.Field(Boolean, graphql_name="readWriteActivityIsNull")
+
+    read_and_write_activity_is_null = sgqlc.types.Field(
+        Boolean, graphql_name="readAndWriteActivityIsNull"
+    )
 
     type = sgqlc.types.Field(sgqlc.types.non_null(AssetFilterType), graphql_name="type")
 
@@ -14730,15 +14764,15 @@ class AssignedAssetOutput(sgqlc.types.Type):
     """A table assigned to a monitor"""
 
     __schema__ = schema
-    __field_names__ = ("monitor_uuid", "table_mcon", "unassigned")
+    __field_names__ = ("monitor_uuid", "table_mcon", "status")
     monitor_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorUuid")
     """UUID of the monitor"""
 
     table_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="tableMcon")
     """MCON of the assigned table"""
 
-    unassigned = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="unassigned")
-    """True if the assignment was manually unassigned"""
+    status = sgqlc.types.Field(sgqlc.types.non_null(AssignedAssetStatusEnum), graphql_name="status")
+    """ADDED if the table is monitored, REMOVED if excluded"""
 
 
 class AssignmentWithProperties(sgqlc.types.Type):
@@ -17713,15 +17747,6 @@ class CreateAccountSecret(sgqlc.types.Type):
     __field_names__ = ("secret",)
     secret = sgqlc.types.Field(AccountSecretOutput, graphql_name="secret")
     """The secret that was created"""
-
-
-class CreateAssignedAsset(sgqlc.types.Type):
-    """Create an assignment between a table to a monitor"""
-
-    __schema__ = schema
-    __field_names__ = ("assignment",)
-    assignment = sgqlc.types.Field(AssignedAssetOutput, graphql_name="assignment")
-    """(experimental) The created assignment"""
 
 
 class CreateAzureDevOpsIntegration(sgqlc.types.Type):
@@ -20990,15 +21015,6 @@ class DeleteAssetCollectionPreferences(sgqlc.types.Type):
 
     asset_type = sgqlc.types.Field(String, graphql_name="assetType")
     """The asset type that the preferences were removed for."""
-
-
-class DeleteAssignedAsset(sgqlc.types.Type):
-    """Delete an assignment between a table and a monitor"""
-
-    __schema__ = schema
-    __field_names__ = ("deleted",)
-    deleted = sgqlc.types.Field(Int, graphql_name="deleted")
-    """(experimental) Number of assignments deleted"""
 
 
 class DeleteAudienceNotificationSetting(sgqlc.types.Type):
@@ -27082,6 +27098,7 @@ class MonitorDataSource(sgqlc.types.Type):
         "uuid",
         "connection_uuid",
         "custom_sql",
+        "is_agent_trace_aggregation",
         "type",
         "schema",
         "tables",
@@ -27093,6 +27110,9 @@ class MonitorDataSource(sgqlc.types.Type):
     """The connection uuid"""
 
     custom_sql = sgqlc.types.Field(String, graphql_name="customSql")
+
+    is_agent_trace_aggregation = sgqlc.types.Field(Boolean, graphql_name="isAgentTraceAggregation")
+    """If True, aggregate spans by trace_id for agent monitors"""
 
     type = sgqlc.types.Field(sgqlc.types.non_null(DataSourceType), graphql_name="type")
 
@@ -28391,8 +28411,7 @@ class Mutation(sgqlc.types.Type):
         "upload_airflow_dag_result",
         "upload_airflow_task_result",
         "upload_airflow_sla_misses",
-        "assign_asset",
-        "unassign_asset",
+        "update_assigned_assets",
         "merge_alerts",
         "request_alert_access",
         "create_or_update_collibra_integration",
@@ -40226,6 +40245,10 @@ class Mutation(sgqlc.types.Type):
                     "high_segment_count",
                     sgqlc.types.Arg(Boolean, graphql_name="highSegmentCount", default=False),
                 ),
+                (
+                    "is_agent_trace_aggregation",
+                    sgqlc.types.Arg(Boolean, graphql_name="isAgentTraceAggregation", default=False),
+                ),
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
                 (
@@ -40303,6 +40326,9 @@ class Mutation(sgqlc.types.Type):
     * `high_segment_count` (`Boolean`): Flag to apply additional
       limits which increase the supported segment count (default:
       `false`)
+    * `is_agent_trace_aggregation` (`Boolean`): If true, aggregates
+      spans by trace_id for trace-level metrics. Default (false)
+      returns span-level data. (default: `false`)
     * `notes` (`String`): Additional context for the monitor (default:
       `""`)
     * `priority` (`String`): The default priority for alerts involving
@@ -46215,9 +46241,9 @@ class Mutation(sgqlc.types.Type):
       active Airflow connection on the account.
     """
 
-    assign_asset = sgqlc.types.Field(
-        CreateAssignedAsset,
-        graphql_name="assignAsset",
+    update_assigned_assets = sgqlc.types.Field(
+        "UpdateAssignedAssets",
+        graphql_name="updateAssignedAssets",
         args=sgqlc.types.ArgDict(
             (
                 (
@@ -46227,34 +46253,11 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
-                    "table_mcon",
+                    "operation",
                     sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="tableMcon", default=None
-                    ),
-                ),
-                ("unassigned", sgqlc.types.Arg(Boolean, graphql_name="unassigned", default=None)),
-            )
-        ),
-    )
-    """(experimental) Create an assignment between a table to a monitor
-
-    Arguments:
-
-    * `monitor_uuid` (`UUID!`): UUID of the monitor
-    * `table_mcon` (`String!`): MCON of the table to assign
-    * `unassigned` (`Boolean`): True if an assignment is to be
-      manually unassigned
-    """
-
-    unassign_asset = sgqlc.types.Field(
-        DeleteAssignedAsset,
-        graphql_name="unassignAsset",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "monitor_uuid",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
+                        sgqlc.types.non_null(AssignedAssetOperationEnum),
+                        graphql_name="operation",
+                        default=None,
                     ),
                 ),
                 (
@@ -46266,12 +46269,14 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Delete an assignment between a table and a monitor
+    """(experimental) Update asset assignment for a monitor
 
     Arguments:
 
     * `monitor_uuid` (`UUID!`): UUID of the monitor
-    * `table_mcon` (`String!`): MCON of the table to unassign
+    * `operation` (`AssignedAssetOperationEnum!`): ADD to include
+      table in monitoring, REMOVE to exclude it
+    * `table_mcon` (`String!`): MCON of the table
     """
 
     merge_alerts = sgqlc.types.Field(
@@ -56022,10 +56027,14 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "is_agent_trace_aggregation",
+                    sgqlc.types.Arg(Boolean, graphql_name="isAgentTraceAggregation", default=None),
+                ),
             )
         ),
     )
-    """(experimental) Get agent span schema from base trace table
+    """(experimental) Get agent span/trace schema from base trace table
 
     Arguments:
 
@@ -56037,6 +56046,8 @@ class Query(sgqlc.types.Type):
       conditions to apply to query
     * `agent_span_filters` (`[AgentSpanFilterInput!]`): Filter by
       agent span fields (agent, workflow, task, span_name)
+    * `is_agent_trace_aggregation` (`Boolean`): If true, evaluate
+      schema for trace-level aggregation mode
     """
 
     get_job_execution_history_logs = sgqlc.types.Field(
@@ -73610,6 +73621,15 @@ class UpdateAlert(sgqlc.types.Type):
     """The updated alert"""
 
 
+class UpdateAssignedAssets(sgqlc.types.Type):
+    """Update asset assignment for a monitor (add or remove a table)"""
+
+    __schema__ = schema
+    __field_names__ = ("assignment",)
+    assignment = sgqlc.types.Field(AssignedAssetOutput, graphql_name="assignment")
+    """(experimental) The updated assignment"""
+
+
 class UpdateAthenaCredentialsV2Mutation(sgqlc.types.Type):
     """Update credentials for an existing AWS Athena connection.  Note:
     This mutation only uploads credentials and returns a temporary
@@ -76450,6 +76470,22 @@ class AssetFilterActivityRead(sgqlc.types.Type, AssetFilterInterface):
     __schema__ = schema
     __field_names__ = ("read_days",)
     read_days = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="readDays")
+
+
+class AssetFilterActivityReadAndWrite(sgqlc.types.Type, AssetFilterInterface):
+    __schema__ = schema
+    __field_names__ = ("read_and_write_days",)
+    read_and_write_days = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="readAndWriteDays"
+    )
+
+
+class AssetFilterActivityReadAndWriteIsNull(sgqlc.types.Type, AssetFilterInterface):
+    __schema__ = schema
+    __field_names__ = ("read_and_write_activity_is_null",)
+    read_and_write_activity_is_null = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="readAndWriteActivityIsNull"
+    )
 
 
 class AssetFilterActivityReadIsNull(sgqlc.types.Type, AssetFilterInterface):

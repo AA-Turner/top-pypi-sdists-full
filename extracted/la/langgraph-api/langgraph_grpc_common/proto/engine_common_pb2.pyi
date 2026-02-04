@@ -709,6 +709,8 @@ class EngineRunnableConfig(_message.Message):
     ROOT_STREAM_MODES_FIELD_NUMBER: _builtins.int
     RUN_ATTEMPT_FIELD_NUMBER: _builtins.int
     SERVER_RUN_ID_FIELD_NUMBER: _builtins.int
+    TRACING_PROJECT_FIELD_NUMBER: _builtins.int
+    TRACING_EXAMPLE_ID_FIELD_NUMBER: _builtins.int
     run_name: _builtins.str
     """Tracing run (span) name"""
     max_concurrency: _builtins.int
@@ -788,6 +790,14 @@ class EngineRunnableConfig(_message.Message):
     """The run from the langgraph runs table. This is equivalent to the tracing run_id if it's the first attempt.
     Maps to: config.metadata.run_id
     ********* End of tracing metadata ********************
+    """
+    tracing_project: _builtins.str
+    """The project ID for tracing replicas (used for running evals in the studio).
+    Maps to: config.configurable.__langsmith_project__
+    """
+    tracing_example_id: _builtins.str
+    """The example ID for tracing replicas (used for running evals in the studio).
+    Maps to: config.configurable.__langsmith_example_id__
     """
     @_builtins.property
     def tags(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
@@ -885,10 +895,12 @@ class EngineRunnableConfig(_message.Message):
         root_stream_modes: _abc.Iterable[_enum_stream_mode_pb2.StreamMode.ValueType] | None = ...,
         run_attempt: _builtins.int | None = ...,
         server_run_id: _builtins.str | None = ...,
+        tracing_project: _builtins.str | None = ...,
+        tracing_example_id: _builtins.str | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_checkpoint_id", b"_checkpoint_id", "_checkpoint_ns", b"_checkpoint_ns", "_durability", b"_durability", "_graph_id", b"_graph_id", "_max_concurrency", b"_max_concurrency", "_recursion_limit", b"_recursion_limit", "_resuming", b"_resuming", "_run_attempt", b"_run_attempt", "_run_id", b"_run_id", "_run_name", b"_run_name", "_runtime", b"_runtime", "_server_run_id", b"_server_run_id", "_task_id", b"_task_id", "_thread_id", b"_thread_id", "checkpoint_id", b"checkpoint_id", "checkpoint_ns", b"checkpoint_ns", "durability", b"durability", "graph_id", b"graph_id", "max_concurrency", b"max_concurrency", "recursion_limit", b"recursion_limit", "resuming", b"resuming", "run_attempt", b"run_attempt", "run_id", b"run_id", "run_name", b"run_name", "runtime", b"runtime", "server_run_id", b"server_run_id", "task_id", b"task_id", "thread_id", b"thread_id"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_checkpoint_id", b"_checkpoint_id", "_checkpoint_ns", b"_checkpoint_ns", "_durability", b"_durability", "_graph_id", b"_graph_id", "_max_concurrency", b"_max_concurrency", "_recursion_limit", b"_recursion_limit", "_resuming", b"_resuming", "_run_attempt", b"_run_attempt", "_run_id", b"_run_id", "_run_name", b"_run_name", "_runtime", b"_runtime", "_server_run_id", b"_server_run_id", "_task_id", b"_task_id", "_thread_id", b"_thread_id", "_tracing_example_id", b"_tracing_example_id", "_tracing_project", b"_tracing_project", "checkpoint_id", b"checkpoint_id", "checkpoint_ns", b"checkpoint_ns", "durability", b"durability", "graph_id", b"graph_id", "max_concurrency", b"max_concurrency", "recursion_limit", b"recursion_limit", "resuming", b"resuming", "run_attempt", b"run_attempt", "run_id", b"run_id", "run_name", b"run_name", "runtime", b"runtime", "server_run_id", b"server_run_id", "task_id", b"task_id", "thread_id", b"thread_id", "tracing_example_id", b"tracing_example_id", "tracing_project", b"tracing_project"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_checkpoint_id", b"_checkpoint_id", "_checkpoint_ns", b"_checkpoint_ns", "_durability", b"_durability", "_graph_id", b"_graph_id", "_max_concurrency", b"_max_concurrency", "_recursion_limit", b"_recursion_limit", "_resuming", b"_resuming", "_run_attempt", b"_run_attempt", "_run_id", b"_run_id", "_run_name", b"_run_name", "_runtime", b"_runtime", "_server_run_id", b"_server_run_id", "_task_id", b"_task_id", "_thread_id", b"_thread_id", "checkpoint_id", b"checkpoint_id", "checkpoint_map", b"checkpoint_map", "checkpoint_ns", b"checkpoint_ns", "durability", b"durability", "extra_configurable_json", b"extra_configurable_json", "extra_json", b"extra_json", "graph_id", b"graph_id", "max_concurrency", b"max_concurrency", "metadata_json", b"metadata_json", "recursion_limit", b"recursion_limit", "resume_map", b"resume_map", "resuming", b"resuming", "root_stream_modes", b"root_stream_modes", "run_attempt", b"run_attempt", "run_id", b"run_id", "run_name", b"run_name", "runtime", b"runtime", "server_run_id", b"server_run_id", "tags", b"tags", "task_id", b"task_id", "thread_id", b"thread_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_checkpoint_id", b"_checkpoint_id", "_checkpoint_ns", b"_checkpoint_ns", "_durability", b"_durability", "_graph_id", b"_graph_id", "_max_concurrency", b"_max_concurrency", "_recursion_limit", b"_recursion_limit", "_resuming", b"_resuming", "_run_attempt", b"_run_attempt", "_run_id", b"_run_id", "_run_name", b"_run_name", "_runtime", b"_runtime", "_server_run_id", b"_server_run_id", "_task_id", b"_task_id", "_thread_id", b"_thread_id", "_tracing_example_id", b"_tracing_example_id", "_tracing_project", b"_tracing_project", "checkpoint_id", b"checkpoint_id", "checkpoint_map", b"checkpoint_map", "checkpoint_ns", b"checkpoint_ns", "durability", b"durability", "extra_configurable_json", b"extra_configurable_json", "extra_json", b"extra_json", "graph_id", b"graph_id", "max_concurrency", b"max_concurrency", "metadata_json", b"metadata_json", "recursion_limit", b"recursion_limit", "resume_map", b"resume_map", "resuming", b"resuming", "root_stream_modes", b"root_stream_modes", "run_attempt", b"run_attempt", "run_id", b"run_id", "run_name", b"run_name", "runtime", b"runtime", "server_run_id", b"server_run_id", "tags", b"tags", "task_id", b"task_id", "thread_id", b"thread_id", "tracing_example_id", b"tracing_example_id", "tracing_project", b"tracing_project"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__checkpoint_id: _TypeAlias = _typing.Literal["checkpoint_id"]  # noqa: Y015
     _WhichOneofArgType__checkpoint_id: _TypeAlias = _typing.Literal["_checkpoint_id", b"_checkpoint_id"]  # noqa: Y015
@@ -918,6 +930,10 @@ class EngineRunnableConfig(_message.Message):
     _WhichOneofArgType__task_id: _TypeAlias = _typing.Literal["_task_id", b"_task_id"]  # noqa: Y015
     _WhichOneofReturnType__thread_id: _TypeAlias = _typing.Literal["thread_id"]  # noqa: Y015
     _WhichOneofArgType__thread_id: _TypeAlias = _typing.Literal["_thread_id", b"_thread_id"]  # noqa: Y015
+    _WhichOneofReturnType__tracing_example_id: _TypeAlias = _typing.Literal["tracing_example_id"]  # noqa: Y015
+    _WhichOneofArgType__tracing_example_id: _TypeAlias = _typing.Literal["_tracing_example_id", b"_tracing_example_id"]  # noqa: Y015
+    _WhichOneofReturnType__tracing_project: _TypeAlias = _typing.Literal["tracing_project"]  # noqa: Y015
+    _WhichOneofArgType__tracing_project: _TypeAlias = _typing.Literal["_tracing_project", b"_tracing_project"]  # noqa: Y015
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__checkpoint_id) -> _WhichOneofReturnType__checkpoint_id | None: ...
     @_typing.overload
@@ -946,6 +962,10 @@ class EngineRunnableConfig(_message.Message):
     def WhichOneof(self, oneof_group: _WhichOneofArgType__task_id) -> _WhichOneofReturnType__task_id | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__thread_id) -> _WhichOneofReturnType__thread_id | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__tracing_example_id) -> _WhichOneofReturnType__tracing_example_id | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__tracing_project) -> _WhichOneofReturnType__tracing_project | None: ...
 
 Global___EngineRunnableConfig: _TypeAlias = EngineRunnableConfig  # noqa: Y015
 

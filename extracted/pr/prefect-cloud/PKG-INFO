@@ -1,25 +1,25 @@
 Metadata-Version: 2.4
 Name: prefect-cloud
-Version: 0.1.9
+Version: 0.1.10
 Summary: Package for easily deploying to Prefect Cloud.
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License-File: LICENSE
 Requires-Python: >=3.10
-Requires-Dist: cachetools>=6.0.0
+Requires-Dist: cachetools<8.0,>=6.0.0
 Requires-Dist: croniter>=6.0.0
-Requires-Dist: griffe>=1.5.6
-Requires-Dist: httpx>=0.28.1
-Requires-Dist: pydantic-extra-types>=2.10.2
-Requires-Dist: pydantic-settings>=2.7.1
-Requires-Dist: pydantic>=2.10.6
-Requires-Dist: readchar>=4.2.1
-Requires-Dist: rich>=13.9.4
+Requires-Dist: griffe<2.0.0,>=1.5.6
+Requires-Dist: httpx!=0.23.2,>=0.28.1
+Requires-Dist: pydantic!=2.11.0,!=2.11.1,!=2.11.2,!=2.11.3,!=2.11.4,<3.0.0,>=2.10.6
+Requires-Dist: pydantic-extra-types<3.0.0,>=2.10.2
+Requires-Dist: pydantic-settings!=2.9.0,<3.0.0,>=2.7.1
+Requires-Dist: readchar<5.0.0,>=4.2.1
+Requires-Dist: rich<15.0,>=13.9.4
 Requires-Dist: toml>=0.10.2
-Requires-Dist: typer>=0.13.1
-Requires-Dist: typing-extensions>=4.12.2
+Requires-Dist: typer<0.22.0,>=0.16.0
+Requires-Dist: typing-extensions<5.0.0,>=4.12.2
 Requires-Dist: tzlocal>=5.2
 Requires-Dist: uv>=0.5.26
-Requires-Dist: websockets>=13.0
+Requires-Dist: websockets<17.0,>=15.0.1
 Description-Content-Type: text/markdown
 
 # prefect-cloud

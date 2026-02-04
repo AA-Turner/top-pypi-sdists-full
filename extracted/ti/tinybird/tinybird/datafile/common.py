@@ -270,7 +270,7 @@ REQUIRED_BLOB_STORAGE_PARAMS = {
     "import_schedule",
     "import_bucket_uri",
 }
-BLOB_STORAGE_PARAMS = REQUIRED_BLOB_STORAGE_PARAMS.union({"import_from_timestamp"})
+BLOB_STORAGE_PARAMS = REQUIRED_BLOB_STORAGE_PARAMS.union({"import_from_timestamp", "import_format"})
 VALID_BLOB_STORAGE_CRON_VALUES = {
     "@once",
     "@on-demand",
@@ -2017,6 +2017,7 @@ def parse(
             "import_schedule": assign_var("import_schedule"),
             "import_strategy": import_strategy_deprecated,  # Deprecated, always append
             "import_bucket_uri": assign_var("import_bucket_uri"),
+            "import_format": assign_var("import_format"),
             "import_from_timestamp": assign_var("import_from_timestamp"),
             "import_service": import_service_deprecated,  # Deprecated
             "import_external_datasource": import_external_datasource_deprecated,  # Deprecated, BQ and SFK
@@ -2196,6 +2197,7 @@ class ImportReplacements:
         ("import_connector", "connector", None),
         ("import_external_datasource", "external_data_source", None),
         ("import_bucket_uri", "bucket_uri", None),
+        ("import_format", "format", None),
         ("import_from_timestamp", "from_time", None),
         ("import_table_arn", "dynamodb_table_arn", None),
         ("import_export_bucket", "dynamodb_export_bucket", None),

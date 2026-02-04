@@ -35,7 +35,7 @@ class IndicesClient(NamespacedClient):
     def add_block(
         self,
         *,
-        index: str,
+        index: t.Union[str, t.Sequence[str]],
         block: t.Union[str, t.Literal["metadata", "read", "read_only", "write"]],
         allow_no_indices: t.Optional[bool] = None,
         error_trace: t.Optional[bool] = None,
@@ -842,7 +842,7 @@ class IndicesClient(NamespacedClient):
     def data_streams_stats(
         self,
         *,
-        name: t.Optional[str] = None,
+        name: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         error_trace: t.Optional[bool] = None,
         expand_wildcards: t.Optional[
             t.Union[
@@ -1299,6 +1299,62 @@ class IndicesClient(NamespacedClient):
         )
 
     @_rewrite_parameters()
+    @_availability_warning(Stability.EXPERIMENTAL)
+    def delete_sample_configuration(
+        self,
+        *,
+        index: str,
+        error_trace: t.Optional[bool] = None,
+        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        human: t.Optional[bool] = None,
+        master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
+        pretty: t.Optional[bool] = None,
+        timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
+    ) -> ObjectApiResponse[t.Any]:
+        """
+        .. raw:: html
+
+          <p>Delete sampling configuration.</p>
+          <p>Delete the sampling configuration for the specified index.</p>
+
+
+        `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
+
+        :param index: The name of the index.
+        :param master_timeout: Period to wait for a connection to the master node. If
+            no response is received before the timeout expires, the request fails and
+            returns an error.
+        :param timeout: Period to wait for a response. If no response is received before
+            the timeout expires, the request fails and returns an error.
+        """
+        if index in SKIP_IN_PATH:
+            raise ValueError("Empty value passed for parameter 'index'")
+        __path_parts: t.Dict[str, str] = {"index": _quote(index)}
+        __path = f'/{__path_parts["index"]}/_sample/config'
+        __query: t.Dict[str, t.Any] = {}
+        if error_trace is not None:
+            __query["error_trace"] = error_trace
+        if filter_path is not None:
+            __query["filter_path"] = filter_path
+        if human is not None:
+            __query["human"] = human
+        if master_timeout is not None:
+            __query["master_timeout"] = master_timeout
+        if pretty is not None:
+            __query["pretty"] = pretty
+        if timeout is not None:
+            __query["timeout"] = timeout
+        __headers = {"accept": "application/json"}
+        return self.perform_request(  # type: ignore[return-value]
+            "DELETE",
+            __path,
+            params=__query,
+            headers=__headers,
+            endpoint_id="indices.delete_sample_configuration",
+            path_parts=__path_parts,
+        )
+
+    @_rewrite_parameters()
     def delete_template(
         self,
         *,
@@ -1465,12 +1521,17 @@ class IndicesClient(NamespacedClient):
         .. raw:: html
 
           <p>Downsample an index.</p>
-          <p>Aggregate a time series (TSDS) index and store pre-computed statistical summaries (<code>min</code>, <code>max</code>, <code>sum</code>, <code>value_count</code> and <code>avg</code>) for each metric field grouped by a configured time interval.
-          For example, a TSDS index that contains metrics sampled every 10 seconds can be downsampled to an hourly index.
+          <p>Downsamples a time series (TSDS) index and reduces its size by keeping the last value or by pre-aggregating metrics:</p>
+          <ul>
+          <li>When running in <code>aggregate</code> mode, it pre-calculates and stores statistical summaries (<code>min</code>, <code>max</code>, <code>sum</code>, <code>value_count</code> and <code>avg</code>)
+          for each metric field grouped by a configured time interval and their dimensions.</li>
+          <li>When running in <code>last_value</code> mode, it keeps the last value for each metric in the configured interval and their dimensions.</li>
+          </ul>
+          <p>For example, a TSDS index that contains metrics sampled every 10 seconds can be downsampled to an hourly index.
           All documents within an hour interval are summarized and stored as a single document in the downsample index.</p>
           <p>NOTE: Only indices in a time series data stream are supported.
           Neither field nor document level security can be defined on the source index.
-          The source index must be read only (<code>index.blocks.write: true</code>).</p>
+          The source index must be read-only (<code>index.blocks.write: true</code>).</p>
 
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-downsample>`_
@@ -2116,7 +2177,7 @@ class IndicesClient(NamespacedClient):
         :param ignore_unavailable: Whether specified concrete indices should be ignored
             when unavailable (missing or closed)
         :param max_num_segments: The number of segments the index should be merged into
-            (defayult: dynamic)
+            (default: dynamic)
         :param only_expunge_deletes: Specify whether the operation should only expunge
             deleted documents
         :param wait_for_completion: Should the request wait until the force merge is
@@ -2350,6 +2411,53 @@ class IndicesClient(NamespacedClient):
             params=__query,
             headers=__headers,
             endpoint_id="indices.get_alias",
+            path_parts=__path_parts,
+        )
+
+    @_rewrite_parameters()
+    @_availability_warning(Stability.EXPERIMENTAL)
+    def get_all_sample_configuration(
+        self,
+        *,
+        error_trace: t.Optional[bool] = None,
+        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        human: t.Optional[bool] = None,
+        master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
+        pretty: t.Optional[bool] = None,
+    ) -> ObjectApiResponse[t.Any]:
+        """
+        .. raw:: html
+
+          <p>Get all sampling configurations.</p>
+          <p>Get the sampling configurations for all indices.</p>
+
+
+        `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
+
+        :param master_timeout: Period to wait for a connection to the master node. If
+            no response is received before the timeout expires, the request fails and
+            returns an error.
+        """
+        __path_parts: t.Dict[str, str] = {}
+        __path = "/_sample/config"
+        __query: t.Dict[str, t.Any] = {}
+        if error_trace is not None:
+            __query["error_trace"] = error_trace
+        if filter_path is not None:
+            __query["filter_path"] = filter_path
+        if human is not None:
+            __query["human"] = human
+        if master_timeout is not None:
+            __query["master_timeout"] = master_timeout
+        if pretty is not None:
+            __query["pretty"] = pretty
+        __headers = {"accept": "application/json"}
+        return self.perform_request(  # type: ignore[return-value]
+            "GET",
+            __path,
+            params=__query,
+            headers=__headers,
+            endpoint_id="indices.get_all_sample_configuration",
             path_parts=__path_parts,
         )
 
@@ -2989,6 +3097,145 @@ class IndicesClient(NamespacedClient):
         )
 
     @_rewrite_parameters()
+    @_availability_warning(Stability.EXPERIMENTAL)
+    def get_sample(
+        self,
+        *,
+        index: str,
+        error_trace: t.Optional[bool] = None,
+        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        human: t.Optional[bool] = None,
+        pretty: t.Optional[bool] = None,
+    ) -> ObjectApiResponse[t.Any]:
+        """
+        .. raw:: html
+
+          <p>Request for a random sample of raw documents ingested into the given index or data stream.</p>
+
+
+        `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
+
+        :param index: Single index or data stream name. Wildcards are not supported.
+        """
+        if index in SKIP_IN_PATH:
+            raise ValueError("Empty value passed for parameter 'index'")
+        __path_parts: t.Dict[str, str] = {"index": _quote(index)}
+        __path = f'/{__path_parts["index"]}/_sample'
+        __query: t.Dict[str, t.Any] = {}
+        if error_trace is not None:
+            __query["error_trace"] = error_trace
+        if filter_path is not None:
+            __query["filter_path"] = filter_path
+        if human is not None:
+            __query["human"] = human
+        if pretty is not None:
+            __query["pretty"] = pretty
+        __headers = {"accept": "application/json"}
+        return self.perform_request(  # type: ignore[return-value]
+            "GET",
+            __path,
+            params=__query,
+            headers=__headers,
+            endpoint_id="indices.get_sample",
+            path_parts=__path_parts,
+        )
+
+    @_rewrite_parameters()
+    @_availability_warning(Stability.EXPERIMENTAL)
+    def get_sample_configuration(
+        self,
+        *,
+        index: str,
+        error_trace: t.Optional[bool] = None,
+        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        human: t.Optional[bool] = None,
+        master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
+        pretty: t.Optional[bool] = None,
+    ) -> ObjectApiResponse[t.Any]:
+        """
+        .. raw:: html
+
+          <p>Get sampling configuration.</p>
+          <p>Get the sampling configuration for the specified index.</p>
+
+
+        `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
+
+        :param index: The name of the index.
+        :param master_timeout: Period to wait for a connection to the master node. If
+            no response is received before the timeout expires, the request fails and
+            returns an error.
+        """
+        if index in SKIP_IN_PATH:
+            raise ValueError("Empty value passed for parameter 'index'")
+        __path_parts: t.Dict[str, str] = {"index": _quote(index)}
+        __path = f'/{__path_parts["index"]}/_sample/config'
+        __query: t.Dict[str, t.Any] = {}
+        if error_trace is not None:
+            __query["error_trace"] = error_trace
+        if filter_path is not None:
+            __query["filter_path"] = filter_path
+        if human is not None:
+            __query["human"] = human
+        if master_timeout is not None:
+            __query["master_timeout"] = master_timeout
+        if pretty is not None:
+            __query["pretty"] = pretty
+        __headers = {"accept": "application/json"}
+        return self.perform_request(  # type: ignore[return-value]
+            "GET",
+            __path,
+            params=__query,
+            headers=__headers,
+            endpoint_id="indices.get_sample_configuration",
+            path_parts=__path_parts,
+        )
+
+    @_rewrite_parameters()
+    @_availability_warning(Stability.EXPERIMENTAL)
+    def get_sample_stats(
+        self,
+        *,
+        index: str,
+        error_trace: t.Optional[bool] = None,
+        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        human: t.Optional[bool] = None,
+        pretty: t.Optional[bool] = None,
+    ) -> ObjectApiResponse[t.Any]:
+        """
+        .. raw:: html
+
+          <p>Request stats for a random sample of raw documents ingested into the given index or data stream.</p>
+
+
+        `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
+
+        :param index: Single index or data stream name. Wildcards are not supported.
+        """
+        if index in SKIP_IN_PATH:
+            raise ValueError("Empty value passed for parameter 'index'")
+        __path_parts: t.Dict[str, str] = {"index": _quote(index)}
+        __path = f'/{__path_parts["index"]}/_sample/stats'
+        __query: t.Dict[str, t.Any] = {}
+        if error_trace is not None:
+            __query["error_trace"] = error_trace
+        if filter_path is not None:
+            __query["filter_path"] = filter_path
+        if human is not None:
+            __query["human"] = human
+        if pretty is not None:
+            __query["pretty"] = pretty
+        __headers = {"accept": "application/json"}
+        return self.perform_request(  # type: ignore[return-value]
+            "GET",
+            __path,
+            params=__query,
+            headers=__headers,
+            endpoint_id="indices.get_sample_stats",
+            path_parts=__path_parts,
+        )
+
+    @_rewrite_parameters()
     def get_settings(
         self,
         *,
@@ -3511,12 +3758,12 @@ class IndicesClient(NamespacedClient):
         filter: t.Optional[t.Mapping[str, t.Any]] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
-        index_routing: t.Optional[str] = None,
+        index_routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         is_write_index: t.Optional[bool] = None,
         master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         pretty: t.Optional[bool] = None,
-        routing: t.Optional[str] = None,
-        search_routing: t.Optional[str] = None,
+        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        search_routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         body: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> ObjectApiResponse[t.Any]:
@@ -3602,7 +3849,12 @@ class IndicesClient(NamespacedClient):
         )
 
     @_rewrite_parameters(
-        body_fields=("data_retention", "downsampling", "enabled"),
+        body_fields=(
+            "data_retention",
+            "downsampling",
+            "downsampling_method",
+            "enabled",
+        ),
     )
     def put_data_lifecycle(
         self,
@@ -3610,6 +3862,9 @@ class IndicesClient(NamespacedClient):
         name: t.Union[str, t.Sequence[str]],
         data_retention: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         downsampling: t.Optional[t.Sequence[t.Mapping[str, t.Any]]] = None,
+        downsampling_method: t.Optional[
+            t.Union[str, t.Literal["aggregate", "last_value"]]
+        ] = None,
         enabled: t.Optional[bool] = None,
         error_trace: t.Optional[bool] = None,
         expand_wildcards: t.Optional[
@@ -3644,6 +3899,9 @@ class IndicesClient(NamespacedClient):
             will be stored indefinitely.
         :param downsampling: The downsampling configuration to execute for the managed
             backing index after rollover.
+        :param downsampling_method: The method used to downsample the data. There are
+            two options `aggregate` and `last_value`. It requires `downsampling` to be
+            defined. Defaults to `aggregate`.
         :param enabled: If defined, it turns data stream lifecycle on/off (`true`/`false`)
             for this data stream. A data stream lifecycle that's disabled (enabled: `false`)
             will have no effect on the data stream.
@@ -3680,6 +3938,8 @@ class IndicesClient(NamespacedClient):
                 __body["data_retention"] = data_retention
             if downsampling is not None:
                 __body["downsampling"] = downsampling
+            if downsampling_method is not None:
+                __body["downsampling_method"] = downsampling_method
             if enabled is not None:
                 __body["enabled"] = enabled
         __headers = {"accept": "application/json", "content-type": "application/json"}
@@ -4015,7 +4275,8 @@ class IndicesClient(NamespacedClient):
         :param ignore_missing_component_templates: The configuration option ignore_missing_component_templates
             can be used when an index template references a component template that might
             not exist
-        :param index_patterns: Name of the index template to create.
+        :param index_patterns: Array of wildcard (`*`) expressions used to match the
+            names of data streams and indices during creation.
         :param master_timeout: Period to wait for a connection to the master node. If
             no response is received before the timeout expires, the request fails and
             returns an error.
@@ -4262,6 +4523,95 @@ class IndicesClient(NamespacedClient):
             headers=__headers,
             body=__body,
             endpoint_id="indices.put_mapping",
+            path_parts=__path_parts,
+        )
+
+    @_rewrite_parameters(
+        body_fields=("rate", "if_", "max_samples", "max_size", "time_to_live"),
+        parameter_aliases={"if": "if_"},
+    )
+    @_availability_warning(Stability.EXPERIMENTAL)
+    def put_sample_configuration(
+        self,
+        *,
+        index: str,
+        rate: t.Optional[t.Union[str, t.Any]] = None,
+        error_trace: t.Optional[bool] = None,
+        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        human: t.Optional[bool] = None,
+        if_: t.Optional[str] = None,
+        master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
+        max_samples: t.Optional[int] = None,
+        max_size: t.Optional[t.Union[int, str]] = None,
+        pretty: t.Optional[bool] = None,
+        time_to_live: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
+        timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
+        body: t.Optional[t.Dict[str, t.Any]] = None,
+    ) -> ObjectApiResponse[t.Any]:
+        """
+        .. raw:: html
+
+          <p>Create or update sampling configuration.</p>
+          <p>Create or update the sampling configuration for the specified index.</p>
+
+
+        `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
+
+        :param index: The name of the index or data stream.
+        :param rate: The fraction of documents to sample. Must be greater than 0 and
+            less than or equal to 1. Can be specified as a number or a string.
+        :param if_: An optional condition script that sampled documents must satisfy.
+        :param master_timeout: Period to wait for a connection to the master node. If
+            no response is received before the timeout expires, the request fails and
+            returns an error.
+        :param max_samples: The maximum number of documents to sample. Must be greater
+            than 0 and less than or equal to 10,000.
+        :param max_size: The maximum total size of sampled documents. Must be greater
+            than 0 and less than or equal to 5GB.
+        :param time_to_live: The duration for which the sampled documents should be retained.
+            Must be greater than 0 and less than or equal to 30 days.
+        :param timeout: Period to wait for a response. If no response is received before
+            the timeout expires, the request fails and returns an error.
+        """
+        if index in SKIP_IN_PATH:
+            raise ValueError("Empty value passed for parameter 'index'")
+        if rate is None and body is None:
+            raise ValueError("Empty value passed for parameter 'rate'")
+        __path_parts: t.Dict[str, str] = {"index": _quote(index)}
+        __path = f'/{__path_parts["index"]}/_sample/config'
+        __query: t.Dict[str, t.Any] = {}
+        __body: t.Dict[str, t.Any] = body if body is not None else {}
+        if error_trace is not None:
+            __query["error_trace"] = error_trace
+        if filter_path is not None:
+            __query["filter_path"] = filter_path
+        if human is not None:
+            __query["human"] = human
+        if master_timeout is not None:
+            __query["master_timeout"] = master_timeout
+        if pretty is not None:
+            __query["pretty"] = pretty
+        if timeout is not None:
+            __query["timeout"] = timeout
+        if not __body:
+            if rate is not None:
+                __body["rate"] = rate
+            if if_ is not None:
+                __body["if"] = if_
+            if max_samples is not None:
+                __body["max_samples"] = max_samples
+            if max_size is not None:
+                __body["max_size"] = max_size
+            if time_to_live is not None:
+                __body["time_to_live"] = time_to_live
+        __headers = {"accept": "application/json", "content-type": "application/json"}
+        return self.perform_request(  # type: ignore[return-value]
+            "PUT",
+            __path,
+            params=__query,
+            headers=__headers,
+            body=__body,
+            endpoint_id="indices.put_sample_configuration",
             path_parts=__path_parts,
         )
 
@@ -4801,7 +5151,7 @@ class IndicesClient(NamespacedClient):
     def remove_block(
         self,
         *,
-        index: str,
+        index: t.Union[str, t.Sequence[str]],
         block: t.Union[str, t.Literal["metadata", "read", "read_only", "write"]],
         allow_no_indices: t.Optional[bool] = None,
         error_trace: t.Optional[bool] = None,
@@ -5033,7 +5383,9 @@ class IndicesClient(NamespacedClient):
             path_parts=__path_parts,
         )
 
-    @_rewrite_parameters()
+    @_rewrite_parameters(
+        body_fields=("project_routing",),
+    )
     def resolve_index(
         self,
         *,
@@ -5063,6 +5415,7 @@ class IndicesClient(NamespacedClient):
         ] = None,
         pretty: t.Optional[bool] = None,
         project_routing: t.Optional[str] = None,
+        body: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
         .. raw:: html
@@ -5100,6 +5453,7 @@ class IndicesClient(NamespacedClient):
         __path_parts: t.Dict[str, str] = {"name": _quote(name)}
         __path = f'/_resolve/index/{__path_parts["name"]}'
         __query: t.Dict[str, t.Any] = {}
+        __body: t.Dict[str, t.Any] = body if body is not None else {}
         if allow_no_indices is not None:
             __query["allow_no_indices"] = allow_no_indices
         if error_trace is not None:
@@ -5116,14 +5470,20 @@ class IndicesClient(NamespacedClient):
             __query["mode"] = mode
         if pretty is not None:
             __query["pretty"] = pretty
-        if project_routing is not None:
-            __query["project_routing"] = project_routing
+        if not __body:
+            if project_routing is not None:
+                __body["project_routing"] = project_routing
+        if not __body:
+            __body = None  # type: ignore[assignment]
         __headers = {"accept": "application/json"}
+        if __body is not None:
+            __headers["content-type"] = "application/json"
         return self.perform_request(  # type: ignore[return-value]
-            "GET",
+            "POST",
             __path,
             params=__query,
             headers=__headers,
+            body=__body,
             endpoint_id="indices.resolve_index",
             path_parts=__path_parts,
         )
@@ -5902,7 +6262,66 @@ class IndicesClient(NamespacedClient):
         self,
         *,
         index: t.Optional[t.Union[str, t.Sequence[str]]] = None,
-        metric: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        metric: t.Optional[
+            t.Union[
+                t.Sequence[
+                    t.Union[
+                        str,
+                        t.Literal[
+                            "_all",
+                            "bulk",
+                            "completion",
+                            "dense_vector",
+                            "docs",
+                            "fielddata",
+                            "flush",
+                            "get",
+                            "indexing",
+                            "mappings",
+                            "merge",
+                            "query_cache",
+                            "recovery",
+                            "refresh",
+                            "request_cache",
+                            "search",
+                            "segments",
+                            "shard_stats",
+                            "sparse_vector",
+                            "store",
+                            "translog",
+                            "warmer",
+                        ],
+                    ]
+                ],
+                t.Union[
+                    str,
+                    t.Literal[
+                        "_all",
+                        "bulk",
+                        "completion",
+                        "dense_vector",
+                        "docs",
+                        "fielddata",
+                        "flush",
+                        "get",
+                        "indexing",
+                        "mappings",
+                        "merge",
+                        "query_cache",
+                        "recovery",
+                        "refresh",
+                        "request_cache",
+                        "search",
+                        "segments",
+                        "shard_stats",
+                        "sparse_vector",
+                        "store",
+                        "translog",
+                        "warmer",
+                    ],
+                ],
+            ]
+        ] = None,
         completion_fields: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         error_trace: t.Optional[bool] = None,
         expand_wildcards: t.Optional[

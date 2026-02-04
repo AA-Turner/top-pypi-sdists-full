@@ -68,13 +68,24 @@ def new_ds(
                 and params.get("bucket_uri")
             ):
                 bucket_uri = params.get("bucket_uri")
+                file_format = params.get("format", "").lower()
                 extension = bucket_uri.split(".")[-1]
                 if extension == "gz":
                     extension = bucket_uri.split(".")[-2]
                 valid_formats = ["csv", "json", "jsonl", "ndjson", "parquet"]
-                if extension not in valid_formats:
-                    raise Exception(FeedbackManager.error_format(extension=extension, valid_formats=valid_formats))
-                params["format"] = extension
+
+                # If user provided a format, validate it specifically
+                if file_format:
+                    if file_format not in valid_formats:
+                        raise Exception(
+                            FeedbackManager.error_format(extension=file_format, valid_formats=valid_formats)
+                        )
+                    params["format"] = file_format
+                else:
+                    # Fall back to extension validation
+                    if extension not in valid_formats:
+                        raise Exception(FeedbackManager.error_format(extension=extension, valid_formats=valid_formats))
+                    params["format"] = extension
             datasource_response = client.datasource_create_from_definition(params)
             datasource = datasource_response.get("datasource", {})
 

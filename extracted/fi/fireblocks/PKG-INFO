@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: fireblocks
-Version: 13.0.0
+Version: 14.0.0
 Summary: Fireblocks API
 Home-page: https://github.com/fireblocks/py-sdk/tree/master
 Author: Fireblocks
-Author-email: support@fireblocks.com
+Author-email: developers@fireblocks.com
 License: MIT License
 Keywords: Fireblocks,SDK,Fireblocks API
 Classifier: Development Status :: 5 - Production/Stable
@@ -269,13 +269,12 @@ All URIs are relative to https://developers.fireblocks.com/reference/
 
 Class | Method | HTTP request | Description
 ------------ | ------------- | ------------- | -------------
-*ApiUserApi* | [**create_api_user**](https://github.com/fireblocks/py-sdk/tree/master/docs/ApiUserApi.md#create_api_user) | **POST** /management/api_users | Create Api user
-*ApiUserApi* | [**get_api_users**](https://github.com/fireblocks/py-sdk/tree/master/docs/ApiUserApi.md#get_api_users) | **GET** /management/api_users | Get Api users
-*AssetsApi* | [**create_assets_bulk**](https://github.com/fireblocks/py-sdk/tree/master/docs/AssetsApi.md#create_assets_bulk) | **POST** /vault/assets/bulk | Bulk creation of wallets
+*ApiUserApi* | [**create_api_user**](https://github.com/fireblocks/py-sdk/tree/master/docs/ApiUserApi.md#create_api_user) | **POST** /management/api_users | Create API Key
+*ApiUserApi* | [**get_api_users**](https://github.com/fireblocks/py-sdk/tree/master/docs/ApiUserApi.md#get_api_users) | **GET** /management/api_users | Get API Keys
 *AuditLogsApi* | [**get_audit_logs**](https://github.com/fireblocks/py-sdk/tree/master/docs/AuditLogsApi.md#get_audit_logs) | **GET** /management/audit_logs | Get audit logs
 *BlockchainsAssetsApi* | [**get_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/BlockchainsAssetsApi.md#get_asset) | **GET** /assets/{id} | Get an asset
-*BlockchainsAssetsApi* | [**get_blockchain**](https://github.com/fireblocks/py-sdk/tree/master/docs/BlockchainsAssetsApi.md#get_blockchain) | **GET** /blockchains/{id} | Get an blockchain
-*BlockchainsAssetsApi* | [**get_supported_assets**](https://github.com/fireblocks/py-sdk/tree/master/docs/BlockchainsAssetsApi.md#get_supported_assets) | **GET** /supported_assets | List all asset types supported by Fireblocks - legacy endpoint
+*BlockchainsAssetsApi* | [**get_blockchain**](https://github.com/fireblocks/py-sdk/tree/master/docs/BlockchainsAssetsApi.md#get_blockchain) | **GET** /blockchains/{id} | Get a Blockchain by ID
+*BlockchainsAssetsApi* | [**get_supported_assets**](https://github.com/fireblocks/py-sdk/tree/master/docs/BlockchainsAssetsApi.md#get_supported_assets) | **GET** /supported_assets | List assets (Legacy)
 *BlockchainsAssetsApi* | [**list_assets**](https://github.com/fireblocks/py-sdk/tree/master/docs/BlockchainsAssetsApi.md#list_assets) | **GET** /assets | List assets
 *BlockchainsAssetsApi* | [**list_blockchains**](https://github.com/fireblocks/py-sdk/tree/master/docs/BlockchainsAssetsApi.md#list_blockchains) | **GET** /blockchains | List blockchains
 *BlockchainsAssetsApi* | [**register_new_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/BlockchainsAssetsApi.md#register_new_asset) | **POST** /assets | Register an asset
@@ -293,14 +292,17 @@ Class | Method | HTTP request | Description
 *ComplianceApi* | [**update_travel_rule_config**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#update_travel_rule_config) | **PUT** /screening/travel_rule/policy_configuration | Update Travel Rule Configuration
 *ComplianceScreeningConfigurationApi* | [**get_aml_screening_configuration**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceScreeningConfigurationApi.md#get_aml_screening_configuration) | **GET** /screening/aml/policy_configuration | Get AML Screening Policy Configuration
 *ComplianceScreeningConfigurationApi* | [**get_screening_configuration**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceScreeningConfigurationApi.md#get_screening_configuration) | **GET** /screening/travel_rule/policy_configuration | Get Travel Rule Screening Policy Configuration
+*ConnectedAccountsBetaApi* | [**disconnect_connected_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountsBetaApi.md#disconnect_connected_account) | **DELETE** /connected_accounts/{accountId} | Disconnect connected account
 *ConnectedAccountsBetaApi* | [**get_connected_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountsBetaApi.md#get_connected_account) | **GET** /connected_accounts/{accountId} | Get connected account
 *ConnectedAccountsBetaApi* | [**get_connected_account_balances**](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountsBetaApi.md#get_connected_account_balances) | **GET** /connected_accounts/{accountId}/balances | Get balances for an account
 *ConnectedAccountsBetaApi* | [**get_connected_account_rates**](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountsBetaApi.md#get_connected_account_rates) | **GET** /connected_accounts/{accountId}/rates | Get exchange rates for an account
 *ConnectedAccountsBetaApi* | [**get_connected_account_trading_pairs**](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountsBetaApi.md#get_connected_account_trading_pairs) | **GET** /connected_accounts/{accountId}/manifest/capabilities/trading/pairs | Get supported trading pairs for an account
 *ConnectedAccountsBetaApi* | [**get_connected_accounts**](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountsBetaApi.md#get_connected_accounts) | **GET** /connected_accounts | Get connected accounts
+*ConnectedAccountsBetaApi* | [**rename_connected_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountsBetaApi.md#rename_connected_account) | **POST** /connected_accounts/{accountId}/rename | Rename Connected Account
 *ConsoleUserApi* | [**create_console_user**](https://github.com/fireblocks/py-sdk/tree/master/docs/ConsoleUserApi.md#create_console_user) | **POST** /management/users | Create console user
 *ConsoleUserApi* | [**get_console_users**](https://github.com/fireblocks/py-sdk/tree/master/docs/ConsoleUserApi.md#get_console_users) | **GET** /management/users | Get console users
 *ContractInteractionsApi* | [**decode_contract_data**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractInteractionsApi.md#decode_contract_data) | **POST** /contract_interactions/base_asset_id/{baseAssetId}/contract_address/{contractAddress}/decode | Decode a function call data, error, or event log
+*ContractInteractionsApi* | [**get_contract_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractInteractionsApi.md#get_contract_address) | **GET** /contract_interactions/base_asset_id/{baseAssetId}/tx_hash/{txHash} | Get contract address by transaction hash
 *ContractInteractionsApi* | [**get_deployed_contract_abi**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractInteractionsApi.md#get_deployed_contract_abi) | **GET** /contract_interactions/base_asset_id/{baseAssetId}/contract_address/{contractAddress}/functions | Return deployed contract&#39;s ABI
 *ContractInteractionsApi* | [**get_transaction_receipt**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractInteractionsApi.md#get_transaction_receipt) | **GET** /contract_interactions/base_asset_id/{baseAssetId}/tx_hash/{txHash}/receipt | Get transaction receipt
 *ContractInteractionsApi* | [**read_call_function**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractInteractionsApi.md#read_call_function) | **POST** /contract_interactions/base_asset_id/{baseAssetId}/contract_address/{contractAddress}/functions/read | Call a read function on a deployed contract
@@ -311,14 +313,15 @@ Class | Method | HTTP request | Description
 *ContractTemplatesApi* | [**get_contract_template_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractTemplatesApi.md#get_contract_template_by_id) | **GET** /tokenization/templates/{contractTemplateId} | Return contract template by id
 *ContractTemplatesApi* | [**get_contract_templates**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractTemplatesApi.md#get_contract_templates) | **GET** /tokenization/templates | List all contract templates
 *ContractTemplatesApi* | [**get_function_abi_by_contract_template_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractTemplatesApi.md#get_function_abi_by_contract_template_id) | **GET** /tokenization/templates/{contractTemplateId}/function | Return contract template&#39;s function
+*ContractTemplatesApi* | [**get_supported_blockchains_by_template_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractTemplatesApi.md#get_supported_blockchains_by_template_id) | **GET** /tokenization/templates/{contractTemplateId}/supported_blockchains | Get supported blockchains for the template
 *ContractTemplatesApi* | [**upload_contract_template**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractTemplatesApi.md#upload_contract_template) | **POST** /tokenization/templates | Upload contract template
-*ContractsApi* | [**add_contract_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractsApi.md#add_contract_asset) | **POST** /contracts/{contractId}/{assetId} | Add an asset to a contract
-*ContractsApi* | [**create_contract**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractsApi.md#create_contract) | **POST** /contracts | Create a contract
+*ContractsApi* | [**add_contract_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractsApi.md#add_contract_asset) | **POST** /contracts/{contractId}/{assetId} | Add an asset to a whitelisted contract
+*ContractsApi* | [**create_contract**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractsApi.md#create_contract) | **POST** /contracts | Add a contract
 *ContractsApi* | [**delete_contract**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractsApi.md#delete_contract) | **DELETE** /contracts/{contractId} | Delete a contract
-*ContractsApi* | [**delete_contract_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractsApi.md#delete_contract_asset) | **DELETE** /contracts/{contractId}/{assetId} | Delete a contract asset
-*ContractsApi* | [**get_contract**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractsApi.md#get_contract) | **GET** /contracts/{contractId} | Find a specific contract
-*ContractsApi* | [**get_contract_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractsApi.md#get_contract_asset) | **GET** /contracts/{contractId}/{assetId} | Find a contract asset
-*ContractsApi* | [**get_contracts**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractsApi.md#get_contracts) | **GET** /contracts | List contracts
+*ContractsApi* | [**delete_contract_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractsApi.md#delete_contract_asset) | **DELETE** /contracts/{contractId}/{assetId} | Delete an asset from a whitelisted contract
+*ContractsApi* | [**get_contract**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractsApi.md#get_contract) | **GET** /contracts/{contractId} | Find a Specific Whitelisted Contract
+*ContractsApi* | [**get_contract_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractsApi.md#get_contract_asset) | **GET** /contracts/{contractId}/{assetId} | Find a whitelisted contract&#39;s asset
+*ContractsApi* | [**get_contracts**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractsApi.md#get_contracts) | **GET** /contracts | List Whitelisted Contracts
 *CosignersBetaApi* | [**add_cosigner**](https://github.com/fireblocks/py-sdk/tree/master/docs/CosignersBetaApi.md#add_cosigner) | **POST** /cosigners | Add cosigner
 *CosignersBetaApi* | [**get_api_key**](https://github.com/fireblocks/py-sdk/tree/master/docs/CosignersBetaApi.md#get_api_key) | **GET** /cosigners/{cosignerId}/api_keys/{apiKeyId} | Get API key
 *CosignersBetaApi* | [**get_api_keys**](https://github.com/fireblocks/py-sdk/tree/master/docs/CosignersBetaApi.md#get_api_keys) | **GET** /cosigners/{cosignerId}/api_keys | Get all API keys
@@ -335,6 +338,7 @@ Class | Method | HTTP request | Description
 *DeployedContractsApi* | [**get_deployed_contract_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/DeployedContractsApi.md#get_deployed_contract_by_id) | **GET** /tokenization/contracts/{id} | Return deployed contract data by id
 *DeployedContractsApi* | [**get_deployed_contracts**](https://github.com/fireblocks/py-sdk/tree/master/docs/DeployedContractsApi.md#get_deployed_contracts) | **GET** /tokenization/contracts | List deployed contracts data
 *EmbeddedWalletsApi* | [**add_embedded_wallet_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#add_embedded_wallet_asset) | **POST** /ncw/wallets/{walletId}/accounts/{accountId}/assets/{assetId} | Add asset to account
+*EmbeddedWalletsApi* | [**assign_embedded_wallet**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#assign_embedded_wallet) | **POST** /ncw/wallets/{walletId}/assign | Assign a wallet
 *EmbeddedWalletsApi* | [**create_embedded_wallet**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#create_embedded_wallet) | **POST** /ncw/wallets | Create a new wallet
 *EmbeddedWalletsApi* | [**create_embedded_wallet_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#create_embedded_wallet_account) | **POST** /ncw/wallets/{walletId}/accounts | Create a new account
 *EmbeddedWalletsApi* | [**get_embedded_wallet**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#get_embedded_wallet) | **GET** /ncw/wallets/{walletId} | Get a wallet
@@ -342,20 +346,25 @@ Class | Method | HTTP request | Description
 *EmbeddedWalletsApi* | [**get_embedded_wallet_addresses**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#get_embedded_wallet_addresses) | **GET** /ncw/wallets/{walletId}/accounts/{accountId}/assets/{assetId}/addresses | Retrieve asset addresses
 *EmbeddedWalletsApi* | [**get_embedded_wallet_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#get_embedded_wallet_asset) | **GET** /ncw/wallets/{walletId}/accounts/{accountId}/assets/{assetId} | Retrieve asset
 *EmbeddedWalletsApi* | [**get_embedded_wallet_asset_balance**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#get_embedded_wallet_asset_balance) | **GET** /ncw/wallets/{walletId}/accounts/{accountId}/assets/{assetId}/balance | Retrieve asset balance
+*EmbeddedWalletsApi* | [**get_embedded_wallet_assets**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#get_embedded_wallet_assets) | **GET** /ncw/wallets/{walletId}/accounts/{accountId}/assets | Retrieve assets
 *EmbeddedWalletsApi* | [**get_embedded_wallet_device**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#get_embedded_wallet_device) | **GET** /ncw/wallets/{walletId}/devices/{deviceId} | Get Embedded Wallet Device
 *EmbeddedWalletsApi* | [**get_embedded_wallet_device_setup_state**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#get_embedded_wallet_device_setup_state) | **GET** /ncw/wallets/{walletId}/devices/{deviceId}/setup_status | Get device key setup state
+*EmbeddedWalletsApi* | [**get_embedded_wallet_devices_paginated**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#get_embedded_wallet_devices_paginated) | **GET** /ncw/wallets/{walletId}/devices_paginated | Get registered devices - paginated
 *EmbeddedWalletsApi* | [**get_embedded_wallet_latest_backup**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#get_embedded_wallet_latest_backup) | **GET** /ncw/wallets/{walletId}/backup/latest | Get wallet Latest Backup details
 *EmbeddedWalletsApi* | [**get_embedded_wallet_public_key_info_for_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#get_embedded_wallet_public_key_info_for_address) | **GET** /ncw/wallets/{walletId}/accounts/{accountId}/assets/{assetId}/{change}/{addressIndex}/public_key_info | Get the public key of an asset
+*EmbeddedWalletsApi* | [**get_embedded_wallet_setup_status**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#get_embedded_wallet_setup_status) | **GET** /ncw/wallets/{walletId}/setup_status | Get wallet key setup state
 *EmbeddedWalletsApi* | [**get_embedded_wallet_supported_assets**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#get_embedded_wallet_supported_assets) | **GET** /ncw/wallets/supported_assets | Retrieve supported assets
 *EmbeddedWalletsApi* | [**get_embedded_wallets**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#get_embedded_wallets) | **GET** /ncw/wallets | List wallets
 *EmbeddedWalletsApi* | [**get_public_key_info_ncw**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#get_public_key_info_ncw) | **GET** /ncw/wallets/{walletId}/public_key_info | Get the public key for a derivation path
 *EmbeddedWalletsApi* | [**refresh_embedded_wallet_asset_balance**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#refresh_embedded_wallet_asset_balance) | **PUT** /ncw/wallets/{walletId}/accounts/{accountId}/assets/{assetId}/balance | Refresh asset balance
+*EmbeddedWalletsApi* | [**update_embedded_wallet_device_status**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#update_embedded_wallet_device_status) | **PATCH** /ncw/wallets/{walletId}/devices/{deviceId}/status | Update device status
+*EmbeddedWalletsApi* | [**update_embedded_wallet_status**](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletsApi.md#update_embedded_wallet_status) | **PATCH** /ncw/wallets/{walletId}/status | Update wallet status
 *ExchangeAccountsApi* | [**add_exchange_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/ExchangeAccountsApi.md#add_exchange_account) | **POST** /exchange_accounts | Add an exchange account
-*ExchangeAccountsApi* | [**convert_assets**](https://github.com/fireblocks/py-sdk/tree/master/docs/ExchangeAccountsApi.md#convert_assets) | **POST** /exchange_accounts/{exchangeAccountId}/convert | Convert exchange account funds from the source asset to the destination asset.
-*ExchangeAccountsApi* | [**get_exchange_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/ExchangeAccountsApi.md#get_exchange_account) | **GET** /exchange_accounts/{exchangeAccountId} | Find a specific exchange account
-*ExchangeAccountsApi* | [**get_exchange_account_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/ExchangeAccountsApi.md#get_exchange_account_asset) | **GET** /exchange_accounts/{exchangeAccountId}/{assetId} | Find an asset for an exchange account
+*ExchangeAccountsApi* | [**convert_assets**](https://github.com/fireblocks/py-sdk/tree/master/docs/ExchangeAccountsApi.md#convert_assets) | **POST** /exchange_accounts/{exchangeAccountId}/convert | Convert exchange account funds
+*ExchangeAccountsApi* | [**get_exchange_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/ExchangeAccountsApi.md#get_exchange_account) | **GET** /exchange_accounts/{exchangeAccountId} | Get a specific exchange account
+*ExchangeAccountsApi* | [**get_exchange_account_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/ExchangeAccountsApi.md#get_exchange_account_asset) | **GET** /exchange_accounts/{exchangeAccountId}/{assetId} | Get an asset for an exchange account
 *ExchangeAccountsApi* | [**get_exchange_accounts_credentials_public_key**](https://github.com/fireblocks/py-sdk/tree/master/docs/ExchangeAccountsApi.md#get_exchange_accounts_credentials_public_key) | **GET** /exchange_accounts/credentials_public_key | Get public key to encrypt exchange credentials
-*ExchangeAccountsApi* | [**get_paged_exchange_accounts**](https://github.com/fireblocks/py-sdk/tree/master/docs/ExchangeAccountsApi.md#get_paged_exchange_accounts) | **GET** /exchange_accounts/paged | Pagination list exchange accounts
+*ExchangeAccountsApi* | [**get_paged_exchange_accounts**](https://github.com/fireblocks/py-sdk/tree/master/docs/ExchangeAccountsApi.md#get_paged_exchange_accounts) | **GET** /exchange_accounts/paged | List connected exchange accounts
 *ExchangeAccountsApi* | [**internal_transfer**](https://github.com/fireblocks/py-sdk/tree/master/docs/ExchangeAccountsApi.md#internal_transfer) | **POST** /exchange_accounts/{exchangeAccountId}/internal_transfer | Internal transfer for exchange accounts
 *ExternalWalletsApi* | [**add_asset_to_external_wallet**](https://github.com/fireblocks/py-sdk/tree/master/docs/ExternalWalletsApi.md#add_asset_to_external_wallet) | **POST** /external_wallets/{walletId}/{assetId} | Add an asset to an external wallet.
 *ExternalWalletsApi* | [**create_external_wallet**](https://github.com/fireblocks/py-sdk/tree/master/docs/ExternalWalletsApi.md#create_external_wallet) | **POST** /external_wallets | Create an external wallet
@@ -377,17 +386,11 @@ Class | Method | HTTP request | Description
 *InternalWalletsApi* | [**create_internal_wallet_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/InternalWalletsApi.md#create_internal_wallet_asset) | **POST** /internal_wallets/{walletId}/{assetId} | Add an asset to an internal wallet
 *InternalWalletsApi* | [**delete_internal_wallet**](https://github.com/fireblocks/py-sdk/tree/master/docs/InternalWalletsApi.md#delete_internal_wallet) | **DELETE** /internal_wallets/{walletId} | Delete an internal wallet
 *InternalWalletsApi* | [**delete_internal_wallet_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/InternalWalletsApi.md#delete_internal_wallet_asset) | **DELETE** /internal_wallets/{walletId}/{assetId} | Delete a whitelisted address
-*InternalWalletsApi* | [**get_internal_wallet**](https://github.com/fireblocks/py-sdk/tree/master/docs/InternalWalletsApi.md#get_internal_wallet) | **GET** /internal_wallets/{walletId} | Get an asset from an internal wallet
+*InternalWalletsApi* | [**get_internal_wallet**](https://github.com/fireblocks/py-sdk/tree/master/docs/InternalWalletsApi.md#get_internal_wallet) | **GET** /internal_wallets/{walletId} | Get assets for internal wallet
 *InternalWalletsApi* | [**get_internal_wallet_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/InternalWalletsApi.md#get_internal_wallet_asset) | **GET** /internal_wallets/{walletId}/{assetId} | Get an asset from an internal wallet
 *InternalWalletsApi* | [**get_internal_wallet_assets_paginated**](https://github.com/fireblocks/py-sdk/tree/master/docs/InternalWalletsApi.md#get_internal_wallet_assets_paginated) | **GET** /internal_wallets/{walletId}/assets | List assets in an internal wallet (Paginated)
 *InternalWalletsApi* | [**get_internal_wallets**](https://github.com/fireblocks/py-sdk/tree/master/docs/InternalWalletsApi.md#get_internal_wallets) | **GET** /internal_wallets | List internal wallets
-*InternalWalletsApi* | [**set_customer_ref_id_for_internal_wallet**](https://github.com/fireblocks/py-sdk/tree/master/docs/InternalWalletsApi.md#set_customer_ref_id_for_internal_wallet) | **POST** /internal_wallets/{walletId}/set_customer_ref_id | Set an AML/KYT customer reference ID for an internal wallet
-*JobManagementApi* | [**cancel_job**](https://github.com/fireblocks/py-sdk/tree/master/docs/JobManagementApi.md#cancel_job) | **POST** /batch/{jobId}/cancel | Cancel a running job
-*JobManagementApi* | [**continue_job**](https://github.com/fireblocks/py-sdk/tree/master/docs/JobManagementApi.md#continue_job) | **POST** /batch/{jobId}/continue | Continue a paused job
-*JobManagementApi* | [**get_job**](https://github.com/fireblocks/py-sdk/tree/master/docs/JobManagementApi.md#get_job) | **GET** /batch/{jobId} | Get job details
-*JobManagementApi* | [**get_job_tasks**](https://github.com/fireblocks/py-sdk/tree/master/docs/JobManagementApi.md#get_job_tasks) | **GET** /batch/{jobId}/tasks | Return a list of tasks for given job
-*JobManagementApi* | [**get_jobs**](https://github.com/fireblocks/py-sdk/tree/master/docs/JobManagementApi.md#get_jobs) | **GET** /batch/jobs | Return a list of jobs belonging to tenant
-*JobManagementApi* | [**pause_job**](https://github.com/fireblocks/py-sdk/tree/master/docs/JobManagementApi.md#pause_job) | **POST** /batch/{jobId}/pause | Pause a job
+*InternalWalletsApi* | [**set_customer_ref_id_for_internal_wallet**](https://github.com/fireblocks/py-sdk/tree/master/docs/InternalWalletsApi.md#set_customer_ref_id_for_internal_wallet) | **POST** /internal_wallets/{walletId}/set_customer_ref_id | Set an AML/KYT customer reference ID for internal wallet
 *KeyLinkBetaApi* | [**create_signing_key**](https://github.com/fireblocks/py-sdk/tree/master/docs/KeyLinkBetaApi.md#create_signing_key) | **POST** /key_link/signing_keys | Add a new signing key
 *KeyLinkBetaApi* | [**create_validation_key**](https://github.com/fireblocks/py-sdk/tree/master/docs/KeyLinkBetaApi.md#create_validation_key) | **POST** /key_link/validation_keys | Add a new validation key
 *KeyLinkBetaApi* | [**disable_validation_key**](https://github.com/fireblocks/py-sdk/tree/master/docs/KeyLinkBetaApi.md#disable_validation_key) | **PATCH** /key_link/validation_keys/{keyId} | Disables a validation key
@@ -395,8 +398,8 @@ Class | Method | HTTP request | Description
 *KeyLinkBetaApi* | [**get_signing_keys_list**](https://github.com/fireblocks/py-sdk/tree/master/docs/KeyLinkBetaApi.md#get_signing_keys_list) | **GET** /key_link/signing_keys | Get list of signing keys
 *KeyLinkBetaApi* | [**get_validation_key**](https://github.com/fireblocks/py-sdk/tree/master/docs/KeyLinkBetaApi.md#get_validation_key) | **GET** /key_link/validation_keys/{keyId} | Get a validation key by &#x60;keyId&#x60;
 *KeyLinkBetaApi* | [**get_validation_keys_list**](https://github.com/fireblocks/py-sdk/tree/master/docs/KeyLinkBetaApi.md#get_validation_keys_list) | **GET** /key_link/validation_keys | Get list of registered validation keys
-*KeyLinkBetaApi* | [**set_agent_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/KeyLinkBetaApi.md#set_agent_id) | **PATCH** /key_link/signing_keys/{keyId}/agent_user_id | Set agent user id that can sign with the signing key identified by the Fireblocks provided &#x60;keyId&#x60;
-*KeyLinkBetaApi* | [**update_signing_key**](https://github.com/fireblocks/py-sdk/tree/master/docs/KeyLinkBetaApi.md#update_signing_key) | **PATCH** /key_link/signing_keys/{keyId} | Modify the signing by Fireblocks provided &#x60;keyId&#x60;
+*KeyLinkBetaApi* | [**set_agent_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/KeyLinkBetaApi.md#set_agent_id) | **PATCH** /key_link/signing_keys/{keyId}/agent_user_id | Set agent user id
+*KeyLinkBetaApi* | [**update_signing_key**](https://github.com/fireblocks/py-sdk/tree/master/docs/KeyLinkBetaApi.md#update_signing_key) | **PATCH** /key_link/signing_keys/{keyId} | Modify the signing keyId
 *KeysBetaApi* | [**get_mpc_keys_list**](https://github.com/fireblocks/py-sdk/tree/master/docs/KeysBetaApi.md#get_mpc_keys_list) | **GET** /keys/mpc/list | Get list of mpc keys
 *KeysBetaApi* | [**get_mpc_keys_list_by_user**](https://github.com/fireblocks/py-sdk/tree/master/docs/KeysBetaApi.md#get_mpc_keys_list_by_user) | **GET** /keys/mpc/list/{userId} | Get list of mpc keys by &#x60;userId&#x60;
 *NFTsApi* | [**get_nft**](https://github.com/fireblocks/py-sdk/tree/master/docs/NFTsApi.md#get_nft) | **GET** /nfts/tokens/{id} | List token data by ID
@@ -409,28 +412,36 @@ Class | Method | HTTP request | Description
 *NFTsApi* | [**update_token_ownership_status**](https://github.com/fireblocks/py-sdk/tree/master/docs/NFTsApi.md#update_token_ownership_status) | **PUT** /nfts/ownership/tokens/{id}/status | Update token ownership status
 *NFTsApi* | [**update_tokens_ownership_spam**](https://github.com/fireblocks/py-sdk/tree/master/docs/NFTsApi.md#update_tokens_ownership_spam) | **PUT** /nfts/ownership/tokens/spam | Update tokens ownership spam property
 *NFTsApi* | [**update_tokens_ownership_status**](https://github.com/fireblocks/py-sdk/tree/master/docs/NFTsApi.md#update_tokens_ownership_status) | **PUT** /nfts/ownership/tokens/status | Update tokens ownership status
-*NetworkConnectionsApi* | [**check_third_party_routing**](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnectionsApi.md#check_third_party_routing) | **GET** /network_connections/{connectionId}/is_third_party_routing/{assetType} | Retrieve third-party network routing validation by asset type.
-*NetworkConnectionsApi* | [**create_network_connection**](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnectionsApi.md#create_network_connection) | **POST** /network_connections | Creates a new network connection
+*NetworkConnectionsApi* | [**check_third_party_routing**](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnectionsApi.md#check_third_party_routing) | **GET** /network_connections/{connectionId}/is_third_party_routing/{assetType} | Retrieve third-party network routing validation
+*NetworkConnectionsApi* | [**create_network_connection**](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnectionsApi.md#create_network_connection) | **POST** /network_connections | Create a new network connection
 *NetworkConnectionsApi* | [**create_network_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnectionsApi.md#create_network_id) | **POST** /network_ids | Creates a new Network ID
 *NetworkConnectionsApi* | [**delete_network_connection**](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnectionsApi.md#delete_network_connection) | **DELETE** /network_connections/{connectionId} | Deletes a network connection by ID
 *NetworkConnectionsApi* | [**delete_network_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnectionsApi.md#delete_network_id) | **DELETE** /network_ids/{networkId} | Deletes specific network ID.
 *NetworkConnectionsApi* | [**get_network**](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnectionsApi.md#get_network) | **GET** /network_connections/{connectionId} | Get a network connection
 *NetworkConnectionsApi* | [**get_network_connections**](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnectionsApi.md#get_network_connections) | **GET** /network_connections | List network connections
 *NetworkConnectionsApi* | [**get_network_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnectionsApi.md#get_network_id) | **GET** /network_ids/{networkId} | Returns specific network ID.
-*NetworkConnectionsApi* | [**get_network_ids**](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnectionsApi.md#get_network_ids) | **GET** /network_ids | Returns all network IDs, both local IDs and discoverable remote IDs
+*NetworkConnectionsApi* | [**get_network_ids**](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnectionsApi.md#get_network_ids) | **GET** /network_ids | Get all network IDs
 *NetworkConnectionsApi* | [**get_routing_policy_asset_groups**](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnectionsApi.md#get_routing_policy_asset_groups) | **GET** /network_ids/routing_policy_asset_groups | Returns all enabled routing policy asset groups
-*NetworkConnectionsApi* | [**search_network_ids**](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnectionsApi.md#search_network_ids) | **GET** /network_ids/search | Search network IDs, both local IDs and discoverable remote IDs
+*NetworkConnectionsApi* | [**search_network_ids**](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnectionsApi.md#search_network_ids) | **GET** /network_ids/search | Get both local IDs and discoverable remote IDs
 *NetworkConnectionsApi* | [**set_network_id_discoverability**](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnectionsApi.md#set_network_id_discoverability) | **PATCH** /network_ids/{networkId}/set_discoverability | Update network ID&#39;s discoverability.
 *NetworkConnectionsApi* | [**set_network_id_name**](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnectionsApi.md#set_network_id_name) | **PATCH** /network_ids/{networkId}/set_name | Update network ID&#39;s name.
 *NetworkConnectionsApi* | [**set_network_id_routing_policy**](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnectionsApi.md#set_network_id_routing_policy) | **PATCH** /network_ids/{networkId}/set_routing_policy | Update network id routing policy.
 *NetworkConnectionsApi* | [**set_routing_policy**](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnectionsApi.md#set_routing_policy) | **PATCH** /network_connections/{connectionId}/set_routing_policy | Update network connection routing policy.
 *OTABetaApi* | [**get_ota_status**](https://github.com/fireblocks/py-sdk/tree/master/docs/OTABetaApi.md#get_ota_status) | **GET** /management/ota | Returns current OTA status
 *OTABetaApi* | [**set_ota_status**](https://github.com/fireblocks/py-sdk/tree/master/docs/OTABetaApi.md#set_ota_status) | **PUT** /management/ota | Enable or disable transactions to OTA
-*OffExchangesApi* | [**add_off_exchange**](https://github.com/fireblocks/py-sdk/tree/master/docs/OffExchangesApi.md#add_off_exchange) | **POST** /off_exchange/add | add collateral
+*OffExchangesApi* | [**add_off_exchange**](https://github.com/fireblocks/py-sdk/tree/master/docs/OffExchangesApi.md#add_off_exchange) | **POST** /off_exchange/add | Add Collateral
 *OffExchangesApi* | [**get_off_exchange_collateral_accounts**](https://github.com/fireblocks/py-sdk/tree/master/docs/OffExchangesApi.md#get_off_exchange_collateral_accounts) | **GET** /off_exchange/collateral_accounts/{mainExchangeAccountId} | Find a specific collateral exchange account
-*OffExchangesApi* | [**get_off_exchange_settlement_transactions**](https://github.com/fireblocks/py-sdk/tree/master/docs/OffExchangesApi.md#get_off_exchange_settlement_transactions) | **GET** /off_exchange/settlements/transactions | get settlements transactions from exchange
-*OffExchangesApi* | [**remove_off_exchange**](https://github.com/fireblocks/py-sdk/tree/master/docs/OffExchangesApi.md#remove_off_exchange) | **POST** /off_exchange/remove | remove collateral
-*OffExchangesApi* | [**settle_off_exchange_trades**](https://github.com/fireblocks/py-sdk/tree/master/docs/OffExchangesApi.md#settle_off_exchange_trades) | **POST** /off_exchange/settlements/trader | create settlement for a trader
+*OffExchangesApi* | [**get_off_exchange_settlement_transactions**](https://github.com/fireblocks/py-sdk/tree/master/docs/OffExchangesApi.md#get_off_exchange_settlement_transactions) | **GET** /off_exchange/settlements/transactions | Get Settlements Transactions
+*OffExchangesApi* | [**remove_off_exchange**](https://github.com/fireblocks/py-sdk/tree/master/docs/OffExchangesApi.md#remove_off_exchange) | **POST** /off_exchange/remove | Remove Collateral
+*OffExchangesApi* | [**settle_off_exchange_trades**](https://github.com/fireblocks/py-sdk/tree/master/docs/OffExchangesApi.md#settle_off_exchange_trades) | **POST** /off_exchange/settlements/trader | Create Settlement for a Trader
+*OnchainDataApi* | [**get_access_registry_current_state**](https://github.com/fireblocks/py-sdk/tree/master/docs/OnchainDataApi.md#get_access_registry_current_state) | **GET** /onchain_data/base_asset_id/{baseAssetId}/access_registry_address/{accessRegistryAddress}/list | Get the current state of addresses in an access registry
+*OnchainDataApi* | [**get_access_registry_summary**](https://github.com/fireblocks/py-sdk/tree/master/docs/OnchainDataApi.md#get_access_registry_summary) | **GET** /onchain_data/base_asset_id/{baseAssetId}/access_registry_address/{accessRegistryAddress}/summary | Summary of access registry state
+*OnchainDataApi* | [**get_active_roles_for_contract**](https://github.com/fireblocks/py-sdk/tree/master/docs/OnchainDataApi.md#get_active_roles_for_contract) | **GET** /onchain_data/base_asset_id/{baseAssetId}/contract_address/{contractAddress}/roles | List of active roles for a given contract address and base asset ID
+*OnchainDataApi* | [**get_contract_balance_history**](https://github.com/fireblocks/py-sdk/tree/master/docs/OnchainDataApi.md#get_contract_balance_history) | **GET** /onchain_data/base_asset_id/{baseAssetId}/contract_address/{contractAddress}/account_address/{accountAddress}/balance_history | Get historical balance data for a specific account in a contract
+*OnchainDataApi* | [**get_contract_balances_summary**](https://github.com/fireblocks/py-sdk/tree/master/docs/OnchainDataApi.md#get_contract_balances_summary) | **GET** /onchain_data/base_asset_id/{baseAssetId}/contract_address/{contractAddress}/summary | Get summary for the token contract
+*OnchainDataApi* | [**get_contract_total_supply**](https://github.com/fireblocks/py-sdk/tree/master/docs/OnchainDataApi.md#get_contract_total_supply) | **GET** /onchain_data/base_asset_id/{baseAssetId}/contract_address/{contractAddress}/total_supply | Get historical total supply data for a contract
+*OnchainDataApi* | [**get_latest_balances_for_contract**](https://github.com/fireblocks/py-sdk/tree/master/docs/OnchainDataApi.md#get_latest_balances_for_contract) | **GET** /onchain_data/base_asset_id/{baseAssetId}/contract_address/{contractAddress}/balances | Get latest balances for all addresses holding tokens from a contract
+*OnchainDataApi* | [**get_onchain_transactions**](https://github.com/fireblocks/py-sdk/tree/master/docs/OnchainDataApi.md#get_onchain_transactions) | **GET** /onchain_data/base_asset_id/{baseAssetId}/contract_address/{contractAddress}/transactions | Fetch onchain transactions for a contract
 *PaymentsPayoutApi* | [**create_payout**](https://github.com/fireblocks/py-sdk/tree/master/docs/PaymentsPayoutApi.md#create_payout) | **POST** /payments/payout | Create a payout instruction set
 *PaymentsPayoutApi* | [**execute_payout_action**](https://github.com/fireblocks/py-sdk/tree/master/docs/PaymentsPayoutApi.md#execute_payout_action) | **POST** /payments/payout/{payoutId}/actions/execute | Execute a payout instruction set
 *PaymentsPayoutApi* | [**get_payout**](https://github.com/fireblocks/py-sdk/tree/master/docs/PaymentsPayoutApi.md#get_payout) | **GET** /payments/payout/{payoutId} | Get the status of a payout instruction set
@@ -444,12 +455,12 @@ Class | Method | HTTP request | Description
 *PolicyEditorBetaApi* | [**publish_policy_rules**](https://github.com/fireblocks/py-sdk/tree/master/docs/PolicyEditorBetaApi.md#publish_policy_rules) | **POST** /tap/publish | Send publish request for a set of policy rules
 *PolicyEditorBetaApi* | [**update_draft_legacy**](https://github.com/fireblocks/py-sdk/tree/master/docs/PolicyEditorBetaApi.md#update_draft_legacy) | **PUT** /tap/draft | Update the draft with a new set of rules
 *ResetDeviceApi* | [**reset_device**](https://github.com/fireblocks/py-sdk/tree/master/docs/ResetDeviceApi.md#reset_device) | **POST** /management/users/{id}/reset_device | Resets device
-*SmartTransferApi* | [**approve_dv_p_ticket_term**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#approve_dv_p_ticket_term) | **PUT** /smart_transfers/{ticketId}/terms/{termId}/dvp/approve | Define funding source and give approve to contract to transfer asset
+*SmartTransferApi* | [**approve_dv_p_ticket_term**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#approve_dv_p_ticket_term) | **PUT** /smart_transfers/{ticketId}/terms/{termId}/dvp/approve | Set funding source and approval
 *SmartTransferApi* | [**cancel_ticket**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#cancel_ticket) | **PUT** /smart-transfers/{ticketId}/cancel | Cancel Ticket
 *SmartTransferApi* | [**create_ticket**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#create_ticket) | **POST** /smart-transfers | Create Ticket
 *SmartTransferApi* | [**create_ticket_term**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#create_ticket_term) | **POST** /smart-transfers/{ticketId}/terms | Create leg (term)
-*SmartTransferApi* | [**find_ticket_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#find_ticket_by_id) | **GET** /smart-transfers/{ticketId} | Search Tickets by ID
-*SmartTransferApi* | [**find_ticket_term_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#find_ticket_term_by_id) | **GET** /smart-transfers/{ticketId}/terms/{termId} | Search ticket by leg (term) ID
+*SmartTransferApi* | [**find_ticket_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#find_ticket_by_id) | **GET** /smart-transfers/{ticketId} | Search Ticket by ID
+*SmartTransferApi* | [**find_ticket_term_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#find_ticket_term_by_id) | **GET** /smart-transfers/{ticketId}/terms/{termId} | Get Smart Transfer ticket term
 *SmartTransferApi* | [**fulfill_ticket**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#fulfill_ticket) | **PUT** /smart-transfers/{ticketId}/fulfill | Fund ticket manually
 *SmartTransferApi* | [**fund_dvp_ticket**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#fund_dvp_ticket) | **PUT** /smart_transfers/{ticketId}/dvp/fund | Fund dvp ticket
 *SmartTransferApi* | [**fund_ticket_term**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#fund_ticket_term) | **PUT** /smart-transfers/{ticketId}/terms/{termId}/fund | Define funding source
@@ -463,22 +474,49 @@ Class | Method | HTTP request | Description
 *SmartTransferApi* | [**set_user_groups**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#set_user_groups) | **POST** /smart-transfers/settings/user-groups | Set user group
 *SmartTransferApi* | [**submit_ticket**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#submit_ticket) | **PUT** /smart-transfers/{ticketId}/submit | Submit ticket
 *SmartTransferApi* | [**update_ticket_term**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#update_ticket_term) | **PUT** /smart-transfers/{ticketId}/terms/{termId} | Update ticket leg (term)
-*StakingApi* | [**approve_terms_of_service_by_provider_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#approve_terms_of_service_by_provider_id) | **POST** /staking/providers/{providerId}/approveTermsOfService | Approve staking terms of service
-*StakingApi* | [**claim_rewards**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#claim_rewards) | **POST** /staking/chains/{chainDescriptor}/claim_rewards | Execute a Claim Rewards operation
-*StakingApi* | [**get_all_delegations**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_all_delegations) | **GET** /staking/positions | List staking positions details
-*StakingApi* | [**get_chain_info**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_chain_info) | **GET** /staking/chains/{chainDescriptor}/chainInfo | Get chain-specific staking summary
-*StakingApi* | [**get_chains**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_chains) | **GET** /staking/chains | List staking supported chains
-*StakingApi* | [**get_delegation_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_delegation_by_id) | **GET** /staking/positions/{id} | Get staking position details
-*StakingApi* | [**get_providers**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_providers) | **GET** /staking/providers | List staking providers details
-*StakingApi* | [**get_summary**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_summary) | **GET** /staking/positions/summary | Get staking summary details
-*StakingApi* | [**get_summary_by_vault**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_summary_by_vault) | **GET** /staking/positions/summary/vaults | Get staking summary details by vault
-*StakingApi* | [**merge_stake_accounts**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#merge_stake_accounts) | **POST** /staking/chains/{chainDescriptor}/merge | Merge Solana on stake accounts
-*StakingApi* | [**split**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#split) | **POST** /staking/chains/{chainDescriptor}/split | Execute a Split operation on SOL/SOL_TEST stake account
-*StakingApi* | [**stake**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#stake) | **POST** /staking/chains/{chainDescriptor}/stake | Initiate Stake Operation
-*StakingApi* | [**unstake**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#unstake) | **POST** /staking/chains/{chainDescriptor}/unstake | Execute an Unstake operation
-*StakingApi* | [**withdraw**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#withdraw) | **POST** /staking/chains/{chainDescriptor}/withdraw | Execute a Withdraw operation
-*TagsApi* | [**create_tag**](https://github.com/fireblocks/py-sdk/tree/master/docs/TagsApi.md#create_tag) | **POST** /tags | Create a tag
+*StakingApi* | [**approve_terms_of_service_by_provider_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#approve_terms_of_service_by_provider_id) | **POST** /staking/providers/{providerId}/approveTermsOfService | Approve provider terms of service
+*StakingApi* | [**claim_rewards**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#claim_rewards) | **POST** /staking/chains/{chainDescriptor}/claim_rewards | Claim accrued rewards
+*StakingApi* | [**get_all_delegations**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_all_delegations) | **GET** /staking/positions | List staking positions
+*StakingApi* | [**get_chain_info**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_chain_info) | **GET** /staking/chains/{chainDescriptor}/chainInfo | Get chain-level staking parameters
+*StakingApi* | [**get_chains**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_chains) | **GET** /staking/chains | List supported staking chains
+*StakingApi* | [**get_delegation_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_delegation_by_id) | **GET** /staking/positions/{id} | Get position details
+*StakingApi* | [**get_providers**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_providers) | **GET** /staking/providers | List staking providers
+*StakingApi* | [**get_summary**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_summary) | **GET** /staking/positions/summary | Get positions summary
+*StakingApi* | [**get_summary_by_vault**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_summary_by_vault) | **GET** /staking/positions/summary/vaults | Get positions summary by vault
+*StakingApi* | [**merge_stake_accounts**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#merge_stake_accounts) | **POST** /staking/chains/{chainDescriptor}/merge | Merge staking positions
+*StakingApi* | [**split**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#split) | **POST** /staking/chains/{chainDescriptor}/split | Split a staking position
+*StakingApi* | [**stake**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#stake) | **POST** /staking/chains/{chainDescriptor}/stake | Initiate or add to existing stake
+*StakingApi* | [**unstake**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#unstake) | **POST** /staking/chains/{chainDescriptor}/unstake | Initiate unstake
+*StakingApi* | [**withdraw**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#withdraw) | **POST** /staking/chains/{chainDescriptor}/withdraw | Withdraw staked funds
+*TRLinkApi* | [**assess_tr_link_travel_rule_requirement**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#assess_tr_link_travel_rule_requirement) | **POST** /screening/trlink/customers/integration/{customerIntegrationId}/trm/assess | Assess Travel Rule requirement
+*TRLinkApi* | [**cancel_tr_link_trm**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#cancel_tr_link_trm) | **POST** /screening/trlink/customers/integration/{customerIntegrationId}/trm/{trmId}/cancel | Cancel Travel Rule Message
+*TRLinkApi* | [**connect_tr_link_integration**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#connect_tr_link_integration) | **PUT** /screening/trlink/customers/integration/{customerIntegrationId} | Connect customer integration
+*TRLinkApi* | [**create_tr_link_customer**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#create_tr_link_customer) | **POST** /screening/trlink/customers | Create customer
+*TRLinkApi* | [**create_tr_link_integration**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#create_tr_link_integration) | **POST** /screening/trlink/customers/integration | Create customer integration
+*TRLinkApi* | [**create_tr_link_trm**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#create_tr_link_trm) | **POST** /screening/trlink/customers/integration/{customerIntegrationId}/trm | Create Travel Rule Message
+*TRLinkApi* | [**delete_tr_link_customer**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#delete_tr_link_customer) | **DELETE** /screening/trlink/customers/{customerId} | Delete customer
+*TRLinkApi* | [**disconnect_tr_link_integration**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#disconnect_tr_link_integration) | **DELETE** /screening/trlink/customers/integration/{customerIntegrationId} | Disconnect customer integration
+*TRLinkApi* | [**get_tr_link_customer_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#get_tr_link_customer_by_id) | **GET** /screening/trlink/customers/{customerId} | Get customer by ID
+*TRLinkApi* | [**get_tr_link_customer_integration_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#get_tr_link_customer_integration_by_id) | **GET** /screening/trlink/customers/{customerId}/integrations/{customerIntegrationId} | Get customer integration by ID
+*TRLinkApi* | [**get_tr_link_customer_integrations**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#get_tr_link_customer_integrations) | **GET** /screening/trlink/customers/{customerId}/integrations | Get customer integrations
+*TRLinkApi* | [**get_tr_link_customers**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#get_tr_link_customers) | **GET** /screening/trlink/customers | Get all customers
+*TRLinkApi* | [**get_tr_link_integration_public_key**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#get_tr_link_integration_public_key) | **GET** /screening/trlink/customers/integration/{customerIntegrationId}/public_key | Get public key for PII encryption
+*TRLinkApi* | [**get_tr_link_partners**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#get_tr_link_partners) | **GET** /screening/trlink/partners | List available TRLink partners
+*TRLinkApi* | [**get_tr_link_policy**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#get_tr_link_policy) | **GET** /screening/trlink/policy | Get TRLink policy
+*TRLinkApi* | [**get_tr_link_supported_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#get_tr_link_supported_asset) | **GET** /screening/trlink/customers/integration/{customerIntegrationId}/assets/{assetId} | Get supported asset by ID
+*TRLinkApi* | [**get_tr_link_trm_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#get_tr_link_trm_by_id) | **GET** /screening/trlink/customers/integration/{customerIntegrationId}/trm/{trmId} | Get TRM by ID
+*TRLinkApi* | [**get_tr_link_vasp_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#get_tr_link_vasp_by_id) | **GET** /screening/trlink/customers/integration/{customerIntegrationId}/vasps/{vaspId} | Get VASP by ID
+*TRLinkApi* | [**list_tr_link_supported_assets**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#list_tr_link_supported_assets) | **GET** /screening/trlink/customers/integration/{customerIntegrationId}/assets | List supported assets
+*TRLinkApi* | [**list_tr_link_vasps**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#list_tr_link_vasps) | **GET** /screening/trlink/customers/integration/{customerIntegrationId}/vasps | List VASPs
+*TRLinkApi* | [**redirect_tr_link_trm**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#redirect_tr_link_trm) | **POST** /screening/trlink/customers/integration/{customerIntegrationId}/trm/{trmId}/redirect | Redirect Travel Rule Message
+*TRLinkApi* | [**set_tr_link_destination_travel_rule_message_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#set_tr_link_destination_travel_rule_message_id) | **POST** /screening/trlink/transaction/{txId}/destination/travel_rule_message_id | Set destination travel rule message ID
+*TRLinkApi* | [**set_tr_link_transaction_travel_rule_message_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#set_tr_link_transaction_travel_rule_message_id) | **POST** /screening/trlink/transaction/{txId}/travel_rule_message_id | Set transaction travel rule message ID
+*TRLinkApi* | [**test_tr_link_integration_connection**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#test_tr_link_integration_connection) | **POST** /screening/trlink/customers/integration/{customerIntegrationId}/test_connection | Test connection
+*TRLinkApi* | [**update_tr_link_customer**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#update_tr_link_customer) | **PUT** /screening/trlink/customers/{customerId} | Update customer
+*TagsApi* | [**cancel_approval_request**](https://github.com/fireblocks/py-sdk/tree/master/docs/TagsApi.md#cancel_approval_request) | **POST** /tags/approval_requests/{id}/cancel | Cancel an approval request by id
+*TagsApi* | [**create_tag**](https://github.com/fireblocks/py-sdk/tree/master/docs/TagsApi.md#create_tag) | **POST** /tags | Create a new tag
 *TagsApi* | [**delete_tag**](https://github.com/fireblocks/py-sdk/tree/master/docs/TagsApi.md#delete_tag) | **DELETE** /tags/{tagId} | Delete a tag
+*TagsApi* | [**get_approval_request**](https://github.com/fireblocks/py-sdk/tree/master/docs/TagsApi.md#get_approval_request) | **GET** /tags/approval_requests/{id} | Get an approval request by id
 *TagsApi* | [**get_tag**](https://github.com/fireblocks/py-sdk/tree/master/docs/TagsApi.md#get_tag) | **GET** /tags/{tagId} | Get a tag
 *TagsApi* | [**get_tags**](https://github.com/fireblocks/py-sdk/tree/master/docs/TagsApi.md#get_tags) | **GET** /tags | Get list of tags
 *TagsApi* | [**update_tag**](https://github.com/fireblocks/py-sdk/tree/master/docs/TagsApi.md#update_tag) | **PATCH** /tags/{tagId} | Update a tag
@@ -494,6 +532,7 @@ Class | Method | HTTP request | Description
 *TokenizationApi* | [**get_linked_collections**](https://github.com/fireblocks/py-sdk/tree/master/docs/TokenizationApi.md#get_linked_collections) | **GET** /tokenization/collections | Get collections
 *TokenizationApi* | [**get_linked_token**](https://github.com/fireblocks/py-sdk/tree/master/docs/TokenizationApi.md#get_linked_token) | **GET** /tokenization/tokens/{id} | Return a linked token
 *TokenizationApi* | [**get_linked_tokens**](https://github.com/fireblocks/py-sdk/tree/master/docs/TokenizationApi.md#get_linked_tokens) | **GET** /tokenization/tokens | List all linked tokens
+*TokenizationApi* | [**get_linked_tokens_count**](https://github.com/fireblocks/py-sdk/tree/master/docs/TokenizationApi.md#get_linked_tokens_count) | **GET** /tokenization/tokens/count | Get the total count of linked tokens
 *TokenizationApi* | [**issue_new_token**](https://github.com/fireblocks/py-sdk/tree/master/docs/TokenizationApi.md#issue_new_token) | **POST** /tokenization/tokens | Issue a new token
 *TokenizationApi* | [**issue_token_multi_chain**](https://github.com/fireblocks/py-sdk/tree/master/docs/TokenizationApi.md#issue_token_multi_chain) | **POST** /tokenization/multichain/tokens | Issue a token on one or more blockchains
 *TokenizationApi* | [**link**](https://github.com/fireblocks/py-sdk/tree/master/docs/TokenizationApi.md#link) | **POST** /tokenization/tokens/link | Link a contract
@@ -512,18 +551,19 @@ Class | Method | HTTP request | Description
 *TradingBetaApi* | [**get_trading_providers**](https://github.com/fireblocks/py-sdk/tree/master/docs/TradingBetaApi.md#get_trading_providers) | **GET** /trading/providers | Get providers
 *TransactionsApi* | [**cancel_transaction**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#cancel_transaction) | **POST** /transactions/{txId}/cancel | Cancel a transaction
 *TransactionsApi* | [**create_transaction**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#create_transaction) | **POST** /transactions | Create a new transaction
-*TransactionsApi* | [**drop_transaction**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#drop_transaction) | **POST** /transactions/{txId}/drop | Drop ETH transaction by ID
+*TransactionsApi* | [**drop_transaction**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#drop_transaction) | **POST** /transactions/{txId}/drop | Drop ETH (EVM) transaction by ID
 *TransactionsApi* | [**estimate_network_fee**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#estimate_network_fee) | **GET** /estimate_network_fee | Estimate the required fee for an asset
 *TransactionsApi* | [**estimate_transaction_fee**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#estimate_transaction_fee) | **POST** /transactions/estimate_fee | Estimate transaction fee
 *TransactionsApi* | [**freeze_transaction**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#freeze_transaction) | **POST** /transactions/{txId}/freeze | Freeze a transaction
-*TransactionsApi* | [**get_transaction**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#get_transaction) | **GET** /transactions/{txId} | Find a specific transaction by Fireblocks transaction ID
-*TransactionsApi* | [**get_transaction_by_external_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#get_transaction_by_external_id) | **GET** /transactions/external_tx_id/{externalTxId} | Find a specific transaction by external transaction ID
-*TransactionsApi* | [**get_transactions**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#get_transactions) | **GET** /transactions | List transaction history
-*TransactionsApi* | [**rescan_transactions_beta**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#rescan_transactions_beta) | **POST** /transactions/rescan | rescan array of transactions
+*TransactionsApi* | [**get_transaction**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#get_transaction) | **GET** /transactions/{txId} | Get a specific transaction by Fireblocks transaction ID
+*TransactionsApi* | [**get_transaction_by_external_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#get_transaction_by_external_id) | **GET** /transactions/external_tx_id/{externalTxId} | Get a specific transaction by external transaction ID
+*TransactionsApi* | [**get_transactions**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#get_transactions) | **GET** /transactions | Get transaction history
 *TransactionsApi* | [**set_confirmation_threshold_by_transaction_hash**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#set_confirmation_threshold_by_transaction_hash) | **POST** /txHash/{txHash}/set_confirmation_threshold | Set confirmation threshold by transaction hash
-*TransactionsApi* | [**set_transaction_confirmation_threshold**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#set_transaction_confirmation_threshold) | **POST** /transactions/{txId}/set_confirmation_threshold | Set confirmation threshold by transaction ID
+*TransactionsApi* | [**set_transaction_confirmation_threshold**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#set_transaction_confirmation_threshold) | **POST** /transactions/{txId}/set_confirmation_threshold | Set confirmation threshold by Fireblocks Transaction ID
 *TransactionsApi* | [**unfreeze_transaction**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#unfreeze_transaction) | **POST** /transactions/{txId}/unfreeze | Unfreeze a transaction
 *TransactionsApi* | [**validate_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#validate_address) | **GET** /transactions/validate_address/{assetId}/{address} | Validate destination address
+*TravelRuleApi* | [**create_trust_proof_of_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleApi.md#create_trust_proof_of_address) | **POST** /screening/travel_rule/providers/trust/proof_of_address | Create Trust Network Proof of Address
+*TravelRuleApi* | [**get_trust_proof_of_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleApi.md#get_trust_proof_of_address) | **GET** /screening/travel_rule/providers/trust/proof_of_address/{transactionId} | Retrieve Trust Network Proof of Address Signature
 *TravelRuleApi* | [**get_vasp_for_vault**](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleApi.md#get_vasp_for_vault) | **GET** /screening/travel_rule/vault/{vaultAccountId}/vasp | Get assigned VASP to vault
 *TravelRuleApi* | [**get_vaspby_did**](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleApi.md#get_vaspby_did) | **GET** /screening/travel_rule/vasp/{did} | Get VASP details
 *TravelRuleApi* | [**get_vasps**](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleApi.md#get_vasps) | **GET** /screening/travel_rule/vasp | Get All VASPs
@@ -537,32 +577,31 @@ Class | Method | HTTP request | Description
 *UserGroupsBetaApi* | [**update_user_group**](https://github.com/fireblocks/py-sdk/tree/master/docs/UserGroupsBetaApi.md#update_user_group) | **PUT** /management/user_groups/{groupId} | Update user group
 *UsersApi* | [**get_users**](https://github.com/fireblocks/py-sdk/tree/master/docs/UsersApi.md#get_users) | **GET** /users | List users
 *VaultsApi* | [**activate_asset_for_vault_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#activate_asset_for_vault_account) | **POST** /vault/accounts/{vaultAccountId}/{assetId}/activate | Activate a wallet in a vault account
-*VaultsApi* | [**attach_or_detach_tags_from_vault_accounts**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#attach_or_detach_tags_from_vault_accounts) | **POST** /vault/accounts/attached_tags | Attach or detach tags from a vault accounts
-*VaultsApi* | [**attach_tags_to_vault_accounts**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#attach_tags_to_vault_accounts) | **POST** /vault/accounts/attached_tags/attach | Attach tags to a vault accounts (deprecated)
+*VaultsApi* | [**attach_or_detach_tags_from_vault_accounts**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#attach_or_detach_tags_from_vault_accounts) | **POST** /vault/accounts/attached_tags | Attach or detach tags from vault accounts
 *VaultsApi* | [**create_legacy_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#create_legacy_address) | **POST** /vault/accounts/{vaultAccountId}/{assetId}/addresses/{addressId}/create_legacy | Convert a segwit address to legacy format
 *VaultsApi* | [**create_multiple_accounts**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#create_multiple_accounts) | **POST** /vault/accounts/bulk | Bulk creation of new vault accounts
 *VaultsApi* | [**create_multiple_deposit_addresses**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#create_multiple_deposit_addresses) | **POST** /vault/accounts/addresses/bulk | Bulk creation of new deposit addresses
 *VaultsApi* | [**create_vault_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#create_vault_account) | **POST** /vault/accounts | Create a new vault account
-*VaultsApi* | [**create_vault_account_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#create_vault_account_asset) | **POST** /vault/accounts/{vaultAccountId}/{assetId} | Create a new wallet
+*VaultsApi* | [**create_vault_account_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#create_vault_account_asset) | **POST** /vault/accounts/{vaultAccountId}/{assetId} | Create a new vault wallet
 *VaultsApi* | [**create_vault_account_asset_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#create_vault_account_asset_address) | **POST** /vault/accounts/{vaultAccountId}/{assetId}/addresses | Create new asset deposit address
-*VaultsApi* | [**detach_tags_from_vault_accounts**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#detach_tags_from_vault_accounts) | **POST** /vault/accounts/attached_tags/detach | Detach tags from a vault accounts (deprecated)
-*VaultsApi* | [**get_asset_wallets**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_asset_wallets) | **GET** /vault/asset_wallets | List asset wallets (Paginated)
-*VaultsApi* | [**get_create_multiple_deposit_addresses_job_status**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_create_multiple_deposit_addresses_job_status) | **GET** /vault/accounts/addresses/bulk/{jobId} | Get job status of bulk creation of new deposit addresses
+*VaultsApi* | [**get_asset_wallets**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_asset_wallets) | **GET** /vault/asset_wallets | Get vault wallets (Paginated)
+*VaultsApi* | [**get_create_multiple_deposit_addresses_job_status**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_create_multiple_deposit_addresses_job_status) | **GET** /vault/accounts/addresses/bulk/{jobId} | Get the job status of the bulk deposit address creation
 *VaultsApi* | [**get_create_multiple_vault_accounts_job_status**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_create_multiple_vault_accounts_job_status) | **GET** /vault/accounts/bulk/{jobId} | Get job status of bulk creation of new vault accounts
-*VaultsApi* | [**get_max_spendable_amount**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_max_spendable_amount) | **GET** /vault/accounts/{vaultAccountId}/{assetId}/max_spendable_amount | Get the maximum spendable amount in a single transaction.
-*VaultsApi* | [**get_paged_vault_accounts**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_paged_vault_accounts) | **GET** /vault/accounts_paged | List vault accounts (Paginated)
-*VaultsApi* | [**get_public_key_info**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_public_key_info) | **GET** /vault/public_key_info | Get the public key information
-*VaultsApi* | [**get_public_key_info_for_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_public_key_info_for_address) | **GET** /vault/accounts/{vaultAccountId}/{assetId}/{change}/{addressIndex}/public_key_info | Get the public key for a vault account
+*VaultsApi* | [**get_max_bip_index_used**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_max_bip_index_used) | **GET** /vault/accounts/{vaultAccountId}/{assetId}/max_bip_index_used | Get maximum BIP44 index used
+*VaultsApi* | [**get_max_spendable_amount**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_max_spendable_amount) | **GET** /vault/accounts/{vaultAccountId}/{assetId}/max_spendable_amount | Get max spendable amount in a transaction
+*VaultsApi* | [**get_paged_vault_accounts**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_paged_vault_accounts) | **GET** /vault/accounts_paged | Get vault accounts (Paginated)
+*VaultsApi* | [**get_public_key_info**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_public_key_info) | **GET** /vault/public_key_info | Get the public key for a derivation path
+*VaultsApi* | [**get_public_key_info_for_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_public_key_info_for_address) | **GET** /vault/accounts/{vaultAccountId}/{assetId}/{change}/{addressIndex}/public_key_info | Get an asset&#39;s public key
 *VaultsApi* | [**get_unspent_inputs**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_unspent_inputs) | **GET** /vault/accounts/{vaultAccountId}/{assetId}/unspent_inputs | Get UTXO unspent inputs information
-*VaultsApi* | [**get_vault_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_vault_account) | **GET** /vault/accounts/{vaultAccountId} | Find a vault account by ID
+*VaultsApi* | [**get_vault_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_vault_account) | **GET** /vault/accounts/{vaultAccountId} | Get a vault account by ID
 *VaultsApi* | [**get_vault_account_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_vault_account_asset) | **GET** /vault/accounts/{vaultAccountId}/{assetId} | Get the asset balance for a vault account
-*VaultsApi* | [**get_vault_account_asset_addresses_paginated**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_vault_account_asset_addresses_paginated) | **GET** /vault/accounts/{vaultAccountId}/{assetId}/addresses_paginated | List addresses (Paginated)
+*VaultsApi* | [**get_vault_account_asset_addresses_paginated**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_vault_account_asset_addresses_paginated) | **GET** /vault/accounts/{vaultAccountId}/{assetId}/addresses_paginated | Get addresses (Paginated)
 *VaultsApi* | [**get_vault_assets**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_vault_assets) | **GET** /vault/assets | Get asset balance for chosen assets
-*VaultsApi* | [**get_vault_balance_by_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_vault_balance_by_asset) | **GET** /vault/assets/{assetId} | Get vault balance by asset
+*VaultsApi* | [**get_vault_balance_by_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_vault_balance_by_asset) | **GET** /vault/assets/{assetId} | Get vault balance by an asset
 *VaultsApi* | [**hide_vault_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#hide_vault_account) | **POST** /vault/accounts/{vaultAccountId}/hide | Hide a vault account in the console
 *VaultsApi* | [**set_customer_ref_id_for_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#set_customer_ref_id_for_address) | **POST** /vault/accounts/{vaultAccountId}/{assetId}/addresses/{addressId}/set_customer_ref_id | Assign AML customer reference ID
-*VaultsApi* | [**set_vault_account_auto_fuel**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#set_vault_account_auto_fuel) | **POST** /vault/accounts/{vaultAccountId}/set_auto_fuel | Turn autofueling on or off
-*VaultsApi* | [**set_vault_account_customer_ref_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#set_vault_account_customer_ref_id) | **POST** /vault/accounts/{vaultAccountId}/set_customer_ref_id | Set an AML/KYT customer reference ID for a vault account
+*VaultsApi* | [**set_vault_account_auto_fuel**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#set_vault_account_auto_fuel) | **POST** /vault/accounts/{vaultAccountId}/set_auto_fuel | Set auto fueling to on or off
+*VaultsApi* | [**set_vault_account_customer_ref_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#set_vault_account_customer_ref_id) | **POST** /vault/accounts/{vaultAccountId}/set_customer_ref_id | Set an AML/KYT ID for a vault account
 *VaultsApi* | [**unhide_vault_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#unhide_vault_account) | **POST** /vault/accounts/{vaultAccountId}/unhide | Unhide a vault account in the console
 *VaultsApi* | [**update_vault_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#update_vault_account) | **PUT** /vault/accounts/{vaultAccountId} | Rename a vault account
 *VaultsApi* | [**update_vault_account_asset_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#update_vault_account_asset_address) | **PUT** /vault/accounts/{vaultAccountId}/{assetId}/addresses/{addressId} | Update address description
@@ -571,9 +610,9 @@ Class | Method | HTTP request | Description
 *Web3ConnectionsApi* | [**get**](https://github.com/fireblocks/py-sdk/tree/master/docs/Web3ConnectionsApi.md#get) | **GET** /connections | List all open Web3 connections.
 *Web3ConnectionsApi* | [**remove**](https://github.com/fireblocks/py-sdk/tree/master/docs/Web3ConnectionsApi.md#remove) | **DELETE** /connections/wc/{id} | Remove an existing Web3 connection.
 *Web3ConnectionsApi* | [**submit**](https://github.com/fireblocks/py-sdk/tree/master/docs/Web3ConnectionsApi.md#submit) | **PUT** /connections/wc/{id} | Respond to a pending Web3 connection request.
-*WebhooksApi* | [**resend_transaction_webhooks**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksApi.md#resend_transaction_webhooks) | **POST** /webhooks/resend/{txId} | Resend failed webhooks for a transaction by ID
+*WebhooksApi* | [**resend_transaction_webhooks**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksApi.md#resend_transaction_webhooks) | **POST** /webhooks/resend/{txId} | Resend webhooks for a transaction by ID
 *WebhooksApi* | [**resend_webhooks**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksApi.md#resend_webhooks) | **POST** /webhooks/resend | Resend failed webhooks
-*WebhooksV2Api* | [**create_webhook**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksV2Api.md#create_webhook) | **POST** /webhooks | Create new webhook
+*WebhooksV2Api* | [**create_webhook**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksV2Api.md#create_webhook) | **POST** /webhooks | Create a new webhook
 *WebhooksV2Api* | [**delete_webhook**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksV2Api.md#delete_webhook) | **DELETE** /webhooks/{webhookId} | Delete webhook
 *WebhooksV2Api* | [**get_metrics**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksV2Api.md#get_metrics) | **GET** /webhooks/{webhookId}/metrics/{metricName} | Get webhook metrics
 *WebhooksV2Api* | [**get_notification**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksV2Api.md#get_notification) | **GET** /webhooks/{webhookId}/notifications/{notificationId} | Get notification by id
@@ -587,7 +626,7 @@ Class | Method | HTTP request | Description
 *WebhooksV2Api* | [**resend_notifications_by_resource_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksV2Api.md#resend_notifications_by_resource_id) | **POST** /webhooks/{webhookId}/notifications/resend_by_resource | Resend notifications by resource Id
 *WebhooksV2Api* | [**update_webhook**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksV2Api.md#update_webhook) | **PATCH** /webhooks/{webhookId} | Update webhook
 *WorkspaceStatusBetaApi* | [**get_workspace_status**](https://github.com/fireblocks/py-sdk/tree/master/docs/WorkspaceStatusBetaApi.md#get_workspace_status) | **GET** /management/workspace_status | Returns current workspace status
-*WhitelistIpAddressesApi* | [**get_whitelist_ip_addresses**](https://github.com/fireblocks/py-sdk/tree/master/docs/WhitelistIpAddressesApi.md#get_whitelist_ip_addresses) | **GET** /management/api_users/{userId}/whitelist_ip_addresses | Gets whitelisted ip addresses
+*WhitelistIpAddressesApi* | [**get_whitelist_ip_addresses**](https://github.com/fireblocks/py-sdk/tree/master/docs/WhitelistIpAddressesApi.md#get_whitelist_ip_addresses) | **GET** /management/api_users/{userId}/whitelist_ip_addresses | Get whitelisted ip addresses for an API Key
 
 
 ## Documentation For Models
@@ -595,6 +634,9 @@ Class | Method | HTTP request | Description
  - [APIUser](https://github.com/fireblocks/py-sdk/tree/master/docs/APIUser.md)
  - [AbaPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/AbaPaymentInfo.md)
  - [AbiFunction](https://github.com/fireblocks/py-sdk/tree/master/docs/AbiFunction.md)
+ - [AccessRegistryAddressItem](https://github.com/fireblocks/py-sdk/tree/master/docs/AccessRegistryAddressItem.md)
+ - [AccessRegistryCurrentStateResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AccessRegistryCurrentStateResponse.md)
+ - [AccessRegistrySummaryResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AccessRegistrySummaryResponse.md)
  - [AccessType](https://github.com/fireblocks/py-sdk/tree/master/docs/AccessType.md)
  - [Account](https://github.com/fireblocks/py-sdk/tree/master/docs/Account.md)
  - [AccountAccess](https://github.com/fireblocks/py-sdk/tree/master/docs/AccountAccess.md)
@@ -604,7 +646,6 @@ Class | Method | HTTP request | Description
  - [AccountConfig](https://github.com/fireblocks/py-sdk/tree/master/docs/AccountConfig.md)
  - [AccountHolderDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/AccountHolderDetails.md)
  - [AccountIdentifier](https://github.com/fireblocks/py-sdk/tree/master/docs/AccountIdentifier.md)
- - [AccountProviderID](https://github.com/fireblocks/py-sdk/tree/master/docs/AccountProviderID.md)
  - [AccountReference](https://github.com/fireblocks/py-sdk/tree/master/docs/AccountReference.md)
  - [AccountType](https://github.com/fireblocks/py-sdk/tree/master/docs/AccountType.md)
  - [AccountType2](https://github.com/fireblocks/py-sdk/tree/master/docs/AccountType2.md)
@@ -624,6 +665,8 @@ Class | Method | HTTP request | Description
  - [AdditionalInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/AdditionalInfo.md)
  - [AdditionalInfoRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/AdditionalInfoRequest.md)
  - [AdditionalInfoRequestAdditionalInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/AdditionalInfoRequestAdditionalInfo.md)
+ - [AddressBalanceItemDto](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressBalanceItemDto.md)
+ - [AddressBalancePagedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressBalancePagedResponse.md)
  - [AddressNotAvailableError](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressNotAvailableError.md)
  - [AlertExposureTypeEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/AlertExposureTypeEnum.md)
  - [AlertLevelEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/AlertLevelEnum.md)
@@ -646,6 +689,7 @@ Class | Method | HTTP request | Description
  - [AmountRangeMinMax2](https://github.com/fireblocks/py-sdk/tree/master/docs/AmountRangeMinMax2.md)
  - [ApiKey](https://github.com/fireblocks/py-sdk/tree/master/docs/ApiKey.md)
  - [ApiKeysPaginatedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ApiKeysPaginatedResponse.md)
+ - [ApprovalRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/ApprovalRequest.md)
  - [ApproversConfig](https://github.com/fireblocks/py-sdk/tree/master/docs/ApproversConfig.md)
  - [ApproversConfigApprovalGroupsInner](https://github.com/fireblocks/py-sdk/tree/master/docs/ApproversConfigApprovalGroupsInner.md)
  - [Asset](https://github.com/fireblocks/py-sdk/tree/master/docs/Asset.md)
@@ -674,6 +718,7 @@ Class | Method | HTTP request | Description
  - [AssetPriceResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AssetPriceResponse.md)
  - [AssetResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AssetResponse.md)
  - [AssetScope](https://github.com/fireblocks/py-sdk/tree/master/docs/AssetScope.md)
+ - [AssetTypeEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/AssetTypeEnum.md)
  - [AssetTypeResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AssetTypeResponse.md)
  - [AssetTypesConfigInner](https://github.com/fireblocks/py-sdk/tree/master/docs/AssetTypesConfigInner.md)
  - [AssetWallet](https://github.com/fireblocks/py-sdk/tree/master/docs/AssetWallet.md)
@@ -681,9 +726,14 @@ Class | Method | HTTP request | Description
  - [AuditorData](https://github.com/fireblocks/py-sdk/tree/master/docs/AuditorData.md)
  - [AuthorizationGroups](https://github.com/fireblocks/py-sdk/tree/master/docs/AuthorizationGroups.md)
  - [AuthorizationInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/AuthorizationInfo.md)
+ - [BalanceHistoryItemDto](https://github.com/fireblocks/py-sdk/tree/master/docs/BalanceHistoryItemDto.md)
+ - [BalanceHistoryPagedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/BalanceHistoryPagedResponse.md)
+ - [BankAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/BankAddress.md)
  - [BaseProvider](https://github.com/fireblocks/py-sdk/tree/master/docs/BaseProvider.md)
  - [BasicAddressRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/BasicAddressRequest.md)
  - [BlockInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/BlockInfo.md)
+ - [BlockchainAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/BlockchainAddress.md)
+ - [BlockchainDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/BlockchainDestination.md)
  - [BlockchainExplorer](https://github.com/fireblocks/py-sdk/tree/master/docs/BlockchainExplorer.md)
  - [BlockchainMedia](https://github.com/fireblocks/py-sdk/tree/master/docs/BlockchainMedia.md)
  - [BlockchainMetadata](https://github.com/fireblocks/py-sdk/tree/master/docs/BlockchainMetadata.md)
@@ -692,6 +742,7 @@ Class | Method | HTTP request | Description
  - [BlockchainResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/BlockchainResponse.md)
  - [BlockchainTransfer](https://github.com/fireblocks/py-sdk/tree/master/docs/BlockchainTransfer.md)
  - [BpsFee](https://github.com/fireblocks/py-sdk/tree/master/docs/BpsFee.md)
+ - [BusinessEntityTypeEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/BusinessEntityTypeEnum.md)
  - [BusinessIdentification](https://github.com/fireblocks/py-sdk/tree/master/docs/BusinessIdentification.md)
  - [CallbackHandler](https://github.com/fireblocks/py-sdk/tree/master/docs/CallbackHandler.md)
  - [CallbackHandlerRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CallbackHandlerRequest.md)
@@ -714,6 +765,7 @@ Class | Method | HTTP request | Description
  - [CollectionTokenMetadataAttributeDto](https://github.com/fireblocks/py-sdk/tree/master/docs/CollectionTokenMetadataAttributeDto.md)
  - [CollectionTokenMetadataDto](https://github.com/fireblocks/py-sdk/tree/master/docs/CollectionTokenMetadataDto.md)
  - [CollectionType](https://github.com/fireblocks/py-sdk/tree/master/docs/CollectionType.md)
+ - [CommittedQuoteEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/CommittedQuoteEnum.md)
  - [CommittedQuoteType](https://github.com/fireblocks/py-sdk/tree/master/docs/CommittedQuoteType.md)
  - [ComplianceResultFullPayload](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceResultFullPayload.md)
  - [ComplianceResultStatusesEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceResultStatusesEnum.md)
@@ -733,6 +785,7 @@ Class | Method | HTTP request | Description
  - [ConnectedAccountBalances](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountBalances.md)
  - [ConnectedAccountBalancesResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountBalancesResponse.md)
  - [ConnectedAccountCapability](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountCapability.md)
+ - [ConnectedAccountErrorResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountErrorResponse.md)
  - [ConnectedAccountManifest](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountManifest.md)
  - [ConnectedAccountRateResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountRateResponse.md)
  - [ConnectedAccountTotalBalance](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountTotalBalance.md)
@@ -745,6 +798,7 @@ Class | Method | HTTP request | Description
  - [ConsoleUser](https://github.com/fireblocks/py-sdk/tree/master/docs/ConsoleUser.md)
  - [ContractAbiResponseDto](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractAbiResponseDto.md)
  - [ContractAbiResponseDtoAbiInner](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractAbiResponseDtoAbiInner.md)
+ - [ContractAddressResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractAddressResponse.md)
  - [ContractAttributes](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractAttributes.md)
  - [ContractDataDecodeDataType](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractDataDecodeDataType.md)
  - [ContractDataDecodeError](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractDataDecodeError.md)
@@ -780,7 +834,6 @@ Class | Method | HTTP request | Description
  - [CreateAPIUser](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateAPIUser.md)
  - [CreateAddressRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateAddressRequest.md)
  - [CreateAddressResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateAddressResponse.md)
- - [CreateAssetsBulkRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateAssetsBulkRequest.md)
  - [CreateAssetsRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateAssetsRequest.md)
  - [CreateConfigOperationRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateConfigOperationRequest.md)
  - [CreateConnectionRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateConnectionRequest.md)
@@ -822,8 +875,11 @@ Class | Method | HTTP request | Description
  - [CustomRoutingDest](https://github.com/fireblocks/py-sdk/tree/master/docs/CustomRoutingDest.md)
  - [DAppAddressConfig](https://github.com/fireblocks/py-sdk/tree/master/docs/DAppAddressConfig.md)
  - [DVPSettlement](https://github.com/fireblocks/py-sdk/tree/master/docs/DVPSettlement.md)
+ - [DVPSettlementType](https://github.com/fireblocks/py-sdk/tree/master/docs/DVPSettlementType.md)
+ - [DecodedLog](https://github.com/fireblocks/py-sdk/tree/master/docs/DecodedLog.md)
  - [DefaultNetworkRoutingDest](https://github.com/fireblocks/py-sdk/tree/master/docs/DefaultNetworkRoutingDest.md)
  - [Delegation](https://github.com/fireblocks/py-sdk/tree/master/docs/Delegation.md)
+ - [DelegationBlockchainPositionInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/DelegationBlockchainPositionInfo.md)
  - [DelegationSummary](https://github.com/fireblocks/py-sdk/tree/master/docs/DelegationSummary.md)
  - [DeleteNetworkConnectionResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/DeleteNetworkConnectionResponse.md)
  - [DeleteNetworkIdResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/DeleteNetworkIdResponse.md)
@@ -881,15 +937,22 @@ Class | Method | HTTP request | Description
  - [EmbeddedWalletLatestBackupResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletLatestBackupResponse.md)
  - [EmbeddedWalletPaginatedAddressesResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletPaginatedAddressesResponse.md)
  - [EmbeddedWalletPaginatedAssetsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletPaginatedAssetsResponse.md)
+ - [EmbeddedWalletPaginatedDevicesResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletPaginatedDevicesResponse.md)
  - [EmbeddedWalletPaginatedWalletsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletPaginatedWalletsResponse.md)
+ - [EmbeddedWalletRequiredAlgorithms](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletRequiredAlgorithms.md)
  - [EmbeddedWalletSetUpStatus](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletSetUpStatus.md)
- - [ErrorCodes](https://github.com/fireblocks/py-sdk/tree/master/docs/ErrorCodes.md)
+ - [EmbeddedWalletSetupStatusResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/EmbeddedWalletSetupStatusResponse.md)
+ - [EnableDevice](https://github.com/fireblocks/py-sdk/tree/master/docs/EnableDevice.md)
+ - [EnableWallet](https://github.com/fireblocks/py-sdk/tree/master/docs/EnableWallet.md)
  - [ErrorResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ErrorResponse.md)
  - [ErrorResponseError](https://github.com/fireblocks/py-sdk/tree/master/docs/ErrorResponseError.md)
  - [ErrorSchema](https://github.com/fireblocks/py-sdk/tree/master/docs/ErrorSchema.md)
  - [EstimatedFeeDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/EstimatedFeeDetails.md)
  - [EstimatedNetworkFeeResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/EstimatedNetworkFeeResponse.md)
  - [EstimatedTransactionFeeResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/EstimatedTransactionFeeResponse.md)
+ - [EthereumBlockchainData](https://github.com/fireblocks/py-sdk/tree/master/docs/EthereumBlockchainData.md)
+ - [EuropeanSEPAAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/EuropeanSEPAAddress.md)
+ - [EuropeanSEPADestination](https://github.com/fireblocks/py-sdk/tree/master/docs/EuropeanSEPADestination.md)
  - [ExchangeAccount](https://github.com/fireblocks/py-sdk/tree/master/docs/ExchangeAccount.md)
  - [ExchangeAsset](https://github.com/fireblocks/py-sdk/tree/master/docs/ExchangeAsset.md)
  - [ExchangeSettlementTransactionsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ExchangeSettlementTransactionsResponse.md)
@@ -903,14 +966,21 @@ Class | Method | HTTP request | Description
  - [ExecutionResponseBaseDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/ExecutionResponseBaseDetails.md)
  - [ExecutionResponseDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/ExecutionResponseDetails.md)
  - [ExecutionScreeningOperation](https://github.com/fireblocks/py-sdk/tree/master/docs/ExecutionScreeningOperation.md)
- - [ExecutionStep](https://github.com/fireblocks/py-sdk/tree/master/docs/ExecutionStep.md)
- - [ExecutionStepDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/ExecutionStepDetails.md)
  - [ExecutionStepError](https://github.com/fireblocks/py-sdk/tree/master/docs/ExecutionStepError.md)
  - [ExecutionStepStatusEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/ExecutionStepStatusEnum.md)
  - [ExecutionStepType](https://github.com/fireblocks/py-sdk/tree/master/docs/ExecutionStepType.md)
  - [ExecutionTransferOperation](https://github.com/fireblocks/py-sdk/tree/master/docs/ExecutionTransferOperation.md)
  - [ExternalAccount](https://github.com/fireblocks/py-sdk/tree/master/docs/ExternalAccount.md)
+ - [ExternalAccountLocalBankAfrica](https://github.com/fireblocks/py-sdk/tree/master/docs/ExternalAccountLocalBankAfrica.md)
+ - [ExternalAccountLocalBankAfricaType](https://github.com/fireblocks/py-sdk/tree/master/docs/ExternalAccountLocalBankAfricaType.md)
+ - [ExternalAccountMobileMoney](https://github.com/fireblocks/py-sdk/tree/master/docs/ExternalAccountMobileMoney.md)
+ - [ExternalAccountMobileMoneyProvider](https://github.com/fireblocks/py-sdk/tree/master/docs/ExternalAccountMobileMoneyProvider.md)
+ - [ExternalAccountMobileMoneyType](https://github.com/fireblocks/py-sdk/tree/master/docs/ExternalAccountMobileMoneyType.md)
+ - [ExternalAccountSenderInformation](https://github.com/fireblocks/py-sdk/tree/master/docs/ExternalAccountSenderInformation.md)
+ - [ExternalAccountType](https://github.com/fireblocks/py-sdk/tree/master/docs/ExternalAccountType.md)
  - [ExternalWalletAsset](https://github.com/fireblocks/py-sdk/tree/master/docs/ExternalWalletAsset.md)
+ - [Failure](https://github.com/fireblocks/py-sdk/tree/master/docs/Failure.md)
+ - [FailureReason](https://github.com/fireblocks/py-sdk/tree/master/docs/FailureReason.md)
  - [Fee](https://github.com/fireblocks/py-sdk/tree/master/docs/Fee.md)
  - [FeeBreakdown](https://github.com/fireblocks/py-sdk/tree/master/docs/FeeBreakdown.md)
  - [FeeBreakdownOneOf](https://github.com/fireblocks/py-sdk/tree/master/docs/FeeBreakdownOneOf.md)
@@ -919,12 +989,15 @@ Class | Method | HTTP request | Description
  - [FeeLevel](https://github.com/fireblocks/py-sdk/tree/master/docs/FeeLevel.md)
  - [FeePayerInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/FeePayerInfo.md)
  - [FeePropertiesDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/FeePropertiesDetails.md)
+ - [FeeTypeEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/FeeTypeEnum.md)
  - [FetchAbiRequestDto](https://github.com/fireblocks/py-sdk/tree/master/docs/FetchAbiRequestDto.md)
  - [FiatAccount](https://github.com/fireblocks/py-sdk/tree/master/docs/FiatAccount.md)
  - [FiatAccountType](https://github.com/fireblocks/py-sdk/tree/master/docs/FiatAccountType.md)
  - [FiatAsset](https://github.com/fireblocks/py-sdk/tree/master/docs/FiatAsset.md)
  - [FiatDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/FiatDestination.md)
+ - [FiatPaymentMetadata](https://github.com/fireblocks/py-sdk/tree/master/docs/FiatPaymentMetadata.md)
  - [FiatTransfer](https://github.com/fireblocks/py-sdk/tree/master/docs/FiatTransfer.md)
+ - [FixedAmountTypeEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/FixedAmountTypeEnum.md)
  - [FixedFee](https://github.com/fireblocks/py-sdk/tree/master/docs/FixedFee.md)
  - [FreezeTransactionResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/FreezeTransactionResponse.md)
  - [FunctionDoc](https://github.com/fireblocks/py-sdk/tree/master/docs/FunctionDoc.md)
@@ -944,6 +1017,7 @@ Class | Method | HTTP request | Description
  - [GetLayerZeroDvnConfigResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetLayerZeroDvnConfigResponse.md)
  - [GetLayerZeroPeersResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetLayerZeroPeersResponse.md)
  - [GetLinkedCollectionsPaginatedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetLinkedCollectionsPaginatedResponse.md)
+ - [GetMaxBipIndexUsedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetMaxBipIndexUsedResponse.md)
  - [GetMaxSpendableAmountResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetMaxSpendableAmountResponse.md)
  - [GetMpcKeysResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetMpcKeysResponse.md)
  - [GetNFTsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetNFTsResponse.md)
@@ -963,6 +1037,7 @@ Class | Method | HTTP request | Description
  - [IbanPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/IbanPaymentInfo.md)
  - [Identification](https://github.com/fireblocks/py-sdk/tree/master/docs/Identification.md)
  - [IdlType](https://github.com/fireblocks/py-sdk/tree/master/docs/IdlType.md)
+ - [IndicativeQuoteEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/IndicativeQuoteEnum.md)
  - [IndicativeQuoteType](https://github.com/fireblocks/py-sdk/tree/master/docs/IndicativeQuoteType.md)
  - [InitiatorConfig](https://github.com/fireblocks/py-sdk/tree/master/docs/InitiatorConfig.md)
  - [InitiatorConfigPattern](https://github.com/fireblocks/py-sdk/tree/master/docs/InitiatorConfigPattern.md)
@@ -970,7 +1045,6 @@ Class | Method | HTTP request | Description
  - [InternalReference](https://github.com/fireblocks/py-sdk/tree/master/docs/InternalReference.md)
  - [InternalTransferResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/InternalTransferResponse.md)
  - [InvalidParamaterValueError](https://github.com/fireblocks/py-sdk/tree/master/docs/InvalidParamaterValueError.md)
- - [Job](https://github.com/fireblocks/py-sdk/tree/master/docs/Job.md)
  - [JobCreated](https://github.com/fireblocks/py-sdk/tree/master/docs/JobCreated.md)
  - [LayerZeroAdapterCreateParams](https://github.com/fireblocks/py-sdk/tree/master/docs/LayerZeroAdapterCreateParams.md)
  - [LbtPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/LbtPaymentInfo.md)
@@ -1005,9 +1079,7 @@ Class | Method | HTTP request | Description
  - [LegacyPublishDraftRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPublishDraftRequest.md)
  - [LegacyPublishResult](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPublishResult.md)
  - [LegacySrcOrDestAttributesInner](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacySrcOrDestAttributesInner.md)
- - [LimitExecutionRequestDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/LimitExecutionRequestDetails.md)
- - [LimitExecutionResponseDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/LimitExecutionResponseDetails.md)
- - [LimitTypeDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/LimitTypeDetails.md)
+ - [LinkedTokensCount](https://github.com/fireblocks/py-sdk/tree/master/docs/LinkedTokensCount.md)
  - [ListAssetsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ListAssetsResponse.md)
  - [ListBlockchainsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ListBlockchainsResponse.md)
  - [ListOwnedCollectionsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ListOwnedCollectionsResponse.md)
@@ -1018,7 +1090,9 @@ Class | Method | HTTP request | Description
  - [MarketExecutionRequestDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/MarketExecutionRequestDetails.md)
  - [MarketExecutionResponseDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/MarketExecutionResponseDetails.md)
  - [MarketRequoteRequestDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/MarketRequoteRequestDetails.md)
+ - [MarketRequoteTypeEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/MarketRequoteTypeEnum.md)
  - [MarketTypeDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/MarketTypeDetails.md)
+ - [MarketTypeEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/MarketTypeEnum.md)
  - [MediaEntityResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/MediaEntityResponse.md)
  - [MergeStakeAccountsRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/MergeStakeAccountsRequest.md)
  - [MergeStakeAccountsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/MergeStakeAccountsResponse.md)
@@ -1049,11 +1123,15 @@ Class | Method | HTTP request | Description
  - [NotificationPaginatedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/NotificationPaginatedResponse.md)
  - [NotificationStatus](https://github.com/fireblocks/py-sdk/tree/master/docs/NotificationStatus.md)
  - [NotificationWithData](https://github.com/fireblocks/py-sdk/tree/master/docs/NotificationWithData.md)
+ - [OnchainTransaction](https://github.com/fireblocks/py-sdk/tree/master/docs/OnchainTransaction.md)
+ - [OnchainTransactionsPagedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/OnchainTransactionsPagedResponse.md)
  - [OneTimeAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/OneTimeAddress.md)
  - [OneTimeAddressAccount](https://github.com/fireblocks/py-sdk/tree/master/docs/OneTimeAddressAccount.md)
+ - [OneTimeAddressPeerType](https://github.com/fireblocks/py-sdk/tree/master/docs/OneTimeAddressPeerType.md)
  - [OneTimeAddressReference](https://github.com/fireblocks/py-sdk/tree/master/docs/OneTimeAddressReference.md)
  - [OperationExecutionFailure](https://github.com/fireblocks/py-sdk/tree/master/docs/OperationExecutionFailure.md)
  - [OrderDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/OrderDetails.md)
+ - [OrderExecutionStep](https://github.com/fireblocks/py-sdk/tree/master/docs/OrderExecutionStep.md)
  - [OrderSide](https://github.com/fireblocks/py-sdk/tree/master/docs/OrderSide.md)
  - [OrderStatus](https://github.com/fireblocks/py-sdk/tree/master/docs/OrderStatus.md)
  - [OrderSummary](https://github.com/fireblocks/py-sdk/tree/master/docs/OrderSummary.md)
@@ -1076,7 +1154,7 @@ Class | Method | HTTP request | Description
  - [PaymentAccountResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/PaymentAccountResponse.md)
  - [PaymentAccountType](https://github.com/fireblocks/py-sdk/tree/master/docs/PaymentAccountType.md)
  - [PaymentInstructions](https://github.com/fireblocks/py-sdk/tree/master/docs/PaymentInstructions.md)
- - [PaymentInstructionsDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/PaymentInstructionsDetails.md)
+ - [PaymentInstructionsOneOf](https://github.com/fireblocks/py-sdk/tree/master/docs/PaymentInstructionsOneOf.md)
  - [PayoutInitMethod](https://github.com/fireblocks/py-sdk/tree/master/docs/PayoutInitMethod.md)
  - [PayoutInstruction](https://github.com/fireblocks/py-sdk/tree/master/docs/PayoutInstruction.md)
  - [PayoutInstructionResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/PayoutInstructionResponse.md)
@@ -1086,12 +1164,14 @@ Class | Method | HTTP request | Description
  - [PayoutStatus](https://github.com/fireblocks/py-sdk/tree/master/docs/PayoutStatus.md)
  - [PeerAdapterInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/PeerAdapterInfo.md)
  - [PeerType](https://github.com/fireblocks/py-sdk/tree/master/docs/PeerType.md)
+ - [PersonalEntityTypeEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/PersonalEntityTypeEnum.md)
  - [PersonalIdentification](https://github.com/fireblocks/py-sdk/tree/master/docs/PersonalIdentification.md)
  - [PersonalIdentificationFullName](https://github.com/fireblocks/py-sdk/tree/master/docs/PersonalIdentificationFullName.md)
  - [PixAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/PixAddress.md)
  - [PixDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/PixDestination.md)
  - [PixPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/PixPaymentInfo.md)
  - [PlatformAccount](https://github.com/fireblocks/py-sdk/tree/master/docs/PlatformAccount.md)
+ - [PlatformPeerType](https://github.com/fireblocks/py-sdk/tree/master/docs/PlatformPeerType.md)
  - [Players](https://github.com/fireblocks/py-sdk/tree/master/docs/Players.md)
  - [PolicyAndValidationResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/PolicyAndValidationResponse.md)
  - [PolicyCheckResult](https://github.com/fireblocks/py-sdk/tree/master/docs/PolicyCheckResult.md)
@@ -1108,24 +1188,24 @@ Class | Method | HTTP request | Description
  - [PolicyValidation](https://github.com/fireblocks/py-sdk/tree/master/docs/PolicyValidation.md)
  - [PolicyVerdictActionEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/PolicyVerdictActionEnum.md)
  - [PolicyVerdictActionEnum2](https://github.com/fireblocks/py-sdk/tree/master/docs/PolicyVerdictActionEnum2.md)
- - [PostOrderSettlement](https://github.com/fireblocks/py-sdk/tree/master/docs/PostOrderSettlement.md)
  - [PostalAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/PostalAddress.md)
  - [PreScreening](https://github.com/fireblocks/py-sdk/tree/master/docs/PreScreening.md)
  - [PrefundedSettlement](https://github.com/fireblocks/py-sdk/tree/master/docs/PrefundedSettlement.md)
+ - [PrefundedSettlementType](https://github.com/fireblocks/py-sdk/tree/master/docs/PrefundedSettlementType.md)
  - [ProgramCallConfig](https://github.com/fireblocks/py-sdk/tree/master/docs/ProgramCallConfig.md)
  - [Provider](https://github.com/fireblocks/py-sdk/tree/master/docs/Provider.md)
- - [ProviderID](https://github.com/fireblocks/py-sdk/tree/master/docs/ProviderID.md)
  - [ProvidersListResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ProvidersListResponse.md)
  - [PublicKeyInformation](https://github.com/fireblocks/py-sdk/tree/master/docs/PublicKeyInformation.md)
  - [PublishDraftRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/PublishDraftRequest.md)
  - [PublishResult](https://github.com/fireblocks/py-sdk/tree/master/docs/PublishResult.md)
  - [Quote](https://github.com/fireblocks/py-sdk/tree/master/docs/Quote.md)
  - [QuoteExecutionRequestDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/QuoteExecutionRequestDetails.md)
- - [QuoteExecutionResponseDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/QuoteExecutionResponseDetails.md)
+ - [QuoteExecutionStep](https://github.com/fireblocks/py-sdk/tree/master/docs/QuoteExecutionStep.md)
  - [QuoteExecutionTypeDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/QuoteExecutionTypeDetails.md)
  - [QuoteExecutionWithRequoteRequestDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/QuoteExecutionWithRequoteRequestDetails.md)
  - [QuoteExecutionWithRequoteResponseDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/QuoteExecutionWithRequoteResponseDetails.md)
  - [QuotePropertiesDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/QuotePropertiesDetails.md)
+ - [QuoteTypeEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/QuoteTypeEnum.md)
  - [QuotesResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/QuotesResponse.md)
  - [ReQuoteDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/ReQuoteDetails.md)
  - [ReQuoteDetailsReQuote](https://github.com/fireblocks/py-sdk/tree/master/docs/ReQuoteDetailsReQuote.md)
@@ -1143,9 +1223,10 @@ Class | Method | HTTP request | Description
  - [RemoveLayerZeroAdaptersResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/RemoveLayerZeroAdaptersResponse.md)
  - [RemoveLayerZeroPeersRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/RemoveLayerZeroPeersRequest.md)
  - [RemoveLayerZeroPeersResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/RemoveLayerZeroPeersResponse.md)
+ - [RenameConnectedAccountRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/RenameConnectedAccountRequest.md)
+ - [RenameConnectedAccountResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/RenameConnectedAccountResponse.md)
  - [RenameCosigner](https://github.com/fireblocks/py-sdk/tree/master/docs/RenameCosigner.md)
  - [RenameVaultAccountResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/RenameVaultAccountResponse.md)
- - [RescanTransaction](https://github.com/fireblocks/py-sdk/tree/master/docs/RescanTransaction.md)
  - [ResendFailedNotificationsJobStatusResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ResendFailedNotificationsJobStatusResponse.md)
  - [ResendFailedNotificationsRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/ResendFailedNotificationsRequest.md)
  - [ResendFailedNotificationsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ResendFailedNotificationsResponse.md)
@@ -1155,12 +1236,16 @@ Class | Method | HTTP request | Description
  - [ResendWebhooksResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ResendWebhooksResponse.md)
  - [RespondToConnectionRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/RespondToConnectionRequest.md)
  - [RetryRequoteRequestDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/RetryRequoteRequestDetails.md)
+ - [RetryRequoteTypeEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/RetryRequoteTypeEnum.md)
  - [RewardInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/RewardInfo.md)
  - [RewardsInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/RewardsInfo.md)
+ - [RoleDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/RoleDetails.md)
+ - [RoleGrantee](https://github.com/fireblocks/py-sdk/tree/master/docs/RoleGrantee.md)
  - [SEPAAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/SEPAAddress.md)
  - [SEPADestination](https://github.com/fireblocks/py-sdk/tree/master/docs/SEPADestination.md)
  - [SOLAccount](https://github.com/fireblocks/py-sdk/tree/master/docs/SOLAccount.md)
  - [SOLAccountWithValue](https://github.com/fireblocks/py-sdk/tree/master/docs/SOLAccountWithValue.md)
+ - [ScopeItem](https://github.com/fireblocks/py-sdk/tree/master/docs/ScopeItem.md)
  - [ScreeningAlertExposureTypeEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningAlertExposureTypeEnum.md)
  - [ScreeningAmlAlert](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningAmlAlert.md)
  - [ScreeningAmlMatchedRule](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningAmlMatchedRule.md)
@@ -1217,6 +1302,7 @@ Class | Method | HTTP request | Description
  - [SettlementRequestBody](https://github.com/fireblocks/py-sdk/tree/master/docs/SettlementRequestBody.md)
  - [SettlementResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/SettlementResponse.md)
  - [SettlementSourceAccount](https://github.com/fireblocks/py-sdk/tree/master/docs/SettlementSourceAccount.md)
+ - [Side](https://github.com/fireblocks/py-sdk/tree/master/docs/Side.md)
  - [SignedMessage](https://github.com/fireblocks/py-sdk/tree/master/docs/SignedMessage.md)
  - [SignedMessageSignature](https://github.com/fireblocks/py-sdk/tree/master/docs/SignedMessageSignature.md)
  - [SigningKeyDto](https://github.com/fireblocks/py-sdk/tree/master/docs/SigningKeyDto.md)
@@ -1263,26 +1349,69 @@ Class | Method | HTTP request | Description
  - [SpeiDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/SpeiDestination.md)
  - [SplitRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/SplitRequest.md)
  - [SplitResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/SplitResponse.md)
+ - [StEthBlockchainData](https://github.com/fireblocks/py-sdk/tree/master/docs/StEthBlockchainData.md)
  - [StakeRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/StakeRequest.md)
  - [StakeResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/StakeResponse.md)
  - [StakingProvider](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingProvider.md)
  - [Status](https://github.com/fireblocks/py-sdk/tree/master/docs/Status.md)
  - [StellarRippleCreateParamsDto](https://github.com/fireblocks/py-sdk/tree/master/docs/StellarRippleCreateParamsDto.md)
+ - [SupportedBlockChainsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/SupportedBlockChainsResponse.md)
+ - [SupportedBlockchain](https://github.com/fireblocks/py-sdk/tree/master/docs/SupportedBlockchain.md)
  - [SwiftAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/SwiftAddress.md)
  - [SwiftDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/SwiftDestination.md)
  - [SystemMessageInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/SystemMessageInfo.md)
+ - [TRLinkAPIPagedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkAPIPagedResponse.md)
  - [TRLinkAmount](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkAmount.md)
+ - [TRLinkAmount2](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkAmount2.md)
+ - [TRLinkAmountRange](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkAmountRange.md)
+ - [TRLinkAssessTravelRuleRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkAssessTravelRuleRequest.md)
+ - [TRLinkAssessTravelRuleResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkAssessTravelRuleResponse.md)
+ - [TRLinkAssessmentDecision](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkAssessmentDecision.md)
+ - [TRLinkAsset](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkAsset.md)
+ - [TRLinkAssetData](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkAssetData.md)
+ - [TRLinkAssetFormat](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkAssetFormat.md)
+ - [TRLinkAssetsListPagedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkAssetsListPagedResponse.md)
+ - [TRLinkCancelTrmRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkCancelTrmRequest.md)
+ - [TRLinkConnectIntegrationRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkConnectIntegrationRequest.md)
+ - [TRLinkCreateCustomerRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkCreateCustomerRequest.md)
+ - [TRLinkCreateIntegrationRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkCreateIntegrationRequest.md)
+ - [TRLinkCreateTrmRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkCreateTrmRequest.md)
+ - [TRLinkCurrency](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkCurrency.md)
+ - [TRLinkCustomerIntegrationResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkCustomerIntegrationResponse.md)
+ - [TRLinkCustomerResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkCustomerResponse.md)
+ - [TRLinkDestinationTransferPeerPath](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkDestinationTransferPeerPath.md)
+ - [TRLinkDiscoverableStatus](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkDiscoverableStatus.md)
+ - [TRLinkFiatValue](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkFiatValue.md)
+ - [TRLinkGeographicAddressRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkGeographicAddressRequest.md)
+ - [TRLinkGetSupportedAssetResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkGetSupportedAssetResponse.md)
+ - [TRLinkIvms](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkIvms.md)
+ - [TRLinkIvmsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkIvmsResponse.md)
+ - [TRLinkJwkPublicKey](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkJwkPublicKey.md)
  - [TRLinkMissingTrmAction](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkMissingTrmAction.md)
+ - [TRLinkMissingTrmAction2](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkMissingTrmAction2.md)
  - [TRLinkMissingTrmActionEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkMissingTrmActionEnum.md)
  - [TRLinkMissingTrmDecision](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkMissingTrmDecision.md)
  - [TRLinkMissingTrmRule](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkMissingTrmRule.md)
+ - [TRLinkMissingTrmRule2](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkMissingTrmRule2.md)
+ - [TRLinkOneTimeAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkOneTimeAddress.md)
+ - [TRLinkPaging](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkPaging.md)
+ - [TRLinkPartnerResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkPartnerResponse.md)
+ - [TRLinkPolicyResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkPolicyResponse.md)
+ - [TRLinkPostScreeningAction](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkPostScreeningAction.md)
  - [TRLinkPostScreeningRule](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkPostScreeningRule.md)
+ - [TRLinkPostScreeningRule2](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkPostScreeningRule2.md)
  - [TRLinkPreScreeningAction](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkPreScreeningAction.md)
+ - [TRLinkPreScreeningAction2](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkPreScreeningAction2.md)
  - [TRLinkPreScreeningActionEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkPreScreeningActionEnum.md)
  - [TRLinkPreScreeningRule](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkPreScreeningRule.md)
+ - [TRLinkPreScreeningRule2](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkPreScreeningRule2.md)
+ - [TRLinkProviderData](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkProviderData.md)
  - [TRLinkProviderResult](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkProviderResult.md)
  - [TRLinkProviderResultWithRule](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkProviderResultWithRule.md)
  - [TRLinkProviderResultWithRule2](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkProviderResultWithRule2.md)
+ - [TRLinkPublicAssetInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkPublicAssetInfo.md)
+ - [TRLinkPublicKeyResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkPublicKeyResponse.md)
+ - [TRLinkRedirectTrmRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkRedirectTrmRequest.md)
  - [TRLinkRegistrationResult](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkRegistrationResult.md)
  - [TRLinkRegistrationResultFullPayload](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkRegistrationResultFullPayload.md)
  - [TRLinkRegistrationStatus](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkRegistrationStatus.md)
@@ -1290,22 +1419,39 @@ Class | Method | HTTP request | Description
  - [TRLinkResult](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkResult.md)
  - [TRLinkResultFullPayload](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkResultFullPayload.md)
  - [TRLinkRuleBase](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkRuleBase.md)
+ - [TRLinkSetDestinationTravelRuleMessageIdRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkSetDestinationTravelRuleMessageIdRequest.md)
+ - [TRLinkSetDestinationTravelRuleMessageIdResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkSetDestinationTravelRuleMessageIdResponse.md)
+ - [TRLinkSetTransactionTravelRuleMessageIdRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkSetTransactionTravelRuleMessageIdRequest.md)
+ - [TRLinkSetTransactionTravelRuleMessageIdResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkSetTransactionTravelRuleMessageIdResponse.md)
+ - [TRLinkSourceTransferPeerPath](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkSourceTransferPeerPath.md)
+ - [TRLinkTestConnectionResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkTestConnectionResponse.md)
+ - [TRLinkThresholds](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkThresholds.md)
+ - [TRLinkTransactionDirection](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkTransactionDirection.md)
+ - [TRLinkTransferPeerPath](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkTransferPeerPath.md)
+ - [TRLinkTrmDirection](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkTrmDirection.md)
+ - [TRLinkTrmInfoResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkTrmInfoResponse.md)
  - [TRLinkTrmScreeningStatus](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkTrmScreeningStatus.md)
  - [TRLinkTrmScreeningStatusEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkTrmScreeningStatusEnum.md)
+ - [TRLinkTrmStatus](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkTrmStatus.md)
+ - [TRLinkTxnInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkTxnInfo.md)
+ - [TRLinkUpdateCustomerRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkUpdateCustomerRequest.md)
+ - [TRLinkVaspDto](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkVaspDto.md)
+ - [TRLinkVaspGeographicAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkVaspGeographicAddress.md)
+ - [TRLinkVaspListDto](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkVaspListDto.md)
+ - [TRLinkVaspNationalIdentification](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkVaspNationalIdentification.md)
  - [TRLinkVerdict](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkVerdict.md)
  - [TRLinkVerdictEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkVerdictEnum.md)
  - [Tag](https://github.com/fireblocks/py-sdk/tree/master/docs/Tag.md)
  - [TagAttachmentOperationAction](https://github.com/fireblocks/py-sdk/tree/master/docs/TagAttachmentOperationAction.md)
  - [TagsPagedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TagsPagedResponse.md)
- - [Task](https://github.com/fireblocks/py-sdk/tree/master/docs/Task.md)
  - [TemplatesPaginatedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TemplatesPaginatedResponse.md)
  - [ThirdPartyRouting](https://github.com/fireblocks/py-sdk/tree/master/docs/ThirdPartyRouting.md)
- - [TimeInForce](https://github.com/fireblocks/py-sdk/tree/master/docs/TimeInForce.md)
  - [TimePeriodConfig](https://github.com/fireblocks/py-sdk/tree/master/docs/TimePeriodConfig.md)
  - [TimePeriodMatchType](https://github.com/fireblocks/py-sdk/tree/master/docs/TimePeriodMatchType.md)
  - [ToCollateralTransaction](https://github.com/fireblocks/py-sdk/tree/master/docs/ToCollateralTransaction.md)
  - [ToExchangeTransaction](https://github.com/fireblocks/py-sdk/tree/master/docs/ToExchangeTransaction.md)
  - [TokenCollectionResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TokenCollectionResponse.md)
+ - [TokenContractSummaryResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TokenContractSummaryResponse.md)
  - [TokenInfoNotFoundErrorResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TokenInfoNotFoundErrorResponse.md)
  - [TokenLinkDto](https://github.com/fireblocks/py-sdk/tree/master/docs/TokenLinkDto.md)
  - [TokenLinkDtoTokenMetadata](https://github.com/fireblocks/py-sdk/tree/master/docs/TokenLinkDtoTokenMetadata.md)
@@ -1317,9 +1463,10 @@ Class | Method | HTTP request | Description
  - [TokenOwnershipStatusUpdatePayload](https://github.com/fireblocks/py-sdk/tree/master/docs/TokenOwnershipStatusUpdatePayload.md)
  - [TokenResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TokenResponse.md)
  - [TokensPaginatedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TokensPaginatedResponse.md)
+ - [TotalSupplyItemDto](https://github.com/fireblocks/py-sdk/tree/master/docs/TotalSupplyItemDto.md)
+ - [TotalSupplyPagedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TotalSupplyPagedResponse.md)
  - [TradingAccountType](https://github.com/fireblocks/py-sdk/tree/master/docs/TradingAccountType.md)
- - [TradingErrorResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TradingErrorResponse.md)
- - [TradingErrorResponseError](https://github.com/fireblocks/py-sdk/tree/master/docs/TradingErrorResponseError.md)
+ - [TradingErrorSchema](https://github.com/fireblocks/py-sdk/tree/master/docs/TradingErrorSchema.md)
  - [TradingProvider](https://github.com/fireblocks/py-sdk/tree/master/docs/TradingProvider.md)
  - [Transaction](https://github.com/fireblocks/py-sdk/tree/master/docs/Transaction.md)
  - [TransactionDirection](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionDirection.md)
@@ -1398,7 +1545,11 @@ Class | Method | HTTP request | Description
  - [TravelRuleValidateTransactionResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleValidateTransactionResponse.md)
  - [TravelRuleVaspForVault](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleVaspForVault.md)
  - [TravelRuleVerdictEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleVerdictEnum.md)
+ - [TrustProofOfAddressCreateResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TrustProofOfAddressCreateResponse.md)
+ - [TrustProofOfAddressRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TrustProofOfAddressRequest.md)
+ - [TrustProofOfAddressResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TrustProofOfAddressResponse.md)
  - [TxLog](https://github.com/fireblocks/py-sdk/tree/master/docs/TxLog.md)
+ - [TypedMessageTransactionStatusEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/TypedMessageTransactionStatusEnum.md)
  - [USWireAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/USWireAddress.md)
  - [USWireDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/USWireDestination.md)
  - [UnfreezeTransactionResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/UnfreezeTransactionResponse.md)
@@ -1426,7 +1577,6 @@ Class | Method | HTTP request | Description
  - [UserType](https://github.com/fireblocks/py-sdk/tree/master/docs/UserType.md)
  - [ValidateAddressResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ValidateAddressResponse.md)
  - [ValidateLayerZeroChannelResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ValidateLayerZeroChannelResponse.md)
- - [ValidatedTransactionsForRescan](https://github.com/fireblocks/py-sdk/tree/master/docs/ValidatedTransactionsForRescan.md)
  - [ValidationKeyDto](https://github.com/fireblocks/py-sdk/tree/master/docs/ValidationKeyDto.md)
  - [Validator](https://github.com/fireblocks/py-sdk/tree/master/docs/Validator.md)
  - [VaultAccount](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultAccount.md)
@@ -1437,13 +1587,12 @@ Class | Method | HTTP request | Description
  - [VaultAccountsPagedResponsePaging](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultAccountsPagedResponsePaging.md)
  - [VaultAccountsTagAttachmentOperationsRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultAccountsTagAttachmentOperationsRequest.md)
  - [VaultAccountsTagAttachmentOperationsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultAccountsTagAttachmentOperationsResponse.md)
- - [VaultAccountsTagAttachmentsRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultAccountsTagAttachmentsRequest.md)
  - [VaultActionStatus](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultActionStatus.md)
  - [VaultAsset](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultAsset.md)
  - [VaultWalletAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultWalletAddress.md)
  - [VendorDto](https://github.com/fireblocks/py-sdk/tree/master/docs/VendorDto.md)
  - [VerdictConfig](https://github.com/fireblocks/py-sdk/tree/master/docs/VerdictConfig.md)
- - [Version](https://github.com/fireblocks/py-sdk/tree/master/docs/Version.md)
+ - [VersionSummary](https://github.com/fireblocks/py-sdk/tree/master/docs/VersionSummary.md)
  - [WalletAsset](https://github.com/fireblocks/py-sdk/tree/master/docs/WalletAsset.md)
  - [WalletAssetAdditionalInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/WalletAssetAdditionalInfo.md)
  - [Webhook](https://github.com/fireblocks/py-sdk/tree/master/docs/Webhook.md)
@@ -1480,6 +1629,6 @@ Authentication schemes defined for the API:
 
 ## Author
 
-support@fireblocks.com
+developers@fireblocks.com
 
 

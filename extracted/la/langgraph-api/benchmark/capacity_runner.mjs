@@ -251,6 +251,8 @@ async function runWorkloadBenchmark(workloadName) {
   let high = rampEnd;
   let lastSuccessfulTarget = null;
   let lastSuccessfulLatency = null;
+  let lastSuccessfulP95Latency = null;
+  let lastSuccessfulP99Latency = null;
   let testCount = 0;
 
   // Binary search to find the maximum successful target
@@ -286,7 +288,9 @@ async function runWorkloadBenchmark(workloadName) {
       // Success! Record it and search higher
       lastSuccessfulTarget = currentTarget;
       lastSuccessfulLatency = metrics.avgExecutionLatencySeconds;
-      console.log(`✅ Success: ${metrics.avgExecutionLatencySeconds.toFixed(3)}s avg latency (${metrics.successRate.toFixed(2)}% success rate)`);
+      lastSuccessfulP95Latency = metrics.p95ExecutionLatencySeconds;
+      lastSuccessfulP99Latency = metrics.p99ExecutionLatencySeconds;
+      console.log(`✅ Success: avg: ${metrics.avgExecutionLatencySeconds.toFixed(3)}s, p95: ${metrics.p95ExecutionLatencySeconds?.toFixed(3) || 'N/A'}s, p99: ${metrics.p99ExecutionLatencySeconds?.toFixed(3) || 'N/A'}s (${metrics.successRate.toFixed(2)}% success rate)`);
       // Search in upper half: (currentTarget, high]
       low = currentTarget;
     }
@@ -306,10 +310,17 @@ async function runWorkloadBenchmark(workloadName) {
   console.log(`\n🎯 Binary search complete after ${testCount} tests`);
   console.log(`   Max successful target: ${lastSuccessfulTarget}`);
 
-  return {
+  const result = {
     maxSuccessfulTarget: lastSuccessfulTarget,
     avgExecutionLatencySeconds: Number(lastSuccessfulLatency.toFixed(3)),
   };
+  if (lastSuccessfulP95Latency != null) {
+    result.p95ExecutionLatencySeconds = Number(lastSuccessfulP95Latency.toFixed(3));
+  }
+  if (lastSuccessfulP99Latency != null) {
+    result.p99ExecutionLatencySeconds = Number(lastSuccessfulP99Latency.toFixed(3));
+  }
+  return result;
 }
 
 // Main function - runs all workloads sequentially

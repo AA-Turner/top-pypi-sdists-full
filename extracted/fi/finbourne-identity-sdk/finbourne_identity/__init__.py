@@ -23,6 +23,7 @@ from finbourne_identity.api.authentication_api import AuthenticationApi
 from finbourne_identity.api.external_token_issuers_api import ExternalTokenIssuersApi
 from finbourne_identity.api.identity_logs_api import IdentityLogsApi
 from finbourne_identity.api.identity_provider_api import IdentityProviderApi
+from finbourne_identity.api.mcp_tools_api import MCPToolsApi
 from finbourne_identity.api.me_api import MeApi
 from finbourne_identity.api.network_zones_api import NetworkZonesApi
 from finbourne_identity.api.personal_authentication_tokens_api import PersonalAuthenticationTokensApi
@@ -78,6 +79,11 @@ from finbourne_identity.models.log_transaction import LogTransaction
 from finbourne_identity.models.log_user_agent import LogUserAgent
 from finbourne_identity.models.lusid_problem_details import LusidProblemDetails
 from finbourne_identity.models.lusid_validation_problem_details import LusidValidationProblemDetails
+from finbourne_identity.models.mcp_tool_luminesce_payload import McpToolLuminescePayload
+from finbourne_identity.models.mcp_tool_parameter import McpToolParameter
+from finbourne_identity.models.mcp_tool_response import McpToolResponse
+from finbourne_identity.models.mcp_tool_scheduler_notification import McpToolSchedulerNotification
+from finbourne_identity.models.mcp_tool_scheduler_payload import McpToolSchedulerPayload
 from finbourne_identity.models.network_zone_definition_response import NetworkZoneDefinitionResponse
 from finbourne_identity.models.network_zones_apply_rules import NetworkZonesApplyRules
 from finbourne_identity.models.o_auth_application import OAuthApplication
@@ -110,6 +116,7 @@ from finbourne_identity.models.update_password_policy_request_lockout import Upd
 from finbourne_identity.models.update_role_request import UpdateRoleRequest
 from finbourne_identity.models.update_user_request import UpdateUserRequest
 from finbourne_identity.models.update_user_schema_request import UpdateUserSchemaRequest
+from finbourne_identity.models.upsert_mcp_tool_request import UpsertMcpToolRequest
 from finbourne_identity.models.user_response import UserResponse
 from finbourne_identity.models.user_schema_property import UserSchemaProperty
 from finbourne_identity.models.user_schema_response import UserSchemaResponse
@@ -135,6 +142,7 @@ __all__ = [
     "ExternalTokenIssuersApi",
     "IdentityLogsApi",
     "IdentityProviderApi",
+    "MCPToolsApi",
     "MeApi",
     "NetworkZonesApi",
     "PersonalAuthenticationTokensApi",
@@ -180,6 +188,11 @@ __all__ = [
     "LogUserAgent",
     "LusidProblemDetails",
     "LusidValidationProblemDetails",
+    "McpToolLuminescePayload",
+    "McpToolParameter",
+    "McpToolResponse",
+    "McpToolSchedulerNotification",
+    "McpToolSchedulerPayload",
     "NetworkZoneDefinitionResponse",
     "NetworkZonesApplyRules",
     "OAuthApplication",
@@ -212,6 +225,7 @@ __all__ = [
     "UpdateRoleRequest",
     "UpdateUserRequest",
     "UpdateUserSchemaRequest",
+    "UpsertMcpToolRequest",
     "UserResponse",
     "UserSchemaProperty",
     "UserSchemaResponse",

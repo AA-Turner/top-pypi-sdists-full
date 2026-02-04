@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from ..models.branch_one_branches_item_modules_item_skip_if import BranchOneBranchesItemModulesItemSkipIf
     from ..models.branch_one_branches_item_modules_item_sleep_type_0 import BranchOneBranchesItemModulesItemSleepType0
     from ..models.branch_one_branches_item_modules_item_sleep_type_1 import BranchOneBranchesItemModulesItemSleepType1
+    from ..models.branch_one_branches_item_modules_item_sleep_type_2 import BranchOneBranchesItemModulesItemSleepType2
     from ..models.branch_one_branches_item_modules_item_stop_after_all_iters_if import (
         BranchOneBranchesItemModulesItemStopAfterAllItersIf,
     )
@@ -21,6 +22,9 @@ if TYPE_CHECKING:
     )
     from ..models.branch_one_branches_item_modules_item_timeout_type_1 import (
         BranchOneBranchesItemModulesItemTimeoutType1,
+    )
+    from ..models.branch_one_branches_item_modules_item_timeout_type_2 import (
+        BranchOneBranchesItemModulesItemTimeoutType2,
     )
 
 
@@ -42,13 +46,13 @@ class BranchOneBranchesItemModulesItem:
         skip_if (Union[Unset, BranchOneBranchesItemModulesItemSkipIf]): Conditionally skip this step based on previous
             results or flow inputs
         sleep (Union['BranchOneBranchesItemModulesItemSleepType0', 'BranchOneBranchesItemModulesItemSleepType1',
-            Unset]): Maps input parameters for a step. Can be a static value or a JavaScript expression that references
-            previous results or flow inputs
+            'BranchOneBranchesItemModulesItemSleepType2', Unset]): Maps input parameters for a step. Can be a static value
+            or a JavaScript expression that references previous results or flow inputs
         cache_ttl (Union[Unset, float]): Cache duration in seconds for this step's results
         cache_ignore_s3_path (Union[Unset, bool]):
         timeout (Union['BranchOneBranchesItemModulesItemTimeoutType0', 'BranchOneBranchesItemModulesItemTimeoutType1',
-            Unset]): Maps input parameters for a step. Can be a static value or a JavaScript expression that references
-            previous results or flow inputs
+            'BranchOneBranchesItemModulesItemTimeoutType2', Unset]): Maps input parameters for a step. Can be a static value
+            or a JavaScript expression that references previous results or flow inputs
         delete_after_use (Union[Unset, bool]): If true, this step's result is deleted after use to save memory
         summary (Union[Unset, str]): Short description of what this step does
         mock (Union[Unset, BranchOneBranchesItemModulesItemMock]): Mock configuration for testing without executing the
@@ -66,12 +70,18 @@ class BranchOneBranchesItemModulesItem:
     stop_after_all_iters_if: Union[Unset, "BranchOneBranchesItemModulesItemStopAfterAllItersIf"] = UNSET
     skip_if: Union[Unset, "BranchOneBranchesItemModulesItemSkipIf"] = UNSET
     sleep: Union[
-        "BranchOneBranchesItemModulesItemSleepType0", "BranchOneBranchesItemModulesItemSleepType1", Unset
+        "BranchOneBranchesItemModulesItemSleepType0",
+        "BranchOneBranchesItemModulesItemSleepType1",
+        "BranchOneBranchesItemModulesItemSleepType2",
+        Unset,
     ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
     cache_ignore_s3_path: Union[Unset, bool] = UNSET
     timeout: Union[
-        "BranchOneBranchesItemModulesItemTimeoutType0", "BranchOneBranchesItemModulesItemTimeoutType1", Unset
+        "BranchOneBranchesItemModulesItemTimeoutType0",
+        "BranchOneBranchesItemModulesItemTimeoutType1",
+        "BranchOneBranchesItemModulesItemTimeoutType2",
+        Unset,
     ] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
     summary: Union[Unset, str] = UNSET
@@ -86,8 +96,14 @@ class BranchOneBranchesItemModulesItem:
         from ..models.branch_one_branches_item_modules_item_sleep_type_0 import (
             BranchOneBranchesItemModulesItemSleepType0,
         )
+        from ..models.branch_one_branches_item_modules_item_sleep_type_1 import (
+            BranchOneBranchesItemModulesItemSleepType1,
+        )
         from ..models.branch_one_branches_item_modules_item_timeout_type_0 import (
             BranchOneBranchesItemModulesItemTimeoutType0,
+        )
+        from ..models.branch_one_branches_item_modules_item_timeout_type_1 import (
+            BranchOneBranchesItemModulesItemTimeoutType1,
         )
 
         id = self.id
@@ -113,6 +129,11 @@ class BranchOneBranchesItemModulesItem:
             if not isinstance(self.sleep, Unset):
                 sleep = self.sleep.to_dict()
 
+        elif isinstance(self.sleep, BranchOneBranchesItemModulesItemSleepType1):
+            sleep = UNSET
+            if not isinstance(self.sleep, Unset):
+                sleep = self.sleep.to_dict()
+
         else:
             sleep = UNSET
             if not isinstance(self.sleep, Unset):
@@ -125,6 +146,11 @@ class BranchOneBranchesItemModulesItem:
             timeout = UNSET
 
         elif isinstance(self.timeout, BranchOneBranchesItemModulesItemTimeoutType0):
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
+        elif isinstance(self.timeout, BranchOneBranchesItemModulesItemTimeoutType1):
             timeout = UNSET
             if not isinstance(self.timeout, Unset):
                 timeout = self.timeout.to_dict()
@@ -200,6 +226,9 @@ class BranchOneBranchesItemModulesItem:
         from ..models.branch_one_branches_item_modules_item_sleep_type_1 import (
             BranchOneBranchesItemModulesItemSleepType1,
         )
+        from ..models.branch_one_branches_item_modules_item_sleep_type_2 import (
+            BranchOneBranchesItemModulesItemSleepType2,
+        )
         from ..models.branch_one_branches_item_modules_item_stop_after_all_iters_if import (
             BranchOneBranchesItemModulesItemStopAfterAllItersIf,
         )
@@ -212,6 +241,9 @@ class BranchOneBranchesItemModulesItem:
         )
         from ..models.branch_one_branches_item_modules_item_timeout_type_1 import (
             BranchOneBranchesItemModulesItemTimeoutType1,
+        )
+        from ..models.branch_one_branches_item_modules_item_timeout_type_2 import (
+            BranchOneBranchesItemModulesItemTimeoutType2,
         )
 
         d = src_dict.copy()
@@ -244,7 +276,12 @@ class BranchOneBranchesItemModulesItem:
 
         def _parse_sleep(
             data: object,
-        ) -> Union["BranchOneBranchesItemModulesItemSleepType0", "BranchOneBranchesItemModulesItemSleepType1", Unset]:
+        ) -> Union[
+            "BranchOneBranchesItemModulesItemSleepType0",
+            "BranchOneBranchesItemModulesItemSleepType1",
+            "BranchOneBranchesItemModulesItemSleepType2",
+            Unset,
+        ]:
             if isinstance(data, Unset):
                 return data
             try:
@@ -260,16 +297,29 @@ class BranchOneBranchesItemModulesItem:
                 return sleep_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _sleep_type_1 = data
+                sleep_type_1: Union[Unset, BranchOneBranchesItemModulesItemSleepType1]
+                if isinstance(_sleep_type_1, Unset):
+                    sleep_type_1 = UNSET
+                else:
+                    sleep_type_1 = BranchOneBranchesItemModulesItemSleepType1.from_dict(_sleep_type_1)
+
+                return sleep_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _sleep_type_1 = data
-            sleep_type_1: Union[Unset, BranchOneBranchesItemModulesItemSleepType1]
-            if isinstance(_sleep_type_1, Unset):
-                sleep_type_1 = UNSET
+            _sleep_type_2 = data
+            sleep_type_2: Union[Unset, BranchOneBranchesItemModulesItemSleepType2]
+            if isinstance(_sleep_type_2, Unset):
+                sleep_type_2 = UNSET
             else:
-                sleep_type_1 = BranchOneBranchesItemModulesItemSleepType1.from_dict(_sleep_type_1)
+                sleep_type_2 = BranchOneBranchesItemModulesItemSleepType2.from_dict(_sleep_type_2)
 
-            return sleep_type_1
+            return sleep_type_2
 
         sleep = _parse_sleep(d.pop("sleep", UNSET))
 
@@ -280,7 +330,10 @@ class BranchOneBranchesItemModulesItem:
         def _parse_timeout(
             data: object,
         ) -> Union[
-            "BranchOneBranchesItemModulesItemTimeoutType0", "BranchOneBranchesItemModulesItemTimeoutType1", Unset
+            "BranchOneBranchesItemModulesItemTimeoutType0",
+            "BranchOneBranchesItemModulesItemTimeoutType1",
+            "BranchOneBranchesItemModulesItemTimeoutType2",
+            Unset,
         ]:
             if isinstance(data, Unset):
                 return data
@@ -297,16 +350,29 @@ class BranchOneBranchesItemModulesItem:
                 return timeout_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _timeout_type_1 = data
+                timeout_type_1: Union[Unset, BranchOneBranchesItemModulesItemTimeoutType1]
+                if isinstance(_timeout_type_1, Unset):
+                    timeout_type_1 = UNSET
+                else:
+                    timeout_type_1 = BranchOneBranchesItemModulesItemTimeoutType1.from_dict(_timeout_type_1)
+
+                return timeout_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _timeout_type_1 = data
-            timeout_type_1: Union[Unset, BranchOneBranchesItemModulesItemTimeoutType1]
-            if isinstance(_timeout_type_1, Unset):
-                timeout_type_1 = UNSET
+            _timeout_type_2 = data
+            timeout_type_2: Union[Unset, BranchOneBranchesItemModulesItemTimeoutType2]
+            if isinstance(_timeout_type_2, Unset):
+                timeout_type_2 = UNSET
             else:
-                timeout_type_1 = BranchOneBranchesItemModulesItemTimeoutType1.from_dict(_timeout_type_1)
+                timeout_type_2 = BranchOneBranchesItemModulesItemTimeoutType2.from_dict(_timeout_type_2)
 
-            return timeout_type_1
+            return timeout_type_2
 
         timeout = _parse_timeout(d.pop("timeout", UNSET))
 

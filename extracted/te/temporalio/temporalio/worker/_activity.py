@@ -21,8 +21,6 @@ from datetime import datetime, timedelta, timezone
 from typing import (
     Any,
     NoReturn,
-    Optional,
-    Union,
 )
 
 import google.protobuf.duration_pb2
@@ -161,7 +159,6 @@ class _ActivityWorker:
                     )
                     self._running_activities[task.task_token] = activity
                 elif task.HasField("cancel"):
-                    # TODO(nexus-prerelease): does the task get removed from running_activities?
                     self._handle_cancel_activity_task(task.task_token, task.cancel)
                 else:
                     raise RuntimeError(f"Unrecognized activity task: {task}")
@@ -192,9 +189,6 @@ class _ActivityWorker:
 
     # Only call this after run()/drain_poll_queue() have returned. This will not
     # raise an exception.
-    # TODO(nexus-preview): based on the comment above it looks like the intention may have been to use
-    # return_exceptions=True. Change this for nexus and activity and change call sites to consume entire
-    # stream and then raise first exception
     async def wait_all_completed(self) -> None:
         running_tasks = [v.task for v in self._running_activities.values() if v.task]
         if running_tasks:
@@ -583,10 +577,9 @@ class _ActivityWorker:
             else None,
         )
 
-        if self._encode_headers and data_converter.payload_codec is not None:
+        if self._encode_headers and data_converter._decode_payload_has_effect:
             for payload in start.header_fields.values():
-                new_payload = (await data_converter.payload_codec.decode([payload]))[0]
-                payload.CopyFrom(new_payload)
+                payload.CopyFrom(await data_converter._decode_payload(payload))
 
         running_activity.info = info
         input = ExecuteActivityInput(
@@ -627,7 +620,7 @@ class _ActivityWorker:
         impl.init(_ActivityOutboundImpl(self, running_activity.info))
         return await impl.execute_activity(input)
 
-    def assert_activity_valid(self, activity) -> None:
+    def assert_activity_valid(self, activity: str) -> None:
         if self._dynamic_activity:
             return
         activity_def = self._activities.get(activity)

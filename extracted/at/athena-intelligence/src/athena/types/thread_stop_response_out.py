@@ -13,22 +13,22 @@ class ThreadStopResponseOut(UniversalBaseModel):
 
     message: str = pydantic.Field()
     """
-    Status message about the stop
+    Status message about the cancellation
     """
 
     status: str = pydantic.Field()
     """
-    New status of the thread (always 'stopped')
+    New status of the thread (always 'cancelled')
     """
 
     stopped_at: str = pydantic.Field()
     """
-    ISO timestamp when thread was stopped
+    ISO timestamp when thread was cancelled
     """
 
     thread_id: str = pydantic.Field()
     """
-    The thread ID that was stopped
+    The thread ID that was cancelled
     """
 
     if IS_PYDANTIC_V2:

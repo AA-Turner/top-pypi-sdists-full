@@ -9,16 +9,16 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional, TypeAlias, Union, cast
+from typing import Any, Literal, TypeAlias, cast
 
 from typing_extensions import Self, TypedDict
 
 import temporalio.service
 from temporalio.bridge.temporal_sdk_bridge import envconfig as _bridge_envconfig
 
-DataSource: TypeAlias = Union[
-    Path, str, bytes
-]  # str represents a file contents, bytes represents raw data
+DataSource: TypeAlias = (
+    Path | str | bytes
+)  # str represents a file contents, bytes represents raw data
 
 
 # We define typed dictionaries for what these configs look like as TOML.
@@ -76,7 +76,7 @@ def _source_to_path_and_data(
     elif isinstance(source, bytes):
         data = source
     elif source is not None:
-        raise TypeError(
+        raise TypeError(  # type: ignore[reportUnreachable]
             "config_source must be one of pathlib.Path, str, bytes, or None, "
             f"but got {type(source).__name__}"
         )
@@ -93,18 +93,14 @@ def _read_source(source: DataSource | None) -> bytes | None:
         return source.encode("utf-8")
     if isinstance(source, bytes):
         return source
-    raise TypeError(
+    raise TypeError(  # type: ignore[reportUnreachable]
         f"Source must be one of pathlib.Path, str, or bytes, but got {type(source).__name__}"
     )
 
 
 @dataclass(frozen=True)
 class ClientConfigTLS:
-    """TLS configuration as specified as part of client configuration
-
-    .. warning::
-        Experimental API.
-    """
+    """TLS configuration as specified as part of client configuration"""
 
     disabled: bool | None = None
     """If True, TLS is explicitly disabled. If False, TLS is explicitly enabled. If None, TLS behavior was not configured."""
@@ -168,9 +164,6 @@ class ClientConfigTLS:
 class ClientConnectConfig(TypedDict, total=False):
     """Arguments for `temporalio.client.Client.connect` that are configurable via
     environment configuration.
-
-    .. warning::
-        Experimental API.
     """
 
     target_host: str
@@ -187,9 +180,6 @@ class ClientConfigProfile:
     This class holds the configuration as loaded from a file or environment.
     See `to_client_connect_config` to transform the profile to `ClientConnectConfig`,
     which can be used to create a client.
-
-    .. warning::
-        Experimental API.
     """
 
     address: str | None = None
@@ -248,7 +238,7 @@ class ClientConfigProfile:
             config["rpc_metadata"] = self.grpc_meta
 
         # Cast to ClientConnectConfig - this is safe because we've only included non-None values
-        return cast(ClientConnectConfig, config)
+        return cast(ClientConnectConfig, config)  # type: ignore[reportInvalidCast]
 
     @staticmethod
     def load(
@@ -307,9 +297,6 @@ class ClientConfig:
     This contains a mapping of profile names to client profiles. Use
     `ClientConfigProfile.to_client_connect_config` to create a `ClientConnectConfig`
     from a profile. See `ClientConfigProfile.load` to load an individual profile.
-
-    .. warning::
-        Experimental API.
     """
 
     profiles: Mapping[str, ClientConfigProfile]

@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 [project]
 name = "json_repair"
-version = "0.55.2"
+version = "0.56.0"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [
@@ -21,6 +21,33 @@ classifiers = [
 "Homepage" = "https://github.com/mangiucugna/json_repair/"
 "Bug Tracker" = "https://github.com/mangiucugna/json_repair/issues"
 "Live demo" = "https://mangiucugna.github.io/json_repair/"
+[project.optional-dependencies]
+schema = [
+  "jsonschema>=4.21",
+  "pydantic>=2",
+]
+[dependency-groups]
+dev = [
+    "coverage",
+    "jsonschema",
+    "mypy",
+    "pydantic",
+    "pre-commit",
+    "pytest",
+    "pytest-benchmark",
+    "ty",
+]
+test = [
+    "coverage",
+    "jsonschema",
+    "pydantic",
+    "pytest",
+    "pytest-benchmark",
+]
+typecheck = [
+    "mypy",
+    "ty",
+]
 [tool.pytest.ini_options]
 pythonpath = [
   "."

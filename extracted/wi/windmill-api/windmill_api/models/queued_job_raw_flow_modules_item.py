@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from ..models.queued_job_raw_flow_modules_item_skip_if import QueuedJobRawFlowModulesItemSkipIf
     from ..models.queued_job_raw_flow_modules_item_sleep_type_0 import QueuedJobRawFlowModulesItemSleepType0
     from ..models.queued_job_raw_flow_modules_item_sleep_type_1 import QueuedJobRawFlowModulesItemSleepType1
+    from ..models.queued_job_raw_flow_modules_item_sleep_type_2 import QueuedJobRawFlowModulesItemSleepType2
     from ..models.queued_job_raw_flow_modules_item_stop_after_all_iters_if import (
         QueuedJobRawFlowModulesItemStopAfterAllItersIf,
     )
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
     from ..models.queued_job_raw_flow_modules_item_suspend import QueuedJobRawFlowModulesItemSuspend
     from ..models.queued_job_raw_flow_modules_item_timeout_type_0 import QueuedJobRawFlowModulesItemTimeoutType0
     from ..models.queued_job_raw_flow_modules_item_timeout_type_1 import QueuedJobRawFlowModulesItemTimeoutType1
+    from ..models.queued_job_raw_flow_modules_item_timeout_type_2 import QueuedJobRawFlowModulesItemTimeoutType2
 
 
 T = TypeVar("T", bound="QueuedJobRawFlowModulesItem")
@@ -36,14 +38,14 @@ class QueuedJobRawFlowModulesItem:
             condition for a module
         skip_if (Union[Unset, QueuedJobRawFlowModulesItemSkipIf]): Conditionally skip this step based on previous
             results or flow inputs
-        sleep (Union['QueuedJobRawFlowModulesItemSleepType0', 'QueuedJobRawFlowModulesItemSleepType1', Unset]): Maps
-            input parameters for a step. Can be a static value or a JavaScript expression that references previous results
-            or flow inputs
+        sleep (Union['QueuedJobRawFlowModulesItemSleepType0', 'QueuedJobRawFlowModulesItemSleepType1',
+            'QueuedJobRawFlowModulesItemSleepType2', Unset]): Maps input parameters for a step. Can be a static value or a
+            JavaScript expression that references previous results or flow inputs
         cache_ttl (Union[Unset, float]): Cache duration in seconds for this step's results
         cache_ignore_s3_path (Union[Unset, bool]):
-        timeout (Union['QueuedJobRawFlowModulesItemTimeoutType0', 'QueuedJobRawFlowModulesItemTimeoutType1', Unset]):
-            Maps input parameters for a step. Can be a static value or a JavaScript expression that references previous
-            results or flow inputs
+        timeout (Union['QueuedJobRawFlowModulesItemTimeoutType0', 'QueuedJobRawFlowModulesItemTimeoutType1',
+            'QueuedJobRawFlowModulesItemTimeoutType2', Unset]): Maps input parameters for a step. Can be a static value or a
+            JavaScript expression that references previous results or flow inputs
         delete_after_use (Union[Unset, bool]): If true, this step's result is deleted after use to save memory
         summary (Union[Unset, str]): Short description of what this step does
         mock (Union[Unset, QueuedJobRawFlowModulesItemMock]): Mock configuration for testing without executing the
@@ -60,10 +62,20 @@ class QueuedJobRawFlowModulesItem:
     stop_after_if: Union[Unset, "QueuedJobRawFlowModulesItemStopAfterIf"] = UNSET
     stop_after_all_iters_if: Union[Unset, "QueuedJobRawFlowModulesItemStopAfterAllItersIf"] = UNSET
     skip_if: Union[Unset, "QueuedJobRawFlowModulesItemSkipIf"] = UNSET
-    sleep: Union["QueuedJobRawFlowModulesItemSleepType0", "QueuedJobRawFlowModulesItemSleepType1", Unset] = UNSET
+    sleep: Union[
+        "QueuedJobRawFlowModulesItemSleepType0",
+        "QueuedJobRawFlowModulesItemSleepType1",
+        "QueuedJobRawFlowModulesItemSleepType2",
+        Unset,
+    ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
     cache_ignore_s3_path: Union[Unset, bool] = UNSET
-    timeout: Union["QueuedJobRawFlowModulesItemTimeoutType0", "QueuedJobRawFlowModulesItemTimeoutType1", Unset] = UNSET
+    timeout: Union[
+        "QueuedJobRawFlowModulesItemTimeoutType0",
+        "QueuedJobRawFlowModulesItemTimeoutType1",
+        "QueuedJobRawFlowModulesItemTimeoutType2",
+        Unset,
+    ] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
     summary: Union[Unset, str] = UNSET
     mock: Union[Unset, "QueuedJobRawFlowModulesItemMock"] = UNSET
@@ -75,7 +87,9 @@ class QueuedJobRawFlowModulesItem:
 
     def to_dict(self) -> Dict[str, Any]:
         from ..models.queued_job_raw_flow_modules_item_sleep_type_0 import QueuedJobRawFlowModulesItemSleepType0
+        from ..models.queued_job_raw_flow_modules_item_sleep_type_1 import QueuedJobRawFlowModulesItemSleepType1
         from ..models.queued_job_raw_flow_modules_item_timeout_type_0 import QueuedJobRawFlowModulesItemTimeoutType0
+        from ..models.queued_job_raw_flow_modules_item_timeout_type_1 import QueuedJobRawFlowModulesItemTimeoutType1
 
         id = self.id
         value = self.value
@@ -100,6 +114,11 @@ class QueuedJobRawFlowModulesItem:
             if not isinstance(self.sleep, Unset):
                 sleep = self.sleep.to_dict()
 
+        elif isinstance(self.sleep, QueuedJobRawFlowModulesItemSleepType1):
+            sleep = UNSET
+            if not isinstance(self.sleep, Unset):
+                sleep = self.sleep.to_dict()
+
         else:
             sleep = UNSET
             if not isinstance(self.sleep, Unset):
@@ -112,6 +131,11 @@ class QueuedJobRawFlowModulesItem:
             timeout = UNSET
 
         elif isinstance(self.timeout, QueuedJobRawFlowModulesItemTimeoutType0):
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
+        elif isinstance(self.timeout, QueuedJobRawFlowModulesItemTimeoutType1):
             timeout = UNSET
             if not isinstance(self.timeout, Unset):
                 timeout = self.timeout.to_dict()
@@ -183,6 +207,7 @@ class QueuedJobRawFlowModulesItem:
         from ..models.queued_job_raw_flow_modules_item_skip_if import QueuedJobRawFlowModulesItemSkipIf
         from ..models.queued_job_raw_flow_modules_item_sleep_type_0 import QueuedJobRawFlowModulesItemSleepType0
         from ..models.queued_job_raw_flow_modules_item_sleep_type_1 import QueuedJobRawFlowModulesItemSleepType1
+        from ..models.queued_job_raw_flow_modules_item_sleep_type_2 import QueuedJobRawFlowModulesItemSleepType2
         from ..models.queued_job_raw_flow_modules_item_stop_after_all_iters_if import (
             QueuedJobRawFlowModulesItemStopAfterAllItersIf,
         )
@@ -190,6 +215,7 @@ class QueuedJobRawFlowModulesItem:
         from ..models.queued_job_raw_flow_modules_item_suspend import QueuedJobRawFlowModulesItemSuspend
         from ..models.queued_job_raw_flow_modules_item_timeout_type_0 import QueuedJobRawFlowModulesItemTimeoutType0
         from ..models.queued_job_raw_flow_modules_item_timeout_type_1 import QueuedJobRawFlowModulesItemTimeoutType1
+        from ..models.queued_job_raw_flow_modules_item_timeout_type_2 import QueuedJobRawFlowModulesItemTimeoutType2
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -219,7 +245,12 @@ class QueuedJobRawFlowModulesItem:
 
         def _parse_sleep(
             data: object,
-        ) -> Union["QueuedJobRawFlowModulesItemSleepType0", "QueuedJobRawFlowModulesItemSleepType1", Unset]:
+        ) -> Union[
+            "QueuedJobRawFlowModulesItemSleepType0",
+            "QueuedJobRawFlowModulesItemSleepType1",
+            "QueuedJobRawFlowModulesItemSleepType2",
+            Unset,
+        ]:
             if isinstance(data, Unset):
                 return data
             try:
@@ -235,16 +266,29 @@ class QueuedJobRawFlowModulesItem:
                 return sleep_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _sleep_type_1 = data
+                sleep_type_1: Union[Unset, QueuedJobRawFlowModulesItemSleepType1]
+                if isinstance(_sleep_type_1, Unset):
+                    sleep_type_1 = UNSET
+                else:
+                    sleep_type_1 = QueuedJobRawFlowModulesItemSleepType1.from_dict(_sleep_type_1)
+
+                return sleep_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _sleep_type_1 = data
-            sleep_type_1: Union[Unset, QueuedJobRawFlowModulesItemSleepType1]
-            if isinstance(_sleep_type_1, Unset):
-                sleep_type_1 = UNSET
+            _sleep_type_2 = data
+            sleep_type_2: Union[Unset, QueuedJobRawFlowModulesItemSleepType2]
+            if isinstance(_sleep_type_2, Unset):
+                sleep_type_2 = UNSET
             else:
-                sleep_type_1 = QueuedJobRawFlowModulesItemSleepType1.from_dict(_sleep_type_1)
+                sleep_type_2 = QueuedJobRawFlowModulesItemSleepType2.from_dict(_sleep_type_2)
 
-            return sleep_type_1
+            return sleep_type_2
 
         sleep = _parse_sleep(d.pop("sleep", UNSET))
 
@@ -254,7 +298,12 @@ class QueuedJobRawFlowModulesItem:
 
         def _parse_timeout(
             data: object,
-        ) -> Union["QueuedJobRawFlowModulesItemTimeoutType0", "QueuedJobRawFlowModulesItemTimeoutType1", Unset]:
+        ) -> Union[
+            "QueuedJobRawFlowModulesItemTimeoutType0",
+            "QueuedJobRawFlowModulesItemTimeoutType1",
+            "QueuedJobRawFlowModulesItemTimeoutType2",
+            Unset,
+        ]:
             if isinstance(data, Unset):
                 return data
             try:
@@ -270,16 +319,29 @@ class QueuedJobRawFlowModulesItem:
                 return timeout_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _timeout_type_1 = data
+                timeout_type_1: Union[Unset, QueuedJobRawFlowModulesItemTimeoutType1]
+                if isinstance(_timeout_type_1, Unset):
+                    timeout_type_1 = UNSET
+                else:
+                    timeout_type_1 = QueuedJobRawFlowModulesItemTimeoutType1.from_dict(_timeout_type_1)
+
+                return timeout_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _timeout_type_1 = data
-            timeout_type_1: Union[Unset, QueuedJobRawFlowModulesItemTimeoutType1]
-            if isinstance(_timeout_type_1, Unset):
-                timeout_type_1 = UNSET
+            _timeout_type_2 = data
+            timeout_type_2: Union[Unset, QueuedJobRawFlowModulesItemTimeoutType2]
+            if isinstance(_timeout_type_2, Unset):
+                timeout_type_2 = UNSET
             else:
-                timeout_type_1 = QueuedJobRawFlowModulesItemTimeoutType1.from_dict(_timeout_type_1)
+                timeout_type_2 = QueuedJobRawFlowModulesItemTimeoutType2.from_dict(_timeout_type_2)
 
-            return timeout_type_1
+            return timeout_type_2
 
         timeout = _parse_timeout(d.pop("timeout", UNSET))
 

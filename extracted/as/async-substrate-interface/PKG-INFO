@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: async-substrate-interface
-Version: 1.6.0
+Version: 1.6.1
 Summary: Asyncio library for interacting with substrate. Mostly API-compatible with py-substrate-interface
 Author: Opentensor Foundation
 Author-email: BD Himes <b@latent.to>
@@ -39,6 +39,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: <3.15,>=3.9
 Description-Content-Type: text/markdown

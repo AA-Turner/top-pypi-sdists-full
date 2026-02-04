@@ -4,19 +4,25 @@ import glob
 import os
 import tempfile
 import zipfile
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Union
 
 from seeq.base import util
-from seeq.spy import _common
 from seeq.spy._errors import *
 from seeq.spy._status import Status
 from seeq.spy.workbooks._template import package_as_templates
 from seeq.spy.workbooks._workbook import Workbook, WorkbookList
 
 
-@Status.handle_keyboard_interrupt(no_session=True)
-def load(folder_or_zipfile, *, as_template_with_label: str = None, errors: Optional[str] = None,
-         quiet: Optional[bool] = None, status: Optional[Status] = None) -> Optional[WorkbookList]:
+@Status.top_level_spy_function(no_session=True)
+def load(
+    folder_or_zipfile: Union[str, Path],
+    *,
+    as_template_with_label: Optional[str] = None,
+    errors: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None
+) -> Optional[WorkbookList]:
     """
     Loads a list of workbooks from a folder on disk into Workbook objects in
     memory.
@@ -51,14 +57,6 @@ def load(folder_or_zipfile, *, as_template_with_label: str = None, errors: Optio
         in Jupyter in the blue/green/red table below your code while the
         command is executed.
     """
-    _common.validate_argument_types([
-        (folder_or_zipfile, 'folder_or_zipfile', str),
-        (as_template_with_label, 'as_template_with_label', str),
-        (errors, 'errors', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status)
-    ])
-
     folder_or_zipfile = os.path.normpath(folder_or_zipfile)
 
     try:

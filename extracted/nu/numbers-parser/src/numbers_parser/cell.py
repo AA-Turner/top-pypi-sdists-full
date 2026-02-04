@@ -56,7 +56,6 @@ from numbers_parser.constants import (
 )
 from numbers_parser.currencies import CURRENCIES, CURRENCY_SYMBOLS
 from numbers_parser.exceptions import UnsupportedError, UnsupportedWarning
-from numbers_parser.formula import Formula
 from numbers_parser.generated import TSPMessages_pb2 as TSPMessages
 from numbers_parser.generated import TSTArchives_pb2 as TSTArchives
 from numbers_parser.generated.TSWPArchives_pb2 import (
@@ -257,7 +256,7 @@ class Style:
     """
 
     alignment: Alignment = DEFAULT_ALIGNMENT_CLASS  # : horizontal and vertical alignment
-    bg_image: object = None  # : backgroung image
+    bg_image: object = None  # : background image
     bg_color: RGB | list[RGB] = None
     font_color: RGB = field(default_factory=default_color)
     font_size: float = DEFAULT_FONT_SIZE
@@ -651,7 +650,7 @@ class Cell(CellStorageFlags, Cacheable):
         Returns
         -------
             str:
-                The text of the foruma in a cell, or `None` if there is no formula
+                The text of the formula in a cell, or `None` if there is no formula
                 present in a cell.
 
         """
@@ -659,17 +658,6 @@ class Cell(CellStorageFlags, Cacheable):
             table_formulas = self._model.table_formulas(self._table_id)
             return table_formulas.formula(self._formula_id, self.row, self.col)
         return None
-
-    @formula.setter
-    def formula(self, value: str) -> None:
-        self._formula_id = Formula.from_str(
-            self._model,
-            self._table_id,
-            self.row,
-            self.col,
-            value,
-        )
-        self._model.add_formula_dependency(self.row, self.col, self._table_id)
 
     @property
     def is_bulleted(self) -> bool:
@@ -933,7 +921,7 @@ class Cell(CellStorageFlags, Cacheable):
         elif cell_type == CURRENCY_CELL_TYPE:
             cell = NumberCell(row, col, d128, cell_type=CellType.CURRENCY)
         else:
-            msg = f"Cell type ID {cell_type} is not recognised"
+            msg = f"Cell type ID {cell_type} is not recognized"
             raise UnsupportedError(msg)
 
         cell._copy_flags(storage_flags)

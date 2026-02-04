@@ -7,12 +7,11 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Callable, Dict, List, Optional
 
-from seeq.sdk import *
-
 import numpy as np
 import pandas as pd
+
+from seeq.sdk import *
 from seeq.spy import _common
-from seeq.spy import _login
 from seeq.spy._errors import *
 from seeq.spy._redaction import safely, request_safely
 from seeq.spy._session import Session
@@ -62,10 +61,19 @@ class WorkbookSearchContext:
                            Status.RUNNING)
 
 
-@Status.handle_keyboard_interrupt()
-def search(query: dict, *, content_filter: str = 'owner', all_properties: bool = False, recursive: bool = False,
-           include_archived: bool = False, errors: Optional[str] = None, quiet: Optional[bool] = None,
-           status: Optional[Status] = None, session: Optional[Session] = None):
+@Status.top_level_spy_function()
+def search(
+    query: dict,
+    *,
+    content_filter: str = 'owner',
+    all_properties: bool = False,
+    recursive: bool = False,
+    include_archived: bool = False,
+    errors: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None
+):
     """
     Issues a query to the Seeq Server to retrieve metadata for workbooks.
     This metadata can be used to pull workbook definitions into memory.
@@ -145,18 +153,7 @@ def search(query: dict, *, content_filter: str = 'owner', all_properties: bool =
         property.
 
     """
-    input_args = _common.validate_argument_types([
-        (query, 'query', dict),
-        (content_filter, 'content_filter', str),
-        (all_properties, 'all_properties', bool),
-        (recursive, 'recursive', bool),
-        (errors, 'errors', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session)
-    ])
-
-    _login.validate_login(session, status)
+    input_args = locals()
 
     status.reset_timer()
 

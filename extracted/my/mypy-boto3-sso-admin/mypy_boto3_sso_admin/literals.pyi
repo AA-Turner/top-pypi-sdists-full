@@ -3,7 +3,7 @@ Type annotations for sso-admin service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sso_admin/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -50,6 +50,7 @@ __all__ = (
     "ListPermissionSetProvisioningStatusPaginatorName",
     "ListPermissionSetsPaginatorName",
     "ListPermissionSetsProvisionedToAccountPaginatorName",
+    "ListRegionsPaginatorName",
     "ListTagsForResourcePaginatorName",
     "ListTrustedTokenIssuersPaginatorName",
     "PaginatorName",
@@ -57,6 +58,7 @@ __all__ = (
     "ProvisionTargetTypeType",
     "ProvisioningStatusType",
     "RegionName",
+    "RegionStatusType",
     "ResourceServiceName",
     "SSOAdminServiceName",
     "ServiceName",
@@ -118,6 +120,7 @@ ListPermissionSetsPaginatorName = Literal["list_permission_sets"]
 ListPermissionSetsProvisionedToAccountPaginatorName = Literal[
     "list_permission_sets_provisioned_to_account"
 ]
+ListRegionsPaginatorName = Literal["list_regions"]
 ListTagsForResourcePaginatorName = Literal["list_tags_for_resource"]
 ListTrustedTokenIssuersPaginatorName = Literal["list_trusted_token_issuers"]
 PrincipalTypeType = Literal["GROUP", "USER"]
@@ -125,6 +128,7 @@ ProvisionTargetTypeType = Literal["ALL_PROVISIONED_ACCOUNTS", "AWS_ACCOUNT"]
 ProvisioningStatusType = Literal[
     "LATEST_PERMISSION_SET_NOT_PROVISIONED", "LATEST_PERMISSION_SET_PROVISIONED"
 ]
+RegionStatusType = Literal["ACTIVE", "ADDING", "REMOVING"]
 SignInOriginType = Literal["APPLICATION", "IDENTITY_CENTER"]
 StatusValuesType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
 TargetTypeType = Literal["AWS_ACCOUNT"]
@@ -272,7 +276,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -537,6 +540,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -569,12 +573,14 @@ PaginatorName = Literal[
     "list_permission_set_provisioning_status",
     "list_permission_sets",
     "list_permission_sets_provisioned_to_account",
+    "list_regions",
     "list_tags_for_resource",
     "list_trusted_token_issuers",
 ]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",

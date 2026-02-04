@@ -236,6 +236,9 @@ def meta_to_schema(meta: list[dict[str, Any]], file_format: str) -> str:
     Returns:
         The schema string
     """
+    # Normalize format to lowercase for case-insensitive comparison
+    file_format = file_format.lower()
+
     if file_format == "csv":
         # CSV files don't use JSONPath
         return ",\n    ".join([f"`{col['name']}` {col['type']}" for col in meta])
@@ -249,6 +252,7 @@ def meta_to_s3_datasource_datafile(
     connection_name: str,
     bucket_uri: str,
     import_schedule: str = "@auto",
+    import_format: Optional[str] = None,
 ) -> str:
     """Generate S3 datasource datafile content from preview metadata.
 
@@ -257,11 +261,20 @@ def meta_to_s3_datasource_datafile(
         connection_name: The S3 connection name
         bucket_uri: The S3 bucket URI
         import_schedule: The import schedule (default: @auto)
+        import_format: The import format (default: auto-detected from bucket_uri)
 
     Returns:
         The datasource datafile content as a string
     """
-    file_format = get_format_from_uri(bucket_uri)
+    # Use provided format or auto-detect from bucket URI
+    # Treat "auto" the same as None to trigger auto-detection
+    # Normalize import_format to lowercase if provided
+    if import_format is not None:
+        import_format = import_format.lower()
+
+    file_format = (
+        import_format if import_format is not None and import_format != "auto" else get_format_from_uri(bucket_uri)
+    )
     schema: str = meta_to_schema(meta, file_format)
     ds_content = f"""SCHEMA >
     {schema}
@@ -273,6 +286,7 @@ ENGINE "MergeTree"
 IMPORT_CONNECTION_NAME {connection_name}
 IMPORT_BUCKET_URI "{bucket_uri}"
 IMPORT_SCHEDULE "{import_schedule}"
+IMPORT_FORMAT "{file_format}"
 # Learn more at https://www.tinybird.co/docs/forward/get-data-in/connectors/s3#datasource-settings
 """
     return ds_content

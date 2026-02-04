@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: abstra
-Version: 3.26.7
+Version: 3.26.8
 Summary: Abstra Lib
-Home-page: https://github.com/abstra-app/abstra-lib
+Home-page: https://abstra.io
 License: MIT
 Requires-Python: >=3.9, <4
 Description-Content-Type: text/markdown

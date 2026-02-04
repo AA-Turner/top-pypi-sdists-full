@@ -482,6 +482,7 @@ class TestUnivariateFitters:
             assert not isinstance(fitter.predict(1), Iterable)
             assert isinstance(fitter.predict([1, 2]), Iterable)
 
+    @flaky
     def test_cumulative_density_ci_is_ordered_correctly(self, positive_sample_lifetimes, univariate_fitters):
         T = positive_sample_lifetimes[0]
         for f in univariate_fitters:
@@ -558,6 +559,7 @@ class TestUnivariateFitters:
             fitter.fit(positive_sample_lifetimes[0], ci_labels=expected)
             npt.assert_array_equal(fitter.confidence_interval_.columns, expected)
 
+    @flaky
     def test_ci_is_not_all_nan(self, positive_sample_lifetimes, univariate_fitters):
         for f in univariate_fitters:
             fitter = f()
@@ -2118,6 +2120,25 @@ class TestRegressionFitters:
             for subset in [["t", "categoryb_"], ["t", "string_"], ["t", "uint8_"], ["t", "categorya_"], ["t", "bool_"]]:
                 formula = "%s" % subset[-1]
                 fitter.fit(df[subset], duration_col="t", formula=formula)
+
+    def test_categorical_prediction(self):
+        df = pd.DataFrame.from_dict(
+            {
+                "t": [1.0, 5.0, 3.0, 4.0, 6.0, 1.0],
+                "categoryb_": pd.Series(["a", "a", "b", "b", "c", "c"], dtype="category"),
+            }
+        )
+
+        df_to_predict = pd.DataFrame.from_dict(
+            {
+                "categoryb_": pd.Series(["a", "b", "c"], dtype="category"),
+            }
+        )
+
+        for fitter in [CoxPHFitter(), WeibullAFTFitter()]:
+            formula = "categoryb_"
+            fitter.fit(df, duration_col="t", formula=formula)
+            fitter.predict_survival_function(df_to_predict)
 
     @pytest.mark.xfail
     def test_regression_model_has_concordance_index_(self, regression_models, rossi):

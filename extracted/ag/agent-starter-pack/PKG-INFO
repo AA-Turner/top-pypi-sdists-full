@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-starter-pack
-Version: 0.33.0
+Version: 0.33.1
 Summary: CLI to bootstrap production-ready Google Cloud GenAI agent projects from templates.
 Author-email: Google LLC <agent-starter-pack@google.com>
 License: Apache-2.0

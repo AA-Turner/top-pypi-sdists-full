@@ -46,7 +46,7 @@ class BaseScorer(TypedDict):
     error: NotRequired[Optional[str]]
     additional_metadata: NotRequired[Optional[Dict[str, Any]]]
     user: NotRequired[Optional[str]]
-    server_hosted: bool
+    server_hosted: NotRequired[Optional[bool]]
     using_native_model: NotRequired[Optional[bool]]
     required_params: NotRequired[Optional[List[str]]]
     strict_mode: NotRequired[Optional[bool]]
@@ -61,6 +61,10 @@ class CreateDatasetRequest(TypedDict):
 
 class CreateDatasetResponse(TypedDict):
     detail: str
+
+
+class CustomScorerExistsResponse(TypedDict):
+    exists: bool
 
 
 class DatasetInfo(TypedDict):
@@ -231,7 +235,6 @@ class PromptScorer(TypedDict):
     created_at: NotRequired[Optional[str]]
     updated_at: NotRequired[Optional[str]]
     is_trace: NotRequired[Optional[bool]]
-    is_bucket_rubric: NotRequired[Optional[bool]]
 
 
 PullAllDatasetsResponse = List[DatasetInfo]

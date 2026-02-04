@@ -10,6 +10,7 @@ from datetime import timedelta
 from enum import Enum
 from typing import Any, Callable, Dict, Iterator, List, Optional
 
+from databricks.sdk.client_types import HostType
 from databricks.sdk.service import compute
 from databricks.sdk.service._internal import (Wait, _enum, _from_dict,
                                               _repeated_dict)
@@ -717,6 +718,31 @@ class ClusterSpec:
             libraries=_repeated_dict(d, "libraries", compute.Library),
             new_cluster=_from_dict(d, "new_cluster", compute.ClusterSpec),
         )
+
+
+@dataclass
+class Compute:
+    hardware_accelerator: Optional[compute.HardwareAcceleratorType] = None
+    """Hardware accelerator configuration for Serverless GPU workloads."""
+
+    def as_dict(self) -> dict:
+        """Serializes the Compute into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.hardware_accelerator is not None:
+            body["hardware_accelerator"] = self.hardware_accelerator.value
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the Compute into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.hardware_accelerator is not None:
+            body["hardware_accelerator"] = self.hardware_accelerator
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> Compute:
+        """Deserializes the Compute from a dictionary."""
+        return cls(hardware_accelerator=_enum(d, "hardware_accelerator", compute.HardwareAcceleratorType))
 
 
 @dataclass
@@ -5687,6 +5713,9 @@ class RunTask:
     """The cluster used for this run. If the run is specified to use a new cluster, this field is set
     once the Jobs service has requested a cluster for the run."""
 
+    compute: Optional[Compute] = None
+    """Task level compute configuration."""
+
     condition_task: Optional[RunConditionTask] = None
     """The task evaluates a condition that can be used to control the execution of other tasks when the
     `condition_task` field is present. The condition task does not require a cluster to execute and
@@ -5860,6 +5889,8 @@ class RunTask:
             body["cleanup_duration"] = self.cleanup_duration
         if self.cluster_instance:
             body["cluster_instance"] = self.cluster_instance.as_dict()
+        if self.compute:
+            body["compute"] = self.compute.as_dict()
         if self.condition_task:
             body["condition_task"] = self.condition_task.as_dict()
         if self.dashboard_task:
@@ -5957,6 +5988,8 @@ class RunTask:
             body["cleanup_duration"] = self.cleanup_duration
         if self.cluster_instance:
             body["cluster_instance"] = self.cluster_instance
+        if self.compute:
+            body["compute"] = self.compute
         if self.condition_task:
             body["condition_task"] = self.condition_task
         if self.dashboard_task:
@@ -6051,6 +6084,7 @@ class RunTask:
             clean_rooms_notebook_task=_from_dict(d, "clean_rooms_notebook_task", CleanRoomsNotebookTask),
             cleanup_duration=d.get("cleanup_duration", None),
             cluster_instance=_from_dict(d, "cluster_instance", ClusterInstance),
+            compute=_from_dict(d, "compute", Compute),
             condition_task=_from_dict(d, "condition_task", RunConditionTask),
             dashboard_task=_from_dict(d, "dashboard_task", DashboardTask),
             dbt_cloud_task=_from_dict(d, "dbt_cloud_task", DbtCloudTask),
@@ -6917,6 +6951,9 @@ class SubmitTask:
     
     [clean rooms]: https://docs.databricks.com/clean-rooms/index.html"""
 
+    compute: Optional[Compute] = None
+    """Task level compute configuration."""
+
     condition_task: Optional[ConditionTask] = None
     """The task evaluates a condition that can be used to control the execution of other tasks when the
     `condition_task` field is present. The condition task does not require a cluster to execute and
@@ -7023,6 +7060,8 @@ class SubmitTask:
         body = {}
         if self.clean_rooms_notebook_task:
             body["clean_rooms_notebook_task"] = self.clean_rooms_notebook_task.as_dict()
+        if self.compute:
+            body["compute"] = self.compute.as_dict()
         if self.condition_task:
             body["condition_task"] = self.condition_task.as_dict()
         if self.dashboard_task:
@@ -7088,6 +7127,8 @@ class SubmitTask:
         body = {}
         if self.clean_rooms_notebook_task:
             body["clean_rooms_notebook_task"] = self.clean_rooms_notebook_task
+        if self.compute:
+            body["compute"] = self.compute
         if self.condition_task:
             body["condition_task"] = self.condition_task
         if self.dashboard_task:
@@ -7153,6 +7194,7 @@ class SubmitTask:
         """Deserializes the SubmitTask from a dictionary."""
         return cls(
             clean_rooms_notebook_task=_from_dict(d, "clean_rooms_notebook_task", CleanRoomsNotebookTask),
+            compute=_from_dict(d, "compute", Compute),
             condition_task=_from_dict(d, "condition_task", ConditionTask),
             dashboard_task=_from_dict(d, "dashboard_task", DashboardTask),
             dbt_cloud_task=_from_dict(d, "dbt_cloud_task", DbtCloudTask),
@@ -7396,6 +7438,9 @@ class Task:
     
     [clean rooms]: https://docs.databricks.com/clean-rooms/index.html"""
 
+    compute: Optional[Compute] = None
+    """Task level compute configuration."""
+
     condition_task: Optional[ConditionTask] = None
     """The task evaluates a condition that can be used to control the execution of other tasks when the
     `condition_task` field is present. The condition task does not require a cluster to execute and
@@ -7531,6 +7576,8 @@ class Task:
         body = {}
         if self.clean_rooms_notebook_task:
             body["clean_rooms_notebook_task"] = self.clean_rooms_notebook_task.as_dict()
+        if self.compute:
+            body["compute"] = self.compute.as_dict()
         if self.condition_task:
             body["condition_task"] = self.condition_task.as_dict()
         if self.dashboard_task:
@@ -7608,6 +7655,8 @@ class Task:
         body = {}
         if self.clean_rooms_notebook_task:
             body["clean_rooms_notebook_task"] = self.clean_rooms_notebook_task
+        if self.compute:
+            body["compute"] = self.compute
         if self.condition_task:
             body["condition_task"] = self.condition_task
         if self.dashboard_task:
@@ -7685,6 +7734,7 @@ class Task:
         """Deserializes the Task from a dictionary."""
         return cls(
             clean_rooms_notebook_task=_from_dict(d, "clean_rooms_notebook_task", CleanRoomsNotebookTask),
+            compute=_from_dict(d, "compute", Compute),
             condition_task=_from_dict(d, "condition_task", ConditionTask),
             dashboard_task=_from_dict(d, "dashboard_task", DashboardTask),
             dbt_cloud_task=_from_dict(d, "dbt_cloud_task", DbtCloudTask),
@@ -8410,6 +8460,10 @@ class JobsAPI:
             "Content-Type": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         self._api.do("POST", "/api/2.2/jobs/runs/cancel-all", body=body, headers=headers)
 
     def cancel_run(self, run_id: int) -> Wait[Run]:
@@ -8430,6 +8484,10 @@ class JobsAPI:
         headers = {
             "Content-Type": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         op_response = self._api.do("POST", "/api/2.2/jobs/runs/cancel", body=body, headers=headers)
         return Wait(self.wait_get_run_job_terminated_or_skipped, run_id=run_id)
@@ -8629,6 +8687,10 @@ class JobsAPI:
             "Content-Type": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         res = self._api.do("POST", "/api/2.2/jobs/create", body=body, headers=headers)
         return CreateResponse.from_dict(res)
 
@@ -8648,6 +8710,10 @@ class JobsAPI:
             "Content-Type": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         self._api.do("POST", "/api/2.2/jobs/delete", body=body, headers=headers)
 
     def delete_run(self, run_id: int):
@@ -8665,6 +8731,10 @@ class JobsAPI:
         headers = {
             "Content-Type": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         self._api.do("POST", "/api/2.2/jobs/runs/delete", body=body, headers=headers)
 
@@ -8687,6 +8757,10 @@ class JobsAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", "/api/2.2/jobs/runs/export", query=query, headers=headers)
         return ExportRunOutput.from_dict(res)
@@ -8719,6 +8793,10 @@ class JobsAPI:
             "Accept": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         res = self._api.do("GET", "/api/2.2/jobs/get", query=query, headers=headers)
         return Job.from_dict(res)
 
@@ -8735,6 +8813,10 @@ class JobsAPI:
             "Accept": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         res = self._api.do("GET", f"/api/2.0/permissions/jobs/{job_id}/permissionLevels", headers=headers)
         return GetJobPermissionLevelsResponse.from_dict(res)
 
@@ -8750,6 +8832,10 @@ class JobsAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.0/permissions/jobs/{job_id}", headers=headers)
         return JobPermissions.from_dict(res)
@@ -8797,6 +8883,10 @@ class JobsAPI:
             "Accept": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         res = self._api.do("GET", "/api/2.2/jobs/runs/get", query=query, headers=headers)
         return Run.from_dict(res)
 
@@ -8822,6 +8912,10 @@ class JobsAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", "/api/2.2/jobs/runs/get-output", query=query, headers=headers)
         return RunOutput.from_dict(res)
@@ -8869,6 +8963,10 @@ class JobsAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         while True:
             json = self._api.do("GET", "/api/2.2/jobs/list", query=query, headers=headers)
@@ -8952,6 +9050,10 @@ class JobsAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         while True:
             json = self._api.do("GET", "/api/2.2/jobs/runs/list", query=query, headers=headers)
@@ -9122,6 +9224,10 @@ class JobsAPI:
             "Content-Type": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         op_response = self._api.do("POST", "/api/2.2/jobs/runs/repair", body=body, headers=headers)
         return Wait(
             self.wait_get_run_job_terminated_or_skipped,
@@ -9190,6 +9296,10 @@ class JobsAPI:
         headers = {
             "Content-Type": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         self._api.do("POST", "/api/2.2/jobs/reset", body=body, headers=headers)
 
@@ -9357,6 +9467,10 @@ class JobsAPI:
             "Content-Type": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         op_response = self._api.do("POST", "/api/2.2/jobs/run-now", body=body, headers=headers)
         return Wait(
             self.wait_get_run_job_terminated_or_skipped,
@@ -9420,6 +9534,10 @@ class JobsAPI:
             "Accept": "application/json",
             "Content-Type": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         res = self._api.do("PUT", f"/api/2.0/permissions/jobs/{job_id}", body=body, headers=headers)
         return JobPermissions.from_dict(res)
@@ -9545,6 +9663,10 @@ class JobsAPI:
             "Content-Type": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         op_response = self._api.do("POST", "/api/2.2/jobs/runs/submit", body=body, headers=headers)
         return Wait(
             self.wait_get_run_job_terminated_or_skipped,
@@ -9627,6 +9749,10 @@ class JobsAPI:
             "Content-Type": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         self._api.do("POST", "/api/2.2/jobs/update", body=body, headers=headers)
 
     def update_permissions(
@@ -9648,6 +9774,10 @@ class JobsAPI:
             "Accept": "application/json",
             "Content-Type": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         res = self._api.do("PATCH", f"/api/2.0/permissions/jobs/{job_id}", body=body, headers=headers)
         return JobPermissions.from_dict(res)
@@ -9693,6 +9823,10 @@ class PolicyComplianceForJobsAPI:
             "Content-Type": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         res = self._api.do("POST", "/api/2.0/policies/jobs/enforce-compliance", body=body, headers=headers)
         return EnforcePolicyComplianceResponse.from_dict(res)
 
@@ -9713,6 +9847,10 @@ class PolicyComplianceForJobsAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", "/api/2.0/policies/jobs/get-compliance", query=query, headers=headers)
         return GetPolicyComplianceResponse.from_dict(res)
@@ -9746,6 +9884,10 @@ class PolicyComplianceForJobsAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         while True:
             json = self._api.do("GET", "/api/2.0/policies/jobs/list-compliance", query=query, headers=headers)

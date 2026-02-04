@@ -25,6 +25,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
@@ -41,7 +42,7 @@ Documentation = "https://limits.readthedocs.org"
 
 [project.optional-dependencies]
 redis = [
-  "redis>3,!=4.5.2,!=4.5.3,<7.0.0"
+  "redis>3,!=4.5.2,!=4.5.3,<8.0.0"
 ]
 rediscluster = [
   "redis>=4.2.0,!=4.5.2,!=4.5.3"
@@ -89,7 +90,7 @@ test = [
   "flaky",
   "lovely-pytest-docker",
   "pytest<9",
-  "pytest-asyncio<0.27",
+  "pytest-asyncio",
   "pytest-benchmark[histogram]",
   "pytest-cov",
   "pytest-lazy-fixtures",
@@ -102,10 +103,12 @@ dev = [
   "mypy",
   "types-deprecated",
   "wheel",
+  "hatch",
   {include-group = "test"},
 ]
 
 ci = [
+  "redis!=7.1", # issues with async redis cluster (https://github.com/redis/redis-py/issues/3935)
   {include-group = "dev"},
 
 ]
@@ -139,3 +142,6 @@ typing-modules = ["limits.typing"]
 [tool.ruff.lint.isort]
 required-imports = ["from __future__ import annotations"]
 
+[[tool.mypy.overrides]]
+module = "limits.aio.storage.memcached.emcache"
+ignore_errors = true

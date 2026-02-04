@@ -1,5 +1,4 @@
 from collections.abc import AsyncGenerator, Callable
-from typing import TYPE_CHECKING
 
 from exponent.core.remote_execution.cli_rpc_types import (
     StreamingCodeExecutionRequest,
@@ -14,9 +13,6 @@ from exponent.core.remote_execution.truncation import (
     BASH_CHARACTER_LIMIT,
     _write_full_output_to_file,
 )
-
-if TYPE_CHECKING:
-    from exponent.core.remote_execution.session import RemoteExecutionClientSession
 
 EMPTY_OUTPUT_STRING = "(No output)"
 
@@ -49,7 +45,6 @@ def _truncate_shell_output(
 
 async def execute_code_streaming(
     request: StreamingCodeExecutionRequest,
-    session: "RemoteExecutionClientSession | None",
     working_directory: str,
     should_halt: Callable[[], bool] | None = None,
     chat_uuid: str | None = None,
@@ -63,34 +58,11 @@ async def execute_code_streaming(
 
     Args:
         request: The streaming code execution request.
-        session: The session (required for Python, optional for shell).
         working_directory: The working directory for code execution.
         should_halt: Optional callback to check if execution should halt.
-        chat_uuid: Optional chat UUID for output file storage (used if session is None).
+        chat_uuid: Optional chat UUID for output file storage.
     """
-    if request.language == "python":
-        if session is None:
-            raise ValueError("Session is required for Python execution")
-
-        from exponent.core.remote_execution.languages.python_execution import (
-            execute_python_streaming,
-        )
-
-        async for output in execute_python_streaming(
-            request.content, session.kernel, user_interrupted=should_halt
-        ):
-            if isinstance(output, StreamedOutputPiece):
-                yield StreamingCodeExecutionResponseChunk(
-                    content=output.content, correlation_id=request.correlation_id
-                )
-            else:
-                yield StreamingCodeExecutionResponse(
-                    correlation_id=request.correlation_id,
-                    content=output.output or EMPTY_OUTPUT_STRING,
-                    halted=output.halted,
-                )
-
-    elif request.language == "shell":
+    if request.language == "shell":
         async for shell_output in execute_shell_streaming(
             request.content, working_directory, request.timeout, should_halt
         ):
@@ -101,12 +73,9 @@ async def execute_code_streaming(
             else:
                 content = shell_output.output or EMPTY_OUTPUT_STRING
                 output_file: str | None = None
-                effective_chat_uuid = chat_uuid or (
-                    session.chat_uuid if session else None
-                )
-                if effective_chat_uuid:
+                if chat_uuid:
                     truncated_content, was_truncated, output_file = (
-                        _truncate_shell_output(content, effective_chat_uuid)
+                        _truncate_shell_output(content, chat_uuid)
                     )
                 elif len(content) > BASH_CHARACTER_LIMIT:
                     truncated_content = content[-BASH_CHARACTER_LIMIT:]

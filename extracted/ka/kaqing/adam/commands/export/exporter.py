@@ -12,12 +12,10 @@ from adam.commands.export.importer_athena import AthenaImporter
 from adam.commands.export.importer_sqlite import SqliteImporter
 from adam.commands.export.utils_export import ExportSpec, ExportTableStatus, ExportTableSpec, ImportSpec, csv_dir, fs_exec, state_with_pod, table_log_dir
 from adam.config import Config
-from adam.repl_session import ReplSession
 from adam.repl_state import ReplState
 from adam.utils import debug, log, log_to_pods, offload, parallelize, log2, ing, log_exc
-from adam.utils_async_job import AsyncJobs
+from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 from adam.utils_context import Context
-from adam.utils_k8s.cassandra_nodes import CassandraNodes
 from adam.utils_k8s.pod_files import PodFiles
 
 class Exporter:

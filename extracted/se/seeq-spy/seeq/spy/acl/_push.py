@@ -7,7 +7,7 @@ import pandas as pd
 
 from seeq import spy
 from seeq.sdk import *
-from seeq.spy import _common, _login, _metadata
+from seeq.spy import _common, _metadata
 from seeq.spy._errors import *
 from seeq.spy._session import Session
 from seeq.spy._status import Status
@@ -15,11 +15,18 @@ from seeq.spy.acl import _pull
 from seeq.spy.workbooks import Item
 
 
-@Status.handle_keyboard_interrupt()
-def push(items: Union[pd.DataFrame, dict, list, str, Item], acl: Union[pd.DataFrame, dict, list], *,
-         replace: bool = False, disable_inheritance: bool = None, errors: Optional[str] = None,
-         quiet: Optional[bool] = None, status: Optional[Status] = None, session: Optional[Session] = None
-         ) -> pd.DataFrame:
+@Status.top_level_spy_function()
+def push(
+    items: Union[pd.DataFrame, dict, list, str, Item],
+    acl: Union[pd.DataFrame, dict, list],
+    *,
+    replace: bool = False,
+    disable_inheritance: Optional[bool] = None,
+    errors: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None
+) -> pd.DataFrame:
     """
     Pushes new access control entries against a set of items as specified
     by their IDs. The most common way to invoke this command is directly
@@ -124,18 +131,7 @@ def push(items: Union[pd.DataFrame, dict, list, str, Item], acl: Union[pd.DataFr
     >>>                                 'Read': True
     >>>                             }])
     """
-    input_args = _common.validate_argument_types([
-        (items, 'items', (pd.DataFrame, list, dict, str, Item)),
-        (acl, 'acl', (pd.DataFrame, list, dict)),
-        (replace, 'replace', bool),
-        (disable_inheritance, 'disable_inheritance', bool),
-        (errors, 'errors', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session)
-    ])
-
-    _login.validate_login(session, status)
+    input_args = locals()
 
     users_api = UsersApi(session.client)
 

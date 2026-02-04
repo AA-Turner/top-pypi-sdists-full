@@ -1,7 +1,15 @@
 from adam.utils_context import Context
 
 class CheckContext(Context):
-    def __init__(self, statefulset: str = None, host_id: str = None, pod: str = None, namespace: str = None, user: str = None, pw: str = None, verbose: bool = True):
+    def __init__(self,
+                 statefulset: str = None,
+                 host_id: str = None,
+                 pod: str = None,
+                 namespace: str = None,
+                 user: str = None,
+                 pw: str = None,
+                 find_issues = True,
+                 verbose: bool = True):
         super().__init__(None, show_out=verbose)
         self.statefulset = statefulset
         self.host_id = host_id
@@ -9,14 +17,23 @@ class CheckContext(Context):
         self.namespace = namespace
         self.user = user
         self.pw = pw
+        self.find_issues = find_issues
 
-    def from_exec(ctx: Context, sts: str = None, host_id: str = None, pod: str = None, namespace: str = None, user: str = None, pw: str = None):
+    def from_exec(ctx: Context,
+                  sts: str = None,
+                  host_id: str = None,
+                  pod: str = None,
+                  namespace: str = None,
+                  user: str = None,
+                  pw: str = None,
+                  find_issues = True):
         ctx1 = CheckContext(statefulset=sts,
                             host_id=host_id,
                             pod=pod,
                             namespace=namespace,
                             user=user,
-                            pw=pw)
+                            pw=pw,
+                            find_issues=find_issues)
 
         ctx1.cmd=ctx.cmd
         ctx1.background=ctx.background

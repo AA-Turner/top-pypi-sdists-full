@@ -47,16 +47,20 @@ class TestPaginatedGenericRemoteResponseList(unittest.TestCase):
                         pulp_last_updated = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         name = '', 
                         url = '', 
+                        pulp_labels = {
+                            'key' : ''
+                            }, 
+                        policy = null, 
+                        hidden_fields = [
+                            pulpcore.client.pulpcore.models.generic_remote_response_hidden_fields_inner.GenericRemoteResponse_hidden_fields_inner(
+                                name = '', 
+                                is_set = True, )
+                            ], 
                         ca_cert = '', 
                         client_cert = '', 
                         tls_validation = True, 
                         proxy_url = '', 
-                        pulp_labels = {
-                            'key' : ''
-                            }, 
-                        download_concurrency = 56, 
                         max_retries = 56, 
-                        policy = null, 
                         total_timeout = 0.0, 
                         connect_timeout = 0.0, 
                         sock_connect_timeout = 0.0, 
@@ -64,12 +68,8 @@ class TestPaginatedGenericRemoteResponseList(unittest.TestCase):
                         headers = [
                             None
                             ], 
-                        rate_limit = 56, 
-                        hidden_fields = [
-                            pulpcore.client.pulpcore.models.generic_remote_response_hidden_fields_inner.GenericRemoteResponse_hidden_fields_inner(
-                                name = '', 
-                                is_set = True, )
-                            ], )
+                        download_concurrency = 56, 
+                        rate_limit = 56, )
                     ]
             )
         else:
@@ -83,16 +83,20 @@ class TestPaginatedGenericRemoteResponseList(unittest.TestCase):
                         pulp_last_updated = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         name = '', 
                         url = '', 
+                        pulp_labels = {
+                            'key' : ''
+                            }, 
+                        policy = null, 
+                        hidden_fields = [
+                            pulpcore.client.pulpcore.models.generic_remote_response_hidden_fields_inner.GenericRemoteResponse_hidden_fields_inner(
+                                name = '', 
+                                is_set = True, )
+                            ], 
                         ca_cert = '', 
                         client_cert = '', 
                         tls_validation = True, 
                         proxy_url = '', 
-                        pulp_labels = {
-                            'key' : ''
-                            }, 
-                        download_concurrency = 56, 
                         max_retries = 56, 
-                        policy = null, 
                         total_timeout = 0.0, 
                         connect_timeout = 0.0, 
                         sock_connect_timeout = 0.0, 
@@ -100,12 +104,8 @@ class TestPaginatedGenericRemoteResponseList(unittest.TestCase):
                         headers = [
                             None
                             ], 
-                        rate_limit = 56, 
-                        hidden_fields = [
-                            pulpcore.client.pulpcore.models.generic_remote_response_hidden_fields_inner.GenericRemoteResponse_hidden_fields_inner(
-                                name = '', 
-                                is_set = True, )
-                            ], )
+                        download_concurrency = 56, 
+                        rate_limit = 56, )
                     ],
         )
         """

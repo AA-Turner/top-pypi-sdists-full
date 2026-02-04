@@ -1,4 +1,5 @@
 import yaml
+import numpy as np
 
 class Params:
     def __init__(self, path):
@@ -8,7 +9,11 @@ class Params:
         self.acoustic = config.get('acoustic', {})
         self.optic = config.get('optic', {})
         self.reconstruction = config.get('reconstruction', {})
-
+        self.general['Nx'] =  int(np.round((self.general['Xrange'][1] - self.general['Xrange'][0])/self.general['dx']))
+        self.general['Ny'] =  int(np.round((self.general['Yrange'][1] - self.general['Yrange'][0])/self.general['dy'])) if self.general['Yrange'] is not None else 1,
+        self.general['Nz'] =  int(np.round((self.general['Zrange'][1] - self.general['Zrange'][0])/self.general['dz']))
+        self.general['Nt'] = int((self.general['Nt'])*int(float(self.acoustic['f_AQ']))/int(float(self.acoustic['f_saving']))) if 'Nt' in self.general else None
+        self.acoustic['f_AQ'] = int(float(self.acoustic['f_AQ']))
     def __repr__(self):
         return (f"Params(general={self.general}, acoustic={self.acoustic}, optic={self.optic}, "
                 f"reconstruction={self.reconstruction})")

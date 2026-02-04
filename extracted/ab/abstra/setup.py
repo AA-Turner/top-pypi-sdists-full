@@ -34,7 +34,7 @@ setup(
     python_requires=">=3.9, <4",
     long_description=README,
     long_description_content_type="text/markdown",
-    url="https://github.com/abstra-app/abstra-lib",
+    url="https://abstra.io",
     entry_points={
         "console_scripts": [
             "abstra=abstra.cli:main",

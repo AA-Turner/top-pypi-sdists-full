@@ -21,6 +21,8 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Operating System :: POSIX :: Linux",
   "Operating System :: Microsoft :: Windows",
   "Operating System :: MacOS",
@@ -29,9 +31,9 @@ classifiers = [
   "Topic :: Software Development :: Libraries"
 ]
 dependencies = [
-  "openjd-model >= 0.8,< 0.9",
+  "openjd-model >= 0.9,< 0.10",
   "pywin32 >= 307; platform_system == 'Windows'",
-  "psutil >= 5.9,< 7.2; platform_system == 'Windows'",
+  "psutil >= 5.9,< 7.3; platform_system == 'Windows'",
 ]
 
 [project.urls]
@@ -135,6 +137,9 @@ line-length = 100
 
 [tool.pytest.ini_options]
 xfail_strict = false
+testpaths = [
+    "test"
+]
 addopts = [
     "-rfEx",
     "--durations=5",
@@ -144,7 +149,9 @@ addopts = [
     "--cov-report=xml:build/coverage/coverage.xml",
     "--cov-report=term-missing",
     "--numprocesses=auto",
-    "--timeout=30"
+    "--timeout=30",
+    "--log-format=%(asctime)s.%(msecs)03d %(levelname)s %(filename)20s:%(lineno)-3s %(message)s",
+    "--log-date-format=%H:%M:%S"
 ]
 markers = [
   "requires_cap_kill: tests that require CAP_KILL Linux capability",

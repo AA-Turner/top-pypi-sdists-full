@@ -14,6 +14,7 @@ from typing import (
 from urllib.parse import urlencode
 
 import requests
+
 from easypost.constant import (
     API_VERSION,
     COMMUNICATION_ERROR,
@@ -45,7 +46,6 @@ from easypost.errors import (
     UnauthorizedError,
     UnknownApiError,
 )
-
 
 STATUS_CODE_TO_ERROR_MAPPING: dict[int, Any] = {
     400: BadRequestError,

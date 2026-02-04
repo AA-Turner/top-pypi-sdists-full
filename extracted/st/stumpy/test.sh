@@ -5,8 +5,8 @@ print_mode="verbose"
 custom_testfiles=()
 max_iter=10
 site_pkgs=$(python -c 'import site; print(site.getsitepackages()[0])')
-fcoveragexml="coverage.stumpy.xml"
 # Parse command line arguments
+fcoveragerc=""
 for var in "$@"
 do
     if [[ $var == "unit" ]]; then
@@ -19,6 +19,8 @@ do
         test_mode="gpu"
     elif [[ $var == "show" ]]; then
         test_mode="show"
+    elif [[ $var == "count" ]]; then
+        test_mode="count"
     elif [[ $var == "custom" ]]; then
         test_mode="custom"
     elif [[ $var == "report" ]]; then
@@ -29,8 +31,6 @@ do
         custom_testfiles+=("$var")
     elif [[ $var =~ ^[\-0-9]+$ ]]; then
         max_iter=$var
-    elif [[ "$var" == *".xml" ]]; then
-        fcoveragexml=$var
     elif [[ "$var" == "links" ]]; then
         test_mode="links"
     else
@@ -55,14 +55,14 @@ check_errs()
 check_black()
 {
     echo "Checking Black Code Formatting"
-    black --check --exclude=".*\.ipynb" --diff ./
+    black --check --exclude=".*\.ipynb" --extend-exclude=".venv|.pixi" --diff ./
     check_errs $?
 }
 
 check_isort()
 {
     echo "Checking iSort Import Formatting"
-    isort --profile black --check-only ./
+    isort --profile black --skip .venv --skip .pixi --check-only ./
     check_errs $?
 }
 
@@ -76,7 +76,7 @@ check_docstrings()
 check_flake()
 {
     echo "Checking Flake8 Style Guide Enforcement"
-    flake8 ./
+    flake8 --extend-exclude=.venv/,.pixi/ ./
     check_errs $?
 }
 
@@ -88,6 +88,30 @@ check_print()
             grep print */*.py
             exit 1
         fi
+    fi
+}
+
+check_fastmath()
+{
+    echo "Checking Missing fastmath flags in njit functions"
+    ./fastmath.py --check stumpy
+    check_errs $?
+
+    echo "Checking hardcoded fastmath flags in njit functions"
+    if [[ $(grep -n fastmath= stumpy/*py | grep -vE 'fastmath=config' | wc -l) -gt "0" ]]; then
+        grep -n fastmath= stumpy/*py | grep -vE 'fastmath=config'
+        echo "Found one or more \`@njit()\` functions with a hardcoded \`fastmath\` flag."
+        exit 1
+    fi
+}
+
+check_pkg_imports()
+{
+    echo "Checking Package Imports"
+    if [[ `grep '^from stumpy' stumpy/*py | wc -l` -gt "0" ]]; then
+        grep '^from stumpy' stumpy/*py
+        echo 'Error: please change "from stumpy" to "from ." '
+        exit 1
     fi
 }
 
@@ -115,43 +139,44 @@ check_ray()
     fi
 }
 
+gen_coveragerc_boilerplate()
+{
+    # Check if file does not exist OR file is empty
+    if [[ ! -e "$FILE" ]] || [[ ! -s "$FILE" ]]; then
+        echo "[report]" > .coveragerc_override
+        echo "; Regexes for lines to exclude from consideration" >> .coveragerc_override
+        echo "exclude_also =" >> .coveragerc_override
+    fi
+}
+
 gen_ray_coveragerc()
 {
-    # Generate a .coveragerc_ray file that excludes Ray functions and tests
-    echo "[report]" > .coveragerc_ray
-    echo "; Regexes for lines to exclude from consideration" >> .coveragerc_ray
-    echo "exclude_also =" >> .coveragerc_ray
-    echo "    def .*_ray_*" >> .coveragerc_ray
-    echo "    def ,*_ray\(*" >> .coveragerc_ray
-    echo "    def ray_.*" >> .coveragerc_ray
-    echo "    def test_.*_ray*" >> .coveragerc_ray
+    # Generate a .coveragerc_override file that excludes Ray functions and tests
+    gen_coveragerc_boilerplate
+    echo "    def .*_ray_*" >> .coveragerc_override
+    echo "    def ,*_ray\(*" >> .coveragerc_override
+    echo "    def ray_.*" >> .coveragerc_override
+    echo "    def test_.*_ray*" >> .coveragerc_override
 }
 
 set_ray_coveragerc()
 {
-    # If `ray` command is not found then generate a .coveragerc_ray file
+    # If `ray` command is not found then generate a .coveragerc_override file
     if ! command -v ray &> /dev/null
     then
         echo "Ray Not Installed"
         gen_ray_coveragerc
-        fcoveragerc="--rcfile=.coveragerc_ray"
+        fcoveragerc="--rcfile=.coveragerc_override"
     else
         echo "Ray Installed"
-        fcoveragerc=""
     fi
 }
 
 show_coverage_report()
 {
     set_ray_coveragerc
-    coverage report -m --fail-under=100 --skip-covered --omit=docstring.py,min_versions.py,ray_python_version.py,stumpy/cache.py $fcoveragerc
-}
-
-gen_coverage_xml_report()
-{
-    # This function saves the coverage report in Cobertura XML format, which is compatible with codecov
-    set_ray_coveragerc
-    coverage xml -o $fcoveragexml --fail-under=100 --omit=docstring.py,min_versions.py,ray_python_version.py,stumpy/cache.py $fcoveragerc
+    coverage report --show-missing --fail-under=100 --skip-covered --omit=fastmath.py,docstring.py,versions.py $fcoveragerc
+    check_errs $?
 }
 
 test_custom()
@@ -194,6 +219,7 @@ test_custom()
 test_unit()
 {
     echo "Testing Numba JIT Compiled Functions"
+    SECONDS=0
     if [[ ${#custom_testfiles[@]}  -eq "0" ]]; then
         for testfile in tests/test_*.py
         do
@@ -207,6 +233,8 @@ test_unit()
             check_errs $?
         done
     fi
+    duration=$SECONDS
+    echo "Elapsed Time: $((duration / 60)) minutes and $((duration % 60)) seconds" 
 }
 
 test_coverage()
@@ -224,6 +252,7 @@ test_coverage()
 
     # We always attempt to test everything but we may ignore things (ray, helper scripts) when we generate the coverage report
 
+    SECONDS=0
     if [[ ${#custom_testfiles[@]}  -eq "0" ]]; then
         # Execute all tests
         for testfile in tests/test_*.py;
@@ -239,6 +268,8 @@ test_coverage()
             check_errs $?
         done
     fi
+    duration=$SECONDS
+    echo "Elapsed Time: $((duration / 60)) minutes and $((duration % 60)) seconds"
     show_coverage_report
 }
 
@@ -256,19 +287,35 @@ test_gpu()
 show()
 {
     echo "Current working directory: " `pwd`
-    echo "Black version: " `python -c "import black; print(black.__version__)"`
-    echo "Flake8 versoin: " `python -c "import flake8; print(flake8.__version__)"`
+    echo "Black version: " `python -c 'exec("try:\n\timport black;\n\tprint(black.__version__);\nexcept ModuleNotFoundError:\n\tprint(\"Module Not Found\");")'`
+    echo "Flake8 version: " `python -c 'exec("try:\n\timport flake8;\n\tprint(flake8.__version__);\nexcept ModuleNotFoundError:\n\tprint(\"Module Not Found\");")'`
     echo "Python version: " `python -c "import platform; print(platform.python_version())"`
-    echo "NumPy version: " `python -c "import numpy; print(numpy.__version__)"`
-    echo "SciPy version: " `python -c "import scipy; print(scipy.__version__)"`
-    echo "Numba version: " `python -c "import numba; print(numba.__version__)"` 
+    echo "NumPy version: " `python -c 'exec("try:\n\timport numpy;\n\tprint(numpy.__version__);\nexcept ModuleNotFoundError:\n\tprint(\"Module Not Found\");")'`
+    echo "SciPy version: " `python -c 'exec("try:\n\timport scipy;\n\tprint(scipy.__version__);\nexcept ModuleNotFoundError:\n\tprint(\"Module Not Found\");")'`
+    echo "Numba version: " `python -c 'exec("try:\n\timport numba;\n\tprint(numba.__version__);\nexcept ModuleNotFoundError:\n\tprint(\"Module Not Found\");")'`
+    echo "Dask version: " `python -c 'exec("try:\n\timport dask;\n\tprint(dask.__version__);\nexcept ModuleNotFoundError:\n\tprint(\"Module Not Found\");")'`
+    echo "Distributed version: " `python -c 'exec("try:\n\timport distributed;\n\tprint(distributed.__version__);\nexcept ModuleNotFoundError:\n\tprint(\"Module Not Found\");")'`
+    echo "PyTest version: " `python -c 'exec("try:\n\timport pytest;\n\tprint(pytest.__version__);\nexcept ModuleNotFoundError:\n\tprint(\"Module Not Found\");")'`
     exit 0
 }
 
 check_links()
 {
     echo "Checking notebook links"
-    pytest --check-links docs/Tutorial_*.ipynb
+    export JUPYTER_PLATFORM_DIRS=1
+    jupyter --paths
+    RERUNS=""
+    if [[ `pytest --trace-config | grep rerunfailures | wc -l` -gt "0" ]]; then
+        RERUNS="--reruns 5"
+    fi
+    pytest $RERUNS --check-links docs/Tutorial_*.ipynb notebooks/Tutorial_*.ipynb docs/*.md docs/*.rst  ./*.md ./*.rst --check-links-ignore "https://dl.acm.org/doi/10.1145/3357223.3362721"
+    check_errs $?
+}
+
+count()
+{
+    test_count=$(pytest --collect-only -q | sed '$d' | sed '$d' | wc -l | sed 's/ //g')
+    echo "Found $test_count Unit Tests"
 }
 
 clean_up()
@@ -279,7 +326,7 @@ clean_up()
     rm -rf "tests/__pycache__/"
     rm -rf build dist stumpy.egg-info __pycache__
     rm -f docs/*.nbconvert.ipynb
-    rm -rf ".coveragerc_ray"
+    rm -rf ".coveragerc_override"
     if [ -d "$site_pkgs/stumpy/__pycache__" ]; then
         rm -rf $site_pkgs/stumpy/__pycache__/*nb*
     fi
@@ -311,8 +358,15 @@ check_isort
 check_flake
 check_docstrings
 check_print
+check_pkg_imports
 check_naive
 check_ray
+
+
+if [[ -z $NUMBA_DISABLE_JIT || $NUMBA_DISABLE_JIT -eq 0 ]]; then
+  check_fastmath
+fi
+
 
 if [[ $test_mode == "notebooks" ]]; then
     echo "Executing Tutorial Notebooks Only"
@@ -334,10 +388,13 @@ elif [[ $test_mode == "report" ]]; then
     echo "Generate Coverage Report Only"
     # Assume coverage tests have already been executed
     # and a coverage file exists
-    gen_coverage_xml_report
+    show_coverage_report
 elif [[ $test_mode == "gpu" ]]; then
     echo "Executing GPU Unit Tests Only"
     test_gpu
+elif [[ $test_mode == "count" ]]; then
+    echo "Counting Unit Tests"
+    count
 elif [[ $test_mode == "links" ]]; then
     echo "Check Notebook Links  Only"
     check_links

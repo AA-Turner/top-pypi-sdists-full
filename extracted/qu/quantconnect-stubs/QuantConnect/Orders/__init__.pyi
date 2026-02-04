@@ -1555,6 +1555,15 @@ class WolverineOrderProperties(QuantConnect.Orders.OrderProperties):
         ...
 
     @property
+    def locate_broker(self) -> str:
+        """Identifies the broker source for borrowed stock"""
+        ...
+
+    @locate_broker.setter
+    def locate_broker(self, value: str) -> None:
+        ...
+
+    @property
     def position_side(self) -> typing.Optional[QuantConnect.Orders.OrderPosition]:
         """Can optionally specify the position side in the order direction (buy-to-open, sell-to-close, etc.) instead of the default handling"""
         ...

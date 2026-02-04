@@ -15,6 +15,9 @@ if TYPE_CHECKING:
     from ..models.extended_jobs_jobs_item_type_1_raw_flow_failure_module_suspend_user_groups_required_type_1 import (
         ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType1,
     )
+    from ..models.extended_jobs_jobs_item_type_1_raw_flow_failure_module_suspend_user_groups_required_type_2 import (
+        ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType2,
+    )
 
 
 T = TypeVar("T", bound="ExtendedJobsJobsItemType1RawFlowFailureModuleSuspend")
@@ -31,7 +34,8 @@ class ExtendedJobsJobsItemType1RawFlowFailureModuleSuspend:
             collecting input when resuming
         user_auth_required (Union[Unset, bool]): If true, only authenticated users can approve
         user_groups_required (Union['ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType0',
-            'ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType1', Unset]): Maps input parameters
+            'ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType1',
+            'ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType2', Unset]): Maps input parameters
             for a step. Can be a static value or a JavaScript expression that references previous results or flow inputs
         self_approval_disabled (Union[Unset, bool]): If true, the user who started the flow cannot approve
         hide_cancel (Union[Unset, bool]): If true, hide the cancel button on the approval form
@@ -45,6 +49,7 @@ class ExtendedJobsJobsItemType1RawFlowFailureModuleSuspend:
     user_groups_required: Union[
         "ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType0",
         "ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType1",
+        "ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType2",
         Unset,
     ] = UNSET
     self_approval_disabled: Union[Unset, bool] = UNSET
@@ -55,6 +60,9 @@ class ExtendedJobsJobsItemType1RawFlowFailureModuleSuspend:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.extended_jobs_jobs_item_type_1_raw_flow_failure_module_suspend_user_groups_required_type_0 import (
             ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType0,
+        )
+        from ..models.extended_jobs_jobs_item_type_1_raw_flow_failure_module_suspend_user_groups_required_type_1 import (
+            ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType1,
         )
 
         required_events = self.required_events
@@ -70,6 +78,13 @@ class ExtendedJobsJobsItemType1RawFlowFailureModuleSuspend:
 
         elif isinstance(
             self.user_groups_required, ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType0
+        ):
+            user_groups_required = UNSET
+            if not isinstance(self.user_groups_required, Unset):
+                user_groups_required = self.user_groups_required.to_dict()
+
+        elif isinstance(
+            self.user_groups_required, ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType1
         ):
             user_groups_required = UNSET
             if not isinstance(self.user_groups_required, Unset):
@@ -117,6 +132,9 @@ class ExtendedJobsJobsItemType1RawFlowFailureModuleSuspend:
         from ..models.extended_jobs_jobs_item_type_1_raw_flow_failure_module_suspend_user_groups_required_type_1 import (
             ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType1,
         )
+        from ..models.extended_jobs_jobs_item_type_1_raw_flow_failure_module_suspend_user_groups_required_type_2 import (
+            ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType2,
+        )
 
         d = src_dict.copy()
         required_events = d.pop("required_events", UNSET)
@@ -137,6 +155,7 @@ class ExtendedJobsJobsItemType1RawFlowFailureModuleSuspend:
         ) -> Union[
             "ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType0",
             "ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType1",
+            "ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType2",
             Unset,
         ]:
             if isinstance(data, Unset):
@@ -160,22 +179,41 @@ class ExtendedJobsJobsItemType1RawFlowFailureModuleSuspend:
                 return user_groups_required_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _user_groups_required_type_1 = data
+                user_groups_required_type_1: Union[
+                    Unset, ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType1
+                ]
+                if isinstance(_user_groups_required_type_1, Unset):
+                    user_groups_required_type_1 = UNSET
+                else:
+                    user_groups_required_type_1 = (
+                        ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType1.from_dict(
+                            _user_groups_required_type_1
+                        )
+                    )
+
+                return user_groups_required_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _user_groups_required_type_1 = data
-            user_groups_required_type_1: Union[
-                Unset, ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType1
+            _user_groups_required_type_2 = data
+            user_groups_required_type_2: Union[
+                Unset, ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType2
             ]
-            if isinstance(_user_groups_required_type_1, Unset):
-                user_groups_required_type_1 = UNSET
+            if isinstance(_user_groups_required_type_2, Unset):
+                user_groups_required_type_2 = UNSET
             else:
-                user_groups_required_type_1 = (
-                    ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType1.from_dict(
-                        _user_groups_required_type_1
+                user_groups_required_type_2 = (
+                    ExtendedJobsJobsItemType1RawFlowFailureModuleSuspendUserGroupsRequiredType2.from_dict(
+                        _user_groups_required_type_2
                     )
                 )
 
-            return user_groups_required_type_1
+            return user_groups_required_type_2
 
         user_groups_required = _parse_user_groups_required(d.pop("user_groups_required", UNSET))
 

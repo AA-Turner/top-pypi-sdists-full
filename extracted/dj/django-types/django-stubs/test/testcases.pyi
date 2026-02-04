@@ -1,12 +1,13 @@
 import threading
 import unittest
 from collections.abc import Callable, Iterable
+from types import TracebackType
 from typing import Any, ClassVar, TypeVar, overload
 
 from django.core.exceptions import ImproperlyConfigured
 from django.core.handlers.wsgi import WSGIHandler
 from django.core.servers.basehttp import ThreadedWSGIServer, WSGIRequestHandler
-from django.db import connections as connections  # noqa: F401
+from django.db import connections as connections
 from django.db.backends.sqlite3.base import DatabaseWrapper
 from django.db.models import Model
 from django.db.models.query import ValuesQuerySet, _BaseQuerySet
@@ -35,7 +36,12 @@ class _AssertTemplateUsedContext:
     def test(self) -> Any: ...
     def message(self) -> Any: ...
     def __enter__(self) -> Any: ...
-    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> Any: ...
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None: ...
 
 class _AssertTemplateNotUsedContext(_AssertTemplateUsedContext): ...
 
@@ -74,8 +80,8 @@ class SimpleTestCase(unittest.TestCase):
     ) -> None: ...
     def assertNotContains(
         self,
-        response: HttpResponse,
-        text: bytes | str,
+        response: HttpResponseBase,
+        text: bytes | int | str,
         status_code: int = ...,
         msg_prefix: str = ...,
         html: bool = ...,

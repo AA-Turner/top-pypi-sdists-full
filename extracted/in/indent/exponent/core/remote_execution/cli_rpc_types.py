@@ -286,6 +286,27 @@ class UploadArtifactToolResult(ToolResult, tag=UPLOAD_ARTIFACT_TOOL_NAME):
     content_type: str
 
 
+STORE_ARTIFACT_TOOL_NAME = "store_artifact"
+
+
+class StoreArtifactToolInput(ToolInput, tag=STORE_ARTIFACT_TOOL_NAME):
+    """Store an artifact to the CLI's config directory.
+
+    The CLI resolves the local path using its own INDENT_HOME configuration,
+    storing files flat in ~/.indent/chats/{chat_uuid}/{filename}.
+
+    The chat_uuid is obtained from the CLI's session context, not passed in the input.
+    """
+
+    presigned_url: str
+    filename: str  # Just the filename, no path (e.g., "document.pdf")
+
+
+class StoreArtifactToolResult(ToolResult, tag=STORE_ARTIFACT_TOOL_NAME):
+    local_path: str  # Full path where CLI stored the file
+    file_size_bytes: int
+
+
 class HttpRequest(msgspec.Struct, tag="http_fetch_cli"):
     url: str
     method: str = "GET"
@@ -310,6 +331,7 @@ ToolInputType = (
     | BashToolInput
     | DownloadArtifactToolInput
     | UploadArtifactToolInput
+    | StoreArtifactToolInput
 )
 PartialToolResultType = PartialBashToolResult
 
@@ -323,6 +345,7 @@ ToolResultType = (
     | BashToolResult
     | DownloadArtifactToolResult
     | UploadArtifactToolResult
+    | StoreArtifactToolResult
     | ErrorToolResult
 )
 
@@ -473,6 +496,26 @@ class StopTerminalResponse(msgspec.Struct, tag="stop_terminal"):
     error_message: str | None = None
 
 
+class ListTerminalsRequest(msgspec.Struct, tag="list_terminals"):
+    """Request to list all active terminal sessions"""
+
+    pass
+
+
+class TerminalInfo(msgspec.Struct):
+    """Information about a terminal session"""
+
+    session_id: str
+    name: str | None = None
+    running: bool = True
+
+
+class ListTerminalsResponse(msgspec.Struct, tag="list_terminals"):
+    """Response with list of active terminal sessions"""
+
+    terminals: list[TerminalInfo]
+
+
 class StreamingCodeExecutionRequest(msgspec.Struct, tag="streaming_code_execution"):
     correlation_id: str
     language: str  # "python" or "shell"
@@ -496,6 +539,7 @@ class CliRpcRequest(msgspec.Struct):
         | TerminalInputRequest
         | TerminalResizeRequest
         | StopTerminalRequest
+        | ListTerminalsRequest
         | StreamingCodeExecutionRequest
     )
 
@@ -599,6 +643,7 @@ class CliRpcResponse(msgspec.Struct):
         | TerminalInputResponse
         | TerminalResizeResponse
         | StopTerminalResponse
+        | ListTerminalsResponse
         | StreamingCodeExecutionResponseChunk
         | StreamingCodeExecutionResponse
         | StreamingErrorResponse

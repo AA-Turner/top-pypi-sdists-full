@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Generic, Literal, Optional
+from typing import TYPE_CHECKING, Any, Generic, Literal
 
 from nexusrpc import OutputT
 
@@ -45,8 +45,6 @@ class WorkflowHandle(Generic[OutputT]):
             )
         return client.get_workflow_handle(self.workflow_id, result_type=result_type)
 
-    # TODO(nexus-preview): The return type here should be dictated by the input workflow
-    # handle type.
     @classmethod
     def _unsafe_from_client_workflow_handle(
         cls, workflow_handle: temporalio.client.WorkflowHandle[Any, OutputT]

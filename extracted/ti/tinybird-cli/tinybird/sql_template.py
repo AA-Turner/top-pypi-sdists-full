@@ -2336,7 +2336,7 @@ def get_var_names_and_types(t, node_id=None):
         raise SQLTemplateException(e)
 
 
-@lru_cache(maxsize=512)
+@lru_cache(maxsize=2**10)
 def get_var_names_and_types_cached(t: Template):
     return get_var_names_and_types(t)
 

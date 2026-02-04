@@ -143,6 +143,62 @@ pub struct List {
     inner: Box<Column>,
 }
 
+#[pyclass(module = "pgpq._pgpq")]
+#[derive(Debug, Clone, PartialEq)]
+pub struct UserDefined {
+    pub fields: Vec<Column>,
+}
+
+#[pymethods]
+impl UserDefined {
+    #[new]
+    fn new(fields: Vec<Column>) -> Self {
+        Self { fields }
+    }
+    fn __repr__(&self, py: Python) -> String {
+        self.py_repr(py)
+    }
+    fn __str__(&self, py: Python) -> String {
+        self.__repr__(py)
+    }
+    fn __richcmp__(&self, other: &Self, op: CompareOp, py: Python<'_>) -> PyResult<PyObject> {
+        let res = match op {
+            CompareOp::Eq => {
+                let result = (self == other)
+                    .into_pyobject(py)
+                    .expect("bool into_pyobject should not fail");
+                result.to_owned().into_any().unbind()
+            }
+            CompareOp::Ne => {
+                let result = (self != other)
+                    .into_pyobject(py)
+                    .expect("bool into_pyobject should not fail");
+                result.to_owned().into_any().unbind()
+            }
+            _ => py.NotImplemented(),
+        };
+        Ok(res)
+    }
+    fn ddl(&self) -> Option<String> {
+        pgpq::pg_schema::PostgresType::from(self.clone()).name()
+    }
+}
+
+impl From<UserDefined> for pgpq::pg_schema::PostgresType {
+    fn from(val: UserDefined) -> Self {
+        pgpq::pg_schema::PostgresType::UserDefined {
+            fields: val.fields.into_iter().map(|c| Box::new(c.into())).collect(),
+        }
+    }
+}
+
+impl PythonRepr for UserDefined {
+    fn py_repr(&self, py: Python) -> String {
+        let py_fields: Vec<String> = self.fields.iter().map(|f| f.py_repr(py)).collect();
+        format!("UserDefined({})", py_fields.join(", "))
+    }
+}
+
 #[pymethods]
 impl List {
     #[new]
@@ -212,6 +268,7 @@ pub enum PostgresType {
     Timestamp(Timestamp),
     Interval(Interval),
     List(List),
+    UserDefined(UserDefined),
 }
 
 impl From<PostgresType> for pgpq::pg_schema::PostgresType {
@@ -234,6 +291,7 @@ impl From<PostgresType> for pgpq::pg_schema::PostgresType {
             PostgresType::Timestamp(inner) => inner.into(),
             PostgresType::Interval(inner) => inner.into(),
             PostgresType::List(inner) => inner.into(),
+            PostgresType::UserDefined(inner) => inner.into(),
         }
     }
 }
@@ -260,6 +318,11 @@ impl From<pgpq::pg_schema::PostgresType> for PostgresType {
             pgpq::pg_schema::PostgresType::List(inner) => {
                 PostgresType::List(List::new((*inner).into()))
             }
+            pgpq::pg_schema::PostgresType::UserDefined { fields } => {
+                PostgresType::UserDefined(UserDefined {
+                    fields: fields.into_iter().map(|b| (*b).clone().into()).collect(),
+                })
+            }
         }
     }
 }
@@ -284,6 +347,7 @@ impl PythonRepr for PostgresType {
             PostgresType::Timestamp(inner) => inner.py_repr(py),
             PostgresType::Interval(inner) => inner.py_repr(py),
             PostgresType::List(inner) => inner.py_repr(py),
+            PostgresType::UserDefined(inner) => inner.py_repr(py),
         }
     }
 }
@@ -291,6 +355,7 @@ impl PythonRepr for PostgresType {
 #[pyclass(module = "pgpq._pgpq")]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Column {
+    name: String,
     data_type: PostgresType,
     #[pyo3(get)]
     nullable: bool,
@@ -299,8 +364,9 @@ pub struct Column {
 #[pymethods]
 impl Column {
     #[new]
-    fn new(nullable: bool, data_type: PostgresType) -> Self {
+    fn new(name: String, nullable: bool, data_type: PostgresType) -> Self {
         Self {
+            name,
             nullable,
             data_type,
         }
@@ -393,6 +459,11 @@ impl Column {
                 .into_pyobject(py)
                 .map(|b| b.clone().into_any().unbind())
                 .expect("pyclass into_pyobject should not fail"),
+            PostgresType::UserDefined(inner) => inner
+                .clone()
+                .into_pyobject(py)
+                .map(|b| b.clone().into_any().unbind())
+                .expect("pyclass into_pyobject should not fail"),
         }
     }
     fn __repr__(&self, py: Python) -> String {
@@ -424,6 +495,7 @@ impl Column {
 impl From<pgpq::pg_schema::Column> for Column {
     fn from(value: pgpq::pg_schema::Column) -> Self {
         Self {
+            name: value.name,
             data_type: value.data_type.into(),
             nullable: value.nullable,
         }
@@ -433,6 +505,7 @@ impl From<pgpq::pg_schema::Column> for Column {
 impl From<Column> for pgpq::pg_schema::Column {
     fn from(value: Column) -> Self {
         pgpq::pg_schema::Column {
+            name: value.name,
             data_type: value.data_type.into(),
             nullable: value.nullable,
         }
@@ -449,13 +522,13 @@ impl PythonRepr for Column {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PostgresSchema {
     #[pyo3(get)]
-    columns: Vec<(String, Column)>,
+    columns: Vec<Column>,
 }
 
 #[pymethods]
 impl PostgresSchema {
     #[new]
-    fn new(columns: Vec<(String, Column)>) -> Self {
+    fn new(columns: Vec<Column>) -> Self {
         Self { columns }
     }
     fn __repr__(&self, py: Python) -> String {
@@ -482,16 +555,18 @@ impl PostgresSchema {
         };
         Ok(res)
     }
+    /// Generate DDL for creating the table and any required types.
+    /// If `temp_table` is true (default), creates a TEMP TABLE, otherwise a regular TABLE.
+    #[pyo3(signature = (table_name, temp_table=true))]
+    fn ddl(&self, table_name: &str, temp_table: bool) -> String {
+        pgpq::pg_schema::PostgresSchema::from(self.clone()).ddl(table_name, temp_table)
+    }
 }
 
 impl From<pgpq::pg_schema::PostgresSchema> for PostgresSchema {
     fn from(value: pgpq::pg_schema::PostgresSchema) -> Self {
         Self {
-            columns: value
-                .columns
-                .iter()
-                .map(|(field_name, col)| (field_name.clone(), col.clone().into()))
-                .collect(),
+            columns: value.columns.iter().map(|col| col.clone().into()).collect(),
         }
     }
 }
@@ -499,11 +574,7 @@ impl From<pgpq::pg_schema::PostgresSchema> for PostgresSchema {
 impl From<PostgresSchema> for pgpq::pg_schema::PostgresSchema {
     fn from(value: PostgresSchema) -> Self {
         pgpq::pg_schema::PostgresSchema {
-            columns: value
-                .columns
-                .iter()
-                .map(|(field_name, col)| (field_name.clone(), col.clone().into()))
-                .collect(),
+            columns: value.columns.iter().map(|col| col.clone().into()).collect(),
         }
     }
 }
@@ -511,11 +582,10 @@ impl From<PostgresSchema> for pgpq::pg_schema::PostgresSchema {
 impl PythonRepr for PostgresSchema {
     fn py_repr(&self, py: Python) -> String {
         let columns_list = PyList::empty(py);
-        for (f_name, col) in &self.columns {
+        for col in &self.columns {
             let col_py = Py::new(py, col.clone()).expect("Column pyclass should be constructible");
-            let tuple = (f_name.clone(), col_py);
             columns_list
-                .append(tuple)
+                .append(col_py)
                 .expect("List append should not fail");
         }
         format!(

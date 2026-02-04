@@ -9,7 +9,7 @@ extras_require = {
         # Note: ethereum-maintained libraries in this list should be added to the
         # `install_pre_releases.py` script.
         "eth-tester[py-evm]>=0.13.0b1,<0.14.0b1",
-        "py-geth>=5.1.0",
+        "py-geth>=6.4.0",
     ],
     "dev": [
         "build>=0.9.0",
@@ -55,7 +55,7 @@ with open("./README.md") as readme:
 setup(
     name="web3",
     # *IMPORTANT*: Don't manually change the version here. See Contributing docs for the release process.
-    version="7.14.0",
+    version="7.14.1",
     description="""web3: A Python library for interacting with Ethereum""",
     long_description=long_description,
     long_description_content_type="text/markdown",

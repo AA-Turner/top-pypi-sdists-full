@@ -1,20 +1,14 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-types
-Version: 0.22.0
+Version: 0.23.0
 Summary: Type stubs for Django
-Home-page: https://github.com/sbdchd/django-types
-License: MIT
-Keywords: django,types,mypy,stubs
-Author: Steve Dignam
-Author-email: steve@dignam.xyz
-Requires-Python: >=3.10,<4.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: types-psycopg2 (>=2.9.21.13)
 Project-URL: Repository, https://github.com/sbdchd/django-types
+Author: django-types team & contributors
+License-Expression: MIT
+License-File: LICENSE.txt
+Keywords: django,mypy,stubs,types
+Requires-Python: >=3.10
+Requires-Dist: types-psycopg2>=2.9.21.13
 Description-Content-Type: text/markdown
 
 # django-types [![PyPI](https://img.shields.io/pypi/v/django-types.svg)](https://pypi.org/project/django-types/)
@@ -278,4 +272,3 @@ def activity(request: HttpRequest, team_id: str) -> HttpResponse:
 ## Releasing a new version
 1. Navigate to https://github.com/sbdchd/django-types/actions/workflows/bump_version.yml and click "Run workflow".
 2. Select the version level you wish to increase and click "Run workflow" to bump the version and publish to PyPI.
-

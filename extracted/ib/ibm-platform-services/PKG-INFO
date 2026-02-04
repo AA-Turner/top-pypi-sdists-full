@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ibm-platform-services
-Version: 0.73.1
+Version: 0.73.2
 Summary: Python client library for IBM Cloud Platform Services
 Author-email: IBM <devxsdk@us.ibm.com>
 Project-URL: Repository, https://github.com/IBM/platform-services-python-sdk
@@ -28,7 +28,7 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: ibm_cloud_sdk_core<4.0.0,>=3.24.2
+Requires-Dist: ibm_cloud_sdk_core<4.0.0,>=3.24.4
 Provides-Extra: dev
 Requires-Dist: coverage<8.0.0,>=7.9.0; extra == "dev"
 Requires-Dist: pylint<4.0.0,>=3.3.7; extra == "dev"
@@ -51,7 +51,7 @@ Dynamic: license-file
 [![CLA assistant](https://cla-assistant.io/readme/badge/IBM/platform-services-python-sdk)](https://cla-assistant.io/IBM/platform-services-python-sdk)
 
 
-# IBM Cloud Platform Services Python SDK Version 0.73.1
+# IBM Cloud Platform Services Python SDK Version 0.73.2
 
 Python client library to interact with various 
 [IBM Cloud Platform Service APIs](https://cloud.ibm.com/docs?tab=api-docs&category=platform_services).

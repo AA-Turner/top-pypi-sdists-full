@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mbake
-Version: 1.4.4
+Version: 1.4.5
 Summary: A Python-based Makefile formatter and linter
 Project-URL: Homepage, https://github.com/EbodShojaei/bake
 Project-URL: Documentation, https://github.com/EbodShojaei/bake#readme
@@ -139,6 +139,10 @@ space_after_colon = true                # myapp.o:myapp.c to myapp.o: myapp.c
 normalize_line_continuations = true     # Clean up backslash continuations
 remove_trailing_whitespace = true       # Remove trailing spaces
 fix_missing_recipe_tabs = true          # Convert spaces to tabs in recipes
+
+# Variable alignment
+align_variable_assignments = false      # Align consecutive assignments
+align_across_comments = false           # Continue alignment across comments
 
 # .PHONY management
 auto_insert_phony_declarations = false  # Auto-detect and insert .PHONY

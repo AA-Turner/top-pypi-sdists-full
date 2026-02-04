@@ -10,6 +10,9 @@ if TYPE_CHECKING:
     from ..models.path_flow_input_transforms_additional_property_type_1 import (
         PathFlowInputTransformsAdditionalPropertyType1,
     )
+    from ..models.path_flow_input_transforms_additional_property_type_2 import (
+        PathFlowInputTransformsAdditionalPropertyType2,
+    )
 
 
 T = TypeVar("T", bound="PathFlowInputTransforms")
@@ -23,17 +26,28 @@ class PathFlowInputTransforms:
     """
 
     additional_properties: Dict[
-        str, Union["PathFlowInputTransformsAdditionalPropertyType0", "PathFlowInputTransformsAdditionalPropertyType1"]
+        str,
+        Union[
+            "PathFlowInputTransformsAdditionalPropertyType0",
+            "PathFlowInputTransformsAdditionalPropertyType1",
+            "PathFlowInputTransformsAdditionalPropertyType2",
+        ],
     ] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         from ..models.path_flow_input_transforms_additional_property_type_0 import (
             PathFlowInputTransformsAdditionalPropertyType0,
         )
+        from ..models.path_flow_input_transforms_additional_property_type_1 import (
+            PathFlowInputTransformsAdditionalPropertyType1,
+        )
 
         field_dict: Dict[str, Any] = {}
         for prop_name, prop in self.additional_properties.items():
             if isinstance(prop, PathFlowInputTransformsAdditionalPropertyType0):
+                field_dict[prop_name] = prop.to_dict()
+
+            elif isinstance(prop, PathFlowInputTransformsAdditionalPropertyType1):
                 field_dict[prop_name] = prop.to_dict()
 
             else:
@@ -51,6 +65,9 @@ class PathFlowInputTransforms:
         from ..models.path_flow_input_transforms_additional_property_type_1 import (
             PathFlowInputTransformsAdditionalPropertyType1,
         )
+        from ..models.path_flow_input_transforms_additional_property_type_2 import (
+            PathFlowInputTransformsAdditionalPropertyType2,
+        )
 
         d = src_dict.copy()
         path_flow_input_transforms = cls()
@@ -61,7 +78,9 @@ class PathFlowInputTransforms:
             def _parse_additional_property(
                 data: object,
             ) -> Union[
-                "PathFlowInputTransformsAdditionalPropertyType0", "PathFlowInputTransformsAdditionalPropertyType1"
+                "PathFlowInputTransformsAdditionalPropertyType0",
+                "PathFlowInputTransformsAdditionalPropertyType1",
+                "PathFlowInputTransformsAdditionalPropertyType2",
             ]:
                 try:
                     if not isinstance(data, dict):
@@ -71,11 +90,19 @@ class PathFlowInputTransforms:
                     return additional_property_type_0
                 except:  # noqa: E722
                     pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    additional_property_type_1 = PathFlowInputTransformsAdditionalPropertyType1.from_dict(data)
+
+                    return additional_property_type_1
+                except:  # noqa: E722
+                    pass
                 if not isinstance(data, dict):
                     raise TypeError()
-                additional_property_type_1 = PathFlowInputTransformsAdditionalPropertyType1.from_dict(data)
+                additional_property_type_2 = PathFlowInputTransformsAdditionalPropertyType2.from_dict(data)
 
-                return additional_property_type_1
+                return additional_property_type_2
 
             additional_property = _parse_additional_property(prop_dict)
 
@@ -90,14 +117,20 @@ class PathFlowInputTransforms:
 
     def __getitem__(
         self, key: str
-    ) -> Union["PathFlowInputTransformsAdditionalPropertyType0", "PathFlowInputTransformsAdditionalPropertyType1"]:
+    ) -> Union[
+        "PathFlowInputTransformsAdditionalPropertyType0",
+        "PathFlowInputTransformsAdditionalPropertyType1",
+        "PathFlowInputTransformsAdditionalPropertyType2",
+    ]:
         return self.additional_properties[key]
 
     def __setitem__(
         self,
         key: str,
         value: Union[
-            "PathFlowInputTransformsAdditionalPropertyType0", "PathFlowInputTransformsAdditionalPropertyType1"
+            "PathFlowInputTransformsAdditionalPropertyType0",
+            "PathFlowInputTransformsAdditionalPropertyType1",
+            "PathFlowInputTransformsAdditionalPropertyType2",
         ],
     ) -> None:
         self.additional_properties[key] = value

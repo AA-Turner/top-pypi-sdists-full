@@ -1,11 +1,12 @@
 from operator import itemgetter
 from pathlib import Path
+from typing import cast
 
 import pytest
 import yaml
 
 from dbtmetabase._exposures import _Context, _Exposure
-from tests._mocks import FIXTURES_PATH, TMP_PATH, MockDbtMetabase
+from tests._mocks import FIXTURES_PATH, TMP_PATH, MockDbtMetabase, MockMetabase
 
 
 def _assert_exposures(expected_path: Path, actual_path: Path):
@@ -17,9 +18,12 @@ def _assert_exposures(expected_path: Path, actual_path: Path):
     assert actual["exposures"] == sorted(expected["exposures"], key=itemgetter("name"))
 
 
-def test_exposures_default(core: MockDbtMetabase):
-    fixtures_path = FIXTURES_PATH / "exposure" / "default"
-    output_path = TMP_PATH / "exposure" / "default"
+@pytest.mark.parametrize("prefix", ["mbql4", "mbql5"])
+def test_exposures_default(core: MockDbtMetabase, prefix: str):
+    cast(MockMetabase, core.metabase).prefix = prefix
+
+    fixtures_path = FIXTURES_PATH / prefix / "exposure" / "default"
+    output_path = TMP_PATH / prefix / "exposure" / "default"
     core.extract_exposures(
         output_path=str(output_path),
         output_grouping=None,
@@ -32,9 +36,12 @@ def test_exposures_default(core: MockDbtMetabase):
     )
 
 
-def test_exposures_collection_grouping(core: MockDbtMetabase):
-    fixtures_path = FIXTURES_PATH / "exposure" / "collection"
-    output_path = TMP_PATH / "exposure" / "collection"
+@pytest.mark.parametrize("prefix", ["mbql4", "mbql5"])
+def test_exposures_collection_grouping(core: MockDbtMetabase, prefix: str):
+    cast(MockMetabase, core.metabase).prefix = prefix
+
+    fixtures_path = FIXTURES_PATH / prefix / "exposure" / "collection"
+    output_path = TMP_PATH / prefix / "exposure" / "collection"
     core.extract_exposures(
         output_path=str(output_path),
         output_grouping="collection",
@@ -44,9 +51,12 @@ def test_exposures_collection_grouping(core: MockDbtMetabase):
         _assert_exposures(file, output_path / file.name)
 
 
-def test_exposures_grouping_type(core: MockDbtMetabase):
-    fixtures_path = FIXTURES_PATH / "exposure" / "type"
-    output_path = TMP_PATH / "exposure" / "type"
+@pytest.mark.parametrize("prefix", ["mbql4", "mbql5"])
+def test_exposures_grouping_type(core: MockDbtMetabase, prefix: str):
+    cast(MockMetabase, core.metabase).prefix = prefix
+
+    fixtures_path = FIXTURES_PATH / prefix / "exposure" / "type"
+    output_path = TMP_PATH / prefix / "exposure" / "type"
     core.extract_exposures(
         output_path=str(output_path),
         output_grouping="type",

@@ -14,10 +14,18 @@ from seeq.spy._session import Session
 from seeq.spy._status import Status
 
 
-@Status.handle_keyboard_interrupt()
-def swap(items: pd.DataFrame, assets: pd.DataFrame, *, partial_swaps_ok: bool = False,
-         old_asset_format: Optional[bool] = None, errors: Optional[str] = None, quiet: Optional[bool] = None,
-         status: Optional[Status] = None, session: Optional[Session] = None) -> pd.DataFrame:
+@Status.top_level_spy_function()
+def swap(
+    items: pd.DataFrame,
+    assets: pd.DataFrame,
+    *,
+    partial_swaps_ok: bool = False,
+    old_asset_format: Optional[bool] = None,
+    errors: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None
+) -> pd.DataFrame:
     """
     Operates on a DataFrame of items by swapping out the assets that those
     items are based on. The returned DataFrame can be supplied to
@@ -110,18 +118,7 @@ def swap(items: pd.DataFrame, assets: pd.DataFrame, *, partial_swaps_ok: bool = 
         =================== ===================================================
 
     """
-    input_args = _common.validate_argument_types([
-        (items, 'items', pd.DataFrame),
-        (assets, 'assets', pd.DataFrame),
-        (partial_swaps_ok, 'partial_swaps_ok', bool),
-        (old_asset_format, 'old_asset_format', bool),
-        (errors, 'errors', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session)
-    ])
-
-    _login.validate_login(session, status)
+    input_args = locals()
 
     old_asset_format = _common.resolve_old_asset_format_arg(old_asset_format, assets)
     # Swap originally used 'Swap Result' as the status output, but 'Result' is more consistent with the rest of SPy.

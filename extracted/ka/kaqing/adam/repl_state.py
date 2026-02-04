@@ -3,11 +3,11 @@ from enum import Enum
 import re
 from typing import Callable
 
+from adam.utils_cassandra.cassandra_clusters import CassandraClusters
+from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 from adam.utils_context import Context
 from adam.utils_k8s.app_clusters import AppClusters
 from adam.utils_k8s.app_pods import AppPods
-from adam.utils_k8s.cassandra_clusters import CassandraClusters
-from adam.utils_k8s.cassandra_nodes import CassandraNodes
 from adam.utils_k8s.kube_context import KubeContext
 from adam.utils_k8s.secrets import Secrets
 from adam.utils import display_help, log2, random_alphanumeric

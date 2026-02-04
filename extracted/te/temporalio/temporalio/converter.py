@@ -10,6 +10,7 @@ import inspect
 import json
 import sys
 import traceback
+import typing
 import uuid
 import warnings
 from abc import ABC, abstractmethod
@@ -22,20 +23,13 @@ from logging import getLogger
 from typing import (
     Any,
     ClassVar,
-    Dict,
-    List,
     Literal,
     NewType,
-    Optional,
-    Tuple,
-    Type,
     TypeVar,
-    Union,
     get_type_hints,
     overload,
 )
 
-import google.protobuf.duration_pb2
 import google.protobuf.json_format
 import google.protobuf.message
 import google.protobuf.symbol_database
@@ -46,7 +40,6 @@ from typing_extensions import Self
 import temporalio.api.common.v1
 import temporalio.api.enums.v1
 import temporalio.api.failure.v1
-import temporalio.api.sdk.v1
 import temporalio.common
 import temporalio.exceptions
 import temporalio.types
@@ -56,7 +49,7 @@ if sys.version_info < (3, 11):
     from dateutil import parser  # type: ignore
 # StrEnum is available in 3.11+
 if sys.version_info >= (3, 11):
-    from enum import StrEnum
+    from enum import StrEnum  # type: ignore[reportUnreachable]
 
 from types import UnionType
 
@@ -151,7 +144,7 @@ class WithSerializationContext(ABC):
     to_payload/from_payload, etc) to use the context.
     """
 
-    def with_context(self, context: SerializationContext) -> Self:
+    def with_context(self, context: SerializationContext) -> Self:  # type: ignore[reportUnusedParameter]
         """Return a copy of this object configured to use the given context.
 
         Args:
@@ -549,7 +542,7 @@ class JSONProtoPayloadConverter(EncodingPayloadConverter):
         """See base class."""
         if (
             isinstance(value, google.protobuf.message.Message)
-            and value.DESCRIPTOR is not None
+            and value.DESCRIPTOR is not None  # type:ignore[reportUnnecessaryComparison]
         ):
             # We have to convert to dict then to JSON because MessageToJson does
             # not have a compact option removing spaces and newlines
@@ -599,7 +592,7 @@ class BinaryProtoPayloadConverter(EncodingPayloadConverter):
         """See base class."""
         if (
             isinstance(value, google.protobuf.message.Message)
-            and value.DESCRIPTOR is not None
+            and value.DESCRIPTOR is not None  # type:ignore[reportUnnecessaryComparison]
         ):
             return temporalio.api.common.v1.Payload(
                 metadata={
@@ -831,45 +824,14 @@ class PayloadCodec(ABC):
         It is not guaranteed that all failures will be encoded with this method rather
         than encoding the underlying payloads.
         """
-        await self._apply_to_failure_payloads(failure, self.encode_wrapper)
+        await DataConverter._apply_to_failure_payloads(failure, self.encode_wrapper)
 
     async def decode_failure(self, failure: temporalio.api.failure.v1.Failure) -> None:
         """Decode payloads of a failure. Intended as a helper method, not for overriding.
         It is not guaranteed that all failures will be decoded with this method rather
         than decoding the underlying payloads.
         """
-        await self._apply_to_failure_payloads(failure, self.decode_wrapper)
-
-    async def _apply_to_failure_payloads(
-        self,
-        failure: temporalio.api.failure.v1.Failure,
-        cb: Callable[[temporalio.api.common.v1.Payloads], Awaitable[None]],
-    ) -> None:
-        if failure.HasField("encoded_attributes"):
-            # Wrap in payloads and merge back
-            payloads = temporalio.api.common.v1.Payloads(
-                payloads=[failure.encoded_attributes]
-            )
-            await cb(payloads)
-            failure.encoded_attributes.CopyFrom(payloads.payloads[0])
-        if failure.HasField(
-            "application_failure_info"
-        ) and failure.application_failure_info.HasField("details"):
-            await cb(failure.application_failure_info.details)
-        elif failure.HasField(
-            "timeout_failure_info"
-        ) and failure.timeout_failure_info.HasField("last_heartbeat_details"):
-            await cb(failure.timeout_failure_info.last_heartbeat_details)
-        elif failure.HasField(
-            "canceled_failure_info"
-        ) and failure.canceled_failure_info.HasField("details"):
-            await cb(failure.canceled_failure_info.details)
-        elif failure.HasField(
-            "reset_workflow_failure_info"
-        ) and failure.reset_workflow_failure_info.HasField("last_heartbeat_details"):
-            await cb(failure.reset_workflow_failure_info.last_heartbeat_details)
-        if failure.HasField("cause"):
-            await self._apply_to_failure_payloads(failure.cause, cb)
+        await DataConverter._apply_to_failure_payloads(failure, self.decode_wrapper)
 
 
 class FailureConverter(ABC):
@@ -1291,8 +1253,7 @@ class DataConverter(WithSerializationContext):
             more than was given.
         """
         payloads = self.payload_converter.to_payloads(values)
-        if self.payload_codec:
-            payloads = await self.payload_codec.encode(payloads)
+        payloads = await self._encode_payload_sequence(payloads)
         return payloads
 
     async def decode(
@@ -1310,8 +1271,7 @@ class DataConverter(WithSerializationContext):
         Returns:
             Decoded and converted values.
         """
-        if self.payload_codec:
-            payloads = await self.payload_codec.decode(payloads)
+        payloads = await self._decode_payload_sequence(payloads)
         return self.payload_converter.from_payloads(payloads, type_hints)
 
     async def encode_wrapper(
@@ -1339,15 +1299,13 @@ class DataConverter(WithSerializationContext):
     ) -> None:
         """Convert and encode failure."""
         self.failure_converter.to_failure(exception, self.payload_converter, failure)
-        if self.payload_codec:
-            await self.payload_codec.encode_failure(failure)
+        await DataConverter._apply_to_failure_payloads(failure, self._encode_payloads)
 
     async def decode_failure(
         self, failure: temporalio.api.failure.v1.Failure
     ) -> BaseException:
         """Decode and convert failure."""
-        if self.payload_codec:
-            await self.payload_codec.decode_failure(failure)
+        await DataConverter._apply_to_failure_payloads(failure, self._decode_payloads)
         return self.failure_converter.from_failure(failure, self.payload_converter)
 
     def with_context(self, context: SerializationContext) -> Self:
@@ -1375,6 +1333,124 @@ class DataConverter(WithSerializationContext):
         object.__setattr__(cloned, "payload_codec", payload_codec)
         object.__setattr__(cloned, "failure_converter", failure_converter)
         return cloned
+
+    async def _decode_memo(
+        self,
+        source: temporalio.api.common.v1.Memo,
+    ) -> Mapping[str, Any]:
+        mapping: dict[str, Any] = {}
+        for k, v in source.fields.items():
+            mapping[k] = (await self.decode([v]))[0]
+        return mapping
+
+    async def _decode_memo_field(
+        self,
+        source: temporalio.api.common.v1.Memo,
+        key: str,
+        default: Any,
+        type_hint: type | None,
+    ) -> dict[str, Any]:
+        payload = source.fields.get(key)
+        if not payload:
+            if default is temporalio.common._arg_unset:
+                raise KeyError(f"Memo does not have a value for key {key}")
+            return default
+        return (await self.decode([payload], [type_hint] if type_hint else None))[0]
+
+    async def _encode_memo(
+        self, source: Mapping[str, Any]
+    ) -> temporalio.api.common.v1.Memo:
+        memo = temporalio.api.common.v1.Memo()
+        await self._encode_memo_existing(source, memo)
+        return memo
+
+    async def _encode_memo_existing(
+        self, source: Mapping[str, Any], memo: temporalio.api.common.v1.Memo
+    ):
+        for k, v in source.items():
+            payload = v
+            if not isinstance(v, temporalio.api.common.v1.Payload):
+                payload = (await self.encode([v]))[0]
+            memo.fields[k].CopyFrom(payload)
+
+    async def _encode_payload(
+        self, payload: temporalio.api.common.v1.Payload
+    ) -> temporalio.api.common.v1.Payload:
+        if self.payload_codec:
+            payload = (await self.payload_codec.encode([payload]))[0]
+        return payload
+
+    async def _encode_payloads(self, payloads: temporalio.api.common.v1.Payloads):
+        if self.payload_codec:
+            await self.payload_codec.encode_wrapper(payloads)
+
+    async def _encode_payload_sequence(
+        self, payloads: Sequence[temporalio.api.common.v1.Payload]
+    ) -> list[temporalio.api.common.v1.Payload]:
+        if not self.payload_codec:
+            return list(payloads)
+        return await self.payload_codec.encode(payloads)
+
+    # Temporary shortcircuit detection while the _encode_* methods may no-op if
+    # a payload codec is not configured. Remove once those paths have more to them.
+    @property
+    def _encode_payload_has_effect(self) -> bool:
+        return self.payload_codec is not None
+
+    async def _decode_payload(
+        self, payload: temporalio.api.common.v1.Payload
+    ) -> temporalio.api.common.v1.Payload:
+        if self.payload_codec:
+            payload = (await self.payload_codec.decode([payload]))[0]
+        return payload
+
+    async def _decode_payloads(self, payloads: temporalio.api.common.v1.Payloads):
+        if self.payload_codec:
+            await self.payload_codec.decode_wrapper(payloads)
+
+    async def _decode_payload_sequence(
+        self, payloads: Sequence[temporalio.api.common.v1.Payload]
+    ) -> list[temporalio.api.common.v1.Payload]:
+        if not self.payload_codec:
+            return list(payloads)
+        return await self.payload_codec.decode(payloads)
+
+    # Temporary shortcircuit detection while the _decode_* methods may no-op if
+    # a payload codec is not configured. Remove once those paths have more to them.
+    @property
+    def _decode_payload_has_effect(self) -> bool:
+        return self.payload_codec is not None
+
+    @staticmethod
+    async def _apply_to_failure_payloads(
+        failure: temporalio.api.failure.v1.Failure,
+        cb: Callable[[temporalio.api.common.v1.Payloads], Awaitable[None]],
+    ) -> None:
+        if failure.HasField("encoded_attributes"):
+            # Wrap in payloads and merge back
+            payloads = temporalio.api.common.v1.Payloads(
+                payloads=[failure.encoded_attributes]
+            )
+            await cb(payloads)
+            failure.encoded_attributes.CopyFrom(payloads.payloads[0])
+        if failure.HasField(
+            "application_failure_info"
+        ) and failure.application_failure_info.HasField("details"):
+            await cb(failure.application_failure_info.details)
+        elif failure.HasField(
+            "timeout_failure_info"
+        ) and failure.timeout_failure_info.HasField("last_heartbeat_details"):
+            await cb(failure.timeout_failure_info.last_heartbeat_details)
+        elif failure.HasField(
+            "canceled_failure_info"
+        ) and failure.canceled_failure_info.HasField("details"):
+            await cb(failure.canceled_failure_info.details)
+        elif failure.HasField(
+            "reset_workflow_failure_info"
+        ) and failure.reset_workflow_failure_info.HasField("last_heartbeat_details"):
+            await cb(failure.reset_workflow_failure_info.last_heartbeat_details)
+        if failure.HasField("cause"):
+            await DataConverter._apply_to_failure_payloads(failure.cause, cb)
 
 
 DefaultPayloadConverter.default_encoding_payload_converters = (
@@ -1476,7 +1552,7 @@ def encode_search_attribute_values(
         vals: List of values to convert.
     """
     if not isinstance(vals, list):
-        raise TypeError("Search attribute values must be lists")
+        raise TypeError("Search attribute values must be lists")  # type:ignore[reportUnreachable]
     # Confirm all types are the same
     val_type: type | None = None
     # Convert dates to strings
@@ -1502,7 +1578,7 @@ def encode_search_attribute_values(
     return default().payload_converter.to_payloads([safe_vals])[0]
 
 
-def _encode_maybe_typed_search_attributes(
+def _encode_maybe_typed_search_attributes(  # type:ignore[reportUnusedFunction]
     non_typed_attributes: temporalio.common.SearchAttributes | None,
     typed_attributes: temporalio.common.TypedSearchAttributes | None,
     api: temporalio.api.common.v1.SearchAttributes,
@@ -1524,10 +1600,10 @@ def _get_iso_datetime_parser() -> Callable[[str], datetime]:
         A callable to parse date strings into datetimes.
     """
     if sys.version_info >= (3, 11):
-        return datetime.fromisoformat  # noqa
+        return datetime.fromisoformat  # type:ignore[reportUnreachable] # noqa
     else:
         # Isolate import for py > 3.11, as dependency only installed for < 3.11
-        return parser.isoparse
+        return parser.isoparse  # type:ignore[reportUnreachable]
 
 
 def decode_search_attributes(
@@ -1607,7 +1683,7 @@ def decode_typed_search_attributes(
     return temporalio.common.TypedSearchAttributes(pairs)
 
 
-def _decode_search_attribute_value(
+def _decode_search_attribute_value(  # type:ignore[reportUnusedFunction]
     payload: temporalio.api.common.v1.Payload,
 ) -> temporalio.common.SearchAttributeValue:
     val = default().payload_converter.from_payload(payload)
@@ -1698,7 +1774,7 @@ def value_to_type(
             raise TypeError(f"Value {value} not in literal values {type_args}")
         return value
 
-    is_union = origin is Union
+    is_union = origin is typing.Union  # type:ignore[reportDeprecated]
     is_union = is_union or isinstance(origin, UnionType)
 
     # Union
@@ -1837,7 +1913,7 @@ def value_to_type(
 
     # StrEnum, available in 3.11+
     if sys.version_info >= (3, 11):
-        if inspect.isclass(hint) and issubclass(hint, StrEnum):
+        if inspect.isclass(hint) and issubclass(hint, StrEnum):  # type:ignore[reportUnreachable]
             if not isinstance(value, str):
                 raise TypeError(
                     f"Cannot convert to enum {hint}, value not a string, value is {type(value)}"

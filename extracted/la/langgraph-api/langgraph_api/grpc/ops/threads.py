@@ -14,11 +14,15 @@ if TYPE_CHECKING:
 
 import orjson
 import structlog
+from grpc.aio import AioRpcError
 from langgraph.checkpoint.serde.jsonplus import _msgpack_ext_hook_to_json
 from langgraph.types import StateSnapshot, StateUpdate
 from langgraph_grpc_common.proto import checkpointer_pb2
 from langgraph_grpc_common.proto import core_api_pb2 as pb
 from langgraph_grpc_common.proto import enum_thread_status_pb2 as enum_thread_status
+from langgraph_grpc_common.proto import (
+    enum_thread_stream_mode_pb2 as enum_thread_stream_mode,
+)
 from langgraph_sdk import Auth
 from starlette.exceptions import HTTPException
 
@@ -32,9 +36,11 @@ from langgraph_api.graph import get_graph
 from langgraph_api.grpc.client import get_shared_client
 from langgraph_api.grpc.ops import (
     Authenticated,
+    _handle_grpc_error,
     _map_sort_order,
     grpc_error_guard,
     map_if_exists,
+    transform_grpc_error_event,
 )
 from langgraph_api.grpc.ops.runs import Runs
 from langgraph_api.schema import ThreadUpdateResponse
@@ -77,6 +83,34 @@ THREAD_TTL_STRATEGY_MAP = {
     "delete": pb.ThreadTTLStrategy.THREAD_TTL_STRATEGY_DELETE,
     "keep_latest": pb.ThreadTTLStrategy.THREAD_TTL_STRATEGY_KEEP_LATEST,
 }
+
+THREAD_STREAM_MODE_TO_PB = {
+    "unknown": enum_thread_stream_mode.unknown,
+    "lifecycle": enum_thread_stream_mode.lifecycle,
+    "run_modes": enum_thread_stream_mode.run_modes,
+    "state_update": enum_thread_stream_mode.state_update,
+}
+
+
+def _map_thread_stream_modes(
+    stream_mode: str | list[str] | None,
+) -> list[enum_thread_stream_mode.ThreadStreamMode]:
+    """Map thread stream mode string(s) to protobuf enum list (filtering invalid modes)."""
+    if stream_mode is None:
+        return []
+
+    modes = [stream_mode] if isinstance(stream_mode, str) else stream_mode
+    result = []
+
+    for mode in modes:
+        proto_mode = THREAD_STREAM_MODE_TO_PB.get(mode)
+        if proto_mode is None:
+            sanitized = str(mode)[:50] + ("..." if len(str(mode)) > 50 else "")
+            logger.error("Got invalid thread stream mode '%s', ignoring", sanitized)
+        else:
+            result.append(proto_mode)
+
+    return result
 
 
 def _snapshot_defaults():
@@ -789,6 +823,68 @@ class Threads(Authenticated):
         response = await client.threads.GetGraphID(request)
 
         return response.graph_id if response.graph_id else None
+
+    class Stream(Authenticated):
+        """Stream operations for threads."""
+
+        resource = "threads"
+
+        @staticmethod
+        async def join(
+            thread_id: UUID | str,
+            *,
+            stream_modes: list[str] | None = None,
+            last_event_id: str | None = None,
+            ctx: Any = None,
+        ):
+            """Stream events from a thread via gRPC.
+
+            Args:
+                thread_id: Thread ID to stream events from
+                stream_modes: Optional list of stream modes to filter by
+                last_event_id: Optional last event ID for resumable streaming
+
+            Yields:
+                Tuples of (event_bytes, message_bytes, stream_id_bytes|None)
+            """
+            auth_filters = await Threads.Stream.handle_event(
+                ctx,
+                "read",
+                Auth.types.ThreadsRead(thread_id=UUID(str(thread_id))),
+            )
+
+            stream_modes_pb = _map_thread_stream_modes(stream_modes)
+
+            request = pb.StreamThreadRequest(
+                thread_id=pb.UUID(value=_normalize_uuid(thread_id)),
+                filters=auth_filters if auth_filters else [],
+                stream_modes=stream_modes_pb or [],
+            )
+            if last_event_id is not None:
+                request.last_event_id = last_event_id
+
+            client = await get_shared_client()
+
+            try:
+                async for event in client.threads.Stream(request):
+                    # Convert protobuf StreamEvent to tuple format
+                    event_bytes = event.event_type.encode("utf-8")
+                    message_bytes = event.message
+                    stream_id_bytes = (
+                        event.stream_id.encode("utf-8")
+                        if event.HasField("stream_id")
+                        else None
+                    )
+
+                    # Transform error events from gRPC format to older Python format
+                    if event.event_type == "error":
+                        message_bytes = transform_grpc_error_event(message_bytes)
+
+                    yield (event_bytes, message_bytes, stream_id_bytes)
+            except Exception as e:
+                if isinstance(e, AioRpcError):
+                    _handle_grpc_error(e)
+                raise
 
     class State(Authenticated):
         # treat this like threads resource

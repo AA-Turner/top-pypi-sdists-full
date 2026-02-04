@@ -5,8 +5,10 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 
-from stumpy import aamp, core, floss, fluss, stump
-from stumpy.floss import _cac, _iac, _nnmark, _rea
+from stumpy import core
+from stumpy.aamp import aamp
+from stumpy.floss import _cac, _iac, _nnmark, _rea, floss, fluss
+from stumpy.stump import stump
 
 
 def naive_nnmark(I):
@@ -92,7 +94,7 @@ def naive_rea(cac, n_regimes, L, excl_factor):
     return np.array(loc_regimes, dtype=np.int64)
 
 
-test_data = [(np.random.randint(0, 50, size=50, dtype=np.int64))]
+test_data = [np.random.randint(0, 50, size=50, dtype=np.int64)]
 
 substitution_locations = [(slice(0, 0), 0, -1, slice(1, 3), [0, 3])]
 substitution_values = [np.nan, np.inf]

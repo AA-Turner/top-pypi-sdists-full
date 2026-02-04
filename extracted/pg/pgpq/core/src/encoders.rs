@@ -27,7 +27,7 @@ fn downcast_checked<'a, T: 'static>(arr: &'a dyn Array, field: &str) -> Result<&
 #[enum_dispatch]
 pub trait Encode: std::fmt::Debug {
     fn encode(&self, row: usize, buf: &mut BytesMut) -> Result<(), ErrorKind>;
-    fn size_hint(&self) -> Result<usize, ErrorKind>;
+    fn byte_size_hint(&self) -> Result<usize, ErrorKind>;
 }
 
 #[enum_dispatch(Encode)]
@@ -37,6 +37,7 @@ pub enum Encoder<'a> {
     UInt8(UInt8Encoder<'a>),
     UInt16(UInt16Encoder<'a>),
     UInt32(UInt32Encoder<'a>),
+    UInt64(UInt64Encoder<'a>),
     Int8(Int8Encoder<'a>),
     Int16(Int16Encoder<'a>),
     Int32(Int32Encoder<'a>),
@@ -64,6 +65,7 @@ pub enum Encoder<'a> {
     StringView(StringViewEncoder<'a>),
     List(ListEncoder<'a>),
     LargeList(LargeListEncoder<'a>),
+    Struct(StructEncoder<'a>),
 }
 
 #[inline]
@@ -88,7 +90,7 @@ macro_rules! impl_encode {
                 }
                 Ok(())
             }
-            fn size_hint(&self) -> Result<usize, ErrorKind> {
+            fn byte_size_hint(&self) -> Result<usize, ErrorKind> {
                 let null_count = self.arr.null_count();
                 let item_count = self.arr.len();
                 Ok((item_count - null_count) * $field_size + item_count)
@@ -111,7 +113,7 @@ macro_rules! impl_encode_fallible {
                 }
                 Ok(())
             }
-            fn size_hint(&self) -> Result<usize, ErrorKind> {
+            fn byte_size_hint(&self) -> Result<usize, ErrorKind> {
                 let null_count = self.arr.null_count();
                 let item_count = self.arr.len();
                 Ok((item_count - null_count) * $field_size + item_count)
@@ -241,8 +243,57 @@ impl_encode!(
     BufMut::put_f64
 );
 
+macro_rules! encode_decimal {
+    ($name:ident, $int:ty) => {
+        fn $name(value: $int, scale: i8, buf: &mut BytesMut) {
+            let mut value = value;
+            let sign = if value < 0 {
+                value = -value;
+                0x4000
+            } else {
+                0
+            };
+            let div = (10 as $int).pow(scale as u32);
+            let mut integer_part = value / div;
+            let mut fractional_part = value % div;
+            let mut numeric_digits: Vec<i16> = vec![];
+            let mut weight: i16 = -1;
+
+            // need to pad the fractional part to ensure the total number of digits is
+            // multiple of four, to build complete base-10000 digits
+            // (e.g., 1 -> 1000, 12 -> 1200, 123 -> 1230, 1234 -> 1234)
+            fractional_part *= (10 as $int).pow(((4 - (scale % 4)) % 4) as u32);
+            while fractional_part > 0 {
+                numeric_digits.push((fractional_part % 10_000) as i16);
+                fractional_part /= 10_000;
+            }
+
+            while integer_part > 0 {
+                numeric_digits.push((integer_part % 10_000) as i16);
+                integer_part /= 10_000;
+                weight += 1;
+            }
+
+            buf.put_i32(8 + 2 * numeric_digits.len() as i32); // num of bytes
+            buf.put_i16(numeric_digits.len() as i16);
+            buf.put_i16(weight);
+            buf.put_i16(sign);
+            buf.put_i16(scale as i16);
+            // postgres expects the digits to be encoded from largest to smallest, so we
+            // need to iterate the vec in reverse
+            for d in numeric_digits.into_iter().rev() {
+                buf.put_i16(d);
+            }
+        }
+    };
+}
+
+encode_decimal!(encode_decimal_32, i32);
+encode_decimal!(encode_decimal_64, i64);
+encode_decimal!(encode_decimal_128, i128);
+
 macro_rules! decimal_encoder {
-    ($encoder:ident, $arr:ty, $int:ty) => {
+    ($encoder:ident, $arr:ty, $decimal_encoder:ident) => {
         #[derive(Debug)]
         pub struct $encoder<'a> {
             arr: &'a $arr,
@@ -253,50 +304,12 @@ macro_rules! decimal_encoder {
                 if self.arr.is_null(row) {
                     buf.put_i32(-1);
                 } else {
-                    let mut value = self.arr.value(row);
-                    let sign = if value < 0 {
-                        value = -value;
-                        0x4000
-                    } else {
-                        0
-                    };
-                    let scale = self.arr.scale();
-                    let div = (10 as $int).pow(scale as u32);
-                    let mut integer_part = value / div;
-                    let mut fractional_part = value % div;
-                    let mut numeric_digits: Vec<i16> = vec![];
-                    let mut weight: i16 = -1;
-
-                    // need to pad the fractional part to ensure the total number of digits is
-                    // multiple of four, to build complete base-10000 digits
-                    // (e.g., 1 -> 1000, 12 -> 1200, 123 -> 1230, 1234 -> 1234)
-                    fractional_part *= (10 as $int).pow(((4 - (scale % 4)) % 4) as u32);
-                    while fractional_part > 0 {
-                        numeric_digits.push((fractional_part % 10_000) as i16);
-                        fractional_part /= 10_000;
-                    }
-
-                    while integer_part > 0 {
-                        numeric_digits.push((integer_part % 10_000) as i16);
-                        integer_part /= 10_000;
-                        weight += 1;
-                    }
-
-                    buf.put_i32(8 + 2 * numeric_digits.len() as i32); // num of bytes
-                    buf.put_i16(numeric_digits.len() as i16);
-                    buf.put_i16(weight);
-                    buf.put_i16(sign);
-                    buf.put_i16(scale as i16);
-                    // postgres expects the digits to be encoded from largest to smallest, so we
-                    // need to iterate the vec in reverse
-                    for d in numeric_digits.into_iter().rev() {
-                        buf.put_i16(d);
-                    }
+                    $decimal_encoder(self.arr.value(row), self.arr.scale(), buf)
                 }
                 Ok(())
             }
 
-            fn size_hint(&self) -> Result<usize, ErrorKind> {
+            fn byte_size_hint(&self) -> Result<usize, ErrorKind> {
                 let integer_length = self.arr.precision() as usize - self.arr.scale() as usize;
                 let fractional_length = self.arr.scale() as usize;
                 let numeric_integers = (integer_length as f32 / 4.0).ceil() as usize
@@ -307,9 +320,33 @@ macro_rules! decimal_encoder {
     };
 }
 
-decimal_encoder!(Decimal32Encoder, Decimal32Array, i32);
-decimal_encoder!(Decimal64Encoder, Decimal64Array, i64);
-decimal_encoder!(Decimal128Encoder, Decimal128Array, i128);
+decimal_encoder!(Decimal32Encoder, Decimal32Array, encode_decimal_32);
+decimal_encoder!(Decimal64Encoder, Decimal64Array, encode_decimal_64);
+decimal_encoder!(Decimal128Encoder, Decimal128Array, encode_decimal_128);
+
+#[derive(Debug)]
+pub struct UInt64Encoder<'a> {
+    arr: &'a arrow_array::UInt64Array,
+}
+
+impl<'a> Encode for UInt64Encoder<'a> {
+    fn encode(&self, row: usize, buf: &mut BytesMut) -> Result<(), ErrorKind> {
+        if self.arr.is_null(row) {
+            buf.put_i32(-1);
+        } else {
+            // since postgres does not support unsigned values, it must be promoted to the next
+            // largest type. in this case, we will encoded it as a numeric (with no decimal places)
+            let value = self.arr.value(row) as i128;
+            encode_decimal_128(value, 0, buf);
+        }
+        Ok(())
+    }
+
+    fn byte_size_hint(&self) -> Result<usize, ErrorKind> {
+        let numeric_integers = 5;
+        Ok(self.arr.len() * (8 + 2 * numeric_integers))
+    }
+}
 
 const PG_BASE_TIMESTAMP_OFFSET_US: i64 = 946_684_800_000_000; // microseconds between 2000-01-01 at midnight (Postgres's epoch) and 1970-01-01 (Arrow's / UNIX epoch)
 const PG_BASE_TIMESTAMP_OFFSET_MS: i64 = 946_684_800_000; // milliseconds between 2000-01-01 at midnight (Postgres's epoch) and 1970-01-01 (Arrow's / UNIX epoch)
@@ -543,7 +580,7 @@ impl<T: OffsetSizeTrait> Encode for GenericBinaryEncoder<'_, T> {
         }
         Ok(())
     }
-    fn size_hint(&self) -> Result<usize, ErrorKind> {
+    fn byte_size_hint(&self) -> Result<usize, ErrorKind> {
         let mut total = 0;
         for row in 0..self.arr.len() {
             total += self.arr.value(row).len();
@@ -588,7 +625,7 @@ impl<'a, T: GenericStrArray> Encode for GenericStrEncoder<'a, T> {
         Ok(())
     }
 
-    fn size_hint(&self) -> Result<usize, ErrorKind> {
+    fn byte_size_hint(&self) -> Result<usize, ErrorKind> {
         let mut total = 0;
         for row in 0..self.arr.len() {
             total += self.arr.value(row).len();
@@ -655,13 +692,13 @@ impl<T: OffsetSizeTrait> Encode for GenericListEncoder<'_, T> {
         }
         Ok(())
     }
-    fn size_hint(&self) -> Result<usize, ErrorKind> {
+    fn byte_size_hint(&self) -> Result<usize, ErrorKind> {
         let mut total = 0;
         for row in 0..self.arr.len() {
             if !self.arr.is_null(row) {
                 let val = self.arr.value(row);
                 let inner_encoder = self.inner_encoder_builder.try_new(&val)?;
-                let size = inner_encoder.size_hint()?;
+                let size = inner_encoder.byte_size_hint()?;
                 total += size;
             }
         }
@@ -671,6 +708,48 @@ impl<T: OffsetSizeTrait> Encode for GenericListEncoder<'_, T> {
 
 type ListEncoder<'a> = GenericListEncoder<'a, i32>;
 type LargeListEncoder<'a> = GenericListEncoder<'a, i64>;
+
+#[derive(Debug)]
+pub struct StructEncoder<'a> {
+    arr: &'a arrow_array::StructArray,
+    field: String,
+    field_encoders: Vec<Encoder<'a>>,
+    field_oids: Vec<u32>,
+}
+
+impl<'a> Encode for StructEncoder<'a> {
+    fn encode(&self, row: usize, buf: &mut BytesMut) -> Result<(), ErrorKind> {
+        if self.arr.is_null(row) {
+            buf.put_i32(-1);
+        } else {
+            let base_idx = buf.len();
+            buf.put_i32(0); // Placeholder for the total size
+
+            // Put the number of fields
+            buf.put_i32(self.field_encoders.len() as i32);
+
+            for (encoder, oid) in self.field_encoders.iter().zip(&self.field_oids) {
+                buf.put_u32(*oid);
+                encoder.encode(row, buf)?;
+            }
+
+            let total_len = buf.len() - base_idx - 4;
+            match i32::try_from(total_len) {
+                Ok(v) => buf[base_idx..base_idx + 4].copy_from_slice(&v.to_be_bytes()),
+                Err(_) => return Err(ErrorKind::field_too_large(&self.field, total_len)),
+            };
+        }
+        Ok(())
+    }
+
+    fn byte_size_hint(&self) -> Result<usize, ErrorKind> {
+        let mut total = 4 + 4; // 4 bytes for the length, 4 bytes for the number of fields
+        for encoder in &self.field_encoders {
+            total += encoder.byte_size_hint()?;
+        }
+        Ok(total)
+    }
+}
 
 #[enum_dispatch]
 pub trait BuildEncoder: std::fmt::Debug + PartialEq {
@@ -701,6 +780,7 @@ macro_rules! impl_encoder_builder_stateless {
             }
             fn schema(&self) -> Column {
                 Column {
+                    name: self.field.name().clone(),
                     data_type: $pg_data_type.clone(),
                     nullable: self.field.is_nullable(),
                 }
@@ -737,6 +817,7 @@ macro_rules! impl_encoder_builder_stateless_with_field {
             }
             fn schema(&self) -> Column {
                 Column {
+                    name: self.field.name().clone(),
                     data_type: $pg_data_type.clone(),
                     nullable: self.field.is_nullable(),
                 }
@@ -786,6 +867,7 @@ macro_rules! impl_encoder_builder_stateless_with_variable_output {
             }
             fn schema(&self) -> Column {
                 Column {
+                    name: self.field.name().clone(),
                     data_type: self.output.clone(),
                     nullable: self.field.is_nullable(),
                 }
@@ -843,6 +925,18 @@ impl_encoder_builder_stateless!(
     UInt32Encoder,
     PostgresType::Int8,
     |dt: &DataType| matches!(dt, DataType::UInt32)
+);
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct UInt64EncoderBuilder {
+    field: Arc<Field>,
+}
+impl_encoder_builder_stateless!(
+    UInt64EncoderBuilder,
+    Encoder::UInt64,
+    UInt64Encoder,
+    PostgresType::Numeric,
+    |dt: &DataType| matches!(dt, DataType::UInt64)
 );
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1152,6 +1246,7 @@ macro_rules! impl_encoder_builder_with_variable_output {
             }
             fn schema(&self) -> Column {
                 Column {
+                    name: self.field.name().clone(),
                     data_type: self.output.postgres_datatype().clone(),
                     nullable: self.field.is_nullable(),
                 }
@@ -1267,6 +1362,7 @@ macro_rules! impl_list_encoder_builder {
             }
             fn schema(&self) -> Column {
                 Column {
+                    name: self.field.name().clone(),
                     data_type: PostgresType::List(Box::new(
                         self.inner_encoder_builder.schema().clone(),
                     )),
@@ -1305,6 +1401,82 @@ impl_list_encoder_builder!(
     LargeListEncoder
 );
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct StructEncoderBuilder {
+    field: Arc<Field>,
+    field_encoder_builders: Vec<EncoderBuilder>,
+}
+
+impl StructEncoderBuilder {
+    pub fn new(field: Arc<Field>) -> Result<Self, ErrorKind> {
+        if let DataType::Struct(fields) = field.data_type() {
+            let field_encoder_builders = fields
+                .iter()
+                .map(|f| EncoderBuilder::try_new(f.clone()))
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(Self {
+                field,
+                field_encoder_builders,
+            })
+        } else {
+            Err(ErrorKind::FieldTypeNotSupported {
+                encoder: "StructEncoder".to_string(),
+                tp: field.data_type().clone(),
+                field: field.name().clone(),
+            })
+        }
+    }
+}
+
+impl BuildEncoder for StructEncoderBuilder {
+    fn try_new<'a, 'b: 'a>(&'b self, arr: &'a dyn Array) -> Result<Encoder<'a>, ErrorKind> {
+        let arr: &'a arrow_array::StructArray = downcast_checked(arr, self.field.name())?;
+
+        // Build encoders for each field at build time and collect OIDs
+        let mut field_encoders = Vec::new();
+        let mut field_oids = Vec::new();
+
+        for (field, encoder_builder) in arr.columns().iter().zip(&self.field_encoder_builders) {
+            let encoder = encoder_builder.try_new(field)?;
+            let oid = encoder_builder.schema().data_type.oid().unwrap();
+            field_encoders.push(encoder);
+            field_oids.push(oid);
+        }
+
+        Ok(Encoder::Struct(StructEncoder {
+            arr,
+            field: self.field.name().to_string(),
+            field_encoders,
+            field_oids,
+        }))
+    }
+
+    fn schema(&self) -> Column {
+        Column {
+            name: self.field.name().clone(),
+            data_type: PostgresType::UserDefined {
+                fields: self
+                    .field_encoder_builders
+                    .iter()
+                    .map(|builder| Box::new(builder.schema()))
+                    .collect(),
+            },
+            nullable: self.field.is_nullable(),
+        }
+    }
+
+    fn field(&self) -> Arc<Field> {
+        self.field.clone()
+    }
+}
+
+impl StructEncoderBuilder {
+    pub fn inner_encoder_builder(&self) -> Vec<EncoderBuilder> {
+        // Return a clone of the inner encoder builders
+        self.field_encoder_builders.to_vec()
+    }
+}
+
 #[enum_dispatch(BuildEncoder)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum EncoderBuilder {
@@ -1312,6 +1484,7 @@ pub enum EncoderBuilder {
     UInt8(UInt8EncoderBuilder),
     UInt16(UInt16EncoderBuilder),
     UInt32(UInt32EncoderBuilder),
+    UInt64(UInt64EncoderBuilder),
     Int8(Int8EncoderBuilder),
     Int16(Int16EncoderBuilder),
     Int32(Int32EncoderBuilder),
@@ -1339,6 +1512,7 @@ pub enum EncoderBuilder {
     LargeBinary(LargeBinaryEncoderBuilder),
     List(ListEncoderBuilder),
     LargeList(LargeListEncoderBuilder),
+    Struct(StructEncoderBuilder),
 }
 
 impl EncoderBuilder {
@@ -1349,6 +1523,7 @@ impl EncoderBuilder {
             DataType::UInt8 => Self::UInt8(UInt8EncoderBuilder { field }),
             DataType::UInt16 => Self::UInt16(UInt16EncoderBuilder { field }),
             DataType::UInt32 => Self::UInt32(UInt32EncoderBuilder { field }),
+            DataType::UInt64 => Self::UInt64(UInt64EncoderBuilder { field }),
             // Note that rust-postgres encodes int8 to CHAR by default
             DataType::Int8 => Self::Int8(Int8EncoderBuilder {
                 field,
@@ -1464,6 +1639,16 @@ impl EncoderBuilder {
                 Self::LargeList(LargeListEncoderBuilder {
                     field,
                     inner_encoder_builder: Arc::new(inner),
+                })
+            }
+            DataType::Struct(inner) => {
+                let field_encoder_builders = inner
+                    .iter()
+                    .map(|f| EncoderBuilder::try_new(f.clone()))
+                    .collect::<Result<Vec<_>, _>>()?;
+                Self::Struct(StructEncoderBuilder {
+                    field,
+                    field_encoder_builders,
                 })
             }
             _ => {

@@ -12,7 +12,7 @@
 #
 ##############################################################################
 
-import os
+import importlib.resources
 
 from zope.configuration import config
 from zope.configuration import xmlconfig
@@ -124,8 +124,8 @@ class ZCMLFileLayer(ZCMLLayerBase):
                  name=None,
                  features=None):
         super().__init__(package, name, features)
-        self.zcml_file = os.path.join(os.path.dirname(package.__file__),
-                                      zcml_file)
+        self.zcml_file = str(
+            importlib.resources.files(package) / zcml_file)
 
     def _load_zcml(self, context):
         return xmlconfig.file(self.zcml_file,

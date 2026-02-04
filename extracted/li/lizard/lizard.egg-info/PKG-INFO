@@ -1,12 +1,12 @@
 Metadata-Version: 2.1
 Name: lizard
-Version: 1.20.0
+Version: 1.21.0
 Summary: A code analyzer without caring the C/C++ header files. It works with Java, C/C++, JavaScript, Python, Ruby, Swift, Objective C. Metrics includes cyclomatic complexity number etc.
 Home-page: http://www.lizard.ws
+Download-URL: https://pypi.python.org/lizard/
 Author: Terry Yin
 Author-email: terry@odd-e.com
 License: MIT
-Download-URL: https://pypi.python.org/lizard/
 Project-URL: Source, https://github.com/terryyin/lizard
 Platform: any
 Classifier: Development Status :: 5 - Production/Stable
@@ -346,6 +346,15 @@ behavior of lizard. There are two types of forgiveness comments:
 
    int foo() {
        // #lizard forgives
+       ...
+   }
+
+   Selective forgiveness: Use "#lizard forgives(metric1, metric2)" to forgive only specific metrics (e.g. length, cyclomatic_complexity, parameter_count, nloc, token_count).
+
+::
+
+   int foo() {
+       // #lizard forgives(length)  // Forgive only length violations
        ...
    }
 

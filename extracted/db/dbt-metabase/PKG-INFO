@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dbt-metabase
-Version: 1.6.1
+Version: 1.7.0
 Summary: dbt + Metabase integration.
 Author: Mike Gouline
 License: MIT License
@@ -10,14 +10,13 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: PyYAML>=5.4.1
@@ -28,7 +27,7 @@ Requires-Dist: rich>=12.0.0
 # dbt-metabase
 
 [![PyPI](https://img.shields.io/pypi/v/dbt-metabase)](https://pypi.org/project/dbt-metabase/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/gouline/dbt-metabase/blob/master/LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/gouline/dbt-metabase/blob/main/LICENSE)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 
@@ -38,7 +37,7 @@ If dbt is your source of truth for database schemas and you use Metabase as your
 
 ## Requirements
 
-Requires Python 3.8 or above.
+Requires Python 3.10 or above.
 
 For development, you will need [uv](https://docs.astral.sh/uv/getting-started/installation/) installed.
 
@@ -96,8 +95,9 @@ models:
         data_tests:
           - not_null
           - relationships:
-              to: ref('groups')
-              field: id
+              arguments:
+                to: ref('groups')
+                field: id
 
   - name: stg_groups
     description: User groups.

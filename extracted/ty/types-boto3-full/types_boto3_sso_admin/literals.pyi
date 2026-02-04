@@ -50,6 +50,7 @@ __all__ = (
     "ListPermissionSetProvisioningStatusPaginatorName",
     "ListPermissionSetsPaginatorName",
     "ListPermissionSetsProvisionedToAccountPaginatorName",
+    "ListRegionsPaginatorName",
     "ListTagsForResourcePaginatorName",
     "ListTrustedTokenIssuersPaginatorName",
     "PaginatorName",
@@ -57,6 +58,7 @@ __all__ = (
     "ProvisionTargetTypeType",
     "ProvisioningStatusType",
     "RegionName",
+    "RegionStatusType",
     "ResourceServiceName",
     "SSOAdminServiceName",
     "ServiceName",
@@ -118,6 +120,7 @@ ListPermissionSetsPaginatorName = Literal["list_permission_sets"]
 ListPermissionSetsProvisionedToAccountPaginatorName = Literal[
     "list_permission_sets_provisioned_to_account"
 ]
+ListRegionsPaginatorName = Literal["list_regions"]
 ListTagsForResourcePaginatorName = Literal["list_tags_for_resource"]
 ListTrustedTokenIssuersPaginatorName = Literal["list_trusted_token_issuers"]
 PrincipalTypeType = Literal["GROUP", "USER"]
@@ -125,6 +128,7 @@ ProvisionTargetTypeType = Literal["ALL_PROVISIONED_ACCOUNTS", "AWS_ACCOUNT"]
 ProvisioningStatusType = Literal[
     "LATEST_PERMISSION_SET_NOT_PROVISIONED", "LATEST_PERMISSION_SET_PROVISIONED"
 ]
+RegionStatusType = Literal["ACTIVE", "ADDING", "REMOVING"]
 SignInOriginType = Literal["APPLICATION", "IDENTITY_CENTER"]
 StatusValuesType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
 TargetTypeType = Literal["AWS_ACCOUNT"]
@@ -569,6 +573,7 @@ PaginatorName = Literal[
     "list_permission_set_provisioning_status",
     "list_permission_sets",
     "list_permission_sets_provisioned_to_account",
+    "list_regions",
     "list_tags_for_resource",
     "list_trusted_token_issuers",
 ]

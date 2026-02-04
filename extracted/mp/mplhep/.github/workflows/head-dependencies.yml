@@ -12,14 +12,19 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-13, macos-14, windows-latest]
+        os: [ubuntu-latest, macos-latest, macos-15-intel, windows-latest]
         python-version: ['3.12']
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
+
+    - uses: astral-sh/setup-uv@v7
+      with:
+        activate-environment: true
+        version: "latest"
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -29,21 +34,25 @@ jobs:
         echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections
         sudo apt-get install ttf-mscorefonts-installer
 
+    - name: List available fonts
+      if: runner.os == 'Linux'
+      run: fc-list | grep -i microsoft || fc-list | grep -i "times new" || echo "Microsoft fonts listing complete"
+
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip setuptools wheel
-        python -m pip install pytest-github-actions-annotate-failures
-        python -m pip --quiet install --upgrade --pre .[test]
+        uv pip install --system --upgrade pip setuptools wheel
+        uv pip install --system pytest-github-actions-annotate-failures
+        uv pip install --system --quiet --upgrade --pre .[test]
 
     - name: List installed Python packages
-      run: python -m pip list
+      run: uv pip list --system
 
     - name: Test with pytest
       run: |
         pytest -r sa --mpl --mpl-results-path=pytest_results
 
     - name: Upload pytest test results
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       if: failure()
       with:
         name: pytest_results-${{ matrix.python-version }}-${{ matrix.runs-on }}
@@ -59,24 +68,34 @@ jobs:
         python-version: ['3.12']
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
+
+    - uses: astral-sh/setup-uv@v7
+      with:
+        activate-environment: true
+        version: "latest"
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Install core fonts
+      if: runner.os == 'Linux'
       run: |
         echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections
         sudo apt-get install ttf-mscorefonts-installer
 
+    - name: List available fonts
+      if: runner.os == 'Linux'
+      run: fc-list | grep -i microsoft || fc-list | grep -i "times new" || echo "Microsoft fonts listing complete"
+
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip setuptools wheel
-        python -m pip install pytest-github-actions-annotate-failures
-        python -m pip --no-cache-dir --quiet install --upgrade .[test]
-        python -m pip install \
+        uv pip install --system --upgrade pip setuptools wheel
+        uv pip install --system pytest-github-actions-annotate-failures
+        uv pip install --system --no-cache-dir --quiet --upgrade .[test]
+        uv pip install --system \
           --upgrade \
           --pre \
           --index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple \
@@ -84,14 +103,14 @@ jobs:
           matplotlib
 
     - name: List installed Python packages
-      run: python -m pip list
+      run: uv pip list --system
 
     - name: Test with pytest
       run: |
         pytest -r sa --mpl --mpl-results-path=pytest_results
 
     - name: Upload pytest test results
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       if: failure()
       with:
         name: pytest_results-${{ matrix.python-version }}-${{ matrix.runs-on }}
@@ -107,35 +126,45 @@ jobs:
         python-version: ['3.12']
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
+
+    - uses: astral-sh/setup-uv@v7
+      with:
+        activate-environment: true
+        version: "latest"
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Install core fonts
+      if: runner.os == 'Linux'
       run: |
         echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections
         sudo apt-get install ttf-mscorefonts-installer
 
+    - name: List available fonts
+      if: runner.os == 'Linux'
+      run: fc-list | grep -i microsoft || fc-list | grep -i "times new" || echo "Microsoft fonts listing complete"
+
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip setuptools wheel
-        python -m pip install pytest-github-actions-annotate-failures
-        python -m pip --no-cache-dir --quiet install --upgrade .[test]
-        python -m pip uninstall --yes uhi
-        python -m pip install --upgrade git+https://github.com/scikit-hep/uhi.git
+        uv pip install --system --upgrade pip setuptools wheel
+        uv pip install --system pytest-github-actions-annotate-failures
+        uv pip install --system --no-cache-dir --quiet --upgrade .[test]
+        uv pip uninstall --system uhi
+        uv pip install --system --upgrade git+https://github.com/scikit-hep/uhi.git
 
     - name: List installed Python packages
-      run: python -m pip list
+      run: uv pip list --system
 
     - name: Test with pytest
       run: |
         pytest -r sa --mpl --mpl-results-path=pytest_results
 
     - name: Upload pytest test results
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       if: failure()
       with:
         name: pytest_results-${{ matrix.python-version }}-${{ matrix.runs-on }}
@@ -151,35 +180,45 @@ jobs:
         python-version: ['3.12']
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
+
+    - uses: astral-sh/setup-uv@v7
+      with:
+        activate-environment: true
+        version: "latest"
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Install core fonts
+      if: runner.os == 'Linux'
       run: |
         echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections
         sudo apt-get install ttf-mscorefonts-installer
 
+    - name: List available fonts
+      if: runner.os == 'Linux'
+      run: fc-list | grep -i microsoft || fc-list | grep -i "times new" || echo "Microsoft fonts listing complete"
+
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip setuptools wheel
-        python -m pip install pytest-github-actions-annotate-failures
-        python -m pip --no-cache-dir --quiet install --upgrade .[test]
-        python -m pip uninstall --yes pytest
-        python -m pip install --upgrade git+https://github.com/pytest-dev/pytest.git
+        uv pip install --system --upgrade pip setuptools wheel
+        uv pip install --system pytest-github-actions-annotate-failures
+        uv pip install --system --no-cache-dir --quiet --upgrade .[test]
+        uv pip uninstall --system pytest
+        uv pip install --system --upgrade git+https://github.com/pytest-dev/pytest.git
 
     - name: List installed Python packages
-      run: python -m pip list
+      run: uv pip list --system
 
     - name: Test with pytest
       run: |
         pytest -r sa --mpl --mpl-results-path=pytest_results
 
     - name: Upload pytest test results
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       if: failure()
       with:
         name: pytest_results-${{ matrix.python-version }}-${{ matrix.runs-on }}

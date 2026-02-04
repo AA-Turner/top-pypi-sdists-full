@@ -1,11 +1,11 @@
 import json
 from collections.abc import Callable, Iterable
 from typing import Any, Literal, TypeVar, overload
-from typing_extensions import Self
 
 from django.db.models import lookups
 from django.db.models.expressions import Combinable
 from django.db.models.lookups import PostgresOperatorLookup, Transform
+from typing_extensions import Self
 
 from . import Field, _ErrorMessagesToOverride, _ValidatorCallable
 from .mixins import CheckFieldDefaultMixin
@@ -45,6 +45,7 @@ class JSONField(CheckFieldDefaultMixin, Field[_A | Combinable, _A]):
         ] = ...,
         help_text: str = ...,
         db_column: str | None = ...,
+        db_comment: str | None = ...,
         db_tablespace: str | None = ...,
         validators: Iterable[_ValidatorCallable] = ...,
         error_messages: _ErrorMessagesToOverride | None = ...,
@@ -75,6 +76,7 @@ class JSONField(CheckFieldDefaultMixin, Field[_A | Combinable, _A]):
         ] = ...,
         help_text: str = ...,
         db_column: str | None = ...,
+        db_comment: str | None = ...,
         db_tablespace: str | None = ...,
         validators: Iterable[_ValidatorCallable] = ...,
         error_messages: _ErrorMessagesToOverride | None = ...,

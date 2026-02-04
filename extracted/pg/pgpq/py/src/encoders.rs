@@ -212,6 +212,14 @@ impl_passthrough_encoder_builder!(UInt32EncoderBuilder);
 
 #[pyclass(module = "pgpq._pgpq")]
 #[derive(Debug, Clone)]
+pub struct UInt64EncoderBuilder {
+    field: Py<PyAny>,
+    inner: pgpq::encoders::EncoderBuilder,
+}
+impl_passthrough_encoder_builder!(UInt64EncoderBuilder);
+
+#[pyclass(module = "pgpq._pgpq")]
+#[derive(Debug, Clone)]
 pub struct Int8EncoderBuilder {
     field: Py<PyAny>,
     output: PostgresType,
@@ -430,6 +438,14 @@ pub struct LargeBinaryEncoderBuilder {
 }
 impl_passthrough_encoder_builder!(LargeBinaryEncoderBuilder);
 
+#[pyclass(module = "pgpq._pgpq")]
+#[derive(Debug, Clone)]
+pub struct StructEncoderBuilder {
+    field: Py<PyAny>,
+    inner: pgpq::encoders::EncoderBuilder,
+}
+impl_passthrough_encoder_builder!(StructEncoderBuilder);
+
 macro_rules! impl_list {
     ($struct:ident, $encoder_builder_enum_variant:path, $encoder_builder_new_with_inner:expr) => {
         #[pymethods]
@@ -554,6 +570,7 @@ pub enum EncoderBuilder {
     UInt8(UInt8EncoderBuilder),
     UInt16(UInt16EncoderBuilder),
     UInt32(UInt32EncoderBuilder),
+    UInt64(UInt64EncoderBuilder),
     Int8(Int8EncoderBuilder),
     Int16(Int16EncoderBuilder),
     Int32(Int32EncoderBuilder),
@@ -581,6 +598,7 @@ pub enum EncoderBuilder {
     LargeBinary(LargeBinaryEncoderBuilder),
     List(ListEncoderBuilder),
     LargeList(LargeListEncoderBuilder),
+    Struct(StructEncoderBuilder),
 }
 
 impl crate::utils::PythonRepr for EncoderBuilder {
@@ -590,6 +608,7 @@ impl crate::utils::PythonRepr for EncoderBuilder {
             EncoderBuilder::UInt8(inner) => inner.py_repr(py),
             EncoderBuilder::UInt16(inner) => inner.py_repr(py),
             EncoderBuilder::UInt32(inner) => inner.py_repr(py),
+            EncoderBuilder::UInt64(inner) => inner.py_repr(py),
             EncoderBuilder::Int8(inner) => inner.py_repr(py),
             EncoderBuilder::Int16(inner) => inner.py_repr(py),
             EncoderBuilder::Int32(inner) => inner.py_repr(py),
@@ -617,6 +636,7 @@ impl crate::utils::PythonRepr for EncoderBuilder {
             EncoderBuilder::LargeBinary(inner) => inner.py_repr(py),
             EncoderBuilder::List(inner) => inner.py_repr(py),
             EncoderBuilder::LargeList(inner) => inner.py_repr(py),
+            EncoderBuilder::Struct(inner) => inner.py_repr(py),
         }
     }
 }
@@ -658,6 +678,12 @@ impl EncoderBuilder {
             }
             pgpq::encoders::EncoderBuilder::UInt32(_) => {
                 EncoderBuilder::UInt32(UInt32EncoderBuilder {
+                    field: py_field.clone().unbind(),
+                    inner,
+                })
+            }
+            pgpq::encoders::EncoderBuilder::UInt64(_) => {
+                EncoderBuilder::UInt64(UInt64EncoderBuilder {
                     field: py_field.clone().unbind(),
                     inner,
                 })
@@ -824,6 +850,12 @@ impl EncoderBuilder {
                     inner,
                 })
             }
+            pgpq::encoders::EncoderBuilder::Struct(_) => {
+                EncoderBuilder::Struct(StructEncoderBuilder {
+                    field: py_field.clone().unbind(),
+                    inner,
+                })
+            }
         };
         Ok(wrapped)
     }
@@ -862,6 +894,15 @@ impl From<pgpq::encoders::EncoderBuilder> for EncoderBuilder {
             pgpq::encoders::EncoderBuilder::UInt32(inner) => {
                 let field = inner.field();
                 EncoderBuilder::UInt32(UInt32EncoderBuilder {
+                    field: field
+                        .to_pyarrow(py)
+                        .expect("Field to_pyarrow should not fail"),
+                    inner: value,
+                })
+            }
+            pgpq::encoders::EncoderBuilder::UInt64(inner) => {
+                let field = inner.field();
+                EncoderBuilder::UInt64(UInt64EncoderBuilder {
                     field: field
                         .to_pyarrow(py)
                         .expect("Field to_pyarrow should not fail"),
@@ -1119,6 +1160,13 @@ impl From<pgpq::encoders::EncoderBuilder> for EncoderBuilder {
                     inner: value,
                 })
             }
+            pgpq::encoders::EncoderBuilder::Struct(inner) => {
+                let field = inner.field();
+                EncoderBuilder::Struct(StructEncoderBuilder {
+                    field: field.to_pyarrow(py).unwrap(),
+                    inner: value,
+                })
+            }
         })
     }
 }
@@ -1143,6 +1191,10 @@ impl<'py> IntoPyObject<'py> for EncoderBuilder {
                 .map(|b| b.into_any())
                 .expect("pyclass into_pyobject")),
             EncoderBuilder::UInt32(inner) => Ok(inner
+                .into_pyobject(py)
+                .map(|b| b.into_any())
+                .expect("pyclass into_pyobject")),
+            EncoderBuilder::UInt64(inner) => Ok(inner
                 .into_pyobject(py)
                 .map(|b| b.into_any())
                 .expect("pyclass into_pyobject")),
@@ -1254,6 +1306,10 @@ impl<'py> IntoPyObject<'py> for EncoderBuilder {
                 .into_pyobject(py)
                 .map(|b| b.into_any())
                 .expect("pyclass into_pyobject")),
+            EncoderBuilder::Struct(inner) => Ok(inner
+                .into_pyobject(py)
+                .map(|b| b.into_any())
+                .expect("pyclass into_pyobject")),
         }
     }
 }
@@ -1265,6 +1321,7 @@ impl From<EncoderBuilder> for pgpq::encoders::EncoderBuilder {
             EncoderBuilder::UInt8(inner) => inner.inner,
             EncoderBuilder::UInt16(inner) => inner.inner,
             EncoderBuilder::UInt32(inner) => inner.inner,
+            EncoderBuilder::UInt64(inner) => inner.inner,
             EncoderBuilder::Int8(inner) => inner.inner,
             EncoderBuilder::Int16(inner) => inner.inner,
             EncoderBuilder::Int32(inner) => inner.inner,
@@ -1292,6 +1349,7 @@ impl From<EncoderBuilder> for pgpq::encoders::EncoderBuilder {
             EncoderBuilder::LargeBinary(inner) => inner.inner,
             EncoderBuilder::List(inner) => inner.inner,
             EncoderBuilder::LargeList(inner) => inner.inner,
+            EncoderBuilder::Struct(inner) => inner.inner,
         }
     }
 }

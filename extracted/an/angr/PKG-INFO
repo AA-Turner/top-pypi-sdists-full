@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: angr
-Version: 9.2.196
+Version: 9.2.197
 Summary: A multi-architecture binary analysis toolkit, with the ability to perform dynamic symbolic execution and various static analyses on binaries
 License-Expression: BSD-2-Clause
 Project-URL: Homepage, https://angr.io/
@@ -16,12 +16,12 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cxxheaderparser
 Requires-Dist: GitPython
-Requires-Dist: archinfo==9.2.196
+Requires-Dist: archinfo==9.2.197
 Requires-Dist: cachetools
-Requires-Dist: capstone==5.0.3
+Requires-Dist: capstone==5.0.6
 Requires-Dist: cffi>=1.14.0
-Requires-Dist: claripy==9.2.196
-Requires-Dist: cle==9.2.196
+Requires-Dist: claripy==9.2.197
+Requires-Dist: cle==9.2.197
 Requires-Dist: lmdb
 Requires-Dist: msgspec
 Requires-Dist: mulpyplexer
@@ -32,12 +32,11 @@ Requires-Dist: pycparser~=3.0
 Requires-Dist: pydemumble
 Requires-Dist: pyformlang
 Requires-Dist: pypcode<4.0,>=3.2.1
-Requires-Dist: pyvex==9.2.196
+Requires-Dist: pyvex==9.2.197
 Requires-Dist: rich>=13.1.0
 Requires-Dist: sortedcontainers
 Requires-Dist: sympy
 Requires-Dist: typing-extensions
-Requires-Dist: unique-log-filter
 Requires-Dist: colorama; platform_system == "Windows"
 Provides-Extra: angrdb
 Requires-Dist: sqlalchemy; extra == "angrdb"
@@ -46,8 +45,7 @@ Requires-Dist: keystone-engine; extra == "keystone"
 Provides-Extra: telemetry
 Requires-Dist: opentelemetry-api; extra == "telemetry"
 Provides-Extra: unicorn
-Requires-Dist: unicorn==2.0.1.post1; extra == "unicorn"
-Requires-Dist: setuptools; extra == "unicorn"
+Requires-Dist: unicorn==2.1.4; extra == "unicorn"
 Dynamic: license-file
 
 # angr

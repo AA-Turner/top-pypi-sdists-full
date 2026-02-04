@@ -11,16 +11,21 @@ from seeq import spy
 from seeq.sdk import *
 from seeq.spy import _common
 from seeq.spy import _compatibility
-from seeq.spy import _login
 from seeq.spy._redaction import safely
 from seeq.spy._session import Session
 from seeq.spy._status import Status
 from seeq.spy.addons import _permissions
 
 
-@Status.handle_keyboard_interrupt()
-def search(query: Union[pd.DataFrame, pd.Series, dict, list, str], *, errors: Optional[str] = None,
-           quiet: Optional[bool] = None, status: Status = None, session: Optional[Session] = None):
+@Status.top_level_spy_function()
+def search(
+    query: Union[pd.DataFrame, pd.Series, dict, list, str],
+    *,
+    errors: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None
+):
     """
     Issues a query to the Seeq Server to retrieve metadata for Add-on tools.
     This metadata can be used to update or uninstall Add-on tools.
@@ -129,16 +134,7 @@ def search(query: Union[pd.DataFrame, pd.Series, dict, list, str], *, errors: Op
     >>> spy.addons.search(my_items)
 
     """
-
-    input_args = _common.validate_argument_types([
-        (query, 'query', (str, dict, list, pd.DataFrame, pd.Series)),
-        (errors, 'errors', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session)
-    ])
-
-    _login.validate_login(session, status)
+    input_args = locals()
 
     try:
         return _search(session, query, status, input_args=input_args)

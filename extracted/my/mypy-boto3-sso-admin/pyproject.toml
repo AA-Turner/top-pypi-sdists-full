@@ -1,13 +1,13 @@
 # Setup script for mypy-boto3-sso-admin.
 
-# Copyright 2025 Vlad Emelianov
+# Copyright 2026 Vlad Emelianov
 
 [project]
 name = "mypy-boto3-sso-admin"
-version = "1.42.3"
+version = "1.42.41"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 SSOAdmin 1.42.3 service generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 SSOAdmin 1.42.41 service generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",

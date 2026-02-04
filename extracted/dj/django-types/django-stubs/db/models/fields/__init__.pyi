@@ -3,26 +3,26 @@ import ipaddress
 import uuid
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import date, datetime, time, timedelta
-from typing import Any, Generic, Literal, TypeVar, overload
-from typing_extensions import Self
+from typing import Any, Generic, Literal, TypeAlias, TypeVar, overload
 
 from django.core.checks import CheckMessage
 from django.core.exceptions import FieldDoesNotExist as FieldDoesNotExist
-from django.db.models import Model, TextChoices
+from django.db.models import IntegerChoices, Model, TextChoices
 from django.db.models.expressions import Col, Combinable, Func
 from django.db.models.query_utils import RegisterLookupMixin
 from django.forms import Widget
+from typing_extensions import Self
 
 BLANK_CHOICE_DASH: list[tuple[str, str]] = ...
 
-_Choice = tuple[Any, str]
-_ChoiceNamedGroup = tuple[str, Iterable[_Choice]]
-_ChoicesMapping = Mapping[Any, str | Mapping[Any, str]]
-_LiteralFieldChoices = Iterable[_Choice | _ChoiceNamedGroup] | _ChoicesMapping
-_FieldChoices = _LiteralFieldChoices | Callable[[], _LiteralFieldChoices]
+_Choice: TypeAlias = tuple[Any, str]
+_ChoiceNamedGroup: TypeAlias = tuple[str, Iterable[_Choice]]
+_ChoicesMapping: TypeAlias = Mapping[Any, str | Mapping[Any, str]]
+_LiteralFieldChoices: TypeAlias = Iterable[_Choice | _ChoiceNamedGroup] | _ChoicesMapping
+_FieldChoices: TypeAlias = _LiteralFieldChoices | Callable[[], _LiteralFieldChoices]
 
-_ValidatorCallable = Callable[..., None]
-_ErrorMessagesToOverride = dict[str, Any]
+_ValidatorCallable: TypeAlias = Callable[..., None]
+_ErrorMessagesToOverride: TypeAlias = dict[str, Any]
 
 # __set__ value type
 _ST = TypeVar("_ST")
@@ -40,6 +40,7 @@ class Field(RegisterLookupMixin, Generic[_ST, _GT]):
     primary_key: bool
     remote_field: Field[_ST, _GT]
     is_relation: bool
+    hidden: bool
     related_model: Any | None = ...
     one_to_many: bool | None = ...
     one_to_one: bool | None = ...
@@ -134,7 +135,7 @@ class IntegerField(Generic[_I], Field[_I | Combinable, _I]):
         unique_for_date: str | None = ...,
         unique_for_month: str | None = ...,
         unique_for_year: str | None = ...,
-        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] = ...,
+        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] | type[IntegerChoices] = ...,
         help_text: str = ...,
         db_column: str | None = ...,
         db_comment: str | None = ...,
@@ -162,7 +163,7 @@ class IntegerField(Generic[_I], Field[_I | Combinable, _I]):
         unique_for_date: str | None = ...,
         unique_for_month: str | None = ...,
         unique_for_year: str | None = ...,
-        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] = ...,
+        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] | type[IntegerChoices] = ...,
         help_text: str = ...,
         db_column: str | None = ...,
         db_comment: str | None = ...,
@@ -195,7 +196,7 @@ class PositiveIntegerField(PositiveIntegerRelDbTypeMixin, IntegerField[_I]):
         unique_for_date: str | None = ...,
         unique_for_month: str | None = ...,
         unique_for_year: str | None = ...,
-        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] = ...,
+        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] | type[IntegerChoices] = ...,
         help_text: str = ...,
         db_column: str | None = ...,
         db_comment: str | None = ...,
@@ -223,7 +224,7 @@ class PositiveIntegerField(PositiveIntegerRelDbTypeMixin, IntegerField[_I]):
         unique_for_date: str | None = ...,
         unique_for_month: str | None = ...,
         unique_for_year: str | None = ...,
-        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] = ...,
+        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] | type[IntegerChoices] = ...,
         help_text: str = ...,
         db_column: str | None = ...,
         db_comment: str | None = ...,
@@ -253,9 +254,10 @@ class PositiveSmallIntegerField(PositiveIntegerRelDbTypeMixin, IntegerField[_I])
         unique_for_date: str | None = ...,
         unique_for_month: str | None = ...,
         unique_for_year: str | None = ...,
-        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] = ...,
+        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] | type[IntegerChoices] = ...,
         help_text: str = ...,
         db_column: str | None = ...,
+        db_comment: str | None = ...,
         db_tablespace: str | None = ...,
         validators: Iterable[_ValidatorCallable] = ...,
         error_messages: _ErrorMessagesToOverride | None = ...,
@@ -280,7 +282,7 @@ class PositiveSmallIntegerField(PositiveIntegerRelDbTypeMixin, IntegerField[_I])
         unique_for_date: str | None = ...,
         unique_for_month: str | None = ...,
         unique_for_year: str | None = ...,
-        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] = ...,
+        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]]  | type[IntegerChoices]= ...,
         help_text: str = ...,
         db_column: str | None = ...,
         db_comment: str | None = ...,
@@ -310,7 +312,7 @@ class SmallIntegerField(IntegerField[_I]):
         unique_for_date: str | None = ...,
         unique_for_month: str | None = ...,
         unique_for_year: str | None = ...,
-        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] = ...,
+        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]]  | type[IntegerChoices]= ...,
         help_text: str = ...,
         db_column: str | None = ...,
         db_comment: str | None = ...,
@@ -338,7 +340,7 @@ class SmallIntegerField(IntegerField[_I]):
         unique_for_date: str | None = ...,
         unique_for_month: str | None = ...,
         unique_for_year: str | None = ...,
-        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] = ...,
+        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]]  | type[IntegerChoices]= ...,
         help_text: str = ...,
         db_column: str | None = ...,
         db_comment: str | None = ...,
@@ -368,7 +370,7 @@ class BigIntegerField(IntegerField[_I]):
         unique_for_date: str | None = ...,
         unique_for_month: str | None = ...,
         unique_for_year: str | None = ...,
-        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] = ...,
+        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] | type[IntegerChoices] = ...,
         help_text: str = ...,
         db_column: str | None = ...,
         db_comment: str | None = ...,
@@ -396,7 +398,7 @@ class BigIntegerField(IntegerField[_I]):
         unique_for_date: str | None = ...,
         unique_for_month: str | None = ...,
         unique_for_year: str | None = ...,
-        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] = ...,
+        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] | type[IntegerChoices] = ...,
         help_text: str = ...,
         db_column: str | None = ...,
         db_comment: str | None = ...,
@@ -426,7 +428,7 @@ class PositiveBigIntegerField(IntegerField[_I]):
         unique_for_date: str | None = ...,
         unique_for_month: str | None = ...,
         unique_for_year: str | None = ...,
-        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] = ...,
+        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] | type[IntegerChoices] = ...,
         help_text: str = ...,
         db_column: str | None = ...,
         db_comment: str | None = ...,
@@ -454,7 +456,7 @@ class PositiveBigIntegerField(IntegerField[_I]):
         unique_for_date: str | None = ...,
         unique_for_month: str | None = ...,
         unique_for_year: str | None = ...,
-        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] = ...,
+        choices: Iterable[tuple[_I, str] | tuple[str, Iterable[tuple[_I, str]]]] | type[IntegerChoices] = ...,
         help_text: str = ...,
         db_column: str | None = ...,
         db_comment: str | None = ...,
@@ -620,7 +622,7 @@ class AutoField(AutoFieldMixin, IntegerField[int], metaclass=AutoFieldMeta):
         unique_for_year: str | None = ...,
         choices: Iterable[
             tuple[int, str] | tuple[str, Iterable[tuple[int, str]]]
-        ] = ...,
+        ] | type[IntegerChoices] = ...,
         help_text: str = ...,
         db_column: str | None = ...,
         db_comment: str | None = ...,
@@ -652,7 +654,7 @@ class BigAutoField(AutoFieldMixin, BigIntegerField[int]):
         unique_for_year: str | None = ...,
         choices: Iterable[
             tuple[int, str] | tuple[str, Iterable[tuple[int, str]]]
-        ] = ...,
+        ] | type[IntegerChoices] = ...,
         help_text: str = ...,
         db_column: str | None = ...,
         db_comment: str | None = ...,
@@ -684,7 +686,7 @@ class SmallAutoField(AutoFieldMixin, SmallIntegerField[int]):
         unique_for_year: str | None = ...,
         choices: Iterable[
             tuple[int, str] | tuple[str, Iterable[tuple[int, str]]]
-        ] = ...,
+        ] | type[IntegerChoices] = ...,
         help_text: str = ...,
         db_column: str | None = ...,
         db_comment: str | None = ...,
@@ -1055,6 +1057,7 @@ class BooleanField(Generic[_B], Field[_B | Combinable, _B]):
         choices: Iterable[tuple[_B, str] | tuple[str, Iterable[tuple[_B, str]]]] = ...,
         help_text: str = ...,
         db_column: str | None = ...,
+        db_comment: str | None = ...,
         db_tablespace: str | None = ...,
         validators: Iterable[_ValidatorCallable] = ...,
         error_messages: _ErrorMessagesToOverride | None = ...,

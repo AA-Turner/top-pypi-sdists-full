@@ -132,7 +132,7 @@ class ThreadsClient:
 
     def stop(self, thread_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> ThreadStopResponseOut:
         """
-        Stop a running thread execution. This will stop the thread if it is currently running and mark it as stopped.
+        Stop a running thread execution. This will stop the thread if it is currently running and mark it as cancelled.
 
         Parameters
         ----------
@@ -145,7 +145,7 @@ class ThreadsClient:
         Returns
         -------
         ThreadStopResponseOut
-            Thread stopped successfully
+            Thread cancelled successfully
 
         Examples
         --------
@@ -306,7 +306,7 @@ class AsyncThreadsClient:
         self, thread_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ThreadStopResponseOut:
         """
-        Stop a running thread execution. This will stop the thread if it is currently running and mark it as stopped.
+        Stop a running thread execution. This will stop the thread if it is currently running and mark it as cancelled.
 
         Parameters
         ----------
@@ -319,7 +319,7 @@ class AsyncThreadsClient:
         Returns
         -------
         ThreadStopResponseOut
-            Thread stopped successfully
+            Thread cancelled successfully
 
         Examples
         --------

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "MAPIE"
-version = "1.2.1"
+version = "1.3.0"
 description = "A scikit-learn-compatible module for estimating prediction intervals."
 readme = "README.rst"
 license = "BSD-3-Clause"
@@ -19,8 +19,8 @@ maintainers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-    "numpy>=1.24.1,<2.4",
-    "scikit-learn>=1.4,<1.8",
+    "numpy>=1.24.1",
+    "scikit-learn>=1.4",
     "scipy>=1.10",
 ]
 classifiers = [
@@ -52,7 +52,7 @@ dev = [
     "bump2version==1.0.1",
     "build==1.3.0",
     "codecov==2.1.13",
-    "mypy<1.15",
+    "mypy==1.19.1",
     "pandas==2.3.3",
     "pytest==8.4.2",
     "pytest-cov==7.0.0",
@@ -61,19 +61,25 @@ dev = [
     "wheel==0.45.1",
 ]
 docs = [
-    "lightgbm==4.4.0",
+    "lightgbm==4.6.0",
     "matplotlib==3.9.4",
     "numpydoc==1.9.0",
     "pandas==2.3.3",
     "sphinx==7.4.7",
     "sphinx-gallery==0.19.0",
     "sphinx_rtd_theme==3.0.2",
-    "typing_extensions==4.0.1",
+    "typing_extensions==4.15.0",
+    "torch>=2.1",
+    "pytorch-lightning>=2.0",
+    "albumentations>=1.4",
+    "opencv-python>=4.8",
+    "huggingface-hub>=0.20",
+    "tqdm>=4.66",
 ]
 notebooks = [
     "ipykernel==6.31.0",
     "jupyter==1.1.1",
-    "jupyterlab==4.4.10",
+    "jupyterlab==4.5.0",
     "jupytext==1.18.1",
     "matplotlib==3.9.4",
     "nbconvert==7.16.6",
@@ -83,6 +89,7 @@ notebooks = [
     "tensorflow==2.20.0",
     "tensorflow_datasets==4.8.3",
     "xgboost==2.1.4",
+    "plotly==6.5.0",
 ]
 
 [tool.setuptools]

@@ -109,28 +109,28 @@ class StructuredWave(AcousticField):
         try:
             super().__init__(**kwargs)
             self.waveType = WaveType.StructuredWave
-            if  self.params['Nt'] is None:
+            if  self.params.general['Nt'] is None:
                 self.kgrid.setTime(int(self.kgrid.Nt*1.5),self.kgrid.dt) # Extend the time grid to allow for delays
             if space_0 is not None and space_1 is not None and move_head_0_2tail is not None and move_tail_1_2head is not None and angle_deg is not None:
-                self.pattern = self.PatternParams(space_0, space_1, move_head_0_2tail, move_tail_1_2head, self.params['num_elements'] // 4)
+                self.pattern = self.PatternParams(space_0, space_1, move_head_0_2tail, move_tail_1_2head, self.params.acoustic['probe']['num_elements'] // 4)
                 self.angle = angle_deg
                 self.pattern.activeList = self.pattern.generate_pattern()
             elif fileName is not None:
-                self.pattern = self.PatternParams(0,0,0,0,self.params['num_elements'] // 4)
+                self.pattern = self.PatternParams(0,0,0,0,self.params.acoustic['probe']['num_elements'] // 4)
                 self.pattern.space_0, self.pattern.space_1 = detect_space_0_and_space_1(fileName.split('_')[0])
                 self.angle = getAngle(fileName)
                 self.pattern.activeList = fileName.split('_')[0]
             else:
                 raise ValueError("Invalid pattern parameters, must provide either fileName or all space/move parameters.")
             
-            self.pattern.len_hex = self.params['num_elements'] // 4
+            self.pattern.len_hex = self.params.acoustic['probe']['num_elements'] // 4
             self.f_s = self._getDecimationFrequency()
 
             if self.angle < -20 or self.angle > 20:
                 raise ValueError("Angle must be between -20 and 20 degrees.")
 
-            if len(self.pattern.activeList) != self.params["num_elements"] // 4:
-                raise ValueError(f"Active list string must be {self.params['num_elements'] // 4} characters long.")
+            if len(self.pattern.activeList) != self.params.acoustic['probe']['num_elements'] // 4:
+                raise ValueError(f"Active list string must be {self.params.acoustic['probe']['num_elements'] // 4} characters long.")
             self.delayedSignal = self._apply_delay()
         except Exception as e:
             print(f"Error initializing StructuredWave: {e}")
@@ -158,20 +158,20 @@ class StructuredWave(AcousticField):
                 int: Decimation frequency.
             """
             try:
-                profile = hex_to_binary_profile(self.getName_field()[6:-4], self.params['num_elements'])
+                profile = hex_to_binary_profile(self.getName_field()[6:-4], self.params.acoustic['probe']['num_elements'])
 
                 if set(self.getName_field()[6:-4].lower().replace(" ", "")) == {'f'}:
                     fs_key = 0.0 # fs_key est en mm^-1 (0.0 mm^-1)
                 else:   
                     ft_prof = np.fft.fft(profile)
                     idx_max = np.argmax(np.abs(ft_prof[1:len(profile)//2])) + 1
-                    freqs = np.fft.fftfreq(len(profile), d=self.params['dx'])
+                    freqs = np.fft.fftfreq(len(profile), d=self.params.general['dx'])
 
                     # freqs est en m^-1 car delta_x est en mètres.
                     fs_m_inv = abs(freqs[idx_max]) 
 
                     fs_key = fs_m_inv # Fréquence spatiale en mm^-1
-                return  int(fs_key / (1/(len(profile)*self.params['dx'])))
+                return  int(fs_key / (1/(len(profile)*self.params.general['dx'])))
             except Exception as e:
                 print(f"Error calculating decimation frequency: {e}")
                 return None
@@ -200,12 +200,12 @@ class StructuredWave(AcousticField):
         try:
             is_positive = self.angle >= 0
             if dx is None:
-                dx = self.params['dx']
+                dx = self.params.general['dx']
             if c0 is None:
-                c0 = self.params['c0']
+                c0 = self.params.acoustic['medium']['c0']
             actual_dt = dt if dt is not None else self.kgrid.dt
             # Calculate the total number of grid points for all elements
-            total_grid_points = self.params['num_elements'] * int(round(self.params['element_width'] / dx))
+            total_grid_points = self.params.acoustic['probe']['num_elements'] * int(round(self.params.acoustic['probe']['element_width'] / dx))
 
             # Initialize delays array with size total_grid_points
             delays = np.zeros(total_grid_points)
@@ -242,9 +242,9 @@ class StructuredWave(AcousticField):
         try:
             # Find the index of the maximum for each delayed signal
             max_indices = np.argmax(self.delayedSignal, axis=1)
-            element_indices = np.linspace(0, self.params['num_elements'] - 1, self.delayedSignal.shape[0])
+            element_indices = np.linspace(0, self.params.acoustic['probe']['num_elements'] - 1, self.delayedSignal.shape[0])
             # Convert indices to time
-            max_times = max_indices / self.params['f_AQ']
+            max_times = max_indices / self.params.acoustic['f_AQ']
 
             # Plot the times of the maxima
             plt.figure(figsize=(10, 6))
@@ -265,7 +265,7 @@ class StructuredWave(AcousticField):
             pathFolder (str): Path to the folder where files will be saved.
         """
         try:
-            t_ex = 1 / self.params['f_US']
+            t_ex = 1 / self.params.acoustic['f_US']
             angle_sign = '1' if self.angle < 0 else '0'
             formatted_angle = f"{angle_sign}{abs(self.angle):02d}"
 
@@ -286,8 +286,8 @@ class StructuredWave(AcousticField):
                 f"voxels number transaxial: {self.field.shape[2]}\n"
                 f"voxels number transaxial 2: {self.field.shape[1]}\n"
                 f"voxels number axial: {1}\n"
-                f"field of view transaxial: {(self.params['Xrange'][1] - self.params['Xrange'][0]) * 1000}\n"
-                f"field of view transaxial 2: {(self.params['Zrange'][1] - self.params['Zrange'][0]) * 1000}\n"
+                f"field of view transaxial: {(self.params.general['Xrange'][1] - self.params.general['Xrange'][0]) * 1000}\n"
+                f"field of view transaxial 2: {(self.params.general['Zrange'][1] - self.params.general['Zrange'][0]) * 1000}\n"
                 f"field of view axial: {1}\n"
             )
 
@@ -309,11 +309,11 @@ class StructuredWave(AcousticField):
                 f"!matrix size [3] := {self.field.shape[0]}\n"
                 f"!number format := short float\n"
                 f"!number of bytes per pixel := 4\n"
-                f"scaling factor (mm/pixel) [1] := {self.params['dx'] * 1000}\n"
-                f"scaling factor (mm/pixel) [2] := {self.params['dz'] * 1000}\n"
-                f"scaling factor (s/pixel) [3] := {1 / self.params['f_saving']}\n"
-                f"first pixel offset (mm) [1] := {self.params['Xrange'][0] * 1e3}\n"
-                f"first pixel offset (mm) [2] := {self.params['Zrange'][0] * 1e3}\n"
+                f"scaling factor (mm/pixel) [1] := {self.params.general['dx'] * 1000}\n"
+                f"scaling factor (mm/pixel) [2] := {self.params.general['dz'] * 1000}\n"
+                f"scaling factor (s/pixel) [3] := {1 / self.params.general['f_saving']}\n"
+                f"first pixel offset (mm) [1] := {self.params.general['Xrange'][0] * 1e3}\n"
+                f"first pixel offset (mm) [2] := {self.params.general['Zrange'][0] * 1e3}\n"
                 f"first pixel offset (s) [3] := 0\n"
                 f"data rescale offset := 0\n"
                 f"data rescale slope := 1\n"
@@ -321,9 +321,9 @@ class StructuredWave(AcousticField):
                 f"!SPECIFIC PARAMETERS :=\n"
                 f"angle (degree) := {self.angle}\n"
                 f"activation list := {''.join(f'{int(self.pattern.activeList[i:i+2], 16):08b}' for i in range(0, len(self.pattern.activeList), 2))}\n"
-                f"number of US transducers := {self.params['num_elements']}\n"
+                f"number of US transducers := {self.params.acoustic['probe']['num_elements']}\n"
                 f"delay (s) := 0\n"
-                f"us frequency (Hz) := {self.params['f_US']}\n"
+                f"us frequency (Hz) := {self.params.acoustic['f_US']}\n"
                 f"excitation duration (s) := {t_ex}\n"
                 f"!END OF INTERFILE :=\n"
             )
@@ -340,12 +340,12 @@ class StructuredWave(AcousticField):
         active_list = np.array([int(char) for char in ''.join(f"{int(self.pattern.activeList[i:i+2], 16):08b}" for i in range(0, len(self.pattern.activeList), 2))])
         
         # Largeur d'un élément en pixels
-        el_width_px = int(round(self.params['element_width'] / dx))
+        el_width_px = int(round(self.params.acoustic['probe']['element_width'] / dx))
         # Largeur totale de la sonde en pixels
-        total_sonde_px = self.params['num_elements'] * el_width_px
+        total_sonde_px = self.params.acoustic['probe']['num_elements'] * el_width_px
         
         # On récupère pva_nx depuis l'appel ou on le recalcule
-        pva_nx = int(np.round(self.params['width_phantom'] / dx))
+        pva_nx = int(np.round(self.params.acoustic['medium']['width'] / dx))
         air_margin = (Nx - pva_nx) // 2
         
         # Position de départ pour que la sonde soit centrée sur le PHANTOM
@@ -354,7 +354,7 @@ class StructuredWave(AcousticField):
 
         activeListGrid = np.zeros(total_sonde_px, dtype=int)
 
-        for i in range(self.params['num_elements']):
+        for i in range(self.params.acoustic['probe']['num_elements']):
             if active_list[i] == 1:
                 x_start = current_position
                 x_end = x_start + el_width_px
@@ -376,7 +376,7 @@ class StructuredWave(AcousticField):
             delayedSignal = self.delayedSignal
 
         # On injecte uniquement là où p_mask == 1
-        source.p = float(self.params['voltage']) * float(self.params['sensitivity']) * delayedSignal[activeListGrid == 1, :]
+        source.p = float(self.params.acoustic['emission']['voltage']) * float(self.params.acoustic['emission']['sensitivity']) * delayedSignal[activeListGrid == 1, :]
         return source
     
     # def _SetUpSource(self, source, Nx, dx, factorT):

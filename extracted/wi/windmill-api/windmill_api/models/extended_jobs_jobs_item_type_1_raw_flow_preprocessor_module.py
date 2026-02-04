@@ -21,6 +21,9 @@ if TYPE_CHECKING:
     from ..models.extended_jobs_jobs_item_type_1_raw_flow_preprocessor_module_sleep_type_1 import (
         ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType1,
     )
+    from ..models.extended_jobs_jobs_item_type_1_raw_flow_preprocessor_module_sleep_type_2 import (
+        ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType2,
+    )
     from ..models.extended_jobs_jobs_item_type_1_raw_flow_preprocessor_module_stop_after_all_iters_if import (
         ExtendedJobsJobsItemType1RawFlowPreprocessorModuleStopAfterAllItersIf,
     )
@@ -35,6 +38,9 @@ if TYPE_CHECKING:
     )
     from ..models.extended_jobs_jobs_item_type_1_raw_flow_preprocessor_module_timeout_type_1 import (
         ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType1,
+    )
+    from ..models.extended_jobs_jobs_item_type_1_raw_flow_preprocessor_module_timeout_type_2 import (
+        ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType2,
     )
 
 
@@ -56,12 +62,14 @@ class ExtendedJobsJobsItemType1RawFlowPreprocessorModule:
         skip_if (Union[Unset, ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSkipIf]): Conditionally skip this step
             based on previous results or flow inputs
         sleep (Union['ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType0',
-            'ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType1', Unset]): Maps input parameters for a step. Can
+            'ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType1',
+            'ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType2', Unset]): Maps input parameters for a step. Can
             be a static value or a JavaScript expression that references previous results or flow inputs
         cache_ttl (Union[Unset, float]): Cache duration in seconds for this step's results
         cache_ignore_s3_path (Union[Unset, bool]):
         timeout (Union['ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType0',
-            'ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType1', Unset]): Maps input parameters for a step. Can
+            'ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType1',
+            'ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType2', Unset]): Maps input parameters for a step. Can
             be a static value or a JavaScript expression that references previous results or flow inputs
         delete_after_use (Union[Unset, bool]): If true, this step's result is deleted after use to save memory
         summary (Union[Unset, str]): Short description of what this step does
@@ -85,6 +93,7 @@ class ExtendedJobsJobsItemType1RawFlowPreprocessorModule:
     sleep: Union[
         "ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType0",
         "ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType1",
+        "ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType2",
         Unset,
     ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
@@ -92,6 +101,7 @@ class ExtendedJobsJobsItemType1RawFlowPreprocessorModule:
     timeout: Union[
         "ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType0",
         "ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType1",
+        "ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType2",
         Unset,
     ] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
@@ -107,8 +117,14 @@ class ExtendedJobsJobsItemType1RawFlowPreprocessorModule:
         from ..models.extended_jobs_jobs_item_type_1_raw_flow_preprocessor_module_sleep_type_0 import (
             ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType0,
         )
+        from ..models.extended_jobs_jobs_item_type_1_raw_flow_preprocessor_module_sleep_type_1 import (
+            ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType1,
+        )
         from ..models.extended_jobs_jobs_item_type_1_raw_flow_preprocessor_module_timeout_type_0 import (
             ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType0,
+        )
+        from ..models.extended_jobs_jobs_item_type_1_raw_flow_preprocessor_module_timeout_type_1 import (
+            ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType1,
         )
 
         id = self.id
@@ -134,6 +150,11 @@ class ExtendedJobsJobsItemType1RawFlowPreprocessorModule:
             if not isinstance(self.sleep, Unset):
                 sleep = self.sleep.to_dict()
 
+        elif isinstance(self.sleep, ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType1):
+            sleep = UNSET
+            if not isinstance(self.sleep, Unset):
+                sleep = self.sleep.to_dict()
+
         else:
             sleep = UNSET
             if not isinstance(self.sleep, Unset):
@@ -146,6 +167,11 @@ class ExtendedJobsJobsItemType1RawFlowPreprocessorModule:
             timeout = UNSET
 
         elif isinstance(self.timeout, ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType0):
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
+        elif isinstance(self.timeout, ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType1):
             timeout = UNSET
             if not isinstance(self.timeout, Unset):
                 timeout = self.timeout.to_dict()
@@ -227,6 +253,9 @@ class ExtendedJobsJobsItemType1RawFlowPreprocessorModule:
         from ..models.extended_jobs_jobs_item_type_1_raw_flow_preprocessor_module_sleep_type_1 import (
             ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType1,
         )
+        from ..models.extended_jobs_jobs_item_type_1_raw_flow_preprocessor_module_sleep_type_2 import (
+            ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType2,
+        )
         from ..models.extended_jobs_jobs_item_type_1_raw_flow_preprocessor_module_stop_after_all_iters_if import (
             ExtendedJobsJobsItemType1RawFlowPreprocessorModuleStopAfterAllItersIf,
         )
@@ -241,6 +270,9 @@ class ExtendedJobsJobsItemType1RawFlowPreprocessorModule:
         )
         from ..models.extended_jobs_jobs_item_type_1_raw_flow_preprocessor_module_timeout_type_1 import (
             ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType1,
+        )
+        from ..models.extended_jobs_jobs_item_type_1_raw_flow_preprocessor_module_timeout_type_2 import (
+            ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType2,
         )
 
         d = src_dict.copy()
@@ -276,6 +308,7 @@ class ExtendedJobsJobsItemType1RawFlowPreprocessorModule:
         ) -> Union[
             "ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType0",
             "ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType1",
+            "ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType2",
             Unset,
         ]:
             if isinstance(data, Unset):
@@ -293,16 +326,29 @@ class ExtendedJobsJobsItemType1RawFlowPreprocessorModule:
                 return sleep_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _sleep_type_1 = data
+                sleep_type_1: Union[Unset, ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType1]
+                if isinstance(_sleep_type_1, Unset):
+                    sleep_type_1 = UNSET
+                else:
+                    sleep_type_1 = ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType1.from_dict(_sleep_type_1)
+
+                return sleep_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _sleep_type_1 = data
-            sleep_type_1: Union[Unset, ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType1]
-            if isinstance(_sleep_type_1, Unset):
-                sleep_type_1 = UNSET
+            _sleep_type_2 = data
+            sleep_type_2: Union[Unset, ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType2]
+            if isinstance(_sleep_type_2, Unset):
+                sleep_type_2 = UNSET
             else:
-                sleep_type_1 = ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType1.from_dict(_sleep_type_1)
+                sleep_type_2 = ExtendedJobsJobsItemType1RawFlowPreprocessorModuleSleepType2.from_dict(_sleep_type_2)
 
-            return sleep_type_1
+            return sleep_type_2
 
         sleep = _parse_sleep(d.pop("sleep", UNSET))
 
@@ -315,6 +361,7 @@ class ExtendedJobsJobsItemType1RawFlowPreprocessorModule:
         ) -> Union[
             "ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType0",
             "ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType1",
+            "ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType2",
             Unset,
         ]:
             if isinstance(data, Unset):
@@ -334,18 +381,33 @@ class ExtendedJobsJobsItemType1RawFlowPreprocessorModule:
                 return timeout_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _timeout_type_1 = data
+                timeout_type_1: Union[Unset, ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType1]
+                if isinstance(_timeout_type_1, Unset):
+                    timeout_type_1 = UNSET
+                else:
+                    timeout_type_1 = ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType1.from_dict(
+                        _timeout_type_1
+                    )
+
+                return timeout_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _timeout_type_1 = data
-            timeout_type_1: Union[Unset, ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType1]
-            if isinstance(_timeout_type_1, Unset):
-                timeout_type_1 = UNSET
+            _timeout_type_2 = data
+            timeout_type_2: Union[Unset, ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType2]
+            if isinstance(_timeout_type_2, Unset):
+                timeout_type_2 = UNSET
             else:
-                timeout_type_1 = ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType1.from_dict(
-                    _timeout_type_1
+                timeout_type_2 = ExtendedJobsJobsItemType1RawFlowPreprocessorModuleTimeoutType2.from_dict(
+                    _timeout_type_2
                 )
 
-            return timeout_type_1
+            return timeout_type_2
 
         timeout = _parse_timeout(d.pop("timeout", UNSET))
 

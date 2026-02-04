@@ -11,7 +11,6 @@ from exponent.core.remote_execution.utils import format_error_log
 
 if TYPE_CHECKING:
     from exponent.core.config import Settings
-    from exponent.core.remote_execution.languages.python_execution import Kernel
 
 logger = logging.getLogger(__name__)
 
@@ -41,15 +40,12 @@ class SessionLog:
 
 
 class RemoteExecutionClientSession:
-    _kernel: "Kernel | None"
-
     def __init__(
         self, working_directory: str, base_url: str, base_ws_url: str, api_key: str
     ):
         self.chat_uuid: str | None = None
 
         self.working_directory = working_directory
-        self._kernel = None
         self.api_log = SessionLog()
 
         self.api_client = AsyncClient(
@@ -72,16 +68,6 @@ class RemoteExecutionClientSession:
 
     def set_chat_uuid(self, chat_uuid: str) -> None:
         self.chat_uuid = chat_uuid
-
-    @property
-    def kernel(self) -> "Kernel":
-        if self._kernel is None:
-            from exponent.core.remote_execution.languages.python_execution import (
-                Kernel,
-            )
-
-            self._kernel = Kernel(working_directory=self.working_directory)
-        return self._kernel
 
 
 async def send_exception_log(
@@ -136,6 +122,4 @@ async def get_session(
         await send_exception_log(exc, session=session, settings=None)
         raise ExponentError(str(exc))
     finally:
-        if session._kernel is not None:
-            session._kernel.close()
         await session.api_client.aclose()

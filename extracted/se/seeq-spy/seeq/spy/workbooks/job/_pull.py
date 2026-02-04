@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import types
+from pathlib import Path
 from typing import Dict, Optional, Union
 
 import pandas as pd
@@ -14,13 +15,19 @@ from seeq.spy._session import Session
 from seeq.spy._status import Status
 
 
-@Status.handle_keyboard_interrupt()
-def pull(job_folder: str, workbooks_df: Union[pd.DataFrame, str], *, resume: bool = True,
-         include_referenced_workbooks: bool = True,
-         include_rendered_content: bool = False,
-         errors: Optional[str] = None, quiet: Optional[bool] = None,
-         status: Optional[Status] = None,
-         session: Optional[Session] = None) -> pd.DataFrame:
+@Status.top_level_spy_function()
+def pull(
+    job_folder: Union[str, Path],
+    workbooks_df: Union[pd.DataFrame, str],
+    *,
+    resume: bool = True,
+    include_referenced_workbooks: bool = True,
+    include_rendered_content: bool = False,
+    errors: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None
+) -> pd.DataFrame:
     """
     Pulls the definitions for each workbook specified by workbooks_df on to
     disk, in a restartable "job"-like fashion.
@@ -78,22 +85,11 @@ def pull(job_folder: str, workbooks_df: Union[pd.DataFrame, str], *, resume: boo
         Seeq servers at the same time or with different credentials.
 
     """
+    input_args = locals()
+
     # Jobs always write the log file, even if the user doesn't want verbose
     default_log_file = os.path.join(job_folder, 'pull_log.txt')
-
-    function_name = 'spy.workbooks.job.pull'
-    input_args = Status.function_prologue(
-        session, status, function_name, [
-            (job_folder, 'job_folder', str),
-            (workbooks_df, 'workbooks_df', (pd.DataFrame, str)),
-            (resume, 'resume', bool),
-            (include_referenced_workbooks, 'include_referenced_workbooks', bool),
-            (include_rendered_content, 'include_rendered_content', bool),
-            (errors, 'errors', str),
-            (quiet, 'quiet', bool),
-            (status, 'status', Status),
-            (session, 'session', Session)
-        ], default_log_file=default_log_file)
+    status.validate_verbose(None, default_log_file)
 
     util.safe_makedirs(job_folder, exist_ok=True)
 
@@ -166,7 +162,7 @@ def pull(job_folder: str, workbooks_df: Union[pd.DataFrame, str], *, resume: boo
     results_df = status.df.copy()
 
     results_df_properties = types.SimpleNamespace(
-        func=function_name,
+        func='spy.workbooks.job.pull',
         kwargs=input_args,
         status=status)
 

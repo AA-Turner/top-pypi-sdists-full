@@ -148,6 +148,28 @@ def _handle_grpc_error(error: AioRpcError) -> None:
     )
 
 
+def transform_grpc_error_event(message_bytes: bytes | None) -> bytes | None:
+    """Transform error events from gRPC format to older Python format.
+
+    Converts {"status_code": ..., "message": ...} to HTTPException format.
+    Returns original message if transformation fails or is not applicable.
+    """
+    if not message_bytes:
+        return message_bytes
+    try:
+        error_data = orjson.loads(message_bytes)
+        if "status_code" in error_data and "message" in error_data:
+            return json_dumpb(
+                HTTPException(
+                    status_code=error_data["status_code"],
+                    detail=error_data["message"],
+                )
+            )
+    except Exception:
+        pass  # Keep original message if transformation fails
+    return message_bytes
+
+
 def _serialize_filter_value(value: Any) -> str:
     """Serialize a filter value to a valid JSON string for JSONB comparison.
 

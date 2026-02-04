@@ -16,7 +16,6 @@ from wfdb.io import header
 from wfdb.io import util
 from wfdb.io._coreio import CLOUD_PROTOCOLS
 
-
 # -------------- WFDB Signal Calibration and Classification ---------- #
 
 
@@ -712,11 +711,9 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
         must be set, but not both. In addition, if d_signal is set, fmt, gain
         and baseline must also all be set.
     e_p_signal : ndarray, optional
-        The expanded physical conversion of the signal. Either a 2d numpy
-        array or a list of 1d numpy arrays.
+        The expanded physical conversion of the signal as a list of 1d numpy arrays.
     e_d_signal : ndarray, optional
-        The expanded digital conversion of the signal. Either a 2d numpy
-        array or a list of 1d numpy arrays.
+        The expanded digital conversion of the signal as a list of 1d numpy arrays.
     record_name : str, optional
         The name of the WFDB record to be read, without any file
         extensions. If the argument contains any path delimiter
@@ -1160,13 +1157,17 @@ class MultiRecord(BaseRecord, _header.MultiHeaderMixin):
             if not seg_len:
                 self.seg_len = [segment.sig_len for segment in segments]
 
-    def wrsamp(self, write_dir=""):
+    def wrsamp(self, expanded=False, write_dir=""):
         """
         Write a multi-segment header, along with headers and dat files
         for all segments, from this object.
 
         Parameters
         ----------
+        expanded : bool, optional
+            Whether to write each segment's expanded signal (`e_d_signal`)
+            instead of the uniform signal (`d_signal`). This flag is passed
+            through to each segment's `Record.wrsamp()` call.
         write_dir : str, optional
             The directory in which to write the files.
 
@@ -1181,7 +1182,7 @@ class MultiRecord(BaseRecord, _header.MultiHeaderMixin):
         # Perform record validity and cohesion checks, and write the
         # associated segments.
         for seg in self.segments:
-            seg.wrsamp(write_dir=write_dir)
+            seg.wrsamp(expanded=expanded, write_dir=write_dir)
 
     def _check_segment_cohesion(self):
         """
@@ -2892,11 +2893,9 @@ def wrsamp(
         must be set, but not both. In addition, if d_signal is set, fmt, gain
         and baseline must also all be set.
     e_p_signal : ndarray, optional
-        The expanded physical conversion of the signal. Either a 2d numpy
-        array or a list of 1d numpy arrays.
+        The expanded physical conversion of the signal as a list of 1d numpy arrays.
     e_d_signal : ndarray, optional
-        The expanded digital conversion of the signal. Either a 2d numpy
-        array or a list of 1d numpy arrays.
+        The expanded digital conversion of the signal as a list of 1d numpy arrays.
     samps_per_frame : int or list of ints, optional
         The total number of samples per frame.
     fmt : list, optional

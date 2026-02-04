@@ -4,7 +4,7 @@ import inspect
 import re
 import types
 from types import ModuleType
-from typing import List, Union, Type
+from typing import List, Union, Type, Optional
 
 import pandas as pd
 
@@ -13,11 +13,19 @@ from seeq.spy._errors import *
 from seeq.spy._status import Status
 from seeq.spy.assets._context import SPyInstanceAlreadyExists
 from seeq.spy.assets._model import _AssetBase, BuildContext, BuildPhase, SPyDependencyNotBuilt
-from seeq.spy.workbooks import Workbook
+from seeq.spy.workbooks import Workbook, WorkbookList
 
 
-@Status.handle_keyboard_interrupt(errors='catalog', no_session=True)
-def build(model, metadata, *, workbooks=None, errors=None, quiet=None, status: Status = None):
+@Status.top_level_spy_function(errors='catalog', no_session=True)
+def build(
+    model: Union[ModuleType, type, List[type]],
+    metadata: pd.DataFrame,
+    *,
+    workbooks: Optional[Union[List[Workbook], WorkbookList]] = None,
+    errors: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None
+):
     """
     Utilizes a Python Class-based asset model specification to produce a set
     of item definitions as a metadata DataFrame.
@@ -36,7 +44,7 @@ def build(model, metadata, *, workbooks=None, errors=None, quiet=None, status: S
         into all Asset.Attribute() and Asset.Component() decorated class
         functions.
 
-    workbooks : {list}
+    workbooks : {list[Workbook], WorkbookList}
         The set of workbooks (usually a single AnalysisTemplate object and
         one or more TopicTemplate objects) to be used in @Display and
         @Document functions.
@@ -79,15 +87,7 @@ def build(model, metadata, *, workbooks=None, errors=None, quiet=None, status: S
                             spy.assets.build call
         =================== ===================================================
     """
-
-    input_args = _common.validate_argument_types([
-        (model, 'model', (ModuleType, type, list)),
-        (metadata, 'metadata', pd.DataFrame),
-        (workbooks, 'workbooks', list),
-        (errors, 'errors', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status)
-    ])
+    input_args = locals()
 
     status.update('Initializing', Status.RUNNING)
 

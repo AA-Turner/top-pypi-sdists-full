@@ -3,19 +3,29 @@ from __future__ import annotations
 import os
 import tempfile
 import zipfile
-from typing import Optional
+from pathlib import Path
+from typing import List, Optional, Union
 
 from seeq.base import util
 from seeq.spy import _common
 from seeq.spy._errors import *
 from seeq.spy._status import Status
-from seeq.spy.workbooks._workbook import Workbook
+from seeq.spy.workbooks._workbook import Workbook, WorkbookList
 
 
-@Status.handle_keyboard_interrupt(no_session=True)
-def save(workbooks, folder_or_zipfile: Optional[str] = None, *, datasource_map_folder: Optional[str] = None,
-         include_rendered_content: bool = False, pretty_print_html=False, overwrite: bool = False,
-         errors: Optional[str] = None, quiet: Optional[bool] = None, status: Optional[Status] = None):
+@Status.top_level_spy_function(no_session=True)
+def save(
+    workbooks: Union[Workbook, List[Workbook], WorkbookList],
+    folder_or_zipfile: Optional[Union[str, Path]] = None,
+    *,
+    datasource_map_folder: Optional[Union[str, Path]] = None,
+    include_rendered_content: bool = False,
+    pretty_print_html: bool = False,
+    overwrite: bool = False,
+    errors: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None
+):
     """
 
     Saves a list of workbooks to a folder on disk from Workbook objects in
@@ -23,8 +33,8 @@ def save(workbooks, folder_or_zipfile: Optional[str] = None, *, datasource_map_f
 
     Parameters
     ----------
-    workbooks : {Workbook, list[Workbook]}
-        A Workbook object or list of Workbook objects to save.
+    workbooks : {Workbook, list[Workbook], WorkbookList}
+        A Workbook object, list of Workbook objects, or WorkbookList to save.
 
     folder_or_zipfile : str, default os.getcwd()
         A folder or zip file on disk to which to save the workbooks. It will
@@ -70,18 +80,6 @@ def save(workbooks, folder_or_zipfile: Optional[str] = None, *, datasource_map_f
         in Jupyter in the blue/green/red table below your code while the
         command is executed.
     """
-    _common.validate_argument_types([
-        (workbooks, 'workbooks', (Workbook, list)),
-        (folder_or_zipfile, 'folder_or_zipfile', str),
-        (datasource_map_folder, 'datasource_map_folder', str),
-        (include_rendered_content, 'included_rendered_content', bool),
-        (pretty_print_html, 'pretty_print_html', bool),
-        (overwrite, 'overwrite', bool),
-        (errors, 'errors', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status)
-    ])
-
     if not folder_or_zipfile:
         folder_or_zipfile = os.getcwd()
 

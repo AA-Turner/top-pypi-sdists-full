@@ -1,3 +1,4 @@
+import ipaddress
 import socket
 
 MY_HOST = None
@@ -22,3 +23,10 @@ def get_ip_from_hostname(hostname):
         return socket.gethostbyname(hostname)
     except socket.gaierror:
         return None
+
+def is_valid_ip(ip_string):
+    try:
+        ipaddress.ip_address(ip_string)
+        return True
+    except ValueError:
+        return False

@@ -2,30 +2,31 @@ from __future__ import annotations
 
 import warnings
 from itertools import chain
-from typing import Iterable, Optional, Sequence, Tuple, Union, cast
+from typing import Callable, Iterable, Optional, Sequence, Union, cast
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
-from sklearn.base import BaseEstimator, ClassifierMixin
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
-from sklearn.multioutput import MultiOutputClassifier
-from sklearn.pipeline import Pipeline
 from sklearn.utils import check_random_state
-from sklearn.utils.validation import _check_y, _num_samples, check_is_fitted, indexable
+from sklearn.utils.validation import _num_samples, indexable
 
-from mapie.utils import _check_alpha, _check_n_jobs, _check_verbose
+from mapie.utils import (
+    _check_alpha,
+    _check_n_jobs,
+    _check_verbose,
+    check_is_fitted,
+    check_valid_ltt_params_index,
+)
 
 from .methods import (
-    find_lambda_star,
-    find_precision_lambda_star,
+    find_best_predict_param,
+    find_precision_best_predict_param,
     get_r_hat_plus,
     ltt_procedure,
 )
-from .risks import compute_risk_precision, compute_risk_recall
+from .risks import precision, recall
 
 
-class PrecisionRecallController(BaseEstimator, ClassifierMixin):
+class MultiLabelClassificationController:
     """
     Prediction sets for multilabel-classification.
 
@@ -37,23 +38,49 @@ class PrecisionRecallController(BaseEstimator, ClassifierMixin):
 
     Parameters
     ----------
-    estimator : Optional[ClassifierMixin]
-        Any fitted multi-label classifier with scikit-learn API
-        (i.e. with fit, predict, and predict_proba methods).
-        If ``None``, estimator by default is a sklearn LogisticRegression
-        instance.
+    predict_function : Callable[[ArrayLike], Union[list[NDArray], NDArray]]
+        predict_proba method of a fitted multi-label classifier.
+        It can return either:
+        - a list of arrays of length n_classes where each array is of shape
+        (n_samples, 2) with probabilities of the negative and positive class
+        (as output by ``MultiOutputClassifier``), or
+        - an ndarray of shape (n_samples, n_classes) or (n_samples, n_classes, 2)
+        containing positive probabilities, or positive and negative probabilities
+        (assuming last dimension is [neg, pos]).
 
-         by default ``None``
-
-    metric_control : Optional[str]
-        Metric to control. Either "recall" or "precision".
-        By default ``recall``.
+    risk : str
+        The risk metric to control ("precision" or "recall").
+        The selected risk determines which conformal prediction methods are valid:
+        - "precision" implies that method must be "ltt"
+        - "recall" implies that method can be "crc" (default) or "rcps"
 
     method : Optional[str]
-        Method to use for the prediction sets. If `metric_control` is
-        "recall", then the method can be either "crc" (default) or "rcps".
-        If `metric_control` is "precision", then the method used to control
-        the precision is "ltt".
+        Method to use for the prediction . If `risk` is
+        "recall", the method can be either "crc" (default) or "rcps".
+        If `risk` is "precision", the method used is "ltt".
+        If ``None``, the default is "crc" for recall and "ltt" for precision.
+
+    target_level : Optional[Union[float, Iterable[float]]]
+        The minimum performance level for the metric. Must be between 0 and 1.
+        Can be a float or any iterable of floats.
+        By default ``0.9``.
+
+    confidence_level : Optional[float]
+        Can be a float, or ``None``. If using method="rcps" or method="ltt"
+        (precision control), then it cannot be set to ``None`` and must lie in
+        (0, 1). Between 0 and 1, the level of certainty at which we compute
+        the Upper Confidence Bound of the average risk. Higher ``confidence_level``
+        produce larger (more conservative) prediction sets. By default ``None``.
+
+    rcps_bound : Optional[Union[str, ``None``]]
+        Method used to compute the Upper Confidence Bound of the
+        average risk. Only necessary with the RCPS method. If provided when
+        using CRC or LTT it is ignored and a warning is raised. By default ``None``.
+    predict_params : Optional[ArrayLike]
+        Array of parameters (thresholds λ) to consider for controlling the risk.
+        Defaults to np.arange(0, 1, 0.01). Length is used to set
+        ``n_predict_params``.
+
 
     n_jobs: Optional[int]
         Number of jobs for parallel processing using joblib
@@ -90,36 +117,42 @@ class PrecisionRecallController(BaseEstimator, ClassifierMixin):
         List of all valid methods. Either CRC or RCPS
     valid_bounds: List[Union[str, ``None``]]
         List of all valid bounds computation for RCPS only.
-    single_estimator_ : sklearn.ClassifierMixin
-        Estimator fitted on the whole training set.
 
-    n_lambdas: int
+    n_predict_params: int
         Number of thresholds on which we compute the risk.
 
-    lambdas: NDArray
-        Array with all the values of lambda.
+    predict_params: NDArray
+        Array of parameters (noted λ in [3]) to consider for controlling the risk.
 
-    risks : ArrayLike of shape (n_samples_cal, n_lambdas)
+    risks : ArrayLike of shape (n_samples_cal, n_predict_params)
         The risk for each observation for each threshold
 
-    r_hat : ArrayLike of shape (n_lambdas)
-        Average risk for each lambda
+    r_hat : ArrayLike of shape (n_predict_params)
+        Average risk for each predict_param
 
-    r_hat_plus: ArrayLike of shape (n_lambdas)
-        Upper confidence bound for each lambda, computed
-        with different bounds (see predict). Only relevant when
+    r_hat_plus: ArrayLike of shape (n_predict_params)
+        Upper confidence bound for each predict_param, computed
+        with different bounds. Only relevant when
         method="rcps".
 
-    lambdas_star: ArrayLike of shape (n_lambdas)
+    best_predict_param: NDArray of shape (n_alpha)
         Optimal threshold for a given alpha.
 
     valid_index: List[List[Any]]
         List of list of all index that satisfy fwer controlling.
         This attribute is computed when the user wants to
         control precision score.
-        Only relevant when metric_control="precision" as it uses
+        Only relevant when risk="precision" as it uses
         learn then test (ltt) procedure.
-        Contains n_alpha lists (see predict).
+        Contains n_alpha lists.
+
+    valid_predict_params: List[List[Any]]
+        List of list of all thresholds that satisfy fwer controlling.
+        This attribute is computed when the user wants to
+        control precision score.
+        Only relevant when risk="precision" as it uses
+        learn then test (ltt) procedure.
+        Contains n_alpha lists.
 
      sigma_init : Optional[float]
         First variance in the sigma_hat array. The default
@@ -127,7 +160,7 @@ class PrecisionRecallController(BaseEstimator, ClassifierMixin):
 
     References
     ----------
-    [1] Lihua Lei Jitendra Malik Stephen Bates, Anastasios Angelopoulos,
+    [1] Stephen Bates, Anastasios Angelopoulos, Lihua Lei, Jitendra Malik,
     and Michael I. Jordan. Distribution-free, risk-controlling prediction
     sets. CoRR, abs/2101.02703, 2021.
     URL https://arxiv.org/abs/2101.02703
@@ -144,44 +177,93 @@ class PrecisionRecallController(BaseEstimator, ClassifierMixin):
     >>> import numpy as np
     >>> from sklearn.multioutput import MultiOutputClassifier
     >>> from sklearn.linear_model import LogisticRegression
-    >>> from mapie.risk_control import PrecisionRecallController
+    >>> from mapie.risk_control import MultiLabelClassificationController
     >>> X_toy = np.arange(4).reshape(-1, 1)
     >>> y_toy = np.stack([[1, 0, 1], [1, 0, 0], [0, 1, 1], [0, 1, 0]])
     >>> clf = MultiOutputClassifier(LogisticRegression()).fit(X_toy, y_toy)
-    >>> mapie = PrecisionRecallController(estimator=clf).fit(X_toy, y_toy)
-    >>> _, y_pi_mapie = mapie.predict(X_toy, alpha=0.3)
+    >>> mapie_clf = MultiLabelClassificationController(predict_function=clf.predict_proba, target_level=0.7).calibrate(X_toy, y_toy)
+    >>> y_pi_mapie = mapie_clf.predict(X_toy)
     >>> print(y_pi_mapie[:, :, 0])
     [[ True False  True]
      [ True False  True]
-     [False  True False]
+     [False  True  True]
      [False  True False]]
     """
 
-    valid_methods_by_metric_ = {"precision": ["ltt"], "recall": ["rcps", "crc"]}
+    risk_choice_map = {
+        "precision": precision,
+        "recall": recall,
+    }
+
+    valid_methods_by_metric_ = {"precision": ["ltt"], "recall": ["crc", "rcps"]}
     valid_methods = list(chain(*valid_methods_by_metric_.values()))
     valid_metric_ = list(valid_methods_by_metric_.keys())
     valid_bounds_ = ["hoeffding", "bernstein", "wsr", None]
-    lambdas = np.arange(0, 1, 0.01)
-    n_lambdas = len(lambdas)
-    fit_attributes = ["single_estimator_", "risks"]
+    fit_attributes = ["risks"]
     sigma_init = 0.25  # Value given in the paper [1]
     cal_size = 0.3
 
     def __init__(
         self,
-        estimator: Optional[ClassifierMixin] = None,
-        metric_control: Optional[str] = "recall",
+        predict_function: Callable[[ArrayLike], Union[list[NDArray], NDArray]],
+        risk: str = "recall",
         method: Optional[str] = None,
+        target_level: Union[float, Iterable[float]] = 0.9,
+        confidence_level: Optional[float] = None,
+        rcps_bound: Optional[Union[str, None]] = None,
+        predict_params: ArrayLike = np.arange(0, 1, 0.01),
         n_jobs: Optional[int] = None,
         random_state: Optional[Union[int, np.random.RandomState]] = None,
         verbose: int = 0,
     ) -> None:
-        self.estimator = estimator
-        self.metric_control = metric_control
+        self._predict_function = predict_function
+        self._risk_name = risk
+        self._risk = self._check_and_convert_risk(risk)
         self.method = method
+        self._check_method()
+
+        alpha = []
+        for target in (
+            target_level if isinstance(target_level, Iterable) else [target_level]
+        ):
+            assert self._risk.higher_is_better, (
+                "Current implemented risks (precision and recall) are defined such that "
+                "'higher is better'. The 'lower is better' case is not implemented."
+            )
+            alpha.append(1 - target)  # for higher is better only
+
+        self._alpha = np.array(_check_alpha(alpha))
+
+        self._check_confidence_level(confidence_level)
+        self._delta = 1 - confidence_level if confidence_level is not None else None
+
+        self._check_bound(rcps_bound)
+        self._rcps_bound = rcps_bound
+
+        self.predict_params = np.asarray(predict_params)
+        self.n_predict_params = len(self.predict_params)
+
         self.n_jobs = n_jobs
         self.random_state = random_state
         self.verbose = verbose
+        self._check_parameters()
+
+        self._is_fitted = False
+
+    @property
+    def is_fitted(self):
+        """Returns True if the controller is fitted"""
+        return self._is_fitted
+
+    def _check_and_convert_risk(self, risk):
+        """Check and convert risk parameter."""
+
+        if risk not in self.risk_choice_map:
+            raise ValueError(
+                f"risk must be one of: {list(self.risk_choice_map.keys())}"
+            )
+
+        return self.risk_choice_map[risk]
 
     def _check_parameters(self) -> None:
         """
@@ -206,18 +288,15 @@ class PrecisionRecallController(BaseEstimator, ClassifierMixin):
             Raise error if the name of the method is not
             in self.valid_methods_
         """
-        self.method = cast(str, self.method)
-        self.metric_control = cast(str, self.metric_control)
+        valid_methods = self.valid_methods_by_metric_[self._risk_name]
+        if self.method is None:
+            self.method = valid_methods[0]
+            return
 
-        if self.method not in self.valid_methods_by_metric_[self.metric_control]:
+        if self.method not in valid_methods:
             raise ValueError(
-                "Invalid method for metric: "
-                + "You are controlling "
-                + self.metric_control
-                + " and you are using invalid method: "
-                + self.method
-                + ". Use instead: "
-                + "".join(self.valid_methods_by_metric_[self.metric_control])
+                f"Invalid method '{self.method}' for risk '{self._risk_name}'. "
+                f"Valid methods are: {valid_methods}."
             )
 
     def _check_all_labelled(self, y: NDArray) -> None:
@@ -227,7 +306,7 @@ class PrecisionRecallController(BaseEstimator, ClassifierMixin):
 
         Parameters
         ----------
-        y : NDArray of shape (n_samples, n_labels)
+        y : NDArray of shape (n_samples, n_classes)
             Labels of the observations.
 
         Raises
@@ -236,159 +315,63 @@ class PrecisionRecallController(BaseEstimator, ClassifierMixin):
             Raise error if at least one observation
             has no label.
         """
-        if not (y.sum(axis=1) > 0).all():
+        if not (y.sum(axis=tuple(range(1, y.ndim))) > 0).all():
             raise ValueError(
                 "Invalid y. All observations should contain at least one label."
             )
 
-    def _check_delta(self, delta: Optional[float]):
+    def _check_confidence_level(self, confidence_level: Optional[float]):
         """
-        Check that delta is not ``None`` when the
-        method is RCPS and that it is between 0 and 1.
+        Check that confidence_level is not ``None`` when the
+        method is RCPS or LTT and that it is between 0 and 1.
 
         Parameters
         ----------
-        delta : float
+        confidence_level : float
             Probability with which we control the risk. The higher
             the probability, the more conservative the algorithm will be.
 
         Raises
         ------
         ValueError
-            If delta is ``None`` and method is RCPS or
-            if delta is not in [0, 1] and method
-            is RCPS.
+            If confidence_level is ``None`` and method requires it
+            (RCPS or LTT) or if confidence_level is not in (0, 1).
+
         Warning
-            If delta is not ``None`` and method is CRC
+            If confidence_level is not ``None`` and method is CRC
+            (because it will be ignored).
         """
-        if (not isinstance(delta, float)) and (delta is not None):
+        if (not isinstance(confidence_level, float)) and (confidence_level is not None):
             raise ValueError(
-                f"Invalid delta. delta must be a float, not a {type(delta)}"
+                f"Invalid confidence_level. confidence_level must be a float, not a {type(confidence_level)}"
             )
         if (self.method == "rcps") or (self.method == "ltt"):
-            if delta is None:
+            if confidence_level is None:
                 raise ValueError(
-                    "Invalid delta. "
-                    "delta cannot be ``None`` when controlling "
-                    "Recall with RCPS or Precision with LTT"
+                    "Invalid confidence_level. "
+                    f"confidence_level cannot be ``None`` when using method '{self.method}'."
                 )
-            elif (delta <= 0) or (delta >= 1):
-                raise ValueError("Invalid delta. delta must be in ]0, 1[")
-        if (self.method == "crc") and (delta is not None):
-            warnings.warn(
-                "WARNING: you are using crc method, hence "
-                + "even if the delta is not ``None``, it won't be"
-                + "taken into account"
-            )
-
-    def _check_valid_index(self, alpha: NDArray):
-        """
-        Check if the valid index is empty.
-        If it is, we should warn the user that for the alpha value
-        and delta level chosen, LTT will return no results.
-        The user must be less inclined to take risks or
-        must choose a higher alpha value.
-        """
-        for i in range(len(self.valid_index)):
-            if self.valid_index[i] == []:
-                warnings.warn(
-                    "Warning: LTT method has returned an empty sequence"
-                    + " for alpha="
-                    + str(alpha[i])
+            elif (confidence_level <= 0) or (confidence_level >= 1):
+                raise ValueError(
+                    "Invalid confidence_level. confidence_level must be in (0, 1)"
                 )
-
-    def _check_estimator(
-        self,
-        X: ArrayLike,
-        y: ArrayLike,
-        estimator: Optional[ClassifierMixin] = None,
-        _refit: Optional[bool] = False,
-    ) -> Tuple[ClassifierMixin, ArrayLike, ArrayLike]:
-        """
-        Check the estimator value. If it is ``None``,
-        it returns a multi-output ``LogisticRegression``
-        instance if necessary.
-
-        Parameters
-        ----------
-        X : ArrayLike of shape (n_samples, n_features)
-            Training data.
-
-        y : ArrayLike of shape (n_samples,)
-            Training labels.
-
-        estimator : Optional[ClassifierMixin], optional
-            Estimator to check, by default ``None``
-
-        _refit : Optional[bool]
-            Whether or not the user is using fit (True) or
-            partial_fit (False).
-
-            By default False
-
-        Raises
-        ------
-        ValueError
-            If the estimator is not ``None``
-            and has no fit, predict, nor predict_proba methods.
-
-        NotFittedError
-            If the estimator is not fitted.
-
-        Warning
-            If estimator is then to warn about the split of the
-            data between train and calibration
-        """
-        if (estimator is None) and (not _refit):
-            raise ValueError(
-                "Invalid estimator with partial_fit. "
-                "If the estimator is ``None`` you can not "
-                "use partial_fit."
-            )
-        if (estimator is None) and (_refit):
-            estimator = MultiOutputClassifier(LogisticRegression())
-            X_train, X_calib, y_train, y_calib = train_test_split(
-                X,
-                y,
-                test_size=self.calib_size,
-                random_state=self.random_state,
-            )
-            estimator.fit(X_train, y_train)
+        if (self.method == "crc") and (confidence_level is not None):
             warnings.warn(
-                "WARNING: To avoid overfitting, X has been split"
-                + "into X_train and X_calib. The calibration will only"
-                + "be done on X_calib"
+                "WARNING: you are using method 'crc', hence "
+                "even if confidence_level is not ``None``, it will be ignored."
             )
-            return estimator, X_calib, y_calib
 
-        if isinstance(estimator, Pipeline):
-            est = estimator[-1]
-        else:
-            est = estimator
-        if (
-            not hasattr(est, "fit")
-            or not hasattr(est, "predict")
-            or not hasattr(est, "predict_proba")
-        ):
-            raise ValueError(
-                "Invalid estimator. "
-                "Please provide a classifier with fit,"
-                "predict, and predict_proba methods."
-            )
-        check_is_fitted(est)
-        return estimator, X, y
-
-    def _check_partial_fit_first_call(self) -> bool:
+    def _check_compute_risks_first_call(self) -> bool:
         """
-        Check that this is the first time partial_fit
-        or fit is called.
+        Check that this is the first time compute_risks
+        or calibrate is called.
 
         Returns
         -------
         bool
             True if it is the first time, else False.
         """
-        return not hasattr(self, "risks")
+        return not hasattr(self, "_risks")
 
     def _check_bound(self, bound: Optional[str]):
         """
@@ -411,60 +394,48 @@ class PrecisionRecallController(BaseEstimator, ClassifierMixin):
                 + "taken into account."
             )
 
-    def _check_metric_control(self):
-        """
-        Check that the metrics to control are valid
-        (can be a string or list of string.)
-        """
-        if self.metric_control not in self.valid_metric_:
-            raise ValueError(
-                "Invalid metric. "
-                "Allowed scores must be in the following list "
-                + ", ".join(self.valid_metric_)
-            )
-
-        if self.method is None:
-            if self.metric_control == "recall":
-                self.method = "crc"
-            else:  # self.metric_control == "precision"
-                self.method = "ltt"
-
     def _transform_pred_proba(
         self, y_pred_proba: Union[Sequence[NDArray], NDArray]
     ) -> NDArray:
-        """If the output of the predict_proba is a list of arrays (output of
-        the ``predict_proba`` of ``MultiOutputClassifier``) we transform it
-        into an array of shape (n_samples, n_classes, 1), otherwise, we add
-        one dimension at the end.
+        """Transform predict_function outputs to shape (n_samples, n_classes, 1)
+        containing positive-class probabilities.
 
-        Parameters
-        ----------
-        y_pred_proba : Union[List, NDArray]
-            Output of the multi-label classifier.
-
-        Returns
-        -------
-        NDArray of shape (n_samples, n_classes, 1)
-            Output of the model ready for risk computation.
+        - If a list of arrays is provided (e.g., MultiOutputClassifier), each
+          array is expected to be of shape (n_samples, 2); we take the positive
+          class column.
+        - If an ndarray is provided, it can be of shape (n_samples, n_classes)
+          containing positive-class probabilities, or
+          (n_samples, n_classes, 2) containing both class probabilities, with
+          last dim [negative, positive].
         """
         if isinstance(y_pred_proba, np.ndarray):
-            y_pred_proba_array = y_pred_proba
+            if y_pred_proba.ndim == 3:
+                # assume last dim is [neg, pos], keep positive class
+                y_pred_pos = y_pred_proba[..., 1]
+            elif y_pred_proba.ndim == 2:
+                # already positive-class probabilities
+                y_pred_pos = y_pred_proba
+            else:
+                raise ValueError(
+                    "When predict_proba returns an ndarray, it must have 2 or 3 "
+                    "dimensions: (n_samples, n_classes) or (n_samples, n_classes, 2)."
+                )
         else:
-            y_pred_proba_stacked = np.stack(y_pred_proba, axis=0)[:, :, 1]
-            y_pred_proba_array = np.moveaxis(y_pred_proba_stacked, 0, -1)
+            # list of length n_classes with (n_samples, 2) arrays
+            y_pred_pos = np.stack([proba[:, 1] for proba in y_pred_proba], axis=1)
 
-        return np.expand_dims(y_pred_proba_array, axis=2)
+        return np.expand_dims(y_pred_pos, axis=2)
 
-    def partial_fit(
+    def compute_risks(
         self,
         X: ArrayLike,
         y: ArrayLike,
         _refit: Optional[bool] = False,
-    ) -> PrecisionRecallController:
+    ) -> MultiLabelClassificationController:
         """
         Fit the base estimator or use the fitted base estimator on
         batch data to compute risks. All the computed risks will be concatenated each
-        time the partial_fit method is called.
+        time the compute_risks method is called.
 
         Parameters
         ----------
@@ -481,18 +452,13 @@ class PrecisionRecallController(BaseEstimator, ClassifierMixin):
 
         Returns
         -------
-        PrecisionRecallController
+        MultiLabelClassificationController
             The model itself.
         """
         # Checks
-        first_call = self._check_partial_fit_first_call()
-        self._check_parameters()
-        self._check_metric_control()
-        self._check_method()
+        first_call = self._check_compute_risks_first_call()
 
         X, y = indexable(X, y)
-        _check_y(y, multi_output=True)
-        estimator, X, y = self._check_estimator(X, y, self.estimator, _refit)
 
         y = cast(NDArray, y)
         X = cast(NDArray, X)
@@ -500,69 +466,107 @@ class PrecisionRecallController(BaseEstimator, ClassifierMixin):
         self._check_all_labelled(y)
         self.n_samples_ = _num_samples(X)
 
-        # Work
-        if first_call or _refit:
-            self.single_estimator_ = estimator
-            y_pred_proba = self.single_estimator_.predict_proba(X)
-            y_pred_proba_array = self._transform_pred_proba(y_pred_proba)
-            self.theta_ = X.shape[1]
+        # Compute risks
+        y_pred_proba = self._predict_function(X)
+        y_pred_proba_array = self._transform_pred_proba(y_pred_proba)
 
-            if self.metric_control == "recall":
-                self.risks = compute_risk_recall(self.lambdas, y_pred_proba_array, y)
-            else:  # self.metric_control == "precision"
-                self.risks = compute_risk_precision(self.lambdas, y_pred_proba_array, y)
-        else:
-            if X.shape[1] != self.theta_:
-                msg = "Number of features %d does not match previous data %d."
-                raise ValueError(msg % (X.shape[1], self.theta_))
-            self.single_estimator_ = estimator
-            y_pred_proba = self.single_estimator_.predict_proba(X)
-            y_pred_proba_array = self._transform_pred_proba(y_pred_proba)
-            if self.metric_control == "recall":
-                partial_risk = compute_risk_recall(self.lambdas, y_pred_proba_array, y)
-            else:  # self.metric_control == "precision"
-                partial_risk = compute_risk_precision(
-                    self.lambdas, y_pred_proba_array, y
+        n_lambdas = len(self.predict_params)
+        n_samples = len(y_pred_proba_array)
+
+        y_pred_proba_array_repeat = np.repeat(y_pred_proba_array, n_lambdas, axis=2)
+        y_pred = (y_pred_proba_array_repeat > self.predict_params).astype(int)
+
+        risk = np.zeros((n_samples, n_lambdas))
+        for index_sample in range(n_samples):
+            for index_lambda in range(n_lambdas):
+                risk[index_sample, index_lambda], _ = (
+                    self._risk.get_value_and_effective_sample_size(
+                        y[index_sample, :], y_pred[index_sample, :, index_lambda]
+                    )
                 )
-            self.risks = np.concatenate([self.risks, partial_risk], axis=0)
+
+        if first_call or _refit:
+            self._risks = risk
+        else:
+            self._risks = np.vstack((self._risks, risk))
 
         return self
 
-    def fit(
-        self, X: ArrayLike, y: ArrayLike, calib_size: Optional[float] = 0.3
-    ) -> PrecisionRecallController:
+    def compute_best_predict_param(self) -> MultiLabelClassificationController:
         """
-        Fit the base estimator (or use the fitted base estimator) and compute risks.
-
-        Parameters
-        ----------
-        X: ArrayLike of shape (n_samples, n_features)
-            Training data.
-
-        y: NDArray of shape (n_samples, n_classes)
-            Training labels.
-
-        calib_size: Optional[float]
-            Size of the calibration dataset with respect to X if the
-            given model is ``None`` need to fit a LogisticRegression.
-
-            By default .3
-
-        Returns
-        -------
-        PrecisionRecallController
-            The model itself.
+        Compute optimal predict_params based on the computed risks.
         """
-        self.calib_size = calib_size
-        return self.partial_fit(X, y, _refit=True)
+        if self._risk == precision:
+            self.n_obs = len(self._risks)
+            self.r_hat = self._risks.mean(axis=0)
+            self.valid_index, _ = ltt_procedure(
+                np.expand_dims(self.r_hat, axis=0),
+                np.expand_dims(self._alpha, axis=0),
+                cast(float, self._delta),
+                np.expand_dims(np.array([self.n_obs]), axis=0),
+            )
+            self.valid_predict_params = []
+            for index_list in self.valid_index:
+                self.valid_predict_params.append(self.predict_params[index_list])
+            check_valid_ltt_params_index(
+                predict_params=self.predict_params,
+                valid_index=self.valid_index,
+                alpha=self._alpha,
+            )
+            self.best_predict_param, _ = find_precision_best_predict_param(
+                self.r_hat, self.valid_index, self.predict_params
+            )
+        elif self._risk == recall:
+            self.r_hat, self.r_hat_plus = get_r_hat_plus(
+                self._risks,
+                self.predict_params,
+                self.method,
+                self._rcps_bound,
+                self._delta,
+                self.sigma_init,
+            )
+            self.best_predict_param = find_best_predict_param(
+                self.predict_params, self.r_hat_plus, self._alpha
+            )
+        else:
+            raise NotImplementedError(
+                "risk not implemented. Only 'precision' and 'recall' are currently supported."
+            )
+        self._is_fitted = True
+
+        return self
+
+    def calibrate(
+        self, X: ArrayLike, y: ArrayLike
+    ) -> MultiLabelClassificationController:
+        """
+         Use the fitted base estimator to compute risks and predict_params.
+         Note that for high dimensional data, you can instead use the compute_risks
+         method to compute risks batch by batch, followed by compute_best_predict_param.
+
+         Parameters
+         ----------
+         X: ArrayLike of shape (n_samples, n_features)
+             Training data.
+
+         y: NDArray of shape (n_samples, n_classes)
+             Training labels.
+
+         Returns
+         -------
+        MultiLabelClassificationController
+             The model itself.
+        """
+
+        self.compute_risks(X, y, _refit=True)
+        self.compute_best_predict_param()
+
+        return self
 
     def predict(
         self,
         X: ArrayLike,
-        alpha: Optional[Union[float, Iterable[float]]] = None,
-        delta: Optional[float] = None,
-        bound: Optional[Union[str, None]] = None,
-    ) -> Union[NDArray, Tuple[NDArray, NDArray]]:
+    ) -> NDArray:
         """
         Prediction sets on new samples based on the target risk level.
         Prediction sets for a given ``alpha`` are deduced from the computed
@@ -572,82 +576,19 @@ class PrecisionRecallController(BaseEstimator, ClassifierMixin):
         ----------
         X: ArrayLike of shape (n_samples, n_features)
 
-        alpha : Optional[Union[float, Iterable[float]]]
-            The target risk level.
-            Can be a float, a list of floats, or a ``ArrayLike`` of floats,
-            between 0 and 1.
-            Lower ``alpha`` produce larger (more conservative) prediction
-            sets.
-            By default ``None`` (which means alpha=0.1).
-
-        delta : Optional[float]
-            Can be a float, or ``None``. If using method="rcps", then it
-            can not be set to ``None``.
-            Between 0 and 1, the level of certainty at which we compute
-            the Upper Confidence Bound of the average risk.
-            Lower ``delta`` produce larger (more conservative) prediction
-            sets.
-            By default ``None``.
-
-        bound : Optional[Union[str, ``None``]]
-            Method used to compute the Upper Confidence Bound of the
-            average risk. Only necessary with the RCPS method.
-            By default ``None``.
-
         Returns
         -------
-        Union[NDArray, Tuple[NDArray, NDArray]]
-
-        - NDArray of shape (n_samples,) if alpha is ``None``.
-
-        - Tuple[NDArray, NDArray] of shapes
-        (n_samples, n_classes) and (n_samples, n_classes, n_alpha)
-        if alpha is not ``None``.
+        NDArray of shape (n_samples, n_classes, n_alpha)
         """
 
-        self._check_delta(delta)
-        self._check_bound(bound)
-        alpha = cast(Optional[NDArray], _check_alpha(alpha))
-        check_is_fitted(self, self.fit_attributes)
+        check_is_fitted(self)
 
         # Estimate prediction sets
-        y_pred = self.single_estimator_.predict(X)
-
-        if alpha is None:
-            return np.array(y_pred)
-
-        alpha_np = cast(NDArray, alpha)
-
-        y_pred_proba = self.single_estimator_.predict_proba(X)
-
+        y_pred_proba = self._predict_function(X)
         y_pred_proba_array = self._transform_pred_proba(y_pred_proba)
-        y_pred_proba_array = np.repeat(y_pred_proba_array, len(alpha_np), axis=2)
-        if self.metric_control == "precision":
-            self.n_obs = len(self.risks)
-            self.r_hat = self.risks.mean(axis=0)
-            self.valid_index = ltt_procedure(
-                np.expand_dims(self.r_hat, axis=0),
-                np.expand_dims(alpha_np, axis=0),
-                cast(float, delta),
-                np.expand_dims(np.array([self.n_obs]), axis=0),
-            )
-            self._check_valid_index(alpha_np)
-            self.lambdas_star, self.r_star = find_precision_lambda_star(
-                self.r_hat, self.valid_index, self.lambdas
-            )
-            y_pred_proba_array = (
-                y_pred_proba_array
-                > np.array(self.lambdas_star)[np.newaxis, np.newaxis, :]
-            )
 
-        else:
-            self.r_hat, self.r_hat_plus = get_r_hat_plus(
-                self.risks, self.lambdas, self.method, bound, delta, self.sigma_init
-            )
-            self.lambdas_star = find_lambda_star(
-                self.lambdas, self.r_hat_plus, alpha_np
-            )
-            y_pred_proba_array = (
-                y_pred_proba_array > self.lambdas_star[np.newaxis, np.newaxis, :]
-            )
-        return y_pred, y_pred_proba_array
+        y_pred_proba_array = np.repeat(y_pred_proba_array, len(self._alpha), axis=2)
+        y_pred_proba_array = (
+            y_pred_proba_array > self.best_predict_param[np.newaxis, np.newaxis, :]
+        )
+        return y_pred_proba_array

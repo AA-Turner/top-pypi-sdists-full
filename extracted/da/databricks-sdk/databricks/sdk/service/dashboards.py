@@ -10,6 +10,7 @@ from datetime import timedelta
 from enum import Enum
 from typing import Any, Callable, Dict, Iterator, List, Optional
 
+from databricks.sdk.client_types import HostType
 from databricks.sdk.service import sql
 from databricks.sdk.service._internal import (Wait, _enum, _from_dict,
                                               _repeated_dict)
@@ -455,6 +456,64 @@ class GenieFeedbackRating(Enum):
     NEGATIVE = "NEGATIVE"
     NONE = "NONE"
     POSITIVE = "POSITIVE"
+
+
+@dataclass
+class GenieGenerateDownloadFullQueryResultResponse:
+    download_id: Optional[str] = None
+    """Download ID. Use this ID to track the download request in subsequent polling calls"""
+
+    download_id_signature: Optional[str] = None
+    """JWT signature for the download_id to ensure secure access to query results"""
+
+    def as_dict(self) -> dict:
+        """Serializes the GenieGenerateDownloadFullQueryResultResponse into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.download_id is not None:
+            body["download_id"] = self.download_id
+        if self.download_id_signature is not None:
+            body["download_id_signature"] = self.download_id_signature
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the GenieGenerateDownloadFullQueryResultResponse into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.download_id is not None:
+            body["download_id"] = self.download_id
+        if self.download_id_signature is not None:
+            body["download_id_signature"] = self.download_id_signature
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> GenieGenerateDownloadFullQueryResultResponse:
+        """Deserializes the GenieGenerateDownloadFullQueryResultResponse from a dictionary."""
+        return cls(download_id=d.get("download_id", None), download_id_signature=d.get("download_id_signature", None))
+
+
+@dataclass
+class GenieGetDownloadFullQueryResultResponse:
+    statement_response: Optional[sql.StatementResponse] = None
+    """SQL Statement Execution response. See [Get status, manifest, and result first
+    chunk](:method:statementexecution/getstatement) for more details."""
+
+    def as_dict(self) -> dict:
+        """Serializes the GenieGetDownloadFullQueryResultResponse into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.statement_response:
+            body["statement_response"] = self.statement_response.as_dict()
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the GenieGetDownloadFullQueryResultResponse into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.statement_response:
+            body["statement_response"] = self.statement_response
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> GenieGetDownloadFullQueryResultResponse:
+        """Deserializes the GenieGetDownloadFullQueryResultResponse from a dictionary."""
+        return cls(statement_response=_from_dict(d, "statement_response", sql.StatementResponse))
 
 
 @dataclass
@@ -1795,6 +1854,10 @@ class GenieAPI:
             "Content-Type": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         op_response = self._api.do(
             "POST",
             f"/api/2.0/genie/spaces/{space_id}/conversations/{conversation_id}/messages",
@@ -1860,6 +1923,10 @@ class GenieAPI:
             "Content-Type": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         res = self._api.do("POST", "/api/2.0/genie/spaces", body=body, headers=headers)
         return GenieSpace.from_dict(res)
 
@@ -1877,6 +1944,10 @@ class GenieAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         self._api.do("DELETE", f"/api/2.0/genie/spaces/{space_id}/conversations/{conversation_id}", headers=headers)
 
@@ -1896,6 +1967,10 @@ class GenieAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         self._api.do(
             "DELETE",
@@ -1925,6 +2000,10 @@ class GenieAPI:
             "Accept": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         res = self._api.do(
             "POST",
             f"/api/2.0/genie/spaces/{space_id}/conversations/{conversation_id}/messages/{message_id}/attachments/{attachment_id}/execute-query",
@@ -1952,12 +2031,98 @@ class GenieAPI:
             "Accept": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         res = self._api.do(
             "POST",
             f"/api/2.0/genie/spaces/{space_id}/conversations/{conversation_id}/messages/{message_id}/execute-query",
             headers=headers,
         )
         return GenieGetMessageQueryResultResponse.from_dict(res)
+
+    def generate_download_full_query_result(
+        self, space_id: str, conversation_id: str, message_id: str, attachment_id: str
+    ) -> GenieGenerateDownloadFullQueryResultResponse:
+        """Initiates a new SQL execution and returns a `download_id` that you can use to track the progress of
+        the download. The query result is stored in an external link and can be retrieved using the [Get
+        Download Full Query Result](:method:genie/getdownloadfullqueryresult) API. Warning: Databricks
+        strongly recommends that you protect the URLs that are returned by the `EXTERNAL_LINKS` disposition.
+        See [Execute Statement](:method:statementexecution/executestatement) for more details.
+
+        :param space_id: str
+          Genie space ID
+        :param conversation_id: str
+          Conversation ID
+        :param message_id: str
+          Message ID
+        :param attachment_id: str
+          Attachment ID
+
+        :returns: :class:`GenieGenerateDownloadFullQueryResultResponse`
+        """
+
+        headers = {
+            "Accept": "application/json",
+        }
+
+        res = self._api.do(
+            "POST",
+            f"/api/2.0/genie/spaces/{space_id}/conversations/{conversation_id}/messages/{message_id}/attachments/{attachment_id}/downloads",
+            headers=headers,
+        )
+        return GenieGenerateDownloadFullQueryResultResponse.from_dict(res)
+
+    def get_download_full_query_result(
+        self,
+        space_id: str,
+        conversation_id: str,
+        message_id: str,
+        attachment_id: str,
+        download_id: str,
+        *,
+        download_id_signature: Optional[str] = None,
+    ) -> GenieGetDownloadFullQueryResultResponse:
+        """After [Generating a Full Query Result Download](:method:genie/getdownloadfullqueryresult) and
+        successfully receiving a `download_id`, use this API to poll the download progress. When the download
+        is complete, the API returns one or more external links to the query result files. Warning: Databricks
+        strongly recommends that you protect the URLs that are returned by the `EXTERNAL_LINKS` disposition.
+        You must not set an Authorization header in download requests. When using the `EXTERNAL_LINKS`
+        disposition, Databricks returns presigned URLs that grant temporary access to data. See [Execute
+        Statement](:method:statementexecution/executestatement) for more details.
+
+        :param space_id: str
+          Genie space ID
+        :param conversation_id: str
+          Conversation ID
+        :param message_id: str
+          Message ID
+        :param attachment_id: str
+          Attachment ID
+        :param download_id: str
+          Download ID. This ID is provided by the [Generate Download
+          endpoint](:method:genie/generateDownloadFullQueryResult)
+        :param download_id_signature: str (optional)
+          JWT signature for the download_id to ensure secure access to query results
+
+        :returns: :class:`GenieGetDownloadFullQueryResultResponse`
+        """
+
+        query = {}
+        if download_id_signature is not None:
+            query["download_id_signature"] = download_id_signature
+        headers = {
+            "Accept": "application/json",
+        }
+
+        res = self._api.do(
+            "GET",
+            f"/api/2.0/genie/spaces/{space_id}/conversations/{conversation_id}/messages/{message_id}/attachments/{attachment_id}/downloads/{download_id}",
+            query=query,
+            headers=headers,
+        )
+        return GenieGetDownloadFullQueryResultResponse.from_dict(res)
 
     def get_message(self, space_id: str, conversation_id: str, message_id: str) -> GenieMessage:
         """Get message from conversation.
@@ -1975,6 +2140,10 @@ class GenieAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET",
@@ -2005,6 +2174,10 @@ class GenieAPI:
             "Accept": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         res = self._api.do(
             "GET",
             f"/api/2.0/genie/spaces/{space_id}/conversations/{conversation_id}/messages/{message_id}/attachments/{attachment_id}/query-result",
@@ -2031,6 +2204,10 @@ class GenieAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET",
@@ -2061,6 +2238,10 @@ class GenieAPI:
             "Accept": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         res = self._api.do(
             "GET",
             f"/api/2.0/genie/spaces/{space_id}/conversations/{conversation_id}/messages/{message_id}/query-result/{attachment_id}",
@@ -2086,6 +2267,10 @@ class GenieAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.0/genie/spaces/{space_id}", query=query, headers=headers)
         return GenieSpace.from_dict(res)
@@ -2115,6 +2300,10 @@ class GenieAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET",
@@ -2158,6 +2347,10 @@ class GenieAPI:
             "Accept": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         res = self._api.do("GET", f"/api/2.0/genie/spaces/{space_id}/conversations", query=query, headers=headers)
         return GenieListConversationsResponse.from_dict(res)
 
@@ -2182,6 +2375,10 @@ class GenieAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", "/api/2.0/genie/spaces", query=query, headers=headers)
         return GenieListSpacesResponse.from_dict(res)
@@ -2208,6 +2405,10 @@ class GenieAPI:
             "Accept": "application/json",
             "Content-Type": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         self._api.do(
             "POST",
@@ -2237,6 +2438,10 @@ class GenieAPI:
             "Content-Type": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         op_response = self._api.do(
             "POST", f"/api/2.0/genie/spaces/{space_id}/start-conversation", body=body, headers=headers
         )
@@ -2263,6 +2468,10 @@ class GenieAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         self._api.do("DELETE", f"/api/2.0/genie/spaces/{space_id}", headers=headers)
 
@@ -2308,6 +2517,10 @@ class GenieAPI:
             "Content-Type": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         res = self._api.do("PATCH", f"/api/2.0/genie/spaces/{space_id}", body=body, headers=headers)
         return GenieSpace.from_dict(res)
 
@@ -2348,6 +2561,10 @@ class LakeviewAPI:
             "Content-Type": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         res = self._api.do("POST", "/api/2.0/lakeview/dashboards", query=query, body=body, headers=headers)
         return Dashboard.from_dict(res)
 
@@ -2367,6 +2584,10 @@ class LakeviewAPI:
             "Accept": "application/json",
             "Content-Type": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", f"/api/2.0/lakeview/dashboards/{dashboard_id}/schedules", body=body, headers=headers)
         return Schedule.from_dict(res)
@@ -2389,6 +2610,10 @@ class LakeviewAPI:
             "Accept": "application/json",
             "Content-Type": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "POST",
@@ -2418,6 +2643,10 @@ class LakeviewAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         self._api.do(
             "DELETE",
@@ -2451,6 +2680,10 @@ class LakeviewAPI:
             "Accept": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         self._api.do(
             "DELETE",
             f"/api/2.0/lakeview/dashboards/{dashboard_id}/schedules/{schedule_id}/subscriptions/{subscription_id}",
@@ -2471,6 +2704,10 @@ class LakeviewAPI:
             "Accept": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         res = self._api.do("GET", f"/api/2.0/lakeview/dashboards/{dashboard_id}", headers=headers)
         return Dashboard.from_dict(res)
 
@@ -2486,6 +2723,10 @@ class LakeviewAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.0/lakeview/dashboards/{dashboard_id}/published", headers=headers)
         return PublishedDashboard.from_dict(res)
@@ -2504,6 +2745,10 @@ class LakeviewAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET", f"/api/2.0/lakeview/dashboards/{dashboard_id}/schedules/{schedule_id}", headers=headers
@@ -2526,6 +2771,10 @@ class LakeviewAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET",
@@ -2571,6 +2820,10 @@ class LakeviewAPI:
             "Accept": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         while True:
             json = self._api.do("GET", "/api/2.0/lakeview/dashboards", query=query, headers=headers)
             if "dashboards" in json:
@@ -2604,6 +2857,10 @@ class LakeviewAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         while True:
             json = self._api.do(
@@ -2642,6 +2899,10 @@ class LakeviewAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         while True:
             json = self._api.do(
@@ -2694,6 +2955,10 @@ class LakeviewAPI:
             "Content-Type": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         res = self._api.do("POST", "/api/2.0/lakeview/dashboards/migrate", body=body, headers=headers)
         return Dashboard.from_dict(res)
 
@@ -2723,6 +2988,10 @@ class LakeviewAPI:
             "Content-Type": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         res = self._api.do("POST", f"/api/2.0/lakeview/dashboards/{dashboard_id}/published", body=body, headers=headers)
         return PublishedDashboard.from_dict(res)
 
@@ -2739,6 +3008,10 @@ class LakeviewAPI:
             "Accept": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         self._api.do("DELETE", f"/api/2.0/lakeview/dashboards/{dashboard_id}", headers=headers)
 
     def unpublish(self, dashboard_id: str):
@@ -2753,6 +3026,10 @@ class LakeviewAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         self._api.do("DELETE", f"/api/2.0/lakeview/dashboards/{dashboard_id}/published", headers=headers)
 
@@ -2792,6 +3069,10 @@ class LakeviewAPI:
             "Content-Type": "application/json",
         }
 
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+
         res = self._api.do(
             "PATCH", f"/api/2.0/lakeview/dashboards/{dashboard_id}", query=query, body=body, headers=headers
         )
@@ -2815,6 +3096,10 @@ class LakeviewAPI:
             "Accept": "application/json",
             "Content-Type": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "PUT", f"/api/2.0/lakeview/dashboards/{dashboard_id}/schedules/{schedule_id}", body=body, headers=headers
@@ -2851,6 +3136,10 @@ class LakeviewEmbeddedAPI:
         headers = {
             "Accept": "application/json",
         }
+
+        cfg = self._api._cfg
+        if cfg.host_type == HostType.UNIFIED and cfg.workspace_id:
+            headers["X-Databricks-Org-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET", f"/api/2.0/lakeview/dashboards/{dashboard_id}/published/tokeninfo", query=query, headers=headers

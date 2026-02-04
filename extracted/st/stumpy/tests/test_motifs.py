@@ -5,7 +5,8 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 
-from stumpy import core, match, motifs
+from stumpy import core
+from stumpy.motifs import match, motifs
 
 
 def naive_motifs(T, m, max_motifs, max_matches, T_subseq_isconstant=None):
@@ -656,3 +657,30 @@ def test_motifs_with_isconstant():
 
     npt.assert_almost_equal(ref_distances, comp_distance)
     npt.assert_almost_equal(ref_indices, comp_indices)
+
+
+def test_motifs_with_max_matches_none():
+    T = np.random.rand(16)
+    m = 3
+
+    max_motifs = 1
+    max_matches = None
+    max_distance = np.inf
+    cutoff = np.inf
+
+    # performant
+    mp = naive.stump(T, m, row_wise=True)
+    comp_distance, comp_indices = motifs(
+        T,
+        mp[:, 0].astype(np.float64),
+        min_neighbors=1,
+        max_distance=max_distance,
+        cutoff=cutoff,
+        max_matches=max_matches,
+        max_motifs=max_motifs,
+    )
+
+    ref_len = len(T) - m + 1
+
+    npt.assert_(ref_len >= comp_distance.shape[1])
+    npt.assert_(ref_len >= comp_indices.shape[1])

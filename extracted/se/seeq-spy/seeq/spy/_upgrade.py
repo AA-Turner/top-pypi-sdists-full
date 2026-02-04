@@ -3,14 +3,19 @@ from __future__ import annotations
 from typing import Optional, List
 
 from seeq import spy
-from seeq.spy import _common, _version, Session, Status, _datalab
+from seeq.spy import _version, Session, Status, _datalab
 from seeq.spy._errors import *
 
 
-@Status.handle_keyboard_interrupt()
-def upgrade(version: Optional[str] = None, force_restart: bool = False, use_testpypi: bool = False,
-            status: Optional[Status] = None, session: Optional[Session] = None,
-            dependencies: Optional[List[str]] = None):
+@Status.top_level_spy_function(validate_login=False)
+def upgrade(
+    version: Optional[str] = None,
+    force_restart: bool = False,
+    use_testpypi: bool = False,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None,
+    dependencies: Optional[List[str]] = None
+):
     """
     Upgrades to the latest version of SPy that is compatible with this version of Seeq Server.
 
@@ -55,15 +60,6 @@ def upgrade(version: Optional[str] = None, force_restart: bool = False, use_test
     >>> spy.upgrade(version='221.13')
 
     """
-    _common.validate_argument_types([
-        (version, 'version', str),
-        (force_restart, 'force_restart', bool),
-        (use_testpypi, 'use_testpypi', bool),
-        (status, 'status', Status),
-        (session, 'session', Session),
-        (dependencies, 'dependencies', List)
-    ])
-
     if session.client is None:
         raise SPyRuntimeError('Not logged in. Execute spy.login() before calling this function so that the upgrade '
                               'mechanism knows what version of Seeq Server you are interfacing with.')

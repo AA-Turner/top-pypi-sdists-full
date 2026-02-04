@@ -48,8 +48,8 @@ class AnalyticRecon(Recon):
 
         d_t = 1 / float(self.experiment.params.acoustic['f_saving'])
         t_array = np.arange(0, AOsignal.shape[0])*d_t
-        Z = t_array * self.experiment.params.acoustic['c0']
-        X_m = np.arange(0, self.experiment.params.acoustic['num_elements'])* self.experiment.params.general['dx']
+        Z = t_array * self.experiment.params.acoustic['medium']['c0']
+        X_m = np.arange(0, self.experiment.params.acoustic['probe']['num_elements'])* self.experiment.params.general['dx']
         dfX = 1 / (X_m[1] - X_m[0]) / len(X_m)
         if withTumor:
             self.AOsignal_demoldulated = self.parse_and_demodulate(withTumor=True)
@@ -60,7 +60,7 @@ class AnalyticRecon(Recon):
                     X_m=X_m,
                     theta=self.experiment.theta,
                     decimation=self.experiment.decimations,
-                    c=self.experiment.params.acoustic['c0'],
+                    c=self.experiment.params.acoustic['medium']['c0'],
                     DelayLAWS=self.experiment.DelayLaw,
                     ActiveLIST=self.experiment.ActiveList,
                     withTumor=True,
@@ -75,7 +75,7 @@ class AnalyticRecon(Recon):
                     decimation=self.experiment.decimations,
                     df0x=dfX,
                     Lc =self.Lc,
-                    c=self.experiment.params.acoustic['c0'],
+                    c=self.experiment.params.acoustic['medium']['c0'],
                     DelayLAWS=self.experiment.DelayLaw,
                     ActiveLIST=self.experiment.ActiveList,
                     withTumor=True)
@@ -90,7 +90,7 @@ class AnalyticRecon(Recon):
                     X_m=X_m,
                     theta=self.experiment.theta,
                     decimation=self.experiment.decimations,
-                    c=self.experiment.params.acoustic['c0'],
+                    c=self.experiment.params.acoustic['medium']['c0'],
                     DelayLAWS=self.experiment.DelayLaw,
                     ActiveLIST=self.experiment.ActiveList,
                     withTumor=False,
@@ -104,7 +104,7 @@ class AnalyticRecon(Recon):
                     decimation=self.experiment.decimations,
                     df0x=dfX,
                     Lc = self.Lc,
-                    c=self.experiment.params.acoustic['c0'],
+                    c=self.experiment.params.acoustic['medium']['c0'],
                     DelayLAWS=self.experiment.DelayLaw,
                     ActiveLIST=self.experiment.ActiveList,
                     withTumor=False)

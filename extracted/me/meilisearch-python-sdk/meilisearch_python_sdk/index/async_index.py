@@ -31,7 +31,7 @@ from meilisearch_python_sdk.index._common import (
 from meilisearch_python_sdk.index._common import combine_documents as combine_documents_
 from meilisearch_python_sdk.json_handler import BuiltinHandler, OrjsonHandler
 from meilisearch_python_sdk.models.documents import DocumentsInfo
-from meilisearch_python_sdk.models.index import Field, FieldsFilter, IndexStats
+from meilisearch_python_sdk.models.index import Field, FieldResults, FieldsFilter, IndexStats
 from meilisearch_python_sdk.models.search import (
     FacetSearchResults,
     Hybrid,
@@ -712,6 +712,7 @@ class AsyncIndex(BaseIndex):
         locales: list[str] | None = None,
         retrieve_vectors: bool | None = None,
         media: JsonMapping | None = None,
+        show_performance_details: bool = False,
     ) -> SearchResults:
         """Search the index.
 
@@ -780,6 +781,8 @@ class AsyncIndex(BaseIndex):
                 to /experimental-features with { "multimodal": true }. Because this feature is
                 experimental it may be removed or updated causing breaking changes in this library
                 without a major version bump so use with caution.
+            show_performance_details: When set to true, the search response contains a performance
+                trace. Default False.
 
         Returns:
             Results of the search
@@ -825,6 +828,7 @@ class AsyncIndex(BaseIndex):
             locales=locales,
             retrieve_vectors=retrieve_vectors,
             media=media,
+            show_performance_details=show_performance_details,
         )
         search_url = f"{self._base_url_with_uid}/search"
 
@@ -4817,7 +4821,7 @@ class AsyncIndex(BaseIndex):
 
     async def fields(
         self, offset: int = 0, limit: int = 20, filter: FieldsFilter | None = None
-    ) -> list[Field]:
+    ) -> FieldResults:
         """Get the field properties on an index.
 
         Args:
@@ -4826,7 +4830,7 @@ class AsyncIndex(BaseIndex):
             filter: Filter fields to return based on properties. Defaults to None.
 
         Returns:
-            A list of field properties
+            Field properties
 
         Raises:
             MeilisearchCommunicationError: If there was an error communicating with the server.
@@ -4845,8 +4849,15 @@ class AsyncIndex(BaseIndex):
             f"{self._base_url_with_uid}/fields",
             body={"offset": offset, "limit": limit, "filter": filter_value},
         )
+        response_json = response.json()
+        fields = [Field(**field) for field in response_json["results"]]
 
-        return [Field(**field) for field in response.json()]
+        return FieldResults(
+            fields=fields,
+            offset=response_json["offset"],
+            limit=response_json["limit"],
+            total=response_json["total"],
+        )
 
     @staticmethod
     async def _run_plugins(

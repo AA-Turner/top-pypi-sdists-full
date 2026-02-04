@@ -272,7 +272,7 @@ class RawThreadsClient:
         self, thread_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[ThreadStopResponseOut]:
         """
-        Stop a running thread execution. This will stop the thread if it is currently running and mark it as stopped.
+        Stop a running thread execution. This will stop the thread if it is currently running and mark it as cancelled.
 
         Parameters
         ----------
@@ -285,7 +285,7 @@ class RawThreadsClient:
         Returns
         -------
         HttpResponse[ThreadStopResponseOut]
-            Thread stopped successfully
+            Thread cancelled successfully
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/v0/threads/{jsonable_encoder(thread_id)}/stop",
@@ -621,7 +621,7 @@ class AsyncRawThreadsClient:
         self, thread_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[ThreadStopResponseOut]:
         """
-        Stop a running thread execution. This will stop the thread if it is currently running and mark it as stopped.
+        Stop a running thread execution. This will stop the thread if it is currently running and mark it as cancelled.
 
         Parameters
         ----------
@@ -634,7 +634,7 @@ class AsyncRawThreadsClient:
         Returns
         -------
         AsyncHttpResponse[ThreadStopResponseOut]
-            Thread stopped successfully
+            Thread cancelled successfully
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/v0/threads/{jsonable_encoder(thread_id)}/stop",

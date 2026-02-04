@@ -2,9 +2,9 @@
 name = 'asdf_coordinates_schemas'
 description = 'ASDF schemas for coordinates'
 readme = 'README.md'
-requires-python = '>=3.9'
+requires-python = '>=3.10'
 license-files = ['LICENSE']
-authors = [{ name = 'The ASDF Developers', email = 'help@stsci.edu' }]
+authors = [{ name = 'The ASDF Developers' }]
 classifiers = [
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
@@ -32,6 +32,7 @@ docs = [
 ]
 test = [
     'pytest',
+    'pytest-asdf-plugin',
     'asdf-astropy >= 0.2.0'
 ]
 
@@ -89,7 +90,26 @@ force-exclude = '''
 )
 '''
 
-[tool.isort]
-profile = "black"
-filter_files = true
-line_length = 120
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle
+    "F", # pyflakes, autoflake
+    "I", # isort
+    "S", # bandit
+    "UP", # pyupgrade
+    "RUF",  # ruff specific, includes yesqa
+]
+extend-ignore = [
+    "RUF005",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"test_*.py" = ["S101"]
+"tests/*" = ["S101"]
+
+
+[tool.codespell]
+skip="*.pdf,*.fits,*.asdf,.tox,build,./tags,.git,docs/build"

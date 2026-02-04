@@ -9,9 +9,13 @@ import logging
 import re
 from typing import Any, TypeVar
 
+import ddtrace
+
 from weave.trace_server.trace_server_interface import (
     CallEndReq,
+    CallEndV2Req,
     CallStartReq,
+    CompletedCallSchemaForInsert,
     FileCreateReq,
     TraceServerInterface,
 )
@@ -53,6 +57,7 @@ def is_data_uri(data_uri: str) -> bool:
     return DATA_URI_PATTERN.match(data_uri) is not None
 
 
+@ddtrace.tracer.wrap(name="store_content_object")
 def store_content_object(
     content_obj: Content,
     project_id: str,
@@ -169,9 +174,10 @@ def replace_base64_with_content_objects(
     return _visit(vals)
 
 
-R = TypeVar("R", bound=CallStartReq | CallEndReq)
+R = TypeVar("R", bound=CallStartReq | CallEndReq | CallEndV2Req)
 
 
+@ddtrace.tracer.wrap(name="process_call_req_to_content")
 def process_call_req_to_content(
     req: R,
     trace_server: TraceServerInterface,
@@ -181,20 +187,42 @@ def process_call_req_to_content(
     This is the main entry point for processing trace data before insertion.
 
     Args:
-        data: Input or output data from a call
-        project_id: Project ID for storage
+        req: Call request (start, end, or end v2)
         trace_server: Trace server instance
 
     Returns:
-        Tuple of (processed_data, list_of_refs) with base64 content replaced by Content objects
+        Request with base64 content replaced by Content objects.
     """
     if isinstance(req, CallStartReq):
         req.start.inputs = replace_base64_with_content_objects(
             req.start.inputs, req.start.project_id, trace_server
         )
-    else:
-        req.end.output = req.end.output = replace_base64_with_content_objects(
+    elif isinstance(req, (CallEndReq, CallEndV2Req)):
+        req.end.output = replace_base64_with_content_objects(
             req.end.output, req.end.project_id, trace_server
         )
 
     return req
+
+
+@ddtrace.tracer.wrap(name="process_complete_call_to_content")
+def process_complete_call_to_content(
+    complete_call: CompletedCallSchemaForInsert,
+    trace_server: TraceServerInterface,
+) -> CompletedCallSchemaForInsert:
+    """Process a complete call to replace base64 content in inputs and outputs.
+
+    Args:
+        complete_call: Complete call schema with both inputs and outputs.
+        trace_server: Trace server instance for file storage.
+
+    Returns:
+        CompletedCallSchemaForInsert with base64 content replaced by Content objects.
+    """
+    complete_call.inputs = replace_base64_with_content_objects(
+        complete_call.inputs, complete_call.project_id, trace_server
+    )
+    complete_call.output = replace_base64_with_content_objects(
+        complete_call.output, complete_call.project_id, trace_server
+    )
+    return complete_call

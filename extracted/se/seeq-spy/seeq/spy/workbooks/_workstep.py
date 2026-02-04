@@ -753,6 +753,11 @@ class AnalysisWorkstep(WorkstepForAnalysisOrRoom):
             return df
 
         df = df.copy()
+
+        # Convert Overlay column to float to allow NaN values (for compatibility with older pandas)
+        if pd.api.types.is_integer_dtype(df['Overlay']):
+            df['Overlay'] = df['Overlay'].astype('float64')
+
         if 'Lane' in df.columns:
             lane_groups = df.groupby('Lane', as_index=False)
         else:

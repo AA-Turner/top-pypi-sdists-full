@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import dataclasses
 import logging
 import os
 import sys
@@ -12,27 +13,17 @@ from collections.abc import Awaitable, Callable, MutableMapping, Sequence
 from dataclasses import dataclass
 from datetime import timezone
 from types import TracebackType
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Set,
-    Type,
-)
 
-import temporalio.activity
 import temporalio.api.common.v1
-import temporalio.bridge._visitor
-import temporalio.bridge.client
 import temporalio.bridge.proto.workflow_activation
 import temporalio.bridge.proto.workflow_completion
 import temporalio.bridge.runtime
 import temporalio.bridge.worker
-import temporalio.client
 import temporalio.common
 import temporalio.converter
 import temporalio.exceptions
 import temporalio.workflow
+from temporalio.bridge.worker import PollShutdownError
 
 from . import _command_aware_visitor
 from ._interceptor import (
@@ -53,7 +44,7 @@ logger = logging.getLogger(__name__)
 LOG_PROTOS = False
 
 
-class _WorkflowWorker:
+class _WorkflowWorker:  # type:ignore[reportUnusedClass]
     def __init__(
         self,
         *,
@@ -71,12 +62,10 @@ class _WorkflowWorker:
         debug_mode: bool,
         disable_eager_activity_execution: bool,
         metric_meter: temporalio.common.MetricMeter,
-        on_eviction_hook: None
-        | (
-            Callable[
-                [str, temporalio.bridge.proto.workflow_activation.RemoveFromCache], None
-            ]
-        ),
+        on_eviction_hook: Callable[
+            [str, temporalio.bridge.proto.workflow_activation.RemoveFromCache], None
+        ]
+        | None,
         disable_safe_eviction: bool,
         should_enforce_versioning_behavior: bool,
         assert_local_activity_valid: Callable[[str], None],
@@ -186,7 +175,7 @@ class _WorkflowWorker:
                 # when done.
                 task = asyncio.create_task(self._handle_activation(act))
                 setattr(task, "__temporal_task_tag", task_tag)
-        except temporalio.bridge.worker.PollShutdownError:
+        except PollShutdownError:
             pass
         except Exception as err:
             raise RuntimeError("Workflow worker failed") from err
@@ -224,7 +213,7 @@ class _WorkflowWorker:
                 )
                 completion.failed.failure.message = "Worker shutting down"
                 await self._bridge_worker().complete_workflow_activation(completion)
-            except temporalio.bridge.worker.PollShutdownError:
+            except PollShutdownError:
                 return
 
     async def _handle_activation(
@@ -282,20 +271,21 @@ class _WorkflowWorker:
             data_converter = self._data_converter.with_context(workflow_context)
             if self._data_converter.payload_codec:
                 assert data_converter.payload_codec
-                if not workflow:
-                    payload_codec = data_converter.payload_codec
-                else:
-                    payload_codec = _CommandAwarePayloadCodec(
-                        workflow.instance,
-                        context_free_payload_codec=self._data_converter.payload_codec,
-                        workflow_context_payload_codec=data_converter.payload_codec,
-                        workflow_context=workflow_context,
+                if workflow:
+                    data_converter = dataclasses.replace(
+                        data_converter,
+                        payload_codec=_CommandAwarePayloadCodec(
+                            workflow.instance,
+                            context_free_payload_codec=self._data_converter.payload_codec,
+                            workflow_context_payload_codec=data_converter.payload_codec,
+                            workflow_context=workflow_context,
+                        ),
                     )
-                await temporalio.bridge.worker.decode_activation(
-                    act,
-                    payload_codec,
-                    decode_headers=self._encode_headers,
-                )
+            await temporalio.bridge.worker.decode_activation(
+                act,
+                data_converter,
+                decode_headers=self._encode_headers,
+            )
             if not workflow:
                 assert init_job
                 workflow = _RunningWorkflow(
@@ -363,27 +353,31 @@ class _WorkflowWorker:
         # Encode completion
         if self._data_converter.payload_codec and workflow:
             assert data_converter.payload_codec
-            payload_codec = _CommandAwarePayloadCodec(
-                workflow.instance,
-                context_free_payload_codec=self._data_converter.payload_codec,
-                workflow_context_payload_codec=data_converter.payload_codec,
-                workflow_context=temporalio.converter.WorkflowSerializationContext(
-                    namespace=self._namespace,
-                    workflow_id=workflow.workflow_id,
+            data_converter = dataclasses.replace(
+                data_converter,
+                payload_codec=_CommandAwarePayloadCodec(
+                    workflow.instance,
+                    context_free_payload_codec=self._data_converter.payload_codec,
+                    workflow_context_payload_codec=data_converter.payload_codec,
+                    workflow_context=temporalio.converter.WorkflowSerializationContext(
+                        namespace=self._namespace,
+                        workflow_id=workflow.workflow_id,
+                    ),
                 ),
             )
-            try:
-                await temporalio.bridge.worker.encode_completion(
-                    completion,
-                    payload_codec,
-                    encode_headers=self._encode_headers,
-                )
-            except Exception as err:
-                logger.exception(
-                    "Failed encoding completion on workflow with run ID %s", act.run_id
-                )
-                completion.failed.Clear()
-                completion.failed.failure.message = f"Failed encoding completion: {err}"
+
+        try:
+            await temporalio.bridge.worker.encode_completion(
+                completion,
+                data_converter,
+                encode_headers=self._encode_headers,
+            )
+        except Exception as err:
+            logger.exception(
+                "Failed encoding completion on workflow with run ID %s", act.run_id
+            )
+            completion.failed.Clear()
+            completion.failed.failure.message = f"Failed encoding completion: {err}"
 
         # Send off completion
         if LOG_PROTOS:

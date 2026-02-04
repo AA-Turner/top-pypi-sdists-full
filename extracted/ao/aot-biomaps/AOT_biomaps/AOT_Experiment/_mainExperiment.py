@@ -77,6 +77,7 @@ class Experiment(ABC):
                 raise ValueError(f"Field {field.getName_field()} has an invalid shape: {field.field.shape}. Expected shape to be at least ({max_sample},).")
             self.AcousticFields[i].field = field.field[min_sample:max_sample, :, :]
 
+
     def addNoise(self, noiseType='gaussian', noiseLvl=0.1, withTumor=True):
         """
         Ajoute du bruit (gaussien ou poisson) au signal AO sélectionné.
@@ -202,7 +203,7 @@ class Experiment(ABC):
         for idx in range(num_plots):
             ax = axes[idx]
             im = ax.imshow(self.AcousticFields[0, :, :, idx],
-                        extent=(self.params['Xrange'][0], self.params['Xrange'][1], self.params['Zrange'][1], self.params['Zrange'][0]),
+                        extent=(self.params.general['Xrange'][0], self.params.general['Xrange'][1], self.params.general['Zrange'][1], self.params.general['Zrange'][0]),
                         vmax=1, aspect='equal', cmap='jet', animated=True)
             ax.set_xlabel("x (mm)", fontsize=8)
             ax.set_ylabel("z (mm)", fontsize=8)
@@ -263,7 +264,7 @@ class Experiment(ABC):
             
             if not all(field.field.shape == self.AcousticFields[0].field.shape for field in self.AcousticFields):
                 minShape = min([field.field.shape[0] for field in self.AcousticFields])
-                self.cutAcousticFields(max_t=minShape * self.params['fs_aq'])
+                self.cutAcousticFields(max_t=minShape * self.params.acoustic['f_saving'])
             else:
                 shape_field = self.AcousticFields[0].field.shape
 
@@ -364,7 +365,7 @@ class Experiment(ABC):
             f"Acquisition frequency (Hz): {self.params.acoustic['f_saving']}\n"
             f"Data mode: histogram\n"
             f"Data type: AOT\n"
-            f"Number of US transducers: {self.params.acoustic['num_elements']}"
+            f"Number of US transducers: {self.params.acoustic['probe']['num_elements']}"
         )
 
         with open(cdh_location, "w") as fileID:
@@ -387,7 +388,7 @@ class Experiment(ABC):
         else:
             AOsignal = self.AOsignal_withoutTumor
 
-        time_axis = np.arange(AOsignal.shape[0]) / float(self.params.acoustic['f_AQ']) * 1e6
+        time_axis = np.arange(AOsignal.shape[0]) / float(self.params.acoustic['f_saving']) * 1e6
 
         num_plots = AOsignal.shape[1]
         if num_plots <= 5:
@@ -455,11 +456,11 @@ class Experiment(ABC):
         fig.suptitle(f"AO Signal Animation {wave_name} | Angle {angle}°", fontsize=12, y=0.98)
 
         axs[0].imshow(self.OpticImage.T, cmap='hot', alpha=1, origin='upper',
-                    extent=(self.params['Xrange'][0], self.params['Xrange'][1], self.params['Zrange'][1], self.params['Zrange'][0]),
+                    extent=(self.params.general['Xrange'][0], self.params.general['Xrange'][1], self.params.general['Zrange'][1], self.params.general['Zrange'][0]),
                     aspect='equal')
 
         im_field = axs[0].imshow(fieldToPlot[0, :, :, idx], cmap='jet', origin='upper',
-                                extent=(self.params['Xrange'][0], self.params['Xrange'][1], self.params['Zrange'][1], self.params['Zrange'][0]),
+                                extent=(self.params.general['Xrange'][0], self.params.general['Xrange'][1], self.params.general['Zrange'][1], self.params.general['Zrange'][0]),
                                 vmax=1, vmin=0.01, alpha=0.8, aspect='equal')
 
         axs[0].set_title(f"{wave_name} | Angle {angle}° | t = 0.00 ms", fontsize=10)

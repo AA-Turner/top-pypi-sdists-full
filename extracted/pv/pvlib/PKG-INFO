@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pvlib
-Version: 0.14.0
+Version: 0.15.0
 Summary: A set of functions and classes for simulating the performance of photovoltaic energy systems.
 Home-page: https://github.com/pvlib/pvlib-python
 Author-email: pvlib python Developers <pvlib-admin@googlegroups.com>

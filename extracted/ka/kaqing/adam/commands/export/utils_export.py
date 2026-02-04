@@ -5,8 +5,8 @@ import re
 from adam.config import Config
 from adam.utils import ExecResult, creating_dir, log2, log_to_pods
 from adam.repl_state import ReplState
+from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 from adam.utils_context import Context
-from adam.utils_k8s.cassandra_nodes import CassandraNodes
 from adam.utils_k8s.pod_files import PodFiles
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.statefulsets import StatefulSets

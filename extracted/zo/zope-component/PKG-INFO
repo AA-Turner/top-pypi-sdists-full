@@ -1,35 +1,33 @@
 Metadata-Version: 2.4
 Name: zope.component
-Version: 7.0
+Version: 7.1
 Summary: Zope Component Architecture
-Home-page: https://github.com/zopefoundation/zope.component
-Author: Zope Foundation and Contributors
-Author-email: zope-dev@zope.dev
-License: ZPL-2.1
+Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
+Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
+License-Expression: ZPL-2.1
 Project-URL: Documentation, https://zopecomponent.readthedocs.io/
-Project-URL: Issue Tracker, https://github.com/zopefoundation/zope.component/issues
-Project-URL: Sources, https://github.com/zopefoundation/zope.component
-Keywords: interface component coupling loose utility adapter
+Project-URL: Source, https://github.com/zopefoundation/zope.component
+Project-URL: Issues, https://github.com/zopefoundation/zope.component/issues
+Project-URL: Changelog, https://raw.githubusercontent.com/zopefoundation/zope.component/master/CHANGES.rst
+Keywords: interface,component,coupling,loose,utility,adapter
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved
-Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Framework :: Zope :: 3
 Classifier: Framework :: Zope :: 5
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: setuptools
 Requires-Dist: zope.event
 Requires-Dist: zope.hookable>=4.2.0
 Requires-Dist: zope.interface>=5.3
@@ -61,19 +59,7 @@ Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
 Requires-Dist: ZODB; extra == "docs"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 ================
  zope.component
@@ -117,6 +103,20 @@ documentation.
 =========
  Changes
 =========
+
+7.1 (2026-02-03)
+================
+
+- Move package metadata from setup.py to pyproject.toml.
+
+- Add support for Python 3.14.
+
+- Drop support for Python 3.9.
+
+- Remove run-time dependency on ``setuptools``.
+
+- Make ``.testlayer.ZCMLFileLayer`` compatible with PEP-420 namespace packages.
+
 
 7.0 (2025-09-12)
 ================

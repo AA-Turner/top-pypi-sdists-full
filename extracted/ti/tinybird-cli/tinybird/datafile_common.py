@@ -164,6 +164,7 @@ class ImportReplacements:
         ("import_connector", "connector", None),
         ("import_external_datasource", "external_data_source", None),
         ("import_bucket_uri", "bucket_uri", None),
+        ("import_format", "format", None),
         ("import_from_timestamp", "from_time", None),
         ("import_table_arn", "dynamodb_table_arn", None),
         ("import_export_bucket", "dynamodb_export_bucket", None),
@@ -1239,6 +1240,7 @@ def parse(
         "import_external_datasource": assign_var("import_external_datasource"),
         "import_bucket_uri": assign_var("import_bucket_uri"),
         "import_from_timestamp": assign_var("import_from_timestamp"),
+        "import_format": assign_var("import_format"),
         "import_query": assign_var("import_query"),
         "import_table_arn": assign_var("import_table_arn"),
         "import_export_bucket": assign_var("import_export_bucket"),
@@ -3268,13 +3270,24 @@ async def new_ds(
                 and params.get("bucket_uri")
             ):
                 bucket_uri = params.get("bucket_uri")
+                file_format = params.get("format", "").lower()
                 extension = bucket_uri.split(".")[-1]
                 if extension == "gz":
                     extension = bucket_uri.split(".")[-2]
                 valid_formats = ["csv", "json", "jsonl", "ndjson", "parquet"]
-                if extension not in valid_formats:
-                    raise Exception(FeedbackManager.error_format(extension=extension, valid_formats=valid_formats))
-                params["format"] = extension
+
+                # If user provided a format, validate it specifically
+                if file_format:
+                    if file_format not in valid_formats:
+                        raise Exception(
+                            FeedbackManager.error_format(extension=file_format, valid_formats=valid_formats)
+                        )
+                    params["format"] = file_format
+                else:
+                    # Fall back to extension validation
+                    if extension not in valid_formats:
+                        raise Exception(FeedbackManager.error_format(extension=extension, valid_formats=valid_formats))
+                    params["format"] = extension
             datasource_response = await client.datasource_create_from_definition(params)
             datasource = datasource_response.get("datasource", {})
 

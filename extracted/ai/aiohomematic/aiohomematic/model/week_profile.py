@@ -23,8 +23,8 @@ CLIMATE SCHEDULE DATA STRUCTURES
 
 Climate schedules use a hierarchical structure with three levels:
 
-1. ClimateScheduleDict (Complete Schedule)
-   Structure: dict[ScheduleProfile, ClimateProfileSchedule]
+1. ClimateScheduleDictInternal (Complete Schedule)
+   Structure: dict[ScheduleProfile, ClimateProfileScheduleDictInternal]
 
    Contains all profiles (P1-P6) for a thermostat device.
 
@@ -39,8 +39,8 @@ Example:
        ...
    }
 
-2. ClimateProfileSchedule (Single Profile)
-   Structure: dict[WeekdayStr, ClimateWeekdaySchedule]
+2. ClimateProfileScheduleDictInternal (Single Profile)
+   Structure: dict[WeekdayStr, ClimateWeekdayScheduleDictInternal]
 
    Contains all weekdays for a single profile (e.g., P1).
 
@@ -56,7 +56,7 @@ Example:
        ...
    }
 
-3. ClimateWeekdaySchedule (Single Weekday)
+3. ClimateWeekdayScheduleDictInternal (Single Weekday)
    Structure: dict[int, ScheduleSlot]
 
    Contains 13 time slots for a single weekday. Each slot is a ScheduleSlot TypedDict with
@@ -109,40 +109,31 @@ SIMPLE SCHEDULE FORMAT
 
 A simplified format for easy user input, focusing on temperature periods without
 redundant 24:00 slots. The base temperature is automatically identified or can be
-specified as part of the data structure. Uses TypedDict-based structures with
-lowercase string keys for full JSON serialization support.
+specified as part of the data structure. Uses Pydantic models for validation.
 
-SimpleWeekdaySchedule (TypedDict):
-    A dictionary containing:
-    - "base_temperature" (float): The temperature used for periods not explicitly defined
-    - "periods" (list): Non-base temperature periods with starttime, endtime, temperature
+ClimateWeekdaySchedule (Pydantic model):
+    A model containing:
+    - base_temperature (float): The temperature used for periods not explicitly defined
+    - periods (list[ClimateSchedulePeriod]): Temperature periods with starttime, endtime, temperature
 
 Example:
-{
-    "base_temperature": 18.0,
-    "periods": [
-        {
-            "starttime": "06:00",
-            "endtime": "08:00",
-            "temperature": 21.0
-        },
-        {
-            "starttime": "17:00",
-            "endtime": "22:00",
-            "temperature": 21.0
-        }
+ClimateWeekdaySchedule(
+    base_temperature=18.0,
+    periods=[
+        ClimateSchedulePeriod(starttime="06:00", endtime="08:00", temperature=21.0),
+        ClimateSchedulePeriod(starttime="17:00", endtime="22:00", temperature=21.0),
     ]
-}
+)
 
-SimpleProfileSchedule:
-    Structure: dict[WeekdayStr, SimpleWeekdaySchedule]
+ClimateProfileSchedule (Pydantic RootModel):
+    Structure: dict[str, ClimateWeekdaySchedule]
 
-    Maps weekday names to their simple weekday data (base temp + periods).
+    Maps weekday names to their weekday data (base temp + periods).
 
-SimpleScheduleDict:
-    Structure: dict[ScheduleProfile, SimpleProfileSchedule]
+ClimateSchedule (Pydantic RootModel):
+    Structure: dict[str, ClimateProfileSchedule]
 
-    Maps profiles (P1-P6) to their simple profile data.
+    Maps profiles (P1-P6) to their profile data.
 
 The system automatically:
 - Identifies base_temperature when converting from full format (using identify_base_temperature())
@@ -155,68 +146,55 @@ The system automatically:
 SCHEDULE SERVICES
 =================
 
-Core Operations:
-----------------
+Climate Schedule API (Pydantic Models):
+----------------------------------------
 
-Full Format Methods:
-~~~~~~~~~~~~~~~~~~~~
+All climate schedule methods use Pydantic models for validation and type safety.
+These methods provide automatic conversion between simple user format and internal 13-slot format.
 
-get_schedule(*, force_load: bool = False) -> ClimateScheduleDict
-    Retrieves complete schedule from cache or device.
-    Returns filtered data (redundant 24:00 slots removed).
+get_schedule(*, force_load: bool = False) -> ClimateSchedule
+    Retrieves complete schedule in Pydantic model format from cache or device.
+    Automatically identifies base_temperature for each weekday.
+    Returns ClimateSchedule Pydantic model (all profiles P1-P6).
 
-get_profile(*, profile: ScheduleProfile, force_load: bool = False) -> ClimateProfileSchedule
-    Retrieves single profile (e.g., P1) from cache or device.
-    Returns filtered data for the specified profile.
+get_schedule_profile(*, profile: ScheduleProfile, force_load: bool = False) -> ClimateProfileSchedule
+    Retrieves single profile in Pydantic model format from cache or device.
+    Automatically identifies base_temperature for each weekday.
+    Returns ClimateProfileSchedule Pydantic model (all weekdays for specified profile).
 
-get_weekday(*, profile: ScheduleProfile, weekday: WeekdayStr, force_load: bool = False) -> ClimateWeekdaySchedule
-    Retrieves single weekday schedule from a profile.
-    Returns filtered data for the specified weekday.
+get_schedule_weekday(*, profile: ScheduleProfile, weekday: WeekdayStr, force_load: bool = False) -> ClimateWeekdaySchedule
+    Retrieves single weekday in Pydantic model format from cache or device.
+    Automatically identifies base_temperature.
+    Returns ClimateWeekdaySchedule with base_temperature and periods list.
 
-set_schedule(*, schedule_data: ClimateScheduleDict) -> None
-    Persists complete schedule to device.
+set_schedule(*, schedule_data: ClimateSchedule) -> None
+    Persists complete schedule using Pydantic model to device.
+    Converts simple format (base_temperature + periods) to full 13-slot format automatically.
     Updates cache and publishes change events.
 
-set_profile(*, profile: ScheduleProfile, profile_data: ClimateProfileSchedule) -> None
-    Persists single profile to device.
+set_schedule_profile(*, profile: ScheduleProfile, profile_data: ClimateProfileSchedule) -> None
+    Persists single profile using Pydantic model to device.
+    Converts simple format to full 13-slot format automatically.
     Validates, updates cache, and publishes change events.
 
-set_weekday(*, profile: ScheduleProfile, weekday: WeekdayStr, weekday_data: ClimateWeekdaySchedule) -> None
-    Persists single weekday schedule to device.
+set_schedule_weekday(*, profile: ScheduleProfile, weekday: WeekdayStr, weekday_data: ClimateWeekdaySchedule) -> None
+    Persists single weekday using Pydantic model to device.
+    Converts simple format (base_temperature + periods) to full 13-slot format automatically.
     Normalizes to 13 slots, validates, updates cache.
 
-Simple Format Methods:
-~~~~~~~~~~~~~~~~~~~~~~
+Non-Climate Schedule API (SimpleSchedule):
+-------------------------------------------
 
-get_simple_schedule(*, force_load: bool = False) -> SimpleScheduleDict
-    Retrieves complete schedule in simplified format from cache or device.
-    Automatically identifies base_temperature for each weekday.
-    Returns dict[ScheduleProfile, dict[WeekdayStr, SimpleWeekdaySchedule]].
+Non-climate devices (switches, lights, covers, valves) use SimpleSchedule Pydantic model.
 
-get_simple_profile(*, profile: ScheduleProfile, force_load: bool = False) -> SimpleProfileSchedule
-    Retrieves single profile in simplified format from cache or device.
-    Automatically identifies base_temperature for each weekday.
-    Returns dict[WeekdayStr, SimpleWeekdaySchedule] for the specified profile.
+get_schedule(*, force_load: bool = False) -> SimpleSchedule
+    Retrieves schedule in Pydantic model format from cache or device.
+    Returns SimpleSchedule with entries containing weekdays, time, level, duration, etc.
 
-get_simple_weekday(*, profile: ScheduleProfile, weekday: WeekdayStr, force_load: bool = False) -> SimpleWeekdaySchedule
-    Retrieves single weekday in simplified format from cache or device.
-    Automatically identifies base_temperature.
-    Returns SimpleWeekdaySchedule with base_temperature and periods list.
-
-set_simple_schedule(*, simple_schedule_data: SimpleScheduleDict) -> None
-    Persists complete schedule using simplified format to device.
-    Converts simple format to full 13-slot format automatically.
-    Expects dict[ScheduleProfile, dict[WeekdayStr, SimpleWeekdaySchedule]].
-
-set_simple_profile(*, profile: ScheduleProfile, simple_profile_data: SimpleProfileSchedule) -> None
-    Persists single profile using simplified format to device.
-    Converts simple format to full 13-slot format automatically.
-    Expects dict[WeekdayStr, SimpleWeekdaySchedule].
-
-set_simple_weekday(*, profile: ScheduleProfile, weekday: WeekdayStr, simple_weekday_data: SimpleWeekdaySchedule) -> None
-    Persists single weekday using simplified format to device.
-    Converts simple format to full 13-slot format automatically.
-    Expects SimpleWeekdaySchedule with base_temperature and periods.
+set_schedule(*, schedule_data: SimpleSchedule) -> None
+    Persists schedule using Pydantic model to device.
+    Converts to CCU raw format automatically.
+    Updates cache and publishes change events.
 
 Utility Methods:
 ~~~~~~~~~~~~~~~~
@@ -235,13 +213,13 @@ Filtering (Output - Removes Redundancy):
 -----------------------------------------
 Applied when reading schedules to present clean data to users.
 
-_filter_schedule_entries(schedule_data) -> ClimateScheduleDict
+_filter_schedule_entries(schedule_data) -> ClimateScheduleDictInternal
     Filters all profiles in a complete schedule.
 
-_filter_profile_entries(profile_data) -> ClimateProfileSchedule
+_filter_profile_entries(profile_data) -> ClimateProfileScheduleDictInternal
     Filters all weekdays in a profile.
 
-_filter_weekday_entries(weekday_data) -> ClimateWeekdaySchedule
+_filter_weekday_entries(weekday_data) -> ClimateWeekdayScheduleDictInternal
     Filters redundant 24:00 slots from a weekday schedule:
     - Processes slots in slot-number order
     - Keeps all slots up to and including the first 24:00
@@ -257,7 +235,7 @@ Normalization (Input - Ensures Valid Format):
 ----------------------------------------------
 Applied when setting schedules to ensure data meets device requirements.
 
-_normalize_weekday_data(weekday_data) -> ClimateWeekdaySchedule
+_normalize_weekday_data(weekday_data) -> ClimateWeekdayScheduleDictInternal
     Normalizes weekday schedule data:
     - Converts string keys to integers
     - Sorts slots chronologically by ENDTIME
@@ -277,12 +255,21 @@ Example:
 TYPICAL WORKFLOW EXAMPLES
 ==========================
 
-Reading a Schedule:
--------------------
-1. User calls get_weekday(profile=P1, weekday="MONDAY")
-2. System retrieves from cache or device (13 slots)
+Reading a Schedule (Internal/Low-level):
+----------------------------------------
+1. User calls _get_weekday_internal(profile=P1, weekday="MONDAY")
+2. System retrieves from cache or device (13 slots in TypedDict format)
 3. _filter_weekday_entries removes redundant 24:00 slots
-4. User receives clean data (e.g., 3-5 meaningful slots)
+4. User receives clean data (e.g., 3-5 meaningful slots in TypedDict format)
+
+Reading a Schedule (Public API):
+---------------------------------
+1. User calls get_schedule_weekday(profile=P1, weekday="MONDAY")
+2. System retrieves from cache or device (13 slots)
+3. System converts to Pydantic model:
+   - Identifies base_temperature
+   - Extracts periods (non-base-temp slots)
+4. User receives ClimateWeekdaySchedule(base_temperature=18.0, periods=[...])
 
 Setting a Schedule:
 -------------------
@@ -294,28 +281,47 @@ Setting a Schedule:
 4. System persists to device
 5. Cache is updated, events are published
 
-Using Simple Format:
---------------------
-1. User calls set_simple_weekday with:
+Using Pydantic Models (Climate):
+---------------------------------
+1. User calls set_schedule_weekday with:
    - profile: ScheduleProfile.P1
    - weekday: WeekdayStr.MONDAY
-   - simple_weekday_data: (18.0, [{STARTTIME: "07:00", ENDTIME: "22:00", TEMPERATURE: 21.0}])
-                          ^^^^^ base_temperature is part of the tuple
-2. System extracts base_temperature (18.0) and periods from tuple
-3. System converts to full format:
+   - weekday_data: ClimateWeekdaySchedule(
+         base_temperature=18.0,
+         periods=[
+             ClimateSchedulePeriod(starttime="07:00", endtime="22:00", temperature=21.0)
+         ]
+     )
+2. System converts to full 13-slot format:
    - Slot 1: ENDTIME: "07:00", TEMP: 18.0 (base_temperature before start)
    - Slot 2: ENDTIME: "22:00", TEMP: 21.0 (user's period)
    - Slots 3-13: ENDTIME: "24:00", TEMP: 18.0 (base_temperature after end)
-4. System validates and persists
+3. System validates and persists to CCU
+4. Cache is updated, data_point_updated event is published
 
-Reading Simple Format:
-----------------------
-1. User calls get_simple_weekday(profile=P1, weekday="MONDAY")
-2. System retrieves full schedule from cache (13 slots)
+Using Pydantic Models (Non-Climate):
+-------------------------------------
+1. User calls set_schedule with:
+   - schedule_data: SimpleSchedule([
+         SimpleScheduleEntry(
+             weekdays=[Weekday.MONDAY],
+             time="07:00",
+             level=100,  # For switches: on/off, for lights: brightness, etc.
+             duration=60
+         )
+     ])
+2. System converts to CCU raw format with bitwise weekday encoding
+3. System validates and persists to CCU
+4. Cache is updated, data_point_updated event is published
+
+Reading Pydantic Format (Climate):
+-----------------------------------
+1. User calls get_schedule_weekday(profile=P1, weekday="MONDAY")
+2. System retrieves full schedule from cache (13 slots in TypedDict format)
 3. System identifies base_temperature using identify_base_temperature()
    - Analyzes time durations for each temperature
    - Returns temperature used for most minutes of the day
-4. System filters out base_temperature periods and returns:
+4. System filters out base_temperature periods and returns ClimateWeekdaySchedule:
    (18.0, [{STARTTIME: "07:00", ENDTIME: "22:00", TEMPERATURE: 21.0}])
    ^^^^^ identified base_temperature + list of non-base periods
 
@@ -346,17 +352,11 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from enum import IntEnum
 import logging
-from typing import TYPE_CHECKING, Any, Final, cast
+from typing import TYPE_CHECKING, Any, Final, TypedDict, cast
 
 from aiohomematic import i18n
 from aiohomematic.const import (
     BIDCOS_DEVICE_CHANNEL_DUMMY,
-    CLIMATE_MAX_SCHEDULER_TIME,
-    CLIMATE_MIN_SCHEDULER_TIME,
-    CLIMATE_RELEVANT_SLOT_TYPES,
-    CLIMATE_SCHEDULE_SLOT_IN_RANGE,
-    CLIMATE_SCHEDULE_SLOT_RANGE,
-    CLIMATE_SCHEDULE_TIME_RANGE,
     DEFAULT_CLIMATE_FILL_TEMPERATURE,
     DEFAULT_SCHEDULE_DICT,
     DEFAULT_SCHEDULE_GROUP,
@@ -365,19 +365,13 @@ from aiohomematic.const import (
     SCHEDULER_PROFILE_PATTERN,
     SCHEDULER_TIME_PATTERN,
     AstroType,
-    ClimateProfileSchedule,
-    ClimateScheduleDict,
-    ClimateWeekdaySchedule,
     DataPointCategory,
     ParamsetKey,
     ScheduleActorChannel,
     ScheduleCondition,
+    ScheduleDict,
     ScheduleField,
     ScheduleProfile,
-    SimpleProfileSchedule,
-    SimpleScheduleDict,
-    SimpleSchedulePeriod,
-    SimpleWeekdaySchedule,
     TimeBase,
     WeekdayInt,
     WeekdayStr,
@@ -385,14 +379,82 @@ from aiohomematic.const import (
 from aiohomematic.decorators import inspector
 from aiohomematic.exceptions import ClientException, ValidationException
 from aiohomematic.interfaces import CustomDataPointProtocol, WeekProfileProtocol
+from aiohomematic.model.schedule_models import (
+    SCHEDULE_DOMAIN_CONTEXT_KEY,
+    ClimateProfileSchedule,
+    ClimateSchedule,
+    ClimateSchedulePeriod,
+    ClimateWeekdaySchedule,
+    SimpleSchedule,
+    SimpleScheduleEntry,
+    convert_raw_group_to_simple_entry,
+    convert_simple_entry_to_raw_group,
+)
 
 if TYPE_CHECKING:
     from aiohomematic.model.custom import BaseCustomDpClimate
 
 _LOGGER: Final = logging.getLogger(__name__)
 
+# =============================================================================
+# Internal Schedule Types (13-Slot Structure)
+# =============================================================================
+# These types represent the internal 13-slot schedule structure used by CCU devices.
+# They are ONLY used internally for CCU communication and normalization.
+# Public APIs use Pydantic models (ClimateSchedule, ClimateProfileSchedule, etc.)
 
-class WeekProfile[SCHEDULE_DICT_T: dict[Any, Any]](ABC, WeekProfileProtocol[SCHEDULE_DICT_T]):
+
+class _ScheduleSlot(TypedDict):
+    """
+    A single time slot in the internal 13-slot climate schedule structure.
+
+    Each slot defines when a temperature period ends and what temperature to maintain.
+    Climate devices use 13 slots per weekday, with unused slots filled with "24:00".
+
+    This is an INTERNAL type used only for CCU communication and normalization.
+    Public APIs use ClimateSchedulePeriod (Pydantic model) instead.
+
+    Attributes:
+        endtime: End time as string in "HH:MM" format (e.g., "06:00", "24:00")
+                 or as integer minutes since midnight (e.g., 360 for "06:00").
+                 The CCU always returns integers, but internal conversion may use strings.
+        temperature: Target temperature in degrees Celsius
+
+    Example:
+        {"endtime": "06:00", "temperature": 18.0}
+        {"endtime": 360, "temperature": 18.0}
+
+    """
+
+    endtime: str | int
+    temperature: float
+
+
+_ClimateWeekdayScheduleDictInternal = dict[int, _ScheduleSlot]
+"""Internal 13-slot schedule structure for a single weekday, keyed by slot number (1-13)."""
+
+_ClimateProfileScheduleDictInternal = dict[WeekdayStr, _ClimateWeekdayScheduleDictInternal]
+"""Internal 13-slot schedule structure for all weekdays in a profile."""
+
+_ClimateScheduleDictInternal = dict[ScheduleProfile, _ClimateProfileScheduleDictInternal]
+"""Internal 13-slot schedule structure with all profiles (P1-P6)."""
+
+# =============================================================================
+# Internal Schedule Constants
+# =============================================================================
+# These constants are used internally for schedule processing and CCU communication.
+
+_CLIMATE_MAX_SCHEDULER_TIME: Final = "24:00"
+"""Maximum time value for schedule slots (end of day)."""
+
+_CLIMATE_MIN_SCHEDULER_TIME: Final = "00:00"
+"""Minimum time value for schedule slots (start of day)."""
+
+_CLIMATE_SCHEDULE_SLOT_IN_RANGE: Final = range(1, 14)
+"""Range for all 13 schedule slots per weekday (1-13 inclusive)."""
+
+
+class WeekProfile[SCHEDULE_DICT_T](ABC, WeekProfileProtocol[SCHEDULE_DICT_T]):
     """Handle the device week profile."""
 
     __slots__ = (
@@ -409,7 +471,12 @@ class WeekProfile[SCHEDULE_DICT_T: dict[Any, Any]](ABC, WeekProfileProtocol[SCHE
         self._device: Final = data_point.device
         self._client: Final = data_point.device.client
         self._schedule_channel_no: Final[int | None] = self._data_point.device_config.schedule_channel_no
-        self._schedule_cache: SCHEDULE_DICT_T = cast(SCHEDULE_DICT_T, {})
+        self._schedule_cache: SCHEDULE_DICT_T = self._create_empty_schedule()
+
+    @staticmethod
+    @abstractmethod
+    def _create_empty_schedule() -> SCHEDULE_DICT_T:
+        """Create an empty schedule instance."""
 
     @staticmethod
     @abstractmethod
@@ -482,13 +549,33 @@ class WeekProfile[SCHEDULE_DICT_T: dict[Any, Any]](ABC, WeekProfileProtocol[SCHE
         return sca
 
 
-class DefaultWeekProfile(WeekProfile[DEFAULT_SCHEDULE_DICT]):
+class DefaultWeekProfile(WeekProfile[SimpleSchedule]):
     """
     Handle device week profiles for switches, lights, covers, and valves.
 
     This class manages the weekly scheduling functionality for non-climate devices,
-    converting between CCU raw paramset format and structured Python dictionaries.
+    converting between CCU raw paramset format and human-readable Pydantic models.
+
+    The schedule cache stores data in a human-readable SimpleSchedule format:
+
+    Example:
+        {
+            1: {
+                "weekdays": ["MONDAY", "TUESDAY"],
+                "time": "07:30",
+                "condition": "fixed_time",
+                "target_channels": ["1_1"],
+                "level": 1.0,
+                "duration": "10s",
+            }
+        }
+
     """
+
+    def __init__(self, *, data_point: CustomDataPointProtocol) -> None:
+        """Initialize the default week profile with empty SimpleSchedule."""
+        super().__init__(data_point=data_point)
+        self._schedule_cache: SimpleSchedule = SimpleSchedule(entries={})
 
     @staticmethod
     def _convert_schedule_entries(*, values: RAW_SCHEDULE_DICT) -> RAW_SCHEDULE_DICT:
@@ -507,24 +594,32 @@ class DefaultWeekProfile(WeekProfile[DEFAULT_SCHEDULE_DICT]):
         return schedule
 
     @staticmethod
-    def convert_dict_to_raw_schedule(*, schedule_data: DEFAULT_SCHEDULE_DICT) -> RAW_SCHEDULE_DICT:
+    def _create_empty_schedule() -> SimpleSchedule:
+        """Create an empty SimpleSchedule."""
+        return SimpleSchedule(entries={})
+
+    @staticmethod
+    def convert_dict_to_raw_schedule(*, schedule_data: SimpleSchedule) -> RAW_SCHEDULE_DICT:
         """
-        Convert structured dictionary to raw paramset schedule.
+        Convert SimpleSchedule to raw paramset schedule.
 
         Args:
-            schedule_data: Structured schedule dictionary
+            schedule_data: SimpleSchedule with human-readable entries
 
         Returns:
             Raw schedule for CCU
 
         Example:
-            Input: {1: {SwitchScheduleField.WEEKDAY: [Weekday.SUNDAY, ...], ...}}
-            Output: {"01_WP_WEEKDAY": 127, "01_WP_LEVEL": 1, ...}
+            Input: SimpleSchedule(entries={1: SimpleScheduleEntry(weekdays=["MONDAY"], ...)})
+            Output: {"01_WP_WEEKDAY": 2, "01_WP_FIXED_HOUR": 7, ...}
 
         """
         raw_schedule: RAW_SCHEDULE_DICT = {}
 
-        for group_no, group_data in schedule_data.items():
+        for group_no, entry in schedule_data.entries.items():
+            # Convert SimpleScheduleEntry to raw group format
+            group_data = convert_simple_entry_to_raw_group(entry=entry)
+
             for field, value in group_data.items():
                 # Build parameter name: "01_WP_WEEKDAY"
                 key = f"{group_no:02d}_WP_{field.value}"
@@ -536,36 +631,51 @@ class DefaultWeekProfile(WeekProfile[DEFAULT_SCHEDULE_DICT]):
                     ScheduleField.DURATION_BASE,
                     ScheduleField.RAMP_TIME_BASE,
                 ):
-                    raw_schedule[key] = int(value.value)
+                    # These are IntEnum values
+                    enum_value = cast(IntEnum, value)
+                    raw_schedule[key] = int(enum_value.value)
                 elif field in (ScheduleField.WEEKDAY, ScheduleField.TARGET_CHANNELS):
-                    raw_schedule[key] = _list_to_bitwise(items=value)
+                    # These are lists of IntEnum
+                    list_value = cast(list[IntEnum], value)
+                    raw_schedule[key] = _list_to_bitwise(items=list_value)
                 elif field == ScheduleField.LEVEL:
-                    raw_schedule[key] = int(value.value) if isinstance(value, IntEnum) else float(value)
+                    if isinstance(value, IntEnum):
+                        raw_schedule[key] = int(value.value)
+                    elif isinstance(value, (int, float)):
+                        raw_schedule[key] = float(value)
+                    else:
+                        raw_schedule[key] = 0.0
                 elif field == ScheduleField.LEVEL_2:
-                    raw_schedule[key] = float(value)
-                else:
-                    # ASTRO_OFFSET, DURATION_FACTOR, FIXED_HOUR, FIXED_MINUTE, RAMP_TIME_FACTOR
+                    if isinstance(value, (int, float)):
+                        raw_schedule[key] = float(value)
+                    else:
+                        raw_schedule[key] = 0.0
+                # ASTRO_OFFSET, DURATION_FACTOR, FIXED_HOUR, FIXED_MINUTE, RAMP_TIME_FACTOR
+                elif isinstance(value, (int, float)):
                     raw_schedule[key] = int(value)
+                else:
+                    raw_schedule[key] = 0
 
         return raw_schedule
 
     @staticmethod
-    def convert_raw_to_dict_schedule(*, raw_schedule: RAW_SCHEDULE_DICT) -> DEFAULT_SCHEDULE_DICT:
+    def convert_raw_to_dict_schedule(*, raw_schedule: RAW_SCHEDULE_DICT) -> SimpleSchedule:
         """
-        Convert raw paramset schedule to structured dictionary.
+        Convert raw paramset schedule to SimpleSchedule.
 
         Args:
             raw_schedule: Raw schedule from CCU (e.g., {"01_WP_WEEKDAY": 127, ...})
 
         Returns:
-            Structured dictionary grouped by schedule number
+            SimpleSchedule with human-readable entries
 
         Example:
-            Input: {"01_WP_WEEKDAY": 127, "01_WP_LEVEL": 1, ...}
-            Output: {1: {SwitchScheduleField.WEEKDAY: [Weekday.SUNDAY, ...], ...}}
+            Input: {"01_WP_WEEKDAY": 3, "01_WP_FIXED_HOUR": 7, "01_WP_FIXED_MINUTE": 30, ...}
+            Output: SimpleSchedule(entries={1: SimpleScheduleEntry(weekdays=["MONDAY", "SUNDAY"], time="07:30", ...)})
 
         """
-        schedule_data: DEFAULT_SCHEDULE_DICT = {}
+        # First, parse raw schedule into intermediate group format
+        intermediate_data: DEFAULT_SCHEDULE_DICT = {}
 
         for key, value in raw_schedule.items():
             # Expected format: "01_WP_WEEKDAY"
@@ -581,55 +691,73 @@ class DefaultWeekProfile(WeekProfile[DEFAULT_SCHEDULE_DICT]):
                 # Skip invalid entries
                 continue
 
-            if group_no not in schedule_data:
-                schedule_data[group_no] = {}
+            if group_no not in intermediate_data:
+                intermediate_data[group_no] = {}
 
             # Convert value based on field type
             int_value = int(value)
 
             if field == ScheduleField.ASTRO_TYPE:
                 try:
-                    schedule_data[group_no][field] = AstroType(int_value)
+                    intermediate_data[group_no][field] = AstroType(int_value)
                 except ValueError:
-                    # Unknown astro type - store as raw int for forward compatibility
-                    schedule_data[group_no][field] = int_value
+                    intermediate_data[group_no][field] = int_value
             elif field == ScheduleField.CONDITION:
                 try:
-                    schedule_data[group_no][field] = ScheduleCondition(int_value)
+                    intermediate_data[group_no][field] = ScheduleCondition(int_value)
                 except ValueError:
-                    # Unknown condition - store as raw int for forward compatibility
-                    schedule_data[group_no][field] = int_value
+                    intermediate_data[group_no][field] = int_value
             elif field in (ScheduleField.DURATION_BASE, ScheduleField.RAMP_TIME_BASE):
                 try:
-                    schedule_data[group_no][field] = TimeBase(int_value)
+                    intermediate_data[group_no][field] = TimeBase(int_value)
                 except ValueError:
-                    # Unknown time base - store as raw int for forward compatibility
-                    schedule_data[group_no][field] = int_value
+                    intermediate_data[group_no][field] = int_value
             elif field == ScheduleField.LEVEL:
-                schedule_data[group_no][field] = int_value if isinstance(value, int) else float(value)
+                intermediate_data[group_no][field] = int_value if isinstance(value, int) else float(value)
             elif field == ScheduleField.LEVEL_2:
-                schedule_data[group_no][field] = float(value)
+                intermediate_data[group_no][field] = float(value)
             elif field == ScheduleField.WEEKDAY:
-                schedule_data[group_no][field] = _bitwise_to_list(value=int_value, enum_class=WeekdayInt)
+                intermediate_data[group_no][field] = _bitwise_to_list(value=int_value, enum_class=WeekdayInt)
             elif field == ScheduleField.TARGET_CHANNELS:
-                schedule_data[group_no][field] = _bitwise_to_list(value=int_value, enum_class=ScheduleActorChannel)
+                intermediate_data[group_no][field] = _bitwise_to_list(value=int_value, enum_class=ScheduleActorChannel)
             else:
                 # ASTRO_OFFSET, DURATION_FACTOR, FIXED_HOUR, FIXED_MINUTE, RAMP_TIME_FACTOR
-                schedule_data[group_no][field] = int_value
+                intermediate_data[group_no][field] = int_value
 
-        # Return all schedule groups, even if incomplete
-        # Filtering can be done by callers using is_schedule_active() if needed
-        return schedule_data
+        # Convert intermediate format to SimpleSchedule
+        entries: dict[int, SimpleScheduleEntry] = {}
+        for group_no, group_data in intermediate_data.items():
+            if is_schedule_active(group_data=group_data):
+                try:
+                    entries[group_no] = convert_raw_group_to_simple_entry(group_data=group_data)
+                except (ValueError, KeyError) as ex:
+                    _LOGGER.debug(
+                        "CONVERT_RAW_TO_DICT_SCHEDULE: Failed to convert group %d: %s",
+                        group_no,
+                        ex,
+                    )
+                    continue
 
-    def empty_schedule_group(self) -> DEFAULT_SCHEDULE_GROUP:
-        """Return an empty schedule dictionary."""
-        if not self.has_schedule:
-            return create_empty_schedule_group(category=self._data_point.category)
-        return {}
+        return SimpleSchedule(entries=entries)
+
+    def empty_schedule_entry(self) -> SimpleScheduleEntry:
+        """Return an empty (minimal) schedule entry."""
+        return SimpleScheduleEntry(
+            weekdays=["MONDAY"],
+            time="00:00",
+            condition="fixed_time",
+            astro_type=None,
+            astro_offset_minutes=0,
+            target_channels=["1_1"],
+            level=0.0,
+            level_2=None,
+            duration=None,
+            ramp_time=None,
+        )
 
     @inspector
-    async def get_schedule(self, *, force_load: bool = False) -> DEFAULT_SCHEDULE_DICT:
-        """Return the raw schedule dictionary."""
+    async def get_schedule(self, *, force_load: bool = False) -> SimpleSchedule:
+        """Return the schedule in human-readable SimpleSchedule format."""
         if not self.has_schedule:
             raise ValidationException(
                 i18n.tr(
@@ -641,7 +769,7 @@ class DefaultWeekProfile(WeekProfile[DEFAULT_SCHEDULE_DICT]):
         return self._schedule_cache
 
     async def reload_and_cache_schedule(self, *, force: bool = False) -> None:
-        """Reload schedule entries and update cache."""
+        """Reload schedule entries from CCU and update cache with SimpleSchedule format."""
         if not force and not self.has_schedule:
             return
 
@@ -649,26 +777,45 @@ class DefaultWeekProfile(WeekProfile[DEFAULT_SCHEDULE_DICT]):
             new_raw_schedule = await self._get_raw_schedule()
         except ValidationException:
             return
+
         old_schedule = self._schedule_cache
-        new_schedule_data = self.convert_raw_to_dict_schedule(raw_schedule=new_raw_schedule)
-        self._schedule_cache = {
-            no: group_data for no, group_data in new_schedule_data.items() if is_schedule_active(group_data=group_data)
-        }
-        if old_schedule != self._schedule_cache:
+        new_schedule = self.convert_raw_to_dict_schedule(raw_schedule=new_raw_schedule)
+        self._schedule_cache = new_schedule
+
+        if old_schedule != new_schedule:
             self._data_point.publish_data_point_updated_event()
 
     @inspector
-    async def set_schedule(self, *, schedule_data: DEFAULT_SCHEDULE_DICT) -> None:
+    async def set_schedule(self, *, schedule_data: SimpleSchedule) -> None:
         """
-        Persist the provided raw schedule dictionary.
+        Persist the provided SimpleSchedule to device.
+
+        Args:
+            schedule_data: SimpleSchedule with human-readable entries (Pydantic-validated)
+
+        Raises:
+            ValidationError: If schedule_data violates domain-specific constraints
 
         Note:
             The cache is NOT updated optimistically. The cache will be refreshed
             from CCU when CONFIG_PENDING = False is received, ensuring consistency
             between cache and CCU state.
 
+            Domain-specific validation is applied based on the device category:
+            - SWITCH: level must be 0.0 or 1.0, no level_2, no ramp_time
+            - LIGHT: no level_2
+            - COVER: no ramp_time, no duration
+            - VALVE: no level_2, no ramp_time
+
         """
         sca = self._validate_and_get_schedule_channel_address()
+
+        # Re-validate with domain context to enforce domain-specific constraints
+        # The context passes the device category to enable domain-aware validation
+        SimpleSchedule.model_validate(
+            schedule_data.model_dump(),
+            context={SCHEDULE_DOMAIN_CONTEXT_KEY: self._data_point.category},
+        )
 
         # Write to device - cache will be updated via CONFIG_PENDING event
         await self._client.put_paramset(
@@ -706,7 +853,7 @@ class DefaultWeekProfile(WeekProfile[DEFAULT_SCHEDULE_DICT]):
         return schedule
 
 
-class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
+class ClimateWeekProfile(WeekProfile[ClimateSchedule]):
     """
     Handle climate device week profiles (thermostats).
 
@@ -728,9 +875,19 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
         self._max_temp: Final[float] = self._data_point.max_temp
 
     @staticmethod
-    def convert_dict_to_raw_schedule(*, schedule_data: ClimateScheduleDict) -> RAW_SCHEDULE_DICT:
+    def _create_empty_schedule() -> ClimateSchedule:
+        """Create an empty ClimateSchedule."""
+        return ClimateSchedule({})
+
+    @staticmethod
+    def convert_dict_to_raw_schedule(  # type: ignore[override]
+        *, schedule_data: _ClimateScheduleDictInternal
+    ) -> RAW_SCHEDULE_DICT:
         """
         Convert structured climate schedule to raw paramset format.
+
+        Note: This method uses _ClimateScheduleDictInternal (13-slot format) internally,
+        not ClimateSchedule (simple format), hence the type override.
 
         Args:
             schedule_data: Structured schedule with profiles, weekdays, and time slots
@@ -764,7 +921,7 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
         return raw_paramset
 
     @staticmethod
-    def convert_raw_to_dict_schedule(*, raw_schedule: RAW_SCHEDULE_DICT) -> ClimateScheduleDict:
+    def convert_raw_to_dict_schedule(*, raw_schedule: RAW_SCHEDULE_DICT) -> _ClimateScheduleDictInternal:  # type: ignore[override]
         """
         Convert raw CCU schedule to structured dictionary format.
 
@@ -779,7 +936,7 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
             Output: {ScheduleProfile.P1: {"MONDAY": {1: {"temperature": 20.0, "endtime": "06:00"}}}}
 
         """
-        # Use permissive type during incremental construction, final type is ClimateScheduleDict
+        # Use permissive type during incremental construction, final type is ClimateScheduleDictInternal
         schedule_data: dict[ScheduleProfile, dict[WeekdayStr, dict[int, dict[str, str | float]]]] = {}
 
         # Process each schedule entry
@@ -817,23 +974,18 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
 
             schedule_data[_profile][_weekday][_slot_no][_slot_type] = final_value
 
-        # Cast to ClimateScheduleDict since we built it with all required keys
-        return cast(ClimateScheduleDict, schedule_data)
+        # Cast to ClimateScheduleDictInternal since we built it with all required keys
+        return cast(_ClimateScheduleDictInternal, schedule_data)
 
     @property
     def available_schedule_profiles(self) -> tuple[ScheduleProfile, ...]:
         """Return the available schedule profiles."""
-        return tuple(self._schedule_cache.keys())
+        return tuple(ScheduleProfile(key) for key in self._schedule_cache)
 
     @property
-    def schedule(self) -> ClimateScheduleDict:
-        """Return the schedule cache."""
-        return _filter_schedule_entries(schedule_data=self._schedule_cache)
-
-    @property
-    def simple_schedule(self) -> SimpleScheduleDict:
-        """Return schedule in TypedDict format with string keys for JSON compatibility."""
-        return self._validate_and_convert_schedule_to_simple(schedule_data=self._schedule_cache)
+    def schedule(self) -> ClimateSchedule:
+        """Return schedule as Pydantic model for validation and easy access."""
+        return self._schedule_cache
 
     @inspector
     async def copy_profile(
@@ -860,13 +1012,9 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
         if same_device and (source_profile == target_profile or (source_profile is None or target_profile is None)):
             raise ValidationException(i18n.tr(key="exception.model.week_profile.copy_schedule.same_device_invalid"))
 
-        if (source_profile_data := await self.get_profile(profile=source_profile)) is None:
-            raise ValidationException(
-                i18n.tr(
-                    key="exception.model.week_profile.source_profile.not_loaded",
-                    source_profile=source_profile,
-                )
-            )
+        # get_profile now returns Pydantic model
+        source_profile_data = await self.get_profile(profile=source_profile)
+
         if not target_climate_data_point.device.has_week_profile:
             raise ValidationException(
                 i18n.tr(
@@ -874,15 +1022,13 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
                     address=self._device.name,
                 )
             )
-        if (
-            target_climate_data_point.device.week_profile
-            and (sca := target_climate_data_point.device.week_profile.schedule_channel_address) is not None
+        if target_climate_data_point.device.week_profile and isinstance(
+            target_climate_data_point.device.week_profile, ClimateWeekProfile
         ):
-            await self._set_schedule_profile(
-                target_channel_address=sca,
+            # Use the new set_profile API which accepts Pydantic models
+            await target_climate_data_point.device.week_profile.set_profile(
                 profile=target_profile,
                 profile_data=source_profile_data,
-                do_validate=False,
             )
 
     @inspector
@@ -910,7 +1056,7 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
 
     @inspector
     async def get_profile(self, *, profile: ScheduleProfile, force_load: bool = False) -> ClimateProfileSchedule:
-        """Return a schedule by climate profile."""
+        """Return schedule by climate profile as Pydantic model."""
         if not self.has_schedule:
             raise ValidationException(
                 i18n.tr(
@@ -920,11 +1066,13 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
             )
         if force_load or not self._schedule_cache:
             await self.reload_and_cache_schedule()
-        return _filter_profile_entries(profile_data=self._schedule_cache.get(profile, {}))
+        # _schedule_cache is now ClimateSchedule (Pydantic), return profile or empty
+        result = self._schedule_cache.get(profile)
+        return result if result is not None else ClimateProfileSchedule({})
 
     @inspector
-    async def get_schedule(self, *, force_load: bool = False) -> ClimateScheduleDict:
-        """Return the complete schedule dictionary."""
+    async def get_schedule(self, *, force_load: bool = False) -> ClimateSchedule:
+        """Return the complete schedule as Pydantic model."""
         if not self.has_schedule:
             raise ValidationException(
                 i18n.tr(
@@ -934,59 +1082,13 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
             )
         if force_load or not self._schedule_cache:
             await self.reload_and_cache_schedule()
-        return _filter_schedule_entries(schedule_data=self._schedule_cache)
-
-    @inspector
-    async def get_simple_profile(self, *, profile: ScheduleProfile, force_load: bool = False) -> SimpleProfileSchedule:
-        """Return a simple schedule by climate profile."""
-        if not self.has_schedule:
-            raise ValidationException(
-                i18n.tr(
-                    key="exception.model.week_profile.schedule.unsupported",
-                    name=self._device.name,
-                )
-            )
-        if force_load or not self._schedule_cache:
-            await self.reload_and_cache_schedule()
-        return self._validate_and_convert_profile_to_simple(profile_data=self._schedule_cache.get(profile, {}))
-
-    @inspector
-    async def get_simple_schedule(self, *, force_load: bool = False) -> SimpleScheduleDict:
-        """Return the complete simple schedule dictionary."""
-        if not self.has_schedule:
-            raise ValidationException(
-                i18n.tr(
-                    key="exception.model.week_profile.schedule.unsupported",
-                    name=self._device.name,
-                )
-            )
-        if force_load or not self._schedule_cache:
-            await self.reload_and_cache_schedule()
-        return self._validate_and_convert_schedule_to_simple(schedule_data=self._schedule_cache)
-
-    @inspector
-    async def get_simple_weekday(
-        self, *, profile: ScheduleProfile, weekday: WeekdayStr, force_load: bool = False
-    ) -> SimpleWeekdaySchedule:
-        """Return a simple schedule by climate profile and weekday."""
-        if not self.has_schedule:
-            raise ValidationException(
-                i18n.tr(
-                    key="exception.model.week_profile.schedule.unsupported",
-                    name=self._device.name,
-                )
-            )
-        if force_load or not self._schedule_cache:
-            await self.reload_and_cache_schedule()
-        return self._validate_and_convert_weekday_to_simple(
-            weekday_data=self._schedule_cache.get(profile, {}).get(weekday, {})
-        )
+        return self._schedule_cache
 
     @inspector
     async def get_weekday(
         self, *, profile: ScheduleProfile, weekday: WeekdayStr, force_load: bool = False
     ) -> ClimateWeekdaySchedule:
-        """Return a schedule by climate profile."""
+        """Return schedule by climate profile and weekday as Pydantic model."""
         if not self.has_schedule:
             raise ValidationException(
                 i18n.tr(
@@ -996,7 +1098,11 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
             )
         if force_load or not self._schedule_cache:
             await self.reload_and_cache_schedule()
-        return _filter_weekday_entries(weekday_data=self._schedule_cache.get(profile, {}).get(weekday, {}))
+        # _schedule_cache is now ClimateSchedule (Pydantic), return weekday or empty
+        if (profile_data := self._schedule_cache.get(profile)) is None:
+            return ClimateWeekdaySchedule(base_temperature=20.0, periods=[])
+        weekday_data = profile_data.get(weekday)
+        return weekday_data if weekday_data is not None else ClimateWeekdaySchedule(base_temperature=20.0, periods=[])
 
     async def reload_and_cache_schedule(self, *, force: bool = False) -> None:
         """Reload schedules from CCU and update cache, publish events if changed."""
@@ -1026,21 +1132,13 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
 
     @inspector
     async def set_profile(
-        self, *, profile: ScheduleProfile, profile_data: ClimateProfileSchedule, do_validate: bool = True
+        self,
+        *,
+        profile: ScheduleProfile,
+        profile_data: ScheduleDict | ClimateProfileSchedule,
     ) -> None:
-        """Set a profile to device."""
-        sca = self._validate_and_get_schedule_channel_address()
-        await self._set_schedule_profile(
-            target_channel_address=sca,
-            profile=profile,
-            profile_data=profile_data,
-            do_validate=do_validate,
-        )
-
-    @inspector
-    async def set_schedule(self, *, schedule_data: ClimateScheduleDict) -> None:
         """
-        Set the complete schedule dictionary to device.
+        Set a profile to device.
 
         Note:
             The cache is NOT updated optimistically. The cache will be refreshed
@@ -1048,44 +1146,38 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
             between cache and CCU state.
 
         """
+        # Convert simple format to internal 13-slot format
+        converted_profile_data = self._validate_and_convert_simple_to_profile(simple_profile_data=profile_data)
         sca = self._validate_and_get_schedule_channel_address()
 
         # Write to device - cache will be updated via CONFIG_PENDING event
         await self._client.put_paramset(
             channel_address=sca,
             paramset_key_or_link_address=ParamsetKey.MASTER,
-            values=self.convert_dict_to_raw_schedule(schedule_data=schedule_data),
+            values=self.convert_dict_to_raw_schedule(schedule_data={profile: converted_profile_data}),
         )
 
     @inspector
-    async def set_simple_profile(
-        self,
-        *,
-        profile: ScheduleProfile,
-        simple_profile_data: SimpleProfileSchedule,
-    ) -> None:
-        """Set a profile to device."""
-        profile_data = self._validate_and_convert_simple_to_profile(simple_profile_data=simple_profile_data)
-        await self.set_profile(profile=profile, profile_data=profile_data)
+    async def set_schedule(self, *, schedule_data: ScheduleDict | ClimateSchedule) -> None:
+        """
+        Set the complete schedule to device.
 
-    @inspector
-    async def set_simple_schedule(self, *, simple_schedule_data: SimpleScheduleDict) -> None:
-        """Set the complete simple schedule dictionary to device."""
-        # Convert simple schedule to full schedule format
-        schedule_data = self._validate_and_convert_simple_to_schedule(simple_schedule_data=simple_schedule_data)
-        await self.set_schedule(schedule_data=schedule_data)
+        Note:
+            The cache is NOT updated optimistically. The cache will be refreshed
+            from CCU when CONFIG_PENDING = False is received, ensuring consistency
+            between cache and CCU state.
 
-    @inspector
-    async def set_simple_weekday(
-        self,
-        *,
-        profile: ScheduleProfile,
-        weekday: WeekdayStr,
-        simple_weekday_data: SimpleWeekdaySchedule,
-    ) -> None:
-        """Store a simple weekday profile to device."""
-        weekday_data = self._validate_and_convert_simple_to_weekday(simple_weekday_data=simple_weekday_data)
-        await self.set_weekday(profile=profile, weekday=weekday, weekday_data=weekday_data)
+        """
+        # Convert simple schedule to internal 13-slot format
+        converted_schedule_data = self._validate_and_convert_simple_to_schedule(simple_schedule_data=schedule_data)
+        sca = self._validate_and_get_schedule_channel_address()
+
+        # Write to device - cache will be updated via CONFIG_PENDING event
+        await self._client.put_paramset(
+            channel_address=sca,
+            paramset_key_or_link_address=ParamsetKey.MASTER,
+            values=self.convert_dict_to_raw_schedule(schedule_data=converted_schedule_data),
+        )
 
     @inspector
     async def set_weekday(
@@ -1093,11 +1185,10 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
         *,
         profile: ScheduleProfile,
         weekday: WeekdayStr,
-        weekday_data: ClimateWeekdaySchedule,
-        do_validate: bool = True,
+        weekday_data: ScheduleDict | ClimateWeekdaySchedule,
     ) -> None:
         """
-        Store a profile to device.
+        Store a weekday profile to device.
 
         Note:
             The cache is NOT updated optimistically. The cache will be refreshed
@@ -1105,20 +1196,30 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
             between cache and CCU state.
 
         """
-        # Normalize weekday_data: convert string keys to int and sort by ENDTIME
-        weekday_data = _normalize_weekday_data(weekday_data=weekday_data)
-
-        if do_validate:
-            self._validate_weekday(profile=profile, weekday=weekday, weekday_data=weekday_data)
+        # Convert simple format to internal 13-slot format
+        converted_weekday_data = self._validate_and_convert_simple_to_weekday(simple_weekday_data=weekday_data)
+        sca = self._validate_and_get_schedule_channel_address()
 
         # Write to device - cache will be updated via CONFIG_PENDING event
-        sca = self._validate_and_get_schedule_channel_address()
         await self._client.put_paramset(
             channel_address=sca,
             paramset_key_or_link_address=ParamsetKey.MASTER,
-            values=self.convert_dict_to_raw_schedule(schedule_data={profile: {weekday: weekday_data}}),
+            values=self.convert_dict_to_raw_schedule(schedule_data={profile: {weekday: converted_weekday_data}}),
             check_against_pd=True,
         )
+
+    def _convert_raw_to_pydantic(self, *, raw_schedule: RAW_SCHEDULE_DICT) -> ClimateSchedule:
+        """
+        Convert raw CCU schedule directly to Pydantic model (optimized).
+
+        This method combines the conversion steps for better performance.
+        The intermediate DictInternal format is only used internally for
+        normalization and validation logic.
+        """
+        # Convert to internal format (still needed for normalization logic)
+        internal_schedule = self.convert_raw_to_dict_schedule(raw_schedule=raw_schedule)
+        # Convert to Pydantic
+        return self._validate_and_convert_schedule_to_simple(schedule_data=internal_schedule)
 
     async def _get_raw_schedule(self) -> RAW_SCHEDULE_DICT:
         """Return the raw schedule."""
@@ -1139,82 +1240,92 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
             ) from cex
         return raw_schedule
 
-    async def _get_schedule_profile(self) -> ClimateScheduleDict:
-        """Get the schedule."""
+    async def _get_schedule_profile(self) -> ClimateSchedule:
+        """Get the schedule as Pydantic model."""
         # Get raw schedule data from device
         raw_schedule = await self._get_raw_schedule()
-        return self.convert_raw_to_dict_schedule(raw_schedule=raw_schedule)
+        # Convert directly to Pydantic (optimized path)
+        return self._convert_raw_to_pydantic(raw_schedule=raw_schedule)
 
-    async def _set_schedule_profile(
-        self,
-        *,
-        target_channel_address: str,
-        profile: ScheduleProfile,
-        profile_data: ClimateProfileSchedule,
-        do_validate: bool,
-    ) -> None:
-        """
-        Set a profile to device.
-
-        Note:
-            The cache is NOT updated optimistically. The cache will be refreshed
-            from CCU when CONFIG_PENDING = False is received, ensuring consistency
-            between cache and CCU state.
-
-        """
-        # Normalize weekday_data: convert string keys to int and sort by ENDTIME
-        profile_data = {
-            weekday: _normalize_weekday_data(weekday_data=weekday_data)
-            for weekday, weekday_data in profile_data.items()
-        }
-        if do_validate:
-            self._validate_profile(profile=profile, profile_data=profile_data)
-
-        # Write to device - cache will be updated via CONFIG_PENDING event
-        await self._client.put_paramset(
-            channel_address=target_channel_address,
-            paramset_key_or_link_address=ParamsetKey.MASTER,
-            values=self.convert_dict_to_raw_schedule(schedule_data={profile: profile_data}),
-        )
-
-    def _validate_and_convert_profile_to_simple(self, *, profile_data: ClimateProfileSchedule) -> SimpleProfileSchedule:
-        """Convert a full climate profile to simplified TypedDict format."""
-        simple_profile: SimpleProfileSchedule = {}
+    def _validate_and_convert_profile_to_simple(
+        self, *, profile_data: _ClimateProfileScheduleDictInternal
+    ) -> ClimateProfileSchedule:
+        """Convert a full climate profile to simplified Pydantic model."""
+        simple_profile: dict[WeekdayStr, ClimateWeekdaySchedule] = {}
         for weekday, weekday_data in profile_data.items():
             simple_profile[weekday] = self._validate_and_convert_weekday_to_simple(weekday_data=weekday_data)
-        return simple_profile
+        # Convert enum keys to strings for RootModel
+        return ClimateProfileSchedule({str(k): v for k, v in simple_profile.items()})
 
-    def _validate_and_convert_schedule_to_simple(self, *, schedule_data: ClimateScheduleDict) -> SimpleScheduleDict:
-        """Convert a full schedule to simplified TypedDict format."""
-        simple_schedule: SimpleScheduleDict = {}
+    def _validate_and_convert_schedule_to_simple(
+        self, *, schedule_data: _ClimateScheduleDictInternal
+    ) -> ClimateSchedule:
+        """Convert a full schedule to simplified Pydantic model."""
+        simple_schedule: dict[ScheduleProfile, ClimateProfileSchedule] = {}
         for profile, profile_data in schedule_data.items():
             simple_schedule[profile] = self._validate_and_convert_profile_to_simple(profile_data=profile_data)
-        return simple_schedule
+        # Convert enum keys to strings for RootModel
+        return ClimateSchedule({str(k): v for k, v in simple_schedule.items()})
 
     def _validate_and_convert_simple_to_profile(
-        self, *, simple_profile_data: SimpleProfileSchedule
-    ) -> ClimateProfileSchedule:
-        """Convert simple profile TypedDict to full profile dict."""
-        profile_data: ClimateProfileSchedule = {}
-        for day, simple_weekday_data in simple_profile_data.items():
-            profile_data[day] = self._validate_and_convert_simple_to_weekday(simple_weekday_data=simple_weekday_data)
+        self, *, simple_profile_data: ScheduleDict | ClimateProfileSchedule
+    ) -> _ClimateProfileScheduleDictInternal:
+        """Convert simple profile to full profile dict."""
+        # Validate with Pydantic
+        try:
+            validated_profile = ClimateProfileSchedule.model_validate(simple_profile_data)
+        except ValueError as ex:
+            raise ValidationException(str(ex)) from ex
+
+        # Convert each weekday to full format
+        # RootModel behaves like a dict, can iterate directly
+        profile_data: _ClimateProfileScheduleDictInternal = {}
+        for day, simple_weekday_data in validated_profile.root.items():
+            # Cast string key to WeekdayStr enum for TypedDict
+            profile_data[WeekdayStr(day)] = self._validate_and_convert_simple_to_weekday(
+                simple_weekday_data=simple_weekday_data
+            )
         return profile_data
 
     def _validate_and_convert_simple_to_schedule(
-        self, *, simple_schedule_data: SimpleScheduleDict
-    ) -> ClimateScheduleDict:
-        """Convert simple schedule TypedDict to full schedule dict."""
-        schedule_data: ClimateScheduleDict = {}
-        for profile, profile_data in simple_schedule_data.items():
-            schedule_data[profile] = self._validate_and_convert_simple_to_profile(simple_profile_data=profile_data)
+        self, *, simple_schedule_data: ScheduleDict | ClimateSchedule
+    ) -> _ClimateScheduleDictInternal:
+        """Convert simple schedule to full schedule dict."""
+        # Validate with Pydantic
+        try:
+            validated_schedule = ClimateSchedule.model_validate(simple_schedule_data)
+        except ValueError as ex:
+            raise ValidationException(str(ex)) from ex
+
+        # Convert each profile to full format
+        # RootModel behaves like a dict, can iterate directly
+        schedule_data: _ClimateScheduleDictInternal = {}
+        for profile, profile_data in validated_schedule.root.items():
+            # Cast string key to ScheduleProfile enum for TypedDict
+            schedule_data[ScheduleProfile(profile)] = self._validate_and_convert_simple_to_profile(
+                simple_profile_data=profile_data
+            )
         return schedule_data
 
     def _validate_and_convert_simple_to_weekday(
-        self, *, simple_weekday_data: SimpleWeekdaySchedule
-    ) -> ClimateWeekdaySchedule:
-        """Convert simple weekday TypedDict to full weekday dict."""
-        base_temperature = simple_weekday_data["base_temperature"]
-        _weekday_data = simple_weekday_data["periods"]
+        self, *, simple_weekday_data: ScheduleDict | ClimateWeekdaySchedule
+    ) -> _ClimateWeekdayScheduleDictInternal:
+        """Convert simple weekday to full weekday dict."""
+        # Validate with Pydantic
+        try:
+            validated_weekday = ClimateWeekdaySchedule.model_validate(simple_weekday_data)
+        except ValueError as ex:
+            raise ValidationException(str(ex)) from ex
+
+        base_temperature = validated_weekday.base_temperature
+        _weekday_data: list[dict[str, str | float]] = [
+            {
+                "starttime": p.starttime,
+                "endtime": p.endtime,
+                "temperature": p.temperature,
+            }
+            for p in validated_weekday.periods
+        ]
 
         if not self._min_temp <= base_temperature <= self._max_temp:
             raise ValidationException(
@@ -1226,37 +1337,20 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
                 )
             )
 
-        weekday_data: ClimateWeekdaySchedule = {}
+        weekday_data: _ClimateWeekdayScheduleDictInternal = {}
 
-        # Validate required fields before sorting
-        for slot in _weekday_data:
-            if (starttime := slot.get("starttime")) is None:
-                raise ValidationException(i18n.tr(key="exception.model.week_profile.validate.starttime_missing"))
-            if (endtime := slot.get("endtime")) is None:
-                raise ValidationException(i18n.tr(key="exception.model.week_profile.validate.endtime_missing"))
-            if (temperature := slot.get("temperature")) is None:
-                raise ValidationException(i18n.tr(key="exception.model.week_profile.validate.temperature_missing"))
-
-        sorted_periods = sorted(_weekday_data, key=lambda p: _convert_time_str_to_minutes(time_str=p["starttime"]))
-        previous_endtime = CLIMATE_MIN_SCHEDULER_TIME
+        # Pydantic already validated: required fields, time format, starttime < endtime
+        # Only need to validate business logic: overlaps, temperature range, gaps
+        sorted_periods = sorted(_weekday_data, key=lambda p: _convert_time_str_to_minutes(time_str=str(p["starttime"])))
+        previous_endtime = _CLIMATE_MIN_SCHEDULER_TIME
         slot_no = 1
         for slot in sorted_periods:
-            starttime = slot["starttime"]
-            endtime = slot["endtime"]
-            temperature = slot["temperature"]
+            starttime = str(slot["starttime"])
+            endtime = str(slot["endtime"])
+            temperature = float(slot["temperature"])
 
-            if _convert_time_str_to_minutes(time_str=str(starttime)) >= _convert_time_str_to_minutes(
-                time_str=str(endtime)
-            ):
-                raise ValidationException(
-                    i18n.tr(
-                        key="exception.model.week_profile.validate.start_before_end",
-                        start=starttime,
-                        end=endtime,
-                    )
-                )
-
-            if _convert_time_str_to_minutes(time_str=str(starttime)) < _convert_time_str_to_minutes(
+            # Check for overlaps between periods
+            if _convert_time_str_to_minutes(time_str=starttime) < _convert_time_str_to_minutes(
                 time_str=previous_endtime
             ):
                 raise ValidationException(
@@ -1267,7 +1361,7 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
                     )
                 )
 
-            if not self._min_temp <= float(temperature) <= self._max_temp:
+            if not self._min_temp <= temperature <= self._max_temp:
                 raise ValidationException(
                     i18n.tr(
                         key="exception.model.week_profile.validate.temperature_out_of_range_for_times",
@@ -1279,7 +1373,7 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
                     )
                 )
 
-            if _convert_time_str_to_minutes(time_str=str(starttime)) > _convert_time_str_to_minutes(
+            if _convert_time_str_to_minutes(time_str=starttime) > _convert_time_str_to_minutes(
                 time_str=previous_endtime
             ):
                 weekday_data[slot_no] = {
@@ -1292,17 +1386,19 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
                 "endtime": endtime,
                 "temperature": temperature,
             }
-            previous_endtime = str(endtime)
+            previous_endtime = endtime
             slot_no += 1
 
         return _fillup_weekday_data(base_temperature=base_temperature, weekday_data=weekday_data)
 
-    def _validate_and_convert_weekday_to_simple(self, *, weekday_data: ClimateWeekdaySchedule) -> SimpleWeekdaySchedule:
+    def _validate_and_convert_weekday_to_simple(
+        self, *, weekday_data: _ClimateWeekdayScheduleDictInternal
+    ) -> ClimateWeekdaySchedule:
         """
-        Convert a full weekday (13 slots) to a simplified TypedDict format.
+        Convert a full weekday (13 slots) to a simplified Pydantic model.
 
         Returns:
-            SimpleWeekdaySchedule with base_temperature and periods list
+            ClimateWeekdaySchedule with base_temperature and periods list
 
         """
         base_temperature = identify_base_temperature(weekday_data=weekday_data)
@@ -1324,9 +1420,9 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
         normalized = _normalize_weekday_data(weekday_data=filtered_data)
 
         # Build simple list by merging consecutive non-base temperature slots
-        periods: list[SimpleSchedulePeriod] = []
-        previous_end = CLIMATE_MIN_SCHEDULER_TIME
-        open_range: SimpleSchedulePeriod | None = None
+        periods: list[ClimateSchedulePeriod] = []
+        previous_end = _CLIMATE_MIN_SCHEDULER_TIME
+        open_range: ClimateSchedulePeriod | None = None
         last_temp: float | None = None
 
         for no in sorted(normalized.keys()):
@@ -1344,8 +1440,8 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
                     i18n.tr(
                         key="exception.model.week_profile.validate.time_out_of_bounds_profile_slot",
                         time=endtime_str,
-                        min_time=CLIMATE_MIN_SCHEDULER_TIME,
-                        max_time=CLIMATE_MAX_SCHEDULER_TIME,
+                        min_time=_CLIMATE_MIN_SCHEDULER_TIME,
+                        max_time=_CLIMATE_MAX_SCHEDULER_TIME,
                         profile="-",
                         weekday="-",
                         no=no,
@@ -1356,7 +1452,7 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
             if temp != float(base_temperature):
                 if open_range is None:
                     # start new range from previous_end
-                    open_range = SimpleSchedulePeriod(
+                    open_range = ClimateSchedulePeriod(
                         starttime=str(previous_end),
                         endtime=endtime_str,
                         temperature=temp,
@@ -1364,15 +1460,15 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
                     last_temp = temp
                 # extend if same temperature
                 elif temp == last_temp:
-                    open_range = SimpleSchedulePeriod(
-                        starttime=open_range["starttime"],
+                    open_range = ClimateSchedulePeriod(
+                        starttime=open_range.starttime,
                         endtime=endtime_str,
                         temperature=temp,
                     )
                 else:
                     # temperature changed: close previous and start new
                     periods.append(open_range)
-                    open_range = SimpleSchedulePeriod(
+                    open_range = ClimateSchedulePeriod(
                         starttime=str(previous_end),
                         endtime=endtime_str,
                         temperature=temp,
@@ -1393,108 +1489,12 @@ class ClimateWeekProfile(WeekProfile[ClimateScheduleDict]):
 
         # Sort by start time
         if periods:
-            periods = sorted(periods, key=lambda p: _convert_time_str_to_minutes(time_str=p["starttime"]))
+            periods = sorted(periods, key=lambda p: _convert_time_str_to_minutes(time_str=p.starttime))
 
-        return SimpleWeekdaySchedule(base_temperature=base_temperature, periods=periods)
-
-    def _validate_profile(self, *, profile: ScheduleProfile, profile_data: ClimateProfileSchedule) -> None:
-        """Validate the profile."""
-        for weekday, weekday_data in profile_data.items():
-            self._validate_weekday(profile=profile, weekday=weekday, weekday_data=weekday_data)
-
-    def _validate_weekday(
-        self,
-        *,
-        profile: ScheduleProfile,
-        weekday: WeekdayStr,
-        weekday_data: ClimateWeekdaySchedule,
-    ) -> None:
-        """Validate the profile weekday."""
-        previous_endtime = 0
-        if len(weekday_data) != 13:
-            if len(weekday_data) > 13:
-                raise ValidationException(
-                    i18n.tr(
-                        key="exception.model.week_profile.validate.too_many_slots",
-                        profile=profile,
-                        weekday=weekday,
-                    )
-                )
-            raise ValidationException(
-                i18n.tr(
-                    key="exception.model.week_profile.validate.too_few_slots",
-                    profile=profile,
-                    weekday=weekday,
-                )
-            )
-        for no in CLIMATE_SCHEDULE_SLOT_RANGE:
-            if no not in weekday_data:
-                raise ValidationException(
-                    i18n.tr(
-                        key="exception.model.week_profile.validate.slot_missing",
-                        no=no,
-                        profile=profile,
-                        weekday=weekday,
-                    )
-                )
-            slot = weekday_data[no]
-            for slot_type in CLIMATE_RELEVANT_SLOT_TYPES:
-                if slot_type not in slot:
-                    raise ValidationException(
-                        i18n.tr(
-                            key="exception.model.week_profile.validate.slot_type_missing",
-                            slot_type=slot_type,
-                            profile=profile,
-                            weekday=weekday,
-                            no=no,
-                        )
-                    )
-
-            # Validate temperature
-            temperature = float(weekday_data[no]["temperature"])
-            if not self._min_temp <= temperature <= self._max_temp:
-                raise ValidationException(
-                    i18n.tr(
-                        key="exception.model.week_profile.validate.temperature_out_of_range_for_profile_slot",
-                        temperature=temperature,
-                        min=self._min_temp,
-                        max=self._max_temp,
-                        profile=profile,
-                        weekday=weekday,
-                        no=no,
-                    )
-                )
-
-            # Validate endtime
-            endtime_str = str(weekday_data[no]["endtime"])
-            if endtime := _convert_time_str_to_minutes(time_str=endtime_str):
-                if endtime not in CLIMATE_SCHEDULE_TIME_RANGE:
-                    raise ValidationException(
-                        i18n.tr(
-                            key="exception.model.week_profile.validate.time_out_of_bounds_profile_slot",
-                            time=endtime_str,
-                            min_time=_convert_minutes_to_time_str(minutes=CLIMATE_SCHEDULE_TIME_RANGE.start),
-                            max_time=_convert_minutes_to_time_str(minutes=CLIMATE_SCHEDULE_TIME_RANGE.stop - 1),
-                            profile=profile,
-                            weekday=weekday,
-                            no=no,
-                        )
-                    )
-                if endtime < previous_endtime:
-                    raise ValidationException(
-                        i18n.tr(
-                            key="exception.model.week_profile.validate.sequence_rising",
-                            time=endtime_str,
-                            previous=_convert_minutes_to_time_str(minutes=previous_endtime),
-                            profile=profile,
-                            weekday=weekday,
-                            no=no,
-                        )
-                    )
-            previous_endtime = endtime
+        return ClimateWeekdaySchedule(base_temperature=base_temperature, periods=periods)
 
 
-def create_week_profile(*, data_point: CustomDataPointProtocol) -> WeekProfile[dict[Any, Any]]:
+def create_week_profile(*, data_point: CustomDataPointProtocol) -> ClimateWeekProfile | DefaultWeekProfile:
     """Create a week profile from a custom data point."""
     if data_point.category == DataPointCategory.CLIMATE:
         return ClimateWeekProfile(data_point=data_point)
@@ -1516,7 +1516,9 @@ def _bitwise_to_list(*, value: int, enum_class: type[IntEnum]) -> list[IntEnum]:
     return [item for item in enum_class if value & item.value]
 
 
-def _filter_profile_entries(*, profile_data: ClimateProfileSchedule) -> ClimateProfileSchedule:
+def _filter_profile_entries(
+    *, profile_data: _ClimateProfileScheduleDictInternal
+) -> _ClimateProfileScheduleDictInternal:
     """Filter profile data to remove redundant 24:00 slots."""
     if not profile_data:
         return profile_data
@@ -1529,19 +1531,21 @@ def _filter_profile_entries(*, profile_data: ClimateProfileSchedule) -> ClimateP
     return filtered_data
 
 
-def _filter_schedule_entries(*, schedule_data: ClimateScheduleDict) -> ClimateScheduleDict:
+def _filter_schedule_entries(*, schedule_data: _ClimateScheduleDictInternal) -> _ClimateScheduleDictInternal:
     """Filter schedule data to remove redundant 24:00 slots."""
     if not schedule_data:
         return schedule_data
 
-    result: ClimateScheduleDict = {}
+    result: _ClimateScheduleDictInternal = {}
     for profile, profile_data in schedule_data.items():
         if filtered_profile := _filter_profile_entries(profile_data=profile_data):
             result[profile] = filtered_profile
     return result
 
 
-def _filter_weekday_entries(*, weekday_data: ClimateWeekdaySchedule) -> ClimateWeekdaySchedule:
+def _filter_weekday_entries(
+    *, weekday_data: _ClimateWeekdayScheduleDictInternal
+) -> _ClimateWeekdayScheduleDictInternal:
     """
     Filter weekday data to remove redundant 24:00 slots.
 
@@ -1564,7 +1568,7 @@ def _filter_weekday_entries(*, weekday_data: ClimateWeekdaySchedule) -> ClimateW
         filtered_slots.append(slot)
 
         # Stop at the first occurrence of 24:00 - ignore all subsequent slots
-        if endtime == CLIMATE_MAX_SCHEDULER_TIME:
+        if endtime == _CLIMATE_MAX_SCHEDULER_TIME:
             break
 
     # Renumber slots to be sequential (1, 2, 3, ...)
@@ -1708,7 +1712,7 @@ def create_empty_schedule_group(*, category: DataPointCategory | None = None) ->
 # climate
 
 
-def identify_base_temperature(*, weekday_data: ClimateWeekdaySchedule) -> float:
+def identify_base_temperature(*, weekday_data: _ClimateWeekdayScheduleDictInternal) -> float:
     """
     Identify base temperature from weekday data.
 
@@ -1748,15 +1752,15 @@ def identify_base_temperature(*, weekday_data: ClimateWeekdaySchedule) -> float:
 def _convert_minutes_to_time_str(*, minutes: Any) -> str:
     """Convert minutes to a time string."""
     if not isinstance(minutes, int):
-        return CLIMATE_MAX_SCHEDULER_TIME
+        return _CLIMATE_MAX_SCHEDULER_TIME
     time_str = f"{minutes // 60:0=2}:{minutes % 60:0=2}"
     if SCHEDULER_TIME_PATTERN.match(time_str) is None:
         raise ValidationException(
             i18n.tr(
                 key="exception.model.week_profile.validate.time_invalid_format",
                 time=time_str,
-                min=CLIMATE_MIN_SCHEDULER_TIME,
-                max=CLIMATE_MAX_SCHEDULER_TIME,
+                min=_CLIMATE_MIN_SCHEDULER_TIME,
+                max=_CLIMATE_MAX_SCHEDULER_TIME,
             )
         )
     return time_str
@@ -1769,8 +1773,8 @@ def _convert_time_str_to_minutes(*, time_str: str) -> int:
             i18n.tr(
                 key="exception.model.week_profile.validate.time_invalid_format",
                 time=time_str,
-                min=CLIMATE_MIN_SCHEDULER_TIME,
-                max=CLIMATE_MAX_SCHEDULER_TIME,
+                min=_CLIMATE_MIN_SCHEDULER_TIME,
+                max=_CLIMATE_MAX_SCHEDULER_TIME,
             )
         )
     try:
@@ -1809,19 +1813,23 @@ def _endtime_to_minutes(*, endtime: int | str) -> int:
     return _convert_time_str_to_minutes(time_str=endtime)
 
 
-def _fillup_weekday_data(*, base_temperature: float, weekday_data: ClimateWeekdaySchedule) -> ClimateWeekdaySchedule:
+def _fillup_weekday_data(
+    *, base_temperature: float, weekday_data: _ClimateWeekdayScheduleDictInternal
+) -> _ClimateWeekdayScheduleDictInternal:
     """Fillup weekday data."""
-    for slot_no in CLIMATE_SCHEDULE_SLOT_IN_RANGE:
+    for slot_no in _CLIMATE_SCHEDULE_SLOT_IN_RANGE:
         if slot_no not in weekday_data:
             weekday_data[slot_no] = {
-                "endtime": CLIMATE_MAX_SCHEDULER_TIME,
+                "endtime": _CLIMATE_MAX_SCHEDULER_TIME,
                 "temperature": base_temperature,
             }
 
     return weekday_data
 
 
-def _normalize_weekday_data(*, weekday_data: ClimateWeekdaySchedule | dict[str, Any]) -> ClimateWeekdaySchedule:
+def _normalize_weekday_data(
+    *, weekday_data: _ClimateWeekdayScheduleDictInternal | ScheduleDict
+) -> _ClimateWeekdayScheduleDictInternal:
     """
     Normalize climate weekday schedule data.
 
@@ -1841,7 +1849,7 @@ def _normalize_weekday_data(*, weekday_data: ClimateWeekdaySchedule | dict[str, 
 
     """
     # Convert string keys to int if necessary
-    normalized_data: ClimateWeekdaySchedule = {}
+    normalized_data: _ClimateWeekdayScheduleDictInternal = {}
     for key, value in weekday_data.items():
         int_key = int(key) if isinstance(key, str) else key
         normalized_data[int_key] = value
@@ -1854,7 +1862,7 @@ def _normalize_weekday_data(*, weekday_data: ClimateWeekdaySchedule | dict[str, 
     )
 
     # Reassign slot numbers from 1 to N (where N is number of existing slots)
-    result: ClimateWeekdaySchedule = {}
+    result: _ClimateWeekdayScheduleDictInternal = {}
     for new_slot_no, (_, slot_data) in enumerate(sorted_slots, start=1):
         result[new_slot_no] = slot_data
 
@@ -1867,7 +1875,7 @@ def _normalize_weekday_data(*, weekday_data: ClimateWeekdaySchedule | dict[str, 
         # Fill missing slots
         for slot_no in range(len(result) + 1, 14):
             result[slot_no] = {
-                "endtime": CLIMATE_MAX_SCHEDULER_TIME,
+                "endtime": _CLIMATE_MAX_SCHEDULER_TIME,
                 "temperature": fill_temperature,
             }
 

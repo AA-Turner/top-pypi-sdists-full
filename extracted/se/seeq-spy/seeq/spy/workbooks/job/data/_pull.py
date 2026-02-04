@@ -3,26 +3,33 @@ from __future__ import annotations
 import copy
 import json
 import os
+import sys
 import textwrap
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional, Union
 
 import pandas as pd
-import sys
 
 from seeq import spy
 from seeq.base import util
 from seeq.spy import _common
-from seeq.spy import _login
 from seeq.spy._errors import *
 from seeq.spy._session import Session
 from seeq.spy._status import Status
 from seeq.spy.workbooks.job.data._push import load_data_results, save_data_results
 
 
-@Status.handle_keyboard_interrupt()
-def pull(job_folder, *, resume: bool = True, errors: Optional[str] = None, quiet: Optional[bool] = None,
-         status: Optional[Status] = None, session: Optional[Session] = None) -> pd.DataFrame:
+@Status.top_level_spy_function()
+def pull(
+    job_folder: Union[str, Path],
+    *,
+    resume: bool = True,
+    errors: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None
+) -> pd.DataFrame:
     """
     Pulls all the data that is used by the workbooks according to the Data
     Usages sections of the data_usage.json file in the job folder.
@@ -61,17 +68,6 @@ def pull(job_folder, *, resume: bool = True, errors: Optional[str] = None, quiet
         Seeq servers at the same time or with different credentials.
 
     """
-    _common.validate_argument_types([
-        (job_folder, 'job_folder', str),
-        (resume, 'resume', bool),
-        (errors, 'errors', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session)
-    ])
-
-    _login.validate_login(session, status)
-
     all_usages = load_data_usage(job_folder)
 
     _set_up_start_end_and_calculation(all_usages)

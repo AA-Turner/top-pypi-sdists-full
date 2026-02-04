@@ -7,9 +7,9 @@ from adam.commands.export.utils_export import ExportTableStatus, csv_dir, fs_exe
 from adam.config import Config
 from adam.repl_state import ReplState
 from adam.utils import log2, log_to_pods, log, parallelize
+from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
-from adam.utils_k8s.cassandra_nodes import CassandraNodes
 from adam.utils_k8s.pod_files import PodFiles
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.utils_local import local_downloads_dir

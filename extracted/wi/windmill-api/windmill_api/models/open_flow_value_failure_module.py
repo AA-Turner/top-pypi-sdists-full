@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from ..models.open_flow_value_failure_module_skip_if import OpenFlowValueFailureModuleSkipIf
     from ..models.open_flow_value_failure_module_sleep_type_0 import OpenFlowValueFailureModuleSleepType0
     from ..models.open_flow_value_failure_module_sleep_type_1 import OpenFlowValueFailureModuleSleepType1
+    from ..models.open_flow_value_failure_module_sleep_type_2 import OpenFlowValueFailureModuleSleepType2
     from ..models.open_flow_value_failure_module_stop_after_all_iters_if import (
         OpenFlowValueFailureModuleStopAfterAllItersIf,
     )
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
     from ..models.open_flow_value_failure_module_suspend import OpenFlowValueFailureModuleSuspend
     from ..models.open_flow_value_failure_module_timeout_type_0 import OpenFlowValueFailureModuleTimeoutType0
     from ..models.open_flow_value_failure_module_timeout_type_1 import OpenFlowValueFailureModuleTimeoutType1
+    from ..models.open_flow_value_failure_module_timeout_type_2 import OpenFlowValueFailureModuleTimeoutType2
 
 
 T = TypeVar("T", bound="OpenFlowValueFailureModule")
@@ -36,14 +38,14 @@ class OpenFlowValueFailureModule:
             condition for a module
         skip_if (Union[Unset, OpenFlowValueFailureModuleSkipIf]): Conditionally skip this step based on previous results
             or flow inputs
-        sleep (Union['OpenFlowValueFailureModuleSleepType0', 'OpenFlowValueFailureModuleSleepType1', Unset]): Maps input
-            parameters for a step. Can be a static value or a JavaScript expression that references previous results or flow
-            inputs
+        sleep (Union['OpenFlowValueFailureModuleSleepType0', 'OpenFlowValueFailureModuleSleepType1',
+            'OpenFlowValueFailureModuleSleepType2', Unset]): Maps input parameters for a step. Can be a static value or a
+            JavaScript expression that references previous results or flow inputs
         cache_ttl (Union[Unset, float]): Cache duration in seconds for this step's results
         cache_ignore_s3_path (Union[Unset, bool]):
-        timeout (Union['OpenFlowValueFailureModuleTimeoutType0', 'OpenFlowValueFailureModuleTimeoutType1', Unset]): Maps
-            input parameters for a step. Can be a static value or a JavaScript expression that references previous results
-            or flow inputs
+        timeout (Union['OpenFlowValueFailureModuleTimeoutType0', 'OpenFlowValueFailureModuleTimeoutType1',
+            'OpenFlowValueFailureModuleTimeoutType2', Unset]): Maps input parameters for a step. Can be a static value or a
+            JavaScript expression that references previous results or flow inputs
         delete_after_use (Union[Unset, bool]): If true, this step's result is deleted after use to save memory
         summary (Union[Unset, str]): Short description of what this step does
         mock (Union[Unset, OpenFlowValueFailureModuleMock]): Mock configuration for testing without executing the actual
@@ -60,10 +62,20 @@ class OpenFlowValueFailureModule:
     stop_after_if: Union[Unset, "OpenFlowValueFailureModuleStopAfterIf"] = UNSET
     stop_after_all_iters_if: Union[Unset, "OpenFlowValueFailureModuleStopAfterAllItersIf"] = UNSET
     skip_if: Union[Unset, "OpenFlowValueFailureModuleSkipIf"] = UNSET
-    sleep: Union["OpenFlowValueFailureModuleSleepType0", "OpenFlowValueFailureModuleSleepType1", Unset] = UNSET
+    sleep: Union[
+        "OpenFlowValueFailureModuleSleepType0",
+        "OpenFlowValueFailureModuleSleepType1",
+        "OpenFlowValueFailureModuleSleepType2",
+        Unset,
+    ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
     cache_ignore_s3_path: Union[Unset, bool] = UNSET
-    timeout: Union["OpenFlowValueFailureModuleTimeoutType0", "OpenFlowValueFailureModuleTimeoutType1", Unset] = UNSET
+    timeout: Union[
+        "OpenFlowValueFailureModuleTimeoutType0",
+        "OpenFlowValueFailureModuleTimeoutType1",
+        "OpenFlowValueFailureModuleTimeoutType2",
+        Unset,
+    ] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
     summary: Union[Unset, str] = UNSET
     mock: Union[Unset, "OpenFlowValueFailureModuleMock"] = UNSET
@@ -75,7 +87,9 @@ class OpenFlowValueFailureModule:
 
     def to_dict(self) -> Dict[str, Any]:
         from ..models.open_flow_value_failure_module_sleep_type_0 import OpenFlowValueFailureModuleSleepType0
+        from ..models.open_flow_value_failure_module_sleep_type_1 import OpenFlowValueFailureModuleSleepType1
         from ..models.open_flow_value_failure_module_timeout_type_0 import OpenFlowValueFailureModuleTimeoutType0
+        from ..models.open_flow_value_failure_module_timeout_type_1 import OpenFlowValueFailureModuleTimeoutType1
 
         id = self.id
         value = self.value
@@ -100,6 +114,11 @@ class OpenFlowValueFailureModule:
             if not isinstance(self.sleep, Unset):
                 sleep = self.sleep.to_dict()
 
+        elif isinstance(self.sleep, OpenFlowValueFailureModuleSleepType1):
+            sleep = UNSET
+            if not isinstance(self.sleep, Unset):
+                sleep = self.sleep.to_dict()
+
         else:
             sleep = UNSET
             if not isinstance(self.sleep, Unset):
@@ -112,6 +131,11 @@ class OpenFlowValueFailureModule:
             timeout = UNSET
 
         elif isinstance(self.timeout, OpenFlowValueFailureModuleTimeoutType0):
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
+        elif isinstance(self.timeout, OpenFlowValueFailureModuleTimeoutType1):
             timeout = UNSET
             if not isinstance(self.timeout, Unset):
                 timeout = self.timeout.to_dict()
@@ -183,6 +207,7 @@ class OpenFlowValueFailureModule:
         from ..models.open_flow_value_failure_module_skip_if import OpenFlowValueFailureModuleSkipIf
         from ..models.open_flow_value_failure_module_sleep_type_0 import OpenFlowValueFailureModuleSleepType0
         from ..models.open_flow_value_failure_module_sleep_type_1 import OpenFlowValueFailureModuleSleepType1
+        from ..models.open_flow_value_failure_module_sleep_type_2 import OpenFlowValueFailureModuleSleepType2
         from ..models.open_flow_value_failure_module_stop_after_all_iters_if import (
             OpenFlowValueFailureModuleStopAfterAllItersIf,
         )
@@ -190,6 +215,7 @@ class OpenFlowValueFailureModule:
         from ..models.open_flow_value_failure_module_suspend import OpenFlowValueFailureModuleSuspend
         from ..models.open_flow_value_failure_module_timeout_type_0 import OpenFlowValueFailureModuleTimeoutType0
         from ..models.open_flow_value_failure_module_timeout_type_1 import OpenFlowValueFailureModuleTimeoutType1
+        from ..models.open_flow_value_failure_module_timeout_type_2 import OpenFlowValueFailureModuleTimeoutType2
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -219,7 +245,12 @@ class OpenFlowValueFailureModule:
 
         def _parse_sleep(
             data: object,
-        ) -> Union["OpenFlowValueFailureModuleSleepType0", "OpenFlowValueFailureModuleSleepType1", Unset]:
+        ) -> Union[
+            "OpenFlowValueFailureModuleSleepType0",
+            "OpenFlowValueFailureModuleSleepType1",
+            "OpenFlowValueFailureModuleSleepType2",
+            Unset,
+        ]:
             if isinstance(data, Unset):
                 return data
             try:
@@ -235,16 +266,29 @@ class OpenFlowValueFailureModule:
                 return sleep_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _sleep_type_1 = data
+                sleep_type_1: Union[Unset, OpenFlowValueFailureModuleSleepType1]
+                if isinstance(_sleep_type_1, Unset):
+                    sleep_type_1 = UNSET
+                else:
+                    sleep_type_1 = OpenFlowValueFailureModuleSleepType1.from_dict(_sleep_type_1)
+
+                return sleep_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _sleep_type_1 = data
-            sleep_type_1: Union[Unset, OpenFlowValueFailureModuleSleepType1]
-            if isinstance(_sleep_type_1, Unset):
-                sleep_type_1 = UNSET
+            _sleep_type_2 = data
+            sleep_type_2: Union[Unset, OpenFlowValueFailureModuleSleepType2]
+            if isinstance(_sleep_type_2, Unset):
+                sleep_type_2 = UNSET
             else:
-                sleep_type_1 = OpenFlowValueFailureModuleSleepType1.from_dict(_sleep_type_1)
+                sleep_type_2 = OpenFlowValueFailureModuleSleepType2.from_dict(_sleep_type_2)
 
-            return sleep_type_1
+            return sleep_type_2
 
         sleep = _parse_sleep(d.pop("sleep", UNSET))
 
@@ -254,7 +298,12 @@ class OpenFlowValueFailureModule:
 
         def _parse_timeout(
             data: object,
-        ) -> Union["OpenFlowValueFailureModuleTimeoutType0", "OpenFlowValueFailureModuleTimeoutType1", Unset]:
+        ) -> Union[
+            "OpenFlowValueFailureModuleTimeoutType0",
+            "OpenFlowValueFailureModuleTimeoutType1",
+            "OpenFlowValueFailureModuleTimeoutType2",
+            Unset,
+        ]:
             if isinstance(data, Unset):
                 return data
             try:
@@ -270,16 +319,29 @@ class OpenFlowValueFailureModule:
                 return timeout_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _timeout_type_1 = data
+                timeout_type_1: Union[Unset, OpenFlowValueFailureModuleTimeoutType1]
+                if isinstance(_timeout_type_1, Unset):
+                    timeout_type_1 = UNSET
+                else:
+                    timeout_type_1 = OpenFlowValueFailureModuleTimeoutType1.from_dict(_timeout_type_1)
+
+                return timeout_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _timeout_type_1 = data
-            timeout_type_1: Union[Unset, OpenFlowValueFailureModuleTimeoutType1]
-            if isinstance(_timeout_type_1, Unset):
-                timeout_type_1 = UNSET
+            _timeout_type_2 = data
+            timeout_type_2: Union[Unset, OpenFlowValueFailureModuleTimeoutType2]
+            if isinstance(_timeout_type_2, Unset):
+                timeout_type_2 = UNSET
             else:
-                timeout_type_1 = OpenFlowValueFailureModuleTimeoutType1.from_dict(_timeout_type_1)
+                timeout_type_2 = OpenFlowValueFailureModuleTimeoutType2.from_dict(_timeout_type_2)
 
-            return timeout_type_1
+            return timeout_type_2
 
         timeout = _parse_timeout(d.pop("timeout", UNSET))
 

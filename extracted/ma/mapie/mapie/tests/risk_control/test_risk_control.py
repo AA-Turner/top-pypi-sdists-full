@@ -12,10 +12,9 @@ from scipy.stats import binom
 
 from mapie.risk_control.methods import (
     compute_hoeffding_bentkus_p_value,
-    find_precision_lambda_star,
+    find_precision_best_predict_param,
     ltt_procedure,
 )
-from mapie.risk_control.risks import compute_risk_precision, compute_risk_recall
 
 lambdas = np.array([0.5, 0.9])
 
@@ -54,66 +53,6 @@ random_state = 42
 prng = np.random.RandomState(random_state)
 
 
-def test_compute_recall_equal() -> None:
-    """Test that compute_recall give good result"""
-    recall = compute_risk_recall(lambdas, y_preds_proba, y_toy)
-    np.testing.assert_equal(recall, test_recall)
-
-
-def test_compute_precision() -> None:
-    """Test that compute_precision give good result"""
-    precision = compute_risk_precision(lambdas, y_preds_proba, y_toy)
-    np.testing.assert_equal(precision, test_precision)
-
-
-def test_recall_with_zero_sum_is_equal_nan() -> None:
-    """Test compute_recall with nan values"""
-    y_toy = np.zeros((4, 3))
-    y_preds_proba = prng.rand(4, 3, 1)
-    recall = compute_risk_recall(lambdas, y_preds_proba, y_toy)
-    np.testing.assert_array_equal(recall, np.full_like(recall, np.nan))
-
-
-def test_precision_with_zero_sum_is_equal_ones() -> None:
-    """Test compute_precision with nan values"""
-    y_toy = prng.rand(4, 3)
-    y_preds_proba = np.zeros((4, 3, 1))
-    precision = compute_risk_precision(lambdas, y_preds_proba, y_toy)
-    np.testing.assert_array_equal(precision, np.ones_like(precision))
-
-
-def test_compute_recall_shape() -> None:
-    """Test shape when using _compute_recall"""
-    recall = compute_risk_recall(lambdas, y_preds_proba, y_toy)
-    np.testing.assert_equal(recall.shape, test_recall.shape)
-
-
-def test_compute_precision_shape() -> None:
-    """Test shape when using _compute_precision"""
-    precision = compute_risk_precision(lambdas, y_preds_proba, y_toy)
-    np.testing.assert_equal(precision.shape, test_precision.shape)
-
-
-def test_compute_recall_with_wrong_shape() -> None:
-    """Test error when wrong shape in _compute_recall"""
-    with pytest.raises(ValueError, match=r".*y_pred_proba should be a 3d*"):
-        compute_risk_recall(lambdas, y_preds_proba.squeeze(), y_toy)
-    with pytest.raises(ValueError, match=r".*y should be a 2d*"):
-        compute_risk_recall(lambdas, y_preds_proba, np.expand_dims(y_toy, 2))
-    with pytest.raises(ValueError, match=r".*could not be broadcast*"):
-        compute_risk_recall(lambdas, y_preds_proba, y_toy[:-1])
-
-
-def test_compute_precision_with_wrong_shape() -> None:
-    """Test shape when using _compute_precision"""
-    with pytest.raises(ValueError, match=r".*y_pred_proba should be a 3d*"):
-        compute_risk_precision(lambdas, y_preds_proba.squeeze(), y_toy)
-    with pytest.raises(ValueError, match=r".*y should be a 2d*"):
-        compute_risk_precision(lambdas, y_preds_proba, np.expand_dims(y_toy, 2))
-    with pytest.raises(ValueError, match=r".*could not be broadcast*"):
-        compute_risk_precision(lambdas, y_preds_proba, y_toy[:-1])
-
-
 @pytest.mark.parametrize("alpha", [0.5, [0.5], [0.5, 0.9]])
 def test_p_values_different_alpha(alpha: Union[float, NDArray]) -> None:
     """Test type for different alpha for p_values"""
@@ -127,30 +66,30 @@ def test_ltt_different_delta(delta: float) -> None:
     assert ltt_procedure(r_hat, alpha, delta, n)
 
 
-def test_find_precision_lambda_star() -> None:
-    """Test _find_precision_lambda_star"""
-    assert find_precision_lambda_star(r_hat, valid_index, lambdas)
+def test_find_precision_best_predict_param() -> None:
+    """Test _find_precision_best_predict_param"""
+    assert find_precision_best_predict_param(r_hat, valid_index, lambdas)
 
 
 @pytest.mark.parametrize("delta", [0.1, 0.8])
 @pytest.mark.parametrize("alpha", [np.array([[0.5]]), np.array([[0.6, 0.8]])])
 def test_ltt_type_output_alpha_delta(alpha: NDArray, delta: float) -> None:
     """Test type output _ltt_procedure"""
-    valid_index = ltt_procedure(r_hat, alpha, delta, n)
+    valid_index, _ = ltt_procedure(r_hat, alpha, delta, n)
     assert isinstance(valid_index, list)
 
 
 @pytest.mark.parametrize("valid_index", [[[0, 1]]])
-def test_find_precision_lambda_star_output(valid_index: List[List[int]]) -> None:
-    """Test _find_precision_lambda_star with a list of list"""
-    assert find_precision_lambda_star(r_hat, valid_index, lambdas)
+def test_find_precision_best_predict_param_output(valid_index: List[List[int]]) -> None:
+    """Test _find_precision_best_predict_param with a list of list"""
+    assert find_precision_best_predict_param(r_hat, valid_index, lambdas)
 
 
 def test_warning_valid_index_empty() -> None:
     """Test warning sent when empty list"""
     valid_index = [[]]  # type: List[List[int]]
     with pytest.warns(UserWarning, match=r".*Warning: the risk couldn'*"):
-        find_precision_lambda_star(r_hat, valid_index, lambdas)
+        find_precision_best_predict_param(r_hat, valid_index, lambdas)
 
 
 def test_invalid_alpha_hb() -> None:
@@ -233,7 +172,8 @@ def test_ltt_procedure_n_obs_negative() -> None:
     n_obs = np.array([[-1]])
     alpha_np = np.array([[0.6]])
     binary = True
-    assert ltt_procedure(r_hat, alpha_np, 0.1, n_obs, binary) == [[]]
+    valid_index, _ = ltt_procedure(r_hat, alpha_np, 0.1, n_obs, binary)
+    assert valid_index == [[]]
 
 
 def test_ltt_multi_risk() -> None:

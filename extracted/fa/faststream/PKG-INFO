@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: faststream
-Version: 0.6.5
+Version: 0.6.6
 Summary: FastStream: the simplest way to work with a messaging queues
 Keywords: rabbitmq,kafka,framework,nats,redis,message brokers
 Author: AG2AI, Nikita Pastukhov
@@ -37,22 +37,22 @@ Classifier: Framework :: Pydantic :: 2
 Requires-Dist: fast-depends[pydantic]>=3.0.0
 Requires-Dist: typing-extensions>=4.12.0
 Requires-Dist: anyio>=4.0,<5
-Requires-Dist: typer>=0.9,!=0.12,<=0.20.1 ; extra == 'cli'
+Requires-Dist: typer>=0.9,!=0.12,<=0.21.1 ; extra == 'cli'
 Requires-Dist: watchfiles>=0.15.0,<1.2.0 ; extra == 'cli'
 Requires-Dist: confluent-kafka>=2,!=2.8.1,<3 ; python_full_version < '3.13' and extra == 'confluent'
 Requires-Dist: confluent-kafka>=2.6,!=2.8.1,<3 ; python_full_version >= '3.13' and extra == 'confluent'
-Requires-Dist: aiokafka>=0.9,<0.13 ; extra == 'kafka'
+Requires-Dist: aiokafka>=0.9,<0.14 ; extra == 'kafka'
 Requires-Dist: nats-py>=2.12.0,<=3.0.0 ; extra == 'nats'
 Requires-Dist: opentelemetry-sdk>=1.24.0,<2.0.0 ; extra == 'otel'
 Requires-Dist: prometheus-client>=0.20.0,<0.30.0 ; extra == 'prometheus'
 Requires-Dist: aio-pika>=9,<10 ; extra == 'rabbit'
 Requires-Dist: redis>=5.0.0,<8.0.0 ; extra == 'redis'
 Requires-Python: >=3.10
-Project-URL: Discord, https://discord.gg/qFm6aSqq59
-Project-URL: Documentation, https://faststream.ag2.ai/latest/getting-started/
 Project-URL: Homepage, https://faststream.ag2.ai/latest/
-Project-URL: Source, https://github.com/ag2ai/FastStream
+Project-URL: Documentation, https://faststream.ag2.ai/latest/getting-started/
 Project-URL: Tracker, https://github.com/ag2ai/FastStream/issues
+Project-URL: Source, https://github.com/ag2ai/FastStream
+Project-URL: Discord, https://discord.gg/qFm6aSqq59
 Provides-Extra: cli
 Provides-Extra: confluent
 Provides-Extra: kafka
@@ -460,6 +460,9 @@ app.include_router(router)
 More integration features can be found [here](https://faststream.ag2.ai/latest/getting-started/integrations/fastapi/)
 
 ---
+
+## Benchmarks
+We use codspeed to run benchmarks for both FastStream itself and raw clients.
 
 ## Stay in touch
 

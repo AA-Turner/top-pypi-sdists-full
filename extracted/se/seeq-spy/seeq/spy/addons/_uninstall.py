@@ -9,16 +9,21 @@ import pandas as pd
 from seeq import spy
 from seeq.sdk import *
 from seeq.spy import _common
-from seeq.spy import _login
 from seeq.spy._errors import *
 from seeq.spy._redaction import request_safely
 from seeq.spy._session import Session
 from seeq.spy._status import Status
 
 
-@Status.handle_keyboard_interrupt()
-def uninstall(items: Union[pd.DataFrame, pd.Series], *, errors: Optional[str] = None, quiet: Optional[bool] = None,
-              status: Status = None, session: Optional[Session] = None) -> pd.DataFrame:
+@Status.top_level_spy_function()
+def uninstall(
+    items: Union[pd.DataFrame, pd.Series],
+    *,
+    errors: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Status = None,
+    session: Optional[Session] = None
+) -> pd.DataFrame:
     """
     Uninstalls Add-on Tool from the Seeq Workbench. It does not remove the
     target_url contents. Uninstalling Add-on tools requires administrator access.
@@ -80,16 +85,8 @@ def uninstall(items: Union[pd.DataFrame, pd.Series], *, errors: Optional[str] = 
     >>> uninstalled_tool = spy.addons.uninstall(search_results)
 
     """
+    input_args = locals()
 
-    input_args = _common.validate_argument_types([
-        (items, 'items', (pd.DataFrame, pd.Series)),
-        (errors, 'errors', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session)
-    ])
-
-    _login.validate_login(session, status)
     system_api = SystemApi(session.client)
 
     if 'ID' not in items:

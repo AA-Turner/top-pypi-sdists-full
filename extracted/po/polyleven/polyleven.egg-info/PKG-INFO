@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: polyleven
-Version: 0.9.0
+Version: 0.10.0
 Summary: A fast C-implemented library for Levenshtein distance
 Maintainer-email: Fujimoto Seiji <fujimoto@ceptord.net>
 Project-URL: github, https://github.com/fujimotos/polyleven
@@ -12,6 +12,7 @@ Classifier: Programming Language :: C
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Dynamic: license-file
 
 ==============================================
 Polyleven -- Fast Pythonic Levenshtein Library
@@ -24,15 +25,13 @@ Polyleven -- Fast Pythonic Levenshtein Library
 
 polyleven is a Pythonic Levenshtein distance library that:
 
-- Is *fast* independent of input types, and hence can be used for
-  both short (like English words) and long input types (like DNA
-  sequences).
+- Is **fast** independent of input types, and hence can be applied to
+  both short (like English words) and long inputs (like DNA sequences).
 
-- Is *stand-alone* depending only on core Python packages (such as
-  ``setuptools`` for installation).
+- Is **stand-alone** depending only on core Python packages.
 
-- Can be used readily in a manner not covered by restrictive
-  licenses such as GPL, hence can be used freely in private codes.
+- Is distributed under the **MIT License**, hence can be used freely
+  in private projects.
 
 2. How to install
 =================

@@ -33,7 +33,7 @@ def pylint(session: nox.Session) -> None:
     Run pylint.
     """
 
-    session.install("pylint~=3.3.3")
+    session.install("pylint~=4.0.4")
     session.install("-e.")
     session.run("pylint", "hist", *session.posargs)
 
@@ -55,6 +55,7 @@ def minimums(session):
     """
 
     session.install("-e.", "--group=test", "--resolution=lowest-direct")
+    session.run("uv", "pip", "list")
     session.run("pytest", *session.posargs)
 
 
@@ -159,9 +160,12 @@ def boost(session):
         session.chdir("boost-histogram")
         session.install(".")
     session.chdir(DIR)
-    session.install("-e.[test,plot]", "pip")
+    session.install(
+        "-e.", "--group=test", "--group=plot", "pip", "mypy", "pandas-stubs"
+    )
     session.run("pip", "list")
     session.run("pytest", *session.posargs)
+    session.run("mypy")
 
 
 if __name__ == "__main__":

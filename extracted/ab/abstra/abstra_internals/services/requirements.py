@@ -167,6 +167,87 @@ def __uninstall_from_lib(req: Requirement):
     yield from stream_output([sys.executable, "-m", "pip", "uninstall", "-y", req.name])
 
 
+def get_requirements_lint_markers(code: str) -> List[dict]:
+    """
+    Parse code for imports not in requirements.txt.
+    Returns Monaco-compatible lint markers.
+
+    Args:
+        code: The Python source code to analyze
+
+    Returns:
+        List of dicts with: line, column, until_line, until_column, message, severity
+    """
+    markers: List[dict] = []
+
+    try:
+        parsed = ast.parse(code)
+    except SyntaxError:
+        return markers
+
+    lines = code.splitlines()
+    requirements = RequirementsRepository.load()
+    already_in_requirements = {pip_name(lib.name) for lib in requirements.libraries}
+
+    visited_packages: Set[str] = set()
+
+    for node in ast.walk(parsed):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            pkg_names_with_positions: List[tuple] = []
+            lineno = node.lineno
+            source_line = lines[lineno - 1] if lineno <= len(lines) else ""
+
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    pkg_name = alias.name.split(".")[0]
+                    col_start = source_line.find(alias.name)
+                    if col_start == -1:
+                        col_start = node.col_offset
+                    col_end = col_start + len(pkg_name)
+                    pkg_names_with_positions.append(
+                        (pkg_name, lineno, col_start, lineno, col_end)
+                    )
+            elif isinstance(node, ast.ImportFrom) and node.module is not None:
+                pkg_name = node.module.split(".")[0]
+                from_idx = source_line.find("from ")
+                if from_idx != -1:
+                    col_start = source_line.find(node.module, from_idx + 5)
+                else:
+                    col_start = source_line.find(node.module)
+                if col_start == -1:
+                    col_start = node.col_offset
+                col_end = col_start + len(pkg_name)
+                pkg_names_with_positions.append(
+                    (pkg_name, lineno, col_start, lineno, col_end)
+                )
+
+            for pkg_name, line, col, end_line, end_col in pkg_names_with_positions:
+                if pkg_name in visited_packages:
+                    continue
+
+                visited_packages.add(pkg_name)
+                kind = check_package(pkg_name)
+
+                if kind == "builtin":
+                    continue
+
+                if pip_name(pkg_name) in already_in_requirements:
+                    continue
+
+                markers.append(
+                    {
+                        "line": line,
+                        "column": col + 1,
+                        "until_line": end_line,
+                        "until_column": end_col + 1,
+                        "message": f"'{pkg_name}' is imported but not in requirements.txt",
+                        "severity": "warning",
+                    }
+                )
+
+    return markers
+
+
 @dataclass
 class RequirementRecommendation:
     requirement: Requirement
@@ -498,32 +579,44 @@ class RequirementsRepository:
                             visited_set.add(pkg_name)
                             kind = check_package(pkg_name)
 
-                            if kind != "installed":
+                            if kind == "builtin":
                                 continue
 
-                            lib_names = package_dist_cache.get(pkg_name, [])
-                            for lib_name in lib_names:
-                                if pip_name(lib_name) in already_added:
-                                    continue
-
-                                try:
-                                    version = distribution(lib_name).version
-                                    if version is None:
+                            if kind == "installed":
+                                lib_names = package_dist_cache.get(pkg_name, [])
+                                for lib_name in lib_names:
+                                    if pip_name(lib_name) in already_added:
                                         continue
 
-                                    imported_modules.add(
-                                        RequirementRecommendation(
-                                            requirement=create_requirement(
-                                                lib_name,
-                                                version,
-                                            ),
-                                            reason_file=python_file,
-                                            reason_line=node.lineno,
-                                            reason_code=file_lines[node.lineno - 1],
+                                    try:
+                                        version = distribution(lib_name).version
+                                        if version is None:
+                                            continue
+
+                                        imported_modules.add(
+                                            RequirementRecommendation(
+                                                requirement=create_requirement(
+                                                    lib_name,
+                                                    version,
+                                                ),
+                                                reason_file=python_file,
+                                                reason_line=node.lineno,
+                                                reason_code=file_lines[node.lineno - 1],
+                                            )
                                         )
-                                    )
-                                except PackageNotFoundError:
+                                    except PackageNotFoundError:
+                                        continue
+                            else:
+                                if pip_name(pkg_name) in already_added:
                                     continue
+                                imported_modules.add(
+                                    RequirementRecommendation(
+                                        requirement=create_requirement(pkg_name),
+                                        reason_file=python_file,
+                                        reason_line=node.lineno,
+                                        reason_code=file_lines[node.lineno - 1],
+                                    )
+                                )
 
             except (SyntaxError, UnicodeDecodeError):
                 continue

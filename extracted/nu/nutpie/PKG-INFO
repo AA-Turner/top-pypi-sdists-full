@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nutpie
-Version: 0.16.4
+Version: 0.16.5
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -11,14 +11,13 @@ Requires-Dist: xarray>=2025.1.2
 Requires-Dist: arviz>=0.20.0
 Requires-Dist: obstore>=0.8.0
 Requires-Dist: zarr>=3.1.0
-Requires-Dist: bridgestan>=2.7.0 ; extra == 'stan'
-Requires-Dist: stanio>=0.5.1 ; extra == 'stan'
-Requires-Dist: pymc>=5.20.1 ; extra == 'pymc'
-Requires-Dist: numba>=0.60.0 ; extra == 'pymc'
-Requires-Dist: pymc>=5.20.1 ; extra == 'pymc-jax'
-Requires-Dist: jax>=0.4.27 ; extra == 'pymc-jax'
-Requires-Dist: flowjax>=17.1.0 ; extra == 'nnflow'
-Requires-Dist: equinox>=0.11.12 ; extra == 'nnflow'
+Requires-Dist: bridgestan>=2.7.0 ; extra == 'all'
+Requires-Dist: stanio>=0.5.1 ; extra == 'all'
+Requires-Dist: pymc>=5.20.1 ; extra == 'all'
+Requires-Dist: numba>=0.60.0 ; extra == 'all'
+Requires-Dist: jax>=0.4.27 ; extra == 'all'
+Requires-Dist: flowjax>=17.1.0 ; extra == 'all'
+Requires-Dist: equinox>=0.11.12 ; extra == 'all'
 Requires-Dist: bridgestan>=2.7.0 ; extra == 'dev'
 Requires-Dist: stanio>=0.5.1 ; extra == 'dev'
 Requires-Dist: pymc>=5.20.1 ; extra == 'dev'
@@ -28,24 +27,25 @@ Requires-Dist: flowjax>=17.0.2 ; extra == 'dev'
 Requires-Dist: pytest ; extra == 'dev'
 Requires-Dist: pytest-timeout ; extra == 'dev'
 Requires-Dist: pytest-arraydiff ; extra == 'dev'
-Requires-Dist: bridgestan>=2.7.0 ; extra == 'all'
-Requires-Dist: stanio>=0.5.1 ; extra == 'all'
-Requires-Dist: pymc>=5.20.1 ; extra == 'all'
-Requires-Dist: numba>=0.60.0 ; extra == 'all'
-Requires-Dist: jax>=0.4.27 ; extra == 'all'
-Requires-Dist: flowjax>=17.1.0 ; extra == 'all'
-Requires-Dist: equinox>=0.11.12 ; extra == 'all'
-Provides-Extra: stan
+Requires-Dist: flowjax>=17.1.0 ; extra == 'nnflow'
+Requires-Dist: equinox>=0.11.12 ; extra == 'nnflow'
+Requires-Dist: pymc>=5.20.1 ; extra == 'pymc'
+Requires-Dist: numba>=0.60.0 ; extra == 'pymc'
+Requires-Dist: pymc>=5.20.1 ; extra == 'pymc-jax'
+Requires-Dist: jax>=0.4.27 ; extra == 'pymc-jax'
+Requires-Dist: bridgestan>=2.7.0 ; extra == 'stan'
+Requires-Dist: stanio>=0.5.1 ; extra == 'stan'
+Provides-Extra: all
+Provides-Extra: dev
+Provides-Extra: nnflow
 Provides-Extra: pymc
 Provides-Extra: pymc-jax
-Provides-Extra: nnflow
-Provides-Extra: dev
-Provides-Extra: all
+Provides-Extra: stan
 License-File: LICENSE
 Summary: Sample Stan or PyMC models
 Author-email: PyMC Developers <pymc.devs@gmail.com>
 License: MIT
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Homepage, https://pymc-devs.github.io/nutpie/
 Project-URL: Repository, https://github.com/pymc-devs/nutpie

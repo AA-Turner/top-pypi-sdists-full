@@ -9,7 +9,6 @@ import pandas as pd
 
 from seeq import spy
 from seeq.spy import _common
-from seeq.spy import _login
 from seeq.spy._errors import *
 from seeq.spy._session import Session
 from seeq.spy._status import Status
@@ -18,13 +17,24 @@ from seeq.spy.workbooks._user import User, UserGroup
 from seeq.spy.workbooks._workbook import Workbook, WorkbookList
 
 
-@Status.handle_keyboard_interrupt()
-def pull(workbooks_df: Union[pd.DataFrame, str], *, include_referenced_workbooks: bool = True,
-         include_inventory: bool = True, include_annotations: bool = True, include_images: bool = True,
-         include_rendered_content: bool = False, include_access_control: bool = True,
-         include_archived: bool = None, specific_worksheet_ids: Optional[List[str]] = None,
-         as_template_with_label: str = None, errors: Optional[str] = None, quiet: Optional[bool] = None,
-         status: Optional[Status] = None, session: Optional[Session] = None) -> Optional[WorkbookList]:
+@Status.top_level_spy_function()
+def pull(
+    workbooks_df: Union[pd.DataFrame, str],
+    *,
+    include_referenced_workbooks: bool = True,
+    include_inventory: bool = True,
+    include_annotations: bool = True,
+    include_images: bool = True,
+    include_rendered_content: bool = False,
+    include_access_control: bool = True,
+    include_archived: Optional[bool] = None,
+    specific_worksheet_ids: Optional[List[str]] = None,
+    as_template_with_label: Optional[str] = None,
+    errors: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None
+) -> Optional[WorkbookList]:
     """
     Pulls the definitions for each workbook specified by workbooks_df into
     memory as a list of Workbook items.
@@ -111,27 +121,6 @@ def pull(workbooks_df: Union[pd.DataFrame, str], *, include_referenced_workbooks
         Seeq servers at the same time or with different credentials.
 
     """
-    function_name = 'spy.workbooks.pull'
-    Status.function_prologue(
-        session, status, function_name, [
-            (workbooks_df, 'workbooks_df', (pd.DataFrame, str)),
-            (include_referenced_workbooks, 'include_referenced_workbooks', bool),
-            (include_inventory, 'include_inventory', bool),
-            (include_annotations, 'include_annotations', bool),
-            (include_images, 'include_images', bool),
-            (include_rendered_content, 'include_rendered_content', bool),
-            (include_access_control, 'include_access_control', bool),
-            (include_archived, 'include_archived', bool),
-            (specific_worksheet_ids, 'specific_worksheet_ids', list),
-            (as_template_with_label, 'as_template_with_label', str),
-            (errors, 'errors', str),
-            (quiet, 'quiet', bool),
-            (status, 'status', Status),
-            (session, 'session', Session)
-        ])
-
-    _login.validate_login(session, status)
-
     workbooks = WorkbookList(do_pull(workbooks_df, status=status, session=session,
                                      include_referenced_workbooks=include_referenced_workbooks,
                                      include_inventory=include_inventory, include_annotations=include_annotations,

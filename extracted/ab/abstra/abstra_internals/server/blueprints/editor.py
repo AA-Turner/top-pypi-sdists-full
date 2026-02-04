@@ -7,6 +7,7 @@ from abstra_internals.logger import AbstraLogger
 from abstra_internals.server.routes import access_control as ac_router
 from abstra_internals.server.routes import ai as ai_router
 from abstra_internals.server.routes import assets as assets_router
+from abstra_internals.server.routes import code_markers as code_markers_router
 from abstra_internals.server.routes import codebase as codebase_router
 from abstra_internals.server.routes import env_vars as envvars_router
 from abstra_internals.server.routes import executions as executions_router
@@ -111,6 +112,9 @@ def _get_api_bp(controller: MainController):
 
     modules_bp = modules_router.get_editor_bp(controller)
     bp.register_blueprint(modules_bp, url_prefix="/modules")
+
+    code_markers_bp = code_markers_router.get_editor_bp(controller)
+    bp.register_blueprint(code_markers_bp, url_prefix="/markers")
 
     return bp
 

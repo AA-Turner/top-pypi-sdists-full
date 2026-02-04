@@ -8,6 +8,7 @@ from abstra_internals.services.requirements import (
     Requirements,
     RequirementsRepository,
     create_requirement,
+    get_requirements_lint_markers,
     requirement_from_dict,
     requirement_from_text,
     requirement_to_dict,
@@ -530,7 +531,7 @@ custom-package @ https://github.com/user/repo/archive/main.zip
 # Raw URL (currently doesn't work)
 https://github.com/another/repo/archive/main.zip
 
-# Git URL (currently doesn't work)  
+# Git URL (currently doesn't work)
 git+https://github.com/third/repo.git
 """
 
@@ -563,3 +564,97 @@ git+https://github.com/third/repo.git
         urls = [req.url for req in url_reqs]
         self.assertIn("https://github.com/another/repo/archive/main.zip", urls)
         self.assertIn("git+https://github.com/third/repo.git", urls)
+
+
+class TestGetRequirementsLintMarkers(BaseTest):
+    """Test the get_requirements_lint_markers function for Monaco editor integration."""
+
+    def test_returns_empty_list_for_empty_code(self):
+        markers = get_requirements_lint_markers("")
+        self.assertEqual(markers, [])
+
+    def test_returns_empty_list_for_syntax_error(self):
+        code = "import pandas\nif:"  # syntax error
+        markers = get_requirements_lint_markers(code)
+        self.assertEqual(markers, [])
+
+    def test_returns_empty_list_for_builtin_imports(self):
+        code = "import os\nimport sys\nfrom pathlib import Path"
+        markers = get_requirements_lint_markers(code)
+        self.assertEqual(markers, [])
+
+    def test_returns_marker_for_missing_package(self):
+        code = "import pandas"
+        markers = get_requirements_lint_markers(code)
+        self.assertEqual(len(markers), 1)
+        self.assertEqual(
+            markers[0]["message"], "'pandas' is imported but not in requirements.txt"
+        )
+        self.assertEqual(markers[0]["severity"], "warning")
+        self.assertEqual(markers[0]["line"], 1)
+
+    def test_returns_marker_for_missing_package_using_from_syntax(self):
+        code = "from pandas import DataFrame"
+        markers = get_requirements_lint_markers(code)
+        self.assertEqual(len(markers), 1)
+        self.assertEqual(
+            markers[0]["message"], "'pandas' is imported but not in requirements.txt"
+        )
+
+    def test_returns_empty_list_when_package_is_in_requirements(self):
+        requirements_file = self.root / "requirements.txt"
+        requirements_file.write_text("pandas==1.0.0")
+        code = "import pandas"
+        markers = get_requirements_lint_markers(code)
+        self.assertEqual(markers, [])
+
+    def test_returns_marker_for_multiple_missing_packages(self):
+        code = "import pandas\nimport numpy"
+        markers = get_requirements_lint_markers(code)
+        self.assertEqual(len(markers), 2)
+        pkg_names = [m["message"].split("'")[1] for m in markers]
+        self.assertIn("pandas", pkg_names)
+        self.assertIn("numpy", pkg_names)
+
+    def test_does_not_duplicate_markers_for_same_package(self):
+        code = "import pandas\nfrom pandas import DataFrame"
+        markers = get_requirements_lint_markers(code)
+        self.assertEqual(len(markers), 1)
+
+    def test_returns_marker_for_submodule_import(self):
+        code = "import pandas.plotting"
+        markers = get_requirements_lint_markers(code)
+        self.assertEqual(len(markers), 1)
+        self.assertEqual(
+            markers[0]["message"], "'pandas' is imported but not in requirements.txt"
+        )
+
+    def test_marker_has_correct_position_fields(self):
+        code = "import pandas"
+        markers = get_requirements_lint_markers(code)
+        self.assertEqual(len(markers), 1)
+        marker = markers[0]
+        self.assertIn("line", marker)
+        self.assertIn("column", marker)
+        self.assertIn("until_line", marker)
+        self.assertIn("until_column", marker)
+        self.assertIn("message", marker)
+        self.assertIn("severity", marker)
+
+    def test_marker_column_highlights_package_name_only(self):
+        # "import pandas" - pandas starts at column 7 (0-indexed), Monaco uses 1-indexed
+        code = "import pandas"
+        markers = get_requirements_lint_markers(code)
+        self.assertEqual(len(markers), 1)
+        # "pandas" starts at index 7, ends at 13
+        self.assertEqual(markers[0]["column"], 8)  # 7 + 1 for Monaco 1-indexing
+        self.assertEqual(markers[0]["until_column"], 14)  # 13 + 1
+
+    def test_marker_column_for_from_import(self):
+        # "from pandas import DataFrame" - pandas starts at column 5
+        code = "from pandas import DataFrame"
+        markers = get_requirements_lint_markers(code)
+        self.assertEqual(len(markers), 1)
+        # "pandas" starts at index 5, ends at 11
+        self.assertEqual(markers[0]["column"], 6)  # 5 + 1 for Monaco 1-indexing
+        self.assertEqual(markers[0]["until_column"], 12)  # 11 + 1

@@ -21,8 +21,8 @@ def send_capacity_results(summary_file: str):
     {
         "clusterName": "dr-small",
         "workloads": {
-            "parallel-small": {"maxSuccessfulTarget": 10, "avgExecutionLatencySeconds": 1.5},
-            "parallel-tiny": {"maxSuccessfulTarget": 20, "avgExecutionLatencySeconds": 0.8}
+            "parallel-small": {"maxSuccessfulTarget": 10, "avgExecutionLatencySeconds": 1.5, "p95ExecutionLatencySeconds": 2.0, "p99ExecutionLatencySeconds": 2.5},
+            "parallel-tiny": {"maxSuccessfulTarget": 20, "avgExecutionLatencySeconds": 0.8, "p95ExecutionLatencySeconds": 1.2, "p99ExecutionLatencySeconds": 1.5}
         }
     }
 
@@ -65,6 +65,8 @@ def send_capacity_results(summary_file: str):
             "workloadName": workload_name,
             "maxSuccessfulTarget": result.get("maxSuccessfulTarget"),
             "avgExecutionLatencySeconds": result.get("avgExecutionLatencySeconds"),
+            "p95ExecutionLatencySeconds": result.get("p95ExecutionLatencySeconds"),
+            "p99ExecutionLatencySeconds": result.get("p99ExecutionLatencySeconds"),
             "benchmarkType": "capacity",
         }
 

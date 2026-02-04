@@ -1225,10 +1225,10 @@ class VIEW3D_MT_edit_greasepencil_delete(_bpy_types.Menu):
         :return: The class or default when not found.
         """
 
-    def draw(self, _context) -> None:
+    def draw(self, context) -> None:
         """
 
-        :param _context:
+        :param context:
         """
 
 class VIEW3D_MT_edit_greasepencil_point(_bpy_types.Menu):

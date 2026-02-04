@@ -3,7 +3,7 @@ Type annotations for geo-maps service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_geo_maps/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -28,6 +28,7 @@ from .literals import (
     MapStyleType,
     ScaleBarUnitType,
     StaticMapStyleType,
+    TerrainType,
     TileAdditionalFeatureType,
     TravelModeType,
 )
@@ -94,10 +95,11 @@ class GetStyleDescriptorRequestTypeDef(TypedDict):
     Style: MapStyleType
     ColorScheme: NotRequired[ColorSchemeType]
     PoliticalView: NotRequired[str]
-    Terrain: NotRequired[Literal["Hillshade"]]
+    Terrain: NotRequired[TerrainType]
     ContourDensity: NotRequired[Literal["Medium"]]
     Traffic: NotRequired[Literal["All"]]
     TravelModes: NotRequired[Sequence[TravelModeType]]
+    Buildings: NotRequired[Literal["Buildings3D"]]
     Key: NotRequired[str]
 
 class GetTileRequestTypeDef(TypedDict):

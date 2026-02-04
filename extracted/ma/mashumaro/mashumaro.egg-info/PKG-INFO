@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mashumaro
-Version: 3.18
+Version: 3.19
 Summary: Fast and well tested serialization library
 Author-email: Alexander Tikhonov <random.gauss@gmail.com>
 License-Expression: Apache-2.0

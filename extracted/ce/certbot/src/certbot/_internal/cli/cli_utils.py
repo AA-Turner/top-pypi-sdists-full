@@ -92,14 +92,19 @@ class CustomHelpFormatter(argparse.HelpFormatter):
         return helpstr
 
 
-class _DomainsAction(argparse.Action):
+class DomainsAction(argparse.Action):
     """Action class for parsing domains."""
 
     def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace,
-                 domain: Union[str, Sequence[Any], None],
-                 option_string: Optional[str] = None) -> None:
+                 values: str | Sequence[Any] | None,
+                 option_string: str | None = None) -> None:
         """Just wrap add_domains in argparseese."""
-        add_domains(namespace, str(domain) if domain is not None else None)
+        match values:
+            case str():
+                add_domains(namespace, str(values))
+            case _:
+                # https://docs.python.org/3/library/argparse.html#nargs
+                raise TypeError("shouldn't happen: non-str passed by argparse when nargs=None")
 
 
 def add_domains(args_or_config: Union[argparse.Namespace, configuration.NamespaceConfig],
@@ -129,6 +134,21 @@ def add_domains(args_or_config: Union[argparse.Namespace, configuration.Namespac
             args_or_config.domains.append(domain)
 
     return validated_domains
+
+
+class _IPAddressAction(argparse.Action):
+    """Action class for parsing IP addresses."""
+
+    def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace,
+                 values: str | Sequence[Any] | None,
+                 option_string: Optional[str] = None) -> None:
+        match values:
+            case str():
+                # This will throw an exception if the IP address doesn't parse.
+                namespace.ip_addresses.append(san.IPAddress(values))
+            case _:
+                # https://docs.python.org/3/library/argparse.html#nargs
+                raise TypeError("shouldn't happen: non-str passed by argparse when nargs=None")
 
 
 class CaseInsensitiveList(list):
@@ -199,32 +219,6 @@ class _PrefChallAction(argparse.Action):
         except errors.Error as error:
             raise argparse.ArgumentError(self, str(error))
         namespace.pref_challs.extend(challs)
-
-
-class _DeployHookAction(argparse.Action):
-    """Action class for parsing deploy hooks."""
-
-    def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace,
-                 values: Union[str, Sequence[Any], None],
-                 option_string: Optional[str] = None) -> None:
-        renew_hook_set = namespace.deploy_hook != namespace.renew_hook
-        if renew_hook_set and namespace.renew_hook != values:
-            raise argparse.ArgumentError(
-                self, "conflicts with --renew-hook value")
-        namespace.deploy_hook = namespace.renew_hook = values
-
-
-class _RenewHookAction(argparse.Action):
-    """Action class for parsing renew hooks."""
-
-    def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace,
-                 values: Union[str, Sequence[Any], None],
-                 option_string: Optional[str] = None) -> None:
-        deploy_hook_set = namespace.deploy_hook is not None
-        if deploy_hook_set and namespace.deploy_hook != values:
-            raise argparse.ArgumentError(
-                self, "conflicts with --deploy-hook value")
-        namespace.renew_hook = values
 
 
 def nonnegative_int(value: str) -> int:

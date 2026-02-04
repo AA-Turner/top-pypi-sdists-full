@@ -9,8 +9,8 @@ from adam.checks.issue import Issue
 from adam.checks.memory import Memory
 from adam.checks.status import Status
 from adam.config import Config
+from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 from adam.utils_context import Context
-from adam.utils_k8s.cassandra_nodes import CassandraNodes
 from adam.utils_k8s.secrets import Secrets
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.utils import parallelize, log2
@@ -34,7 +34,7 @@ def checks_from_csv(check_str: str):
 
     return checks
 
-def run_checks(cluster: str = None, namespace: str = None, pod: str = None, checks: list[Check] = None, ctx: Context = Context.NULL):
+def run_checks(cluster: str = None, namespace: str = None, pod: str = None, checks: list[Check] = None, find_issues=True, ctx: Context = Context.NULL):
     if not checks:
         checks = all_checks()
 
@@ -51,15 +51,15 @@ def run_checks(cluster: str = None, namespace: str = None, pod: str = None, chec
     with parallelize(sts_ns_pods,
                      Config().action_workers('issues', 30),
                      msg='d`Running|Ran checks on {size} pods') as exec:
-        return exec.map(lambda sts_ns_pod: run_checks_on_pod(checks, sts_ns_pod[0], sts_ns_pod[1], sts_ns_pod[2], ctx))
+        return exec.map(lambda sts_ns_pod: run_checks_on_pod(checks, sts_ns_pod[0], sts_ns_pod[1], sts_ns_pod[2], find_issues=find_issues, ctx=ctx))
 
-def run_checks_on_pod(checks: list[Check], cluster: str = None, namespace: str = None, pod: str = None, ctx: Context = Context.NULL):
+def run_checks_on_pod(checks: list[Check], cluster: str = None, namespace: str = None, pod: str = None, find_issues = True, ctx: Context = Context.NULL):
     host_id = CassandraNodes.get_host_id(pod, namespace)
     user, pw = Secrets.get_user_pass(pod, namespace)
     results = {}
     issues: list[Issue] = []
     for c in checks:
-        check_results = c.check(CheckContext.from_exec(ctx, cluster, host_id, pod, namespace, user, pw))
+        check_results = c.check(CheckContext.from_exec(ctx, cluster, host_id, pod, namespace, user, pw, find_issues=find_issues))
         if check_results.details:
             results = results | {check_results.name: check_results.details}
         if check_results.issues:

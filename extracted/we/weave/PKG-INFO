@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weave
-Version: 0.52.25
+Version: 0.52.26
 Summary: A toolkit for building composable interactive data driven applications.
 Project-URL: Company, https://wandb.com
 Project-URL: Documentation, https://docs.wandb.com/
@@ -228,12 +228,13 @@ Classifier: Topic :: Scientific/Engineering :: Visualization
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Widget Sets
 Requires-Python: >=3.10
+Requires-Dist: cachetools>=6.2.4
 Requires-Dist: click
 Requires-Dist: diskcache==5.6.3
 Requires-Dist: gql[httpx]>=3.0.0
 Requires-Dist: jsonschema>=4.23.0
 Requires-Dist: packaging>=21.0
-Requires-Dist: polyfile-weave
+Requires-Dist: polyfile-weave>=0.5.9
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: sentry-sdk<3.0.0,>=2.0.0
 Requires-Dist: tenacity!=8.4.0,>=8.3.0
@@ -269,6 +270,7 @@ Requires-Dist: instructor<1.11.0,>=1.4.3; extra == 'instructor'
 Requires-Dist: openai<1.100.0,>=1.99.9; extra == 'instructor'
 Provides-Extra: langchain
 Requires-Dist: chromadb>=0.5.0; (python_version >= '3.10') and extra == 'langchain'
+Requires-Dist: google-cloud-iam; (python_version >= '3.13') and extra == 'langchain'
 Requires-Dist: langchain-anthropic>=0.3.15; (python_version >= '3.10') and extra == 'langchain'
 Requires-Dist: langchain-cohere>=0.4.5; (python_version >= '3.10') and extra == 'langchain'
 Requires-Dist: langchain-community>=0.2.1; (python_version >= '3.10') and extra == 'langchain'
@@ -297,7 +299,7 @@ Provides-Extra: modal
 Requires-Dist: modal; extra == 'modal'
 Requires-Dist: python-dotenv; extra == 'modal'
 Provides-Extra: notdiamond
-Requires-Dist: notdiamond>=0.4.9; (platform_python_implementation != 'PyPy' and python_version > '3.10' and python_version < '3.13') and extra == 'notdiamond'
+Requires-Dist: notdiamond<1.4.0,>=0.4.9; (platform_python_implementation != 'PyPy' and python_version > '3.10' and python_version < '3.13') and extra == 'notdiamond'
 Requires-Dist: pandas>=2.0.0; extra == 'notdiamond'
 Provides-Extra: openai
 Requires-Dist: openai<1.100.0,>=1.99.9; extra == 'openai'

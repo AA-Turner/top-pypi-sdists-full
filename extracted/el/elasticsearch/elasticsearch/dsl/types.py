@@ -400,6 +400,9 @@ class DenseVectorIndexOptions(AttrDict[Any]):
     :arg rescore_vector: The rescore vector options. This is only
         applicable to `bbq_disk`, `bbq_hnsw`, `int4_hnsw`, `int8_hnsw`,
         `bbq_flat`, `int4_flat`, and `int8_flat` index types.
+    :arg on_disk_rescore: `true` if vector rescoring should be done on-
+        disk  Only applicable to `bbq_disk`, `bbq_hnsw`, `int4_hnsw`,
+        `int8_hnsw`
     """
 
     type: Union[
@@ -422,6 +425,7 @@ class DenseVectorIndexOptions(AttrDict[Any]):
     rescore_vector: Union[
         "DenseVectorIndexOptionsRescoreVector", Dict[str, Any], DefaultType
     ]
+    on_disk_rescore: Union[bool, DefaultType]
 
     def __init__(
         self,
@@ -446,6 +450,7 @@ class DenseVectorIndexOptions(AttrDict[Any]):
         rescore_vector: Union[
             "DenseVectorIndexOptionsRescoreVector", Dict[str, Any], DefaultType
         ] = DEFAULT,
+        on_disk_rescore: Union[bool, DefaultType] = DEFAULT,
         **kwargs: Any,
     ):
         if type is not DEFAULT:
@@ -458,6 +463,8 @@ class DenseVectorIndexOptions(AttrDict[Any]):
             kwargs["m"] = m
         if rescore_vector is not DEFAULT:
             kwargs["rescore_vector"] = rescore_vector
+        if on_disk_rescore is not DEFAULT:
+            kwargs["on_disk_rescore"] = on_disk_rescore
         super().__init__(kwargs)
 
 
@@ -602,7 +609,7 @@ class FieldLookup(AttrDict[Any]):
     id: Union[str, DefaultType]
     index: Union[str, DefaultType]
     path: Union[str, InstrumentedField, DefaultType]
-    routing: Union[str, DefaultType]
+    routing: Union[str, Sequence[str], DefaultType]
 
     def __init__(
         self,
@@ -610,7 +617,7 @@ class FieldLookup(AttrDict[Any]):
         id: Union[str, DefaultType] = DEFAULT,
         index: Union[str, DefaultType] = DEFAULT,
         path: Union[str, InstrumentedField, DefaultType] = DEFAULT,
-        routing: Union[str, DefaultType] = DEFAULT,
+        routing: Union[str, Sequence[str], DefaultType] = DEFAULT,
         **kwargs: Any,
     ):
         if id is not DEFAULT:
@@ -2328,7 +2335,7 @@ class LikeDocument(AttrDict[Any]):
     _id: Union[str, DefaultType]
     _index: Union[str, DefaultType]
     per_field_analyzer: Union[Mapping[Union[str, InstrumentedField], str], DefaultType]
-    routing: Union[str, DefaultType]
+    routing: Union[str, Sequence[str], DefaultType]
     version: Union[int, DefaultType]
     version_type: Union[Literal["internal", "external", "external_gte"], DefaultType]
 
@@ -2342,7 +2349,7 @@ class LikeDocument(AttrDict[Any]):
         per_field_analyzer: Union[
             Mapping[Union[str, InstrumentedField], str], DefaultType
         ] = DEFAULT,
-        routing: Union[str, DefaultType] = DEFAULT,
+        routing: Union[str, Sequence[str], DefaultType] = DEFAULT,
         version: Union[int, DefaultType] = DEFAULT,
         version_type: Union[
             Literal["internal", "external", "external_gte"], DefaultType
@@ -3931,7 +3938,7 @@ class TermsLookup(AttrDict[Any]):
     index: Union[str, DefaultType]
     id: Union[str, DefaultType]
     path: Union[str, InstrumentedField, DefaultType]
-    routing: Union[str, DefaultType]
+    routing: Union[str, Sequence[str], DefaultType]
 
     def __init__(
         self,
@@ -3939,7 +3946,7 @@ class TermsLookup(AttrDict[Any]):
         index: Union[str, DefaultType] = DEFAULT,
         id: Union[str, DefaultType] = DEFAULT,
         path: Union[str, InstrumentedField, DefaultType] = DEFAULT,
-        routing: Union[str, DefaultType] = DEFAULT,
+        routing: Union[str, Sequence[str], DefaultType] = DEFAULT,
         **kwargs: Any,
     ):
         if index is not DEFAULT:
@@ -4894,7 +4901,7 @@ class CompletionSuggestOption(AttrDict[Any]):
     fields: Mapping[str, Any]
     _id: str
     _index: str
-    _routing: str
+    _routing: Union[str, Sequence[str]]
     _score: float
     _source: Any
     score: float
@@ -6233,6 +6240,58 @@ class RateAggregate(AttrDict[Any]):
     value: float
     value_as_string: str
     meta: Mapping[str, Any]
+
+
+class ReindexStatus(AttrDict[Any]):
+    """
+    :arg batches: (required) The number of scroll responses pulled back by
+        the reindex.
+    :arg deleted: (required) The number of documents that were
+        successfully deleted.
+    :arg noops: (required) The number of documents that were ignored
+        because the script used for the reindex returned a `noop` value
+        for `ctx.op`.
+    :arg requests_per_second: (required) The number of requests per second
+        effectively executed during the reindex.
+    :arg retries: (required) The number of retries attempted by reindex.
+        `bulk` is the number of bulk actions retried and `search` is the
+        number of search actions retried.
+    :arg throttled_millis: (required) Number of milliseconds the request
+        slept to conform to `requests_per_second`.
+    :arg throttled_until_millis: (required) This field should always be
+        equal to zero in a `_reindex` response. It only has meaning when
+        using the Task API, where it indicates the next time (in
+        milliseconds since epoch) a throttled request will be executed
+        again in order to conform to `requests_per_second`.
+    :arg total: (required) The number of documents that were successfully
+        processed.
+    :arg version_conflicts: (required) The number of version conflicts
+        that reindex hits.
+    :arg slice_id: The slice ID
+    :arg created: The number of documents that were successfully created.
+    :arg throttled:
+    :arg throttled_until:
+    :arg updated: The number of documents that were successfully updated,
+        for example, a document with same ID already existed prior to
+        reindex updating it.
+    :arg cancelled: The reason for cancellation if the slice was canceled
+    """
+
+    batches: int
+    deleted: int
+    noops: int
+    requests_per_second: float
+    retries: "Retries"
+    throttled_millis: Any
+    throttled_until_millis: Any
+    total: int
+    version_conflicts: int
+    slice_id: int
+    created: int
+    throttled: Any
+    throttled_until: Any
+    updated: int
+    cancelled: str
 
 
 class Retries(AttrDict[Any]):

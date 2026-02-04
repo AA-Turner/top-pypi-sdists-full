@@ -43,6 +43,7 @@ from .literals import (
     ExportStatusType,
     ExportTypeType,
     ExportViewTypeType,
+    GlobalTableSettingsReplicationModeType,
     GlobalTableStatusType,
     ImportStatusType,
     IndexStatusType,
@@ -1790,6 +1791,7 @@ ReplicaDescriptionTypeDef = TypedDict(
         "GlobalSecondaryIndexes": NotRequired[list[ReplicaGlobalSecondaryIndexDescriptionTypeDef]],
         "ReplicaInaccessibleDateTime": NotRequired[datetime],
         "ReplicaTableClassSummary": NotRequired[TableClassSummaryTypeDef],
+        "GlobalTableSettingsReplicationMode": NotRequired[GlobalTableSettingsReplicationModeType],
     },
 )
 
@@ -2110,6 +2112,7 @@ class TableDescriptionTypeDef(TypedDict):
     GlobalTableVersion: NotRequired[str]
     Replicas: NotRequired[list[ReplicaDescriptionTypeDef]]
     GlobalTableWitnesses: NotRequired[list[GlobalTableWitnessDescriptionTypeDef]]
+    GlobalTableSettingsReplicationMode: NotRequired[GlobalTableSettingsReplicationModeType]
     RestoreSummary: NotRequired[RestoreSummaryTypeDef]
     SSEDescription: NotRequired[SSEDescriptionTypeDef]
     ArchivalSummary: NotRequired[ArchivalSummaryTypeDef]
@@ -2358,9 +2361,9 @@ class UpdateTableInputTypeDef(TypedDict):
 
 
 class CreateTableInputServiceResourceCreateTableTypeDef(TypedDict):
-    AttributeDefinitions: Sequence[AttributeDefinitionTypeDef]
     TableName: str
-    KeySchema: Sequence[KeySchemaElementTypeDef]
+    AttributeDefinitions: NotRequired[Sequence[AttributeDefinitionTypeDef]]
+    KeySchema: NotRequired[Sequence[KeySchemaElementTypeDef]]
     LocalSecondaryIndexes: NotRequired[Sequence[LocalSecondaryIndexTypeDef]]
     GlobalSecondaryIndexes: NotRequired[Sequence[GlobalSecondaryIndexUnionTypeDef]]
     BillingMode: NotRequired[BillingModeType]
@@ -2373,12 +2376,14 @@ class CreateTableInputServiceResourceCreateTableTypeDef(TypedDict):
     WarmThroughput: NotRequired[WarmThroughputTypeDef]
     ResourcePolicy: NotRequired[str]
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
+    GlobalTableSourceArn: NotRequired[str]
+    GlobalTableSettingsReplicationMode: NotRequired[GlobalTableSettingsReplicationModeType]
 
 
 class CreateTableInputTypeDef(TypedDict):
-    AttributeDefinitions: Sequence[AttributeDefinitionTypeDef]
     TableName: str
-    KeySchema: Sequence[KeySchemaElementTypeDef]
+    AttributeDefinitions: NotRequired[Sequence[AttributeDefinitionTypeDef]]
+    KeySchema: NotRequired[Sequence[KeySchemaElementTypeDef]]
     LocalSecondaryIndexes: NotRequired[Sequence[LocalSecondaryIndexTypeDef]]
     GlobalSecondaryIndexes: NotRequired[Sequence[GlobalSecondaryIndexUnionTypeDef]]
     BillingMode: NotRequired[BillingModeType]
@@ -2391,6 +2396,8 @@ class CreateTableInputTypeDef(TypedDict):
     WarmThroughput: NotRequired[WarmThroughputTypeDef]
     ResourcePolicy: NotRequired[str]
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
+    GlobalTableSourceArn: NotRequired[str]
+    GlobalTableSettingsReplicationMode: NotRequired[GlobalTableSettingsReplicationModeType]
 
 
 class RestoreTableFromBackupInputTypeDef(TypedDict):

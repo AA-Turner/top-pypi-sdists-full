@@ -270,14 +270,6 @@ MessageAttachment = Annotated[
 ]
 
 
-SupportedLanguage = Literal[
-    "python",
-    "shell",
-]
-
-SUPPORTED_LANGUAGES: list[SupportedLanguage] = ["python", "shell"]
-
-
 class GitFileChange(BaseModel):
     path: str
     lines_added: int

@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_geo_maps.literals import ColorSchemeType
+    from mypy_boto3_geo_maps.literals import BuildingsType
 
-    data: ColorSchemeType = "Dark"
+    data: BuildingsType = "Buildings3D"
     ```
 """
 
@@ -22,6 +22,7 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "BuildingsType",
     "ColorSchemeType",
     "ContourDensityType",
     "LabelSizeType",
@@ -39,6 +40,7 @@ __all__ = (
     "VariantType",
 )
 
+BuildingsType = Literal["Buildings3D"]
 ColorSchemeType = Literal["Dark", "Light"]
 ContourDensityType = Literal["Medium"]
 LabelSizeType = Literal["Large", "Small"]
@@ -46,7 +48,7 @@ MapFeatureModeType = Literal["Disabled", "Enabled"]
 MapStyleType = Literal["Hybrid", "Monochrome", "Satellite", "Standard"]
 ScaleBarUnitType = Literal["Kilometers", "KilometersMiles", "Miles", "MilesKilometers"]
 StaticMapStyleType = Literal["Satellite", "Standard"]
-TerrainType = Literal["Hillshade"]
+TerrainType = Literal["Hillshade", "Terrain3D"]
 TileAdditionalFeatureType = Literal["ContourLines", "Hillshade", "Logistics", "Transit"]
 TrafficType = Literal["All"]
 TravelModeType = Literal["Transit", "Truck"]

@@ -21,7 +21,7 @@ from collections import abc as _abc
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from google.protobuf.internal import containers as _containers
-from streamlit.proto import LabelVisibilityMessage_pb2 as _LabelVisibilityMessage_pb2
+from streamlit.proto import LabelVisibility_pb2 as _LabelVisibility_pb2
 import builtins as _builtins
 import sys
 import typing as _typing
@@ -67,7 +67,7 @@ class DateTimeInput(_message.Message):
     @_builtins.property
     def value(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]: ...
     @_builtins.property
-    def label_visibility(self) -> _LabelVisibilityMessage_pb2.LabelVisibilityMessage: ...
+    def label_visibility(self) -> _LabelVisibility_pb2.LabelVisibility: ...
     def __init__(
         self,
         *,
@@ -81,7 +81,7 @@ class DateTimeInput(_message.Message):
         value: _abc.Iterable[_builtins.str] | None = ...,
         set_value: _builtins.bool = ...,
         disabled: _builtins.bool = ...,
-        label_visibility: _LabelVisibilityMessage_pb2.LabelVisibilityMessage | None = ...,
+        label_visibility: _LabelVisibility_pb2.LabelVisibility | None = ...,
         format: _builtins.str = ...,
         step: _builtins.int = ...,
         is_range: _builtins.bool = ...,

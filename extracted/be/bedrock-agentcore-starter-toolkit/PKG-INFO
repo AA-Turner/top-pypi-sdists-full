@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bedrock-agentcore-starter-toolkit
-Version: 0.2.9
+Version: 0.2.10
 Summary: A starter toolkit for using Bedrock AgentCore
 Project-URL: Homepage, https://github.com/aws/bedrock-agentcore-starter-toolkit
 Project-URL: Bug Tracker, https://github.com/aws/bedrock-agentcore-starter-toolkit/issues
@@ -40,7 +40,7 @@ Requires-Dist: rich>=13.0.0
 Requires-Dist: ruamel-yaml>=0.18.14
 Requires-Dist: starlette>=0.46.2
 Requires-Dist: toml>=0.10.2
-Requires-Dist: typer>=0.16.0
+Requires-Dist: typer>=0.19.0
 Requires-Dist: typing-extensions<5.0.0,>=4.13.2
 Requires-Dist: urllib3>=1.26.0
 Requires-Dist: uvicorn>=0.34.2

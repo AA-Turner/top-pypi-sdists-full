@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import Any
 
 from .message import DEFAULT_ATTACHMENT_MIME_TYPE as DEFAULT_ATTACHMENT_MIME_TYPE
@@ -25,7 +26,7 @@ def send_mail(
     html_message: str | None = ...,
 ) -> int: ...
 def send_mass_mail(
-    datatuple: list[tuple[str, str, str | None, list[str]]],
+    datatuple: Sequence[tuple[str, str, str | None, Sequence[str]]],
     fail_silently: bool = ...,
     auth_user: str | None = ...,
     auth_password: str | None = ...,

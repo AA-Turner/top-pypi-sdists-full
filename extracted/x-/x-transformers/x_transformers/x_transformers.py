@@ -120,6 +120,10 @@ class equals():
 def Sequential(*modules):
     return nn.Sequential(*filter(exists, modules))
 
+class Identity(Module):
+    def forward(self, t, *args, **kwargs):
+        return t
+
 # tensor helpers
 
 def log(t, eps = 1e-20):
@@ -2461,7 +2465,7 @@ class AttentionLayers(Module):
 
         self.need_condition = norm_need_condition or post_branch_fn_needs_condition
 
-        self.adaptive_mlp = nn.Identity()
+        self.adaptive_mlp = Identity()
 
         if self.need_condition and adaptive_condition_mlp:
             self.adaptive_mlp = nn.Sequential(
@@ -2544,7 +2548,7 @@ class AttentionLayers(Module):
 
         # whether it has post norm
 
-        self.final_norm = norm_fn() if pre_norm and pre_norm_has_final_norm else nn.Identity()
+        self.final_norm = norm_fn() if pre_norm and pre_norm_has_final_norm else Identity()
 
         # whether unet or not
 
@@ -2775,7 +2779,7 @@ class AttentionLayers(Module):
         # handle left padded sequences
 
         if exists(seq_start_pos):
-            seq_arange = arange(x.shape[-2], device = x.device, dtype = torch.long)
+            seq_arange = arange(x.shape[-2] + seq_pos_offset, device = x.device, dtype = torch.long)
             left_pad_mask = seq_arange >= seq_start_pos[..., None]
 
             if exists(self_attn_kv_mask):
@@ -3198,12 +3202,12 @@ class ViTransformerWrapper(Module):
             LayerNorm(dim)
         )
 
-        self.post_emb_norm = LayerNorm(dim) if post_emb_norm else nn.Identity()
+        self.post_emb_norm = LayerNorm(dim) if post_emb_norm else Identity()
         self.dropout = nn.Dropout(emb_dropout)
 
         self.attn_layers = attn_layers
 
-        self.mlp_head = nn.Linear(dim, num_classes) if exists(num_classes) else nn.Identity()
+        self.mlp_head = nn.Linear(dim, num_classes) if exists(num_classes) else Identity()
 
     def forward(
         self,
@@ -3284,7 +3288,8 @@ class TransformerWrapper(Module):
         sigsoftmax_logits = False,
         ff_deep_embed = False,
         to_logits: Module | None = None,
-        add_continuous_pred_head = False
+        add_continuous_pred_head = False,
+        input_not_include_cache = False
     ):
         super().__init__()
 
@@ -3337,10 +3342,10 @@ class TransformerWrapper(Module):
 
         self.emb_frac_gradient = emb_frac_gradient
 
-        self.post_emb_norm = LayerNorm(emb_dim) if post_emb_norm else nn.Identity()
+        self.post_emb_norm = LayerNorm(emb_dim) if post_emb_norm else Identity()
         self.emb_dropout = nn.Dropout(emb_dropout)
 
-        self.project_emb = nn.Linear(emb_dim, dim) if emb_dim != dim else nn.Identity()
+        self.project_emb = nn.Linear(emb_dim, dim) if emb_dim != dim else Identity()
         self.attn_layers = attn_layers
 
         self.init_()
@@ -3446,6 +3451,10 @@ class TransformerWrapper(Module):
         self.can_cache_kv = self.num_memory_tokens == 0 and not recycling and self.attn_layers.can_cache_kv
         self.can_cache_kv_outside_max_seq_len = no_abs_pos_emb
 
+        # when cache is received, whether the input also includes the past to be excised off
+
+        self.input_not_include_cache = input_not_include_cache
+
     def init_(self):
         if hasattr(self.token_emb, 'init_'):
             self.token_emb.init_()
@@ -3488,11 +3497,13 @@ class TransformerWrapper(Module):
         attn_z_loss_weight = 1e-4,
         seq_start_pos = None,
         cache: LayerIntermediates | None = None,
-        input_not_include_cache = False,
+        input_not_include_cache = None,
         token_emb_kwargs = dict(),
         to_logits_kwargs = dict(),
         **kwargs,
     ):
+
+        input_not_include_cache = default(input_not_include_cache, self.input_not_include_cache)
 
         # if sequence is None, auto create an empty one if `prepend_embeds` was supplied
 

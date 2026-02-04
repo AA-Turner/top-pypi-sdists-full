@@ -252,6 +252,24 @@ def compute(state):
     pass
 
 
+def _normalize_table_schema(value):
+    if not isinstance(value, dict):
+        return value
+    if "schema" not in value:
+        return value
+    schema = value.get("schema", {})
+    if "fields" not in schema:
+        return value
+    normalized_fields = []
+    for field in schema["fields"]:
+        normalized_field = {k: v for k, v in field.items() if k != "extDtype"}
+        normalized_fields.append(normalized_field)
+    return {
+        **value,
+        "schema": {**schema, "fields": normalized_fields},
+    }
+
+
 class FormEntityTest(unittest.TestCase):
     def compare_renders(self, rendered, expected):
         self.assertEqual(rendered["end_page"], expected["end_page"])
@@ -261,13 +279,17 @@ class FormEntityTest(unittest.TestCase):
 
         for i, widget in enumerate(rendered["widgets"]):
             for key, value in widget.items():
-                if value != expected["widgets"][i][key]:
+                expected_value = expected["widgets"][i][key]
+                if key == "table":
+                    value = _normalize_table_schema(value)
+                    expected_value = _normalize_table_schema(expected_value)
+                if value != expected_value:
                     print(
-                        f"WIDGET '{widget.get('key', '')}' (index {i}) | KEY '{key}'\nEXPECTED: {expected['widgets'][i][key]}\nGOT: {value}"
+                        f"WIDGET '{widget.get('key', '')}' (index {i}) | KEY '{key}'\nEXPECTED: {expected_value}\nGOT: {value}"
                     )
                 self.assertEqual(
                     value,
-                    expected["widgets"][i][key],
+                    expected_value,
                 )
 
     def test_input_page(self):

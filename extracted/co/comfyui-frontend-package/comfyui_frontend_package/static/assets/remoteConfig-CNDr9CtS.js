@@ -1,0 +1,2 @@
+import{r as e}from"./rolldown-runtime-DCMCV6zW.js";import{E as t,Et as n}from"./vendor-vue-core-D3IvUUeM.js";const r=n(`unloaded`),i=t(()=>r.value===`authenticated`),a=n({});function configValueOrDefault(e,t,n){return e[t]||n}export{r as i,i as n,a as r,configValueOrDefault as t};
+//# sourceMappingURL=remoteConfig-CNDr9CtS.js.map

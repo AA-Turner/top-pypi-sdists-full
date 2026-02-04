@@ -290,6 +290,17 @@ class JudgmentSyncClient:
             payload,
         )
 
+    def get_projects_scorers_custom_by_name_exists(
+        self, project_id: str, name: str
+    ) -> CustomScorerExistsResponse:
+        return self._request(
+            "GET",
+            url_for(
+                f"/v1/projects/{project_id}/scorers/custom/{name}/exists", self.base_url
+            ),
+            {},
+        )
+
     def post_projects_traces_by_trace_id_tags(
         self, project_id: str, trace_id: str, payload: AddTraceTagsRequest
     ) -> AddTraceTagsResponse:
@@ -581,6 +592,17 @@ class JudgmentAsyncClient:
             "POST",
             url_for(f"/v1/projects/{project_id}/scorers/custom", self.base_url),
             payload,
+        )
+
+    async def get_projects_scorers_custom_by_name_exists(
+        self, project_id: str, name: str
+    ) -> CustomScorerExistsResponse:
+        return await self._request(
+            "GET",
+            url_for(
+                f"/v1/projects/{project_id}/scorers/custom/{name}/exists", self.base_url
+            ),
+            {},
         )
 
     async def post_projects_traces_by_trace_id_tags(

@@ -12,6 +12,7 @@ import termios
 import time
 import traceback
 
+from exponent.core.remote_execution.cli_rpc_types import TerminalInfo
 from exponent.core.remote_execution.terminal_types import (
     TerminalMessage,
     TerminalOutput,
@@ -577,3 +578,15 @@ class TerminalSessionManager:
                         logger.exception(
                             "Error stopping terminal session on cleanup",
                         )
+
+    async def list_sessions(self) -> list[TerminalInfo]:
+        """List all active terminal sessions"""
+        async with self._lock:
+            return [
+                TerminalInfo(
+                    session_id=session.session_id,
+                    name=session.name,
+                    running=session._running,
+                )
+                for session in self._sessions.values()
+            ]

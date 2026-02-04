@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-github
-Version: 0.4.0
+Version: 0.4.1
 Summary: Prefect integrations interacting with GitHub
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0

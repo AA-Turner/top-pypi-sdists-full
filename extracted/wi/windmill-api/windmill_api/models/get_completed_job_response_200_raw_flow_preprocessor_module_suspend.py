@@ -15,6 +15,9 @@ if TYPE_CHECKING:
     from ..models.get_completed_job_response_200_raw_flow_preprocessor_module_suspend_user_groups_required_type_1 import (
         GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType1,
     )
+    from ..models.get_completed_job_response_200_raw_flow_preprocessor_module_suspend_user_groups_required_type_2 import (
+        GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType2,
+    )
 
 
 T = TypeVar("T", bound="GetCompletedJobResponse200RawFlowPreprocessorModuleSuspend")
@@ -31,7 +34,8 @@ class GetCompletedJobResponse200RawFlowPreprocessorModuleSuspend:
             for collecting input when resuming
         user_auth_required (Union[Unset, bool]): If true, only authenticated users can approve
         user_groups_required (Union['GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType0',
-            'GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType1', Unset]): Maps input
+            'GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType1',
+            'GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType2', Unset]): Maps input
             parameters for a step. Can be a static value or a JavaScript expression that references previous results or flow
             inputs
         self_approval_disabled (Union[Unset, bool]): If true, the user who started the flow cannot approve
@@ -46,6 +50,7 @@ class GetCompletedJobResponse200RawFlowPreprocessorModuleSuspend:
     user_groups_required: Union[
         "GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType0",
         "GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType1",
+        "GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType2",
         Unset,
     ] = UNSET
     self_approval_disabled: Union[Unset, bool] = UNSET
@@ -56,6 +61,9 @@ class GetCompletedJobResponse200RawFlowPreprocessorModuleSuspend:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.get_completed_job_response_200_raw_flow_preprocessor_module_suspend_user_groups_required_type_0 import (
             GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType0,
+        )
+        from ..models.get_completed_job_response_200_raw_flow_preprocessor_module_suspend_user_groups_required_type_1 import (
+            GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType1,
         )
 
         required_events = self.required_events
@@ -71,6 +79,13 @@ class GetCompletedJobResponse200RawFlowPreprocessorModuleSuspend:
 
         elif isinstance(
             self.user_groups_required, GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType0
+        ):
+            user_groups_required = UNSET
+            if not isinstance(self.user_groups_required, Unset):
+                user_groups_required = self.user_groups_required.to_dict()
+
+        elif isinstance(
+            self.user_groups_required, GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType1
         ):
             user_groups_required = UNSET
             if not isinstance(self.user_groups_required, Unset):
@@ -118,6 +133,9 @@ class GetCompletedJobResponse200RawFlowPreprocessorModuleSuspend:
         from ..models.get_completed_job_response_200_raw_flow_preprocessor_module_suspend_user_groups_required_type_1 import (
             GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType1,
         )
+        from ..models.get_completed_job_response_200_raw_flow_preprocessor_module_suspend_user_groups_required_type_2 import (
+            GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType2,
+        )
 
         d = src_dict.copy()
         required_events = d.pop("required_events", UNSET)
@@ -138,6 +156,7 @@ class GetCompletedJobResponse200RawFlowPreprocessorModuleSuspend:
         ) -> Union[
             "GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType0",
             "GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType1",
+            "GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType2",
             Unset,
         ]:
             if isinstance(data, Unset):
@@ -161,22 +180,41 @@ class GetCompletedJobResponse200RawFlowPreprocessorModuleSuspend:
                 return user_groups_required_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _user_groups_required_type_1 = data
+                user_groups_required_type_1: Union[
+                    Unset, GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType1
+                ]
+                if isinstance(_user_groups_required_type_1, Unset):
+                    user_groups_required_type_1 = UNSET
+                else:
+                    user_groups_required_type_1 = (
+                        GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType1.from_dict(
+                            _user_groups_required_type_1
+                        )
+                    )
+
+                return user_groups_required_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _user_groups_required_type_1 = data
-            user_groups_required_type_1: Union[
-                Unset, GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType1
+            _user_groups_required_type_2 = data
+            user_groups_required_type_2: Union[
+                Unset, GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType2
             ]
-            if isinstance(_user_groups_required_type_1, Unset):
-                user_groups_required_type_1 = UNSET
+            if isinstance(_user_groups_required_type_2, Unset):
+                user_groups_required_type_2 = UNSET
             else:
-                user_groups_required_type_1 = (
-                    GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType1.from_dict(
-                        _user_groups_required_type_1
+                user_groups_required_type_2 = (
+                    GetCompletedJobResponse200RawFlowPreprocessorModuleSuspendUserGroupsRequiredType2.from_dict(
+                        _user_groups_required_type_2
                     )
                 )
 
-            return user_groups_required_type_1
+            return user_groups_required_type_2
 
         user_groups_required = _parse_user_groups_required(d.pop("user_groups_required", UNSET))
 

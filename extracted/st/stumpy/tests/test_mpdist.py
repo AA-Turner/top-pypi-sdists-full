@@ -6,8 +6,7 @@ import numpy.testing as npt
 import pytest
 from dask.distributed import Client, LocalCluster
 
-from stumpy import mpdist, mpdisted
-from stumpy.mpdist import _mpdist_vect
+from stumpy.mpdist import _mpdist_vect, mpdist, mpdisted
 
 
 @pytest.fixture(scope="module")
@@ -18,7 +17,7 @@ def dask_cluster():
         dashboard_address=None,
         worker_dashboard_address=None,
     )
-    yield cluster
+    yield cluster.scheduler_address
     cluster.close()
 
 

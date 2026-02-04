@@ -1458,6 +1458,20 @@ def link(
     :param zoom_influence: Zoom Influence, Influence of the zoom factor on scroll speed
     """
 
+def link_drag_operation_test(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    find_link_operations: bool | None = False,
+    link_operation_index: int | None = -1,
+) -> None:
+    """Run a node link-drag operation for testing
+
+    :param find_link_operations: Find Link Operations, Write link operation names for the context socket the "link_operation_names" property of the node tree
+    :param link_operation_index: Link Operation Index, Link operation to execute on the context socket
+    """
+
 def link_make(
     execution_context: int | str | None = None,
     undo: bool | None = None,
@@ -2148,7 +2162,7 @@ def viewer_border(
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
 ) -> None:
-    """Set the boundaries for viewer operations
+    """Set the boundaries for viewer operations (Not implemented)
 
     :param xmin: X Min
     :param xmax: X Max

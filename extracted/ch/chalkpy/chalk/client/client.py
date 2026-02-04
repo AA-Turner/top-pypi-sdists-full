@@ -63,7 +63,7 @@ if TYPE_CHECKING:
 from chalk.features._encoding.json import FeatureEncodingOptions
 from chalk.features.resolver import Resolver
 from chalk.features.tag import BranchId, DeploymentId, EnvironmentId
-from chalk.ml import ModelEncoding, ModelRunCriterion, ModelType
+from chalk.ml import ModelClass, ModelEncoding, ModelRunCriterion, ModelType
 from chalk.parsed.branch_state import BranchGraphSummary
 from chalk.prompts import Prompt
 
@@ -1174,6 +1174,7 @@ class ChalkClient:
         self,
         name: str,
         query_version: str | None = None,
+        branch: str | None = None,
     ) -> List[NamedQueryMetadata]:
         """
         Get the metadata associated with named queries.
@@ -1184,6 +1185,8 @@ class ChalkClient:
             The name of the named query.
         query_version
             The query version of the named query. Returns all versions of the named query by default.
+        branch
+            The branch name to get the named query from. By default will use the mainline deployment.
 
         Returns
         -------
@@ -2271,6 +2274,7 @@ class ChalkClient:
         self,
         name: str,
         model_type: Optional[ModelType] = None,
+        model_class: Optional[ModelClass] = None,
         model_encoding: Optional[ModelEncoding] = None,
         aliases: Optional[List[str]] = None,
         model: Optional[Any] = None,

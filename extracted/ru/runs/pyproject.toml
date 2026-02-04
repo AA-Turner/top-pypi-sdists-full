@@ -1,27 +1,35 @@
+[project]
+name = "runs"
+version = "1.3.0"
+description = "🏃 Run a block of text as a subprocess 🏃"
+authors = [{ name = "Tom Ritchford", email = "tom@swirly.com" }]
+requires-python = ">=3.10"
+readme = "README.rst"
+license = "MIT"
+classifiers = ["Programming Language :: Python :: 3", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3.11", "Programming Language :: Python :: 3.12", "Programming Language :: Python :: 3.13", "Programming Language :: Python :: 3.14"]
+dependencies = ["xmod"]
+
 [tool.doks]
 auto = true
 
-[tool.poetry]
-name = "runs"
-version = "1.2.2"
-description = "🏃 Run a block of text as a subprocess 🏃"
-authors = ["Tom Ritchford <tom@swirly.com>"]
-license = "MIT"
-readme = "README.rst"
+[dependency-groups]
+dev = [
+    "coverage",
+    "pytest",
+    "tdir",
+    "ruff",
+    "pyupgrade>=3.21.2",
+    "ty>=0.0.14",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.8"
-xmod = "*"
+[tool.uv]
 
-[tool.poetry.group.dev.dependencies]
-black = "*"
-coverage = "*"
-flake8 = "*"
-isort = "*"
-mypy = "*"
-pytest = "*"
-tdir = "*"
-ruff = "*"
+[tool.uv.build-backend]
+module-root = ""
+
+[build-system]
+requires = ["uv_build>=0.9.0,<0.10.0"]
+build-backend = "uv_build"
 
 [tool.coverage.run]
 branch = true
@@ -30,12 +38,7 @@ source = ["runs"]
 [tool.coverage.report]
 fail_under = 80
 skip_covered = true
-exclude_lines = [
-    "pragma: no cover",
-    "if False:",
-    "if __name__ == .__main__.:",
-    "raise NotImplementedError"
-]
+exclude_lines = ["pragma: no cover", "if False:", "if __name__ == .__main__.:", "raise NotImplementedError"]
 
 
 [tool.ruff]
@@ -44,8 +47,3 @@ line-length = 88
 [tool.ruff.format]
 quote-style = "single"
 
-[tool.mypy]
-strict = true
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"

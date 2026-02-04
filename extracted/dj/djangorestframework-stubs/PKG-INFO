@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djangorestframework-stubs
-Version: 3.16.7
+Version: 3.16.8
 Summary: PEP-484 stubs for django-rest-framework
 Author: Maksim Kurnikov
 Author-email: Maksim Kurnikov <maxim.kurnikov@gmail.com>
@@ -17,21 +17,22 @@ Classifier: Typing :: Typed
 Classifier: Framework :: Django
 Requires-Dist: django-stubs>=5.2.8
 Requires-Dist: typing-extensions>=4.0
-Requires-Dist: types-requests
 Requires-Dist: types-pyyaml
 Requires-Dist: mypy>=1.13,<1.20 ; extra == 'compatible-mypy'
 Requires-Dist: django-stubs[compatible-mypy] ; extra == 'compatible-mypy'
 Requires-Dist: coreapi>=2.0.0 ; extra == 'coreapi'
 Requires-Dist: types-markdown>=0.1.5 ; extra == 'markdown'
+Requires-Dist: types-requests ; extra == 'requests'
 Maintainer: Marti Raudsepp, Nikita Sobolev
 Maintainer-email: Marti Raudsepp <marti@juffo.org>, Nikita Sobolev <mail@sobolevn.me>
 Requires-Python: >=3.10
-Project-URL: Funding, https://github.com/sponsors/typeddjango
 Project-URL: Homepage, https://github.com/typeddjango/djangorestframework-stubs
+Project-URL: Funding, https://github.com/sponsors/typeddjango
 Project-URL: Release notes, https://github.com/typeddjango/djangorestframework-stubs/releases
 Provides-Extra: compatible-mypy
 Provides-Extra: coreapi
 Provides-Extra: markdown
+Provides-Extra: requests
 Description-Content-Type: text/markdown
 
 <img src="https://mypy-lang.org/static/mypy_light.svg" alt="mypy logo" width="300px"/>

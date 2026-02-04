@@ -684,7 +684,7 @@ class AlgebraicRecon(Recon):
                 print(f"Loaded reconstruction results and indices from {results_dir}")
         
     def normalizeSMatrix(self):
-        self.SMatrix = self.SMatrix / (float(self.experiment.params.acoustic['voltage'])*float(self.experiment.params.acoustic['sensitivity']))  
+        self.SMatrix = self.SMatrix / (float(self.experiment.params.acoustic['emission']['voltage'])*float(self.experiment.params.acoustic['emission']['sensitivity']))  
 
     # PRIVATE METHODS
 

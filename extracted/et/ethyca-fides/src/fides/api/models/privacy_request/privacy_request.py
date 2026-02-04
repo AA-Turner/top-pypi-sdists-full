@@ -37,8 +37,10 @@ from fides.api.cryptography.cryptographic_util import (
     hash_value_with_salt,
 )
 from fides.api.cryptography.identity_salt import get_identity_salt
-from fides.api.db.base_class import Base  # type: ignore[attr-defined]
-from fides.api.db.base_class import JSONTypeOverride
+from fides.api.db.base_class import (
+    Base,  # type: ignore[attr-defined]
+    JSONTypeOverride,
+)
 from fides.api.db.util import EnumColumn
 from fides.api.graph.config import (
     ROOT_COLLECTION_ADDRESS,
@@ -467,7 +469,11 @@ class PrivacyRequest(
             "paused_at": self.paused_at.isoformat() if self.paused_at else None,
             "due_date": self.due_date.isoformat() if self.due_date else None,
             "days_left": self.days_left,
-            "custom_fields": self.get_persisted_custom_privacy_request_fields() if self.custom_fields else None,  # type: ignore[attr-defined]
+            "custom_fields": (
+                self.get_persisted_custom_privacy_request_fields()
+                if self.custom_fields  # type: ignore[attr-defined]
+                else None
+            ),
             "location": self.location,
         }
 
@@ -556,6 +562,9 @@ class PrivacyRequest(
         """
         Stores the identity provided with the privacy request in a secure way, compatible with
         blind indexing for later searching and audit purposes.
+
+        If an identity field with the same field_name already exists for this privacy request,
+        it will be replaced with the new value to prevent duplicate records.
         """
 
         if isinstance(identity, dict):
@@ -574,6 +583,19 @@ class PrivacyRequest(
                         )
                 else:
                     label = None
+
+                # Delete any existing ProvidedIdentity records with the same field_name
+                # to prevent duplicates and ensure the latest value is used
+                existing_identities = (
+                    db.query(ProvidedIdentity)
+                    .filter(
+                        ProvidedIdentity.privacy_request_id == self.id,
+                        ProvidedIdentity.field_name == key,
+                    )
+                    .all()
+                )
+                for existing in existing_identities:
+                    existing.delete(db=db)
 
                 hashed_value = ProvidedIdentity.hash_value(value)
                 provided_identity_data = {
@@ -1516,11 +1538,15 @@ class PrivacyRequest(
         """
         if self.erasure_tasks.count():
             # For DSR 3.0
-            return {
-                t.collection_address: t.rows_masked
-                for t in self.erasure_tasks.filter(
+            # Defer large columns since we only need metadata (collection_address, rows_masked, status)
+            tasks_query = RequestTask.query_with_deferred_data(
+                self.erasure_tasks.filter(
                     RequestTask.status.in_(COMPLETED_EXECUTION_LOG_STATUSES)
                 )
+            )
+            return {
+                t.collection_address: t.rows_masked
+                for t in tasks_query
                 if not t.is_root_task and not t.is_terminator_task
             }
 
@@ -1529,7 +1555,10 @@ class PrivacyRequest(
         value_dict = cache.get_encoded_objects_by_prefix(f"{self.id}__erasure_request")
         # extract request id to return a map of address:value
         number_of_leading_strings_to_exclude = 2
-        return {extract_key_for_address(k, number_of_leading_strings_to_exclude): v for k, v in value_dict.items()}  # type: ignore
+        return {
+            extract_key_for_address(k, number_of_leading_strings_to_exclude): v  # type: ignore
+            for k, v in value_dict.items()
+        }
 
     def get_consent_results(self) -> Dict[str, int]:
         """For parity, return whether a consent request was sent for third
@@ -1539,11 +1568,15 @@ class PrivacyRequest(
         """
         if self.consent_tasks.count():
             # For DSR 3.0
-            return {
-                t.collection_address: t.consent_sent
-                for t in self.consent_tasks.filter(
+            # Defer large columns since we only need metadata (collection_address, consent_sent, status)
+            tasks_query = RequestTask.query_with_deferred_data(
+                self.consent_tasks.filter(
                     RequestTask.status.in_(EXITED_EXECUTION_LOG_STATUSES)
                 )
+            )
+            return {
+                t.collection_address: t.consent_sent
+                for t in tasks_query
                 if not t.is_root_task and not t.is_terminator_task
             }
         # DSR 2.0 does not cache the results so nothing to do here

@@ -23,7 +23,6 @@ from exponent.core.config import (
 from exponent.core.graphql.client import GraphQLClient
 from exponent.core.graphql.generated_client import (
     ExponentModels,
-    ReportSandboxInfoReportSandboxInfoError,
     ReportSandboxInfoReportSandboxInfoSandboxInfoResponse,
     ReportSandboxInfoReportSandboxInfoUnauthenticatedError,
     SetLoginCompleteSetLoginCompleteUnauthenticatedError,
@@ -426,9 +425,6 @@ async def report_sandbox_info(
 
     if isinstance(data, ReportSandboxInfoReportSandboxInfoUnauthenticatedError):
         raise HandledExponentError(f"Authentication failed: {data.message}")
-
-    if isinstance(data, ReportSandboxInfoReportSandboxInfoError):
-        raise HandledExponentError(f"Failed to report sandbox info: {data.message}")
 
     if not isinstance(data, ReportSandboxInfoReportSandboxInfoSandboxInfoResponse):
         raise HandledExponentError("Failed to report sandbox info: Unexpected response")

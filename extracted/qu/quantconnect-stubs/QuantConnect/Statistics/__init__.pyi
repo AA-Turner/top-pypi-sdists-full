@@ -30,6 +30,15 @@ class Trade(System.Object):
     """Represents a closed trade"""
 
     @property
+    def id(self) -> str:
+        """A unique identifier for the trade"""
+        ...
+
+    @id.setter
+    def id(self, value: str) -> None:
+        ...
+
+    @property
     def symbol(self) -> QuantConnect.Symbol:
         """
         The symbol of the traded instrument
@@ -868,6 +877,15 @@ class AlgorithmPerformance(System.Object):
     @overload
     def __init__(self) -> None:
         """Initializes a new instance of the AlgorithmPerformance class"""
+        ...
+
+    @overload
+    def __init__(self, other: QuantConnect.Statistics.AlgorithmPerformance) -> None:
+        """
+        Initializes a new instance of the AlgorithmPerformance class
+        
+        :param other: The performance instance to use as a base
+        """
         ...
 
 

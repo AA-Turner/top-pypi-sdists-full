@@ -33,6 +33,7 @@ from .literals import (
     PrincipalTypeType,
     ProvisioningStatusType,
     ProvisionTargetTypeType,
+    RegionStatusType,
     SignInOriginType,
     StatusValuesType,
     UserBackgroundSessionApplicationStatusType,
@@ -53,6 +54,8 @@ __all__ = (
     "AccountAssignmentOperationStatusMetadataTypeDef",
     "AccountAssignmentOperationStatusTypeDef",
     "AccountAssignmentTypeDef",
+    "AddRegionRequestTypeDef",
+    "AddRegionResponseTypeDef",
     "ApplicationAssignmentForPrincipalTypeDef",
     "ApplicationAssignmentTypeDef",
     "ApplicationProviderTypeDef",
@@ -112,6 +115,8 @@ __all__ = (
     "DescribePermissionSetProvisioningStatusResponseTypeDef",
     "DescribePermissionSetRequestTypeDef",
     "DescribePermissionSetResponseTypeDef",
+    "DescribeRegionRequestTypeDef",
+    "DescribeRegionResponseTypeDef",
     "DescribeTrustedTokenIssuerRequestTypeDef",
     "DescribeTrustedTokenIssuerResponseTypeDef",
     "DetachCustomerManagedPolicyReferenceFromPermissionSetRequestTypeDef",
@@ -203,6 +208,9 @@ __all__ = (
     "ListPermissionSetsRequestPaginateTypeDef",
     "ListPermissionSetsRequestTypeDef",
     "ListPermissionSetsResponseTypeDef",
+    "ListRegionsRequestPaginateTypeDef",
+    "ListRegionsRequestTypeDef",
+    "ListRegionsResponseTypeDef",
     "ListTagsForResourceRequestPaginateTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
@@ -227,6 +235,9 @@ __all__ = (
     "PutApplicationSessionConfigurationRequestTypeDef",
     "PutInlinePolicyToPermissionSetRequestTypeDef",
     "PutPermissionsBoundaryToPermissionSetRequestTypeDef",
+    "RegionMetadataTypeDef",
+    "RemoveRegionRequestTypeDef",
+    "RemoveRegionResponseTypeDef",
     "ResourceServerConfigTypeDef",
     "ResourceServerScopeDetailsTypeDef",
     "ResponseMetadataTypeDef",
@@ -285,6 +296,23 @@ class AccountAssignmentTypeDef(TypedDict):
     PermissionSetArn: NotRequired[str]
     PrincipalType: NotRequired[PrincipalTypeType]
     PrincipalId: NotRequired[str]
+
+
+AddRegionRequestTypeDef = TypedDict(
+    "AddRegionRequestTypeDef",
+    {
+        "InstanceArn": str,
+        "RegionName": str,
+    },
+)
+
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
 
 
 class ApplicationAssignmentForPrincipalTypeDef(TypedDict):
@@ -354,14 +382,6 @@ class CreateAccountAssignmentRequestTypeDef(TypedDict):
     PermissionSetArn: str
     PrincipalType: PrincipalTypeType
     PrincipalId: str
-
-
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
 
 
 class CreateApplicationAssignmentRequestTypeDef(TypedDict):
@@ -501,6 +521,15 @@ class PermissionSetProvisioningStatusTypeDef(TypedDict):
 class DescribePermissionSetRequestTypeDef(TypedDict):
     InstanceArn: str
     PermissionSetArn: str
+
+
+DescribeRegionRequestTypeDef = TypedDict(
+    "DescribeRegionRequestTypeDef",
+    {
+        "InstanceArn": str,
+        "RegionName": str,
+    },
+)
 
 
 class DescribeTrustedTokenIssuerRequestTypeDef(TypedDict):
@@ -671,6 +700,23 @@ class ListPermissionSetsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
 
 
+class ListRegionsRequestTypeDef(TypedDict):
+    InstanceArn: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+RegionMetadataTypeDef = TypedDict(
+    "RegionMetadataTypeDef",
+    {
+        "RegionName": NotRequired[str],
+        "Status": NotRequired[RegionStatusType],
+        "AddedDate": NotRequired[datetime],
+        "IsPrimaryRegion": NotRequired[bool],
+    },
+)
+
+
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
     InstanceArn: NotRequired[str]
@@ -736,6 +782,15 @@ class PutInlinePolicyToPermissionSetRequestTypeDef(TypedDict):
     InlinePolicy: str
 
 
+RemoveRegionRequestTypeDef = TypedDict(
+    "RemoveRegionRequestTypeDef",
+    {
+        "InstanceArn": str,
+        "RegionName": str,
+    },
+)
+
+
 class ResourceServerScopeDetailsTypeDef(TypedDict):
     LongDescription: NotRequired[str]
     DetailedTitle: NotRequired[str]
@@ -765,37 +820,9 @@ class AccessControlAttributeTypeDef(TypedDict):
     Value: AccessControlAttributeValueTypeDef
 
 
-class AttachCustomerManagedPolicyReferenceToPermissionSetRequestTypeDef(TypedDict):
-    InstanceArn: str
-    PermissionSetArn: str
-    CustomerManagedPolicyReference: CustomerManagedPolicyReferenceTypeDef
-
-
-class DetachCustomerManagedPolicyReferenceFromPermissionSetRequestTypeDef(TypedDict):
-    InstanceArn: str
-    PermissionSetArn: str
-    CustomerManagedPolicyReference: CustomerManagedPolicyReferenceTypeDef
-
-
-class PermissionsBoundaryTypeDef(TypedDict):
-    CustomerManagedPolicyReference: NotRequired[CustomerManagedPolicyReferenceTypeDef]
-    ManagedPolicyArn: NotRequired[str]
-
-
-class AuthenticationMethodOutputTypeDef(TypedDict):
-    Iam: NotRequired[IamAuthenticationMethodOutputTypeDef]
-
-
-class AuthenticationMethodTypeDef(TypedDict):
-    Iam: NotRequired[IamAuthenticationMethodTypeDef]
-
-
-class JwtBearerGrantOutputTypeDef(TypedDict):
-    AuthorizedTokenIssuers: NotRequired[list[AuthorizedTokenIssuerOutputTypeDef]]
-
-
-class JwtBearerGrantTypeDef(TypedDict):
-    AuthorizedTokenIssuers: NotRequired[Sequence[AuthorizedTokenIssuerTypeDef]]
+class AddRegionResponseTypeDef(TypedDict):
+    Status: RegionStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateAccountAssignmentResponseTypeDef(TypedDict):
@@ -838,6 +865,18 @@ class DescribeApplicationAssignmentResponseTypeDef(TypedDict):
     PrincipalId: str
     ApplicationArn: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+DescribeRegionResponseTypeDef = TypedDict(
+    "DescribeRegionResponseTypeDef",
+    {
+        "RegionName": str,
+        "Status": RegionStatusType,
+        "AddedDate": datetime,
+        "IsPrimaryRegion": bool,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 
 class EmptyResponseMetadataTypeDef(TypedDict):
@@ -895,6 +934,23 @@ class ListAccountsForProvisionedPermissionSetResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class ListPermissionSetsProvisionedToAccountResponseTypeDef(TypedDict):
+    PermissionSets: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListPermissionSetsResponseTypeDef(TypedDict):
+    PermissionSets: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class RemoveRegionResponseTypeDef(TypedDict):
+    Status: RegionStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ListApplicationAssignmentsForPrincipalResponseTypeDef(TypedDict):
     ApplicationAssignments: list[ApplicationAssignmentForPrincipalTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -907,10 +963,27 @@ class ListApplicationAssignmentsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class AttachCustomerManagedPolicyReferenceToPermissionSetRequestTypeDef(TypedDict):
+    InstanceArn: str
+    PermissionSetArn: str
+    CustomerManagedPolicyReference: CustomerManagedPolicyReferenceTypeDef
+
+
+class DetachCustomerManagedPolicyReferenceFromPermissionSetRequestTypeDef(TypedDict):
+    InstanceArn: str
+    PermissionSetArn: str
+    CustomerManagedPolicyReference: CustomerManagedPolicyReferenceTypeDef
+
+
 class ListCustomerManagedPolicyReferencesInPermissionSetResponseTypeDef(TypedDict):
     CustomerManagedPolicyReferences: list[CustomerManagedPolicyReferenceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class PermissionsBoundaryTypeDef(TypedDict):
+    CustomerManagedPolicyReference: NotRequired[CustomerManagedPolicyReferenceTypeDef]
+    ManagedPolicyArn: NotRequired[str]
 
 
 class ListManagedPoliciesInPermissionSetResponseTypeDef(TypedDict):
@@ -919,16 +992,20 @@ class ListManagedPoliciesInPermissionSetResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class ListPermissionSetsProvisionedToAccountResponseTypeDef(TypedDict):
-    PermissionSets: list[str]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
+class AuthenticationMethodOutputTypeDef(TypedDict):
+    Iam: NotRequired[IamAuthenticationMethodOutputTypeDef]
 
 
-class ListPermissionSetsResponseTypeDef(TypedDict):
-    PermissionSets: list[str]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
+class AuthenticationMethodTypeDef(TypedDict):
+    Iam: NotRequired[IamAuthenticationMethodTypeDef]
+
+
+class JwtBearerGrantOutputTypeDef(TypedDict):
+    AuthorizedTokenIssuers: NotRequired[list[AuthorizedTokenIssuerOutputTypeDef]]
+
+
+class JwtBearerGrantTypeDef(TypedDict):
+    AuthorizedTokenIssuers: NotRequired[Sequence[AuthorizedTokenIssuerTypeDef]]
 
 
 class CreateInstanceRequestTypeDef(TypedDict):
@@ -1107,6 +1184,11 @@ class ListPermissionSetsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListRegionsRequestPaginateTypeDef(TypedDict):
+    InstanceArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListTagsForResourceRequestPaginateTypeDef(TypedDict):
     ResourceArn: str
     InstanceArn: NotRequired[str]
@@ -1173,6 +1255,12 @@ class ListApplicationsRequestTypeDef(TypedDict):
 
 class ListPermissionSetProvisioningStatusResponseTypeDef(TypedDict):
     PermissionSetsProvisioningStatus: list[PermissionSetProvisioningStatusMetadataTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListRegionsResponseTypeDef(TypedDict):
+    Regions: list[RegionMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1285,6 +1373,7 @@ class ApplicationTypeDef(TypedDict):
     PortalOptions: NotRequired[PortalOptionsTypeDef]
     Description: NotRequired[str]
     CreatedDate: NotRequired[datetime]
+    CreatedFrom: NotRequired[str]
 
 
 class CreateApplicationRequestTypeDef(TypedDict):
@@ -1308,6 +1397,7 @@ class DescribeApplicationResponseTypeDef(TypedDict):
     PortalOptions: PortalOptionsTypeDef
     Description: str
     CreatedDate: datetime
+    CreatedFrom: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 

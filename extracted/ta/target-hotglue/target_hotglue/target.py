@@ -1,14 +1,15 @@
 """HotglueTarget target class."""
-
+from __future__ import annotations
 import click
 import copy
 import time
 import os
 import pydantic
+import json
 from abc import abstractmethod
 from io import FileIO
 from pathlib import Path, PurePath
-from typing import Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Callable, Dict, List, Optional, Tuple, Type, Union, IO
 from singer_sdk.sinks import Sink
 # from singer_sdk.target_base import Target
 from singer_sdk.mapper import PluginMapper
@@ -21,10 +22,39 @@ from target_hotglue.target_base import Target
 from target_hotglue.sinks import ModelSink
 import pandas as pd
 import os
+from collections import Counter, defaultdict
+import threading
+import signal
+from singer_sdk.io_base import SingerMessageType
+
 
 job_id = os.environ.get('JOB_ID')
 flow_id = os.environ.get('FLOW')
 SNAPSHOT_DIR = os.environ.get('SNAPSHOT_DIR') or f"/home/hotglue/{job_id}/snapshots"
+
+class SignalListenerThread(threading.Thread):
+    """Simple background thread that listens for SIGUSR1 signals."""
+    
+    def __init__(self, shutdown_event, logger):
+        super().__init__(daemon=True)
+        self.shutdown_event = shutdown_event
+        self.signal_listener_file = "user_signal.listener"
+        self.logger = logger
+        
+    def run(self):
+        """Create signal listener file and listen for SIGUSR1."""
+        # Create the signal listener file
+        try:
+            root_dir = "/tmp" if os.environ.get("JOB_ID") else f"../.secrets"
+            with open(f"{root_dir}/{self.signal_listener_file}", 'w') as f:
+                f.write(f"Signal listener started at {time.time()}\n")
+                f.write(f"Thread ID: {threading.get_ident()}\n")
+                f.write(f"Process ID: {os.getpid()}\n")
+        except Exception as e:
+            self.logger.error(f"Failed to create signal listener file: {e}")
+        
+        # Wait for shutdown event
+        self.shutdown_event.wait()
 
 class TargetHotglue(Target):
     """Sample target for Hotglue."""
@@ -32,6 +62,7 @@ class TargetHotglue(Target):
     MAX_PARALLELISM = 8
     EXTERNAL_ID_KEY = "externalId"
     GLOBAL_PRIMARY_KEY = "id"
+    incremental_target_state_path = f"/home/hotglue/{job_id}/incremental_target_state.json" if job_id else f"../.secrets/incremental_target_state.json"
 
     @property
     @abstractmethod
@@ -113,6 +144,37 @@ class TargetHotglue(Target):
             plugin_config=dict(self.config),
             logger=self.logger,
         )
+
+        # Initialize shutdown event and signal handling
+        self._shutdown_requested = threading.Event()
+
+        # Set up signal handler in main thread (signal handling only works in main thread)
+        def signal_handler(signum, frame):
+            self.logger.info(f"Received signal {signum}. Initiating graceful shutdown...")
+            self._shutdown_requested.set()
+            
+        # Register signal handler for SIGUSR1 in main thread
+        signal.signal(signal.SIGUSR1, signal_handler)
+        
+        # Start signal listener thread
+        self.signal_listener_thread = SignalListenerThread(self._shutdown_requested, self.logger)
+        self.signal_listener_thread.start()
+
+    def _save_failed_job_state(self):
+        """Save the latest state to a file when the job fails."""
+        self.logger.info("Saving current state to file.")
+        try:                        
+            # Get the current state
+            current_state = self._latest_state or {}
+            
+            if current_state:
+                # Save to file
+                with open(self.incremental_target_state_path, 'w') as f:
+                    json.dump(current_state, f, indent=2, default=str)
+                self.logger.info(f"Current state saved to file {self.incremental_target_state_path}")
+                            
+        except Exception as e:
+            self.logger.error(f"Failed to save state on failure: {str(e)}")
 
     def get_sink_class(self, stream_name: str) -> Type[Sink]:
         """Get sink for a stream."""
@@ -290,7 +352,7 @@ class TargetHotglue(Target):
 
             transformed_record = self.get_record_id(sink.name, transformed_record, sink.relation_fields if hasattr(sink, 'relation_fields') else None)
 
-            if not self.name in sink.allows_externalid:
+            if not self.name in sink.allows_externalid and transformed_record.get(self.EXTERNAL_ID_KEY):
                 external_id = transformed_record.pop(self.EXTERNAL_ID_KEY, None)
 
             transformed_record = sink.preprocess_record(transformed_record, context)
@@ -329,6 +391,87 @@ class TargetHotglue(Target):
                     for key in self._latest_state.keys():
                         if isinstance(self._latest_state[key], dict):
                             self._latest_state[key].update(sink_latest_state.get(key) or dict())
+
+    def _graceful_shutdown(self):
+        """Perform graceful shutdown with proper cleanup."""
+        self.logger.info("Initiating graceful shutdown...")
+        
+        try:
+            # Step 1: Drain all sinks to ensure buffered data is saved
+            self.logger.info("Draining all sinks to save buffered data...")
+            self.drain_all()
+            
+            # Step 2: Save final state
+            self.logger.info("Saving final state...")
+            self._save_failed_job_state()
+            
+            self.logger.info("Graceful shutdown completed successfully")
+            
+        except Exception as e:
+            self.logger.error(f"Error during graceful shutdown: {e}")
+        finally:
+            # Always exit, even if cleanup fails
+            import sys
+            sys.exit(0)
+
+        # Message handling
+
+    def _process_lines(self, file_input: IO[str]) -> Counter[str]:
+        """Internal method to process jsonl lines from a Singer tap.
+
+        Args:
+            file_input: Readable stream of messages, each on a separate line.
+
+        Returns:
+            A counter object for the processed lines.
+        """
+        self.logger.info(f"Target '{self.name}' is listening for input from tap.")
+        
+        stats: Dict[str, int] = defaultdict(int)
+        for line in file_input:
+            # Check if shutdown has been requested
+            if hasattr(self, '_shutdown_requested') and self._shutdown_requested.is_set():
+                self.logger.info("Shutdown requested, initiating graceful shutdown...")
+                self._graceful_shutdown()
+                return
+
+            try:
+                line_dict = json.loads(line)
+            except json.decoder.JSONDecodeError as exc:
+                self.logger.error("Unable to parse:\n%s", line, exc_info=exc)
+                raise
+
+            self._assert_line_requires(line_dict, requires={"type"})
+
+            record_type: SingerMessageType = line_dict["type"]
+            if record_type == SingerMessageType.SCHEMA:
+                self._process_schema_message(line_dict)
+
+            elif record_type == SingerMessageType.RECORD:
+                self._process_record_message(line_dict)
+
+            elif record_type == SingerMessageType.ACTIVATE_VERSION:
+                self._process_activate_version_message(line_dict)
+
+            elif record_type == SingerMessageType.STATE:
+                self._process_state_message(line_dict)
+
+            else:
+                self._process_unknown_message(line_dict)
+
+            stats[record_type] += 1
+
+        counter = Counter(**stats)
+
+        line_count = sum(counter.values())
+
+        self.logger.info(
+            f"Target '{self.name}' completed reading {line_count} lines of input "
+            f"({counter[SingerMessageType.RECORD]} records, "
+            f"{counter[SingerMessageType.STATE]} state messages)."
+        )
+
+        return counter
 
     @classproperty
     def cli(cls) -> Callable:
@@ -417,4 +560,17 @@ class TargetHotglue(Target):
             target.listen(file_input)
 
         return cli
+
+    def listen(self, file_input=None):
+        """Override listen method to add error handling and state saving."""
+        try:
+            # Call the parent listen method
+            super().listen(file_input)
+        except Exception as e:
+            self.logger.error(f"Job failed with error: {str(e)}")
+            # Save the latest state before re-raising the exception
+            self._save_failed_job_state()
+            
+            # Re-raise the exception to maintain original behavior
+            raise
 

@@ -15,6 +15,9 @@ if TYPE_CHECKING:
     from ..models.get_flow_by_path_with_draft_response_200_draft_value_preprocessor_module_suspend_user_groups_required_type_1 import (
         GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType1,
     )
+    from ..models.get_flow_by_path_with_draft_response_200_draft_value_preprocessor_module_suspend_user_groups_required_type_2 import (
+        GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType2,
+    )
 
 
 T = TypeVar("T", bound="GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspend")
@@ -32,7 +35,8 @@ class GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspend:
         user_auth_required (Union[Unset, bool]): If true, only authenticated users can approve
         user_groups_required
             (Union['GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType0',
-            'GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType1', Unset]): Maps
+            'GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType1',
+            'GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType2', Unset]): Maps
             input parameters for a step. Can be a static value or a JavaScript expression that references previous results
             or flow inputs
         self_approval_disabled (Union[Unset, bool]): If true, the user who started the flow cannot approve
@@ -47,6 +51,7 @@ class GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspend:
     user_groups_required: Union[
         "GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType0",
         "GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType1",
+        "GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType2",
         Unset,
     ] = UNSET
     self_approval_disabled: Union[Unset, bool] = UNSET
@@ -57,6 +62,9 @@ class GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspend:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.get_flow_by_path_with_draft_response_200_draft_value_preprocessor_module_suspend_user_groups_required_type_0 import (
             GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType0,
+        )
+        from ..models.get_flow_by_path_with_draft_response_200_draft_value_preprocessor_module_suspend_user_groups_required_type_1 import (
+            GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType1,
         )
 
         required_events = self.required_events
@@ -73,6 +81,14 @@ class GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspend:
         elif isinstance(
             self.user_groups_required,
             GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType0,
+        ):
+            user_groups_required = UNSET
+            if not isinstance(self.user_groups_required, Unset):
+                user_groups_required = self.user_groups_required.to_dict()
+
+        elif isinstance(
+            self.user_groups_required,
+            GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType1,
         ):
             user_groups_required = UNSET
             if not isinstance(self.user_groups_required, Unset):
@@ -120,6 +136,9 @@ class GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspend:
         from ..models.get_flow_by_path_with_draft_response_200_draft_value_preprocessor_module_suspend_user_groups_required_type_1 import (
             GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType1,
         )
+        from ..models.get_flow_by_path_with_draft_response_200_draft_value_preprocessor_module_suspend_user_groups_required_type_2 import (
+            GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType2,
+        )
 
         d = src_dict.copy()
         required_events = d.pop("required_events", UNSET)
@@ -142,6 +161,7 @@ class GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspend:
         ) -> Union[
             "GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType0",
             "GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType1",
+            "GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType2",
             Unset,
         ]:
             if isinstance(data, Unset):
@@ -163,20 +183,37 @@ class GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspend:
                 return user_groups_required_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _user_groups_required_type_1 = data
+                user_groups_required_type_1: Union[
+                    Unset, GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType1
+                ]
+                if isinstance(_user_groups_required_type_1, Unset):
+                    user_groups_required_type_1 = UNSET
+                else:
+                    user_groups_required_type_1 = GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType1.from_dict(
+                        _user_groups_required_type_1
+                    )
+
+                return user_groups_required_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _user_groups_required_type_1 = data
-            user_groups_required_type_1: Union[
-                Unset, GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType1
+            _user_groups_required_type_2 = data
+            user_groups_required_type_2: Union[
+                Unset, GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType2
             ]
-            if isinstance(_user_groups_required_type_1, Unset):
-                user_groups_required_type_1 = UNSET
+            if isinstance(_user_groups_required_type_2, Unset):
+                user_groups_required_type_2 = UNSET
             else:
-                user_groups_required_type_1 = GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType1.from_dict(
-                    _user_groups_required_type_1
+                user_groups_required_type_2 = GetFlowByPathWithDraftResponse200DraftValuePreprocessorModuleSuspendUserGroupsRequiredType2.from_dict(
+                    _user_groups_required_type_2
                 )
 
-            return user_groups_required_type_1
+            return user_groups_required_type_2
 
         user_groups_required = _parse_user_groups_required(d.pop("user_groups_required", UNSET))
 

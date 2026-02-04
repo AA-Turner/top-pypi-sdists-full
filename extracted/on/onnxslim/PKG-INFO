@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onnxslim
-Version: 0.1.82
+Version: 0.1.83
 Summary: OnnxSlim: A Toolkit to Help Optimize Onnx Model
 Project-URL: homepage, https://github.com/inisis/OnnxSlim
 Project-URL: issues, https://github.com/inisis/OnnxSlim/issues
@@ -20,16 +20,13 @@ Requires-Dist: sympy>=1.13.1
 Description-Content-Type: text/markdown
 
 <p align="center">
-  <img src="assets/logo/onnxslim-banner-light.svg#gh-light-mode-only" alt="OnnxSlim Logo" width="640"/>
-  <img src="assets/logo/onnxslim-banner.svg#gh-dark-mode-only" alt="OnnxSlim Logo" width="640"/>
+  <img src="https://raw.githubusercontent.com/inisis/OnnxSlim/main/assets/logo/onnxslim-banner-light.svg#gh-light-mode-only" alt="OnnxSlim Logo" width="640"/>
+  <img src="https://raw.githubusercontent.com/inisis/OnnxSlim/main/assets/logo/onnxslim-banner.svg#gh-dark-mode-only" alt="OnnxSlim Logo" width="640"/>
 </p>
 
 <p align="center">
     <a href="https://pypi.org/project/onnxslim">
         <img src="https://img.shields.io/pypi/v/onnxslim?color=blue" />
-    </a>
-    <a href="https://pypi.org/project/onnxslim">
-        <img src="https://static.pepy.tech/badge/onnxslim/week" />
     </a>
     <a href="https://pypi.org/project/onnxslim">
         <img src="https://static.pepy.tech/badge/onnxslim/month" />
@@ -51,6 +48,7 @@ Description-Content-Type: text/markdown
 
 OnnxSlim can help you slim your onnx model, with less operators, but same accuracy, better inference speed.
 
+- 🚀 2026/01/04: Achieved 5M downloads
 - 🚀 2025/11/29: Top 1% on PyPI
 - 🚀 2025/11/27: OnnxSlim is merged into [NVIDIA TensorRT-Model-Optimizer](https://github.com/NVIDIA/TensorRT-Model-Optimizer) 🤗🤗🤗
 - 🚀 2025/05/17: OnnxSlim is merged into [HuggingFace optimum](https://github.com/huggingface/optimum) 🤗🤗🤗
@@ -60,10 +58,6 @@ OnnxSlim can help you slim your onnx model, with less operators, but same accura
 - 🚀 2024/06/02: OnnxSlim is merged into [ultralytics](https://github.com/ultralytics/ultralytics) ❤️❤️❤️
 - 🚀 2024/04/30: Rank 1st in the [AICAS 2024 LLM inference optimization challenge](https://tianchi.aliyun.com/competition/entrance/532170/customize440) held by Arm and T-head
 - 🚀 2024/01/25: OnnxSlim is merged to [mnn-llm](https://github.com/wangzhaode/mnn-llm), performance increased by 5%
-
-# Benchmark
-
-![Image](https://github.com/user-attachments/assets/fefc79f1-5d8d-486b-935a-a088846b3900)
 
 # Installation
 
@@ -104,7 +98,9 @@ import onnxslim
 
 model = onnx.load("model.onnx")
 slimmed_model = onnxslim.slim(model)
-onnx.save(slimmed_model, "slimmed_model.onnx")
+
+if slimmed_model:
+    onnx.save(slimmed_model, "slimmed_model.onnx")
 ```
 
 For more usage, see onnxslim -h or refer to our [examples](./examples)
@@ -182,6 +178,14 @@ For more usage, see onnxslim -h or refer to our [examples](./examples)
       <a href="https://github.com/deepghs/imgutils" target="_blank">deepghs/imgutils</a>
     </td>
   </tr>
+  <tr>
+    <td style="vertical-align:middle;">
+      <img src="https://avatars.githubusercontent.com/u/430818?s=48&v=4" width="22" height="22" style="vertical-align:middle; margin-right:8px;"/>
+      <a href="https://github.com/amd/Quark" target="_blank">amd/Quark</a>
+    </td>
+    <td style="vertical-align:middle;">
+    </td>
+  </tr>
 </table>
 
 # References
@@ -191,6 +195,12 @@ For more usage, see onnxslim -h or refer to our [examples](./examples)
 > - [onnx-simplifier](https://github.com/daquexian/onnx-simplifier)
 > - [tabulate](https://github.com/astanin/python-tabulate)
 > - [onnxruntime](https://github.com/microsoft/onnxruntime)
+
+# Contributors
+
+<a href="https://github.com/inisis/onnxslim/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=inisis/onnxslim" />
+</a>
 
 # Contact
 

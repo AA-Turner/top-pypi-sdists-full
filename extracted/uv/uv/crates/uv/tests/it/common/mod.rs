@@ -2104,17 +2104,17 @@ pub fn make_project(dir: &Path, name: &str, body: &str) -> anyhow::Result<()> {
 
 // This is a fine-grained token that only has read-only access to the `uv-private-pypackage` repository
 pub const READ_ONLY_GITHUB_TOKEN: &[&str] = &[
-    "Z2l0aHViX3BhdA==",
-    "MTFCR0laQTdRMGdSQ0JRQVdRTklyQgo=",
-    "cU5vakhySFV2a0ljNUVZY1pzd1k0bUFUWlBuU3VLVDV5eXR0WUxvcHh3UFI0NlpWTlRTblhvVHJHSXEK",
+    "Z2l0aHViCg==",
+    "cGF0Cg==",
+    "MTFBQlVDUjZBMERMUTQ3aVphN3hPdV9qQmhTMkZUeHZ4ZE13OHczakxuZndsV2ZlZjc2cE53eHBWS2tiRUFwdnpmUk8zV0dDSUhicDFsT01aago=",
 ];
 
 // This is a fine-grained token that only has read-only access to the `uv-private-pypackage-2` repository
 #[cfg(not(windows))]
 pub const READ_ONLY_GITHUB_TOKEN_2: &[&str] = &[
-    "Z2l0aHViX3BhdA==",
-    "MTFCR0laQTdRMGthWlY4dHppTDdQSwo=",
-    "SHIzUG1tRVZRSHMzQTl2a3NiVnB4Tmk0eTR3R2JVYklLck1qY05naHhMSFVMTDZGVElIMXNYeFhYN2gK",
+    "Z2l0aHViCg==",
+    "cGF0Cg==",
+    "MTFBQlVDUjZBMDJTOFYwMTM4YmQ0bV9uTXpueWhxZDBrcllROTQ5SERTeTI0dENKZ2lmdzIybDFSR2s1SE04QW8xTUVYQ1I0Q1YxYUdPRGpvZQo=",
 ];
 
 pub const READ_ONLY_GITHUB_SSH_DEPLOY_KEY: &str = "LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFBQUFBQkc1dmJtVUFBQUFFYm05dVpRQUFBQUFBQUFBQkFBQUFNd0FBQUF0emMyZ3RaVwpReU5UVXhPUUFBQUNBeTF1SnNZK1JXcWp1NkdIY3Z6a3AwS21yWDEwdmo3RUZqTkpNTkRqSGZPZ0FBQUpqWUpwVnAyQ2FWCmFRQUFBQXR6YzJndFpXUXlOVFV4T1FBQUFDQXkxdUpzWStSV3FqdTZHSGN2emtwMEttclgxMHZqN0VGak5KTU5EakhmT2cKQUFBRUMwbzBnd1BxbGl6TFBJOEFXWDVaS2dVZHJyQ2ptMDhIQm9FenB4VDg3MXBqTFc0bXhqNUZhcU83b1lkeS9PU25RcQphdGZYUytQc1FXTTBrdzBPTWQ4NkFBQUFFR3R2Ym5OMGFVQmhjM1J5WVd3dWMyZ0JBZ01FQlE9PQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K";

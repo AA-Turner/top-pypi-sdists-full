@@ -44,6 +44,7 @@ __all__ = (
     "ExportStatusType",
     "ExportTypeType",
     "ExportViewTypeType",
+    "GlobalTableSettingsReplicationModeType",
     "GlobalTableStatusType",
     "ImportCompletedWaiterName",
     "ImportStatusType",
@@ -133,6 +134,7 @@ ExportFormatType = Literal["DYNAMODB_JSON", "ION"]
 ExportStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
 ExportTypeType = Literal["FULL_EXPORT", "INCREMENTAL_EXPORT"]
 ExportViewTypeType = Literal["NEW_AND_OLD_IMAGES", "NEW_IMAGE"]
+GlobalTableSettingsReplicationModeType = Literal["DISABLED", "ENABLED", "ENABLED_WITH_OVERRIDES"]
 GlobalTableStatusType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
 ImportCompletedWaiterName = Literal["import_completed"]
 ImportStatusType = Literal["CANCELLED", "CANCELLING", "COMPLETED", "FAILED", "IN_PROGRESS"]

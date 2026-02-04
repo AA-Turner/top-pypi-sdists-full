@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xradar
-Version: 0.11.0
+Version: 0.11.1
 Summary: Xradar includes all the tools to get your weather radar into the xarray data model.
 Author-email: Maxwell Grover <mgrover@anl.gov>, Kai Mühlbauer <kai.muehlbauer@uni-bonn.de>, Zachary Sherman <zsherman@anl.gov>
 License-Expression: MIT
@@ -142,6 +142,13 @@ Thanks to our many contributors!
 [![Contributors](https://contrib.rocks/image?repo=openradar/xradar)](https://github.com/openradar/xradar/graphs/contributors)
 
 # History
+
+
+## 0.11.1 (2026-02-03)
+
+* MNT: Pre-commit update + lint ({pull}`325`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* FIX: Use ``dtype`` with fallback in odim export ({pull}`324`) by [@katelbach](https://github.com/katelbach)
+* FIX: Prevent azimuth-folding for RHI for gamic reader ({pull}`326`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
 
 ## 0.11.0 (2026-01-12)
 

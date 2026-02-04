@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Optional
 
 import temporalio.bridge.runtime
 import temporalio.bridge.temporal_sdk_bridge
@@ -28,6 +27,7 @@ class DevServerConfig:
     port: int | None
     database_filename: str | None
     ui: bool
+    ui_port: int | None
     log_format: str
     log_level: str
     extra_args: Sequence[str]

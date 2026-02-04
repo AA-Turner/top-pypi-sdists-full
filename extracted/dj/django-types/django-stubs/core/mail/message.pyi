@@ -1,11 +1,11 @@
 from collections.abc import Sequence
-from email._policybase import Policy  # type: ignore
+from email._policybase import Policy
 from email.message import Message
 from email.mime.base import MIMEBase
 from email.mime.message import MIMEMessage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import Any, overload
+from typing import Any, TypeAlias, overload
 
 utf8_charset: Any
 utf8_charset_qp: Any
@@ -27,13 +27,13 @@ class MIMEMixin: ...
 class SafeMIMEMessage(MIMEMixin, MIMEMessage):
     defects: list[Any]
     epilogue: None  # pyright: ignore[reportIncompatibleVariableOverride]
-    policy: Policy  # type: ignore [no-any-unimported]
+    policy: Policy
     preamble: None  # pyright: ignore[reportIncompatibleVariableOverride]
 
 class SafeMIMEText(MIMEMixin, MIMEText):
     defects: list[Any]
     epilogue: None  # pyright: ignore[reportIncompatibleVariableOverride]
-    policy: Policy  # type: ignore [no-any-unimported]
+    policy: Policy
     preamble: None  # pyright: ignore[reportIncompatibleVariableOverride]
     encoding: str = ...
     def __init__(
@@ -43,7 +43,7 @@ class SafeMIMEText(MIMEMixin, MIMEText):
 class SafeMIMEMultipart(MIMEMixin, MIMEMultipart):
     defects: list[Any]
     epilogue: None  # pyright: ignore[reportIncompatibleVariableOverride]
-    policy: Policy  # type: ignore [no-any-unimported]
+    policy: Policy
     preamble: None  # pyright: ignore[reportIncompatibleVariableOverride]
     encoding: str = ...
     def __init__(
@@ -55,8 +55,8 @@ class SafeMIMEMultipart(MIMEMixin, MIMEMultipart):
         **_params: Any
     ) -> None: ...
 
-_AttachmentContent = bytes | EmailMessage | Message | SafeMIMEText | str
-_AttachmentTuple = (
+_AttachmentContent: TypeAlias = bytes | EmailMessage | Message | SafeMIMEText | str
+_AttachmentTuple: TypeAlias = (
     tuple[str, _AttachmentContent]
     | tuple[str | None, _AttachmentContent, str]
     | tuple[str, _AttachmentContent, None]

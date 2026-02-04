@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-gcp
-Version: 0.6.15
+Version: 0.6.16
 Summary: Prefect integrations for interacting with Google Cloud Platform.
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0

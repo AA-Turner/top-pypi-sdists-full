@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime
 import os
 import re
+from pathlib import Path
 from typing import Optional, Union
 
 import numpy as np
@@ -133,23 +134,22 @@ class Tree:
     status: Status
     is_dirty = False
 
-    @Status.handle_keyboard_interrupt()
-    def __init__(self, data, *, friendly_name=None, description=None, workbook=_common.DEFAULT_WORKBOOK_PATH,
-                 datasource=None, convert_displays_to_sdl=True, trim_root_paths=True,
-                 quiet=None, errors=None, status=None, session: Optional[Session] = None):
-        _common.validate_argument_types([
-            (data, 'data', (pd.DataFrame, str)),
-            (friendly_name, 'friendly_name', str),
-            (description, 'description', str),
-            (workbook, 'workbook', str),
-            (datasource, 'datasource', str),
-            (convert_displays_to_sdl, 'convert_displays_to_sdl', bool),
-            (trim_root_paths, 'trim_root_paths', bool),
-            (errors, 'errors', str),
-            (quiet, 'quiet', bool),
-            (status, 'status', Status),
-            (session, 'session', Session)
-        ])
+    @Status.top_level_spy_function(validate_login=False)
+    def __init__(
+        self,
+        data: Union[pd.DataFrame, str],
+        *,
+        friendly_name: Optional[str] = None,
+        description: Optional[str] = None,
+        workbook: Optional[str] = _common.DEFAULT_WORKBOOK_PATH,
+        datasource: Optional[str] = None,
+        convert_displays_to_sdl: bool = True,
+        trim_root_paths: bool = True,
+        quiet: Optional[bool] = None,
+        errors: Optional[str] = None,
+        status: Optional[Status] = None,
+        session: Optional[Session] = None
+    ):
         self.session = session
         self.status = status
 
@@ -1103,12 +1103,15 @@ class Tree:
 
         return result
 
-    @Status.handle_keyboard_interrupt(no_session=True)
-    def push(self, *,
-             metadata_state_file: Optional[str] = None,
-             errors: Optional[str] = None,
-             quiet: Optional[bool] = None,
-             status: Optional[Status] = None) -> pd.DataFrame:
+    @Status.top_level_spy_function(no_session=True)
+    def push(
+        self,
+        *,
+        metadata_state_file: Optional[Union[str, Path]] = None,
+        errors: Optional[str] = None,
+        quiet: Optional[bool] = None,
+        status: Optional[Status] = None
+    ) -> pd.DataFrame:
         """
         Imports the tree into Seeq Server.
 
@@ -1151,11 +1154,6 @@ class Tree:
             errors and statistics about the operation. See spy.push()
             documentation for further details on this returned DataFrame.
         """
-        _common.validate_argument_types([
-            (errors, 'errors', str),
-            (quiet, 'quiet', bool),
-            (status, 'status', Status)
-        ])
 
         status = Status.validate(status, self.session, quiet, errors)
 

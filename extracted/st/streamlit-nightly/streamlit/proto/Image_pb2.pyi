@@ -40,21 +40,15 @@ class Image(_message.Message):
 
     URL_FIELD_NUMBER: _builtins.int
     CAPTION_FIELD_NUMBER: _builtins.int
-    MARKUP_FIELD_NUMBER: _builtins.int
     url: _builtins.str
     caption: _builtins.str
-    markup: _builtins.str
-    """DEPRECATED: markup is not used anymore.
-    SVGs are added as data uris in the url field.
-    """
     def __init__(
         self,
         *,
         url: _builtins.str = ...,
         caption: _builtins.str = ...,
-        markup: _builtins.str = ...,
     ) -> None: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["caption", b"caption", "markup", b"markup", "url", b"url"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["caption", b"caption", "url", b"url"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
 
 Global___Image: _TypeAlias = Image  # noqa: Y015

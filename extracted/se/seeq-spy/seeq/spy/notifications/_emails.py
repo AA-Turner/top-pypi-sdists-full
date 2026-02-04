@@ -165,12 +165,21 @@ def _call_send_email_api(session: Session, email_body: EmailRequestInput) -> Non
                                   f"Response content: {response.content}")
 
 
-@Status.handle_keyboard_interrupt()
-def send_email(to: RecipientType, subject: str, content: str, *,
-               cc: Optional[RecipientType] = None, bcc: Optional[RecipientType] = None,
-               attachments: Optional[AttachmentType] = None, reply_to: Optional[RecipientType] = None,
-               errors: Optional[str] = None, quiet: Optional[bool] = None, status: Optional[Status] = None,
-               session: Optional[Session] = None) -> None:
+@Status.top_level_spy_function()
+def send_email(
+    to: RecipientType,
+    subject: str,
+    content: str,
+    *,
+    cc: Optional[RecipientType] = None,
+    bcc: Optional[RecipientType] = None,
+    attachments: Optional[AttachmentType] = None,
+    reply_to: Optional[RecipientType] = None,
+    errors: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None
+) -> None:
     """
     Sends an email notification.
     The number of recipients (to + cc + bcc) cannot be greater than 50 to avoid spam. This
@@ -269,22 +278,6 @@ def send_email(to: RecipientType, subject: str, content: str, *,
     >>>                                        filename="attachment.pdf"))
 
     """
-
-    _common.validate_argument_types([
-        (to, 'to', (str, EmailRecipient, List)),
-        (subject, 'subject', str),
-        (content, 'content', str),
-        (cc, 'cc', (str, EmailRecipient, List)),
-        (bcc, 'bcc', (str, EmailRecipient, List)),
-        (attachments, 'attachments', (EmailAttachment, List)),
-        (reply_to, 'reply_to', (str, EmailRecipient, List)),
-        (errors, 'errors', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session)
-    ])
-
-    Status.validate_login(session, status)
 
     email_request_body: EmailRequestInput = _create_email_request_input(to, subject, content, cc, bcc, attachments,
                                                                         reply_to)

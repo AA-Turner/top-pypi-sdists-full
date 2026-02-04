@@ -33,26 +33,26 @@ from seeq.spy._status import Status
 AUTOMATIC_PROXY_DETECTION = '__auto__'
 
 
-@Status.handle_keyboard_interrupt()
+@Status.top_level_spy_function(validate_login=False)
 def login(
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        *,
-        access_key: Optional[str] = None,
-        url: Optional[str] = None,
-        directory: str = 'Seeq',
-        ignore_ssl_errors: bool = False,
-        proxy: str = AUTOMATIC_PROXY_DETECTION,
-        credentials_file: Optional[Union[str, Path]] = None,
-        force: bool = True,
-        quiet: Optional[bool] = None,
-        status: Optional[Status] = None,
-        session: Optional[Session] = None,
-        private_url: Optional[str] = None,
-        auth_token: Optional[str] = None,
-        csrf_token: Optional[str] = None,
-        request_origin_label: Optional[str] = None,
-        request_origin_url: Optional[str] = None
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+    *,
+    access_key: Optional[str] = None,
+    url: Optional[str] = None,
+    directory: str = 'Seeq',
+    ignore_ssl_errors: bool = False,
+    proxy: str = AUTOMATIC_PROXY_DETECTION,
+    credentials_file: Optional[Union[str, Path]] = None,
+    force: bool = True,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None,
+    private_url: Optional[str] = None,
+    auth_token: Optional[str] = None,
+    csrf_token: Optional[str] = None,
+    request_origin_label: Optional[str] = None,
+    request_origin_url: Optional[str] = None
 ) -> None:
     """
     Establishes a connection with Seeq Server and logs in with a set of
@@ -163,28 +163,6 @@ def login(
     >>> spy.login(url='https://server2.seeq.site', username='alex', password='alexpassword', session=session2)
 
     """
-    _common.validate_argument_types([
-        (username, 'username', str),
-        (password, 'password', str),
-        (access_key, 'access_key', str),
-        (url, 'url', str),
-        (directory, 'directory', str),
-        (ignore_ssl_errors, 'ignore_ssl_errors', bool),
-        (proxy, 'proxy', str),
-        (credentials_file, 'credentials_file', (str, Path)),
-        (force, 'force', bool),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session),
-        (private_url, 'private_url', str),
-        # Note: Although auth_token is no longer a supported authentication method for non-Seeq Data Lab scenarios,
-        # it is still used by Seeq Data Lab code to log the user in.
-        (auth_token, 'auth_token', str),
-        (csrf_token, 'csrf_token', str),
-        (request_origin_label, 'request_origin_label', str),
-        (request_origin_url, 'request_origin_url', str),
-    ])
-
     if private_url is not None and url is None:
         raise SPyValueError('private_url argument cannot be specified without also specifying url argument')
 
@@ -449,8 +427,12 @@ def _client_login(
     session.https_cert_file = cert_file
 
 
-@Status.handle_keyboard_interrupt()
-def logout(quiet=None, status=None, session: Session = None):
+@Status.top_level_spy_function(validate_login=False)
+def logout(
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None
+) -> None:
     """
     Logs you out of your current session.
 
@@ -470,12 +452,6 @@ def logout(quiet=None, status=None, session: Session = None):
         The login session to use for this call. See spy.login() documentation
         for info on how to use a Session object.
     """
-    _common.validate_argument_types([
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session)
-    ])
-
     _clear_login_state(quiet, status, session, call_logout=True)
 
 

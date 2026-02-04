@@ -329,6 +329,149 @@ class CatClient(NamespacedClient):
         )
 
     @_rewrite_parameters()
+    def circuit_breaker(
+        self,
+        *,
+        circuit_breaker_patterns: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        bytes: t.Optional[
+            t.Union[str, t.Literal["b", "gb", "kb", "mb", "pb", "tb"]]
+        ] = None,
+        error_trace: t.Optional[bool] = None,
+        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        format: t.Optional[str] = None,
+        h: t.Optional[
+            t.Union[
+                t.Sequence[
+                    t.Union[
+                        str,
+                        t.Literal[
+                            "breaker",
+                            "estimated",
+                            "estimated_bytes",
+                            "limit",
+                            "limit_bytes",
+                            "node_id",
+                            "node_name",
+                            "overhead",
+                            "tripped",
+                        ],
+                    ]
+                ],
+                t.Union[
+                    str,
+                    t.Literal[
+                        "breaker",
+                        "estimated",
+                        "estimated_bytes",
+                        "limit",
+                        "limit_bytes",
+                        "node_id",
+                        "node_name",
+                        "overhead",
+                        "tripped",
+                    ],
+                ],
+            ]
+        ] = None,
+        help: t.Optional[bool] = None,
+        human: t.Optional[bool] = None,
+        local: t.Optional[bool] = None,
+        master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
+        pretty: t.Optional[bool] = None,
+        s: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        time: t.Optional[
+            t.Union[str, t.Literal["d", "h", "m", "micros", "ms", "nanos", "s"]]
+        ] = None,
+        v: t.Optional[bool] = None,
+    ) -> t.Union[ObjectApiResponse[t.Any], TextApiResponse]:
+        """
+        .. raw:: html
+
+          <p>Get circuit breakers statistics.</p>
+          <p>IMPORTANT: CAT APIs are only intended for human consumption using the command line or Kibana console. They are not intended for use by applications.</p>
+
+
+        `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
+
+        :param circuit_breaker_patterns: A comma-separated list of regular-expressions
+            to filter the circuit breakers in the output
+        :param bytes: Sets the units for columns that contain a byte-size value. Note
+            that byte-size value units work in terms of powers of 1024. For instance
+            `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
+            rendered with a suffix such as `kb`, `mb`, or `gb`, chosen such that the
+            numeric value of the column is as small as possible whilst still being at
+            least `1.0`. If given, byte-size values are rendered as an integer with no
+            suffix, representing the value of the column in the chosen unit. Values that
+            are not an exact multiple of the chosen unit are rounded down.
+        :param format: Specifies the format to return the columnar data in, can be set
+            to `text`, `json`, `cbor`, `yaml`, or `smile`.
+        :param h: A comma-separated list of columns names to display. It supports simple
+            wildcards.
+        :param help: When set to `true` will output available columns. This option can't
+            be combined with any other query string option.
+        :param local: If `true`, the request computes the list of selected nodes from
+            the local cluster state. If `false` the list of selected nodes are computed
+            from the cluster state of the master node. In both cases the coordinating
+            node will send requests for further information to each selected node.
+        :param master_timeout: Period to wait for a connection to the master node.
+        :param s: List of columns that determine how the table should be sorted. Sorting
+            defaults to ascending and can be changed by setting `:asc` or `:desc` as
+            a suffix to the column name.
+        :param time: Sets the units for columns that contain a time duration. If omitted,
+            time duration values are rendered with a suffix such as `ms`, `s`, `m` or
+            `h`, chosen such that the numeric value of the column is as small as possible
+            whilst still being at least `1.0`. If given, time duration values are rendered
+            as an integer with no suffix. Values that are not an exact multiple of the
+            chosen unit are rounded down.
+        :param v: When set to `true` will enable verbose output.
+        """
+        __path_parts: t.Dict[str, str]
+        if circuit_breaker_patterns not in SKIP_IN_PATH:
+            __path_parts = {
+                "circuit_breaker_patterns": _quote(circuit_breaker_patterns)
+            }
+            __path = f'/_cat/circuit_breaker/{__path_parts["circuit_breaker_patterns"]}'
+        else:
+            __path_parts = {}
+            __path = "/_cat/circuit_breaker"
+        __query: t.Dict[str, t.Any] = {}
+        if bytes is not None:
+            __query["bytes"] = bytes
+        if error_trace is not None:
+            __query["error_trace"] = error_trace
+        if filter_path is not None:
+            __query["filter_path"] = filter_path
+        if format is not None:
+            __query["format"] = format
+        if h is not None:
+            __query["h"] = h
+        if help is not None:
+            __query["help"] = help
+        if human is not None:
+            __query["human"] = human
+        if local is not None:
+            __query["local"] = local
+        if master_timeout is not None:
+            __query["master_timeout"] = master_timeout
+        if pretty is not None:
+            __query["pretty"] = pretty
+        if s is not None:
+            __query["s"] = s
+        if time is not None:
+            __query["time"] = time
+        if v is not None:
+            __query["v"] = v
+        __headers = {"accept": "text/plain,application/json"}
+        return self.perform_request(  # type: ignore[return-value]
+            "GET",
+            __path,
+            params=__query,
+            headers=__headers,
+            endpoint_id="cat.circuit_breaker",
+            path_parts=__path_parts,
+        )
+
+    @_rewrite_parameters()
     def component_templates(
         self,
         *,
@@ -468,7 +611,9 @@ class CatClient(NamespacedClient):
             path_parts=__path_parts,
         )
 
-    @_rewrite_parameters()
+    @_rewrite_parameters(
+        body_fields=("project_routing",),
+    )
     def count(
         self,
         *,
@@ -494,6 +639,7 @@ class CatClient(NamespacedClient):
             t.Union[str, t.Literal["d", "h", "m", "micros", "ms", "nanos", "s"]]
         ] = None,
         v: t.Optional[bool] = None,
+        body: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> t.Union[ObjectApiResponse[t.Any], TextApiResponse]:
         """
         .. raw:: html
@@ -524,10 +670,10 @@ class CatClient(NamespacedClient):
             wildcards.
         :param help: When set to `true` will output available columns. This option can't
             be combined with any other query string option.
-        :param project_routing: Specifies a subset of projects to target for the search
-            using project metadata tags in a subset of Lucene query syntax. Allowed Lucene
-            queries: the _alias tag and a single value (possibly wildcarded). Examples:
-            _alias:my-project _alias:_origin _alias:*pr* Supported in serverless only.
+        :param project_routing: Specifies a subset of projects to target using project
+            metadata tags in a subset of Lucene query syntax. Allowed Lucene queries:
+            the _alias tag and a single value (possibly wildcarded). Examples: _alias:my-project
+            _alias:_origin _alias:*pr* Supported in serverless only.
         :param s: List of columns that determine how the table should be sorted. Sorting
             defaults to ascending and can be changed by setting `:asc` or `:desc` as
             a suffix to the column name.
@@ -547,6 +693,7 @@ class CatClient(NamespacedClient):
             __path_parts = {}
             __path = "/_cat/count"
         __query: t.Dict[str, t.Any] = {}
+        __body: t.Dict[str, t.Any] = body if body is not None else {}
         if bytes is not None:
             __query["bytes"] = bytes
         if error_trace is not None:
@@ -563,20 +710,26 @@ class CatClient(NamespacedClient):
             __query["human"] = human
         if pretty is not None:
             __query["pretty"] = pretty
-        if project_routing is not None:
-            __query["project_routing"] = project_routing
         if s is not None:
             __query["s"] = s
         if time is not None:
             __query["time"] = time
         if v is not None:
             __query["v"] = v
+        if not __body:
+            if project_routing is not None:
+                __body["project_routing"] = project_routing
+        if not __body:
+            __body = None  # type: ignore[assignment]
         __headers = {"accept": "text/plain,application/json"}
+        if __body is not None:
+            __headers["content-type"] = "application/json"
         return self.perform_request(  # type: ignore[return-value]
-            "GET",
+            "POST",
             __path,
             params=__query,
             headers=__headers,
+            body=__body,
             endpoint_id="cat.count",
             path_parts=__path_parts,
         )
@@ -2516,6 +2669,7 @@ class CatClient(NamespacedClient):
                     t.Union[
                         str,
                         t.Literal[
+                            "available_processors",
                             "build",
                             "completion.size",
                             "cpu",
@@ -2611,6 +2765,7 @@ class CatClient(NamespacedClient):
                 t.Union[
                     str,
                     t.Literal[
+                        "available_processors",
                         "build",
                         "completion.size",
                         "cpu",

@@ -140,6 +140,19 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         ...
 
     @property
+    def last_trade_id(self) -> str:
+        """
+        The last position consumed from the TradeBuilder.closed_trades by get_delta_trades
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    @last_trade_id.setter
+    def last_trade_id(self, value: str) -> None:
+        ...
+
+    @property
     def last_delta_order_events_position(self) -> int:
         """
         The last position consumed from the ITransactionHandler.order_events while determining delta order events
@@ -602,6 +615,17 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         This codeEntityType is protected.
         
         :returns: The delta orders.
+        """
+        ...
+
+    def get_delta_trades(self, trades: typing.List[QuantConnect.Statistics.Trade], last_trade_id: str, should_stop: typing.Callable[[int], bool]) -> typing.List[QuantConnect.Statistics.Trade]:
+        """
+        Gets the trades generated starting from the provided TradeBuilder.closed_trades position,
+        which is determined by the last_trade_id and the Trade.id
+        
+        This codeEntityType is protected.
+        
+        :returns: The delta trades.
         """
         ...
 
@@ -1289,7 +1313,7 @@ class BacktestingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         """
         ...
 
-    def split_packets(self, delta_charts: System.Collections.Generic.Dictionary[str, QuantConnect.Chart], delta_orders: System.Collections.Generic.Dictionary[int, QuantConnect.Orders.Order], runtime_statistics: System.Collections.Generic.SortedDictionary[str, str], progress: float, server_statistics: System.Collections.Generic.Dictionary[str, str]) -> typing.Iterable[QuantConnect.Packets.BacktestResultPacket]:
+    def split_packets(self, delta_charts: System.Collections.Generic.Dictionary[str, QuantConnect.Chart], delta_orders: System.Collections.Generic.Dictionary[int, QuantConnect.Orders.Order], runtime_statistics: System.Collections.Generic.SortedDictionary[str, str], progress: float, server_statistics: System.Collections.Generic.Dictionary[str, str], algorithm_performance: QuantConnect.Statistics.AlgorithmPerformance) -> typing.Iterable[QuantConnect.Packets.BacktestResultPacket]:
         """Run over all the data and break it into smaller packets to ensure they all arrive at the terminal"""
         ...
 

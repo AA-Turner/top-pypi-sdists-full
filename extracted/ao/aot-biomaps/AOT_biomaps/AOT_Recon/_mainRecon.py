@@ -315,7 +315,7 @@ class Recon(ABC):
         else:
             AOsignal = self.experiment.AOsignal_withoutTumor
         delta_x = self.experiment.params.general['dx']  # en m 
-        n_piezos = self.experiment.params.acoustic['num_elements']
+        n_piezos = self.experiment.params.acoustic['probe']['num_elements']
         demodulated_data = {}
         structured_buffer = {} 
 

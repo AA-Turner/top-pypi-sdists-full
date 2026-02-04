@@ -11,6 +11,7 @@ import logging
 import unittest
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Literal
 
 from md2conf.attachment import attachment_name
 from md2conf.coalesce import coalesce
@@ -18,6 +19,7 @@ from md2conf.converter import title_to_identifier
 from md2conf.formatting import display_width
 from md2conf.latex import LATEX_ENABLED, render_latex
 from md2conf.png import extract_png_dimensions, remove_png_chunks
+from md2conf.reflection import get_nested_types
 from md2conf.serializer import json_to_object, object_to_json_payload
 from tests.utility import TypedTestCase
 
@@ -27,8 +29,36 @@ logging.basicConfig(
 )
 
 
+class _X:
+    pass
+
+
+class _Y:
+    pass
+
+
+class _A:
+    boolean: bool
+    list_of_int: list[int]
+    set_of_complex: set[complex]
+    optional: _X | None
+    union: datetime | _Y | None
+    literal: Literal["a", "b", "c"]
+
+
+class _B:
+    a: dict[str, _A]
+
+
+class _C:
+    b: _B
+
+
 class TestUnit(TypedTestCase):
     "Simple unit tests without set-up or tear-down requirements."
+
+    def test_reflection(self) -> None:
+        self.assertCountEqual(get_nested_types([_C]), [_A, _B, _C, _X, _Y, bool, complex, datetime, int, str])
 
     def test_datetime(self) -> None:
         self.assertEqual(object_to_json_payload(json_to_object(datetime, "2004-03-01T23:59:59Z")), b'"2004-03-01T23:59:59+00:00"')
@@ -66,16 +96,21 @@ class TestUnit(TypedTestCase):
         self.assertEqual(title_to_identifier("What's New in v2.0?"), "whats-new-in-v20")
         self.assertEqual(title_to_identifier("C++ & C# Comparison"), "c-c-comparison")
         self.assertEqual(title_to_identifier("Hello -- World!!"), "hello----world")
-        self.assertEqual(title_to_identifier("árvíztűrő tükörfúrógép"), "rvztr-tkrfrgp")
+        self.assertEqual(title_to_identifier("árvíztűrő tükörfúrógép"), "rvztr-tkrfrgp")  # spellchecker:disable-line
 
     @unittest.skipUnless(LATEX_ENABLED, "matplotlib not installed")
     def test_formula(self) -> None:
-        data = render_latex(r"\vec{\nabla}\times\vec{H}=\vec{J}+\dfrac{\partial\vec{D}}{\partial t}")
+        data = render_latex(r"\vec{\nabla}\times\vec{H}=\vec{J}+\dfrac{\partial\vec{D}}{\partial t}")  # spellchecker:disable-line
         width, height = extract_png_dimensions(data=data)
         self.assertGreater(width, 0)
         self.assertGreater(height, 0)
 
-        data = render_latex(r"\underset{S}{\int\int}\ \vec{\nabla}\times\vec{B}\cdot d\vec{S}=\underset{C}{\oint}\ \vec{B}\cdot d\vec{l}")
+        data = render_latex(
+            r"\underset{S}{\int\int}\ "
+            r"\vec{\nabla}\times\vec{B}\cdot "  # spellchecker:disable-line
+            r"d\vec{S}=\underset{C}{\oint}\ "
+            r"\vec{B}\cdot d\vec{l}"
+        )
         width, height = extract_png_dimensions(data=data)
         self.assertGreater(width, 0)
         self.assertGreater(height, 0)

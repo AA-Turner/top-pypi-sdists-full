@@ -15,6 +15,9 @@ if TYPE_CHECKING:
     from ..models.delete_completed_job_response_200_raw_flow_failure_module_suspend_user_groups_required_type_1 import (
         DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType1,
     )
+    from ..models.delete_completed_job_response_200_raw_flow_failure_module_suspend_user_groups_required_type_2 import (
+        DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType2,
+    )
 
 
 T = TypeVar("T", bound="DeleteCompletedJobResponse200RawFlowFailureModuleSuspend")
@@ -31,7 +34,8 @@ class DeleteCompletedJobResponse200RawFlowFailureModuleSuspend:
             collecting input when resuming
         user_auth_required (Union[Unset, bool]): If true, only authenticated users can approve
         user_groups_required (Union['DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType0',
-            'DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType1', Unset]): Maps input
+            'DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType1',
+            'DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType2', Unset]): Maps input
             parameters for a step. Can be a static value or a JavaScript expression that references previous results or flow
             inputs
         self_approval_disabled (Union[Unset, bool]): If true, the user who started the flow cannot approve
@@ -46,6 +50,7 @@ class DeleteCompletedJobResponse200RawFlowFailureModuleSuspend:
     user_groups_required: Union[
         "DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType0",
         "DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType1",
+        "DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType2",
         Unset,
     ] = UNSET
     self_approval_disabled: Union[Unset, bool] = UNSET
@@ -56,6 +61,9 @@ class DeleteCompletedJobResponse200RawFlowFailureModuleSuspend:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.delete_completed_job_response_200_raw_flow_failure_module_suspend_user_groups_required_type_0 import (
             DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType0,
+        )
+        from ..models.delete_completed_job_response_200_raw_flow_failure_module_suspend_user_groups_required_type_1 import (
+            DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType1,
         )
 
         required_events = self.required_events
@@ -71,6 +79,13 @@ class DeleteCompletedJobResponse200RawFlowFailureModuleSuspend:
 
         elif isinstance(
             self.user_groups_required, DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType0
+        ):
+            user_groups_required = UNSET
+            if not isinstance(self.user_groups_required, Unset):
+                user_groups_required = self.user_groups_required.to_dict()
+
+        elif isinstance(
+            self.user_groups_required, DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType1
         ):
             user_groups_required = UNSET
             if not isinstance(self.user_groups_required, Unset):
@@ -118,6 +133,9 @@ class DeleteCompletedJobResponse200RawFlowFailureModuleSuspend:
         from ..models.delete_completed_job_response_200_raw_flow_failure_module_suspend_user_groups_required_type_1 import (
             DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType1,
         )
+        from ..models.delete_completed_job_response_200_raw_flow_failure_module_suspend_user_groups_required_type_2 import (
+            DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType2,
+        )
 
         d = src_dict.copy()
         required_events = d.pop("required_events", UNSET)
@@ -138,6 +156,7 @@ class DeleteCompletedJobResponse200RawFlowFailureModuleSuspend:
         ) -> Union[
             "DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType0",
             "DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType1",
+            "DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType2",
             Unset,
         ]:
             if isinstance(data, Unset):
@@ -161,22 +180,41 @@ class DeleteCompletedJobResponse200RawFlowFailureModuleSuspend:
                 return user_groups_required_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _user_groups_required_type_1 = data
+                user_groups_required_type_1: Union[
+                    Unset, DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType1
+                ]
+                if isinstance(_user_groups_required_type_1, Unset):
+                    user_groups_required_type_1 = UNSET
+                else:
+                    user_groups_required_type_1 = (
+                        DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType1.from_dict(
+                            _user_groups_required_type_1
+                        )
+                    )
+
+                return user_groups_required_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _user_groups_required_type_1 = data
-            user_groups_required_type_1: Union[
-                Unset, DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType1
+            _user_groups_required_type_2 = data
+            user_groups_required_type_2: Union[
+                Unset, DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType2
             ]
-            if isinstance(_user_groups_required_type_1, Unset):
-                user_groups_required_type_1 = UNSET
+            if isinstance(_user_groups_required_type_2, Unset):
+                user_groups_required_type_2 = UNSET
             else:
-                user_groups_required_type_1 = (
-                    DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType1.from_dict(
-                        _user_groups_required_type_1
+                user_groups_required_type_2 = (
+                    DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType2.from_dict(
+                        _user_groups_required_type_2
                     )
                 )
 
-            return user_groups_required_type_1
+            return user_groups_required_type_2
 
         user_groups_required = _parse_user_groups_required(d.pop("user_groups_required", UNSET))
 

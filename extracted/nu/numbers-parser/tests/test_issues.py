@@ -502,7 +502,7 @@ def test_issue_83():
     table.write(0, 0, "test")
     with pytest.raises(TypeError) as e:
         table.set_cell_formatting(0, 0, "text")
-    assert "unsuported cell format type 'text'" in str(e)
+    assert "unsupported cell format type 'text'" in str(e)
 
 
 def test_issue_85():

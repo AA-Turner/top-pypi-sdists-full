@@ -9,12 +9,15 @@ from abstra_internals.controllers.execution.execution_client_form import ClientA
 from abstra_internals.controllers.sdk.sdk_context import SDKContext
 from abstra_internals.entities.execution import Execution
 from abstra_internals.entities.execution_context import ClientContext
+from abstra_internals.environment import IS_PRODUCTION
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.modules import import_as_new
 from abstra_internals.repositories.factory import Repositories
 from abstra_internals.repositories.project.project import StageWithFile
+from abstra_internals.settings import Settings
 from abstra_internals.usage import send_execution_usage
 from abstra_internals.utils.datetime import now_str
+from abstra_internals.utils.file import clear_local_modules
 
 DEFAULT_STATUS = "failed"
 
@@ -79,6 +82,8 @@ class ExecutionController:
 
     def _execute_without_exit(self, filepath: Path):
         try:
+            if not IS_PRODUCTION:
+                clear_local_modules(filepath, Settings.root_path)
             import_as_new(filepath.as_posix())
         except SystemExit as e:
             no_errors = e.code is None or e.code == 0

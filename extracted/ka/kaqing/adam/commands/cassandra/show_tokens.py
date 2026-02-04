@@ -7,7 +7,7 @@ from adam.commands.devices.devices import Devices
 from adam.commands.nodetool.utils_nodetools import NodeTools
 from adam.repl_state import ReplState, RequiredState
 from adam.utils import log_timing
-from adam.utils_cassandra.cassandra_status import CassandraNAT, NATError
+from adam.utils_cassandra.address_table import AddressTable, NATError
 from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 
@@ -39,9 +39,7 @@ class ShowTokens(Command):
                 with log_timing('show.tokens'):
                     ctx: Context = self.context().copy(background=background)
 
-                    nat: CassandraNAT = None
-                    with log_timing('nat.build'):
-                        nat = CassandraNAT.build(state, ctx=ctx.copy(show_out=False, background=False))
+                    nat = log_timing('nat.build', lambda: AddressTable.snapshot(state, ctx=ctx.copy(show_out=False, background=False)))
 
                     ip = nat.local_ip_from_pod_name(state.pod)
 

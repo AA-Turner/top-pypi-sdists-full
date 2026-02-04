@@ -3,7 +3,7 @@ import os
 import sys
 from pathlib import Path
 
-# Ensure documentation examples are determinstically random.
+# Ensure documentation examples are deterministically random.
 import numpy
 import tomli
 from pkg_resources import get_distribution
@@ -27,7 +27,7 @@ configuration = conf["project"]
 # -- General configuration ----------------------------------------------------
 
 project = configuration["name"]
-author = f"{configuration['authors'][0]['name']} <{configuration['authors'][0]['email']}>"
+author = configuration["authors"][0]["name"]
 copyright = f"{datetime.datetime.now().year}, {author}"
 
 release = get_distribution(configuration["name"]).version

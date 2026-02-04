@@ -42,6 +42,8 @@ from exponent.core.remote_execution.cli_rpc_types import (
     HttpRequest,
     KeepAliveCliChatRequest,
     KeepAliveCliChatResponse,
+    ListTerminalsRequest,
+    ListTerminalsResponse,
     StartTerminalRequest,
     StartTerminalResponse,
     StopTerminalRequest,
@@ -454,6 +456,22 @@ class RemoteExecutionClient:
                                     session_id=request.request.session_id,
                                     success=success,
                                 ),
+                            )
+                        ),
+                    }
+                )
+            )
+            return None
+        elif isinstance(request.request, ListTerminalsRequest):
+            terminals = await terminal_session_manager.list_sessions()
+            await websocket.send(
+                json.dumps(
+                    {
+                        "type": "result",
+                        "data": msgspec.to_builtins(
+                            CliRpcResponse(
+                                request_id=request.request_id,
+                                response=ListTerminalsResponse(terminals=terminals),
                             )
                         ),
                     }
@@ -948,6 +966,10 @@ class RemoteExecutionClient:
                 raise ValueError(
                     "StopTerminalRequest should not be handled by handle_request"
                 )
+            elif isinstance(request.request, ListTerminalsRequest):
+                raise ValueError(
+                    "ListTerminalsRequest should not be handled by handle_request"
+                )
 
             raise ValueError(f"Unhandled request type: {type(request)}")
 
@@ -978,9 +1000,9 @@ class RemoteExecutionClient:
             assert False, f"{type(request)} should be sent to handle_streaming_request"
         async for output in execute_code_streaming(
             request,
-            session=self.current_session,
             working_directory=self.working_directory,
             should_halt=self.get_halt_check(request.correlation_id),
+            chat_uuid=self.chat_uuid,
         ):
             yield output
 

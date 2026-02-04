@@ -2,6 +2,7 @@ import os
 from unittest.mock import patch
 
 import pytest
+
 from easypost.constant import (
     _FILTERS_KEY,
     _TEST_FAILED_INTENTIONALLY_ERROR,
@@ -9,7 +10,6 @@ from easypost.constant import (
 )
 from easypost.errors.api.api_error import ApiError
 from easypost.models import User
-
 
 REFERRAL_CUSTOMER_PROD_API_KEY = os.getenv("REFERRAL_CUSTOMER_PROD_API_KEY", "123")
 

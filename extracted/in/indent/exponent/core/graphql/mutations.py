@@ -8,13 +8,9 @@ mutation CreateCloudChatFromRepository($repositoryId: String!, $provider: Sandbo
     ...on UnauthenticatedError {
       message
     }
-    ...on ChatNotFoundError {
-      message
-    }
-    ...on CloudConfigNotFoundError {
-      message
-    }
-    ...on GithubConfigNotFoundError {
+    ...on NotFoundError {
+      resourceType
+      resourceId
       message
     }
     ...on CloudSessionError {

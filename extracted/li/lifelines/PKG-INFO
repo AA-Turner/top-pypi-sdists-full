@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: lifelines
-Version: 0.30.0
+Version: 0.30.1
 Summary: Survival analysis in Python, including Kaplan Meier, Nelson Aalen and regression
 Home-page: https://github.com/CamDavidsonPilon/lifelines
 Author: Cameron Davidson-Pilon
@@ -18,11 +18,22 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.14.0
 Requires-Dist: scipy>=1.7.0
-Requires-Dist: pandas>=2.1
+Requires-Dist: pandas<3.0,>=2.1
 Requires-Dist: matplotlib>=3.0
 Requires-Dist: autograd>=1.5
 Requires-Dist: autograd-gamma>=0.3
 Requires-Dist: formulaic>=0.2.2
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ![](http://i.imgur.com/EOowdSD.png)
 

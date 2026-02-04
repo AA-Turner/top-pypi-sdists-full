@@ -10,7 +10,10 @@ from langgraph_api.encryption.middleware import (
     decrypt_responses,
     encrypt_request,
 )
-from langgraph_api.feature_flags import FF_USE_CORE_API
+from langgraph_api.feature_flags import (
+    FF_USE_CORE_API,
+    IS_POSTGRES_OR_GRPC_BACKEND,
+)
 from langgraph_api.grpc.ops import Threads as GrpcThreads
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
 from langgraph_api.schema import (
@@ -43,6 +46,7 @@ from langgraph_runtime.ops import Threads
 from langgraph_runtime.retry import retry_db
 
 CrudThreads = GrpcThreads if FF_USE_CORE_API else Threads
+ThreadsStream = GrpcThreads.Stream if IS_POSTGRES_OR_GRPC_BACKEND else Threads.Stream
 
 
 @retry_db
@@ -474,7 +478,7 @@ async def join_thread_stream(request: ApiRequest):
         stream_modes = ["run_modes"]
 
     return EventSourceResponse(
-        Threads.Stream.join(
+        ThreadsStream.join(
             thread_id,
             last_event_id=last_event_id,
             stream_modes=stream_modes,

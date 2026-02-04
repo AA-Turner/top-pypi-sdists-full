@@ -3,7 +3,7 @@ Type annotations for batch service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -282,12 +282,15 @@ __all__ = (
 
 class ArrayPropertiesDetailTypeDef(TypedDict):
     statusSummary: NotRequired[dict[str, int]]
+    statusSummaryLastUpdatedAt: NotRequired[int]
     size: NotRequired[int]
     index: NotRequired[int]
 
 class ArrayPropertiesSummaryTypeDef(TypedDict):
     size: NotRequired[int]
     index: NotRequired[int]
+    statusSummary: NotRequired[dict[str, int]]
+    statusSummaryLastUpdatedAt: NotRequired[int]
 
 class ArrayPropertiesTypeDef(TypedDict):
     size: NotRequired[int]

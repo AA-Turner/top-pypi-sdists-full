@@ -3,7 +3,7 @@ from adam.commands.command import Command
 from adam.repl_state import ReplState, RequiredState
 
 class AppPing(Command):
-    COMMAND = 'app ping'
+    COMMAND = 'ping'
 
     # the singleton pattern
     def __new__(cls, *args, **kwargs):

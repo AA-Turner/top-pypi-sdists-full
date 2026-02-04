@@ -4,6 +4,7 @@ import concurrent.futures
 import html
 import logging
 import os
+from pathlib import Path
 import queue
 import re
 import textwrap
@@ -11,14 +12,14 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 from functools import wraps
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, Optional, Tuple
 
 import pandas as pd
 import pytz
 
 import seeq
 from seeq.base import util
-from seeq.spy import _common, _datalab, _version
+from seeq.spy import _common, _datalab, _validate_args, _version
 from seeq.spy._errors import *
 from seeq.spy._session import Session
 from seeq.spy._usage import Usage
@@ -153,6 +154,11 @@ class Status:
             self._log_file_handle = util.safe_open(log_file_abs_path, 'w', encoding='utf-8')
             self._log_filename = log_file_abs_path
 
+    def validate_verbose(self, verbose_arg: Optional[bool], default_log_file: Optional[str] = None):
+        if default_log_file is not None and self.log_file is None:
+            verbose = verbose_arg if verbose_arg is not None else self.verbose
+            self.set_verbose(verbose, default_log_file)
+
     def _close_log_file(self):
         if self._log_file_handle is not None:
             self._log_file_handle.close()
@@ -193,10 +199,16 @@ class Status:
             self.on_error(message)
 
     @staticmethod
-    def handle_keyboard_interrupt(*, errors=None, quiet=None, no_session=False, no_status=False):
+    def top_level_spy_function(*, errors=None, quiet=None, no_session=False, no_status=False,
+                               validate_argument_types=True, validate_login=True):
         def decorator(func: Callable):
             @wraps(func)
             def out(*args, **kwargs):
+                # Convert pathlib.Path objects to strings automatically
+                # This allows users to pass Path objects where file paths are expected
+                args = tuple(str(arg) if isinstance(arg, Path) else arg for arg in args)
+                kwargs = {k: str(v) if isinstance(v, Path) else v for k, v in kwargs.items()}
+
                 if not no_session:
                     kwargs['session'] = Session.validate(kwargs.get('session'))
 
@@ -208,6 +220,15 @@ class Status:
                     for kwarg in ['quiet', 'errors']:
                         if kwarg in kwargs:
                             del kwargs[kwarg]
+
+                if not no_session and not no_status and validate_login:
+                    Status.validate_login(kwargs['session'], kwargs['status'])
+
+                # We don't validate in the compatibility case just in case there is some (untested) behavior in SPy that
+                # can still function correctly despite argument type mismatches.
+                can_validate = 'session' in kwargs and not kwargs['session'].options.wants_compatibility_with(198)
+                if validate_argument_types and can_validate:
+                    _validate_args.validate_argument_types(func, args, kwargs)
 
                 try:
                     return func(*args, **kwargs)
@@ -811,19 +832,6 @@ class Status:
             raise SPyRuntimeError('Not logged in. Execute spy.login() before calling this function.')
 
         _version.validate_seeq_server_version(session, status)
-
-    @staticmethod
-    def function_prologue(session: Session, status: Status,
-                          function_name: str, expected_types: List[Tuple[object, str, tuple | type]],
-                          *, default_log_file: Optional[str] = None) -> Dict[str, object]:
-        verbose_arg = next((arg[0] for arg in expected_types if arg[1] == 'verbose'), None)
-        verbose = verbose_arg if verbose_arg is not None else status.verbose
-        if default_log_file is not None and status.log_file is None:
-            status.set_verbose(verbose, default_log_file)
-        input_args = _common.validate_argument_types(expected_types)
-        Status.validate_login(session, status)
-        status.log(f'{function_name}() called with arguments:\n{input_args}')
-        return input_args
 
 
 # For pickling compatibility, see CRAB-33735. Tested by test_pickle_from_python37_and_spy_182_37()

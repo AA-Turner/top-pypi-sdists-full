@@ -10,6 +10,7 @@ from .environment import AirweaveSDKEnvironment
 
 if typing.TYPE_CHECKING:
     from .collections.client import AsyncCollectionsClient, CollectionsClient
+    from .events.client import AsyncEventsClient, EventsClient
     from .source_connections.client import AsyncSourceConnectionsClient, SourceConnectionsClient
     from .sources.client import AsyncSourcesClient, SourcesClient
 
@@ -32,8 +33,6 @@ class AirweaveSDK:
 
 
 
-    framework_name : typing.Optional[str]
-    framework_version : typing.Optional[str]
     api_key : str
     headers : typing.Optional[typing.Dict[str, str]]
         Additional headers to send with every request.
@@ -52,8 +51,6 @@ class AirweaveSDK:
     from airweave import AirweaveSDK
 
     client = AirweaveSDK(
-        framework_name="YOUR_FRAMEWORK_NAME",
-        framework_version="YOUR_FRAMEWORK_VERSION",
         api_key="YOUR_API_KEY",
     )
     """
@@ -63,8 +60,6 @@ class AirweaveSDK:
         *,
         base_url: typing.Optional[str] = None,
         environment: AirweaveSDKEnvironment = AirweaveSDKEnvironment.PRODUCTION,
-        framework_name: typing.Optional[str] = None,
-        framework_version: typing.Optional[str] = None,
         api_key: str,
         headers: typing.Optional[typing.Dict[str, str]] = None,
         timeout: typing.Optional[float] = None,
@@ -76,8 +71,6 @@ class AirweaveSDK:
         )
         self._client_wrapper = SyncClientWrapper(
             base_url=_get_base_url(base_url=base_url, environment=environment),
-            framework_name=framework_name,
-            framework_version=framework_version,
             api_key=api_key,
             headers=headers,
             httpx_client=httpx_client
@@ -90,6 +83,7 @@ class AirweaveSDK:
         self._sources: typing.Optional[SourcesClient] = None
         self._collections: typing.Optional[CollectionsClient] = None
         self._source_connections: typing.Optional[SourceConnectionsClient] = None
+        self._events: typing.Optional[EventsClient] = None
 
     @property
     def sources(self):
@@ -115,6 +109,14 @@ class AirweaveSDK:
             self._source_connections = SourceConnectionsClient(client_wrapper=self._client_wrapper)
         return self._source_connections
 
+    @property
+    def events(self):
+        if self._events is None:
+            from .events.client import EventsClient  # noqa: E402
+
+            self._events = EventsClient(client_wrapper=self._client_wrapper)
+        return self._events
+
 
 class AsyncAirweaveSDK:
     """
@@ -134,8 +136,6 @@ class AsyncAirweaveSDK:
 
 
 
-    framework_name : typing.Optional[str]
-    framework_version : typing.Optional[str]
     api_key : str
     headers : typing.Optional[typing.Dict[str, str]]
         Additional headers to send with every request.
@@ -154,8 +154,6 @@ class AsyncAirweaveSDK:
     from airweave import AsyncAirweaveSDK
 
     client = AsyncAirweaveSDK(
-        framework_name="YOUR_FRAMEWORK_NAME",
-        framework_version="YOUR_FRAMEWORK_VERSION",
         api_key="YOUR_API_KEY",
     )
     """
@@ -165,8 +163,6 @@ class AsyncAirweaveSDK:
         *,
         base_url: typing.Optional[str] = None,
         environment: AirweaveSDKEnvironment = AirweaveSDKEnvironment.PRODUCTION,
-        framework_name: typing.Optional[str] = None,
-        framework_version: typing.Optional[str] = None,
         api_key: str,
         headers: typing.Optional[typing.Dict[str, str]] = None,
         timeout: typing.Optional[float] = None,
@@ -178,8 +174,6 @@ class AsyncAirweaveSDK:
         )
         self._client_wrapper = AsyncClientWrapper(
             base_url=_get_base_url(base_url=base_url, environment=environment),
-            framework_name=framework_name,
-            framework_version=framework_version,
             api_key=api_key,
             headers=headers,
             httpx_client=httpx_client
@@ -192,6 +186,7 @@ class AsyncAirweaveSDK:
         self._sources: typing.Optional[AsyncSourcesClient] = None
         self._collections: typing.Optional[AsyncCollectionsClient] = None
         self._source_connections: typing.Optional[AsyncSourceConnectionsClient] = None
+        self._events: typing.Optional[AsyncEventsClient] = None
 
     @property
     def sources(self):
@@ -216,6 +211,14 @@ class AsyncAirweaveSDK:
 
             self._source_connections = AsyncSourceConnectionsClient(client_wrapper=self._client_wrapper)
         return self._source_connections
+
+    @property
+    def events(self):
+        if self._events is None:
+            from .events.client import AsyncEventsClient  # noqa: E402
+
+            self._events = AsyncEventsClient(client_wrapper=self._client_wrapper)
+        return self._events
 
 
 def _get_base_url(*, base_url: typing.Optional[str] = None, environment: AirweaveSDKEnvironment) -> str:

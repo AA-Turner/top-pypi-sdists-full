@@ -1,15 +1,14 @@
 import types
 from contextlib import ContextDecorator
-from datetime import date
+from datetime import date, time, timezone
 from datetime import datetime as datetime
-from datetime import time
 from datetime import timedelta as timedelta
-from datetime import timezone
 from datetime import tzinfo as tzinfo
+from typing import TypeAlias
 
 from pytz import BaseTzInfo
 
-_AnyTime = time | datetime
+_AnyTime: TypeAlias = time | datetime
 
 class UTC(tzinfo):
     def utcoffset(self, dt: datetime | None) -> timedelta | None: ...
@@ -55,9 +54,10 @@ class override(ContextDecorator):
     def __enter__(self) -> None: ...
     def __exit__(
         self,
-        exc_type: type[BaseException],
-        exc_value: BaseException,
-        traceback: types.TracebackType,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: types.TracebackType | None,
+        /,
     ) -> None: ...
 
 def localtime(

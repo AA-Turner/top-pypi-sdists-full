@@ -126,12 +126,37 @@ def get_r_hat_plus(
     return r_hat, r_hat_plus
 
 
-def find_lambda_star(
+def _is_increasing_risk(r_hat_plus: NDArray) -> bool:
+    """
+    Internal function checking if a risk is increasing or not.
+
+    Parameters
+    ----------
+    r_hat_plus: NDArray of shape (n_lambdas, )
+        Upper bounds computed in the `get_r_hat_plus` method.
+
+    Returns
+    -------
+    bool
+        True if array is increasing, False otherwise
+    """
+    return r_hat_plus[0] < r_hat_plus[-1]
+
+
+def find_best_predict_param(
     lambdas: NDArray, r_hat_plus: NDArray, alpha_np: NDArray
 ) -> NDArray:
     """Find the higher value of lambda such that for
     all smaller lambda, the risk is smaller, for each value
     of alpha.
+
+    Note on extreme cases:
+    When all lambda values are valid:
+    - if r_hat_plus is increasing, then return the last lambda
+    - else return the first lambda.
+    When no lambda values are valid:
+    - if r_hat_plus is increasing, then return the first lambda
+    - else return the last lambda.
 
     Parameters
     ----------
@@ -167,13 +192,21 @@ def find_lambda_star(
         alphas_np = alpha_np
 
     bound_rep = np.repeat(np.expand_dims(r_hat_plus, axis=0), len(alphas_np), axis=0)
-    bound_rep[:, np.argmax(bound_rep, axis=1)] = np.maximum(
-        alphas_np, bound_rep[:, np.argmax(bound_rep, axis=1)]
-    )  # to avoid an error if the risk is always higher than alpha
-    lambdas_star = lambdas[
-        np.argmin(-np.greater_equal(bound_rep, alphas_np).astype(int), axis=1)
-    ]
-    return lambdas_star
+    increasing_risk = _is_increasing_risk(r_hat_plus)
+
+    arr = np.greater_equal(bound_rep, alphas_np).astype(int)
+    if arr.min() == 1:
+        warnings.warn(
+            "The risk cannot be controlled. Returning the extreme value according to risk direction."
+        )
+    if not increasing_risk:
+        arr = np.fliplr(arr)
+    arr = arr.cumsum(axis=1)
+    idx_last_zero = np.where(arr == 0, np.arange(arr.shape[1]), 0).max(axis=1)
+    if not increasing_risk:
+        idx_last_zero = len(lambdas) - 1 - idx_last_zero
+    best_predict_param = lambdas[idx_last_zero]
+    return best_predict_param
 
 
 def ltt_procedure(
@@ -182,7 +215,7 @@ def ltt_procedure(
     delta: float,
     n_obs: NDArray,
     binary: bool = False,
-) -> List[List[Any]]:
+) -> Tuple[List[List[Any]], NDArray]:
     """
     Apply the Learn-Then-Test procedure for risk control.
     Note that we will do a multiple test for ``r_hat`` that are
@@ -209,7 +242,7 @@ def ltt_procedure(
         probability 1-delta.
         Note: MAPIE 1.2 does not support multiple risks and multiple alphas
         simultaneously.
-        For PrecisionRecallController, the shape should be (1, n_alpha).
+        For MultiLabelClassificationController, the shape should be (1, n_alpha).
         For BinaryClassificationController, the shape should be (n_risks, 1).
 
     delta: float.
@@ -232,6 +265,10 @@ def ltt_procedure(
         Contain the valid index that satisfy FWER control
         for each alpha (length aren't the same for each alpha).
 
+    p_values : NDArray of shape (n_lambdas, n_alpha)
+        P-values associated with each tested parameter. In the multi-risk setting,
+        they correspond to the maximum over the tested risks.
+
     References
     ----------
     [1] Angelopoulos, A. N., Bates, S., Candès, E. J., Jordan,
@@ -252,7 +289,7 @@ def ltt_procedure(
     for i in range(alpha_np.shape[1]):
         l_index = np.nonzero(p_values[:, i] <= delta / N)[0].tolist()
         valid_index.append(l_index)
-    return valid_index
+    return valid_index, p_values
 
 
 def compute_hoeffding_bentkus_p_value(
@@ -363,9 +400,9 @@ def _h1(r_hats: NDArray, alphas: NDArray) -> NDArray:
     return elt1 + elt2
 
 
-def find_precision_lambda_star(
+def find_precision_best_predict_param(
     r_hat: NDArray, valid_index: List[List[Any]], lambdas: NDArray
-) -> Tuple[ArrayLike, ArrayLike]:
+) -> Tuple[NDArray, ArrayLike]:
     """
     Return the lambda that give the minimum precision along
     the lambdas that satisfy FWER control.
@@ -393,29 +430,31 @@ def find_precision_lambda_star(
 
     Returns
     -------
-    l_lambda_star: ArrayLike of shape (n_alpha, ).
+    l_best_predict_param: NDArray of shape (n_alpha, ).
         The lambda that gives the minimum precision
         for a given alpha.
 
-    r_star: ArrayLike of shape (n_alpha, ).
+    r_star: NDArray of shape (n_alpha, ).
         The value of lowest risk for a given alpha.
     """
     if [] in valid_index:
         warnings.warn(
             """
             Warning: the risk couldn't be controlled for at least one value of alpha.
-            The corresponding lambdas have been set to 1.
+            The corresponding lambdas have been set to np.nan.
             """
         )
-    l_lambda_star = []  # type: List[Any]
+    l_best_predict_param = []  # type: List[Any]
     l_r_star = []  # type: List[Any]
     for i in range(len(valid_index)):
         if len(valid_index[i]) == 0:
-            l_lambda_star.append(1)
-            l_r_star.append(1)
+            l_best_predict_param.append(np.nan)
+            l_r_star.append(np.nan)
         else:
-            idx = np.argmin(valid_index[i])
-            l_lambda_star.append(lambdas[valid_index[i][idx]])
-            l_r_star.append(r_hat[valid_index[i][idx]])
+            idx_min = int(np.min(valid_index[i]))
+            best_lambda = lambdas[idx_min]
+            best_risk = r_hat[idx_min]
+            l_best_predict_param.append(best_lambda)
+            l_r_star.append(best_risk)
 
-    return l_lambda_star, l_r_star
+    return np.array(l_best_predict_param), l_r_star

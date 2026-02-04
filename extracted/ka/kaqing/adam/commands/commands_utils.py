@@ -3,9 +3,9 @@ from typing import List
 
 from adam.checks.check_utils import run_checks
 from adam.columns.columns import Columns, collect_checks
+from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 from adam.utils_context import Context
 from adam.utils_issues import IssuesUtils
-from adam.utils_k8s.cassandra_nodes import CassandraNodes
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.repl_state import ReplState
@@ -64,10 +64,10 @@ def show_rollout(sts: str, ns: str, ctx: Context = Context.NULL):
         else:
             ctx.log2(f'Cluster has completed rollout {d} ago.')
 
-def show_table(state: ReplState, pods: list[str], cols: str, header: str, ctx: Context = Context.NULL):
+def show_table(state: ReplState, pods: list[str], cols: str, header: str, find_issues = True, ctx: Context = Context.NULL):
     columns = Columns.create_columns(cols)
 
-    results = run_checks(cluster=state.sts, pod=state.pod, namespace=state.namespace, checks=collect_checks(columns), ctx=ctx)
+    results = run_checks(cluster=state.sts, pod=state.pod, namespace=state.namespace, checks=collect_checks(columns), find_issues=find_issues, ctx=ctx)
 
     tabulize(pods,
              lambda p: ','.join([c.pod_value(results, p) for c in columns]),
@@ -75,7 +75,8 @@ def show_table(state: ReplState, pods: list[str], cols: str, header: str, ctx: C
              separator=',',
              sorted=SORT,
              ctx=ctx.copy(show_out=True))
-    IssuesUtils.show(results, state.in_repl, ctx=ctx)
+    if find_issues:
+        IssuesUtils.show(results, state.in_repl, ctx=ctx)
 
 def write_to_kaqing_log_file(r: str, i: str = None):
     with kaqing_log_file() as f:

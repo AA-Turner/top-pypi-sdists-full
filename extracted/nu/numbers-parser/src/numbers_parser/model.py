@@ -807,38 +807,6 @@ class _NumbersModel(Cacheable):
         # Table can be empty if the document does not use FormulaOwnerDependenciesArchive
         return self._table_id_to_base_id.get(table_id)
 
-    def get_formula_owner(self, table_id: int) -> object:
-        table_uuid = self.table_base_id(table_id)
-        return self.objects[self._table_base_id_to_formula_owner_id[table_uuid]]
-
-    def add_formula_dependency(self, row: int, col: int, table_id: int) -> None:
-        calc_engine = self.calc_engine()
-        calc_engine.dependency_tracker.number_of_formulas += 1
-        internal_formula_id = calc_engine.dependency_tracker.number_of_formulas
-
-        formula_owner = self.get_formula_owner(table_id)
-        formula_owner.cell_dependencies.cell_record.append(
-            TSCEArchives.CellRecordExpandedArchive(column=col, row=row),
-        )
-        if len(formula_owner.tiled_cell_dependencies.cell_record_tiles) == 0:
-            cell_record_id, cell_record = self.objects.create_object_from_dict(
-                "CalculationEngine",
-                {
-                    "internal_owner_id": internal_formula_id,
-                    "tile_column_begin": 0,
-                    "tile_row_begin": 0,
-                },
-                TSCEArchives.CellRecordTileArchive,
-            )
-            formula_owner.tiled_cell_dependencies.cell_record_tiles.append(
-                TSPMessages.Reference(identifier=cell_record_id),
-            )
-        else:
-            cell_record_id = formula_owner.tiled_cell_dependencies.cell_record_tiles[0].identifier
-            cell_record = self.objects[cell_record_id]
-
-        cell_record.cell_records.append(formula_owner.cell_dependencies.cell_record[-1])
-
     @cache(num_args=0)
     def calc_engine_id(self):
         """Return the CalculationEngine ID for the current document."""
@@ -867,7 +835,7 @@ class _NumbersModel(Cacheable):
         self._merge_cells[table_id].add_anchor(row_start, col_start, size)
 
     @cache()
-    def calculate_new_merge_cell_ranges(self, table_id) -> None:
+    def calculate_merges_using_formula_stores(self, table_id) -> None:
         table_model = self.objects[table_id]
         formulas = table_model.merge_owner.formula_store.formulas
         if len(formulas) == 0:
@@ -887,7 +855,7 @@ class _NumbersModel(Cacheable):
             )
 
     @cache()
-    def calculate_merge_cell_ranges(self, table_id) -> None:
+    def calculate_merges_using_dependency_archives(self, table_id) -> None:
         """Extract all the merge cell ranges for the Table."""
         # See details in Numbers.md#merge-ranges.
         owner_id_map = self.owner_id_map()
@@ -910,6 +878,8 @@ class _NumbersModel(Cacheable):
                         record_range.bottom_right_column,
                     )
 
+    @cache()
+    def calculate_merges_using_region_map(self, table_id) -> None:
         base_data_store = self.objects[table_id].base_data_store
         if base_data_store.merge_region_map.identifier == 0:
             return
@@ -926,18 +896,12 @@ class _NumbersModel(Cacheable):
             )
             row_end = row_start + num_rows - 1
             col_end = col_start + num_columns - 1
-            for row in range(row_start, row_end + 1):
-                for col in range(col_start, col_end + 1):
-                    self._merge_cells[table_id].add_reference(
-                        row,
-                        col,
-                        (row_start, col_start, row_end, col_end),
-                    )
-            self._merge_cells[table_id].add_anchor(row_start, col_start, (num_rows, num_columns))
+            self.add_merge_range(table_id, row_start, row_end, col_start, col_end)
 
     def merge_cells(self, table_id):
-        self.calculate_new_merge_cell_ranges(table_id)
-        self.calculate_merge_cell_ranges(table_id)
+        self.calculate_merges_using_formula_stores(table_id)
+        self.calculate_merges_using_dependency_archives(table_id)
+        self.calculate_merges_using_region_map(table_id)
         return self._merge_cells[table_id]
 
     def table_id_to_sheet_id(self, table_id: int) -> int:
@@ -946,25 +910,14 @@ class _NumbersModel(Cacheable):
                 return sheet_id
         return None
 
-    def table_name_to_uuid(self, sheet_name: str, table_name: str) -> str:
-        table_ids = [tid for tid in self.table_ids() if table_name == self.table_name(tid)]
-        if len(table_ids) == 1:
-            return self.table_base_id(table_ids[0])
-
-        sheet_name_to_id = {self.sheet_name(x): x for x in self.sheet_ids()}
-        sheet_id = sheet_name_to_id[sheet_name]
-        table_name_to_id = {self.table_name(x): x for x in self.table_ids(sheet_id)}
-        table_id = table_name_to_id[table_name]
-        return self.table_base_id(table_id)
-
     @cache()
     def table_uuids_to_id(self, table_uuid) -> int | None:
-        for sheet_id in self.sheet_ids():  # pragma: no branch
+        for sheet_id in self.sheet_ids():  # pragma: no branch  # noqa: RET503
             for table_id in self.table_ids(sheet_id):
                 if table_uuid == self.table_base_id(table_id):
                     return table_id
 
-    def node_to_ref(self, table_id: int, row: int, col: int, node, merge_mode: bool = False):
+    def node_to_ref(self, table_id: int, row: int, col: int, node):
         def resolve_range(is_absolute, absolute_list, relative_list, offset, max_val):
             if is_absolute:
                 return absolute_list[0].range_begin
@@ -1030,7 +983,6 @@ class _NumbersModel(Cacheable):
                 col_end_is_abs=node.AST_sticky_bits.end_column_is_absolute,
                 from_table_id=table_id,
                 to_table_id=to_table_id,
-                _do_init=not merge_mode,
             )
 
         row = node.AST_row.row if node.AST_row.absolute else row + node.AST_row.row
@@ -1510,7 +1462,7 @@ class _NumbersModel(Cacheable):
             },
             TSTArchives.TableModelArchive,
         )
-        # Supresses Numbers assertions for tables sharing the same data
+        # Suppress Numbers assertions for tables sharing the same data
         table_model.category_owner.identifier = 0
 
         column_headers_id, column_headers = self.objects.create_object_from_dict(
@@ -1719,7 +1671,7 @@ class _NumbersModel(Cacheable):
             "bottom_right_column": 0x7FFF,
             "bottom_right_row": 0x7FFFFFFF,
         }
-        spanning_depdendencies = {
+        spanning_dependencies = {
             "total_range_for_table": null_range_ref,
             "body_range_for_table": null_range_ref,
         }
@@ -1732,8 +1684,8 @@ class _NumbersModel(Cacheable):
                 "cell_dependencies": {},
                 "range_dependencies": {},
                 "volatile_dependencies": volatile_dependencies,
-                "spanning_column_dependencies": spanning_depdendencies,
-                "spanning_row_dependencies": spanning_depdendencies,
+                "spanning_column_dependencies": spanning_dependencies,
+                "spanning_row_dependencies": spanning_dependencies,
                 "whole_owner_dependencies": {"dependent_cells": {}},
                 "cell_errors": {},
                 "base_owner_uid": base_owner_uuid.dict2,
@@ -1809,7 +1761,7 @@ class _NumbersModel(Cacheable):
             for k, v in presets_map.items()
         }
         for style in styles.values():
-            # Override __setattr__ behaviour for builtin styles
+            # Override __setattr__ behavior for builtin styles
             style.__dict__["_update_text_style"] = False
             style.__dict__["_update_cell_style"] = False
         return styles
@@ -2142,7 +2094,7 @@ class _NumbersModel(Cacheable):
         # a string with a new bullet character
         bds = self.objects[table_id].base_data_store
         rich_text_table = self.objects[bds.rich_text_table.identifier]
-        for entry in rich_text_table.entries:  # pragma: no branch
+        for entry in rich_text_table.entries:  # pragma: no branch  # noqa: RET503
             if string_key == entry.key:
                 payload = self.objects[entry.rich_text_payload.identifier]
                 payload_storage = self.objects[payload.storage.identifier]
@@ -2596,6 +2548,59 @@ class _NumbersModel(Cacheable):
         # datas never appears to be an empty list (default themes include images)
         return max(image_ids) + 1
 
+    @classmethod
+    def cell_value_to_key(
+        cls,
+        cell_value: TSCEArchives.CellValueArchive,
+    ) -> str | int | bool | datetime:
+        """Convert a CellValueArchive to a key."""
+        cell_value_type = cell_value.cell_value_type
+        if cell_value_type == CellValueType.STRING_TYPE:
+            return cell_value.string_value.value
+        if cell_value_type == CellValueType.NUMBER_TYPE:
+            return cell_value.number_value.value
+        if cell_value_type == CellValueType.BOOLEAN_TYPE:
+            return cell_value.boolean_value.value
+        # Must be DATE_TYPE
+        return cell_value.date_value.value
+
+    @cache(num_args=0)
+    def group_uuid_values(self):
+        return {
+            NumbersUUID(self.objects[_id].group_uid): _NumbersModel.cell_value_to_key(
+                self.objects[_id].group_cell_value,
+            )
+            for _id in self.find_refs("GroupNodeArchive")
+        }
+
+    @cache()
+    def table_category_row_map(self, table_id: int) -> dict[int, int] | None:
+        category_owner_id = self.objects[table_id].category_owner.identifier
+        if not category_owner_id:
+            return None
+        category_archive_id = self.objects[category_owner_id].group_by[0].identifier
+        category_archive = self.objects[category_archive_id]
+        if not category_archive.is_enabled:
+            return None
+
+        table_info = self.objects[self.table_info_id(table_id)]
+        category_order = self.objects[table_info.category_order.identifier]
+        row_uid_map = self.objects[category_order.uid_map.identifier]
+
+        group_uuids = self.group_uuid_values()
+        row_uuid_to_offset = {
+            NumbersUUID(uuid): row for row, uuid in enumerate(category_archive.row_uid_lookup.uuids)
+        }
+        row_uid_for_index = [
+            NumbersUUID(row_uid_map.sorted_row_uids[i]) for i in row_uid_map.row_uid_for_index
+        ]
+        return {
+            row: row_uuid_to_offset[uuid]
+            for row, uuid in enumerate(
+                uuid for uuid in row_uid_for_index if uuid not in group_uuids
+            )
+        }
+
     def table_category_data(self, table_id: int) -> dict | None:
         category_owner_id = self.objects[table_id].category_owner.identifier
         category_archive_id = self.objects[category_owner_id].group_by[0].identifier
@@ -2606,8 +2611,9 @@ class _NumbersModel(Cacheable):
         table_info = self.objects[self.table_info_id(table_id)]
         category_order = self.objects[table_info.category_order.identifier]
         row_uid_map = self.objects[category_order.uid_map.identifier]
+
         sorted_row_uuids = [
-            NumbersUUID(row_uid_map.sorted_row_uids[i]).hex for i in row_uid_map.row_uid_for_index
+            NumbersUUID(row_uid_map.sorted_row_uids[i]).hex for i in row_uid_map.row_index_for_uid
         ]
 
         data = self._table_data[table_id]
@@ -2623,22 +2629,8 @@ class _NumbersModel(Cacheable):
                     offsets += list(range(entry.range_begin, entry.range_begin + 1))
             return offsets
 
-        def cell_value_to_key(
-            cell_value: TSCEArchives.CellValueArchive,
-        ) -> str | int | bool | datetime:
-            """Convert a CellValueArchive to a key."""
-            cell_value_type = cell_value.cell_value_type
-            if cell_value_type == CellValueType.STRING_TYPE:
-                return cell_value.string_value.value
-            if cell_value_type == CellValueType.NUMBER_TYPE:
-                return cell_value.number_value.value
-            if cell_value_type == CellValueType.BOOLEAN_TYPE:
-                return cell_value.boolean_value.value
-            # Must be DATE_TYPE
-            return cell_value.date_value.value
-
         group_node_to_key = {
-            NumbersUUID(self.objects[_id].group_uid).hex: cell_value_to_key(
+            NumbersUUID(self.objects[_id].group_uid).hex: _NumbersModel.cell_value_to_key(
                 self.objects[_id].group_cell_value,
             )
             for _id in self.find_refs("GroupNodeArchive")
@@ -2660,7 +2652,7 @@ class _NumbersModel(Cacheable):
             for child in children:
                 group_uuid = NumbersUUID(child.group_uid).hex
                 if len(child.child) == 0:
-                    key = cell_value_to_key(child.group_cell_value)
+                    key = _NumbersModel.cell_value_to_key(child.group_cell_value)
 
                     row_offsets = index_set_to_offsets(child.row_lookup_uids)
                     categories[group_uuid] = {

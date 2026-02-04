@@ -21,6 +21,9 @@ if TYPE_CHECKING:
     from ..models.list_jobs_response_200_item_type_0_raw_flow_failure_module_sleep_type_1 import (
         ListJobsResponse200ItemType0RawFlowFailureModuleSleepType1,
     )
+    from ..models.list_jobs_response_200_item_type_0_raw_flow_failure_module_sleep_type_2 import (
+        ListJobsResponse200ItemType0RawFlowFailureModuleSleepType2,
+    )
     from ..models.list_jobs_response_200_item_type_0_raw_flow_failure_module_stop_after_all_iters_if import (
         ListJobsResponse200ItemType0RawFlowFailureModuleStopAfterAllItersIf,
     )
@@ -35,6 +38,9 @@ if TYPE_CHECKING:
     )
     from ..models.list_jobs_response_200_item_type_0_raw_flow_failure_module_timeout_type_1 import (
         ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType1,
+    )
+    from ..models.list_jobs_response_200_item_type_0_raw_flow_failure_module_timeout_type_2 import (
+        ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType2,
     )
 
 
@@ -56,12 +62,14 @@ class ListJobsResponse200ItemType0RawFlowFailureModule:
         skip_if (Union[Unset, ListJobsResponse200ItemType0RawFlowFailureModuleSkipIf]): Conditionally skip this step
             based on previous results or flow inputs
         sleep (Union['ListJobsResponse200ItemType0RawFlowFailureModuleSleepType0',
-            'ListJobsResponse200ItemType0RawFlowFailureModuleSleepType1', Unset]): Maps input parameters for a step. Can be
+            'ListJobsResponse200ItemType0RawFlowFailureModuleSleepType1',
+            'ListJobsResponse200ItemType0RawFlowFailureModuleSleepType2', Unset]): Maps input parameters for a step. Can be
             a static value or a JavaScript expression that references previous results or flow inputs
         cache_ttl (Union[Unset, float]): Cache duration in seconds for this step's results
         cache_ignore_s3_path (Union[Unset, bool]):
         timeout (Union['ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType0',
-            'ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType1', Unset]): Maps input parameters for a step. Can
+            'ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType1',
+            'ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType2', Unset]): Maps input parameters for a step. Can
             be a static value or a JavaScript expression that references previous results or flow inputs
         delete_after_use (Union[Unset, bool]): If true, this step's result is deleted after use to save memory
         summary (Union[Unset, str]): Short description of what this step does
@@ -83,6 +91,7 @@ class ListJobsResponse200ItemType0RawFlowFailureModule:
     sleep: Union[
         "ListJobsResponse200ItemType0RawFlowFailureModuleSleepType0",
         "ListJobsResponse200ItemType0RawFlowFailureModuleSleepType1",
+        "ListJobsResponse200ItemType0RawFlowFailureModuleSleepType2",
         Unset,
     ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
@@ -90,6 +99,7 @@ class ListJobsResponse200ItemType0RawFlowFailureModule:
     timeout: Union[
         "ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType0",
         "ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType1",
+        "ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType2",
         Unset,
     ] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
@@ -105,8 +115,14 @@ class ListJobsResponse200ItemType0RawFlowFailureModule:
         from ..models.list_jobs_response_200_item_type_0_raw_flow_failure_module_sleep_type_0 import (
             ListJobsResponse200ItemType0RawFlowFailureModuleSleepType0,
         )
+        from ..models.list_jobs_response_200_item_type_0_raw_flow_failure_module_sleep_type_1 import (
+            ListJobsResponse200ItemType0RawFlowFailureModuleSleepType1,
+        )
         from ..models.list_jobs_response_200_item_type_0_raw_flow_failure_module_timeout_type_0 import (
             ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType0,
+        )
+        from ..models.list_jobs_response_200_item_type_0_raw_flow_failure_module_timeout_type_1 import (
+            ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType1,
         )
 
         id = self.id
@@ -132,6 +148,11 @@ class ListJobsResponse200ItemType0RawFlowFailureModule:
             if not isinstance(self.sleep, Unset):
                 sleep = self.sleep.to_dict()
 
+        elif isinstance(self.sleep, ListJobsResponse200ItemType0RawFlowFailureModuleSleepType1):
+            sleep = UNSET
+            if not isinstance(self.sleep, Unset):
+                sleep = self.sleep.to_dict()
+
         else:
             sleep = UNSET
             if not isinstance(self.sleep, Unset):
@@ -144,6 +165,11 @@ class ListJobsResponse200ItemType0RawFlowFailureModule:
             timeout = UNSET
 
         elif isinstance(self.timeout, ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType0):
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
+        elif isinstance(self.timeout, ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType1):
             timeout = UNSET
             if not isinstance(self.timeout, Unset):
                 timeout = self.timeout.to_dict()
@@ -225,6 +251,9 @@ class ListJobsResponse200ItemType0RawFlowFailureModule:
         from ..models.list_jobs_response_200_item_type_0_raw_flow_failure_module_sleep_type_1 import (
             ListJobsResponse200ItemType0RawFlowFailureModuleSleepType1,
         )
+        from ..models.list_jobs_response_200_item_type_0_raw_flow_failure_module_sleep_type_2 import (
+            ListJobsResponse200ItemType0RawFlowFailureModuleSleepType2,
+        )
         from ..models.list_jobs_response_200_item_type_0_raw_flow_failure_module_stop_after_all_iters_if import (
             ListJobsResponse200ItemType0RawFlowFailureModuleStopAfterAllItersIf,
         )
@@ -239,6 +268,9 @@ class ListJobsResponse200ItemType0RawFlowFailureModule:
         )
         from ..models.list_jobs_response_200_item_type_0_raw_flow_failure_module_timeout_type_1 import (
             ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType1,
+        )
+        from ..models.list_jobs_response_200_item_type_0_raw_flow_failure_module_timeout_type_2 import (
+            ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType2,
         )
 
         d = src_dict.copy()
@@ -274,6 +306,7 @@ class ListJobsResponse200ItemType0RawFlowFailureModule:
         ) -> Union[
             "ListJobsResponse200ItemType0RawFlowFailureModuleSleepType0",
             "ListJobsResponse200ItemType0RawFlowFailureModuleSleepType1",
+            "ListJobsResponse200ItemType0RawFlowFailureModuleSleepType2",
             Unset,
         ]:
             if isinstance(data, Unset):
@@ -291,16 +324,29 @@ class ListJobsResponse200ItemType0RawFlowFailureModule:
                 return sleep_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _sleep_type_1 = data
+                sleep_type_1: Union[Unset, ListJobsResponse200ItemType0RawFlowFailureModuleSleepType1]
+                if isinstance(_sleep_type_1, Unset):
+                    sleep_type_1 = UNSET
+                else:
+                    sleep_type_1 = ListJobsResponse200ItemType0RawFlowFailureModuleSleepType1.from_dict(_sleep_type_1)
+
+                return sleep_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _sleep_type_1 = data
-            sleep_type_1: Union[Unset, ListJobsResponse200ItemType0RawFlowFailureModuleSleepType1]
-            if isinstance(_sleep_type_1, Unset):
-                sleep_type_1 = UNSET
+            _sleep_type_2 = data
+            sleep_type_2: Union[Unset, ListJobsResponse200ItemType0RawFlowFailureModuleSleepType2]
+            if isinstance(_sleep_type_2, Unset):
+                sleep_type_2 = UNSET
             else:
-                sleep_type_1 = ListJobsResponse200ItemType0RawFlowFailureModuleSleepType1.from_dict(_sleep_type_1)
+                sleep_type_2 = ListJobsResponse200ItemType0RawFlowFailureModuleSleepType2.from_dict(_sleep_type_2)
 
-            return sleep_type_1
+            return sleep_type_2
 
         sleep = _parse_sleep(d.pop("sleep", UNSET))
 
@@ -313,6 +359,7 @@ class ListJobsResponse200ItemType0RawFlowFailureModule:
         ) -> Union[
             "ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType0",
             "ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType1",
+            "ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType2",
             Unset,
         ]:
             if isinstance(data, Unset):
@@ -332,16 +379,31 @@ class ListJobsResponse200ItemType0RawFlowFailureModule:
                 return timeout_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _timeout_type_1 = data
+                timeout_type_1: Union[Unset, ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType1]
+                if isinstance(_timeout_type_1, Unset):
+                    timeout_type_1 = UNSET
+                else:
+                    timeout_type_1 = ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType1.from_dict(
+                        _timeout_type_1
+                    )
+
+                return timeout_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _timeout_type_1 = data
-            timeout_type_1: Union[Unset, ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType1]
-            if isinstance(_timeout_type_1, Unset):
-                timeout_type_1 = UNSET
+            _timeout_type_2 = data
+            timeout_type_2: Union[Unset, ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType2]
+            if isinstance(_timeout_type_2, Unset):
+                timeout_type_2 = UNSET
             else:
-                timeout_type_1 = ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType1.from_dict(_timeout_type_1)
+                timeout_type_2 = ListJobsResponse200ItemType0RawFlowFailureModuleTimeoutType2.from_dict(_timeout_type_2)
 
-            return timeout_type_1
+            return timeout_type_2
 
         timeout = _parse_timeout(d.pop("timeout", UNSET))
 

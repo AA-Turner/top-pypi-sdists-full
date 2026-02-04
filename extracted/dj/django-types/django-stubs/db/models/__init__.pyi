@@ -8,6 +8,7 @@ from .aggregates import Count as Count
 from .aggregates import Max as Max
 from .aggregates import Min as Min
 from .aggregates import StdDev as StdDev
+from .aggregates import StringAgg as StringAgg
 from .aggregates import Sum as Sum
 from .aggregates import Variance as Variance
 from .base import Model as Model
@@ -78,10 +79,12 @@ from .fields import TextField as TextField
 from .fields import TimeField as TimeField
 from .fields import URLField as URLField
 from .fields import UUIDField as UUIDField
+from .fields.composite import CompositePrimaryKey as CompositePrimaryKey
 from .fields.files import FieldFile as FieldFile
 from .fields.files import FileDescriptor as FileDescriptor
 from .fields.files import FileField as FileField
 from .fields.files import ImageField as ImageField
+from .fields.generated import GeneratedField as GeneratedField
 from .fields.json import JSONField as JSONField
 from .fields.proxy import OrderWrt as OrderWrt
 from .fields.related import ForeignKey as ForeignKey
@@ -92,7 +95,6 @@ from .fields.related import ManyToManyRel as ManyToManyRel
 from .fields.related import ManyToOneRel as ManyToOneRel
 from .fields.related import OneToOneField as OneToOneField
 from .fields.related import OneToOneRel as OneToOneRel
-from .fields.composite import CompositePrimaryKey as CompositePrimaryKey
 from .indexes import Index as Index
 from .lookups import Lookup as Lookup
 from .lookups import Transform as Transform

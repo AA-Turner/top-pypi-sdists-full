@@ -10,6 +10,9 @@ if TYPE_CHECKING:
     from ..models.raw_script_input_transforms_additional_property_type_1 import (
         RawScriptInputTransformsAdditionalPropertyType1,
     )
+    from ..models.raw_script_input_transforms_additional_property_type_2 import (
+        RawScriptInputTransformsAdditionalPropertyType2,
+    )
 
 
 T = TypeVar("T", bound="RawScriptInputTransforms")
@@ -20,17 +23,28 @@ class RawScriptInputTransforms:
     """Map of parameter names to their values (static or JavaScript expressions). These become the script's input arguments"""
 
     additional_properties: Dict[
-        str, Union["RawScriptInputTransformsAdditionalPropertyType0", "RawScriptInputTransformsAdditionalPropertyType1"]
+        str,
+        Union[
+            "RawScriptInputTransformsAdditionalPropertyType0",
+            "RawScriptInputTransformsAdditionalPropertyType1",
+            "RawScriptInputTransformsAdditionalPropertyType2",
+        ],
     ] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         from ..models.raw_script_input_transforms_additional_property_type_0 import (
             RawScriptInputTransformsAdditionalPropertyType0,
         )
+        from ..models.raw_script_input_transforms_additional_property_type_1 import (
+            RawScriptInputTransformsAdditionalPropertyType1,
+        )
 
         field_dict: Dict[str, Any] = {}
         for prop_name, prop in self.additional_properties.items():
             if isinstance(prop, RawScriptInputTransformsAdditionalPropertyType0):
+                field_dict[prop_name] = prop.to_dict()
+
+            elif isinstance(prop, RawScriptInputTransformsAdditionalPropertyType1):
                 field_dict[prop_name] = prop.to_dict()
 
             else:
@@ -48,6 +62,9 @@ class RawScriptInputTransforms:
         from ..models.raw_script_input_transforms_additional_property_type_1 import (
             RawScriptInputTransformsAdditionalPropertyType1,
         )
+        from ..models.raw_script_input_transforms_additional_property_type_2 import (
+            RawScriptInputTransformsAdditionalPropertyType2,
+        )
 
         d = src_dict.copy()
         raw_script_input_transforms = cls()
@@ -58,7 +75,9 @@ class RawScriptInputTransforms:
             def _parse_additional_property(
                 data: object,
             ) -> Union[
-                "RawScriptInputTransformsAdditionalPropertyType0", "RawScriptInputTransformsAdditionalPropertyType1"
+                "RawScriptInputTransformsAdditionalPropertyType0",
+                "RawScriptInputTransformsAdditionalPropertyType1",
+                "RawScriptInputTransformsAdditionalPropertyType2",
             ]:
                 try:
                     if not isinstance(data, dict):
@@ -68,11 +87,19 @@ class RawScriptInputTransforms:
                     return additional_property_type_0
                 except:  # noqa: E722
                     pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    additional_property_type_1 = RawScriptInputTransformsAdditionalPropertyType1.from_dict(data)
+
+                    return additional_property_type_1
+                except:  # noqa: E722
+                    pass
                 if not isinstance(data, dict):
                     raise TypeError()
-                additional_property_type_1 = RawScriptInputTransformsAdditionalPropertyType1.from_dict(data)
+                additional_property_type_2 = RawScriptInputTransformsAdditionalPropertyType2.from_dict(data)
 
-                return additional_property_type_1
+                return additional_property_type_2
 
             additional_property = _parse_additional_property(prop_dict)
 
@@ -87,14 +114,20 @@ class RawScriptInputTransforms:
 
     def __getitem__(
         self, key: str
-    ) -> Union["RawScriptInputTransformsAdditionalPropertyType0", "RawScriptInputTransformsAdditionalPropertyType1"]:
+    ) -> Union[
+        "RawScriptInputTransformsAdditionalPropertyType0",
+        "RawScriptInputTransformsAdditionalPropertyType1",
+        "RawScriptInputTransformsAdditionalPropertyType2",
+    ]:
         return self.additional_properties[key]
 
     def __setitem__(
         self,
         key: str,
         value: Union[
-            "RawScriptInputTransformsAdditionalPropertyType0", "RawScriptInputTransformsAdditionalPropertyType1"
+            "RawScriptInputTransformsAdditionalPropertyType0",
+            "RawScriptInputTransformsAdditionalPropertyType1",
+            "RawScriptInputTransformsAdditionalPropertyType2",
         ],
     ) -> None:
         self.additional_properties[key] = value

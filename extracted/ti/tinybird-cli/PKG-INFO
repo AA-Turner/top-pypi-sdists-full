@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird_cli
-Version: 6.0.1
+Version: 6.1.0
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/cli
 Author: Tinybird
@@ -42,6 +42,11 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+6.0.2
+***********
+
+- `Changed` `IMPORT_FORMAT` is now optional for S3/GCS data sources and will be automatically inferred from the file extension if not provided
 
 6.0.1
 ***********

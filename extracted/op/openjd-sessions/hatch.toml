@@ -5,7 +5,7 @@ pre-install-commands = [
 
 [envs.default.scripts]
 sync = "pip install -r requirements-testing.txt"
-test = "pytest --cov-config pyproject.toml {args:test}"
+test = "pytest --cov-config pyproject.toml {args}"
 typing = "mypy {args:src test}"
 style = [
   "ruff check {args:.}",
@@ -21,7 +21,7 @@ lint = [
 ]
 
 [[envs.all.matrix]]
-python = ["3.9", "3.10", "3.11", "3.12"]
+python = ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
 [envs.container.env-vars]
 

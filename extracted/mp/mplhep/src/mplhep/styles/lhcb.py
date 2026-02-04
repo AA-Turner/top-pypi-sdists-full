@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import copy
+
 import matplotlib as mpl
 from cycler import cycler
 
-from .._deprecate import deprecated_dict
+from mplhep._deprecate import deprecated_dict
 
 colors1 = [
     "#1f77b4",
@@ -101,7 +103,14 @@ LHCbTex1 = {
     # (overrides default font)
     "text.usetex": True,
     # Use the LaTeX version of Times New Roman
-    "text.latex.preamble": r"\usepackage{mathptmx}",
+    "text.latex.preamble": "\n".join(
+        [
+            r"\usepackage[T1]{fontenc}",
+            r"\usepackage{amsmath}",
+            r"\usepackage{mathptmx}",
+            r"\setlength{\parindent}{0pt}",
+        ]
+    ),
     "pgf.rcfonts": False,
 }
 
@@ -128,7 +137,7 @@ LHCb2 = {
     "axes.linewidth": 2,
     "axes.facecolor": "white",
     "axes.xmargin": 0.0,
-    "axes.ymargin": 0.0,
+    # "axes.ymargin": 0.0,
     # Custom colors
     "axes.prop_cycle": cycler("color", colors2),
     "axes.formatter.min_exponent": 3,
@@ -140,7 +149,7 @@ LHCb2 = {
     "figure.dpi": 100,
     # Outer frame color
     "figure.facecolor": "white",
-    "figure.autolayout": True,
+    # Note: autolayout disabled to allow subplots_adjust(hspace=0) - see issue #401
     # Set default font to Times New Roman
     "font.family": "serif",
     "font.serif": ["Tex Gyre Termes"],
@@ -218,15 +227,19 @@ LHCbTex2 = {
     # (overrides default font)
     "text.usetex": True,
     # Use the LaTeX version of Times New Roman
-    "text.latex.preamble": r"\usepackage{txfonts}",
+    "text.latex.preamble": "\n".join(
+        [
+            r"\usepackage[T1]{fontenc}",
+            r"\usepackage{amsmath}",
+            r"\usepackage{txfonts}",
+            r"\setlength{\parindent}{0pt}",
+        ]
+    ),
     "pgf.rcfonts": False,
 }
 
+
 # alias LHCb Style
 
-lhcb_depr_msg = (
-    "'LHCb' style is deprecated as it may change in the future. Please use 'LHCb1' (which is"
-    " the same as currently 'LHCb') or 'LHCb2'."
-)
-LHCb = deprecated_dict(LHCb1, message=lhcb_depr_msg, warning=FutureWarning)
-LHCbTex = deprecated_dict(LHCbTex1, message=lhcb_depr_msg, warning=FutureWarning)
+LHCb = copy.deepcopy(LHCb2)
+LHCbTex = copy.deepcopy(LHCbTex2)

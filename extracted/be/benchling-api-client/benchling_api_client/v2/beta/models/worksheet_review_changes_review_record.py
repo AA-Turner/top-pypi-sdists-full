@@ -3,6 +3,7 @@ from typing import Any, cast, Dict, List, Optional, Type, TypeVar, Union
 import attr
 
 from ..extensions import NotPresentError
+from ..models.entry_review_process import EntryReviewProcess
 from ..models.review_change import ReviewChange
 from ..models.worksheet_review_changes_review_record_status import WorksheetReviewChangesReviewRecordStatus
 from ..types import UNSET, Unset
@@ -16,6 +17,7 @@ class WorksheetReviewChangesReviewRecord:
 
     _comment: Union[Unset, str] = UNSET
     _review_changes: Union[Unset, List[ReviewChange]] = UNSET
+    _review_processes: Union[Unset, None, List[EntryReviewProcess]] = UNSET
     _status: Union[Unset, WorksheetReviewChangesReviewRecordStatus] = UNSET
     additional_properties: Dict[str, Any] = attr.ib(init=False, factory=dict)
 
@@ -23,6 +25,7 @@ class WorksheetReviewChangesReviewRecord:
         fields = []
         fields.append("comment={}".format(repr(self._comment)))
         fields.append("review_changes={}".format(repr(self._review_changes)))
+        fields.append("review_processes={}".format(repr(self._review_processes)))
         fields.append("status={}".format(repr(self._status)))
         fields.append("additional_properties={}".format(repr(self.additional_properties)))
         return "WorksheetReviewChangesReviewRecord({})".format(", ".join(fields))
@@ -37,6 +40,17 @@ class WorksheetReviewChangesReviewRecord:
 
                 review_changes.append(review_changes_item)
 
+        review_processes: Union[Unset, None, List[Any]] = UNSET
+        if not isinstance(self._review_processes, Unset):
+            if self._review_processes is None:
+                review_processes = None
+            else:
+                review_processes = []
+                for review_processes_item_data in self._review_processes:
+                    review_processes_item = review_processes_item_data.to_dict()
+
+                    review_processes.append(review_processes_item)
+
         status: Union[Unset, int] = UNSET
         if not isinstance(self._status, Unset):
             status = self._status.value
@@ -48,6 +62,8 @@ class WorksheetReviewChangesReviewRecord:
             field_dict["comment"] = comment
         if review_changes is not UNSET:
             field_dict["reviewChanges"] = review_changes
+        if review_processes is not UNSET:
+            field_dict["reviewProcesses"] = review_processes
         if status is not UNSET:
             field_dict["status"] = status
 
@@ -85,6 +101,23 @@ class WorksheetReviewChangesReviewRecord:
                 raise
             review_changes = cast(Union[Unset, List[ReviewChange]], UNSET)
 
+        def get_review_processes() -> Union[Unset, None, List[EntryReviewProcess]]:
+            review_processes = []
+            _review_processes = d.pop("reviewProcesses")
+            for review_processes_item_data in _review_processes or []:
+                review_processes_item = EntryReviewProcess.from_dict(review_processes_item_data, strict=False)
+
+                review_processes.append(review_processes_item)
+
+            return review_processes
+
+        try:
+            review_processes = get_review_processes()
+        except KeyError:
+            if strict:
+                raise
+            review_processes = cast(Union[Unset, None, List[EntryReviewProcess]], UNSET)
+
         def get_status() -> Union[Unset, WorksheetReviewChangesReviewRecordStatus]:
             status = UNSET
             _status = d.pop("status")
@@ -106,6 +139,7 @@ class WorksheetReviewChangesReviewRecord:
         worksheet_review_changes_review_record = cls(
             comment=comment,
             review_changes=review_changes,
+            review_processes=review_processes,
             status=status,
         )
 
@@ -160,6 +194,21 @@ class WorksheetReviewChangesReviewRecord:
     @review_changes.deleter
     def review_changes(self) -> None:
         self._review_changes = UNSET
+
+    @property
+    def review_processes(self) -> Optional[List[EntryReviewProcess]]:
+        """ Review Processes associated with the Worksheet """
+        if isinstance(self._review_processes, Unset):
+            raise NotPresentError(self, "review_processes")
+        return self._review_processes
+
+    @review_processes.setter
+    def review_processes(self, value: Optional[List[EntryReviewProcess]]) -> None:
+        self._review_processes = value
+
+    @review_processes.deleter
+    def review_processes(self) -> None:
+        self._review_processes = UNSET
 
     @property
     def status(self) -> WorksheetReviewChangesReviewRecordStatus:

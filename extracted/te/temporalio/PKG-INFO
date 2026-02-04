@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: temporalio
-Version: 1.21.1
+Version: 1.22.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -13,15 +13,15 @@ Requires-Dist: python-dateutil>=2.8.2,<3 ; python_full_version < '3.11'
 Requires-Dist: types-protobuf>=3.20
 Requires-Dist: typing-extensions>=4.2.0,<5
 Requires-Dist: grpcio>=1.48.2,<2 ; extra == 'grpc'
+Requires-Dist: openai-agents>=0.3,<0.7 ; extra == 'openai-agents'
+Requires-Dist: mcp>=1.9.4,<2 ; extra == 'openai-agents'
 Requires-Dist: opentelemetry-api>=1.11.1,<2 ; extra == 'opentelemetry'
 Requires-Dist: opentelemetry-sdk>=1.11.1,<2 ; extra == 'opentelemetry'
 Requires-Dist: pydantic>=2.0.0,<3 ; extra == 'pydantic'
-Requires-Dist: openai-agents>=0.3,<0.7 ; extra == 'openai-agents'
-Requires-Dist: mcp>=1.9.4,<2 ; extra == 'openai-agents'
 Provides-Extra: grpc
+Provides-Extra: openai-agents
 Provides-Extra: opentelemetry
 Provides-Extra: pydantic
-Provides-Extra: openai-agents
 License-File: LICENSE
 Summary: Temporal.io Python SDK
 Keywords: temporal,workflow
@@ -29,10 +29,10 @@ Author-email: Temporal Technologies Inc <sdk@temporal.io>
 License-Expression: MIT
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Bug Tracker, https://github.com/temporalio/sdk-python/issues
+Project-URL: Documentation, https://docs.temporal.io/docs/python
 Project-URL: Homepage, https://github.com/temporalio/sdk-python
 Project-URL: Repository, https://github.com/temporalio/sdk-python
-Project-URL: Documentation, https://docs.temporal.io/docs/python
-Project-URL: Bug Tracker, https://github.com/temporalio/sdk-python/issues
 
 ![Temporal Python SDK](https://assets.temporal.io/w/py-banner.svg)
 
@@ -200,7 +200,7 @@ from temporalio import workflow
 
 # Import our activity, passing it through the sandbox
 with workflow.unsafe.imports_passed_through():
-    from .activities import say_hello
+    from activities import say_hello
 
 @workflow.defn
 class SayHello:
@@ -220,8 +220,8 @@ from temporalio.client import Client
 from temporalio.worker import Worker
 
 # Import the activity and workflow from our other files
-from .activities import say_hello
-from .workflows import SayHello
+from activities import say_hello
+from workflows import SayHello
 
 async def main():
     # Create client connected to server at the given address
@@ -256,7 +256,7 @@ import asyncio
 from temporalio.client import Client
 
 # Import the workflow from the previous code
-from .workflows import SayHello
+from workflows import SayHello
 
 async def main():
     # Create client connected to server at the given address

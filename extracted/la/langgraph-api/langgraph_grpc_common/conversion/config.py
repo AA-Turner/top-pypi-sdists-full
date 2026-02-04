@@ -33,6 +33,8 @@ if TYPE_CHECKING:
 CONFIG_KEY_GRAPH_ID = "graph_id"
 # DR-specific key for storing root graph stream modes, required for patched subgraph streaming.
 CONFIG_KEY_ROOT_STREAM_MODES = "__pregel_root_stream_modes"
+CONFIG_KEY_TRACING_PROJECT = "__langsmith_project__"
+CONFIG_KEY_TRACING_EXAMPLE_ID = "__langsmith_example_id__"
 
 
 def config_from_proto(
@@ -159,6 +161,10 @@ def _configurable_from_proto(
     # Add run_id to configurable - this is the tracing run ID
     if config_proto.HasField("run_id") and config_proto.run_id:
         configurable["run_id"] = config_proto.run_id
+    if config_proto.HasField("tracing_project") and config_proto.tracing_project:
+        configurable[CONFIG_KEY_TRACING_PROJECT] = config_proto.tracing_project
+    if config_proto.HasField("tracing_example_id") and config_proto.tracing_example_id:
+        configurable[CONFIG_KEY_TRACING_EXAMPLE_ID] = config_proto.tracing_example_id
 
     return configurable
 
@@ -272,6 +278,12 @@ def _inject_configurable_into_proto(
                     enum_stream_mode_pb2.StreamMode.Value(mode) for mode in value
                 ]
                 proto.root_stream_modes.extend(converted)
+        elif key == CONFIG_KEY_TRACING_PROJECT:
+            if value is not None:
+                proto.tracing_project = str(value)
+        elif key == CONFIG_KEY_TRACING_EXAMPLE_ID:
+            if value is not None:
+                proto.tracing_example_id = str(value)
         elif key not in RESTRICTED_RESERVED_CONFIGURABLE_KEYS:
             extra[key] = value
     if extra:

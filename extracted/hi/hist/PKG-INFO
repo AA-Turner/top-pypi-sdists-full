@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hist
-Version: 2.9.2
+Version: 2.10.0
 Summary: Hist classes and utilities
 Project-URL: Homepage, https://github.com/scikit-hep/hist
 Project-URL: Documentation, https://hist.readthedocs.io/
@@ -19,7 +19,6 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -30,23 +29,24 @@ Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Scientific/Engineering :: Physics
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
-Requires-Dist: boost-histogram<1.7,>=1.5
+Requires-Python: >=3.10
+Requires-Dist: boost-histogram<1.8,>=1.6
 Requires-Dist: histoprint>=2.2.0
-Requires-Dist: numpy>=1.19.3
+Requires-Dist: numpy>=1.21.3
+Requires-Dist: packaging>=23
 Requires-Dist: typing-extensions>=4; python_version < '3.11'
 Provides-Extra: dask
 Requires-Dist: dask-awkward>=2025.9.0; extra == 'dask'
 Requires-Dist: dask-histogram>=2023.1; extra == 'dask'
 Requires-Dist: dask[dataframe]<2025,>=2022; extra == 'dask'
 Provides-Extra: fit
-Requires-Dist: iminuit>=2; extra == 'fit'
-Requires-Dist: scipy>=1.5.4; extra == 'fit'
+Requires-Dist: iminuit>=2.9.0; extra == 'fit'
+Requires-Dist: scipy>=1.7.0; extra == 'fit'
 Provides-Extra: mpl
-Requires-Dist: matplotlib>=3.8; extra == 'mpl'
+Requires-Dist: matplotlib>=3.10.7; extra == 'mpl'
 Requires-Dist: mplhep>=0.3.33; extra == 'mpl'
 Provides-Extra: plot
-Requires-Dist: matplotlib>=3.8; extra == 'plot'
+Requires-Dist: matplotlib>=3.10.7; extra == 'plot'
 Requires-Dist: mplhep>=0.3.33; extra == 'plot'
 Description-Content-Type: text/markdown
 
@@ -72,7 +72,7 @@ Description-Content-Type: text/markdown
 
 Hist is an analyst-friendly front-end for
 [boost-histogram](https://github.com/scikit-hep/boost-histogram), designed for
-Python 3.9+ (3.6-3.8 users get older versions). See [what's new](https://hist.readthedocs.io/en/latest/changelog.html).
+Python 3.10+ (3.6-3.9 users get older versions). See [what's new](https://hist.readthedocs.io/en/latest/changelog.html).
 
 ![Slideshow of features. See docs/banner_slides.md for text if the image is not readable.](https://github.com/scikit-hep/hist/raw/main/docs/_images/banner.gif)
 
@@ -100,7 +100,6 @@ Hist currently provides everything boost-histogram provides, and the following e
 
 - The `Hist` class augments `bh.Histogram` with simpler construction:
   - `flow=False` is a fast way to turn off flow for the axes on construction.
-  - Storages can be given by string.
   - `storage=` can be omitted, strings and storages can be positional.
   - `data=` can initialize a histogram with existing data.
   - `Hist.from_columns` can be used to initialize with a DataFrame or dict.

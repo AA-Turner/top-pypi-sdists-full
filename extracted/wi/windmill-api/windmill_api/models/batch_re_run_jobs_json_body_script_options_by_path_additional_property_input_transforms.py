@@ -10,6 +10,9 @@ if TYPE_CHECKING:
     from ..models.batch_re_run_jobs_json_body_script_options_by_path_additional_property_input_transforms_additional_property_type_1 import (
         BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType1,
     )
+    from ..models.batch_re_run_jobs_json_body_script_options_by_path_additional_property_input_transforms_additional_property_type_2 import (
+        BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType2,
+    )
 
 
 T = TypeVar("T", bound="BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransforms")
@@ -24,6 +27,7 @@ class BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransforms
         Union[
             "BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType0",
             "BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType1",
+            "BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType2",
         ],
     ] = _attrs_field(init=False, factory=dict)
 
@@ -31,11 +35,19 @@ class BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransforms
         from ..models.batch_re_run_jobs_json_body_script_options_by_path_additional_property_input_transforms_additional_property_type_0 import (
             BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType0,
         )
+        from ..models.batch_re_run_jobs_json_body_script_options_by_path_additional_property_input_transforms_additional_property_type_1 import (
+            BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType1,
+        )
 
         field_dict: Dict[str, Any] = {}
         for prop_name, prop in self.additional_properties.items():
             if isinstance(
                 prop, BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType0
+            ):
+                field_dict[prop_name] = prop.to_dict()
+
+            elif isinstance(
+                prop, BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType1
             ):
                 field_dict[prop_name] = prop.to_dict()
 
@@ -54,6 +66,9 @@ class BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransforms
         from ..models.batch_re_run_jobs_json_body_script_options_by_path_additional_property_input_transforms_additional_property_type_1 import (
             BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType1,
         )
+        from ..models.batch_re_run_jobs_json_body_script_options_by_path_additional_property_input_transforms_additional_property_type_2 import (
+            BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType2,
+        )
 
         d = src_dict.copy()
         batch_re_run_jobs_json_body_script_options_by_path_additional_property_input_transforms = cls()
@@ -66,6 +81,7 @@ class BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransforms
             ) -> Union[
                 "BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType0",
                 "BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType1",
+                "BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType2",
             ]:
                 try:
                     if not isinstance(data, dict):
@@ -77,13 +93,23 @@ class BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransforms
                     return additional_property_type_0
                 except:  # noqa: E722
                     pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    additional_property_type_1 = BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType1.from_dict(
+                        data
+                    )
+
+                    return additional_property_type_1
+                except:  # noqa: E722
+                    pass
                 if not isinstance(data, dict):
                     raise TypeError()
-                additional_property_type_1 = BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType1.from_dict(
+                additional_property_type_2 = BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType2.from_dict(
                     data
                 )
 
-                return additional_property_type_1
+                return additional_property_type_2
 
             additional_property = _parse_additional_property(prop_dict)
 
@@ -103,6 +129,7 @@ class BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransforms
     ) -> Union[
         "BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType0",
         "BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType1",
+        "BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType2",
     ]:
         return self.additional_properties[key]
 
@@ -112,6 +139,7 @@ class BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransforms
         value: Union[
             "BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType0",
             "BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType1",
+            "BatchReRunJobsJsonBodyScriptOptionsByPathAdditionalPropertyInputTransformsAdditionalPropertyType2",
         ],
     ) -> None:
         self.additional_properties[key] = value

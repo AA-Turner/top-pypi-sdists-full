@@ -467,6 +467,8 @@ class NODE_OT_swap_empty_group(NodeSwapOperator, _bpy_types.Operator):
     bl_options: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
+    id_prop_names: typing.Any
+    image_user_settings: typing.Any
     properties_to_pass: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
@@ -510,6 +512,8 @@ class NODE_OT_swap_node(NodeSwapOperator, _bpy_types.Operator):
     bl_options: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
+    id_prop_names: typing.Any
+    image_user_settings: typing.Any
     properties_to_pass: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
@@ -558,6 +562,8 @@ class NODE_OT_swap_zone(NodeSwapOperator, ZoneOperator, _bpy_types.Operator):
     bl_options: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
+    id_prop_names: typing.Any
+    image_user_settings: typing.Any
     properties_to_pass: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
@@ -794,6 +800,8 @@ class NodeAddOperator(NodeOperator):
         """
 
 class NodeSwapOperator(NodeOperator):
+    id_prop_names: typing.Any
+    image_user_settings: typing.Any
     properties_to_pass: typing.Any
 
     @staticmethod
@@ -808,6 +816,20 @@ class NodeSwapOperator(NodeOperator):
         """
 
         :param context:
+        """
+
+    def transfer_datablock_properties(self, old_node, new_node) -> None:
+        """
+
+        :param old_node:
+        :param new_node:
+        """
+
+    def transfer_image_user_settings(self, old_node, new_node) -> None:
+        """
+
+        :param old_node:
+        :param new_node:
         """
 
     def transfer_input_values(self, old_node, new_node) -> None:

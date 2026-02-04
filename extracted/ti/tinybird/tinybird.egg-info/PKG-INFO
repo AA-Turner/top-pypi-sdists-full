@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 3.1.0
+Version: 3.2.0
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -56,6 +56,11 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+3.0.2
+*******
+
+- `Changed` `IMPORT_FORMAT` is now optional for S3/GCS data sources and will be automatically inferred from the file extension if not provided
 
 3.0.1
 *******

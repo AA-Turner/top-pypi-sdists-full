@@ -394,7 +394,7 @@ class LogTiming:
 
         return False
 
-def log_timing(msg: str, body: Callable[[], None]=None, s0: time.time = None):
+def log_timing(msg: str, body: Callable[..., T]=None, s0: time.time = None) -> T:
     if not s0 and not body:
         return LogTiming(msg, s0=s0)
 
@@ -404,7 +404,7 @@ def log_timing(msg: str, body: Callable[[], None]=None, s0: time.time = None):
 
         return
 
-    r = None
+    r: T = None
 
     t = LogTiming(msg, s0=s0)
     t.__enter__()

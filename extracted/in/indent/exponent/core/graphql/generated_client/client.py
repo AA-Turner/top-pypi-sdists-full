@@ -77,13 +77,9 @@ class IndentGraphQLClient(AsyncBaseClient):
                 ... on UnauthenticatedError {
                   message
                 }
-                ... on ChatNotFoundError {
-                  message
-                }
-                ... on CloudConfigNotFoundError {
-                  message
-                }
-                ... on GithubConfigNotFoundError {
+                ... on NotFoundError {
+                  resourceType
+                  resourceId
                   message
                 }
                 ... on CloudSessionError {
@@ -128,10 +124,9 @@ class IndentGraphQLClient(AsyncBaseClient):
                 ... on UnauthenticatedError {
                   message
                 }
-                ... on CloudConfigNotFoundError {
-                  message
-                }
-                ... on GithubConfigNotFoundError {
+                ... on NotFoundError {
+                  resourceType
+                  resourceId
                   message
                 }
                 ... on CloudSessionError {
@@ -194,7 +189,9 @@ class IndentGraphQLClient(AsyncBaseClient):
                 ... on UnauthenticatedError {
                   message
                 }
-                ... on ChatNotFoundError {
+                ... on NotFoundError {
+                  resourceType
+                  resourceId
                   message
                 }
                 ... on RemoteExecutionError {
@@ -227,10 +224,9 @@ class IndentGraphQLClient(AsyncBaseClient):
                 ... on UnauthenticatedError {
                   message
                 }
-                ... on CloudConfigNotFoundError {
-                  message
-                }
-                ... on GithubConfigNotFoundError {
+                ... on NotFoundError {
+                  resourceType
+                  resourceId
                   message
                 }
                 ... on CloudSessionError {
@@ -295,9 +291,6 @@ class IndentGraphQLClient(AsyncBaseClient):
                 ... on UnauthenticatedError {
                   message
                 }
-                ... on Error {
-                  message
-                }
               }
             }
             """)
@@ -357,7 +350,9 @@ class IndentGraphQLClient(AsyncBaseClient):
                 ... on UnauthenticatedError {
                   message
                 }
-                ... on ChatNotFoundError {
+                ... on NotFoundError {
+                  resourceType
+                  resourceId
                   message
                 }
                 ... on Chat {

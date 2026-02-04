@@ -2,7 +2,7 @@ import AOT_biomaps.Settings
 from AOT_biomaps.Config import config
 from AOT_biomaps.AOT_Acoustic.AcousticTools import calculate_envelope_squared, loadmat
 from .AcousticTools import next_power_of_2, reshape_field
-from .AcousticEnums import TypeSim, Dim, FormatSave, WaveType
+from .AcousticEnums import TypeSim, Dim, FormatSave, WaveType, PhantomType
 
 from IPython.display import HTML
 import h5py
@@ -20,6 +20,8 @@ from kwave.kspaceFirstOrder2D import kspaceFirstOrder2D
 from kwave.options.simulation_options import SimulationOptions
 from kwave.options.simulation_execution_options import SimulationExecutionOptions
 from AOT_biomaps.Settings import Params
+from scipy.ndimage import gaussian_filter
+from joblib import dump, load
 
 from tempfile import gettempdir
 from math import ceil
@@ -61,158 +63,40 @@ class AcousticField(ABC):
         - Yrange (list of float, optional): Range of Y coordinates for the acoustic field, specified in meters (m). Default is None, indicating no specific Y range.
         - Zrange (list of float): Range of Z coordinates for the acoustic field, specified in meters (m). Default is from 0 m to 37 mm.
         """
-        required_keys = [
-            'c0', 'f_US', 'f_AQ', 'f_saving', 'num_cycles', 'num_elements',
-            'element_width', 'element_height', 'Xrange', 'Zrange', 'dim',
-            'typeSim', 'dx', 'dz'
-        ]
-
-        # Verify required keys
-        try:
-            if params != None:
-                for key in required_keys:
-                    if key not in params.acoustic and key not in params.general:
-                        raise ValueError(f"{key} must be provided in the parameters.")
-        except ValueError as e:
-            print(f"Initialization error: {e}")
-            raise
         if params != None:
             if type(params) != Params:
                 raise TypeError("params must be an instance of the Params class")
+            
+            self.kgrid = kWaveGrid([self.params.general["Nx"], self.params.general["Nz"]], [self.params.general["dx"], self.params.general["dz"]])
 
-            self.params = {
-                'c0': params.acoustic['c0'],
-                'voltage': params.acoustic['voltage'],
-                'sensitivity': params.acoustic['sensitivity'],
-                'Foc': params.acoustic['Foc'],
-                'N_piezoFocal': params.acoustic['N_piezoFocal'],
-                'f_US': int(float(params.acoustic['f_US'])),
-                'f_AQ': params.acoustic['f_AQ'],
-                'f_saving': int(float(params.acoustic['f_saving'])),
-                'num_cycles': params.acoustic['num_cycles'],
-                'num_elements': params.acoustic['num_elements'],
-                'element_width': params.acoustic['element_width'],
-                'element_height': params.acoustic['element_height'],
-                'height_phantom': params.acoustic['phantom']['height'] if 'phantom' in params.acoustic and 'height' in params.acoustic['phantom'] else None,
-                'width_phantom': params.acoustic['phantom']['width'] if 'phantom' in params.acoustic and 'width' in params.acoustic['phantom'] else None,
-                'Xrange': params.general['Xrange'],
-                'Yrange': params.general['Yrange'],
-                'Zrange': params.general['Zrange'],
-                'dim': params.acoustic['dim'],
-                'typeSim': params.acoustic['typeSim'],
-                'dx': params.general['dx'],
-                'dy': params.general['dy'] if params.general['Yrange'] is not None else None,
-                'dz': params.general['dz'],
-                'Nx': int(np.round((params.general['Xrange'][1] - params.general['Xrange'][0])/params.general['dx'])),
-                'Ny': int(np.round((params.general['Yrange'][1] - params.general['Yrange'][0])/params.general['dy']))  if params.general['Yrange'] is not None else 1,
-                'Nz': int(np.round((params.general['Zrange'][1] - params.general['Zrange'][0])/params.general['dz'])),
-                'Nt': int((params.general['Nt'])*int(float(params.acoustic['f_AQ']))/int(float(params.acoustic['f_saving']))) if 'Nt' in params.general else None,
-                'probeWidth': params.acoustic['num_elements'] * params.acoustic['element_width'],
-                'IsAbsorbingMedium': params.acoustic['isAbsorbingMedium'],
-            }
-            self.kgrid = kWaveGrid([self.params["Nx"], self.params["Nz"]], [self.params["dx"], self.params["dz"]])
-            if params.acoustic['f_AQ'] == "AUTO":
-
-                self.kgrid.makeTime(self.params['c0'])
-
-                self.params['f_AQ'] = int(1/self.kgrid.dt)
+            if self.params.acoustic['f_AQ'] == "AUTO":
+                self.kgrid.makeTime(self.params.acoustic['medium']['c0'])
+                self.params.acoustic['f_AQ'] = int(1/self.kgrid.dt)
             else:
-                if self.params['Nt'] is None:
-                    Nt = ceil((self.params['Zrange'][1] - self.params['Zrange'][0])*float(params.acoustic['f_AQ']) / self.params['c0'])
-                    self.params['Nt'] = Nt
+                if self.params.general['Nt'] is None:
+                    Nt = ceil((self.params.general['Zrange'][1] - self.params.general['Zrange'][0])*float(params.acoustic['f_AQ']) / self.params.acoustic['c0'])
+                    self.params.general['Nt'] = Nt
                 else:
-                    Nt = self.params['Nt']
-                self.kgrid.setTime(Nt,1/float(params.acoustic['f_AQ']))
-                self.params['f_AQ'] = int(float(params.acoustic['f_AQ']))
+                    Nt = self.params.general['Nt']
+                self.kgrid.setTime(Nt,1/float(self.params.acoustic['f_AQ']))
 
             self._generate_burst_signal()
-            if self.params["dim"] == Dim.D3 and self.params["Yrange"] is None:
+
+            if self.params.acoustic["dim"] == Dim.D3 and self.params.general["Yrange"] is None:
                 raise ValueError("Yrange must be provided for 3D fields.")
+            
             if self.params['typeSim'] == TypeSim.KWAVE.value:
-                if self.params ['IsAbsorbingMedium'] == True:
-                    self.medium = kWaveMedium(
-                        sound_speed=self.params['c0'],
-                        density=params.acoustic['Absorption']['density'],    
-                        alpha_coeff=params.acoustic['Absorption']['alpha_coeff'],  # dB/(MHz·cm)
-                        alpha_power=params.acoustic['Absorption']['alpha_power'],  # 0.5
-                        absorbing=True
-                    )
-                else:
-                    self.medium = kWaveMedium(sound_speed=self.params['c0'])
-            elif self.params['typeSim'] == TypeSim.FIELD2.value:
+                if self.params.acoustic['medium']['type'] == PhantomType.Homogeneous.value:
+                    self._generate_kwave_homogeneous_medium()
+                elif self.params.acoustic['medium']['type'] == PhantomType.PVA.value:
+                    self._generate_kwave_pva_medium()
+            elif self.params.acoustic['typeSim'] == TypeSim.FIELD2.value:
                 self.medium = None
-        else:
-            self.medium = None
+            else:
+                self.medium = None
 
         self.waveType = None
         self.field = None  
-
-    def __str__(self):
-        """
-        Returns a string representation of the AcousticField object, including its parameters and attributes.
-        The string is formatted in a table-like structure for better readability.
-        """
-        try:
-            # Get all attributes of the instance
-            attrs = {**self.params, **{k: v for k, v in vars(self).items() if k not in self.params}}
-
-            # Base attributes of AcousticField
-            base_attrs_keys = ['c0', 'f_US', 'f_AQ', 'f_saving', 'num_cycles', 'num_elements',
-                            'element_width', 'element_height',
-                            'Xrange', 'Yrange', 'Zrange', 'dim', 'typeSim', 'Nx', 'Ny', 'Nz',
-                            'dx', 'dy', 'dz', 'probeWidth']
-            base_attrs = {key: value for key, value in attrs.items() if key in base_attrs_keys}
-
-            # Attributes specific to the derived class, excluding 'params'
-            derived_attrs = {key: value for key, value in attrs.items() if key not in base_attrs_keys and key != 'params'}
-
-            # Create lines for base and derived attributes
-            base_attr_lines = [f"  {key}: {value}" for key, value in base_attrs.items()]
-
-            derived_attr_lines = []
-            for key, value in derived_attrs.items():
-                if key in {'burst', 'delayedSignal'}:
-                    continue
-                elif key == 'pattern':
-                    # Inspect the pattern object
-                    try:
-                        pattern_attrs = vars(value)
-                        pattern_str = ", ".join([f"{k}={v}" for k, v in pattern_attrs.items()])
-                        derived_attr_lines.append(f"  pattern: {{{pattern_str}}}")
-                    except Exception as e:
-                        derived_attr_lines.append(f"  pattern: <unreadable: {e}>")
-                else:
-                    try:
-                        derived_attr_lines.append(f"  {key}: {value}")
-                    except Exception as e:
-                        derived_attr_lines.append(f"  {key}: <unprintable: {e}>")
-
-            # Add shapes for burst and delayedSignal
-            if 'burst' in derived_attrs:
-                derived_attr_lines.append(f"  burst: shape={self.burst.shape}")
-            if 'delayedSignal' in derived_attrs:
-                derived_attr_lines.append(f"  delayedSignal: shape={self.delayedSignal.shape}")
-
-            # Define borders and titles
-            border = "+" + "-" * 40 + "+"
-            title = f"|Type : {self.__class__.__name__} wave |"
-            base_title = "| AcousticField Attributes |"
-            derived_title = f"| {self.__class__.__name__} Specific Attributes |" if derived_attrs else ""
-
-            # Convert attributes to strings
-            base_attr_str = "\n".join(base_attr_lines)
-            derived_attr_str = "\n".join(derived_attr_lines)
-
-            # Assemble the final result
-            result = f"{border}\n{title}\n{border}\n{base_title}\n{border}\n{base_attr_str}\n"
-            if derived_attrs:
-                result += f"\n{border}\n{derived_title}\n{border}\n{derived_attr_str}\n"
-            result += border
-
-            return result
-        except Exception as e:
-            print(f"Error in __str__ method: {e}")
-            raise
 
     def __del__(self):
         """
@@ -234,19 +118,19 @@ class AcousticField(ABC):
         """
         try:
             logging.getLogger('root').setLevel(logging.ERROR)
-            if self.params['typeSim'] == TypeSim.FIELD2.value:
+            if self.params.acoustic['typeSim'] == TypeSim.FIELD2.value:
                 raise NotImplementedError("FIELD2 simulation is not implemented yet.")
-            elif self.params['typeSim'] == TypeSim.KWAVE.value:
-                if self.params["dim"] == Dim.D2.value:
+            elif self.params.acoustic['typeSim'] == TypeSim.KWAVE.value:
+                if self.params.acoustic["dim"] == Dim.D2.value:
                     try:
                         field = self._generate_acoustic_field_KWAVE_2D(isGpu, show_log)
                     except Exception as e:
                         raise RuntimeError(f"Failed to generate 2D acoustic field: {e}")
                     self.field = calculate_envelope_squared(field)
-                elif self.params["dim"] == Dim.D3.value:
+                elif self.params.acoustic["dim"] == Dim.D3.value:
                     field = self._generate_acoustic_field_KWAVE_3D(isGpu, show_log)
                     self.field = calculate_envelope_squared(field)
-            elif self.params['typeSim'] == TypeSim.HYDRO.value:
+            elif self.params.acoustic['typeSim'] == TypeSim.HYDRO.value:
                 raise ValueError("Cannot generate field for Hydrophone simulation, load exciting acquisitions.")
             else:
                 raise ValueError("Invalid simulation type. Supported types are: FIELD2, KWAVE, HYDRO.")
@@ -285,37 +169,37 @@ class AcousticField(ABC):
             if str(type(formatSave)) != str(AOT_biomaps.AOT_Acoustic.FormatSave):
                     raise ValueError(f"Unsupported file format: {formatSave}. Supported formats are: HDR_IMG, H5, NPY.")
 
-            if self.params['typeSim'] == TypeSim.FIELD2.value:
+            if self.params.acoustic['typeSim'] == TypeSim.FIELD2.value:
                 raise NotImplementedError("FIELD2 simulation is not implemented yet.")
-            elif self.params['typeSim'] == TypeSim.KWAVE.value:
+            elif self.params.acoustic['typeSim'] == TypeSim.KWAVE.value:
                 if formatSave.value == FormatSave.HDR_IMG.value: 
-                    if self.params["dim"] == Dim.D2.value:
+                    if self.params.acoustic["dim"] == Dim.D2.value:
                         self._load_fieldKWAVE_XZ(os.path.join(folderPath,self.getName_field()+formatSave.value))
-                    elif self.params["dim"] == Dim.D3.value:
+                    elif self.params.acoustic["dim"] == Dim.D3.value:
                         raise NotImplementedError("3D KWAVE field loading is not implemented yet.")
                 elif formatSave.value == FormatSave.H5.value:
-                    if self.params["dim"] == Dim.D2.value:
+                    if self.params.acoustic["dim"] == Dim.D2.value:
                          self._load_field_h5(folderPath,nameBlock)
-                    elif self.params["dim"] == Dim.D3.value:
+                    elif self.params.acoustic["dim"] == Dim.D3.value:
                         raise NotImplementedError("H5 KWAVE field loading is not implemented yet.")
                 elif formatSave.value == FormatSave.NPY.value:
-                    if self.params["dim"] == Dim.D2.value:
+                    if self.params.acoustic["dim"] == Dim.D2.value:
                         self.field = np.load(os.path.join(folderPath,self.getName_field()+formatSave.value))
-                    elif self.params["dim"] == Dim.D3.value:
+                    elif self.params.acoustic["dim"] == Dim.D3.value:
                         raise NotImplementedError("3D NPY KWAVE field loading is not implemented yet.")
-            elif self.params['typeSim'] == TypeSim.HYDRO.value:
+            elif self.params.acoustic['typeSim'] == TypeSim.HYDRO.value:
                 print("Loading Hydrophone field...")
                 if formatSave.value == FormatSave.HDR_IMG.value:
                     raise ValueError("HDR_IMG format is not supported for Hydrophone acquisition.")
                 if formatSave.value == FormatSave.H5.value:
-                    if self.params["dim"] == Dim.D2.value:
-                        self.field, self.params['Xrange'], self.params['Zrange'] = self._load_fieldHYDRO_XZ(os.path.join(folderPath, self.getName_field() + '.h5'),  os.path.join(folderPath, "PARAMS_" +self.getName_field() + '.mat'))
-                    elif self.params["dim"] == Dim.D3.value: 
+                    if self.params.acoustic["dim"] == Dim.D2.value:
+                        self.field, self.params.general['Xrange'], self.params.general['Zrange'] = self._load_fieldHYDRO_XZ(os.path.join(folderPath, self.getName_field() + '.h5'),  os.path.join(folderPath, "PARAMS_" +self.getName_field() + '.mat'))
+                    elif self.params.acoustic["dim"] == Dim.D3.value: 
                         self._load_fieldHYDRO_XYZ(os.path.join(folderPath, self.getName_field() + '.h5'),  os.path.join(folderPath, "PARAMS_" +self.getName_field() + '.mat'))
                 elif formatSave.value == FormatSave.NPY.value:
-                    if self.params["dim"] == Dim.D2.value:
+                    if self.params.acoustic["dim"] == Dim.D2.value:
                         self.field = np.load(folderPath)
-                    elif self.params["dim"] == Dim.D3.value:
+                    elif self.params.acoustic["dim"] == Dim.D3.value:
                         raise NotImplementedError("3D NPY Hydrophone field loading is not implemented yet.")
             else:
                 raise ValueError("Invalid simulation type. Supported types are: FIELD2, KWAVE, HYDRO.")
@@ -328,6 +212,183 @@ class AcousticField(ABC):
     def getName_field(self):
         pass
 
+    def _generate_kwave_homogeneous_medium(self):
+        """
+        Génère un milieu k-Wave homogène basé sur les paramètres définis.
+        """
+        # --- 1. Grid setup et respect de Nyquist ---
+        dx = self.params.general['dx']
+        if dx >= self.params.acoustic['probe']['element_width']:
+            dx = self.params.acoustic['probe']['element_width'] / 2
+        # Dimensions physiques → pixels
+        width = self.params.acoustic['medium'].get('width',
+                self.params.general['Xrange'][1] - self.params.general['Xrange'][0])
+        height = self.params.acoustic['medium'].get('height',
+                self.params.general['Zrange'][1] - self.params.general['Zrange'][0])
+        pva_nx = int(np.round(width / dx))
+        pva_nz = int(np.round(height / dx))
+
+        # Ajout des marges d'air si nécessaire
+        air_margin = 20 if self.params.acoustic['medium']['isAirReflection'] else 0
+        Nx, Nz = pva_nx + 2 * air_margin, pva_nz
+
+        x_start = air_margin
+        x_end = x_start + pva_nx
+
+        # --- 2. Initialisation des cartes (air ou PVA) ---
+        c_map = np.full((Nx, Nz), 343.0 if air_margin else self.params.acoustic['medium']['c0'], dtype=np.float32)
+        rho_map = np.full((Nx, Nz), 1.2 if air_margin else self.params.acoustic['medium']['density'], dtype=np.float32)
+        alpha_coeff_map = np.zeros((Nx, Nz), dtype=np.float32)
+        alpha_power_map = np.full((Nx, Nz), 1.05, dtype=np.float32)
+        BonA_map = np.zeros((Nx, Nz), dtype=np.float32)
+
+        # Vitesse du son et densité dans le phantom
+        c_map[x_start:x_end, :] = self.params.acoustic['medium']['c0']
+        rho_map[x_start:x_end, :] = self.params.acoustic['medium']['density']
+
+        # Atténuation et non-linéarité dans le phantom
+        alpha_coeff_map[x_start:x_end, :] = self.params.acoustic['medium']['alpha_coeff']
+        alpha_power_map[x_start:x_end, :] = self.params.acoustic['medium']['alpha_power']
+        BonA_map[x_start:x_end, :] = self.params.acoustic['medium']['BonA']
+
+        # --- 5. Création du milieu k-Wave ---
+        self.medium = kWaveMedium(
+            sound_speed=c_map,
+            density=rho_map,
+            alpha_coeff=alpha_coeff_map,
+            alpha_power=alpha_power_map,
+            BonA=BonA_map,
+            absorbing=True,
+            stokes=False
+        )
+
+        self.kgrid = kWaveGrid([Nx, Nz], [dx, dx])
+        dt = 1/(self.params.acoustic['f_AQ'])
+        self.kgrid.setTime(self.kgrid.Nt, dt)  # Garder Nt constant
+
+        # Saving variable for later use
+        self.factorX = int(np.ceil(self.params.general['dx'] / dx))
+        self.factorZ = self.factorX
+        self.factorT = int(np.ceil((1/self.kgrid.dt) / (self.params.acoustic['f_saving'])))
+        self.c_mean = np.mean(c_map[:, 0])
+        self.Nx_reshaped = Nx
+        self.Nz_reshaped = Nz
+        self.dx_reshaped = dx
+
+    def _generate_kwave_pva_medium(self):
+        """
+        Génère un milieu k-Wave PVA hétérogène avec gestion optionnelle de l'air.
+        - Si isAirReflection=True : l'air entoure le phantom (marges de 20 pixels).
+        - Sinon : le PVA occupe toute la grille.
+        Respecte Nyquist et optimise la VRAM (float32, calculs in-place).
+        """
+        # --- 1. Grid setup et respect de Nyquist ---
+        dx = self.params.general['dx']
+        if dx >= self.params.acoustic['probe']['element_width']:
+            dx = self.params.acoustic['probe']['element_width'] / 2
+        # Dimensions physiques → pixels
+        width = self.params.acoustic['medium'].get('width',
+                self.params.general['Xrange'][1] - self.params.general['Xrange'][0])
+        height = self.params.acoustic['medium'].get('height',
+                self.params.general['Zrange'][1] - self.params.general['Zrange'][0])
+        pva_nx = int(np.round(width / dx))
+        pva_nz = int(np.round(height / dx))
+
+        # Ajout des marges d'air si nécessaire
+        air_margin = 20 if self.params.acoustic['medium']['isAirReflection'] else 0
+        Nx, Nz = pva_nx + 2 * air_margin, pva_nz
+
+        # --- 2. space factors ---
+        self.factorX = int(np.ceil(self.params.general['dx'] / dx))
+        self.factorZ = self.factorX
+
+        # --- 2. Initialisation des cartes (air ou PVA) ---
+        c_map = np.full((Nx, Nz), 343.0 if air_margin else self.params.acoustic['medium']['c0'], dtype=np.float32)
+        self.c_mean = np.mean(c_map[:, 0])
+        rho_map = np.full((Nx, Nz), 1.2 if air_margin else self.params.acoustic['medium']['density'], dtype=np.float32)
+        alpha_coeff_map = np.zeros((Nx, Nz), dtype=np.float32)
+        alpha_power_map = np.full((Nx, Nz), 1.05, dtype=np.float32)
+        BonA_map = np.zeros((Nx, Nz), dtype=np.float32)
+
+        # --- 3. Région du PVA (avec ou sans marge d'air) ---
+        x_start = air_margin
+        x_end = x_start + pva_nx
+
+        # --- 4. Génération des hétérogènesités (uniquement dans le PVA) ---
+        eta = np.random.randn(pva_nx, pva_nz).astype(np.float32) * self.params.acoustic['medium']['noise_lvl']
+        for _ in range(self.params.acoustic['medium']['n_phases']):
+            sigma_val = np.random.uniform(*[s/self.params.general['dx'] for s in self.params.acoustic['medium']['size_structures']])
+            threshold = np.random.uniform(1.2, 2.2)
+            noise_field = gaussian_filter(np.random.randn(pva_nx, pva_nz), sigma=sigma_val)
+            noise_field /= (np.std(noise_field) + 1e-9)
+            mask = 1 / (1 + np.exp(-self.params.acoustic['medium']['grad_coef'] * (noise_field - threshold)))
+
+            zone_offset = np.random.uniform(-self.params.acoustic['medium']['c0_delta'], self.params.acoustic['medium']['c0_delta'])
+            zone_grain = np.random.randn(pva_nx, pva_nz).astype(np.float32) * self.params.acoustic['medium']['scattering_amplitude']
+            eta = (1 - mask) * eta + mask * (zone_offset + zone_grain)
+
+        # --- 5. Propriétés physiques du PVA ---
+        sound_speed_pva = self.params.acoustic['medium']['c0'] * (1 + eta)
+        density_pva = self.params.acoustic['medium']['density'] * (1 + eta)
+        eta_norm = (eta - np.min(eta)) / (np.max(eta) - np.min(eta) + 1e-9)
+        alpha_coeff_pva = 0.4 + 0.3 * eta_norm  # [0.4, 0.7] dB/(MHz^y cm)
+
+        # --- 6. Insertion dans les cartes globales ---
+        c_map[x_start:x_end, :] = sound_speed_pva
+        rho_map[x_start:x_end, :] = density_pva
+        alpha_coeff_map[x_start:x_end, :] = alpha_coeff_pva
+        if not air_margin:  # Si pas d'air, BonA/alpha_power uniformes sur toute la grille
+            alpha_power_map[:, :] = self.params.acoustic['medium'].get('alpha_power', 1.05)
+            BonA_map[:, :] = self.params.acoustic['medium'].get('BonA', 6.0)
+        else:  # Sinon, uniquement dans le PVA
+            alpha_power_map[x_start:x_end, :] = self.params.acoustic['medium'].get('alpha_power', 1.05)
+            BonA_map[x_start:x_end, :] = self.params.acoustic['medium'].get('BonA', 6.0)
+
+        # --- 7. Création du milieu k-Wave ---
+        self.medium = kWaveMedium(
+            sound_speed=c_map,
+            density=rho_map,
+            sound_speed_ref=self.params.acoustic['medium']['c0'],
+            alpha_coeff=alpha_coeff_map,
+            alpha_power=alpha_power_map,
+            BonA=BonA_map,
+            absorbing=True,
+            stokes=False
+        )
+               
+        self.kgrid = kWaveGrid([Nx, Nz], [dx, dx])
+        dt = 1/(self.params.acoustic['f_AQ'])
+        self.kgrid.setTime(self.kgrid.Nt, dt)  # Garder Nt constant
+        self.factorT = int(np.ceil((1/self.kgrid.dt) / (self.params.acoustic['f_saving'])))
+
+    def save_medium(self, filePath):
+        """
+        Save the medium properties to a .mat file.
+
+        Parameters:
+        - filePath (str): The path where the .mat file will be saved.
+        """
+        try:
+            if self.medium is None:
+                raise ValueError("Medium properties are not defined.")
+            dump(self.medium, filePath)
+        except Exception as e:
+            print(f"Error in save_medium method: {e}")
+            raise
+    
+    def load_medium(self, filePath):
+        """
+        Load the medium properties from a .mat file.
+
+        Parameters:
+        - filePath (str): The path from which the .mat file will be loaded.
+        """
+        try:
+            self.medium = load(filePath)
+        except Exception as e:
+            print(f"Error in load_medium method: {e}")
+            raise   
+
     ## DISPLAY METHODS ##
 
     def plot_burst_signal(self):
@@ -335,7 +396,7 @@ class AcousticField(ABC):
         Plot the burst signal used for generating the acoustic field.
         """
         try:
-            time2plot = np.arange(0, len(self.burst)) / self.params['f_AQ'] * 1000000  # Convert to microseconds
+            time2plot = np.arange(0, len(self.burst)) / self.params.acoustic['f_AQ'] * 1000000  # Convert to microseconds
             plt.figure(figsize=(8, 8))
             plt.plot(time2plot, self.burst)
             plt.title('Excitation burst signal')
@@ -385,7 +446,7 @@ class AcousticField(ABC):
             # Initial plot
             im = ax.imshow(
                 self.field[0, :, :],
-                extent=(self.params['Xrange'][0] * 1000, self.params['Xrange'][-1] * 1000, self.params['Zrange'][-1] * 1000, self.params['Zrange'][0] * 1000),
+                extent=(self.params.general['Xrange'][0] * 1000, self.params.general['Xrange'][-1] * 1000, self.params.general['Zrange'][-1] * 1000, self.params.general['Zrange'][0] * 1000),
                 vmin = 1.2*minF,
                 vmax=0.8*maxF,
                 aspect='equal',
@@ -400,7 +461,7 @@ class AcousticField(ABC):
             # Unified update function for all subplots
             def update(frame):
                 im.set_data(self.field[frame, :, :])
-                ax.set_title(f"t = {frame / self.params['f_AQ'] * 1000:.2f} ms", fontsize=10)
+                ax.set_title(f"t = {frame / self.params.acoustic['f_AQ'] * 1000:.2f} ms", fontsize=10)
                 return [im]  # Return a list of artists that were modified
 
             interval = desired_duration_ms / self.field.shape[0]
@@ -470,8 +531,8 @@ class AcousticField(ABC):
 
             plt.figure(figsize=(10, 6))
             plt.imshow(data_to_show.max(axis=0),
-                    extent=(self.params['Xrange'][0] * 1000, self.params['Xrange'][1] * 1000,
-                            self.params['Zrange'][1] * 1000, self.params['Zrange'][0] * 1000),
+                    extent=(self.params.general['Xrange'][0] * 1000, self.params.general['Xrange'][1] * 1000,
+                            self.params.general['Zrange'][1] * 1000, self.params.general['Zrange'][0] * 1000),
                     aspect='equal', cmap='jet', vmin=0, vmax=vmax)
             plt.colorbar(label=f'Envelope Amplitude ({unit_label})')
             plt.title('Maximum Intensity Projection of Acoustic Field Envelope')
@@ -482,15 +543,37 @@ class AcousticField(ABC):
             print(f"Error in show method: {e}")
             raise
 
+    def plot_medium_properties(self):
+
+        vmin_speed = np.min(self.medium.sound_speed)
+        vmax_speed = np.max(self.medium.sound_speed)
+        vmin_density = np.min(self.medium.density)
+        vmax_density = np.max(self.medium.density)
+        extent = [self.params.general['Xrange'][0]*1e3, self.params.general['Xrange'][1]*1e3, self.params.general['Zrange'][1]*1e3, self.params.general['Zrange'][0]*1e3]
+        plt.figure(figsize=(13,6))
+        plt.subplot(121)
+        plt.imshow(self.medium.sound_speed.T, vmin=vmin_speed, vmax=vmax_speed, cmap='autumn', extent=extent)
+        plt.title('Sound speed map (m/s)')
+        plt.xlabel('X (mm)')
+        plt.ylabel('Z (mm)')
+        plt.colorbar()
+        plt.subplot(122)
+        plt.imshow(self.medium.density.T, vmin=vmin_density, vmax=vmax_density, cmap='summer', extent=extent)
+        plt.title('Density map (kg/m^3)')
+        plt.xlabel('X (mm)')
+        plt.ylabel('Z (mm)')
+        plt.colorbar()
+        plt.tight_layout()
+        plt.show()
 
     ## PRIVATE METHODS ##
 
     def _generate_burst_signal(self):
-        if self.params['typeSim'] == TypeSim.FIELD2.value:
+        if self.params.acoustic['typeSim'] == TypeSim.FIELD2.value:
             raise NotImplementedError("FIELD2 simulation is not implemented yet.")
-        elif self.params['typeSim'] == TypeSim.KWAVE.value:
+        elif self.params.acoustic['typeSim'] == TypeSim.KWAVE.value:
             self._generate_burst_signalKWAVE()
-        elif self.params['typeSim'] == TypeSim.HYDRO.value:
+        elif self.params.acoustic['typeSim'] == TypeSim.HYDRO.value:
             raise ValueError("Cannot generate burst signal for Hydrophone simulation.")
 
     def _generate_burst_signalKWAVE(self):
@@ -498,7 +581,7 @@ class AcousticField(ABC):
         Private method to generate a burst signal based on the specified parameters.
         """
         try:
-            self.burst = tone_burst(1/self.kgrid.dt, self.params['f_US'], self.params['num_cycles']).squeeze()
+            self.burst = tone_burst(1/self.kgrid.dt, self.params.acoustic['f_US'], self.params.acoustic['emission']['num_cycles']).squeeze()
         except Exception as e:
             print(f"Error in __generate_burst_signal method: {e}")
             raise
@@ -509,69 +592,15 @@ class AcousticField(ABC):
         Handles common setup, simulation, and post-processing.
         """
         try:
-            # --- 1. Grid setup ---
-            dx = self.params['dx']
-            air_margin = 20 
-            if dx >= self.params['element_width']:
-                dx = self.params['element_width']/2
-                if self.params['width_phantom'] is not None:
-                    pva_nx = int(np.round((self.params['width_phantom'])/dx))
-                    Nx = pva_nx + 2 * air_margin
-                else:
-                    Nx = int(round((self.params['Xrange'][1] - self.params['Xrange'][0]) / dx))
-                if self.params['height_phantom'] is not None:
-                    Nz = int(np.round((self.params['height_phantom'])/dx))  
-                else:
-                    Nz = int(round((self.params['Zrange'][1] - self.params['Zrange'][0]) / dx))
-            else:
-                if self.params['width_phantom'] is not None:
-                    pva_nx  = int(np.round((self.params['width_phantom'])/self.params['dx']))
-                    Nx = pva_nx + 2 * air_margin
-                else:
-                    Nx = int(round((self.params['Xrange'][1] - self.params['Xrange'][0]) / self.params['dx']))
-                if self.params['height_phantom'] is not None:
-                    Nz = int(np.round((self.params['height_phantom'])/self.params['dx']))
-                else:
-                    Nz = int(round((self.params['Zrange'][1] - self.params['Zrange'][0]) / self.params['dx']))
-            
-            Nx_final = int(round((self.params['Xrange'][1] - self.params['Xrange'][0]) / self.params['dx']))
-            Nz_final = int(round((self.params['Zrange'][1] - self.params['Zrange'][0]) / self.params['dx']))
-            # --- 2. space factors ---
-            factorX = int(np.ceil(self.params['dx'] / dx))
-            factorZ = factorX
-
-            # --- 3. Grid and source initialization ---
-            kgrid = kWaveGrid([Nx, Nz], [dx, dx])
-
-            # --- CORRECTIF : Définition du Medium avec hétérogénéité ---
-            # Initialisation en float32 (essentiel pour GPU)
-            c_map = np.full((Nx, Nz), 343.0, dtype=np.float32)  # Air par défaut
-            rho_map = np.full((Nx, Nz), 1.2, dtype=np.float32)
-
-            # Insertion du bloc de PVA
-            x_start = air_margin
-            x_end = air_margin + pva_nx
-            c_map[x_start:x_end, :] = self.params['c0']
-            rho_map[x_start:x_end, :] = self.params.get('density', 1000.0)
-
-            medium = kWaveMedium(sound_speed=c_map, density=rho_map)
-
-            # --- CORRECTIF : Recalcul du pas de temps (CFL) ---
-            # k-Wave a besoin d'un dt basé sur la vitesse MAXIMALE (1540 m/s)
-            c_mean = np.mean(c_map[:, 0]) # mean speed at z=0
-            dt = 1/(self.params['f_AQ'])
-            kgrid.setTime(self.kgrid.Nt, dt)  # Garder Nt constant
-
-            factorT = int(np.ceil((1/dt) / (self.params['f_saving'])))
-
+    
             source = kSource()
-            source.p_mask = np.zeros((Nx, Nz))
+            source.p_mask = np.zeros((self.kgrid. self.Nx_reshaped, self.Nz_reshaped))
             # Appel à la méthode spécialisée
-            source = self._SetUpSource(source, Nx, dt, dx, c_mean,factorT)  # factorT=1 pour simplifier
+            source = self._SetUpSource(source, self.Nx_reshaped, self.kgrid.dt, self.dx_reshaped, self.c_mean,self.factorT)  # factorT=1 pour simplifier
 
             # --- 4. Sensor setup ---
             sensor = kSensor()
-            sensor.mask = np.ones((Nx, Nz))
+            sensor.mask = np.ones((self.Nx_reshaped, self.Nz_reshaped))
 
             # --- 5. PML setup ---
             pml_size = 50 
@@ -597,88 +626,7 @@ class AcousticField(ABC):
 
             # --- 8. Run simulation ---
             sensor_data = kspaceFirstOrder2D(
-                kgrid=kgrid,
-                medium=medium,
-                source=source,
-                sensor=sensor,
-                simulation_options=simulation_options,
-                execution_options=execution_options,
-            )
-
-            # --- 9. Post-process results ---
-            data = sensor_data['p'].reshape(kgrid.Nt, Nz, Nx)
-            if factorT != 1 or factorX != 1 or factorZ != 1:
-                data = reshape_field(data, [factorT, factorX, factorZ])
-                xStart = (Nx//2)//factorX - (Nx_final//2)
-                return data[:, :Nz_final, xStart:xStart+Nx_final]
-            else:
-                return data[:, :Nz_final, xStart:xStart+Nx_final]
-            
-        except Exception as e:
-            print(f"Error generating 2D acoustic field: {e}")
-            return None
-    
-    def _generate_acoustic_field_KWAVE_3D(self, isGPU=True, show_log=True):
-        """
-        Generate a 3D acoustic field using k-Wave.
-        """
-        try:
-            # --- 1. Grid setup (common) ---
-            dx = self.params['dx']
-            if dx >= self.params['element_width']:
-                dx = self.params['element_width'] / 2
-                if self.params['width_phantom'] is not None:
-                    Nx = int(np.round((self.params['width_phantom'])/dx))
-                else:
-                    Nx = int(round((self.params['Xrange'][1] - self.params['Xrange'][0]) / dx))
-                if self.params['height_phantom'] is not None:
-                    Nz = int(np.round((self.params['height_phantom'])/dx))
-                else:
-                    Nz = int(round((self.params['Zrange'][1] - self.params['Zrange'][0]) / dx))
-            else:
-                if self.params['width_phantom'] is not None:
-                    Nx = int(np.round((self.params['width_phantom'])/self.params['dx']))
-                else:
-                    Nx = int(round((self.params['Xrange'][1] - self.params['Xrange'][0]) / self.params['dx']))
-                if self.params['height_phantom'] is not None:
-                    Nz = int(np.round((self.params['height_phantom'])/self.params['dz']))
-                else:
-                    Nz = int(round((self.params['Zrange'][1] - self.params['Zrange'][0]) / self.params['dz']))
-
-            # --- 2. Time and space factors (common) ---
-            factorT = int(np.ceil(self.params['f_AQ'] / self.params['f_saving']))
-            factorX = int(np.ceil(Nx / self.params['Nx']))
-            factorZ = int(np.ceil(Nz / self.params['Nz']))
-
-            kgrid = kWaveGrid([Nx, Nz], [dx, dx])
-            kgrid.setTime(self.kgrid.Nt, 1 / self.params['f_AQ'])
-
-            source = kSource()
-            source.p_mask = np.zeros((self.params['Nx'], self.params['Ny'], self.params['Nz']))
-
-            # Appel à la méthode spécialisée
-            self._SetUpSource(source, self.params['Nx'], self.params['dx'], factorT)  # factorT=1 pour simplifier
-
-            sensor = kSensor()
-            sensor.mask = np.ones((self.params['Nx'], self.params['Ny'], self.params['Nz']))
-
-            simulation_options = SimulationOptions(
-                pml_inside=False,
-                pml_auto=True,
-                use_sg=False,
-                save_to_disk=True,
-                input_filename=os.path.join(gettempdir(), "KwaveIN.h5"),
-                output_filename=os.path.join(gettempdir(), "KwaveOUT.h5")
-            )
-
-            execution_options = SimulationExecutionOptions(
-                is_gpu_simulation=config.get_process() == 'gpu' and isGPU,
-                device_num=config.bestGPU,
-                show_sim_log=show_log
-            )
-
-            sensor_data = kspaceFirstOrder3D(
-                kgrid=kgrid,
+                kgrid=self.kgrid,
                 medium=self.medium,
                 source=source,
                 sensor=sensor,
@@ -686,15 +634,96 @@ class AcousticField(ABC):
                 execution_options=execution_options,
             )
 
-            data = sensor_data['p'].reshape(kgrid.Nt, Nz, Nx)
-            if factorT != 1 or factorX != 1 or factorZ != 1:
-                return reshape_field(data, [factorT, factorX, factorZ])
+            # --- 9. Post-process results ---
+            data = sensor_data['p'].reshape(self.kgrid.Nt, self.Nz_reshaped, self.Nx_reshaped    )
+            if self.factorT != 1 or self.factorX != 1 or self.factorZ != 1:
+                data = reshape_field(data, [self.factorT, self.factorX, self.factorZ])
+                xStart = (self.Nx_reshaped//2)//self.factorX - (self.params.general['Nx']//2)
+                return data[:, :self.params.general['Nx'], xStart:xStart+self.params.general['Nx']]
             else:
-                return data
-
+                return data[:, :self.params.general['Nx'], xStart:xStart+self.params.general['Nx']]
+            
         except Exception as e:
-            print(f"Error generating 3D acoustic field: {e}")
+            print(f"Error generating 2D acoustic field: {e}")
             return None
+    
+    # def _generate_acoustic_field_KWAVE_3D(self, isGPU=True, show_log=True):
+    #     """
+    #     Generate a 3D acoustic field using k-Wave.
+    #     """
+    #     try:
+    #         # --- 1. Grid setup (common) ---
+    #         dx = self.params['dx']
+    #         if dx >= self.params['element_width']:
+    #             dx = self.params['element_width'] / 2
+    #             if self.params['width_phantom'] is not None:
+    #                 Nx = int(np.round((self.params['width_phantom'])/dx))
+    #             else:
+    #                 Nx = int(round((self.params['Xrange'][1] - self.params['Xrange'][0]) / dx))
+    #             if self.params['height_phantom'] is not None:
+    #                 Nz = int(np.round((self.params['height_phantom'])/dx))
+    #             else:
+    #                 Nz = int(round((self.params['Zrange'][1] - self.params['Zrange'][0]) / dx))
+    #         else:
+    #             if self.params['width_phantom'] is not None:
+    #                 Nx = int(np.round((self.params['width_phantom'])/self.params['dx']))
+    #             else:
+    #                 Nx = int(round((self.params['Xrange'][1] - self.params['Xrange'][0]) / self.params['dx']))
+    #             if self.params['height_phantom'] is not None:
+    #                 Nz = int(np.round((self.params['height_phantom'])/self.params['dz']))
+    #             else:
+    #                 Nz = int(round((self.params['Zrange'][1] - self.params['Zrange'][0]) / self.params['dz']))
+
+    #         # --- 2. Time and space factors (common) ---
+    #         factorT = int(np.ceil(self.params['f_AQ'] / self.params['f_saving']))
+    #         factorX = int(np.ceil(Nx / self.params['Nx']))
+    #         factorZ = int(np.ceil(Nz / self.params['Nz']))
+
+    #         kgrid = kWaveGrid([Nx, Nz], [dx, dx])
+    #         kgrid.setTime(self.kgrid.Nt, 1 / self.params['f_AQ'])
+
+    #         source = kSource()
+    #         source.p_mask = np.zeros((self.params['Nx'], self.params['Ny'], self.params['Nz']))
+
+    #         # Appel à la méthode spécialisée
+    #         self._SetUpSource(source, self.params['Nx'], self.params['dx'], factorT)  # factorT=1 pour simplifier
+
+    #         sensor = kSensor()
+    #         sensor.mask = np.ones((self.params['Nx'], self.params['Ny'], self.params['Nz']))
+
+    #         simulation_options = SimulationOptions(
+    #             pml_inside=False,
+    #             pml_auto=True,
+    #             use_sg=False,
+    #             save_to_disk=True,
+    #             input_filename=os.path.join(gettempdir(), "KwaveIN.h5"),
+    #             output_filename=os.path.join(gettempdir(), "KwaveOUT.h5")
+    #         )
+
+    #         execution_options = SimulationExecutionOptions(
+    #             is_gpu_simulation=config.get_process() == 'gpu' and isGPU,
+    #             device_num=config.bestGPU,
+    #             show_sim_log=show_log
+    #         )
+
+    #         sensor_data = kspaceFirstOrder3D(
+    #             kgrid=kgrid,
+    #             medium=self.medium,
+    #             source=source,
+    #             sensor=sensor,
+    #             simulation_options=simulation_options,
+    #             execution_options=execution_options,
+    #         )
+
+    #         data = sensor_data['p'].reshape(kgrid.Nt, Nz, Nx)
+    #         if factorT != 1 or factorX != 1 or factorZ != 1:
+    #             return reshape_field(data, [factorT, factorX, factorZ])
+    #         else:
+    #             return data
+
+    #     except Exception as e:
+    #         print(f"Error generating 3D acoustic field: {e}")
+    #         return None
         
     @abstractmethod
     def _SetUpSource(self, source, Nx, dt, dx, c0, factorT):
@@ -883,8 +912,8 @@ class AcousticField(ABC):
             envelope_transposed = np.transpose(envelope, (2, 0, 1)).T
 
             self.field = envelope_transposed
-            self.params['Xrange'] = x_range
-            self.params['Zrange'] = z_range
+            self.params.general['Xrange'] = x_range
+            self.params.general['Zrange'] = z_range
 
         except Exception as e:
             print(f"Error in _load_fieldHYDRO_XZ method: {e}")
@@ -1023,12 +1052,12 @@ class AcousticField(ABC):
                 for z in range(reorganized_data.shape[2]):
                     EnveloppeField[:, y, z, :] = np.abs(CPU_hilbert(reorganized_data[:, y, z, :], axis=1))
             self.field = np.transpose(EnveloppeField,  (3, 2, 1, 0))
-            self.params['Xrange'] = [x_range[0], x_range[-1]]
-            self.params['Yrange'] = [y_range[0], y_range[-1]]
-            self.params['Zrange'] = [z_range[0], z_range[-1]]
-            self.params['Nx'] = Nx
-            self.params['Ny'] = Ny
-            self.params['Nz'] = Nz
+            self.params.general['Xrange'] = [x_range[0], x_range[-1]]
+            self.params.general['Yrange'] = [y_range[0], y_range[-1]]
+            self.params.general['Zrange'] = [z_range[0], z_range[-1]]
+            self.params.general['Nx'] = Nx
+            self.params.general['Ny'] = Ny
+            self.params.general['Nz'] = Nz
         except Exception as e:
             print(f"Error in _load_fieldHYDRO_XYZ method: {e}")
             raise

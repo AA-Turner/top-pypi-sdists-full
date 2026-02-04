@@ -9,7 +9,7 @@ class SeeqNames:
     class SystemFolderIdentifiers:
         corporate = '__Corporate__'
         users = '__Users__'
-        mine = '__Mine__'
+        my_folder = '__My_Folder__'
     
     class AnalysisViewType:
         trend = 'trend'
@@ -171,6 +171,7 @@ class SeeqNames:
         condition_monitors = 'ConditionMonitors'
         connections = 'Connections'
         data_lab_resources_prefix = 'Data Lab Resources'
+        impact_reports = 'Impact Reports'
         o_data = 'OData'
         screenshot = 'Screenshot'
         signal_monitors = 'SignalMonitors'
@@ -565,6 +566,17 @@ class SeeqNames:
         windows_auth = 'Windows Auth'
     
     class LocalDatasources:
+        class Models:
+            datasource_class = 'Seeq Models'
+            class User:
+                datasource_id = 'User Models'
+                datasource_name = 'User Models'
+            
+            class System:
+                datasource_id = 'System Models'
+                datasource_name = 'System Models'
+            
+        
         class MaterializedTables:
             datasource_class = 'Seeq Materialized Tables'
         
@@ -787,6 +799,7 @@ class SeeqNames:
         class ErrorMessages:
             attempted_to_set_scope_on_a_globally_scoped_item = 'Attempted to set scope on a globally scoped item'
             cancelled_due_to_too_many_retries = 'The request was canceled due to being retried too many times'
+            at_least_one_item_must_belong_to_asset = 'At least one of the items must belong to an asset.'
         
         class AddOnToolLinkType:
             window = 'window'
@@ -1381,6 +1394,7 @@ class SeeqNames:
         navigation_column_id = 'Navigation Column Id'
         is_context_condition = 'Is Context Condition'
         versioned_item_type = 'Versioned Item Type'
+        production_version_number = 'Production Version Number'
         versions = 'Versions'
         inputs = 'Inputs'
         result_type = 'Result Type'

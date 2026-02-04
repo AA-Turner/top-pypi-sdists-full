@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymongo-search-utils
-Version: 0.2.1
+Version: 0.3.0
 Summary: Utility library for working with vector search in MongoDB using PyMongo
 Project-URL: Download, https://github.com/mongodb-labs/pymongo-search-utils/tags
 Project-URL: Homepage, http://pymongo-search-utils.readthedocs.org/

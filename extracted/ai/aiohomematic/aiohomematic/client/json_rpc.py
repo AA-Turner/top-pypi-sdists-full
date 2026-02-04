@@ -128,32 +128,44 @@ from aiohomematic.support import (
 
 _LOGGER: Final = logging.getLogger(__name__)
 
-# Pattern to match unescaped control characters (U+0000 to U+001F) in JSON strings.
+# Pattern to match JSON string values (between quotes, handling escaped quotes).
+# This allows us to sanitize control characters only within string values, not in JSON structure.
+_JSON_STRING_PATTERN: Final = re.compile(r'"(?:[^"\\]|\\.)*"')
+
+# Pattern to match unescaped control characters (U+0000 to U+001F) in strings.
 # These must be escaped as \uXXXX per RFC 8259.
 _CONTROL_CHAR_PATTERN: Final = re.compile(r"[\x00-\x1f]")
 
 
 def _sanitize_json_control_chars(*, data: str) -> str:
     """
-    Escape unescaped control characters in JSON data.
+    Escape unescaped control characters in JSON string values.
 
     The CCU may return JSON with unescaped control characters in string values
     (e.g., device names containing newlines or tabs). This function escapes them
-    to valid JSON unicode escape sequences.
+    to valid JSON unicode escape sequences, but only within quoted strings to
+    preserve structural whitespace (newlines between JSON objects, etc.).
 
     Args:
         data: Raw JSON string that may contain unescaped control characters.
 
     Returns:
-        JSON string with control characters properly escaped.
+        JSON string with control characters properly escaped within string values.
 
     """
 
-    def escape_control_char(match: re.Match[str]) -> str:
-        """Convert control character to unicode escape sequence."""
-        return f"\\u{ord(match.group()):04x}"
+    def escape_control_chars_in_string(match: re.Match[str]) -> str:
+        """Escape control characters within a JSON string value."""
+        string_value = match.group(0)
 
-    return _CONTROL_CHAR_PATTERN.sub(escape_control_char, data)
+        def escape_control_char(char_match: re.Match[str]) -> str:
+            """Convert control character to unicode escape sequence."""
+            return f"\\u{ord(char_match.group()):04x}"
+
+        return _CONTROL_CHAR_PATTERN.sub(escape_control_char, string_value)
+
+    # Replace each JSON string with a sanitized version
+    return _JSON_STRING_PATTERN.sub(escape_control_chars_in_string, data)
 
 
 @unique
@@ -1772,13 +1784,12 @@ class AioJsonRpcAioHttpClient(LogContextMixin):
             return await response.json(encoding=UTF_8)
         except ValueError as verr:
             _LOGGER.debug(
-                "DO_POST: ValueError [%s] Unable to parse JSON. Trying workaround",
+                "DO_POST: ValueError [%s] Unable to parse JSON. Trying around",
                 extract_exc_args(exc=verr),
             )
             # Workaround for bug in CCU: device names may contain unescaped control characters
             raw_data = (await response.read()).decode(encoding=UTF_8)
-            sanitized_data = _sanitize_json_control_chars(data=raw_data)
-            return compat.loads(data=sanitized_data)
+            return compat.loads(data=_sanitize_json_control_chars(data=raw_data))
 
     async def _get_program_descriptions(self) -> Mapping[str, str]:
         """Get all program descriptions from the backend via script."""
@@ -1830,7 +1841,8 @@ class AioJsonRpcAioHttpClient(LogContextMixin):
                 # or an already-parsed dict. Support both.
                 if isinstance(json_result, str):
                     try:
-                        json_result = compat.loads(data=json_result)
+                        # Sanitize control characters before parsing (defense in depth)
+                        json_result = compat.loads(data=_sanitize_json_control_chars(data=json_result))
                     except Exception:
                         # Fall back to plain string handling; return last 10 chars
                         serial_exc = str(json_result)
@@ -1986,7 +1998,9 @@ class AioJsonRpcAioHttpClient(LogContextMixin):
 
         try:
             if not response[_JsonKey.ERROR] and (resp := response[_JsonKey.RESULT]) and isinstance(resp, str):
-                response[_JsonKey.RESULT] = compat.loads(data=resp)
+                # Sanitize control characters before parsing (same workaround as in _get_json_reponse)
+                # ReGa scripts may return JSON with unescaped control characters in device names/values
+                response[_JsonKey.RESULT] = compat.loads(data=_sanitize_json_control_chars(data=resp))
         finally:
             if not keep_session:
                 await self._do_logout(session_id=session_id)

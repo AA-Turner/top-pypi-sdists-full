@@ -16,12 +16,13 @@ from typing_extensions import assert_never
 
 from chalk import DataFrame
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as arrow_pb
+from chalk._gen.chalk.dataframe.v1.dataframe_pb2 import DataFramePlan
 from chalk._gen.chalk.expression.v1 import expression_pb2 as expr_pb
+from chalk._gen.chalk.expression.v1.expression_pb2 import LogicalExprNode
 from chalk._gen.chalk.graph.v1 import graph_pb2 as pb
 from chalk._gen.chalk.graph.v2 import sources_pb2 as sources_pb
 from chalk._gen.chalk.lsp.v1.lsp_pb2 import Location, Position, Range
 from chalk._validation.feature_validation import FeatureValidation
-from chalk.df.LazyFramePlaceholder import LazyFramePlaceholder
 from chalk.features import (
     CacheStrategy,
     Feature,
@@ -1154,10 +1155,11 @@ class ToProtoConverter:
         static_operation_dataframe = None
         if r.static:
             static_operator = static_resolver_to_operator(fqn=r.fqn, fn=r.fn, inputs=r.inputs, output=r.output)
-            if isinstance(static_operator, LazyFramePlaceholder):
-                static_operation_dataframe = static_operator._to_proto()  # pyright: ignore[reportPrivateUsage]
-            else:
-                static_operation = static_operator._to_proto()  # pyright: ignore[reportPrivateUsage]
+            to_proto = static_operator._to_proto()  # pyright: ignore[reportPrivateUsage]
+            if isinstance(to_proto, DataFramePlan):
+                static_operation_dataframe = to_proto
+            elif isinstance(to_proto, LogicalExprNode):  # pyright: ignore[reportUnnecessaryIsInstance]
+                static_operation = to_proto
 
         function_reference_proto = ToProtoConverter.create_function_reference(
             r.fn,

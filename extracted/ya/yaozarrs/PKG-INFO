@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: yaozarrs
-Version: 0.2.0
+Version: 0.2.1
 Summary: Yet another ome-zarr model.
 Project-URL: homepage, https://github.com/tlambert03/yaozarrs
 Project-URL: repository, https://github.com/tlambert03/yaozarrs
@@ -14,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: pydantic-core>=2.20.0; python_version >= '3.13'
@@ -78,7 +79,7 @@ pip install yaozarrs[io]
 
 ## Usage
 
-Here are some things you can do with `yaozarrs`.
+Here are some things you can do with `yaozarrs`. (See also, [API Quick Reference](http://talleylambert.com/yaozarrs/#api-quick-reference) in the docs)
 
 1. [Construct valid ome-zarr JSON documents for creating ome-zarr groups](#construct-valid-ome-zarr-json-documents-for-creating-ome-zarr-groups)
 2. [Validate & load existing JSON documents](#validate--load-existing-json-documents)

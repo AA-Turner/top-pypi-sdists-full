@@ -9,9 +9,11 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.forloop_flow_iterator_type_0 import ForloopFlowIteratorType0
     from ..models.forloop_flow_iterator_type_1 import ForloopFlowIteratorType1
+    from ..models.forloop_flow_iterator_type_2 import ForloopFlowIteratorType2
     from ..models.forloop_flow_modules_item import ForloopFlowModulesItem
     from ..models.forloop_flow_parallelism_type_0 import ForloopFlowParallelismType0
     from ..models.forloop_flow_parallelism_type_1 import ForloopFlowParallelismType1
+    from ..models.forloop_flow_parallelism_type_2 import ForloopFlowParallelismType2
 
 
 T = TypeVar("T", bound="ForloopFlow")
@@ -26,29 +28,35 @@ class ForloopFlow:
         Attributes:
             modules (List['ForloopFlowModulesItem']): Steps to execute for each iteration. These can reference the iteration
                 value via 'flow_input.iter.value'
-            iterator (Union['ForloopFlowIteratorType0', 'ForloopFlowIteratorType1']): Maps input parameters for a step. Can
-                be a static value or a JavaScript expression that references previous results or flow inputs
+            iterator (Union['ForloopFlowIteratorType0', 'ForloopFlowIteratorType1', 'ForloopFlowIteratorType2']): Maps input
+                parameters for a step. Can be a static value or a JavaScript expression that references previous results or flow
+                inputs
             skip_failures (bool): If true, iteration failures don't stop the loop. Failed iterations return null
             type (ForloopFlowType):
             parallel (Union[Unset, bool]): If true, iterations run concurrently (faster for I/O-bound operations). Use with
                 parallelism to control concurrency
-            parallelism (Union['ForloopFlowParallelismType0', 'ForloopFlowParallelismType1', Unset]): Maps input parameters
-                for a step. Can be a static value or a JavaScript expression that references previous results or flow inputs
+            parallelism (Union['ForloopFlowParallelismType0', 'ForloopFlowParallelismType1', 'ForloopFlowParallelismType2',
+                Unset]): Maps input parameters for a step. Can be a static value or a JavaScript expression that references
+                previous results or flow inputs
             squash (Union[Unset, bool]):
     """
 
     modules: List["ForloopFlowModulesItem"]
-    iterator: Union["ForloopFlowIteratorType0", "ForloopFlowIteratorType1"]
+    iterator: Union["ForloopFlowIteratorType0", "ForloopFlowIteratorType1", "ForloopFlowIteratorType2"]
     skip_failures: bool
     type: ForloopFlowType
     parallel: Union[Unset, bool] = UNSET
-    parallelism: Union["ForloopFlowParallelismType0", "ForloopFlowParallelismType1", Unset] = UNSET
+    parallelism: Union[
+        "ForloopFlowParallelismType0", "ForloopFlowParallelismType1", "ForloopFlowParallelismType2", Unset
+    ] = UNSET
     squash: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         from ..models.forloop_flow_iterator_type_0 import ForloopFlowIteratorType0
+        from ..models.forloop_flow_iterator_type_1 import ForloopFlowIteratorType1
         from ..models.forloop_flow_parallelism_type_0 import ForloopFlowParallelismType0
+        from ..models.forloop_flow_parallelism_type_1 import ForloopFlowParallelismType1
 
         modules = []
         for modules_item_data in self.modules:
@@ -59,6 +67,9 @@ class ForloopFlow:
         iterator: Dict[str, Any]
 
         if isinstance(self.iterator, ForloopFlowIteratorType0):
+            iterator = self.iterator.to_dict()
+
+        elif isinstance(self.iterator, ForloopFlowIteratorType1):
             iterator = self.iterator.to_dict()
 
         else:
@@ -73,6 +84,11 @@ class ForloopFlow:
             parallelism = UNSET
 
         elif isinstance(self.parallelism, ForloopFlowParallelismType0):
+            parallelism = UNSET
+            if not isinstance(self.parallelism, Unset):
+                parallelism = self.parallelism.to_dict()
+
+        elif isinstance(self.parallelism, ForloopFlowParallelismType1):
             parallelism = UNSET
             if not isinstance(self.parallelism, Unset):
                 parallelism = self.parallelism.to_dict()
@@ -107,9 +123,11 @@ class ForloopFlow:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.forloop_flow_iterator_type_0 import ForloopFlowIteratorType0
         from ..models.forloop_flow_iterator_type_1 import ForloopFlowIteratorType1
+        from ..models.forloop_flow_iterator_type_2 import ForloopFlowIteratorType2
         from ..models.forloop_flow_modules_item import ForloopFlowModulesItem
         from ..models.forloop_flow_parallelism_type_0 import ForloopFlowParallelismType0
         from ..models.forloop_flow_parallelism_type_1 import ForloopFlowParallelismType1
+        from ..models.forloop_flow_parallelism_type_2 import ForloopFlowParallelismType2
 
         d = src_dict.copy()
         modules = []
@@ -119,7 +137,9 @@ class ForloopFlow:
 
             modules.append(modules_item)
 
-        def _parse_iterator(data: object) -> Union["ForloopFlowIteratorType0", "ForloopFlowIteratorType1"]:
+        def _parse_iterator(
+            data: object,
+        ) -> Union["ForloopFlowIteratorType0", "ForloopFlowIteratorType1", "ForloopFlowIteratorType2"]:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
@@ -128,11 +148,19 @@ class ForloopFlow:
                 return iterator_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                iterator_type_1 = ForloopFlowIteratorType1.from_dict(data)
+
+                return iterator_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            iterator_type_1 = ForloopFlowIteratorType1.from_dict(data)
+            iterator_type_2 = ForloopFlowIteratorType2.from_dict(data)
 
-            return iterator_type_1
+            return iterator_type_2
 
         iterator = _parse_iterator(d.pop("iterator"))
 
@@ -144,7 +172,7 @@ class ForloopFlow:
 
         def _parse_parallelism(
             data: object,
-        ) -> Union["ForloopFlowParallelismType0", "ForloopFlowParallelismType1", Unset]:
+        ) -> Union["ForloopFlowParallelismType0", "ForloopFlowParallelismType1", "ForloopFlowParallelismType2", Unset]:
             if isinstance(data, Unset):
                 return data
             try:
@@ -160,16 +188,29 @@ class ForloopFlow:
                 return parallelism_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _parallelism_type_1 = data
+                parallelism_type_1: Union[Unset, ForloopFlowParallelismType1]
+                if isinstance(_parallelism_type_1, Unset):
+                    parallelism_type_1 = UNSET
+                else:
+                    parallelism_type_1 = ForloopFlowParallelismType1.from_dict(_parallelism_type_1)
+
+                return parallelism_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _parallelism_type_1 = data
-            parallelism_type_1: Union[Unset, ForloopFlowParallelismType1]
-            if isinstance(_parallelism_type_1, Unset):
-                parallelism_type_1 = UNSET
+            _parallelism_type_2 = data
+            parallelism_type_2: Union[Unset, ForloopFlowParallelismType2]
+            if isinstance(_parallelism_type_2, Unset):
+                parallelism_type_2 = UNSET
             else:
-                parallelism_type_1 = ForloopFlowParallelismType1.from_dict(_parallelism_type_1)
+                parallelism_type_2 = ForloopFlowParallelismType2.from_dict(_parallelism_type_2)
 
-            return parallelism_type_1
+            return parallelism_type_2
 
         parallelism = _parse_parallelism(d.pop("parallelism", UNSET))
 

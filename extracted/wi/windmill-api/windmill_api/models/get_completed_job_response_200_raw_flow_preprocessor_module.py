@@ -21,6 +21,9 @@ if TYPE_CHECKING:
     from ..models.get_completed_job_response_200_raw_flow_preprocessor_module_sleep_type_1 import (
         GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType1,
     )
+    from ..models.get_completed_job_response_200_raw_flow_preprocessor_module_sleep_type_2 import (
+        GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType2,
+    )
     from ..models.get_completed_job_response_200_raw_flow_preprocessor_module_stop_after_all_iters_if import (
         GetCompletedJobResponse200RawFlowPreprocessorModuleStopAfterAllItersIf,
     )
@@ -35,6 +38,9 @@ if TYPE_CHECKING:
     )
     from ..models.get_completed_job_response_200_raw_flow_preprocessor_module_timeout_type_1 import (
         GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType1,
+    )
+    from ..models.get_completed_job_response_200_raw_flow_preprocessor_module_timeout_type_2 import (
+        GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType2,
     )
 
 
@@ -56,12 +62,14 @@ class GetCompletedJobResponse200RawFlowPreprocessorModule:
         skip_if (Union[Unset, GetCompletedJobResponse200RawFlowPreprocessorModuleSkipIf]): Conditionally skip this step
             based on previous results or flow inputs
         sleep (Union['GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType0',
-            'GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType1', Unset]): Maps input parameters for a step. Can
+            'GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType1',
+            'GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType2', Unset]): Maps input parameters for a step. Can
             be a static value or a JavaScript expression that references previous results or flow inputs
         cache_ttl (Union[Unset, float]): Cache duration in seconds for this step's results
         cache_ignore_s3_path (Union[Unset, bool]):
         timeout (Union['GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType0',
-            'GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType1', Unset]): Maps input parameters for a step.
+            'GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType1',
+            'GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType2', Unset]): Maps input parameters for a step.
             Can be a static value or a JavaScript expression that references previous results or flow inputs
         delete_after_use (Union[Unset, bool]): If true, this step's result is deleted after use to save memory
         summary (Union[Unset, str]): Short description of what this step does
@@ -85,6 +93,7 @@ class GetCompletedJobResponse200RawFlowPreprocessorModule:
     sleep: Union[
         "GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType0",
         "GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType1",
+        "GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType2",
         Unset,
     ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
@@ -92,6 +101,7 @@ class GetCompletedJobResponse200RawFlowPreprocessorModule:
     timeout: Union[
         "GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType0",
         "GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType1",
+        "GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType2",
         Unset,
     ] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
@@ -107,8 +117,14 @@ class GetCompletedJobResponse200RawFlowPreprocessorModule:
         from ..models.get_completed_job_response_200_raw_flow_preprocessor_module_sleep_type_0 import (
             GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType0,
         )
+        from ..models.get_completed_job_response_200_raw_flow_preprocessor_module_sleep_type_1 import (
+            GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType1,
+        )
         from ..models.get_completed_job_response_200_raw_flow_preprocessor_module_timeout_type_0 import (
             GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType0,
+        )
+        from ..models.get_completed_job_response_200_raw_flow_preprocessor_module_timeout_type_1 import (
+            GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType1,
         )
 
         id = self.id
@@ -134,6 +150,11 @@ class GetCompletedJobResponse200RawFlowPreprocessorModule:
             if not isinstance(self.sleep, Unset):
                 sleep = self.sleep.to_dict()
 
+        elif isinstance(self.sleep, GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType1):
+            sleep = UNSET
+            if not isinstance(self.sleep, Unset):
+                sleep = self.sleep.to_dict()
+
         else:
             sleep = UNSET
             if not isinstance(self.sleep, Unset):
@@ -146,6 +167,11 @@ class GetCompletedJobResponse200RawFlowPreprocessorModule:
             timeout = UNSET
 
         elif isinstance(self.timeout, GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType0):
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
+        elif isinstance(self.timeout, GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType1):
             timeout = UNSET
             if not isinstance(self.timeout, Unset):
                 timeout = self.timeout.to_dict()
@@ -227,6 +253,9 @@ class GetCompletedJobResponse200RawFlowPreprocessorModule:
         from ..models.get_completed_job_response_200_raw_flow_preprocessor_module_sleep_type_1 import (
             GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType1,
         )
+        from ..models.get_completed_job_response_200_raw_flow_preprocessor_module_sleep_type_2 import (
+            GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType2,
+        )
         from ..models.get_completed_job_response_200_raw_flow_preprocessor_module_stop_after_all_iters_if import (
             GetCompletedJobResponse200RawFlowPreprocessorModuleStopAfterAllItersIf,
         )
@@ -241,6 +270,9 @@ class GetCompletedJobResponse200RawFlowPreprocessorModule:
         )
         from ..models.get_completed_job_response_200_raw_flow_preprocessor_module_timeout_type_1 import (
             GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType1,
+        )
+        from ..models.get_completed_job_response_200_raw_flow_preprocessor_module_timeout_type_2 import (
+            GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType2,
         )
 
         d = src_dict.copy()
@@ -276,6 +308,7 @@ class GetCompletedJobResponse200RawFlowPreprocessorModule:
         ) -> Union[
             "GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType0",
             "GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType1",
+            "GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType2",
             Unset,
         ]:
             if isinstance(data, Unset):
@@ -295,16 +328,31 @@ class GetCompletedJobResponse200RawFlowPreprocessorModule:
                 return sleep_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _sleep_type_1 = data
+                sleep_type_1: Union[Unset, GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType1]
+                if isinstance(_sleep_type_1, Unset):
+                    sleep_type_1 = UNSET
+                else:
+                    sleep_type_1 = GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType1.from_dict(
+                        _sleep_type_1
+                    )
+
+                return sleep_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _sleep_type_1 = data
-            sleep_type_1: Union[Unset, GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType1]
-            if isinstance(_sleep_type_1, Unset):
-                sleep_type_1 = UNSET
+            _sleep_type_2 = data
+            sleep_type_2: Union[Unset, GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType2]
+            if isinstance(_sleep_type_2, Unset):
+                sleep_type_2 = UNSET
             else:
-                sleep_type_1 = GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType1.from_dict(_sleep_type_1)
+                sleep_type_2 = GetCompletedJobResponse200RawFlowPreprocessorModuleSleepType2.from_dict(_sleep_type_2)
 
-            return sleep_type_1
+            return sleep_type_2
 
         sleep = _parse_sleep(d.pop("sleep", UNSET))
 
@@ -317,6 +365,7 @@ class GetCompletedJobResponse200RawFlowPreprocessorModule:
         ) -> Union[
             "GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType0",
             "GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType1",
+            "GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType2",
             Unset,
         ]:
             if isinstance(data, Unset):
@@ -336,18 +385,33 @@ class GetCompletedJobResponse200RawFlowPreprocessorModule:
                 return timeout_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _timeout_type_1 = data
+                timeout_type_1: Union[Unset, GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType1]
+                if isinstance(_timeout_type_1, Unset):
+                    timeout_type_1 = UNSET
+                else:
+                    timeout_type_1 = GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType1.from_dict(
+                        _timeout_type_1
+                    )
+
+                return timeout_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _timeout_type_1 = data
-            timeout_type_1: Union[Unset, GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType1]
-            if isinstance(_timeout_type_1, Unset):
-                timeout_type_1 = UNSET
+            _timeout_type_2 = data
+            timeout_type_2: Union[Unset, GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType2]
+            if isinstance(_timeout_type_2, Unset):
+                timeout_type_2 = UNSET
             else:
-                timeout_type_1 = GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType1.from_dict(
-                    _timeout_type_1
+                timeout_type_2 = GetCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType2.from_dict(
+                    _timeout_type_2
                 )
 
-            return timeout_type_1
+            return timeout_type_2
 
         timeout = _parse_timeout(d.pop("timeout", UNSET))
 

@@ -4,7 +4,8 @@ import json
 import os
 import pickle
 import types
-from typing import List, Optional
+from pathlib import Path
+from typing import List, Optional, Union
 
 import pandas as pd
 
@@ -21,13 +22,28 @@ from seeq.spy.workbooks._workbook import Workbook
 from seeq.spy.workbooks.job import _pull
 
 
-@Status.handle_keyboard_interrupt()
-def push(job_folder, *, resume: bool = True, path: str = None, owner: str = None, label: str = None, datasource=None,
-         use_full_path: bool = False, access_control: str = None, override_max_interp: bool = False,
-         global_inventory: Optional[str] = None, create_dummy_items: bool = False,
-         dry_run: bool = False, verbose: bool = False, errors: Optional[str] = None, quiet: Optional[bool] = None,
-         status: Optional[Status] = None, session: Optional[Session] = None,
-         scope_globals_to_workbook: Optional[bool] = None) -> pd.DataFrame:
+@Status.top_level_spy_function()
+def push(
+    job_folder: Union[str, Path],
+    *,
+    resume: bool = True,
+    path: Optional[str] = None,
+    owner: Optional[str] = None,
+    label: Optional[str] = None,
+    datasource: Optional[str] = None,
+    use_full_path: bool = False,
+    access_control: Optional[str] = None,
+    override_max_interp: bool = False,
+    global_inventory: Optional[str] = None,
+    create_dummy_items: bool = False,
+    dry_run: bool = False,
+    verbose: bool = False,
+    errors: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None,
+    scope_globals_to_workbook: Optional[bool] = None
+) -> pd.DataFrame:
     """
     Pushes the definitions for each workbook that was pulled by the
     spy.workbooks.job.pull() function, in a restartable "job"-like fashion.
@@ -179,31 +195,13 @@ def push(job_folder, *, resume: bool = True, path: str = None, owner: str = None
         equivalent of False, 'copy local' is the equivalent of True.
 
     """
+    input_args = locals()
+
     # Jobs always write the log file, even if the user doesn't want verbose
     default_log_file = os.path.join(job_folder, 'push_log.txt')
+    status.validate_verbose(verbose, default_log_file)
 
     function_name = 'spy.workbooks.job.push'
-    input_args = Status.function_prologue(
-        session, status, function_name, [
-            (job_folder, 'job_folder', str),
-            (resume, 'resume', bool),
-            (path, 'path', str),
-            (owner, 'owner', str),
-            (label, 'label', str),
-            (datasource, 'datasource', str),
-            (use_full_path, 'use_full_path', bool),
-            (access_control, 'access_control', str),
-            (override_max_interp, 'override_max_interp', bool),
-            (global_inventory, 'global_inventory', str),
-            (create_dummy_items, 'create_dummy_items', bool),
-            (dry_run, 'dry_run', bool),
-            (errors, 'errors', str),
-            (quiet, 'quiet', bool),
-            (verbose, 'verbose', bool),
-            (status, 'status', Status),
-            (session, 'session', Session),
-            (scope_globals_to_workbook, 'scope_globals_to_workbook', bool)
-        ], default_log_file=default_log_file)
 
     if not util.safe_exists(job_folder):
         raise SPyValueError(f'Job folder "{job_folder}" does not exist.')

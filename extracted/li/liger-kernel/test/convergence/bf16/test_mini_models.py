@@ -22,6 +22,7 @@ from transformers.models.phi3 import Phi3ForCausalLM
 from transformers.models.qwen2 import Qwen2Config
 from transformers.models.qwen2 import Qwen2ForCausalLM
 
+from liger_kernel.transformers import apply_liger_kernel_to_exaone4
 from liger_kernel.transformers import apply_liger_kernel_to_falcon_h1
 from liger_kernel.transformers import apply_liger_kernel_to_gemma
 from liger_kernel.transformers import apply_liger_kernel_to_gemma2
@@ -29,6 +30,7 @@ from liger_kernel.transformers import apply_liger_kernel_to_gemma3_text
 from liger_kernel.transformers import apply_liger_kernel_to_glm4
 from liger_kernel.transformers import apply_liger_kernel_to_glm4v
 from liger_kernel.transformers import apply_liger_kernel_to_glm4v_moe
+from liger_kernel.transformers import apply_liger_kernel_to_gpt_oss
 from liger_kernel.transformers import apply_liger_kernel_to_granite
 from liger_kernel.transformers import apply_liger_kernel_to_hunyuan_v1_dense
 from liger_kernel.transformers import apply_liger_kernel_to_hunyuan_v1_moe
@@ -57,6 +59,7 @@ from test.utils import assert_verbose_allclose
 from test.utils import get_logprobs
 from test.utils import get_topk
 from test.utils import require_deterministic
+from test.utils import revert_liger_kernel_to_exaone4
 from test.utils import revert_liger_kernel_to_falcon_h1
 from test.utils import revert_liger_kernel_to_gemma
 from test.utils import revert_liger_kernel_to_gemma2
@@ -64,6 +67,7 @@ from test.utils import revert_liger_kernel_to_gemma3_text
 from test.utils import revert_liger_kernel_to_glm4
 from test.utils import revert_liger_kernel_to_glm4v
 from test.utils import revert_liger_kernel_to_glm4v_moe
+from test.utils import revert_liger_kernel_to_gpt_oss
 from test.utils import revert_liger_kernel_to_granite
 from test.utils import revert_liger_kernel_to_hunyuan_v1
 from test.utils import revert_liger_kernel_to_hunyuan_v1_moe
@@ -268,6 +272,15 @@ except ImportError:
     FALCONH1_AVAILABLE = False
 
 try:
+    # GPT-OSS is only available in transformers>=4.55.0
+    from transformers.models.gpt_oss.configuration_gpt_oss import GptOssConfig
+    from transformers.models.gpt_oss.modeling_gpt_oss import GptOssForCausalLM
+
+    GPT_OSS_AVAILABLE = True
+except ImportError:
+    GPT_OSS_AVAILABLE = False
+
+try:
     # Qwen3Next is only available in transformers>=4.57.0
     from transformers.models.qwen3_next.configuration_qwen3_next import Qwen3NextConfig
     from transformers.models.qwen3_next.modeling_qwen3_next import Qwen3NextForCausalLM
@@ -285,6 +298,14 @@ try:
     HUNYUAN_V1_AVAILABLE = True
 except ImportError:
     HUNYUAN_V1_AVAILABLE = False
+
+try:
+    from transformers.models.exaone4.configuration_exaone4 import Exaone4Config
+    from transformers.models.exaone4.modeling_exaone4 import Exaone4ForCausalLM
+
+    EXAONE4_AVAILABLE = True
+except ImportError:
+    EXAONE4_AVAILABLE = False
 
 from liger_kernel.utils import infer_device
 
@@ -610,6 +631,43 @@ if QWEN3_AVAILABLE:
             output_router_logits=False,
             router_aux_loss_coef=0.001,
             mlp_only_layers=None,
+        ),
+    )
+
+if GPT_OSS_AVAILABLE:
+    MINI_MODEL_SETUPS["mini_gpt_oss"] = MiniModelConfig(
+        liger_kernel_patch_func=apply_liger_kernel_to_gpt_oss,
+        liger_kernel_patch_revert_func=revert_liger_kernel_to_gpt_oss,
+        model_class=GptOssForCausalLM,
+        mini_model_config=GptOssConfig(
+            vocab_size=32000,  # 201088
+            hidden_size=896,
+            intermediate_size=896,  # Same as hidden_size for GPT-OSS
+            num_hidden_layers=4,
+            num_attention_heads=8,
+            num_key_value_heads=2,
+            head_dim=64,
+            hidden_act="silu",
+            max_position_embeddings=8192,
+            initializer_range=0.02,
+            rms_norm_eps=1e-5,
+            use_cache=True,
+            tie_word_embeddings=False,
+            rope_parameters={
+                "rope_type": "yarn",
+                "factor": 8.0,
+                "beta_fast": 32.0,
+                "beta_slow": 1.0,
+                "truncate": False,
+                "original_max_position_embeddings": 4096,
+            },
+            attention_dropout=0.0,
+            num_local_experts=8,  # Reduced from 32 for mini model
+            num_experts_per_tok=2,  # Reduced from 4 for mini model
+            router_aux_loss_coef=0.9,
+            output_router_logits=False,
+            sliding_window=128,
+            layer_types=["sliding_attention" if bool((i + 1) % 2) else "full_attention" for i in range(4)],
         ),
     )
 
@@ -1420,6 +1478,32 @@ if HUNYUAN_V1_AVAILABLE:
         ),
     )
 
+if EXAONE4_AVAILABLE:
+    MINI_MODEL_SETUPS["mini_exaone4"] = MiniModelConfig(
+        liger_kernel_patch_func=apply_liger_kernel_to_exaone4,
+        liger_kernel_patch_revert_func=revert_liger_kernel_to_exaone4,
+        model_class=Exaone4ForCausalLM,
+        mini_model_config=Exaone4Config(
+            attention_dropout=0.0,
+            bos_token_id=1,
+            eos_token_id=2,
+            hidden_act="silu",
+            hidden_size=896,
+            initializer_range=0.02,
+            intermediate_size=4864,
+            max_position_embeddings=32768,
+            num_attention_heads=8,
+            num_hidden_layers=4,
+            num_key_value_heads=2,
+            rms_norm_eps=1e-5,
+            rope_theta=1000000.0,
+            tie_word_embeddings=True,
+            use_cache=True,
+            vocab_size=32000,
+            attn_implementation="sdpa",
+        ),
+    )
+
 
 def create_model(model_name="mini_llama4"):
     """
@@ -1661,6 +1745,25 @@ def run_mini_model(
                 pytest.mark.skipif(
                     not QWEN3_AVAILABLE,
                     reason="Qwen3 not available in this version of transformers",
+                ),
+            ],
+        ),
+        pytest.param(
+            "mini_gpt_oss",
+            32,
+            1e-5,
+            torch.bfloat16,
+            5e-2,
+            5e-2,
+            1e-1,
+            1e-1,
+            1e-2,
+            1e-2,
+            marks=[
+                pytest.mark.skipif(not supports_bfloat16(), reason="bfloat16 not supported on this GPU"),
+                pytest.mark.skipif(
+                    not GPT_OSS_AVAILABLE,
+                    reason="GPT-OSS not available in this version of transformers",
                 ),
             ],
         ),
@@ -2056,6 +2159,25 @@ def run_mini_model(
                 pytest.mark.skipif(
                     not HUNYUAN_V1_AVAILABLE,
                     reason="Hunyuan_v1_moe not available in this version of transformers",
+                ),
+            ],
+        ),
+        pytest.param(
+            "mini_exaone4",
+            32,
+            1e-5,
+            torch.bfloat16,
+            1e-2,
+            5e-2,
+            1e-1,
+            1e-2,
+            1e-2,
+            1e-2,
+            marks=[
+                pytest.mark.skipif(not supports_bfloat16(), reason="bfloat16 not supported on this GPU"),
+                pytest.mark.skipif(
+                    not EXAONE4_AVAILABLE,
+                    reason="EXAONE4 not available in this version of transformers",
                 ),
             ],
         ),

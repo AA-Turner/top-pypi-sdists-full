@@ -15,6 +15,9 @@ if TYPE_CHECKING:
     from ..models.get_flow_version_response_200_value_modules_item_suspend_user_groups_required_type_1 import (
         GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType1,
     )
+    from ..models.get_flow_version_response_200_value_modules_item_suspend_user_groups_required_type_2 import (
+        GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType2,
+    )
 
 
 T = TypeVar("T", bound="GetFlowVersionResponse200ValueModulesItemSuspend")
@@ -31,7 +34,8 @@ class GetFlowVersionResponse200ValueModulesItemSuspend:
             collecting input when resuming
         user_auth_required (Union[Unset, bool]): If true, only authenticated users can approve
         user_groups_required (Union['GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType0',
-            'GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType1', Unset]): Maps input parameters for a
+            'GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType1',
+            'GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType2', Unset]): Maps input parameters for a
             step. Can be a static value or a JavaScript expression that references previous results or flow inputs
         self_approval_disabled (Union[Unset, bool]): If true, the user who started the flow cannot approve
         hide_cancel (Union[Unset, bool]): If true, hide the cancel button on the approval form
@@ -45,6 +49,7 @@ class GetFlowVersionResponse200ValueModulesItemSuspend:
     user_groups_required: Union[
         "GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType0",
         "GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType1",
+        "GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType2",
         Unset,
     ] = UNSET
     self_approval_disabled: Union[Unset, bool] = UNSET
@@ -55,6 +60,9 @@ class GetFlowVersionResponse200ValueModulesItemSuspend:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.get_flow_version_response_200_value_modules_item_suspend_user_groups_required_type_0 import (
             GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType0,
+        )
+        from ..models.get_flow_version_response_200_value_modules_item_suspend_user_groups_required_type_1 import (
+            GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType1,
         )
 
         required_events = self.required_events
@@ -70,6 +78,13 @@ class GetFlowVersionResponse200ValueModulesItemSuspend:
 
         elif isinstance(
             self.user_groups_required, GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType0
+        ):
+            user_groups_required = UNSET
+            if not isinstance(self.user_groups_required, Unset):
+                user_groups_required = self.user_groups_required.to_dict()
+
+        elif isinstance(
+            self.user_groups_required, GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType1
         ):
             user_groups_required = UNSET
             if not isinstance(self.user_groups_required, Unset):
@@ -117,6 +132,9 @@ class GetFlowVersionResponse200ValueModulesItemSuspend:
         from ..models.get_flow_version_response_200_value_modules_item_suspend_user_groups_required_type_1 import (
             GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType1,
         )
+        from ..models.get_flow_version_response_200_value_modules_item_suspend_user_groups_required_type_2 import (
+            GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType2,
+        )
 
         d = src_dict.copy()
         required_events = d.pop("required_events", UNSET)
@@ -137,6 +155,7 @@ class GetFlowVersionResponse200ValueModulesItemSuspend:
         ) -> Union[
             "GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType0",
             "GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType1",
+            "GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType2",
             Unset,
         ]:
             if isinstance(data, Unset):
@@ -160,22 +179,41 @@ class GetFlowVersionResponse200ValueModulesItemSuspend:
                 return user_groups_required_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _user_groups_required_type_1 = data
+                user_groups_required_type_1: Union[
+                    Unset, GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType1
+                ]
+                if isinstance(_user_groups_required_type_1, Unset):
+                    user_groups_required_type_1 = UNSET
+                else:
+                    user_groups_required_type_1 = (
+                        GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType1.from_dict(
+                            _user_groups_required_type_1
+                        )
+                    )
+
+                return user_groups_required_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _user_groups_required_type_1 = data
-            user_groups_required_type_1: Union[
-                Unset, GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType1
+            _user_groups_required_type_2 = data
+            user_groups_required_type_2: Union[
+                Unset, GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType2
             ]
-            if isinstance(_user_groups_required_type_1, Unset):
-                user_groups_required_type_1 = UNSET
+            if isinstance(_user_groups_required_type_2, Unset):
+                user_groups_required_type_2 = UNSET
             else:
-                user_groups_required_type_1 = (
-                    GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType1.from_dict(
-                        _user_groups_required_type_1
+                user_groups_required_type_2 = (
+                    GetFlowVersionResponse200ValueModulesItemSuspendUserGroupsRequiredType2.from_dict(
+                        _user_groups_required_type_2
                     )
                 )
 
-            return user_groups_required_type_1
+            return user_groups_required_type_2
 
         user_groups_required = _parse_user_groups_required(d.pop("user_groups_required", UNSET))
 

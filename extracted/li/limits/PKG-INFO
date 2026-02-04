@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: limits
-Version: 5.6.0
+Version: 5.7.0
 Summary: Rate limiting utilities
 Project-URL: Homepage, https://limits.readthedocs.org
 Project-URL: Source, https://github.com/alisaifee/limits
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
@@ -38,7 +39,7 @@ Requires-Dist: pymemcache<5.0.0,>3; extra == 'memcached'
 Provides-Extra: mongodb
 Requires-Dist: pymongo<5,>4.1; extra == 'mongodb'
 Provides-Extra: redis
-Requires-Dist: redis!=4.5.2,!=4.5.3,<7.0.0,>3; extra == 'redis'
+Requires-Dist: redis!=4.5.2,!=4.5.3,<8.0.0,>3; extra == 'redis'
 Provides-Extra: rediscluster
 Requires-Dist: redis!=4.5.2,!=4.5.3,>=4.2.0; extra == 'rediscluster'
 Provides-Extra: valkey

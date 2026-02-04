@@ -24,13 +24,15 @@ def get_default_dependencies():
         return [
             "torch>=2.6.0",
         ]
+    elif platform == "npu":
+        return ["torch_npu==2.7.1", "triton-ascend"]
 
 
 def get_optional_dependencies():
     """Get optional dependency groups."""
     return {
         "dev": [
-            "transformers>=4.49.0",
+            "transformers>=4.49.0, <5.0.0",
             "matplotlib>=3.7.2",
             "ruff>=0.12.0",
             "pytest>=7.1.2",
@@ -42,6 +44,7 @@ def get_optional_dependencies():
             "seaborn",
             "mkdocs-material",
             "torchvision>=0.20",
+            "prek>=0.2.28",
         ]
     }
 
@@ -67,7 +70,21 @@ def is_xpu_available():
     return False
 
 
-def get_platform() -> Literal["cuda", "rocm", "cpu", "xpu"]:
+def is_ascend_available() -> bool:
+    """Best-effort Ascend detection.
+
+    Checks for common Ascend environment variables and a possible `npu-smi`
+    utility if present.
+    """
+    try:
+        subprocess.run(["npu-smi", "info"], check=True)
+        return True
+    except (subprocess.SubprocessError, FileNotFoundError):
+        pass
+    return False
+
+
+def get_platform() -> Literal["cuda", "rocm", "cpu", "xpu", "npu"]:
     """
     Detect whether the system has NVIDIA or AMD GPU without torch dependency.
     """
@@ -86,6 +103,9 @@ def get_platform() -> Literal["cuda", "rocm", "cpu", "xpu"]:
             if is_xpu_available():
                 print("Intel GPU detected")
                 return "xpu"
+            elif is_ascend_available():
+                print("Ascend NPU detected")
+                return "npu"
             else:
                 print("No GPU detected")
                 return "cpu"

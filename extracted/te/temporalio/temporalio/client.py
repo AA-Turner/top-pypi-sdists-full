@@ -28,14 +28,7 @@ from enum import Enum, IntEnum
 from typing import (
     Any,
     Concatenate,
-    Dict,
-    FrozenSet,
     Generic,
-    Optional,
-    Text,
-    Tuple,
-    Type,
-    Union,
     cast,
     overload,
 )
@@ -205,7 +198,9 @@ class Client:
             http_connect_proxy_config=http_connect_proxy_config,
         )
 
-        def make_lambda(plugin, next):
+        def make_lambda(
+            plugin: Plugin, next: Callable[[ConnectConfig], Awaitable[ServiceClient]]
+        ):
             return lambda config: plugin.connect_service_client(config, next)
 
         next_function = ServiceClient.connect
@@ -1099,9 +1094,6 @@ class Client:
         means that the call will not return successfully until the update has been
         delivered to a worker.
 
-        .. warning::
-           This API is experimental
-
         Args:
             update: Update function or name on the workflow. arg: Single argument to the
                 update.
@@ -1436,8 +1428,8 @@ class Client:
 
         For more on this feature, see https://docs.temporal.io/workers#worker-versioning
 
-        .. warning::
-           This API is experimental
+        .. deprecated::
+            Legacy API, see the docs above for new usage
 
         Args:
             task_queue: The task queue to target.
@@ -1466,8 +1458,8 @@ class Client:
 
         For more on this feature, see https://docs.temporal.io/workers#worker-versioning
 
-        .. warning::
-           This API is experimental
+        .. deprecated::
+            Legacy API, see the docs above for new usage
 
         Args:
             task_queue: The task queue to target.
@@ -1498,8 +1490,8 @@ class Client:
 
         For more on this feature, see https://docs.temporal.io/workers#worker-versioning
 
-        .. warning::
-           This API is experimental
+        .. deprecated::
+            Legacy API, see the docs above for new usage
 
         Args:
             build_ids: The Build IDs to query the reachability of. At least one must be specified.
@@ -2982,10 +2974,7 @@ class WorkflowExecution:
         Returns:
             Mapping of all memo keys and they values without type hints.
         """
-        return {
-            k: (await self.data_converter.decode([v]))[0]
-            for k, v in self.raw_info.memo.fields.items()
-        }
+        return await self.data_converter._decode_memo(self.raw_info.memo)
 
     @overload
     async def memo_value(
@@ -3024,16 +3013,9 @@ class WorkflowExecution:
         Raises:
             KeyError: Key not present and default not set.
         """
-        payload = self.raw_info.memo.fields.get(key)
-        if not payload:
-            if default is temporalio.common._arg_unset:
-                raise KeyError(f"Memo does not have a value for key {key}")
-            return default
-        return (
-            await self.data_converter.decode(
-                [payload], [type_hint] if type_hint else None
-            )
-        )[0]
+        return await self.data_converter._decode_memo_field(
+            self.raw_info.memo, key, default, type_hint
+        )
 
 
 @dataclass
@@ -3397,7 +3379,7 @@ class WorkflowHistoryEventAsyncIterator:
         """Token for the next page request if any."""
         return self._next_page_token
 
-    async def fetch_next_page(self, *, page_size: int | None = None) -> None:
+    async def fetch_next_page(self, *, page_size: int | None = None) -> None:  # type:ignore[reportUnusedParameter] # https://github.com/temporalio/sdk-python/issues/1239
         """Fetch the next page if any.
 
         Args:
@@ -4148,7 +4130,7 @@ class ScheduleActionStartWorkflow(ScheduleAction):
                     raise ValueError("Cannot schedule dynamic workflow explicitly")
                 workflow = defn.name
             elif not isinstance(workflow, str):
-                raise TypeError("Workflow must be a string or callable")
+                raise TypeError("Workflow must be a string or callable")  # type:ignore[reportUnreachable]
             self.workflow = workflow
             self.args = temporalio.common._arg_or_args(arg, args)
             self.id = id
@@ -4214,18 +4196,9 @@ class ScheduleActionStartWorkflow(ScheduleAction):
                 workflow_run_timeout=run_timeout,
                 workflow_task_timeout=task_timeout,
                 retry_policy=retry_policy,
-                memo=(
-                    temporalio.api.common.v1.Memo(
-                        fields={
-                            k: v
-                            if isinstance(v, temporalio.api.common.v1.Payload)
-                            else (await data_converter.encode([v]))[0]
-                            for k, v in self.memo.items()
-                        },
-                    )
-                    if self.memo
-                    else None
-                ),
+                memo=await data_converter._encode_memo(self.memo)
+                if self.memo
+                else None,
                 user_metadata=await _encode_user_metadata(
                     data_converter, self.static_summary, self.static_details
                 ),
@@ -4254,7 +4227,7 @@ class ScheduleActionStartWorkflow(ScheduleAction):
                 client.config(active_config=True)["header_codec_behavior"]
                 == HeaderCodecBehavior.CODEC
                 and not self._from_raw,
-                client.data_converter.payload_codec,
+                client.data_converter,
             )
         return action
 
@@ -4526,10 +4499,7 @@ class ScheduleDescription:
         Returns:
             Mapping of all memo keys and they values without type hints.
         """
-        return {
-            k: (await self.data_converter.decode([v]))[0]
-            for k, v in self.raw_description.memo.fields.items()
-        }
+        return await self.data_converter._decode_memo(self.raw_description.memo)
 
     @overload
     async def memo_value(
@@ -4568,16 +4538,9 @@ class ScheduleDescription:
         Raises:
             KeyError: Key not present and default not set.
         """
-        payload = self.raw_description.memo.fields.get(key)
-        if not payload:
-            if default is temporalio.common._arg_unset:
-                raise KeyError(f"Memo does not have a value for key {key}")
-            return default
-        return (
-            await self.data_converter.decode(
-                [payload], [type_hint] if type_hint else None
-            )
-        )[0]
+        return await self.data_converter._decode_memo_field(
+            self.raw_description.memo, key, default, type_hint
+        )
 
 
 @dataclass
@@ -4775,10 +4738,7 @@ class ScheduleListDescription:
         Returns:
             Mapping of all memo keys and they values without type hints.
         """
-        return {
-            k: (await self.data_converter.decode([v]))[0]
-            for k, v in self.raw_entry.memo.fields.items()
-        }
+        return await self.data_converter._decode_memo(self.raw_entry.memo)
 
     @overload
     async def memo_value(
@@ -4817,16 +4777,9 @@ class ScheduleListDescription:
         Raises:
             KeyError: Key not present and default not set.
         """
-        payload = self.raw_entry.memo.fields.get(key)
-        if not payload:
-            if default is temporalio.common._arg_unset:
-                raise KeyError(f"Memo does not have a value for key {key}")
-            return default
-        return (
-            await self.data_converter.decode(
-                [payload], [type_hint] if type_hint else None
-            )
-        )[0]
+        return await self.data_converter._decode_memo_field(
+            self.raw_entry.memo, key, default, type_hint
+        )
 
 
 @dataclass
@@ -6019,8 +5972,7 @@ class _ClientImpl(OutboundInterceptor):
             input.retry_policy.apply_to_proto(req.retry_policy)
         req.cron_schedule = input.cron_schedule
         if input.memo is not None:
-            for k, v in input.memo.items():
-                req.memo.fields[k].CopyFrom((await data_converter.encode([v]))[0])
+            await data_converter._encode_memo_existing(input.memo, req.memo)
         if input.search_attributes is not None:
             temporalio.converter.encode_search_attributes(
                 input.search_attributes, req.search_attributes
@@ -6032,9 +5984,9 @@ class _ClientImpl(OutboundInterceptor):
             req.user_metadata.CopyFrom(metadata)
         if input.start_delay is not None:
             req.workflow_start_delay.FromTimedelta(input.start_delay)
-        if input.headers is not None:
+        if input.headers is not None:  # type:ignore[reportUnnecessaryComparison]
             await self._apply_headers(input.headers, req.header.fields)
-        if input.priority is not None:
+        if input.priority is not None:  # type:ignore[reportUnnecessaryComparison]
             req.priority.CopyFrom(input.priority._to_proto())
         if input.versioning_override is not None:
             req.versioning_override.CopyFrom(input.versioning_override._to_proto())
@@ -6130,7 +6082,7 @@ class _ClientImpl(OutboundInterceptor):
             req.query.query_args.payloads.extend(
                 await data_converter.encode(input.args)
             )
-        if input.headers is not None:
+        if input.headers is not None:  # type:ignore[reportUnnecessaryComparison]
             await self._apply_headers(input.headers, req.query.header.fields)
         try:
             resp = await self._client.workflow_service.query_workflow(
@@ -6178,7 +6130,7 @@ class _ClientImpl(OutboundInterceptor):
         )
         if input.args:
             req.input.payloads.extend(await data_converter.encode(input.args))
-        if input.headers is not None:
+        if input.headers is not None:  # type:ignore[reportUnnecessaryComparison]
             await self._apply_headers(input.headers, req.header.fields)
         await self._client.workflow_service.signal_workflow_execution(
             req, retry=True, metadata=input.rpc_metadata, timeout=input.rpc_timeout
@@ -6299,7 +6251,7 @@ class _ClientImpl(OutboundInterceptor):
             req.request.input.args.payloads.extend(
                 await data_converter.encode(input.args)
             )
-        if input.headers is not None:
+        if input.headers is not None:  # type:ignore[reportUnnecessaryComparison]
             await self._apply_headers(input.headers, req.request.input.header.fields)
         return req
 
@@ -6646,14 +6598,9 @@ class _ClientImpl(OutboundInterceptor):
                 initial_patch=initial_patch,
                 identity=self._client.identity,
                 request_id=str(uuid.uuid4()),
-                memo=None
-                if not input.memo
-                else temporalio.api.common.v1.Memo(
-                    fields={
-                        k: (await self._client.data_converter.encode([v]))[0]
-                        for k, v in input.memo.items()
-                    },
-                ),
+                memo=await self._client.data_converter._encode_memo(input.memo)
+                if input.memo
+                else None,
             )
             if input.search_attributes:
                 temporalio.converter.encode_search_attributes(
@@ -6875,7 +6822,7 @@ class _ClientImpl(OutboundInterceptor):
             dest,
             self._client.config(active_config=True)["header_codec_behavior"]
             == HeaderCodecBehavior.CODEC,
-            self._client.data_converter.payload_codec,
+            self._client.data_converter,
         )
 
 
@@ -6883,14 +6830,13 @@ async def _apply_headers(
     source: Mapping[str, temporalio.api.common.v1.Payload] | None,
     dest: MessageMap[str, temporalio.api.common.v1.Payload],
     encode_headers: bool,
-    codec: temporalio.converter.PayloadCodec | None,
+    data_converter: DataConverter,
 ) -> None:
     if source is None:
         return
-    if encode_headers and codec is not None:
+    if encode_headers and data_converter._encode_payload_has_effect:
         for payload in source.values():
-            new_payload = (await codec.encode([payload]))[0]
-            payload.CopyFrom(new_payload)
+            payload.CopyFrom(await data_converter._encode_payload(payload))
     temporalio.common._apply_headers(source, dest)
 
 

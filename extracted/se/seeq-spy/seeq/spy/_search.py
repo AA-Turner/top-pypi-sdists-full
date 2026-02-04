@@ -163,14 +163,26 @@ class SearchByIDHelper:
             self.page[self.current_index] = items.get(self.queries[self.current_index]['ID'])
 
 
-@Status.handle_keyboard_interrupt()
-def search(query, *, all_properties=False, include_properties: List[str] = None,
-           workbook: Optional[str] = _common.DEFAULT_WORKBOOK_PATH, recursive: bool = True,
-           ignore_unindexed_properties: bool = True, include_archived: bool = False,
-           include_swappable_assets: bool = False, estimate_sample_period: Optional[dict] = None,
-           old_asset_format: bool = None, order_by: Union[str, List[str]] = None,
-           limit: Optional[int] = USE_DEFAULT_LIMIT, errors: str = None, quiet: bool = None, status: Status = None,
-           session: Optional[Session] = None) -> pd.DataFrame:
+@Status.top_level_spy_function()
+def search(
+    query: Union[str, dict, list, pd.DataFrame, pd.Series],
+    *,
+    all_properties: bool = False,
+    include_properties: Optional[List[str]] = None,
+    workbook: Optional[str] = _common.DEFAULT_WORKBOOK_PATH,
+    recursive: Optional[bool] = True,
+    ignore_unindexed_properties: Optional[bool] = True,
+    include_archived: Optional[bool] = False,
+    include_swappable_assets: Optional[bool] = False,
+    estimate_sample_period: Optional[dict] = None,
+    old_asset_format: Optional[bool] = None,
+    order_by: Optional[Union[str, List[str]]] = None,
+    limit: Optional[int] = USE_DEFAULT_LIMIT,
+    errors: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None
+) -> pd.DataFrame:
     """
     Issues a query to the Seeq Server to retrieve metadata for signals,
     conditions, scalars and assets. This metadata can then be used to retrieve
@@ -386,26 +398,7 @@ def search(query, *, all_properties=False, include_properties: List[str] = None,
     >>> 'https://seeq.com/workbook/17F31703-F0B6-4C8E-B7FD-E20897BD4819/worksheet/CE6A0B92-EE00-45FC-9EB3-D162632DBB48')
 
     """
-    input_args = _common.validate_argument_types([
-        (query, 'query', (str, dict, list, pd.DataFrame, pd.Series)),
-        (all_properties, 'all_properties', bool),
-        (include_properties, 'include_properties', list),
-        (workbook, 'workbook', str),
-        (recursive, 'recursive', bool),
-        (ignore_unindexed_properties, 'ignore_unindexed_properties', bool),
-        (include_archived, 'include_archived', bool),
-        (estimate_sample_period, 'estimate_sample_period', dict),
-        (include_swappable_assets, 'include_swappable_assets', bool),
-        (old_asset_format, 'old_asset_format', bool),
-        (order_by, 'order_by', (str, list)),
-        (limit, 'limit', int),
-        (quiet, 'quiet', bool),
-        (errors, 'errors', str),
-        (status, 'status', Status),
-        (session, 'session', Session)
-    ])
-
-    _login.validate_login(session, status)
+    input_args = locals()
 
     if all_properties:
         if include_properties is not None:

@@ -3,7 +3,7 @@ Main interface for marketplace-catalog service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_catalog/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

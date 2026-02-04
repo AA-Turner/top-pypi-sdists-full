@@ -1,4 +1,3 @@
-from copy import copy
 import sys
 
 from adam.checks.check_result import CheckResult
@@ -14,13 +13,12 @@ from adam.config import Config
 from adam.utils_cassandra.cassandra_status import CassandraStatus
 from adam.utils_context import Context
 from adam.utils_issues import IssuesUtils
-from adam.utils_k8s.statefulsets import StatefulSets
 from adam.repl_state import ReplState, RequiredState
 from adam.utils import SORT, Color, offload, log_exc
 from adam.utils_tabulize import tabulize
 
 class ShowCassandraStatus(Command):
-    COMMAND = 'show cassandra status'
+    COMMAND = 'show status'
 
     # the singleton pattern
     def __new__(cls, *args, **kwargs):
@@ -75,49 +73,11 @@ class ShowCassandraStatus(Command):
                 self.show_table(status, check_results, ctx=ctx)
 
     def merge(self, state: ReplState, samples: int, ctx: Context = Context.NULL):
-        # statuses: list[list[dict]] = []
-
-        # with cassandra(state) as pods:
-        #     pod_names = pods.pod_names()
-        #     pod_names_left = copy(pod_names)
-
-        #     s = min(len(pod_names), max(samples * 3, int(len(pod_names) / 3)))
-
-        #     pns = pod_names_left[:s]
-        #     pod_names_left = pod_names_left[s:]
-
-        #     while samples and pns:
-        #         rs = pods.nodetool('status', status=True, pods=pns, ctx=ctx.copy(background=False, show_out=False))
-        #         for r in rs:
-        #             status = NodeTools.parse_nodetool_status(r.stdout)
-        #             if status:
-        #                 statuses.append(status)
-        #                 samples -= 1
-
-        #         if s < len(pod_names_left):
-        #             pns = pod_names_left[:s]
-        #             pod_names_left = pod_names_left[s:]
-        #         else:
-        #             pns = pod_names_left
-        #             pod_names_left = []
-
-        # pod_names = StatefulSets.pod_names(state.sts, state.namespace)
-        # for pod_name in pod_names:
-        #     pod_name = pod_name.split('(')[0]
-
-        #     with log_exc(True):
-        #         with cassandra(state, pod=pod_name) as pods:
-        #             result = pods.nodetool('status', ctx=ctx.copy(background=False, show_out=False))
-        #             status = NodeTools.parse_nodetool_status(result.stdout)
-        #             if status:
-        #                 statuses.append(status)
-        #             if samples <= len(statuses) and len(pod_names) != len(statuses):
-        #                 break
-
         combined_status, samples, nodes = CassandraStatus.merged_nodetool_status(state)
         ctx.log2(f'Showing merged status from {samples}/{nodes} nodes...', text_color=Color.gray)
-        check_results = run_checks(cluster=state.sts, namespace=state.namespace, checks=[CompactionStats(), Gossip()], ctx=ctx.copy(background=False, show_out=False))
-        self.show_table(combined_status, check_results, ctx=ctx)
+        # remove compaction stats and gossip for faster return
+        # check_results = run_checks(cluster=state.sts, namespace=state.namespace, checks=[CompactionStats(), Gossip()], ctx=ctx.copy(background=False, show_out=False))
+        self.show_table(combined_status, [], ctx=ctx)
 
         return combined_status
 
@@ -139,8 +99,11 @@ class ShowCassandraStatus(Command):
         return combined
 
     def show_table(self, status: list[dict[str, any]], check_results: list[CheckResult], ctx: Context = Context.NULL):
-        cols = Config().get('status.columns', 'status,address,load,tokens,owns,host_id,gossip,compactions')
-        header = Config().get('status.header', '--,Address,Load,Tokens,Owns,Host ID,GOSSIP,COMPACTIONS')
+        cols = Config().get('status.columns', 'status,address,load,tokens,owns,host_id')
+        header = Config().get('status.header', '--,Address,Load,Tokens,Owns,Host ID')
+        # remove compaction stats and gossip for faster return
+        # cols = Config().get('status.columns', 'status,address,load,tokens,owns,host_id,gossip,compactions')
+        # header = Config().get('status.header', '--,Address,Load,Tokens,Owns,Host ID,GOSSIP,COMPACTIONS')
         columns = Columns.create_columns(cols)
 
         tabulize(status,
@@ -150,4 +113,5 @@ class ShowCassandraStatus(Command):
                  sorted=SORT,
                  ctx=ctx)
 
-        IssuesUtils.show(check_results, ctx=ctx)
+        # remove compaction stats and gossip for faster return
+        # IssuesUtils.show(check_results, ctx=ctx)

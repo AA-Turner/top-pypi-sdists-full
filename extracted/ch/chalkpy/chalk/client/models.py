@@ -454,6 +454,8 @@ class ExchangeCredentialsResponse(BaseModel):
     api_server: str
     primary_environment: Optional[str] = None
     engines: Optional[Mapping[str, str]] = None
+    grpc_engines: Optional[Mapping[str, str]] = None
+    environment_id_to_name: Optional[Mapping[str, str]] = None
 
 
 class OfflineQueryInput(BaseModel):

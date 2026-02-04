@@ -6,7 +6,6 @@ import traceback
 
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils_cassandra.cassandra_status import CassandraStatus
 from adam.utils_cassandra.node_restartability import NodeRestartability
 from adam.utils_context import Context
 from adam.utils_k8s.pods import Pods
@@ -95,7 +94,7 @@ class NodeScheduler:
                         if in_restartings:
                             ir = f', in_restarting:[{", ".join([f"{r[0]}@{r[1]}" for r in in_restartings])}]'
 
-                        node: NodeRestartability = CassandraStatus.restartable(state.with_namespace(namespace), pod, in_restartings=in_restartings, ctx=ctx.copy(show_out=False, background=False))
+                        node: NodeRestartability = NodeRestartability.probe(state.with_namespace(namespace), pod, in_restartings=in_restartings, ctx=ctx.copy(show_out=False, background=False))
                         if node.restartable():
                             ctx.log2(f'[{ts()}] Restarting {pod}@{namespace}{ir}.')
                             NodeScheduler.restart_node(pod, namespace, ctx)

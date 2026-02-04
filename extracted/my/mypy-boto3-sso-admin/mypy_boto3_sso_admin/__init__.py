@@ -3,7 +3,7 @@ Main interface for sso-admin service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sso_admin/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -29,6 +29,7 @@ Usage::
         ListPermissionSetProvisioningStatusPaginator,
         ListPermissionSetsPaginator,
         ListPermissionSetsProvisionedToAccountPaginator,
+        ListRegionsPaginator,
         ListTagsForResourcePaginator,
         ListTrustedTokenIssuersPaginator,
         SSOAdminClient,
@@ -55,6 +56,7 @@ Usage::
     list_permission_set_provisioning_status_paginator: ListPermissionSetProvisioningStatusPaginator = client.get_paginator("list_permission_set_provisioning_status")
     list_permission_sets_paginator: ListPermissionSetsPaginator = client.get_paginator("list_permission_sets")
     list_permission_sets_provisioned_to_account_paginator: ListPermissionSetsProvisionedToAccountPaginator = client.get_paginator("list_permission_sets_provisioned_to_account")
+    list_regions_paginator: ListRegionsPaginator = client.get_paginator("list_regions")
     list_tags_for_resource_paginator: ListTagsForResourcePaginator = client.get_paginator("list_tags_for_resource")
     list_trusted_token_issuers_paginator: ListTrustedTokenIssuersPaginator = client.get_paginator("list_trusted_token_issuers")
     ```
@@ -80,6 +82,7 @@ from .paginator import (
     ListPermissionSetProvisioningStatusPaginator,
     ListPermissionSetsPaginator,
     ListPermissionSetsProvisionedToAccountPaginator,
+    ListRegionsPaginator,
     ListTagsForResourcePaginator,
     ListTrustedTokenIssuersPaginator,
 )
@@ -107,6 +110,7 @@ __all__ = (
     "ListPermissionSetProvisioningStatusPaginator",
     "ListPermissionSetsPaginator",
     "ListPermissionSetsProvisionedToAccountPaginator",
+    "ListRegionsPaginator",
     "ListTagsForResourcePaginator",
     "ListTrustedTokenIssuersPaginator",
     "SSOAdminClient",

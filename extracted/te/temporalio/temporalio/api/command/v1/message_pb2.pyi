@@ -594,6 +594,7 @@ class ContinueAsNewWorkflowExecutionCommandAttributes(google.protobuf.message.Me
     MEMO_FIELD_NUMBER: builtins.int
     SEARCH_ATTRIBUTES_FIELD_NUMBER: builtins.int
     INHERIT_BUILD_ID_FIELD_NUMBER: builtins.int
+    INITIAL_VERSIONING_BEHAVIOR_FIELD_NUMBER: builtins.int
     @property
     def workflow_type(self) -> temporalio.api.common.v1.message_pb2.WorkflowType: ...
     @property
@@ -634,6 +635,13 @@ class ContinueAsNewWorkflowExecutionCommandAttributes(google.protobuf.message.Me
     the assignment rules will be used to independently assign a Build ID to the new execution.
     Deprecated. Only considered for versioning v0.2.
     """
+    initial_versioning_behavior: (
+        temporalio.api.enums.v1.workflow_pb2.ContinueAsNewVersioningBehavior.ValueType
+    )
+    """Experimental. Optionally decide the versioning behavior that the first task of the new run should use.
+    For example, choose to AutoUpgrade on continue-as-new instead of inheriting the pinned version
+    of the previous run.
+    """
     def __init__(
         self,
         *,
@@ -654,6 +662,7 @@ class ContinueAsNewWorkflowExecutionCommandAttributes(google.protobuf.message.Me
         search_attributes: temporalio.api.common.v1.message_pb2.SearchAttributes
         | None = ...,
         inherit_build_id: builtins.bool = ...,
+        initial_versioning_behavior: temporalio.api.enums.v1.workflow_pb2.ContinueAsNewVersioningBehavior.ValueType = ...,
     ) -> None: ...
     def HasField(
         self,
@@ -697,6 +706,8 @@ class ContinueAsNewWorkflowExecutionCommandAttributes(google.protobuf.message.Me
             b"header",
             "inherit_build_id",
             b"inherit_build_id",
+            "initial_versioning_behavior",
+            b"initial_versioning_behavior",
             "initiator",
             b"initiator",
             "input",
@@ -933,6 +944,8 @@ class ScheduleNexusOperationCommandAttributes(google.protobuf.message.Message):
     INPUT_FIELD_NUMBER: builtins.int
     SCHEDULE_TO_CLOSE_TIMEOUT_FIELD_NUMBER: builtins.int
     NEXUS_HEADER_FIELD_NUMBER: builtins.int
+    SCHEDULE_TO_START_TIMEOUT_FIELD_NUMBER: builtins.int
+    START_TO_CLOSE_TIMEOUT_FIELD_NUMBER: builtins.int
     endpoint: builtins.str
     """Endpoint name, must exist in the endpoint registry or this command will fail."""
     service: builtins.str
@@ -964,6 +977,29 @@ class ScheduleNexusOperationCommandAttributes(google.protobuf.message.Message):
         Note these headers are not the same as Temporal headers on internal activities and child workflows, these are
         transmitted to Nexus operations that may be external and are not traditional payloads.
         """
+    @property
+    def schedule_to_start_timeout(self) -> google.protobuf.duration_pb2.Duration:
+        """Schedule-to-start timeout for this operation.
+        Indicates how long the caller is willing to wait for the operation to be started (or completed if synchronous)
+        by the handler. If the operation is not started within this timeout, it will fail with
+        TIMEOUT_TYPE_SCHEDULE_TO_START.
+        If not set or zero, no schedule-to-start timeout is enforced.
+        (-- api-linter: core::0140::prepositions=disabled
+            aip.dev/not-precedent: "to" is used to indicate interval. --)
+        Requires server version 1.31.0 or later.
+        """
+    @property
+    def start_to_close_timeout(self) -> google.protobuf.duration_pb2.Duration:
+        """Start-to-close timeout for this operation.
+        Indicates how long the caller is willing to wait for an asynchronous operation to complete after it has been
+        started. If the operation does not complete within this timeout after starting, it will fail with
+        TIMEOUT_TYPE_START_TO_CLOSE.
+        Only applies to asynchronous operations. Synchronous operations ignore this timeout.
+        If not set or zero, no start-to-close timeout is enforced.
+        (-- api-linter: core::0140::prepositions=disabled
+            aip.dev/not-precedent: "to" is used to indicate interval. --)
+        Requires server version 1.31.0 or later.
+        """
     def __init__(
         self,
         *,
@@ -973,11 +1009,20 @@ class ScheduleNexusOperationCommandAttributes(google.protobuf.message.Message):
         input: temporalio.api.common.v1.message_pb2.Payload | None = ...,
         schedule_to_close_timeout: google.protobuf.duration_pb2.Duration | None = ...,
         nexus_header: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
+        schedule_to_start_timeout: google.protobuf.duration_pb2.Duration | None = ...,
+        start_to_close_timeout: google.protobuf.duration_pb2.Duration | None = ...,
     ) -> None: ...
     def HasField(
         self,
         field_name: typing_extensions.Literal[
-            "input", b"input", "schedule_to_close_timeout", b"schedule_to_close_timeout"
+            "input",
+            b"input",
+            "schedule_to_close_timeout",
+            b"schedule_to_close_timeout",
+            "schedule_to_start_timeout",
+            b"schedule_to_start_timeout",
+            "start_to_close_timeout",
+            b"start_to_close_timeout",
         ],
     ) -> builtins.bool: ...
     def ClearField(
@@ -993,8 +1038,12 @@ class ScheduleNexusOperationCommandAttributes(google.protobuf.message.Message):
             b"operation",
             "schedule_to_close_timeout",
             b"schedule_to_close_timeout",
+            "schedule_to_start_timeout",
+            b"schedule_to_start_timeout",
             "service",
             b"service",
+            "start_to_close_timeout",
+            b"start_to_close_timeout",
         ],
     ) -> None: ...
 

@@ -1012,8 +1012,8 @@ class TriggerWorkerResponse(BaseModel):
 ALLOWED_RESET_STATES = {
     "pending",
     "awaiting_audio_selection",
-    "awaiting_review",
-    "awaiting_instrumental_selection",
+    "awaiting_review",  # Combined review (lyrics + instrumental selection)
+    # Note: awaiting_instrumental_selection removed - deprecated by combined review flow (Jan 2026)
     "instrumental_selected",  # Re-run video generation with same settings
 }
 
@@ -1034,6 +1034,9 @@ STATE_DATA_CLEAR_KEYS = {
         "render_progress",
         "screens_progress",
         "encoding_progress",
+        # Parallel processing flags - must clear to allow workers to run again
+        "audio_complete",
+        "lyrics_complete",
     ],
     "awaiting_audio_selection": [
         "audio_selection",
@@ -1046,6 +1049,7 @@ STATE_DATA_CLEAR_KEYS = {
         "encoding_progress",
     ],
     "awaiting_review": [
+        # Combined review - user reviews lyrics AND selects instrumental in one step
         "review_complete",
         "corrected_lyrics",
         "instrumental_selection",
@@ -1054,13 +1058,7 @@ STATE_DATA_CLEAR_KEYS = {
         "screens_progress",
         "encoding_progress",
     ],
-    "awaiting_instrumental_selection": [
-        "instrumental_selection",
-        "video_progress",
-        "render_progress",
-        "screens_progress",
-        "encoding_progress",
-    ],
+    # Note: awaiting_instrumental_selection removed - deprecated by combined review flow (Jan 2026)
     "instrumental_selected": [
         # Clear video/encoding/distribution state to allow re-processing
         # Preserves: instrumental_selection, lyrics_metadata, review data
@@ -1148,14 +1146,8 @@ async def reset_job(
     }
 
     # Perform the update with state_data clearing
-    # We need to set the cleared keys to DELETE_FIELD
-    success = job_manager.update_job(job_id, updates)
-
-    if not success:
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to reset job. Please try again."
-        )
+    # Note: update_job() raises exceptions on failure, returns None on success
+    job_manager.update_job(job_id, updates)
 
     # Clear the state data keys and error state using direct Firestore update
     from google.cloud.firestore_v1 import DELETE_FIELD, ArrayUnion

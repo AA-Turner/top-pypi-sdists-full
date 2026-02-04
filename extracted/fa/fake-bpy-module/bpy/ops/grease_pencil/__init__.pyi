@@ -171,8 +171,22 @@ def delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
+    *,
+    mode: typing.Literal["ALL", "STROKES", "FILLS"] | None = "ALL",
 ) -> None:
-    """Delete selected strokes or points"""
+    """Delete selected strokes or points
+
+        :param mode: Mode, The kind of strokes or fills to delete
+
+    ALL
+    All -- Delete all selected strokes or points.
+
+    STROKES
+    Only Strokes -- Delete only strokes and not fills.
+
+    FILLS
+    Only Fills -- Delte only fills and not strokes.
+    """
 
 def delete_breakdown(
     execution_context: int | str | None = None,
@@ -460,6 +474,13 @@ def interpolate_sequence(
         :param amplitude: Amplitude, Amount to boost elastic bounces for elastic easing
         :param period: Period, Time between bounces for elastic easing
     """
+
+def join_fills(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
+    """Join selected strokes into one fill to create holes"""
 
 def join_selection(
     execution_context: int | str | None = None,
@@ -1128,6 +1149,20 @@ def select_alternate(
     :param deselect_ends: Deselect Ends, (De)select the first and last point of each stroke
     """
 
+def select_by_stroke_type(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    type: typing.Literal["STROKE", "FILL"] | None = "STROKE",
+    deselect: bool | None = False,
+) -> None:
+    """Select/Deselect all strokes or fills
+
+    :param type: Type
+    :param deselect: Deselect, Unselect strokes
+    """
+
 def select_ends(
     execution_context: int | str | None = None,
     undo: bool | None = None,
@@ -1141,6 +1176,13 @@ def select_ends(
     :param amount_start: Amount Start, Number of points to select from the start
     :param amount_end: Amount End, Number of points to select from the end
     """
+
+def select_fill(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
+    """Select all curves in a fill"""
 
 def select_less(
     execution_context: int | str | None = None,
@@ -1219,6 +1261,18 @@ def separate(
 
     LAYER
     By Layer -- Separate by layer.
+    """
+
+def separate_fills(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    individual: bool | None = True,
+) -> None:
+    """Separate the selected strokes from current fill
+
+    :param individual: Individual, Create a separate fill for each individual stroke
     """
 
 def set_active_material(
@@ -1326,6 +1380,18 @@ def set_start_point(
     /,
 ) -> None:
     """Select which point is the beginning of the curve"""
+
+def set_stroke_type(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    type: typing.Literal["STROKE", "FILL", "BOTH"] | None = "STROKE",
+) -> None:
+    """Set the stroke type (stroke, fill, or both) of the selected strokes
+
+    :param type: Type
+    """
 
 def set_uniform_opacity(
     execution_context: int | str | None = None,

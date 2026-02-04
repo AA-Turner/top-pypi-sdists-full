@@ -355,18 +355,50 @@ class CustomThemeConfig(_message.Message):
     secondary_background_color: _builtins.str
     background_color: _builtins.str
     text_color: _builtins.str
-    font: Global___CustomThemeConfig.FontFamily.ValueType
-    """DEPRECATED: Use body_font instead:"""
+    @_builtins.property
+    @_deprecated("""This field has been marked as deprecated using proto field options.""")
+    def font(self) -> Global___CustomThemeConfig.FontFamily.ValueType:
+        """DEPRECATED: Use body_font instead:"""
+
+    @font.setter
+    @_deprecated("""This field has been marked as deprecated using proto field options.""")
+    def font(self, value: Global___CustomThemeConfig.FontFamily.ValueType) -> None:
+        """DEPRECATED: Use body_font instead:"""
+
     base: Global___CustomThemeConfig.BaseTheme.ValueType
-    widget_background_color: _builtins.str
-    """DEPRECATED: This color is not applied anymore:"""
-    widget_border_color: _builtins.str
-    """DEPRECATED: Use the border_color and show_widget_border instead:"""
+    @_builtins.property
+    @_deprecated("""This field has been marked as deprecated using proto field options.""")
+    def widget_background_color(self) -> _builtins.str:
+        """DEPRECATED: This color is not applied anymore:"""
+
+    @widget_background_color.setter
+    @_deprecated("""This field has been marked as deprecated using proto field options.""")
+    def widget_background_color(self, value: _builtins.str) -> None:
+        """DEPRECATED: This color is not applied anymore:"""
+
+    @_builtins.property
+    @_deprecated("""This field has been marked as deprecated using proto field options.""")
+    def widget_border_color(self) -> _builtins.str:
+        """DEPRECATED: Use the border_color and show_widget_border instead:"""
+
+    @widget_border_color.setter
+    @_deprecated("""This field has been marked as deprecated using proto field options.""")
+    def widget_border_color(self, value: _builtins.str) -> None:
+        """DEPRECATED: Use the border_color and show_widget_border instead:"""
+
     heading_font: _builtins.str
     body_font: _builtins.str
     code_font: _builtins.str
-    skeleton_background_color: _builtins.str
-    """DEPRECATED: This color is not applied anymore:"""
+    @_builtins.property
+    @_deprecated("""This field has been marked as deprecated using proto field options.""")
+    def skeleton_background_color(self) -> _builtins.str:
+        """DEPRECATED: This color is not applied anymore:"""
+
+    @skeleton_background_color.setter
+    @_deprecated("""This field has been marked as deprecated using proto field options.""")
+    def skeleton_background_color(self, value: _builtins.str) -> None:
+        """DEPRECATED: This color is not applied anymore:"""
+
     base_radius: _builtins.str
     button_radius: _builtins.str
     border_color: _builtins.str
@@ -407,6 +439,7 @@ class CustomThemeConfig(_message.Message):
     violet_text_color: _builtins.str
     gray_text_color: _builtins.str
     @_builtins.property
+    @_deprecated("""This field has been marked as deprecated using proto field options.""")
     def radii(self) -> Global___Radii:
         """DEPRECATED: Please use the base_radius theme config instead:"""
 
@@ -415,6 +448,7 @@ class CustomThemeConfig(_message.Message):
     @_builtins.property
     def font_sources(self) -> _containers.RepeatedCompositeFieldContainer[Global___FontSource]: ...
     @_builtins.property
+    @_deprecated("""This field has been marked as deprecated using proto field options.""")
     def font_sizes(self) -> Global___FontSizes:
         """DEPRECATED: Please use the base_font_size theme config instead:"""
 

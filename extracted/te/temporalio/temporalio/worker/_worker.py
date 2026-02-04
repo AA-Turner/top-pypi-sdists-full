@@ -13,11 +13,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import (
     Any,
-    List,
-    Optional,
-    Type,
     TypeAlias,
-    Union,
     cast,
 )
 
@@ -82,10 +78,7 @@ class PollerBehaviorAutoscaling:
         )
 
 
-PollerBehavior: TypeAlias = Union[
-    PollerBehaviorSimpleMaximum,
-    PollerBehaviorAutoscaling,
-]
+PollerBehavior: TypeAlias = PollerBehaviorSimpleMaximum | PollerBehaviorAutoscaling
 
 
 class Worker:
@@ -471,7 +464,7 @@ class Worker:
                 == temporalio.common.VersioningBehavior.UNSPECIFIED
             )
 
-            def check_activity(activity):
+            def check_activity(activity: str):
                 if self._activity_worker is None:
                     raise ValueError(
                         f"Activity function {activity} "
@@ -711,7 +704,7 @@ class Worker:
         explicit shutdown instead.
         """
 
-        def make_lambda(plugin, next):
+        def make_lambda(plugin: Plugin, next: Callable[[Worker], Awaitable[None]]):
             return lambda w: plugin.run_worker(w, next)
 
         next_function = lambda w: w._run()
@@ -865,7 +858,7 @@ class Worker:
         self._async_context_run_task = asyncio.create_task(run())
         return self
 
-    async def __aexit__(self, exc_type: type[BaseException] | None, *args) -> None:
+    async def __aexit__(self, exc_type: type[BaseException] | None, *args: Any) -> None:
         """Same as :py:meth:`shutdown` for use by ``async with``.
 
         Note, this will raise the worker fatal error if one occurred and the
@@ -964,10 +957,7 @@ def _warn_if_nexus_task_executor_max_workers_is_inconsistent(
 
 @dataclass
 class WorkerDeploymentConfig:
-    """Options for configuring the Worker Versioning feature.
-
-    WARNING: This is an experimental feature and may change in the future.
-    """
+    """Options for configuring the Worker Versioning feature."""
 
     version: WorkerDeploymentVersion
     use_worker_versioning: bool
@@ -1077,7 +1067,7 @@ def _extract_bridge_client_for_worker(
     elif hasattr(client.service_client, "worker_service_client"):
         bridge_client = client.service_client.worker_service_client
         if not isinstance(bridge_client, temporalio.service._BridgeServiceClient):
-            raise TypeError(
+            raise TypeError(  # type: ignore[reportUnreachable]
                 "Client's worker_service_client cannot be used for a worker"
             )
     else:

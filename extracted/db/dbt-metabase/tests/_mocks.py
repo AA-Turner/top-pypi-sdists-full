@@ -1,7 +1,8 @@
 import json
 import os
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Dict, Mapping, Optional, Sequence, Union
+from typing import Any
 
 import requests
 from dotenv import dotenv_values
@@ -18,8 +19,10 @@ SANDBOX_ENV = dotenv_values(Path().parent / "sandbox" / ".env")
 
 
 class MockMetabase(Metabase):
-    def __init__(self, url: str, record: bool = False):
+    def __init__(self, url: str, record: bool = False, prefix: str = "mbql5"):
         self.record = record
+        self.prefix = prefix
+        self.api_calls: list[dict[str, Any]] = []
 
         api_key = "dummy"
         username = None
@@ -47,12 +50,14 @@ class MockMetabase(Metabase):
         self,
         method: str,
         path: str,
-        params: Optional[Dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         **kwargs,
-    ) -> Union[Mapping, Sequence]:
+    ) -> Mapping | Sequence:
+        self.api_calls.append({"method": method, "path": path, "kwargs": kwargs})
+
         result = {}
         path_toks = f"{path.lstrip('/')}.json".split("/")
-        json_path = Path.joinpath(FIXTURES_PATH, *path_toks)
+        json_path = Path.joinpath(FIXTURES_PATH / self.prefix, *path_toks)
 
         if self.record:
             is_auth = path == "/api/session"
@@ -84,7 +89,7 @@ class MockManifest(Manifest):
             self._models = super().read_models()
         return self._models
 
-    def find_model(self, model_name: str) -> Optional[Model]:
+    def find_model(self, model_name: str) -> Model | None:
         filtered = [m for m in self._models if m.name == model_name]
         if filtered:
             return filtered[0]
@@ -94,7 +99,7 @@ class MockManifest(Manifest):
         self,
         model_name: str,
         column_name: str,
-    ) -> Optional[Column]:
+    ) -> Column | None:
         model = self.find_model(model_name=model_name)
         if model:
             filtered = [c for c in model.columns if c.name == column_name]

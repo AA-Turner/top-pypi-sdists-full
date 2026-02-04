@@ -37,11 +37,13 @@ def _get_pyarrow_type_for_proto_field(field_descriptor: FieldDescriptor) -> pa.D
         FieldDescriptor.TYPE_UINT64: pa.uint64(),
         FieldDescriptor.TYPE_INT32: pa.int32(),
         FieldDescriptor.TYPE_FIXED64: pa.uint64(),
-        FieldDescriptor.TYPE_FIXED32: pa.uint32(),
+        # Velox doesn't support unsigned ints, so we fit the uint32's into int64's
+        FieldDescriptor.TYPE_FIXED32: pa.int64(),
         FieldDescriptor.TYPE_BOOL: pa.bool_(),
         FieldDescriptor.TYPE_STRING: pa.large_utf8(),
         FieldDescriptor.TYPE_BYTES: pa.binary(),
-        FieldDescriptor.TYPE_UINT32: pa.uint32(),
+        # Velox doesn't support unsigned ints, so we fit the uint32's into int64's
+        FieldDescriptor.TYPE_UINT32: pa.int64(),
         FieldDescriptor.TYPE_SFIXED32: pa.int32(),
         FieldDescriptor.TYPE_SFIXED64: pa.int64(),
         FieldDescriptor.TYPE_SINT32: pa.int32(),

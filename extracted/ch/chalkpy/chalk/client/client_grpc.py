@@ -681,6 +681,12 @@ class ChalkGRPCClient:
         if token_config is None:
             raise ChalkAuthException()
 
+        # using for instantiation of ChalkClient(). Can remove if we exclusively start using GRPC client
+        self._client_id = token_config.clientId
+        self._client_secret = token_config.clientSecret
+        self._environment = token_config.activeEnvironment
+        self._api_server = token_config.apiServer
+
         self._stub_refresher = StubRefresher(
             token_config=token_config,
             query_server=query_server,
@@ -1394,6 +1400,7 @@ class ChalkGRPCClient:
         self,
         name: str,
         query_version: str | None = None,
+        branch: str | None = None,
     ) -> List[NamedQueryMetadata]:
         """
         Get the metadata associated with named queries.
@@ -1404,6 +1411,8 @@ class ChalkGRPCClient:
             The name of the named query.
         query_version
             The query version of the named query. Returns all versions of the named query by default.
+        branch
+            The branch name to get the named query from. By default will use the mainline deployment.
 
         Returns
         -------
@@ -1412,12 +1421,29 @@ class ChalkGRPCClient:
 
         Examples
         --------
-        >>> from chalk.client import ChalkClient
-        >>> ChalkClient().get_named_query_metadata(
+        >>> from chalk.client.client_grpc import ChalkGRPCClient
+        >>> ChalkGRPCClient().get_named_query_metadata(
         ...     name="my_named_query",
         ...     query_version="1.1.0",
         ... )
         """
+        # TODO update underlying logic to be done server side and/or not split between GRPC and python client.
+        if branch:
+            from chalk.client import ChalkClient
+
+            client = ChalkClient(
+                client_id=self._client_id,
+                client_secret=self._client_secret,
+                environment=self._environment,
+                api_server=self._api_server,
+            )
+
+            return client.get_named_query_metadata(
+                name=name,
+                query_version=query_version,
+                branch=branch,
+            )
+
         proto_resp = self._stub_refresher.call_get_named_query_metadata(
             lambda x: x.GetNamedQueryByName(
                 request=GetNamedQueryByNameRequest(

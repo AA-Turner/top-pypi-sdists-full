@@ -1,19 +1,26 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional, Union
 
 import pandas as pd
 
 from seeq.base import util
-from seeq.spy import _common
 from seeq.spy._errors import *
 from seeq.spy._status import Status
 from seeq.spy.workbooks.job import _pull, _push
 
 
-@Status.handle_keyboard_interrupt(no_session=True)
-def redo(job_folder: str, workbooks_df: Union[pd.DataFrame, str, list] = None, *, action: Optional[str] = None,
-         hard: bool = False, quiet: Optional[bool] = None, status: Optional[Status] = None):
+@Status.top_level_spy_function(no_session=True)
+def redo(
+    job_folder: Union[str, Path],
+    workbooks_df: Union[pd.DataFrame, str, list] = None,
+    *,
+    action: Optional[str] = None,
+    hard: bool = False,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None
+):
     """
     Marks a set of workbooks to be redone in the specified job folder.
 
@@ -50,15 +57,6 @@ def redo(job_folder: str, workbooks_df: Union[pd.DataFrame, str, list] = None, *
         in Jupyter in the blue/green/red table below your code while the
         command is executed.
     """
-    _common.validate_argument_types([
-        (job_folder, 'job_folder', str),
-        (workbooks_df, 'workbooks_df', (pd.DataFrame, str, list)),
-        (action, 'action', str),
-        (hard, 'hard', bool),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status)
-    ])
-
     if not util.safe_exists(job_folder):
         raise SPyValueError(f'Job folder "{job_folder}" does not exist.')
 

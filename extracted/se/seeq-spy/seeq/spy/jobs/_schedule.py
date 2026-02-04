@@ -22,12 +22,19 @@ from seeq.spy._session import Session
 from seeq.spy._status import Status
 
 
-@Status.handle_keyboard_interrupt(errors='raise')
-def schedule(schedule_spec: str, datalab_notebook_url: Optional[str] = None, label: Optional[str] = None,
-             user: Optional[str] = None, suspend: bool = False,
-             notify_on_skipped_execution: Optional[bool] = True, notify_on_automatic_unschedule: Optional[bool] = True,
-             quiet: Optional[bool] = None, status: Optional[Status] = None, session: Optional[Session] = None) -> \
-        pd.DataFrame:
+@Status.top_level_spy_function(errors='raise')
+def schedule(
+    schedule_spec: str,
+    datalab_notebook_url: Optional[str] = None,
+    label: Optional[str] = None,
+    user: Optional[str] = None,
+    suspend: bool = False,
+    notify_on_skipped_execution: Optional[bool] = True,
+    notify_on_automatic_unschedule: Optional[bool] = True,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None
+) -> pd.DataFrame:
     """
     Schedules the automatic execution of a Seeq Data Lab notebook.
 
@@ -127,19 +134,6 @@ def schedule(schedule_spec: str, datalab_notebook_url: Optional[str] = None, lab
         The jobs_df with an appended column containing a description of the
         schedule
     """
-    _common.validate_argument_types([
-        (schedule_spec, 'schedule_string', str),
-        (datalab_notebook_url, 'datalab_notebook_url', str),
-        (label, 'label', str),
-        (user, 'user', str),
-        (suspend, 'suspend', bool),
-        (notify_on_skipped_execution, 'notify_on_skipped_execution', bool),
-        (notify_on_automatic_unschedule, 'notify_on_automatic_unschedule', bool),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session)
-    ])
-
     try:
         return schedule_df(session, pd.DataFrame([{'Schedule': schedule_spec}]) if schedule_spec else None,
                            datalab_notebook_url=datalab_notebook_url, label=label, user=user, suspend=suspend,
@@ -151,7 +145,7 @@ def schedule(schedule_spec: str, datalab_notebook_url: Optional[str] = None, lab
             raise
 
 
-@Status.handle_keyboard_interrupt()
+@Status.top_level_spy_function()
 def unschedule(datalab_notebook_url: Optional[str] = None, label: Optional[str] = None, quiet: Optional[bool] = None,
                status: Optional[Status] = None, session: Optional[Session] = None):
     """
@@ -195,14 +189,6 @@ def unschedule(datalab_notebook_url: Optional[str] = None, label: Optional[str] 
         store the login session state. This is useful to log in to different
         Seeq servers at the same time or with different credentials.
     """
-    _common.validate_argument_types([
-        (datalab_notebook_url, 'datalab_notebook_url', str),
-        (label, 'label', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session)
-    ])
-
     schedule_df(session, jobs_df=None, datalab_notebook_url=datalab_notebook_url, label=label, status=status)
 
 
@@ -210,16 +196,7 @@ def schedule_df(session: Session, jobs_df: pd.DataFrame = None, spread: Optional
                 datalab_notebook_url: Optional[str] = None, label: Optional[str] = None,
                 user: Optional[str] = None, suspend: bool = False, notify_on_skipped_execution: Optional[bool] = True,
                 notify_on_automatic_unschedule: Optional[bool] = True, status: Optional[Status] = None) -> pd.DataFrame:
-    input_args = _common.validate_argument_types([
-        (jobs_df, 'jobs_df', pd.DataFrame),
-        (datalab_notebook_url, 'datalab_notebook_url', str),
-        (label, 'label', str),
-        (user, 'user', str),
-        (suspend, 'suspend', bool),
-        (notify_on_skipped_execution, 'notify_on_skipped_execution', bool),
-        (notify_on_automatic_unschedule, 'notify_on_automatic_unschedule', bool),
-        (status, 'status', Status)
-    ])
+    input_args = locals()
 
     if jobs_df is None:
         jobs_df = pd.DataFrame()

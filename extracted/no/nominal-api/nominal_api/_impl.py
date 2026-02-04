@@ -44333,16 +44333,18 @@ class scout_compute_api_AggregateNumericSeries(ConjureBeanType):
             'input': ConjureFieldDefinition('input', scout_compute_api_NumericSeries),
             'function': ConjureFieldDefinition('function', scout_compute_api_NumericAggregationFunction),
             'group_by_tags': ConjureFieldDefinition('groupByTags', List[scout_compute_api_StringConstant]),
-            'aggregate_by_all_groupings': ConjureFieldDefinition('aggregateByAllGroupings', OptionalTypeWrapper[bool])
+            'aggregate_by_all_groupings': ConjureFieldDefinition('aggregateByAllGroupings', OptionalTypeWrapper[bool]),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', OptionalTypeWrapper[scout_compute_api_InterpolationConfiguration])
         }
 
-    __slots__: List[str] = ['_input', '_function', '_group_by_tags', '_aggregate_by_all_groupings']
+    __slots__: List[str] = ['_input', '_function', '_group_by_tags', '_aggregate_by_all_groupings', '_interpolation_configuration']
 
-    def __init__(self, function: "scout_compute_api_NumericAggregationFunction", group_by_tags: List["scout_compute_api_StringConstant"], input: "scout_compute_api_NumericSeries", aggregate_by_all_groupings: Optional[bool] = None) -> None:
+    def __init__(self, function: "scout_compute_api_NumericAggregationFunction", group_by_tags: List["scout_compute_api_StringConstant"], input: "scout_compute_api_NumericSeries", aggregate_by_all_groupings: Optional[bool] = None, interpolation_configuration: Optional["scout_compute_api_InterpolationConfiguration"] = None) -> None:
         self._input = input
         self._function = function
         self._group_by_tags = group_by_tags
         self._aggregate_by_all_groupings = aggregate_by_all_groupings
+        self._interpolation_configuration = interpolation_configuration
 
     @builtins.property
     def input(self) -> "scout_compute_api_NumericSeries":
@@ -44369,6 +44371,13 @@ When true and groupByTags is empty, aggregate across all series in the input.
 When false and groupByTags is empty, the result will be grouped by the same tags as the input series.
         """
         return self._aggregate_by_all_groupings
+
+    @builtins.property
+    def interpolation_configuration(self) -> Optional["scout_compute_api_InterpolationConfiguration"]:
+        """If provided, interpolates values at timestamps where the input series has values before aggregating.
+If not provided, only aggregates when timestamps match exactly (existing behavior).
+        """
+        return self._interpolation_configuration
 
 
 scout_compute_api_AggregateNumericSeries.__name__ = "AggregateNumericSeries"
@@ -62840,15 +62849,17 @@ class scout_compute_resolved_api_AggregateNumericSeriesNode(ConjureBeanType):
         return {
             'input': ConjureFieldDefinition('input', scout_compute_resolved_api_NumericSeriesNode),
             'aggregation_function': ConjureFieldDefinition('aggregationFunction', scout_compute_api_NumericAggregationFunction),
-            'group_by_tags': ConjureFieldDefinition('groupByTags', OptionalTypeWrapper[List[api_TagName]])
+            'group_by_tags': ConjureFieldDefinition('groupByTags', OptionalTypeWrapper[List[api_TagName]]),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', OptionalTypeWrapper[scout_compute_resolved_api_InterpolationConfiguration])
         }
 
-    __slots__: List[str] = ['_input', '_aggregation_function', '_group_by_tags']
+    __slots__: List[str] = ['_input', '_aggregation_function', '_group_by_tags', '_interpolation_configuration']
 
-    def __init__(self, aggregation_function: "scout_compute_api_NumericAggregationFunction", input: "scout_compute_resolved_api_NumericSeriesNode", group_by_tags: Optional[List[str]] = None) -> None:
+    def __init__(self, aggregation_function: "scout_compute_api_NumericAggregationFunction", input: "scout_compute_resolved_api_NumericSeriesNode", group_by_tags: Optional[List[str]] = None, interpolation_configuration: Optional["scout_compute_resolved_api_InterpolationConfiguration"] = None) -> None:
         self._input = input
         self._aggregation_function = aggregation_function
         self._group_by_tags = group_by_tags
+        self._interpolation_configuration = interpolation_configuration
 
     @builtins.property
     def input(self) -> "scout_compute_resolved_api_NumericSeriesNode":
@@ -62864,6 +62875,10 @@ class scout_compute_resolved_api_AggregateNumericSeriesNode(ConjureBeanType):
 Empty optional means inherit tag groupings from input.
         """
         return self._group_by_tags
+
+    @builtins.property
+    def interpolation_configuration(self) -> Optional["scout_compute_resolved_api_InterpolationConfiguration"]:
+        return self._interpolation_configuration
 
 
 scout_compute_resolved_api_AggregateNumericSeriesNode.__name__ = "AggregateNumericSeriesNode"

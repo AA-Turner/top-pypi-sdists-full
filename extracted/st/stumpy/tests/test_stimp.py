@@ -6,7 +6,7 @@ import numpy.testing as npt
 import pytest
 from dask.distributed import Client, LocalCluster
 
-from stumpy import stimp, stimped
+from stumpy.stimp import stimp, stimped
 
 T = [
     np.array([584, -11, 23, 79, 1001, 0, -19], dtype=np.float64),
@@ -22,7 +22,7 @@ def dask_cluster():
         dashboard_address=None,
         worker_dashboard_address=None,
     )
-    yield cluster
+    yield cluster.scheduler_address
     cluster.close()
 
 
@@ -148,7 +148,7 @@ def test_stimp_100_percent(T):
         max_m=None,
         step=1,
         percentage=percentage,
-        pre_scrump=True,
+        pre_scrump=False,
         # normalize=True,
     )
 
@@ -180,6 +180,38 @@ def test_stimp_100_percent(T):
     naive.replace_inf(cmp_pan)
 
     npt.assert_almost_equal(ref_pan, cmp_pan)
+
+
+@pytest.mark.parametrize("T", T)
+def test_stimp_raw_mp(T):
+    """
+    Check pan.P_ attribute for raw matrix profile
+    """
+    percentage = 1.0
+    min_m = 3
+    n = 5
+
+    pan = stimp(
+        T,
+        min_m=min_m,
+        max_m=None,
+        step=1,
+        percentage=percentage,
+        pre_scrump=False,
+        # normalize=True,
+    )
+
+    for i in range(n):
+        pan.update()
+
+    for idx, m in enumerate(pan.M_[:n]):
+        zone = int(np.ceil(m / 4))
+        ref_P_ = naive.stump(T, m, T_B=None, exclusion_zone=zone)[:, 0]
+        cmp_P_ = pan.P_[idx]
+
+        naive.replace_inf(ref_P_)
+        naive.replace_inf(cmp_P_)
+        npt.assert_almost_equal(ref_P_, cmp_P_)
 
 
 @pytest.mark.filterwarnings("ignore:numpy.dtype size changed")

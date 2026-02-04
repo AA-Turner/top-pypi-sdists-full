@@ -1,6 +1,5 @@
 from collections.abc import Callable, Iterable
 from typing import Any, overload
-from typing_extensions import Self
 
 from django.core.files.base import File
 from django.core.files.images import ImageFile
@@ -12,6 +11,7 @@ from django.db.models.fields import (
     _ErrorMessagesToOverride,
     _ValidatorCallable,
 )
+from typing_extensions import Self
 
 class FieldFile(File):
     instance: Model = ...
@@ -65,6 +65,7 @@ class FileField(Field[FileDescriptor, FileDescriptor]):
         ] = ...,
         help_text: str = ...,
         db_column: str | None = ...,
+        db_comment: str | None = ...,
         db_tablespace: str | None = ...,
         validators: Iterable[_ValidatorCallable] = ...,
         error_messages: _ErrorMessagesToOverride | None = ...,
@@ -115,6 +116,7 @@ class ImageField(FileField):
         ] = ...,
         help_text: str = ...,
         db_column: str | None = ...,
+        db_comment: str | None = ...,
         db_tablespace: str | None = ...,
         validators: Iterable[_ValidatorCallable] = ...,
         error_messages: _ErrorMessagesToOverride | None = ...,

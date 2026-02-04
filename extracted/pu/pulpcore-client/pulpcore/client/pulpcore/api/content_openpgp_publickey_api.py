@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
 from pydantic import Field, StrictBytes, StrictFloat, StrictInt, StrictStr, field_validator
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 from pulpcore.client.pulpcore.models.async_operation_response import AsyncOperationResponse
 from pulpcore.client.pulpcore.models.open_pgp_public_key_response import OpenPGPPublicKeyResponse
@@ -55,6 +55,7 @@ class ContentOpenpgpPublickeyApi:
         file: Annotated[Optional[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]]], Field(description="An uploaded file that may be turned into the content unit.")] = None,
         upload: Annotated[Optional[StrictStr], Field(description="An uncommitted upload that may be turned into the content unit.")] = None,
         file_url: Annotated[Optional[Annotated[str, Field(min_length=1, strict=True)]], Field(description="A url that Pulp can download and turn into the content unit.")] = None,
+        downloader_config: Annotated[Optional[Any], Field(description="Configuration for the download process (e.g., proxies, auth, timeouts). Only applicable when providing a 'file_url.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -84,6 +85,8 @@ class ContentOpenpgpPublickeyApi:
         :type upload: str
         :param file_url: A url that Pulp can download and turn into the content unit.
         :type file_url: str
+        :param downloader_config: Configuration for the download process (e.g., proxies, auth, timeouts). Only applicable when providing a 'file_url.
+        :type downloader_config: RemoteNetworkConfig
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -113,6 +116,7 @@ class ContentOpenpgpPublickeyApi:
             file=file,
             upload=upload,
             file_url=file_url,
+            downloader_config=downloader_config,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -142,6 +146,7 @@ class ContentOpenpgpPublickeyApi:
         file: Annotated[Optional[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]]], Field(description="An uploaded file that may be turned into the content unit.")] = None,
         upload: Annotated[Optional[StrictStr], Field(description="An uncommitted upload that may be turned into the content unit.")] = None,
         file_url: Annotated[Optional[Annotated[str, Field(min_length=1, strict=True)]], Field(description="A url that Pulp can download and turn into the content unit.")] = None,
+        downloader_config: Annotated[Optional[Any], Field(description="Configuration for the download process (e.g., proxies, auth, timeouts). Only applicable when providing a 'file_url.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -171,6 +176,8 @@ class ContentOpenpgpPublickeyApi:
         :type upload: str
         :param file_url: A url that Pulp can download and turn into the content unit.
         :type file_url: str
+        :param downloader_config: Configuration for the download process (e.g., proxies, auth, timeouts). Only applicable when providing a 'file_url.
+        :type downloader_config: RemoteNetworkConfig
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -200,6 +207,7 @@ class ContentOpenpgpPublickeyApi:
             file=file,
             upload=upload,
             file_url=file_url,
+            downloader_config=downloader_config,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -229,6 +237,7 @@ class ContentOpenpgpPublickeyApi:
         file: Annotated[Optional[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]]], Field(description="An uploaded file that may be turned into the content unit.")] = None,
         upload: Annotated[Optional[StrictStr], Field(description="An uncommitted upload that may be turned into the content unit.")] = None,
         file_url: Annotated[Optional[Annotated[str, Field(min_length=1, strict=True)]], Field(description="A url that Pulp can download and turn into the content unit.")] = None,
+        downloader_config: Annotated[Optional[Any], Field(description="Configuration for the download process (e.g., proxies, auth, timeouts). Only applicable when providing a 'file_url.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -258,6 +267,8 @@ class ContentOpenpgpPublickeyApi:
         :type upload: str
         :param file_url: A url that Pulp can download and turn into the content unit.
         :type file_url: str
+        :param downloader_config: Configuration for the download process (e.g., proxies, auth, timeouts). Only applicable when providing a 'file_url.
+        :type downloader_config: RemoteNetworkConfig
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -287,6 +298,7 @@ class ContentOpenpgpPublickeyApi:
             file=file,
             upload=upload,
             file_url=file_url,
+            downloader_config=downloader_config,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -311,6 +323,7 @@ class ContentOpenpgpPublickeyApi:
         file,
         upload,
         file_url,
+        downloader_config,
         _request_auth,
         _content_type,
         _headers,
@@ -348,6 +361,8 @@ class ContentOpenpgpPublickeyApi:
             _form_params.append(('upload', upload))
         if file_url is not None:
             _form_params.append(('file_url', file_url))
+        if downloader_config is not None:
+            _form_params.append(('downloader_config', downloader_config))
         # process the body parameter
 
 

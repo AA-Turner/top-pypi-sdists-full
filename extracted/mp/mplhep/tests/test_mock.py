@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from pytest import approx
 
-import mplhep as hep
+import mplhep as mh
 
 
 @pytest.fixture
@@ -16,10 +16,8 @@ def mock_matplotlib(mocker):
     fig = mocker.Mock(spec=matplotlib.pyplot.Figure)
     ax = mocker.Mock(spec=matplotlib.pyplot.Axes)
     ax.figure = mocker.MagicMock(spec=matplotlib.pyplot.Figure)
-    ax.figure.dpi_scale_trans = mocker.MagicMock(spec=matplotlib.transforms.Affine2D)
-    ax.get_window_extent.return_value = mocker.MagicMock(
-        spec=matplotlib.transforms.Bbox
-    )
+    ax.figure.dpi_scale_trans = mocker.MagicMock()
+    ax.get_window_extent.return_value = mocker.MagicMock()
     line2d = mocker.Mock(name="step", spec=matplotlib.lines.Line2D)
     line2d.get_color.return_value = "current-color"
     # errorbar_cont = mocker.Mock(name="err_cont", spec=matplotlib.container.ErrorbarContainer)
@@ -44,9 +42,9 @@ def test_simple(mock_matplotlib):
 
     h = [1, 3, 2]
     bins = [0, 1, 2, 3]
-    hep.histplot(h, bins, yerr=True, label="X", ax=ax)
+    mh.histplot(h, bins, yerr=True, label="X", ax=ax)
 
-    assert len(ax.mock_calls) == 13
+    assert len(ax.mock_calls) == 15
 
     ax.stairs.assert_called_once_with(
         values=approx([1.0, 3.0, 2.0]),
@@ -66,6 +64,7 @@ def test_simple(mock_matplotlib):
         linestyle="-",
         color=ax.stairs().get_edgecolor(),
         label="X",
+        elinewidth=ax.stairs().get_linewidth(),
     )
 
     ax.errorbar.assert_any_call(
@@ -78,6 +77,7 @@ def test_simple(mock_matplotlib):
         color="next-color",
         linestyle="none",
         linewidth=1.5,
+        elinewidth=ax.stairs().get_linewidth(),
     )
 
 
@@ -88,24 +88,24 @@ def test_histplot_real(mock_matplotlib):
     ax = mock_matplotlib.ax
     a, b, c = h, h * 2, np.random.poisson(h * 3)
 
-    hep.histplot([a, b, c], bins=bins, ax=ax, yerr=True, label=["MC1", "MC2", "Data"])
+    mh.histplot([a, b, c], bins=bins, ax=ax, yerr=True, label=["MC1", "MC2", "Data"])
     ax.legend()
     ax.set_title("Raw")
-    assert len(ax.mock_calls) == 27
+    assert len(ax.mock_calls) == 33
 
     ax.reset_mock()
 
-    hep.histplot([a, b], bins=bins, ax=ax, stack=True, label=["MC1", "MC2"])
-    hep.histplot([c], bins=bins, ax=ax, yerr=True, histtype="errorbar", label="Data")
+    mh.histplot([a, b], bins=bins, ax=ax, stack=True, label=["MC1", "MC2"])
+    mh.histplot([c], bins=bins, ax=ax, yerr=True, histtype="errorbar", label="Data")
     ax.legend()
     ax.set_title("Data/MC")
     assert len(ax.mock_calls) == 20
     ax.reset_mock()
 
-    hep.histplot(
+    mh.histplot(
         [a, b], bins=bins, ax=ax, stack=True, label=["MC1", "MC2"], binwnorm=[2, 1]
     )
-    hep.histplot(
+    mh.histplot(
         c,
         bins=bins,
         ax=ax,
@@ -119,10 +119,10 @@ def test_histplot_real(mock_matplotlib):
     assert len(ax.mock_calls) == 20
     ax.reset_mock()
 
-    hep.histplot(
+    mh.histplot(
         [a, b], bins=bins, ax=ax, stack=True, label=["MC1", "MC2"], density=True
     )
-    hep.histplot(
+    mh.histplot(
         c,
         bins=bins,
         ax=ax,

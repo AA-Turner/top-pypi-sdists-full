@@ -141,7 +141,7 @@ def test_save_conversation_and_retrieve_memories():
         # Test UUID patch for deterministic testing
         with patch("uuid.uuid4", return_value=uuid.UUID("12345678-1234-5678-1234-567812345678")):
             # Test retrieve_memories
-            memories = client.retrieve_memories(memory_id="mem-123", namespace="test/namespace", query="Hello", top_k=3)
+            memories = client.retrieve_memories(memory_id="mem-123", namespace="test/namespace/", query="Hello", top_k=3)
 
             assert len(memories) == 1
             assert memories[0]["memoryRecordId"] == "rec-123"
@@ -322,7 +322,7 @@ def test_deprecated_methods():
                 session_id="session-456",
                 user_input="Hello",
                 agent_response="Hi",
-                retrieval_namespace="test/ns",
+                retrieval_namespace="test/ns/",
             )
 
             assert len(w) >= 2
@@ -456,7 +456,7 @@ def test_process_turn_with_llm_success_with_retrieval():
             session_id="session-456",
             user_input="What did we discuss before?",
             llm_callback=mock_llm_callback,
-            retrieval_namespace="support/facts/session-456",
+            retrieval_namespace="support/facts/session-456/",
             retrieval_query="previous discussion",
             top_k=5,
         )
@@ -471,7 +471,7 @@ def test_process_turn_with_llm_success_with_retrieval():
         # Verify retrieval was called with correct parameters
         retrieve_args, retrieve_kwargs = mock_gmdp.retrieve_memory_records.call_args
         assert retrieve_kwargs["memoryId"] == "mem-123"
-        assert retrieve_kwargs["namespace"] == "support/facts/session-456"
+        assert retrieve_kwargs["namespace"] == "support/facts/session-456/"
         assert retrieve_kwargs["searchCriteria"]["searchQuery"] == "previous discussion"
         assert retrieve_kwargs["searchCriteria"]["topK"] == 5
 
@@ -571,6 +571,104 @@ def test_list_events_with_branch_filter():
         assert "filter" in kwargs
         assert kwargs["filter"]["branch"]["name"] == "test-branch"
         assert kwargs["filter"]["branch"]["includeParentBranches"] is True
+
+
+def test_list_events_with_event_metadata_filter():
+    """Test list_events with event metadata filtering."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Mock response with events containing metadata
+        mock_events = [
+            {
+                "eventId": "event-nyc-1",
+                "eventTimestamp": datetime(2023, 1, 1, 10, 0, 0),
+                "metadata": {"location": {"stringValue": "NYC"}},
+                "payload": [{"conversational": {"role": "USER", "content": {"text": "NYC message"}}}],
+            },
+            {
+                "eventId": "event-nyc-2",
+                "eventTimestamp": datetime(2023, 1, 1, 10, 1, 0),
+                "metadata": {"location": {"stringValue": "NYC"}},
+                "payload": [{"conversational": {"role": "USER", "content": {"text": "Another NYC message"}}}],
+            },
+        ]
+        mock_gmdp.list_events.return_value = {"events": mock_events, "nextToken": None}
+
+        # Test with event metadata filter
+        event_metadata_filter = [
+            {
+                "left": {"metadataKey": "location"},
+                "operator": "EQUALS_TO",
+                "right": {"metadataValue": {"stringValue": "NYC"}},
+            }
+        ]
+        events = client.list_events(
+            memory_id="mem-123",
+            actor_id="user-123",
+            session_id="session-456",
+            event_metadata=event_metadata_filter,
+        )
+
+        assert len(events) == 2
+        assert events[0]["eventId"] == "event-nyc-1"
+        assert events[1]["eventId"] == "event-nyc-2"
+
+        # Verify filter was applied correctly
+        args, kwargs = mock_gmdp.list_events.call_args
+        assert "filter" in kwargs
+        assert "eventMetadata" in kwargs["filter"]
+        assert kwargs["filter"]["eventMetadata"] == event_metadata_filter
+
+
+def test_list_events_with_branch_and_event_metadata_filter():
+    """Test list_events with both branch and event metadata filtering."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Mock response
+        mock_events = [
+            {
+                "eventId": "event-branch-meta-1",
+                "eventTimestamp": datetime(2023, 1, 1, 10, 0, 0),
+                "branch": {"name": "test-branch", "rootEventId": "event-0"},
+                "metadata": {"location": {"stringValue": "NYC"}},
+            }
+        ]
+        mock_gmdp.list_events.return_value = {"events": mock_events, "nextToken": None}
+
+        # Test with both filters
+        event_metadata_filter = [
+            {
+                "left": {"metadataKey": "location"},
+                "operator": "EQUALS_TO",
+                "right": {"metadataValue": {"stringValue": "NYC"}},
+            }
+        ]
+        events = client.list_events(
+            memory_id="mem-123",
+            actor_id="user-123",
+            session_id="session-456",
+            branch_name="test-branch",
+            include_parent_branches=True,
+            event_metadata=event_metadata_filter,
+        )
+
+        assert len(events) == 1
+
+        # Verify both filters were applied
+        args, kwargs = mock_gmdp.list_events.call_args
+        assert "filter" in kwargs
+        assert kwargs["filter"]["branch"]["name"] == "test-branch"
+        assert kwargs["filter"]["eventMetadata"] == event_metadata_filter
 
 
 def test_list_events_max_results_limit():
@@ -770,7 +868,7 @@ def test_add_user_preference_strategy():
                 memory_id="mem-456",
                 name="Test User Preference Strategy",
                 description="User preference test description",
-                namespaces=["preferences/{actorId}"],
+                namespaces=["preferences/{actorId}/"],
             )
 
             assert mock_gmcp.update_memory.called
@@ -790,7 +888,7 @@ def test_add_user_preference_strategy():
             user_pref_config = strategy["userPreferenceMemoryStrategy"]
             assert user_pref_config["name"] == "Test User Preference Strategy"
             assert user_pref_config["description"] == "User preference test description"
-            assert user_pref_config["namespaces"] == ["preferences/{actorId}"]
+            assert user_pref_config["namespaces"] == ["preferences/{actorId}/"]
 
             # Verify client token and memory ID
             assert kwargs["memoryId"] == "mem-456"
@@ -826,7 +924,7 @@ def test_add_custom_semantic_strategy():
                 extraction_config=extraction_config,
                 consolidation_config=consolidation_config,
                 description="Custom semantic strategy test description",
-                namespaces=["custom/{actorId}/{sessionId}"],
+                namespaces=["custom/{actorId}/{sessionId}/"],
             )
 
             assert mock_gmcp.update_memory.called
@@ -846,7 +944,7 @@ def test_add_custom_semantic_strategy():
             custom_config = strategy["customMemoryStrategy"]
             assert custom_config["name"] == "Test Custom Semantic Strategy"
             assert custom_config["description"] == "Custom semantic strategy test description"
-            assert custom_config["namespaces"] == ["custom/{actorId}/{sessionId}"]
+            assert custom_config["namespaces"] == ["custom/{actorId}/{sessionId}/"]
 
             # Verify the semantic override configuration
             assert "configuration" in custom_config
@@ -925,7 +1023,7 @@ def test_wait_for_memories():
             with patch("time.sleep"):
                 # Test wait_for_memories (should return True when memories found)
                 result = client.wait_for_memories(
-                    memory_id="mem-123", namespace="test/namespace", test_query="test", max_wait=30, poll_interval=5
+                    memory_id="mem-123", namespace="test/namespace/", test_query="test", max_wait=30, poll_interval=5
                 )
 
                 assert result
@@ -945,7 +1043,7 @@ def test_wait_for_memories_wildcard_namespace():
 
         # Test with wildcard namespace - should return False immediately
         result = client.wait_for_memories(
-            memory_id="mem-123", namespace="test/namespace/*", test_query="test", max_wait=30, poll_interval=5
+            memory_id="mem-123", namespace="test/namespace/*/", test_query="test", max_wait=30, poll_interval=5
         )
 
         assert not result
@@ -1399,7 +1497,7 @@ def test_modify_strategy():
                 memory_id="mem-123",
                 strategy_id="strat-789",
                 description="Modified description",
-                namespaces=["custom/namespace"],
+                namespaces=["custom/namespace/"],
             )
 
             assert mock_gmcp.update_memory.called
@@ -1414,7 +1512,7 @@ def test_modify_strategy():
             modified_strategy = kwargs["memoryStrategies"]["modifyMemoryStrategies"][0]
             assert modified_strategy["memoryStrategyId"] == "strat-789"
             assert modified_strategy["description"] == "Modified description"
-            assert modified_strategy["namespaces"] == ["custom/namespace"]
+            assert modified_strategy["namespaces"] == ["custom/namespace/"]
 
 
 def test_retrieve_memories_resource_not_found_error():
@@ -1432,7 +1530,7 @@ def test_retrieve_memories_resource_not_found_error():
 
         # Test retrieve_memories - should return empty list and log warning
         result = client.retrieve_memories(
-            memory_id="nonexistent-mem-123", namespace="test/namespace", query="test query", top_k=5
+            memory_id="nonexistent-mem-123", namespace="test/namespace/", query="test query", top_k=5
         )
 
         # Should return empty list instead of raising exception
@@ -1441,7 +1539,7 @@ def test_retrieve_memories_resource_not_found_error():
         # Verify API was called with correct parameters
         args, kwargs = mock_gmdp.retrieve_memory_records.call_args
         assert kwargs["memoryId"] == "nonexistent-mem-123"
-        assert kwargs["namespace"] == "test/namespace"
+        assert kwargs["namespace"] == "test/namespace/"
         assert kwargs["searchCriteria"]["searchQuery"] == "test query"
         assert kwargs["searchCriteria"]["topK"] == 5
 
@@ -1462,7 +1560,7 @@ def test_retrieve_memories_validation_error():
         # Test retrieve_memories - should return empty list and log warning
         result = client.retrieve_memories(
             memory_id="mem-123",
-            namespace="invalid/namespace",
+            namespace="invalid/namespace/",
             query="",
             top_k=-1,  # Invalid parameters
         )
@@ -1488,7 +1586,7 @@ def test_retrieve_memories_service_error():
         mock_gmdp.retrieve_memory_records.side_effect = ClientError(error_response, "RetrieveMemoryRecords")
 
         # Test retrieve_memories - should return empty list and log warning
-        result = client.retrieve_memories(memory_id="mem-123", namespace="test/namespace", query="test query", top_k=3)
+        result = client.retrieve_memories(memory_id="mem-123", namespace="test/namespace/", query="test query", top_k=3)
 
         # Should return empty list instead of raising exception
         assert result == []
@@ -1496,7 +1594,7 @@ def test_retrieve_memories_service_error():
         # Verify API was called with correct parameters
         args, kwargs = mock_gmdp.retrieve_memory_records.call_args
         assert kwargs["memoryId"] == "mem-123"
-        assert kwargs["namespace"] == "test/namespace"
+        assert kwargs["namespace"] == "test/namespace/"
         assert kwargs["searchCriteria"]["searchQuery"] == "test query"
         assert kwargs["searchCriteria"]["topK"] == 3
 
@@ -1515,7 +1613,7 @@ def test_retrieve_memories_unknown_error():
         mock_gmdp.retrieve_memory_records.side_effect = ClientError(error_response, "RetrieveMemoryRecords")
 
         # Test retrieve_memories - should return empty list and log warning
-        result = client.retrieve_memories(memory_id="mem-123", namespace="test/namespace", query="test query", top_k=3)
+        result = client.retrieve_memories(memory_id="mem-123", namespace="test/namespace/", query="test query", top_k=3)
 
         # Should return empty list instead of raising exception
         assert result == []
@@ -1535,7 +1633,7 @@ def test_retrieve_memories_wildcard_namespace():
 
         # Test with wildcard namespace - should return empty list without API call
         result = client.retrieve_memories(
-            memory_id="mem-123", namespace="test/namespace/*", query="test query", top_k=3
+            memory_id="mem-123", namespace="test/namespace/*/", query="test query", top_k=3
         )
 
         # Should return empty list
@@ -1758,6 +1856,46 @@ def test_fork_conversation():
             assert len(kwargs["payload"]) == 2
 
 
+def test_fork_conversation_with_metadata():
+    """Test fork_conversation with metadata parameter."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Mock create_event response with metadata
+        metadata = {"fork_reason": {"stringValue": "alternative_response"}}
+        mock_gmdp.create_event.return_value = {
+            "event": {
+                "eventId": "event-fork-meta-123",
+                "memoryId": "mem-123",
+                "metadata": metadata,
+            }
+        }
+
+        # Test fork_conversation with metadata
+        result = client.fork_conversation(
+            memory_id="mem-123",
+            actor_id="user-123",
+            session_id="session-456",
+            root_event_id="event-root-456",
+            branch_name="test-branch",
+            new_messages=[("Forked message", "USER")],
+            metadata=metadata,
+        )
+
+        assert result["eventId"] == "event-fork-meta-123"
+        assert result["metadata"] == metadata
+
+        # Verify metadata was passed correctly along with branch info
+        args, kwargs = mock_gmdp.create_event.call_args
+        assert kwargs["metadata"] == metadata
+        assert kwargs["branch"]["name"] == "test-branch"
+        assert kwargs["branch"]["rootEventId"] == "event-root-456"
+
+
 def test_delete_strategy():
     """Test delete_strategy functionality."""
     with patch("boto3.client"):
@@ -1876,6 +2014,84 @@ def test_create_event_with_branch():
         # Verify branch was passed correctly
         args, kwargs = mock_gmdp.create_event.call_args
         assert kwargs["branch"] == branch
+
+
+def test_create_event_with_metadata():
+    """Test create_event with metadata parameter."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Mock create_event response with metadata
+        mock_gmdp.create_event.return_value = {
+            "event": {
+                "eventId": "event-meta-123",
+                "memoryId": "mem-123",
+                "metadata": {"location": {"stringValue": "NYC"}},
+            }
+        }
+
+        # Test create_event with metadata
+        metadata = {"location": {"stringValue": "NYC"}}
+        result = client.create_event(
+            memory_id="mem-123",
+            actor_id="user-123",
+            session_id="session-456",
+            messages=[("Hello from NYC", "USER")],
+            metadata=metadata,
+        )
+
+        assert result["eventId"] == "event-meta-123"
+        assert result["metadata"] == metadata
+
+        # Verify metadata was passed correctly
+        args, kwargs = mock_gmdp.create_event.call_args
+        assert kwargs["metadata"] == metadata
+
+
+def test_create_event_with_multiple_metadata_keys():
+    """Test create_event with multiple metadata key-value pairs."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Mock create_event response
+        metadata = {
+            "location": {"stringValue": "NYC"},
+            "category": {"stringValue": "weather"},
+            "priority": {"stringValue": "high"},
+        }
+        mock_gmdp.create_event.return_value = {
+            "event": {
+                "eventId": "event-multi-meta-123",
+                "memoryId": "mem-123",
+                "metadata": metadata,
+            }
+        }
+
+        # Test create_event with multiple metadata keys
+        result = client.create_event(
+            memory_id="mem-123",
+            actor_id="user-123",
+            session_id="session-456",
+            messages=[("Weather check", "USER")],
+            metadata=metadata,
+        )
+
+        assert result["eventId"] == "event-multi-meta-123"
+        assert result["metadata"]["location"]["stringValue"] == "NYC"
+        assert result["metadata"]["category"]["stringValue"] == "weather"
+        assert result["metadata"]["priority"]["stringValue"] == "high"
+
+        # Verify all metadata keys were passed
+        args, kwargs = mock_gmdp.create_event.call_args
+        assert len(kwargs["metadata"]) == 3
 
 
 def test_create_memory_and_wait_client_error():
@@ -2225,7 +2441,7 @@ def test_get_memory_record():
                 "memoryStrategyId": "strat-456",
                 "content": {"text": "Memory record content"},
                 "createdAt": int(time.time()),
-                "namespaces": ["test/namespace"],
+                "namespaces": ["test/namespace/"],
             }
         }
 
@@ -2239,7 +2455,7 @@ def test_get_memory_record():
         assert response["memoryRecord"]["memoryStrategyId"] == "strat-456"
         assert response["memoryRecord"]["content"]["text"] == "Memory record content"
         assert "createdAt" in response["memoryRecord"]
-        assert response["memoryRecord"]["namespaces"] == ["test/namespace"]
+        assert response["memoryRecord"]["namespaces"] == ["test/namespace/"]
 
         # Verify API call
         args, kwargs = mock_gmdp.get_memory_record.call_args
@@ -2336,7 +2552,7 @@ def test_list_memory_records():
                     "memoryStrategyId": "strat-456",
                     "content": {"text": "Memory record 1"},
                     "createdAt": int(time.time()),
-                    "namespaces": ["test/namespace"],
+                    "namespaces": ["test/namespace/"],
                     "score": 0.95,
                 },
                 {
@@ -2344,7 +2560,7 @@ def test_list_memory_records():
                     "memoryStrategyId": "strat-456",
                     "content": {"text": "Memory record 2"},
                     "createdAt": int(time.time()),
-                    "namespaces": ["test/namespace"],
+                    "namespaces": ["test/namespace/"],
                     "score": 0.85,
                 },
             ],
@@ -2352,7 +2568,7 @@ def test_list_memory_records():
         }
 
         # Test list_memory_records
-        response = client.list_memory_records(memoryId="mem-123", namespace="test/namespace", maxResults=10)
+        response = client.list_memory_records(memoryId="mem-123", namespace="test/namespace/", maxResults=10)
 
         assert response["memoryRecordSummaries"]
         assert len(response["memoryRecordSummaries"]) == 2
@@ -2365,7 +2581,7 @@ def test_list_memory_records():
         # Verify API call
         args, kwargs = mock_gmdp.list_memory_records.call_args
         assert kwargs["memoryId"] == "mem-123"
-        assert kwargs["namespace"] == "test/namespace"
+        assert kwargs["namespace"] == "test/namespace/"
         assert kwargs["maxResults"] == 10
 
 
@@ -2386,7 +2602,7 @@ def test_list_memory_records_with_strategy_filter():
                     "memoryStrategyId": "strat-123",
                     "content": {"text": "Memory record 1"},
                     "createdAt": int(time.time()),
-                    "namespaces": ["test/namespace"],
+                    "namespaces": ["test/namespace/"],
                 }
             ],
             "nextToken": None,
@@ -2394,7 +2610,7 @@ def test_list_memory_records_with_strategy_filter():
 
         # Test list_memory_records with strategy filter
         response = client.list_memory_records(
-            memoryId="mem-123", namespace="test/namespace", memoryStrategyId="strat-123", maxResults=10
+            memoryId="mem-123", namespace="test/namespace/", memoryStrategyId="strat-123", maxResults=10
         )
 
         assert response["memoryRecordSummaries"]
@@ -2406,7 +2622,7 @@ def test_list_memory_records_with_strategy_filter():
         # Verify API call
         args, kwargs = mock_gmdp.list_memory_records.call_args
         assert kwargs["memoryId"] == "mem-123"
-        assert kwargs["namespace"] == "test/namespace"
+        assert kwargs["namespace"] == "test/namespace/"
         assert kwargs["memoryStrategyId"] == "strat-123"
         assert kwargs["maxResults"] == 10
 
@@ -2427,7 +2643,7 @@ def test_list_memory_records_pagination():
         ]
 
         # Get first page
-        response1 = client.list_memory_records(memoryId="mem-123", namespace="test/namespace")
+        response1 = client.list_memory_records(memoryId="mem-123", namespace="test/namespace/")
 
         assert len(response1["memoryRecordSummaries"]) == 1
         assert response1["memoryRecordSummaries"][0]["memoryRecordId"] == "rec-1"
@@ -2435,7 +2651,7 @@ def test_list_memory_records_pagination():
 
         # Get second page
         response2 = client.list_memory_records(
-            memoryId="mem-123", namespace="test/namespace", nextToken=response1["nextToken"]
+            memoryId="mem-123", namespace="test/namespace/", nextToken=response1["nextToken"]
         )
 
         assert len(response2["memoryRecordSummaries"]) == 1
@@ -2472,7 +2688,7 @@ def test_list_memory_records_client_error():
 
             # Test error handling
             try:
-                client.list_memory_records(memoryId="mem-123", namespace="test/namespace")
+                client.list_memory_records(memoryId="mem-123", namespace="test/namespace/")
                 raise AssertionError("ClientError was not raised")
             except ClientError as e:
                 assert error["code"] in str(e)
@@ -2736,6 +2952,44 @@ def test_create_blob_event_with_branch():
         assert kwargs["branch"] == branch
 
 
+def test_create_blob_event_with_metadata():
+    """Test create_blob_event with metadata parameter."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Mock create_event response with metadata
+        metadata = {"file_type": {"stringValue": "pdf"}}
+        mock_gmdp.create_event.return_value = {
+            "event": {
+                "eventId": "event-blob-meta-123",
+                "memoryId": "mem-123",
+                "metadata": metadata,
+            }
+        }
+
+        # Test create_blob_event with metadata
+        blob_data = {"file_content": "base64_encoded_data"}
+        result = client.create_blob_event(
+            memory_id="mem-123",
+            actor_id="user-123",
+            session_id="session-456",
+            blob_data=blob_data,
+            metadata=metadata,
+        )
+
+        assert result["eventId"] == "event-blob-meta-123"
+        assert result["metadata"] == metadata
+
+        # Verify metadata was passed correctly
+        args, kwargs = mock_gmdp.create_event.call_args
+        assert kwargs["metadata"] == metadata
+        assert "blob" in kwargs["payload"][0]
+
+
 def test_create_blob_event_client_error():
     """Test create_blob_event with ClientError."""
     with patch("boto3.client"):
@@ -2886,8 +3140,8 @@ def test_add_episodic_strategy():
                 memory_id="mem-123",
                 name="Test Episodic Strategy",
                 description="Episodic test description",
-                namespaces=["episodes/{actorId}/{sessionId}"],
-                reflection_namespaces=["reflections/{actorId}"],
+                namespaces=["episodes/{actorId}/{sessionId}/"],
+                reflection_namespaces=["reflections/{actorId}/"],
             )
 
             assert mock_gmcp.update_memory.called
@@ -2905,8 +3159,8 @@ def test_add_episodic_strategy():
             episodic_config = strategy["episodicMemoryStrategy"]
             assert episodic_config["name"] == "Test Episodic Strategy"
             assert episodic_config["description"] == "Episodic test description"
-            assert episodic_config["namespaces"] == ["episodes/{actorId}/{sessionId}"]
-            assert episodic_config["reflectionConfiguration"] == {"namespaces": ["reflections/{actorId}"]}
+            assert episodic_config["namespaces"] == ["episodes/{actorId}/{sessionId}/"]
+            assert episodic_config["reflectionConfiguration"] == {"namespaces": ["reflections/{actorId}/"]}
 
             assert kwargs["memoryId"] == "mem-123"
 
@@ -2932,7 +3186,7 @@ def test_add_custom_episodic_strategy():
             reflection_config = {
                 "prompt": "Generate reflections from episodes",
                 "modelId": "anthropic.claude-3-sonnet-20240229-v1:0",
-                "namespaces": ["reflections/{actorId}"],
+                "namespaces": ["reflections/{actorId}/"],
             }
 
             client.add_custom_episodic_strategy(
@@ -2942,7 +3196,7 @@ def test_add_custom_episodic_strategy():
                 consolidation_config=consolidation_config,
                 reflection_config=reflection_config,
                 description="Custom episodic test",
-                namespaces=["custom/{actorId}/{sessionId}"],
+                namespaces=["custom/{actorId}/{sessionId}/"],
             )
 
             assert mock_gmcp.update_memory.called
@@ -2960,7 +3214,7 @@ def test_add_custom_episodic_strategy():
             assert episodic_override["extraction"]["appendToPrompt"] == "Extract episodes from conversation"
             assert episodic_override["consolidation"]["appendToPrompt"] == "Consolidate episodes"
             assert episodic_override["reflection"]["appendToPrompt"] == "Generate reflections from episodes"
-            assert episodic_override["reflection"]["namespaces"] == ["reflections/{actorId}"]
+            assert episodic_override["reflection"]["namespaces"] == ["reflections/{actorId}/"]
 
 
 def test_add_episodic_strategy_and_wait():
@@ -2979,7 +3233,7 @@ def test_add_episodic_strategy_and_wait():
                     result = client.add_episodic_strategy_and_wait(
                         memory_id="mem-123",
                         name="Test Episodic Strategy",
-                        reflection_namespaces=["reflections/{actorId}"],
+                        reflection_namespaces=["reflections/{actorId}/"],
                     )
 
                     assert result["memoryId"] == "mem-123"
@@ -3009,7 +3263,7 @@ def test_add_custom_episodic_strategy_and_wait():
                         reflection_config={
                             "prompt": "Reflect",
                             "modelId": "model-3",
-                            "namespaces": ["actor/{actorId}"],
+                            "namespaces": ["actor/{actorId}/"],
                         },
                     )
 
@@ -3030,7 +3284,7 @@ def test_wrap_configuration_custom_episodic_override():
             "reflection": {
                 "appendToPrompt": "Reflect on episodes",
                 "modelId": "reflection-model",
-                "namespaces": ["actor/{actorId}"],
+                "namespaces": ["actor/{actorId}/"],
             },
         }
 

@@ -13,6 +13,9 @@ if TYPE_CHECKING:
     from ..models.forloop_flow_modules_item_suspend_user_groups_required_type_1 import (
         ForloopFlowModulesItemSuspendUserGroupsRequiredType1,
     )
+    from ..models.forloop_flow_modules_item_suspend_user_groups_required_type_2 import (
+        ForloopFlowModulesItemSuspendUserGroupsRequiredType2,
+    )
 
 
 T = TypeVar("T", bound="ForloopFlowModulesItemSuspend")
@@ -29,8 +32,9 @@ class ForloopFlowModulesItemSuspend:
             resuming
         user_auth_required (Union[Unset, bool]): If true, only authenticated users can approve
         user_groups_required (Union['ForloopFlowModulesItemSuspendUserGroupsRequiredType0',
-            'ForloopFlowModulesItemSuspendUserGroupsRequiredType1', Unset]): Maps input parameters for a step. Can be a
-            static value or a JavaScript expression that references previous results or flow inputs
+            'ForloopFlowModulesItemSuspendUserGroupsRequiredType1', 'ForloopFlowModulesItemSuspendUserGroupsRequiredType2',
+            Unset]): Maps input parameters for a step. Can be a static value or a JavaScript expression that references
+            previous results or flow inputs
         self_approval_disabled (Union[Unset, bool]): If true, the user who started the flow cannot approve
         hide_cancel (Union[Unset, bool]): If true, hide the cancel button on the approval form
         continue_on_disapprove_timeout (Union[Unset, bool]): If true, continue flow on timeout instead of canceling
@@ -43,6 +47,7 @@ class ForloopFlowModulesItemSuspend:
     user_groups_required: Union[
         "ForloopFlowModulesItemSuspendUserGroupsRequiredType0",
         "ForloopFlowModulesItemSuspendUserGroupsRequiredType1",
+        "ForloopFlowModulesItemSuspendUserGroupsRequiredType2",
         Unset,
     ] = UNSET
     self_approval_disabled: Union[Unset, bool] = UNSET
@@ -53,6 +58,9 @@ class ForloopFlowModulesItemSuspend:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.forloop_flow_modules_item_suspend_user_groups_required_type_0 import (
             ForloopFlowModulesItemSuspendUserGroupsRequiredType0,
+        )
+        from ..models.forloop_flow_modules_item_suspend_user_groups_required_type_1 import (
+            ForloopFlowModulesItemSuspendUserGroupsRequiredType1,
         )
 
         required_events = self.required_events
@@ -67,6 +75,11 @@ class ForloopFlowModulesItemSuspend:
             user_groups_required = UNSET
 
         elif isinstance(self.user_groups_required, ForloopFlowModulesItemSuspendUserGroupsRequiredType0):
+            user_groups_required = UNSET
+            if not isinstance(self.user_groups_required, Unset):
+                user_groups_required = self.user_groups_required.to_dict()
+
+        elif isinstance(self.user_groups_required, ForloopFlowModulesItemSuspendUserGroupsRequiredType1):
             user_groups_required = UNSET
             if not isinstance(self.user_groups_required, Unset):
                 user_groups_required = self.user_groups_required.to_dict()
@@ -111,6 +124,9 @@ class ForloopFlowModulesItemSuspend:
         from ..models.forloop_flow_modules_item_suspend_user_groups_required_type_1 import (
             ForloopFlowModulesItemSuspendUserGroupsRequiredType1,
         )
+        from ..models.forloop_flow_modules_item_suspend_user_groups_required_type_2 import (
+            ForloopFlowModulesItemSuspendUserGroupsRequiredType2,
+        )
 
         d = src_dict.copy()
         required_events = d.pop("required_events", UNSET)
@@ -131,6 +147,7 @@ class ForloopFlowModulesItemSuspend:
         ) -> Union[
             "ForloopFlowModulesItemSuspendUserGroupsRequiredType0",
             "ForloopFlowModulesItemSuspendUserGroupsRequiredType1",
+            "ForloopFlowModulesItemSuspendUserGroupsRequiredType2",
             Unset,
         ]:
             if isinstance(data, Unset):
@@ -150,18 +167,33 @@ class ForloopFlowModulesItemSuspend:
                 return user_groups_required_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _user_groups_required_type_1 = data
+                user_groups_required_type_1: Union[Unset, ForloopFlowModulesItemSuspendUserGroupsRequiredType1]
+                if isinstance(_user_groups_required_type_1, Unset):
+                    user_groups_required_type_1 = UNSET
+                else:
+                    user_groups_required_type_1 = ForloopFlowModulesItemSuspendUserGroupsRequiredType1.from_dict(
+                        _user_groups_required_type_1
+                    )
+
+                return user_groups_required_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _user_groups_required_type_1 = data
-            user_groups_required_type_1: Union[Unset, ForloopFlowModulesItemSuspendUserGroupsRequiredType1]
-            if isinstance(_user_groups_required_type_1, Unset):
-                user_groups_required_type_1 = UNSET
+            _user_groups_required_type_2 = data
+            user_groups_required_type_2: Union[Unset, ForloopFlowModulesItemSuspendUserGroupsRequiredType2]
+            if isinstance(_user_groups_required_type_2, Unset):
+                user_groups_required_type_2 = UNSET
             else:
-                user_groups_required_type_1 = ForloopFlowModulesItemSuspendUserGroupsRequiredType1.from_dict(
-                    _user_groups_required_type_1
+                user_groups_required_type_2 = ForloopFlowModulesItemSuspendUserGroupsRequiredType2.from_dict(
+                    _user_groups_required_type_2
                 )
 
-            return user_groups_required_type_1
+            return user_groups_required_type_2
 
         user_groups_required = _parse_user_groups_required(d.pop("user_groups_required", UNSET))
 

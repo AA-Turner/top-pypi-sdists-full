@@ -37,22 +37,22 @@ class GenericRemoteResponse(BaseModel):
     pulp_last_updated: Optional[datetime] = Field(default=None, description="Timestamp of the most recent update of the remote.")
     name: StrictStr = Field(description="A unique name for this remote.")
     url: StrictStr = Field(description="The URL of an external content source.")
+    pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = None
+    policy: Optional[GenericRemoteResponsePolicyEnum] = Field(default=None, description="The policy to use when downloading content.  * `immediate` - When syncing, download all metadata and content now. * `on_demand` - When syncing, download metadata, but do not download content now. Instead, download content as clients request it, and save it in Pulp to be served for future client requests. * `streamed` - When syncing, download metadata, but do not download content now. Instead,download content as clients request it, but never save it in Pulp. This causes future requests for that same content to have to be downloaded again.")
+    hidden_fields: Optional[List[GenericRemoteResponseHiddenFieldsInner]] = Field(default=None, description="List of hidden (write only) fields")
     ca_cert: Optional[StrictStr] = Field(default=None, description="A PEM encoded CA certificate used to validate the server certificate presented by the remote server.")
     client_cert: Optional[StrictStr] = Field(default=None, description="A PEM encoded client certificate used for authentication.")
     tls_validation: Optional[StrictBool] = Field(default=None, description="If True, TLS peer validation must be performed.")
     proxy_url: Optional[StrictStr] = Field(default=None, description="The proxy URL. Format: scheme://host:port")
-    pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = None
-    download_concurrency: Optional[StrictInt] = Field(default=None, description="Total number of simultaneous connections. If not set then the default value will be used.")
     max_retries: Optional[StrictInt] = Field(default=None, description="Maximum number of retry attempts after a download failure. If not set then the default value (3) will be used.")
-    policy: Optional[GenericRemoteResponsePolicyEnum] = Field(default=None, description="The policy to use when downloading content.  * `immediate` - When syncing, download all metadata and content now. * `on_demand` - When syncing, download metadata, but do not download content now. Instead, download content as clients request it, and save it in Pulp to be served for future client requests. * `streamed` - When syncing, download metadata, but do not download content now. Instead,download content as clients request it, but never save it in Pulp. This causes future requests for that same content to have to be downloaded again.")
     total_timeout: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = Field(default=None, description="aiohttp.ClientTimeout.total (q.v.) for download-connections. The default is null, which will cause the default from the aiohttp library to be used.")
     connect_timeout: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = Field(default=None, description="aiohttp.ClientTimeout.connect (q.v.) for download-connections. The default is null, which will cause the default from the aiohttp library to be used.")
     sock_connect_timeout: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = Field(default=None, description="aiohttp.ClientTimeout.sock_connect (q.v.) for download-connections. The default is null, which will cause the default from the aiohttp library to be used.")
     sock_read_timeout: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = Field(default=None, description="aiohttp.ClientTimeout.sock_read (q.v.) for download-connections. The default is null, which will cause the default from the aiohttp library to be used.")
     headers: Optional[List[Dict[str, Any]]] = Field(default=None, description="Headers for aiohttp.Clientsession")
+    download_concurrency: Optional[StrictInt] = Field(default=None, description="Total number of simultaneous connections. If not set then the default value will be used.")
     rate_limit: Optional[StrictInt] = Field(default=None, description="Limits requests per second for each concurrent downloader")
-    hidden_fields: Optional[List[GenericRemoteResponseHiddenFieldsInner]] = Field(default=None, description="List of hidden (write only) fields")
-    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "name", "url", "ca_cert", "client_cert", "tls_validation", "proxy_url", "pulp_labels", "download_concurrency", "max_retries", "policy", "total_timeout", "connect_timeout", "sock_connect_timeout", "sock_read_timeout", "headers", "rate_limit", "hidden_fields"]
+    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "name", "url", "pulp_labels", "policy", "hidden_fields", "ca_cert", "client_cert", "tls_validation", "proxy_url", "max_retries", "total_timeout", "connect_timeout", "sock_connect_timeout", "sock_read_timeout", "headers", "download_concurrency", "rate_limit"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -123,11 +123,6 @@ class GenericRemoteResponse(BaseModel):
         if self.proxy_url is None and "proxy_url" in self.model_fields_set:
             _dict['proxy_url'] = None
 
-        # set to None if download_concurrency (nullable) is None
-        # and model_fields_set contains the field
-        if self.download_concurrency is None and "download_concurrency" in self.model_fields_set:
-            _dict['download_concurrency'] = None
-
         # set to None if max_retries (nullable) is None
         # and model_fields_set contains the field
         if self.max_retries is None and "max_retries" in self.model_fields_set:
@@ -152,6 +147,11 @@ class GenericRemoteResponse(BaseModel):
         # and model_fields_set contains the field
         if self.sock_read_timeout is None and "sock_read_timeout" in self.model_fields_set:
             _dict['sock_read_timeout'] = None
+
+        # set to None if download_concurrency (nullable) is None
+        # and model_fields_set contains the field
+        if self.download_concurrency is None and "download_concurrency" in self.model_fields_set:
+            _dict['download_concurrency'] = None
 
         # set to None if rate_limit (nullable) is None
         # and model_fields_set contains the field

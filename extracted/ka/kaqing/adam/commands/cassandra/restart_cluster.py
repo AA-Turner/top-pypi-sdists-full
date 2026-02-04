@@ -41,7 +41,7 @@ class RestartCluster(Command):
                         ctx.log(f'[{pod_name}] Restarting...')
                     else:
                         ctx.log(f'[{pod_name}] Checking...')
-                        node: NodeRestartability = CassandraStatus.restartable(state, pod_name, in_restartings=NodeScheduler.restartings(ctx=ctx), ctx=ctx.copy(show_out=False))
+                        node: NodeRestartability = CassandraStatus.probe(state, pod_name, in_restartings=NodeScheduler.restartings(ctx=ctx), ctx=ctx.copy(show_out=False))
                         if not node.restartable():
                             node.log(ctx=ctx.copy(text_color=Color.gray))
                             ctx.log2('Please add --force for restarting pod unsafely.')

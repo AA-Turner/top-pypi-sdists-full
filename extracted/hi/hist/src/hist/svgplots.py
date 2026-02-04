@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Callable
+import itertools
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 from boost_histogram.axis import Axis
@@ -21,7 +23,7 @@ from .svgutils import (
 )
 
 
-def _desc_hist(h: hist.BaseHist) -> str:
+def _desc_hist(h: hist.BaseHist[Any]) -> str:
     main_sum = h.sum()
     flow_too_sum = h.sum(flow=True)
 
@@ -35,7 +37,9 @@ def _desc_hist(h: hist.BaseHist) -> str:
     return output
 
 
-def html_hist(h: hist.BaseHist, function: Callable[[hist.BaseHist], svg]) -> html:
+def html_hist(
+    h: hist.BaseHist[Any], function: Callable[[hist.BaseHist[Any]], svg]
+) -> html:
     left_column = div(function(h), style="width:290px;")
     right_column = div(_desc_hist(h), style="flex=grow:1;")
 
@@ -60,7 +64,7 @@ def make_ax_text(ax: Axis, **kwargs: SupportsStr) -> text:
     return make_text(ax.label or ax.name, **kwargs)
 
 
-def svg_hist_1d(h: hist.BaseHist) -> svg:
+def svg_hist_1d(h: hist.BaseHist[Any]) -> svg:
     width = 250
     height = 100
 
@@ -70,7 +74,7 @@ def svg_hist_1d(h: hist.BaseHist) -> svg:
     (edges,) = h.axes.edges
     norm_edges = (edges - edges[0]) / (edges[-1] - edges[0])
     density = h.density()
-    max_dens: float = np.amax(density) or 1  # type: ignore[redundant-expr, unreachable]
+    max_dens: float = np.amax(density) or 1
     norm_vals: np.typing.NDArray[Any] = density / max_dens
 
     arr: np.typing.NDArray[np.float64] = np.empty(
@@ -109,7 +113,7 @@ def svg_hist_1d(h: hist.BaseHist) -> svg:
     )
 
 
-def svg_hist_1d_c(h: hist.BaseHist) -> svg:
+def svg_hist_1d_c(h: hist.BaseHist[Any]) -> svg:
     width = 250
     height = 250
     radius = 100
@@ -121,7 +125,7 @@ def svg_hist_1d_c(h: hist.BaseHist) -> svg:
     (edges,) = h.axes.edges
     norm_edges = (edges - edges[0]) / (edges[-1] - edges[0]) * np.pi * 2
     density = h.density()
-    max_dens = np.amax(density) or 1  # type: ignore[redundant-expr, var-annotated, unreachable]
+    max_dens = np.amax(density) or 1
     norm_vals: np.typing.NDArray[Any] = density / max_dens
 
     arr: np.typing.NDArray[np.float64] = np.empty((2, len(norm_vals) * 2), dtype=float)
@@ -132,7 +136,7 @@ def svg_hist_1d_c(h: hist.BaseHist) -> svg:
     xs = arr[1] * np.cos(arr[0])
     ys = arr[1] * np.sin(arr[0])
 
-    points = " ".join(f"{x:3g},{y:.3g}" for x, y in zip(xs, ys))
+    points = " ".join(f"{x:3g},{y:.3g}" for x, y in zip(xs, ys, strict=True))
     bins = polygon(points=points, style="fill:none; stroke:currentColor;")
 
     center = circle(
@@ -145,7 +149,7 @@ def svg_hist_1d_c(h: hist.BaseHist) -> svg:
     return svg(bins, center, viewBox=f"{-width / 2} {-height / 2} {width} {height}")
 
 
-def svg_hist_2d(h: hist.BaseHist) -> svg:
+def svg_hist_2d(h: hist.BaseHist[Any]) -> svg:
     width = 250
     height = 250
     assert h.ndim == 2, "Must be 2D"
@@ -155,13 +159,13 @@ def svg_hist_2d(h: hist.BaseHist) -> svg:
     ey = -(e1 - e1[0]) / (e1[-1] - e1[0]) * height
 
     density = h.density()
-    max_dens = np.amax(density) or 1  # type: ignore[redundant-expr, var-annotated, unreachable]
+    max_dens = np.amax(density) or 1
     norm_vals: np.typing.NDArray[Any] = density / max_dens
 
     boxes = []
-    for r, (up_edge, bottom_edge) in enumerate(zip(ey[:-1], ey[1:])):
+    for r, (up_edge, bottom_edge) in enumerate(itertools.pairwise(ey)):
         ht = up_edge - bottom_edge
-        for c, (left_edge, right_edge) in enumerate(zip(ex[:-1], ex[1:])):
+        for c, (left_edge, right_edge) in enumerate(itertools.pairwise(ex)):
             opacity = norm_vals[c, r]
             wt = left_edge - right_edge
             boxes.append(

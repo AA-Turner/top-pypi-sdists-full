@@ -1,10 +1,30 @@
 Metadata-Version: 2.4
 Name: easypost
-Version: 10.3.0
+Version: 10.4.0
 Summary: EasyPost Shipping API Client Library for Python
-Home-page: https://easypost.com/
-Author: EasyPost
-Author-email: support@easypost.com
+Author-email: EasyPost <support@easypost.com>
+License: The MIT License
+        
+        Copyright (c) 2013 EasyPost (Simpler Postage, Inc)
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in
+        all copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+        THE SOFTWARE.
+        
 Project-URL: Docs, https://docs.easypost.com
 Project-URL: Tracker, https://github.com/EasyPost/easypost-python/issues
 Project-URL: Source, https://github.com/EasyPost/easypost-python
@@ -20,34 +40,21 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.9, <4
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests>=2.4.3
 Provides-Extra: dev
 Requires-Dist: bandit==1.8.*; extra == "dev"
-Requires-Dist: black==25.*; extra == "dev"
 Requires-Dist: build==1.2.*; extra == "dev"
-Requires-Dist: flake8==6.*; extra == "dev"
-Requires-Dist: isort==6.*; extra == "dev"
 Requires-Dist: mypy==1.15.*; extra == "dev"
 Requires-Dist: pdoc==15.*; extra == "dev"
+Requires-Dist: pytest==8.*; extra == "dev"
 Requires-Dist: pytest-cov==6.*; extra == "dev"
 Requires-Dist: pytest-vcr==1.*; extra == "dev"
-Requires-Dist: pytest==8.*; extra == "dev"
+Requires-Dist: ruff==0.14.*; extra == "dev"
 Requires-Dist: vcrpy==7.*; extra == "dev"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # EasyPost Python Client Library
 
@@ -135,7 +142,7 @@ You can also unsubscribe your functions in a similar manner by using the `unsubs
 
 API documentation can be found at: <https://docs.easypost.com>.
 
-Library documentation can be found on the web at: <https://easypost.github.io/easypost-python/> or by building them locally via the `make docs` command.
+Library documentation can be found on the web at: <https://easypost.github.io/easypost-python/> or by building them locally via the `just docs` command.
 
 Upgrading major versions of this project? Refer to the [Upgrade Guide](UPGRADE_GUIDE.md).
 
@@ -149,24 +156,24 @@ For additional support, see our [org-wide support policy](https://github.com/Eas
 
 ```bash
 # Install dependencies
-make install
+just install
 
 # Lint project
-make lint
-make lint-fix
+just lint
+just lint-fix
 
 # Run tests
-EASYPOST_TEST_API_KEY=123... EASYPOST_PROD_API_KEY=123... make test
-EASYPOST_TEST_API_KEY=123... EASYPOST_PROD_API_KEY=123... make coverage
+EASYPOST_TEST_API_KEY=123... EASYPOST_PROD_API_KEY=123... just test
+EASYPOST_TEST_API_KEY=123... EASYPOST_PROD_API_KEY=123... just coverage
 
 # Run security analysis
-make scan
+just scan
 
 # Generate library documentation
-make docs
+just docs
 
 # Update submodules
-make update-examples-submodule
+just update-examples-submodule
 ```
 
 ### Testing

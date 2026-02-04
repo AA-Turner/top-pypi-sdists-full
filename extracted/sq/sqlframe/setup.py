@@ -20,7 +20,7 @@ setup(
     python_requires=">=3.9",
     install_requires=[
         "prettytable<4",
-        "sqlglot>=28.0.0,<28.8",
+        "sqlglot>=28.0.0,<28.10",
         "typing_extensions",
         "more-itertools",
     ],
@@ -47,7 +47,7 @@ setup(
             "pytest-rerunfailures",
             "pytest-xdist>=3.6,<3.9",
             "pre-commit>=3.7,<5",
-            "ruff>=0.4.4,<0.15",
+            "ruff>=0.4.4,<0.16",
             "types-psycopg2>=2.9,<3",
         ],
         "docs": [

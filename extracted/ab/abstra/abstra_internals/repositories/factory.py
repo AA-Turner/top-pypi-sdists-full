@@ -15,6 +15,11 @@ from abstra_internals.repositories.ai import (
     LocalAIRepository,
     ProductionAIRepository,
 )
+from abstra_internals.repositories.code_markers.repository import (
+    CodeMarkersRepository,
+    LocalCodeMarkersRepository,
+    ProductionCodeMarkersRepository,
+)
 from abstra_internals.repositories.connectors import ConnectorsRepository
 from abstra_internals.repositories.email import EmailRepository
 from abstra_internals.repositories.execution import (
@@ -122,6 +127,7 @@ class Repositories:
     users: UsersRepository
     linter: LinterRepository
     infra: InfraRepository
+    code_markers: CodeMarkersRepository
 
 
 def build_editor_repositories(local_queue: Optional[Queue] = None):
@@ -153,6 +159,7 @@ def build_editor_repositories(local_queue: Optional[Queue] = None):
         mp_context=mp_context,
         linter=linter,
         infra=LocalInfraRepository(),
+        code_markers=LocalCodeMarkersRepository(),
     )
 
 
@@ -183,6 +190,7 @@ def build_prod_repositories():
         mp_context=get_mp_context_repository(),
         linter=ProductionLinterRepository(),
         infra=ProductionInfraRepository(client=http_client),
+        code_markers=ProductionCodeMarkersRepository(),
     )
 
 
@@ -221,4 +229,5 @@ def build_web_editor_repositories(rabbitmq_connection_uri: str):
         mp_context=mp_context_repo,
         linter=linter,
         infra=LocalInfraRepository(),
+        code_markers=LocalCodeMarkersRepository(),
     )

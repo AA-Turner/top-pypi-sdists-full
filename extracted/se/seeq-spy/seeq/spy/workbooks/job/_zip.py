@@ -2,17 +2,23 @@ from __future__ import annotations
 
 import os
 import zipfile
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Union
 
 from seeq.base import util
-from seeq.spy import _common
 from seeq.spy._errors import *
 from seeq.spy._status import Status
 
 
 # noinspection PyShadowingBuiltins
-@Status.handle_keyboard_interrupt(no_session=True)
-def zip(job_folder: str, *, overwrite: bool = False, quiet: Optional[bool] = None, status: Optional[Status] = None):
+@Status.top_level_spy_function(no_session=True)
+def zip(
+    job_folder: Union[str, Path],
+    *,
+    overwrite: bool = False,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None
+):
     """
     Creates a zip file of the job folder for easy sharing.
 
@@ -35,13 +41,6 @@ def zip(job_folder: str, *, overwrite: bool = False, quiet: Optional[bool] = Non
         in Jupyter in the blue/green/red table below your code while the
         command is executed.
     """
-    _common.validate_argument_types([
-        (job_folder, 'job_folder', str),
-        (overwrite, 'overwrite', bool),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status)
-    ])
-
     if not util.safe_exists(job_folder):
         raise SPyValueError(f'Job folder "{job_folder}" does not exist.')
 
@@ -69,9 +68,14 @@ def zip(job_folder: str, *, overwrite: bool = False, quiet: Optional[bool] = Non
     status.update(f'Success: Zip file written to "{job_folder_zip}"', Status.SUCCESS)
 
 
-@Status.handle_keyboard_interrupt(no_session=True)
-def unzip(job_folder_zip: str, *, overwrite: bool = False,
-          quiet: Optional[bool] = None, status: Optional[Status] = None):
+@Status.top_level_spy_function(no_session=True)
+def unzip(
+    job_folder_zip: Union[str, Path],
+    *,
+    overwrite: bool = False,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None
+):
     """
     Unzips a job folder file created with spy.workbooks.job.zip(). The job
     folder will be the name of the zip file (without the .zip extension).
@@ -95,13 +99,6 @@ def unzip(job_folder_zip: str, *, overwrite: bool = False,
         in Jupyter in the blue/green/red table below your code while the
         command is executed.
     """
-    _common.validate_argument_types([
-        (job_folder_zip, 'job_folder_zip', str),
-        (overwrite, 'overwrite', bool),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status)
-    ])
-
     if not util.safe_exists(job_folder_zip):
         raise SPyValueError(f'Zip file "{job_folder_zip}" does not exist.')
 

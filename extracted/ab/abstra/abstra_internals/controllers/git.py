@@ -318,6 +318,8 @@ class GitController:
         if not success and error_message:
             large_file_error_indicators = [
                 "curl 18",
+                "curl 22",
+                "HTTP 413",
                 "transfer closed with outstanding read data remaining",
                 "unexpected disconnect while reading sideband packet",
                 "the remote end hung up unexpectedly",
@@ -339,6 +341,15 @@ class GitController:
                         "message": large_file_error_message,
                         "errorType": "large_files_push",
                         "largeFiles": large_files_info.get("largeFiles", []),
+                    }
+                else:
+                    large_file_error_message = "Push failed: your project likely contains files that are too large to upload. This can happen when large files were already committed. Please remove them and try again."
+                    DeployMessages.error(large_file_error_message)
+                    return {
+                        "success": False,
+                        "message": large_file_error_message,
+                        "errorType": "large_files_push",
+                        "largeFiles": [],
                     }
 
         if success:

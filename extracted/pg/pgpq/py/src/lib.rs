@@ -111,6 +111,7 @@ fn _pgpq(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<crate::encoders::UInt8EncoderBuilder>()?;
     m.add_class::<crate::encoders::UInt16EncoderBuilder>()?;
     m.add_class::<crate::encoders::UInt32EncoderBuilder>()?;
+    m.add_class::<crate::encoders::UInt64EncoderBuilder>()?;
     m.add_class::<crate::encoders::Int8EncoderBuilder>()?;
     m.add_class::<crate::encoders::Int16EncoderBuilder>()?;
     m.add_class::<crate::encoders::Int32EncoderBuilder>()?;
@@ -138,6 +139,7 @@ fn _pgpq(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<crate::encoders::LargeBinaryEncoderBuilder>()?;
     m.add_class::<crate::encoders::ListEncoderBuilder>()?;
     m.add_class::<crate::encoders::LargeListEncoderBuilder>()?;
+    m.add_class::<crate::encoders::StructEncoderBuilder>()?;
 
     m.add_class::<crate::pg_schema::Bool>()?;
     m.add_class::<crate::pg_schema::Bytea>()?;

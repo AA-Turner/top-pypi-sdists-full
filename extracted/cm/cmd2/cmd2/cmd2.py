@@ -593,10 +593,13 @@ class Cmd:
         # being printed by a command.
         self.terminal_lock = threading.RLock()
 
-        # Commands that have been disabled from use. This is to support commands that are only available
-        # during specific states of the application. This dictionary's keys are the command names and its
-        # values are DisabledCommand objects.
+        # Commands disabled during specific application states
+        # Key: Command name | Value: DisabledCommand object
         self.disabled_commands: dict[str, DisabledCommand] = {}
+
+        # Categories of commands to be disabled
+        # Key: Category name | Value: Message to display
+        self.disabled_categories: dict[str, str] = {}
 
         # The default key for sorting string results. Its default value performs a case-insensitive alphabetical sort.
         # If natural sorting is preferred, then set this to NATURAL_SORT_KEY.
@@ -755,9 +758,11 @@ class Cmd:
             list[tuple[str, Callable[..., Any]]],
             inspect.getmembers(
                 cmdset,
-                predicate=lambda meth: isinstance(meth, Callable)  # type: ignore[arg-type]
-                and hasattr(meth, '__name__')
-                and meth.__name__.startswith(COMMAND_FUNC_PREFIX),
+                predicate=lambda meth: (  # type: ignore[arg-type]
+                    isinstance(meth, Callable)  # type: ignore[arg-type]
+                    and hasattr(meth, '__name__')
+                    and meth.__name__.startswith(COMMAND_FUNC_PREFIX)
+                ),
             ),
         )
 
@@ -787,6 +792,12 @@ class Cmd:
 
                 if default_category and not hasattr(command_method, constants.CMD_ATTR_HELP_CATEGORY):
                     utils.categorize(command_method, default_category)
+
+                # If this command is in a disabled category, then disable it
+                command_category = getattr(command_method, constants.CMD_ATTR_HELP_CATEGORY, None)
+                if command_category in self.disabled_categories:
+                    message_to_print = self.disabled_categories[command_category]
+                    self.disable_command(command, message_to_print)
 
             self._installed_command_sets.add(cmdset)
 
@@ -904,9 +915,11 @@ class Cmd:
 
             methods: list[tuple[str, Callable[..., Any]]] = inspect.getmembers(
                 cmdset,
-                predicate=lambda meth: isinstance(meth, Callable)  # type: ignore[arg-type]
-                and hasattr(meth, '__name__')
-                and meth.__name__.startswith(COMMAND_FUNC_PREFIX),
+                predicate=lambda meth: (  # type: ignore[arg-type]
+                    isinstance(meth, Callable)  # type: ignore[arg-type]
+                    and hasattr(meth, '__name__')
+                    and meth.__name__.startswith(COMMAND_FUNC_PREFIX)
+                ),
             )
 
             for cmd_func_name, command_method in methods:
@@ -950,9 +963,11 @@ class Cmd:
 
         methods: list[tuple[str, Callable[..., Any]]] = inspect.getmembers(
             cmdset,
-            predicate=lambda meth: isinstance(meth, Callable)  # type: ignore[arg-type]
-            and hasattr(meth, '__name__')
-            and meth.__name__.startswith(COMMAND_FUNC_PREFIX),
+            predicate=lambda meth: (  # type: ignore[arg-type]
+                isinstance(meth, Callable)  # type: ignore[arg-type]
+                and hasattr(meth, '__name__')
+                and meth.__name__.startswith(COMMAND_FUNC_PREFIX)
+            ),
         )
 
         for cmd_func_name, command_method in methods:
@@ -974,10 +989,12 @@ class Cmd:
         # find methods that have the required attributes necessary to be recognized as a sub-command
         methods = inspect.getmembers(
             cmdset,
-            predicate=lambda meth: isinstance(meth, Callable)  # type: ignore[arg-type]
-            and hasattr(meth, constants.SUBCMD_ATTR_NAME)
-            and hasattr(meth, constants.SUBCMD_ATTR_COMMAND)
-            and hasattr(meth, constants.CMD_ATTR_ARGPARSER),
+            predicate=lambda meth: (
+                isinstance(meth, Callable)  # type: ignore[arg-type]
+                and hasattr(meth, constants.SUBCMD_ATTR_NAME)
+                and hasattr(meth, constants.SUBCMD_ATTR_COMMAND)
+                and hasattr(meth, constants.CMD_ATTR_ARGPARSER)
+            ),
         )
 
         # iterate through all matching methods
@@ -1063,10 +1080,12 @@ class Cmd:
         # find methods that have the required attributes necessary to be recognized as a sub-command
         methods = inspect.getmembers(
             cmdset,
-            predicate=lambda meth: isinstance(meth, Callable)  # type: ignore[arg-type]
-            and hasattr(meth, constants.SUBCMD_ATTR_NAME)
-            and hasattr(meth, constants.SUBCMD_ATTR_COMMAND)
-            and hasattr(meth, constants.CMD_ATTR_ARGPARSER),
+            predicate=lambda meth: (
+                isinstance(meth, Callable)  # type: ignore[arg-type]
+                and hasattr(meth, constants.SUBCMD_ATTR_NAME)
+                and hasattr(meth, constants.SUBCMD_ATTR_COMMAND)
+                and hasattr(meth, constants.CMD_ATTR_ARGPARSER)
+            ),
         )
 
         # iterate through all matching methods
@@ -1250,8 +1269,14 @@ class Cmd:
         :param sep: string to write between printed text. Defaults to " ".
         :param end: string to write at end of printed text. Defaults to a newline.
         :param style: optional style to apply to output
-        :param soft_wrap: Enable soft wrap mode. If True, lines of text will not be
-                          word-wrapped or cropped to fit the terminal width. Defaults to True.
+        :param soft_wrap: Enable soft wrap mode. Defaults to True.
+                          If True, text that doesn't fit will run on to the following line,
+                          just like with print(). This is useful for raw text and logs.
+                          If False, Rich wraps text to fit the terminal width.
+                          Set this to False when printing structured Renderables like
+                          Tables, Panels, or Columns to ensure they render as expected.
+                          For example, when soft_wrap is True Panels truncate text
+                          which is wider than the terminal.
         :param emoji: If True, Rich will replace emoji codes (e.g., :smiley:) with their
                       corresponding Unicode characters. Defaults to False.
         :param markup: If True, Rich will interpret strings with tags (e.g., [bold]hello[/bold])
@@ -1751,31 +1776,45 @@ class Cmd:
         :return: a list of possible tab completions
         """
         matches = self.basic_complete(text, line, begidx, endidx, match_against)
+        if not matches:
+            return []
 
-        # Display only the portion of the match that's being completed based on delimiter
-        if matches:
-            # Set this to True for proper quoting of matches with spaces
-            self.matches_delimited = True
+        # Set this to True for proper quoting of matches with spaces
+        self.matches_delimited = True
 
-            # Get the common beginning for the matches
-            common_prefix = os.path.commonprefix(matches)
-            prefix_tokens = common_prefix.split(delimiter)
+        # Get the common beginning for the matches
+        common_prefix = os.path.commonprefix(matches)
+        prefix_tokens = common_prefix.split(delimiter)
 
-            # Calculate what portion of the match we are completing
-            display_token_index = 0
-            if prefix_tokens:
-                display_token_index = len(prefix_tokens) - 1
+        # Calculate what portion of the match we are completing
+        display_token_index = 0
+        if prefix_tokens:
+            display_token_index = len(prefix_tokens) - 1
 
-            # Get this portion for each match and store them in self.display_matches
-            for cur_match in matches:
-                match_tokens = cur_match.split(delimiter)
-                display_token = match_tokens[display_token_index]
+        # Remove from each match everything after where the user is completing.
+        # This approach can result in duplicates so we will filter those out.
+        unique_results: dict[str, str] = {}
 
-                if not display_token:
-                    display_token = delimiter
-                self.display_matches.append(display_token)
+        for cur_match in matches:
+            match_tokens = cur_match.split(delimiter)
 
-        return matches
+            filtered_match = delimiter.join(match_tokens[: display_token_index + 1])
+            display_match = match_tokens[display_token_index]
+
+            # If there are more tokens, then we aren't done completing a full item
+            if len(match_tokens) > display_token_index + 1:
+                filtered_match += delimiter
+                display_match += delimiter
+                self.allow_appended_space = False
+                self.allow_closing_quote = False
+
+            if filtered_match not in unique_results:
+                unique_results[filtered_match] = display_match
+
+        filtered_matches = list(unique_results.keys())
+        self.display_matches = list(unique_results.values())
+
+        return filtered_matches
 
     def flag_based_complete(
         self,
@@ -2233,7 +2272,7 @@ class Cmd:
             # Otherwise use pyreadline3's formatter
             else:
                 # Check if we should show display_matches
-                matches_to_display = self.display_matches if self.display_matches else matches
+                matches_to_display = self.display_matches or matches
 
                 # Add padding for visual appeal
                 matches_to_display, _ = self._pad_matches_to_display(matches_to_display)
@@ -4236,7 +4275,7 @@ class Cmd:
             header_grid = Table.grid()
             header_grid.add_row(Text(header, style=Cmd2Style.HELP_HEADER))
             header_grid.add_row(Rule(characters=self.ruler, style=Cmd2Style.TABLE_BORDER))
-            self.poutput(header_grid)
+            self.poutput(header_grid, soft_wrap=False)
 
         # Subtract 1 from maxcol to account for a one-space right margin.
         maxcol = min(maxcol, ru.console_width()) - 1
@@ -4304,7 +4343,7 @@ class Cmd:
             topics_table.add_row(command, cmd_desc)
 
         category_grid.add_row(topics_table)
-        self.poutput(category_grid)
+        self.poutput(category_grid, soft_wrap=False)
         self.poutput()
 
     def render_columns(self, str_list: list[str] | None, display_width: int = 80) -> str:
@@ -4601,7 +4640,7 @@ class Cmd:
             self.last_result[param] = settable.value
 
         self.poutput()
-        self.poutput(settable_table)
+        self.poutput(settable_table, soft_wrap=False)
         self.poutput()
 
     @classmethod
@@ -5799,7 +5838,7 @@ class Cmd:
 
         :param command: the command being enabled
         """
-        # If the commands is already enabled, then return
+        # If the command is already enabled, then return
         if command not in self.disabled_commands:
             return
 
@@ -5831,10 +5870,16 @@ class Cmd:
 
         :param category: the category to enable
         """
+        # If the category is already enabled, then return
+        if category not in self.disabled_categories:
+            return
+
         for cmd_name in list(self.disabled_commands):
             func = self.disabled_commands[cmd_name].command_function
             if getattr(func, constants.CMD_ATTR_HELP_CATEGORY, None) == category:
                 self.enable_command(cmd_name)
+
+        del self.disabled_categories[category]
 
     def disable_command(self, command: str, message_to_print: str) -> None:
         """Disable a command and overwrite its functions.
@@ -5846,7 +5891,7 @@ class Cmd:
                                  command being disabled.
                                  ex: message_to_print = f"{cmd2.COMMAND_NAME} is currently disabled"
         """
-        # If the commands is already disabled, then return
+        # If the command is already disabled, then return
         if command in self.disabled_commands:
             return
 
@@ -5885,12 +5930,18 @@ class Cmd:
                                  of the command being disabled.
                                  ex: message_to_print = f"{cmd2.COMMAND_NAME} is currently disabled"
         """
+        # If the category is already disabled, then return
+        if category in self.disabled_categories:
+            return
+
         all_commands = self.get_all_commands()
 
         for cmd_name in all_commands:
             func = self.cmd_func(cmd_name)
             if getattr(func, constants.CMD_ATTR_HELP_CATEGORY, None) == category:
                 self.disable_command(cmd_name, message_to_print)
+
+        self.disabled_categories[category] = message_to_print
 
     def _report_disabled_command_usage(self, *_args: Any, message_to_print: str, **_kwargs: Any) -> None:
         """Report when a disabled command has been run or had help called on it.

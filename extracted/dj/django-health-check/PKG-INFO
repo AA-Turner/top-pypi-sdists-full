@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-health-check
-Version: 3.22.0
+Version: 3.23.3
 Summary: Monitor the health of your Django app and its connected services.
 Keywords: django,postgresql
 Author-email: Kristian Ollegaard <kristian@oellegaard.com>, Johannes Maron <johannes@maron.family>

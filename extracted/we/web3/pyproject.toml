@@ -33,6 +33,10 @@ warn_return_any = false
 warn_unused_configs = true
 warn_unused_ignores = true
 
+[[tool.mypy.overrides]]
+module = "sphinx.*"
+follow_imports = "skip"
+
 [tool.pydocstyle]
 # All error codes found here:
 # http://www.pydocstyle.org/en/3.0.0/error_codes.html
@@ -127,7 +131,7 @@ name = "Removals"
 showcontent = true
 
 [tool.bumpversion]
-current_version = "7.14.0"
+current_version = "7.14.1"
 parse = """
     (?P<major>\\d+)
     \\.(?P<minor>\\d+)

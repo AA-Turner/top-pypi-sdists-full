@@ -12,9 +12,3 @@ class ShellExecutionResult:
     cancelled_for_timeout: bool
     exit_code: int | None
     halted: bool = False
-
-
-@dataclass
-class PythonExecutionResult:
-    output: str
-    halted: bool = False

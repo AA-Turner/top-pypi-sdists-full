@@ -618,6 +618,20 @@ def previewrange_set(
     :param wait_for_input: Wait for Input
     """
 
+def replace_action(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    old_session_uid: int | None = 0,
+    new_session_uid: int | None = 0,
+) -> None:
+    """Swap all users of one action to another one. The normal action slot assignment rules apply. This ignores the NLA and Action Constraints
+
+    :param old_session_uid: Old Action, Old Actions session uid to replace
+    :param new_session_uid: Replacement Action, The replacement Actions session uid to remap all selected Actions users to
+    """
+
 def scene_range_frame(
     execution_context: int | str | None = None,
     undo: bool | None = None,

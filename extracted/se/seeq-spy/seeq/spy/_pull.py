@@ -22,11 +22,29 @@ ENUM_PATTERN = re.compile(ENUM_REGEX)
 RETURN_TYPE_COLUMN = '__Return Type__'
 
 
-@Status.handle_keyboard_interrupt()
-def pull(items, *, start=None, end=None, grid='15min', header='__auto__', group_by=None,
-         shape: Union[str, Callable] = 'auto', capsule_properties=None, tz_convert=None, calculation=None,
-         bounding_values=False, invalid_values_as=np.nan, enums_as='string', include_extinct=False,
-         errors=None, quiet=None, status: Status = None, session: Optional[Session] = None, capsules_as=None):
+@Status.top_level_spy_function()
+def pull(
+    items: Union[str, pd.DataFrame, pd.Series],
+    *,
+    start: Optional[Union[str, pd.Timestamp, datetime.date]] = None,
+    end: Optional[Union[str, pd.Timestamp, datetime.date]] = None,
+    grid: Optional[str] = '15min',
+    header: str = '__auto__',
+    group_by: Optional[Union[str, List]] = None,
+    shape: Union[str, Callable] = 'auto',
+    capsule_properties: Optional[List] = None,
+    tz_convert: Optional[Union[str, datetime.tzinfo]] = None,
+    calculation: Optional[Union[str, pd.DataFrame, pd.Series]] = None,
+    bounding_values: bool = False,
+    invalid_values_as: Optional[Union[str, int, float]] = np.nan,
+    enums_as: Optional[str] = 'string',
+    include_extinct: bool = False,
+    errors: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None,
+    capsules_as: Optional[str] = None
+):
     """
     Retrieves signal, condition or scalar data from Seeq Server and returns it
     in a DataFrame.
@@ -304,36 +322,13 @@ def pull(items, *, start=None, end=None, grid='15min', header='__auto__', group_
     >>> data_df.interpolate(method='quadratic')
     """
 
+    input_args = locals()
+
     # bringing this up here so that the error is visible before validating arguments
     if capsules_as is not None:
         raise SPyValueError("capsules_as argument is deprecated. Use the following instead:\n"
                             "capsules_as='signal'   -> shape='samples'\n"
                             "capsules_as='capsules' -> shape='capsules'")
-
-    # noinspection PyUnresolvedReferences
-    input_args = _common.validate_argument_types([
-        (items, 'items', (str, pd.DataFrame, pd.Series)),
-        (start, 'start', (str, pd.Timestamp, datetime.date)),
-        (end, 'end', (str, pd.Timestamp, datetime.date)),
-        (grid, 'grid', str),
-        (header, 'header', str),
-        (group_by, 'group_by', (str, list)),
-        (shape, 'shape', (str, Callable)),
-        (capsule_properties, 'capsule_properties', list),
-        (tz_convert, 'tz_convert', (str, datetime.tzinfo)),
-        (calculation, 'calculation', (str, pd.DataFrame, pd.Series)),
-        (bounding_values, 'bounding_values', bool),
-        (invalid_values_as, 'invalid_values_as', (str, int, float)),
-        (errors, 'errors', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session),
-        (capsules_as, 'capsules_as', type(None)),
-        (enums_as, 'enums_as', str),
-        (include_extinct, 'include_extinct', bool)
-    ])
-
-    _login.validate_login(session, status)
 
     _common.validate_timezone_arg(tz_convert)
 

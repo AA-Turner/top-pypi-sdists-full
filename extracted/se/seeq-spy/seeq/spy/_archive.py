@@ -8,22 +8,23 @@ import pandas as pd
 
 from seeq.sdk import *
 from seeq.spy import _common
-from seeq.spy import _login
 from seeq.spy._errors import *
 from seeq.spy._redaction import safely
 from seeq.spy._session import Session
 from seeq.spy._status import Status
 
 
-@Status.handle_keyboard_interrupt()
-def archive(items: pd.DataFrame,
-            *,
-            note: Optional[str] = None,
-            undo: bool = False,
-            errors: Optional[str] = None,
-            quiet: Optional[bool] = None,
-            status: Optional[Status] = None,
-            session: Optional[Session] = None) -> pd.DataFrame:
+@Status.top_level_spy_function()
+def archive(
+    items: pd.DataFrame,
+    *,
+    note: Optional[str] = None,
+    undo: bool = False,
+    errors: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None
+) -> pd.DataFrame:
     """
     Archives (moves to the trash) the items whose IDs are in the input
     DataFrame.
@@ -101,16 +102,8 @@ def archive(items: pd.DataFrame,
     >>> workbooks = spy.workbooks.search({'Name': 'Condenser Maintenance'}, content_filter='owner')
     >>> archive_results = spy.archive(workbooks)
     """
-    input_args = _common.validate_argument_types([
-        (items, 'items', pd.DataFrame),
-        (note, 'note', str),
-        (errors, 'errors', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session)
-    ])
+    input_args = locals()
 
-    _login.validate_login(session, status)
     activity = 'archiv' if not undo else 'unarchiv'
 
     if not _common.present(items, 'ID'):

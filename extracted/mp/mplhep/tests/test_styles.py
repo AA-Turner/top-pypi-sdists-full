@@ -4,12 +4,23 @@ import os
 import sys
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pytest
 from matplotlib.testing.decorators import check_figures_equal
 
 os.environ["RUNNING_PYTEST"] = "true"
 
-import mplhep as hep
+import mplhep as mh
+
+
+def _make_color_wheel_hists(n=10):
+    """Create n Gaussian-like histograms to visualize color cycle in a stacked plot."""
+    bins = np.arange(9)  # 8 bins: 0-1, 1-2, ..., 7-8
+    # Hardcoded Gaussian-like values peaking around 10 in the middle
+    h = np.array([1, 2, 5, 8, 10, 8, 5, 2])
+    hists = [h] * n
+    return hists, bins
+
 
 """
 To test run:
@@ -27,9 +38,12 @@ plt.switch_backend("Agg")
 @pytest.mark.mpl_image_compare(style="default", remove_text=False)
 def test_style_atlas():
     # Test suite does not have Helvetica
-    plt.style.use([hep.style.ATLAS, {"font.sans-serif": ["Tex Gyre Heros"]}])
+    plt.style.use([mh.style.ATLAS, {"font.sans-serif": ["Tex Gyre Heros"]}])
     fig, ax = plt.subplots()
-    hep.atlas.label(label="Preliminary")
+    hists, bins = _make_color_wheel_hists()
+    mh.histplot(hists, bins, ax=ax, stack=True, histtype="fill")
+    mh.atlas.label(text="Preliminary")
+    mh.mpl_magic()
 
     return fig
 
@@ -37,9 +51,12 @@ def test_style_atlas():
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux only")
 @pytest.mark.mpl_image_compare(style="default", remove_text=False)
 def test_style_cms():
-    plt.style.use(hep.style.CMS)
+    plt.style.use(mh.style.CMS)
     fig, ax = plt.subplots()
-    hep.cms.label("Preliminary")
+    hists, bins = _make_color_wheel_hists()
+    mh.histplot(hists, bins, ax=ax, stack=True, histtype="fill")
+    mh.cms.label("Preliminary")
+    mh.mpl_magic()
 
     return fig
 
@@ -47,9 +64,12 @@ def test_style_cms():
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux only")
 @pytest.mark.mpl_image_compare(style="default", remove_text=False)
 def test_style_alice():
-    plt.style.use(hep.style.ALICE)
+    plt.style.use(mh.style.ALICE)
     fig, ax = plt.subplots()
-    hep.alice.label("Preliminary")
+    hists, bins = _make_color_wheel_hists()
+    mh.histplot(hists, bins, ax=ax, stack=True, histtype="fill")
+    mh.alice.label("Preliminary")
+    mh.mpl_magic()
 
     return fig
 
@@ -57,27 +77,36 @@ def test_style_alice():
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux only")
 @pytest.mark.mpl_image_compare(style="default", remove_text=False)
 def test_style_lhcb():
-    plt.style.use([hep.style.LHCb1, {"figure.autolayout": False}])
+    plt.style.use([mh.style.LHCb1, {"figure.autolayout": False}])
     fig, ax = plt.subplots()
-    hep.lhcb.label("Preliminary")
+    hists, bins = _make_color_wheel_hists()
+    mh.histplot(hists, bins, ax=ax, stack=True, histtype="fill")
+    mh.lhcb.label("Preliminary")
+    mh.mpl_magic()
     return fig
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux only")
 @pytest.mark.mpl_image_compare(style="default", remove_text=False)
 def test_style_lhcb2():
-    plt.style.use([hep.style.LHCb2, {"figure.autolayout": False}])
+    plt.style.use([mh.style.LHCb2, {"figure.autolayout": False}])
     fig, ax = plt.subplots()
-    hep.lhcb.label("Preliminary")
+    hists, bins = _make_color_wheel_hists()
+    mh.histplot(hists, bins, ax=ax, stack=True, histtype="fill")
+    mh.lhcb.label("Preliminary")
+    mh.mpl_magic()
     return fig
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux only")
 @pytest.mark.mpl_image_compare(style="default", remove_text=False)
 def test_style_dune():
-    plt.style.use(hep.style.DUNE)
+    plt.style.use(mh.style.DUNE)
     fig, ax = plt.subplots()
-    hep.dune.label(label="Preliminary")
+    hists, bins = _make_color_wheel_hists()
+    mh.histplot(hists, bins, ax=ax, stack=True, histtype="fill")
+    mh.dune.label(text="Preliminary")
+    mh.mpl_magic()
 
     return fig
 
@@ -85,9 +114,12 @@ def test_style_dune():
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux only")
 @pytest.mark.mpl_image_compare(style="default", remove_text=False)
 def test_style_dune1():
-    plt.style.use(hep.style.DUNE1)
+    plt.style.use(mh.style.DUNE1)
     fig, ax = plt.subplots()
-    hep.dune.label(label="Preliminary")
+    hists, bins = _make_color_wheel_hists()
+    mh.histplot(hists, bins, ax=ax, stack=True, histtype="fill")
+    mh.dune.label(text="Preliminary")
+    mh.mpl_magic()
 
     return fig
 
@@ -95,8 +127,11 @@ def test_style_dune1():
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux only")
 @pytest.mark.mpl_image_compare(style="default", remove_text=False)
 def test_style_plothist():
-    plt.style.use(hep.style.PLOTHIST)
+    plt.style.use(mh.style.plothist)
     fig, ax = plt.subplots()
+    hists, bins = _make_color_wheel_hists()
+    mh.histplot(hists, bins, ax=ax, stack=True, histtype="fill")
+    mh.mpl_magic()
     return fig
 
 
@@ -105,37 +140,36 @@ def test_style_plothist():
 @pytest.mark.parametrize(
     "mplhep_style",
     [
-        hep.style.ALICE,
-        hep.style.ATLAS,
-        hep.style.CMS,
-        hep.style.DUNE1,
-        hep.style.DUNE,
-        hep.style.LHCb1,
-        hep.style.LHCb2,
-        hep.style.ROOT,
+        mh.style.ALICE,
+        mh.style.ATLAS,
+        mh.style.CMS,
+        mh.style.DUNE1,
+        mh.style.DUNE,
+        mh.style.LHCb1,
+        mh.style.LHCb2,
+        mh.style.ROOT,
     ],
     ids=["ALICE", "ATLAS", "CMS", "DUNE1", "DUNE", "LHCb1", "LHCb2", "ROOT"],
 )
 def test_use_style(fig_test, fig_ref, mplhep_style):
-    hep.rcParams.clear()
+    mh.rcParams.clear()
     plt.style.use(mplhep_style)
     fig_ref.subplots()
 
-    hep.rcParams.clear()
-    hep.style.use(mplhep_style)
+    mh.rcParams.clear()
+    mh.style.use(mplhep_style)
     fig_test.subplots()
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux only")
 @check_figures_equal(extensions=["pdf"])
-def test_use_style_LHCb_dep(fig_test, fig_ref):
-    hep.rcParams.clear()
-    with pytest.warns(FutureWarning):
-        plt.style.use(hep.style.LHCb)
+def test_use_style_LHCb_default(fig_test, fig_ref):
+    mh.rcParams.clear()
+    mh.style.use(mh.style.LHCb2)
     fig_ref.subplots()
 
-    hep.rcParams.clear()
-    hep.style.use(hep.style.LHCb)
+    mh.rcParams.clear()
+    mh.style.use(mh.style.LHCb)
     fig_test.subplots()
 
 
@@ -144,25 +178,24 @@ def test_use_style_LHCb_dep(fig_test, fig_ref):
 @pytest.mark.parametrize(
     ("mplhep_style", "str_alias"),
     [
-        (hep.style.ALICE, "ALICE"),
-        (hep.style.ATLAS, "ATLAS"),
-        (hep.style.CMS, "CMS"),
-        (hep.style.DUNE1, "DUNE1"),
-        (hep.style.DUNE, "DUNE"),
-        (hep.style.LHCb, "LHCb"),
-        (hep.style.LHCb1, "LHCb1"),
-        (hep.style.LHCb2, "LHCb2"),
-        (hep.style.ROOT, "ROOT"),
+        (mh.style.ALICE, "ALICE"),
+        (mh.style.ATLAS, "ATLAS"),
+        (mh.style.CMS, "CMS"),
+        (mh.style.DUNE1, "DUNE1"),
+        (mh.style.DUNE, "DUNE"),
+        (mh.style.LHCb1, "LHCb1"),
+        (mh.style.LHCb2, "LHCb2"),
+        (mh.style.ROOT, "ROOT"),
     ],
-    ids=["ALICE", "ATLAS", "CMS", "DUNE1", "DUNE", "LHCb", "LHCb1", "LHCb2", "ROOT"],
+    ids=["ALICE", "ATLAS", "CMS", "DUNE1", "DUNE", "LHCb1", "LHCb2", "ROOT"],
 )
 def test_use_style_str_alias(fig_test, fig_ref, mplhep_style, str_alias):
-    hep.rcParams.clear()
+    mh.rcParams.clear()
     plt.style.use(mplhep_style)
     fig_ref.subplots()
 
-    hep.rcParams.clear()
-    hep.style.use(str_alias)
+    mh.rcParams.clear()
+    mh.style.use(str_alias)
     fig_test.subplots()
 
 
@@ -171,25 +204,24 @@ def test_use_style_str_alias(fig_test, fig_ref, mplhep_style, str_alias):
 @pytest.mark.parametrize(
     ("mplhep_style", "str_alias"),
     [
-        (hep.style.ALICE, "ALICE"),
-        (hep.style.ATLAS, "ATLAS"),
-        (hep.style.CMS, "CMS"),
-        (hep.style.DUNE1, "DUNE1"),
-        (hep.style.DUNE, "DUNE"),
-        (hep.style.LHCb, "LHCb"),
-        (hep.style.LHCb1, "LHCb1"),
-        (hep.style.LHCb2, "LHCb2"),
-        (hep.style.ROOT, "ROOT"),
+        (mh.style.ALICE, "ALICE"),
+        (mh.style.ATLAS, "ATLAS"),
+        (mh.style.CMS, "CMS"),
+        (mh.style.DUNE1, "DUNE1"),
+        (mh.style.DUNE, "DUNE"),
+        (mh.style.LHCb1, "LHCb1"),
+        (mh.style.LHCb2, "LHCb2"),
+        (mh.style.ROOT, "ROOT"),
     ],
-    ids=["ALICE", "ATLAS", "CMS", "DUNE1", "DUNE", "LHCb", "LHCb1", "LHCb2", "ROOT"],
+    ids=["ALICE", "ATLAS", "CMS", "DUNE1", "DUNE", "LHCb1", "LHCb2", "ROOT"],
 )
 def test_use_style_self_consistent(fig_test, fig_ref, mplhep_style, str_alias):
-    hep.rcParams.clear()
-    hep.style.use(mplhep_style)
+    mh.rcParams.clear()
+    mh.style.use(mplhep_style)
     fig_ref.subplots()
 
-    hep.rcParams.clear()
-    hep.style.use(str_alias)
+    mh.rcParams.clear()
+    mh.style.use(str_alias)
     fig_test.subplots()
 
 
@@ -198,25 +230,24 @@ def test_use_style_self_consistent(fig_test, fig_ref, mplhep_style, str_alias):
 @pytest.mark.parametrize(
     ("mplhep_style", "str_alias"),
     [
-        (hep.style.ALICE, "ALICE"),
-        (hep.style.ATLAS, "ATLAS"),
-        (hep.style.CMS, "CMS"),
-        (hep.style.DUNE1, "DUNE1"),
-        (hep.style.DUNE, "DUNE"),
-        (hep.style.LHCb, "LHCb"),
-        (hep.style.LHCb1, "LHCb1"),
-        (hep.style.LHCb2, "LHCb2"),
-        (hep.style.ROOT, "ROOT"),
+        (mh.style.ALICE, "ALICE"),
+        (mh.style.ATLAS, "ATLAS"),
+        (mh.style.CMS, "CMS"),
+        (mh.style.DUNE1, "DUNE1"),
+        (mh.style.DUNE, "DUNE"),
+        (mh.style.LHCb1, "LHCb1"),
+        (mh.style.LHCb2, "LHCb2"),
+        (mh.style.ROOT, "ROOT"),
     ],
-    ids=["ALICE", "ATLAS", "CMS", "DUNE1", "DUNE", "LHCb", "LHCb1", "LHCb2", "ROOT"],
+    ids=["ALICE", "ATLAS", "CMS", "DUNE1", "DUNE", "LHCb1", "LHCb2", "ROOT"],
 )
 def test_use_style_style_list(fig_test, fig_ref, mplhep_style, str_alias):
-    hep.rcParams.clear()
+    mh.rcParams.clear()
     plt.style.use([mplhep_style, {"font.sans-serif": "Comic Sans MS"}])
     fig_ref.subplots()
 
-    hep.rcParams.clear()
-    hep.style.use([str_alias, {"font.sans-serif": "Comic Sans MS"}])
+    mh.rcParams.clear()
+    mh.style.use([str_alias, {"font.sans-serif": "Comic Sans MS"}])
     fig_test.subplots()
 
 
@@ -224,7 +255,7 @@ def test_use_style_style_list(fig_test, fig_ref, mplhep_style, str_alias):
 def test_labeltext_loc():
     fig, axs = plt.subplots(1, 4, figsize=(16, 4))
     for i, ax in enumerate(axs.flatten()):
-        hep.cms.text("Test", loc=i, ax=ax)
+        mh.cms.text("Test", loc=i, ax=ax)
     return fig
 
 
@@ -232,7 +263,7 @@ def test_labeltext_loc():
 def test_label_loc():
     fig, axs = plt.subplots(1, 5, figsize=(20, 4))
     for i, ax in enumerate(axs.flatten()):
-        hep.cms.label("Preliminary", loc=i, ax=ax, lumi=50, data=True)
+        mh.cms.label("Preliminary", loc=i, ax=ax, lumi=50, data=True)
     return fig
 
 
@@ -240,19 +271,19 @@ def test_label_loc():
 def test_pub_loc():
     fig, axs = plt.subplots(2, 5, figsize=(20, 8))
     for i, ax in enumerate(axs.flatten()):
-        hep.cms.label(loc=i % 5, ax=ax, lumi=50, pub="arXiv:aaaa.bbbbb", data=(i >= 5))
+        mh.cms.label(loc=i % 5, ax=ax, lumi=50, supp="arXiv:aaaa.bbbbb", data=(i >= 5))
     return fig
 
 
 @check_figures_equal(extensions=["pdf"])
 def test_label_config(fig_test, fig_ref):
-    hep.rcParams.label.data = True
-    hep.rcParams.label.lumi = 30
-    hep.rcParams.label.label = "Internal"
+    mh.rcParams.label.data = True
+    mh.rcParams.label.lumi = 30
+    mh.rcParams.label.text = "Internal"
 
     test_ax = fig_test.subplots()
-    hep.cms.label(data=False, ax=test_ax)
+    mh.cms.label(data=False, ax=test_ax)
 
     ref_ax = fig_ref.subplots()
-    hep.rcParams.clear()
-    hep.cms.label(data=False, lumi=30, label="Internal", ax=ref_ax)
+    mh.rcParams.clear()
+    mh.cms.label(data=False, lumi=30, text="Internal", ax=ref_ax)

@@ -11,8 +11,8 @@ from files_sdk.error import (  # noqa: F401
 class RemoteBandwidthSnapshot:
     default_attributes = {
         "id": None,  # int64 - Site bandwidth ID
-        "sync_bytes_received": None,  # double - Site sync bandwidth report bytes received
-        "sync_bytes_sent": None,  # double - Site sync bandwidth report bytes sent
+        "sync_bytes_received": None,  # int64 - Site sync bandwidth report bytes received
+        "sync_bytes_sent": None,  # int64 - Site sync bandwidth report bytes sent
         "logged_at": None,  # date-time - Time the site bandwidth report was logged
         "remote_server_id": None,  # int64 - ID of related Remote Server
     }
@@ -30,14 +30,16 @@ class RemoteBandwidthSnapshot:
             attribute,
             default_value,
         ) in RemoteBandwidthSnapshot.default_attributes.items():
-            setattr(self, attribute, attributes.get(attribute, default_value))
+            value = attributes.get(attribute, default_value)
+            setattr(self, attribute, value)
 
     def get_attributes(self):
-        return {
+        attrs = {
             k: getattr(self, k, None)
             for k in RemoteBandwidthSnapshot.default_attributes
             if getattr(self, k, None) is not None
         }
+        return attrs
 
 
 # Parameters:

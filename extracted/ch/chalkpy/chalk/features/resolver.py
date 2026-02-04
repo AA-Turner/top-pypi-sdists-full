@@ -4541,7 +4541,14 @@ def validate_underscore_expression(
     name: str,
 ) -> None:
     """Main entry point for validating a single underscore expression."""
-    from chalk.features.underscore import Underscore, UnderscoreAttr, UnderscoreCall, UnderscoreCast, UnderscoreFunction
+    from chalk.features.underscore import (
+        Underscore,
+        UnderscoreAttr,
+        UnderscoreCall,
+        UnderscoreCast,
+        UnderscoreFunction,
+        UnderscoreRoot,
+    )
 
     # First validate it's an underscore
     if not isinstance(expression, Underscore):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -4562,6 +4569,8 @@ def validate_underscore_expression(
         validate_underscore_call(expression, message_type, error_builder, name)
     elif isinstance(expression, UnderscoreCast):
         validate_underscore_cast(expression, message_type, error_builder, name)
+    elif isinstance(expression, UnderscoreRoot):
+        pass
     else:
         # Catch-all for any other underscore types
         error_builder.add_diagnostic(
@@ -4589,7 +4598,7 @@ def make_model_resolver(
     name: str,
     model: "ModelVersion",
     input: Dict[Feature, str] | List[Feature],
-    output: Feature | List[Feature] | Dict[Feature, str],
+    output: Feature | List[Feature] | Dict[Feature, str] | Any,
     feature_class: Optional[type[Features]] = None,
     resource_group: Optional[str] = None,
     resource_hint: Optional[ResourceHint] = None,
@@ -4608,7 +4617,7 @@ def make_model_resolver(
         The name of the resolver
     model
         A ModelVersion reference to a deployed model
-    inputs
+    input
         Either a dict mapping Feature objects to model input names (strings), or a list of
         Feature objects. If a dict, the values represent the model's expected input names
         (for future use). If a list, the features will be passed as a single DataFrame to
@@ -4746,6 +4755,7 @@ def make_model_resolver(
         tags=None,
         owner=None,
         resource_hint=resource_hint or model.resource_hint,
+        resource_group=resource_group or model.resource_group,
         data_sources=None,
         is_sql_file_resolver=False,
         source_line=None,

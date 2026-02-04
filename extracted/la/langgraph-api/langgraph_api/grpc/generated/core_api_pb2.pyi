@@ -603,16 +603,16 @@ class SetThreadJointStatusRequest(_message.Message):
     def __init__(self, thread_id: _Optional[_Union[UUID, _Mapping]] = ..., run_id: _Optional[_Union[UUID, _Mapping]] = ..., run_status: _Optional[str] = ..., graph_id: _Optional[str] = ..., checkpoint: _Optional[_Union[ThreadStatusCheckpoint, _Mapping]] = ..., exception_json: _Optional[bytes] = ...) -> None: ...
 
 class StreamThreadRequest(_message.Message):
-    __slots__ = ("thread_id", "filters", "last_event_id", "stream_modes")
+    __slots__ = ("thread_id", "filters", "stream_modes", "last_event_id")
     THREAD_ID_FIELD_NUMBER: _ClassVar[int]
     FILTERS_FIELD_NUMBER: _ClassVar[int]
-    LAST_EVENT_ID_FIELD_NUMBER: _ClassVar[int]
     STREAM_MODES_FIELD_NUMBER: _ClassVar[int]
+    LAST_EVENT_ID_FIELD_NUMBER: _ClassVar[int]
     thread_id: UUID
     filters: _containers.RepeatedCompositeFieldContainer[AuthFilter]
-    last_event_id: str
     stream_modes: _containers.RepeatedScalarFieldContainer[_enum_thread_stream_mode_pb2.ThreadStreamMode]
-    def __init__(self, thread_id: _Optional[_Union[UUID, _Mapping]] = ..., filters: _Optional[_Iterable[_Union[AuthFilter, _Mapping]]] = ..., last_event_id: _Optional[str] = ..., stream_modes: _Optional[_Iterable[_Union[_enum_thread_stream_mode_pb2.ThreadStreamMode, str]]] = ...) -> None: ...
+    last_event_id: str
+    def __init__(self, thread_id: _Optional[_Union[UUID, _Mapping]] = ..., filters: _Optional[_Iterable[_Union[AuthFilter, _Mapping]]] = ..., stream_modes: _Optional[_Iterable[_Union[_enum_thread_stream_mode_pb2.ThreadStreamMode, str]]] = ..., last_event_id: _Optional[str] = ...) -> None: ...
 
 class RunKwargs(_message.Message):
     __slots__ = ("config", "context_json", "input_json", "command_json", "stream_mode", "interrupt_before", "interrupt_after", "webhook", "feedback_keys", "temporary", "subgraphs", "resumable", "checkpoint_during", "durability")

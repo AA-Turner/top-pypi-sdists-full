@@ -28,6 +28,7 @@ from .literals import (
     MapStyleType,
     ScaleBarUnitType,
     StaticMapStyleType,
+    TerrainType,
     TileAdditionalFeatureType,
     TravelModeType,
 )
@@ -94,10 +95,11 @@ class GetStyleDescriptorRequestTypeDef(TypedDict):
     Style: MapStyleType
     ColorScheme: NotRequired[ColorSchemeType]
     PoliticalView: NotRequired[str]
-    Terrain: NotRequired[Literal["Hillshade"]]
+    Terrain: NotRequired[TerrainType]
     ContourDensity: NotRequired[Literal["Medium"]]
     Traffic: NotRequired[Literal["All"]]
     TravelModes: NotRequired[Sequence[TravelModeType]]
+    Buildings: NotRequired[Literal["Buildings3D"]]
     Key: NotRequired[str]
 
 class GetTileRequestTypeDef(TypedDict):

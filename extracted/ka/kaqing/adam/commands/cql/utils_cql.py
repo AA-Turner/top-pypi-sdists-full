@@ -5,9 +5,9 @@ from typing import Union
 
 from adam.commands.command import Command
 from adam.commands.commands_utils import show_table
+from adam.utils_cassandra.cassandra_clusters import CassandraClusters
+from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 from adam.utils_context import Context
-from adam.utils_k8s.cassandra_clusters import CassandraClusters
-from adam.utils_k8s.cassandra_nodes import CassandraNodes
 from adam.utils_k8s.secrets import Secrets
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.repl_state import ReplState
@@ -296,21 +296,21 @@ class CassandraPodService:
 
         return run_cql(state, query, opts=opts, use_single_quotes=use_single_quotes, on_any=on_any, no_color=no_color, ctx=ctx)
 
-    def display_table(self, cols: str, header: str, ctx: Context = Context.NULL):
+    def display_table(self, cols: str, header: str, find_issues = True, ctx: Context = Context.NULL):
         if ctx.background:
             with offload(name='display-table') as exec:
-                exec.submit(lambda: self._display_table(cols, header, ctx=ctx))
+                exec.submit(lambda: self._display_table(cols, header, find_issues=find_issues, ctx=ctx))
         else:
-            self._display_table(cols, header, ctx=ctx)
+            self._display_table(cols, header, find_issues=find_issues, ctx=ctx)
 
-    def _display_table(self, cols: str, header: str, ctx: Context = Context.NULL):
+    def _display_table(self, cols: str, header: str, find_issues=True, ctx: Context = Context.NULL):
         state = self.handler.state
 
         if state.pod:
-            show_table(state, [state.pod], cols, header, ctx)
+            show_table(state, [state.pod], cols, header, find_issues=find_issues, ctx=ctx)
         elif state.sts:
             pod_names = [pod.metadata.name for pod in StatefulSets.pods(state.sts, state.namespace)]
-            show_table(state, pod_names, cols, header, ctx)
+            show_table(state, pod_names, cols, header, find_issues=find_issues, ctx=ctx)
 
     def nodetool(self, args: str, status = False, samples = sys.maxsize, ctx: Context = Context.NULL) -> Union[PodExecResult, list[PodExecResult]]:
         state = self.handler.state

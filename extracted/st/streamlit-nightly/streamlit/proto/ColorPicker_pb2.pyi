@@ -19,7 +19,7 @@ limitations under the License.
 
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from streamlit.proto import LabelVisibilityMessage_pb2 as _LabelVisibilityMessage_pb2
+from streamlit.proto import LabelVisibility_pb2 as _LabelVisibility_pb2
 import builtins as _builtins
 import sys
 import typing as _typing
@@ -53,7 +53,7 @@ class ColorPicker(_message.Message):
     set_value: _builtins.bool
     disabled: _builtins.bool
     @_builtins.property
-    def label_visibility(self) -> _LabelVisibilityMessage_pb2.LabelVisibilityMessage: ...
+    def label_visibility(self) -> _LabelVisibility_pb2.LabelVisibility: ...
     def __init__(
         self,
         *,
@@ -65,7 +65,7 @@ class ColorPicker(_message.Message):
         value: _builtins.str = ...,
         set_value: _builtins.bool = ...,
         disabled: _builtins.bool = ...,
-        label_visibility: _LabelVisibilityMessage_pb2.LabelVisibilityMessage | None = ...,
+        label_visibility: _LabelVisibility_pb2.LabelVisibility | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["label_visibility", b"label_visibility"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...

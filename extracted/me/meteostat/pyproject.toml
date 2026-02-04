@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "meteostat"
-version = "2.0.1"
+version = "2.1.0"
 description = "Access and analyze historical weather and climate data with Python."
 authors = ["Meteostat", "Christian Lamprecht"]
 readme = "README.md"
@@ -8,7 +8,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.11"
 requests = "^2.31.0"
-pandas = "^2.3.3"
+pandas = ">=2.3.0,<4.0.0"
 pytz = "^2023.3.post1"
 
 [tool.poetry.group.dev.dependencies]

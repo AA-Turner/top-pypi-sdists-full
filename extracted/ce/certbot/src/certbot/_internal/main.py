@@ -500,12 +500,17 @@ def _find_sans_or_certname(config: configuration.NamespaceConfig,
     :raises errors.Error: Usage message, if parameters are not used correctly
 
     """
+    domains: list[san.SAN] = []
+    ip_addresses: list[san.SAN] = []
     certname = config.certname
-    sans: Optional[list[san.SAN]] = None
 
     # first, try to get domains from the config
     if config.domains:
-        sans = config.domains
+        domains = config.domains
+    if config.ip_addresses:
+        ip_addresses = config.ip_addresses
+
+    sans: Optional[list[san.SAN]] = domains + ip_addresses
 
     # if we can't do that but we have a certname, get the sans
     # by loading the latest certificate with that certname
@@ -518,7 +523,7 @@ def _find_sans_or_certname(config: configuration.NamespaceConfig,
         sans = san.guess(display_ops.choose_names(installer, question))
 
     if not sans:
-        raise errors.Error("Please specify --domains, or --installer that "
+        raise errors.Error("Please specify --domains, --ip-address, or --installer that "
                            "will help in domain names autodiscovery, or "
                            "--cert-name for an existing certificate name.")
 
@@ -1064,6 +1069,9 @@ def _install_cert(config: configuration.NamespaceConfig, le_client: client.Clien
 
     domains, ip_addresses = san.split(sans)
     if len(ip_addresses) > 0:
+        # Our apache and nginx plugins are currently relying on this check for a user friendly error
+        # message about their lack of support for IP certificates. If you're removing this check,
+        # please check that the plugins can process IP addresses.
         raise errors.ConfigurationError("Enhancements not supported for IP address certificates")
 
     le_client.deploy_certificate(domains, path_provider.key_path, path_provider.cert_path,
@@ -1242,9 +1250,11 @@ def enhance(config: configuration.NamespaceConfig,
     cert_sans = cert_manager.sans_for_certname(config, config.certname)
     if cert_sans is None:
         raise errors.Error("Could not find the list of domains for the given certificate name.")
-
     cert_domains, ip_addresses = san.split(cert_sans)
     if len(ip_addresses) > 0:
+        # Our apache and nginx plugins are currently relying on this check for a user friendly error
+        # message about their lack of support for IP certificates. If you're removing this check,
+        # please check that the plugins can process IP addresses.
         raise errors.ConfigurationError("Enhancements not supported for IP address certificates")
 
     if config.noninteractive_mode:
@@ -1491,7 +1501,7 @@ def _csr_get_and_save_cert(config: configuration.NamespaceConfig,
     :rtype: `tuple` of `str`
 
     """
-    util_csr, _ = config.actual_csr
+    util_csr = config.actual_csr
     x509_req = x509.load_pem_x509_csr(util_csr.data)
     domains, ip_addresses = san.from_x509(x509_req.subject, x509_req.extensions)
     display_util.notify(

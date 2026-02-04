@@ -17,6 +17,9 @@ if TYPE_CHECKING:
     from ..models.run_flow_preview_json_body_value_modules_item_sleep_type_1 import (
         RunFlowPreviewJsonBodyValueModulesItemSleepType1,
     )
+    from ..models.run_flow_preview_json_body_value_modules_item_sleep_type_2 import (
+        RunFlowPreviewJsonBodyValueModulesItemSleepType2,
+    )
     from ..models.run_flow_preview_json_body_value_modules_item_stop_after_all_iters_if import (
         RunFlowPreviewJsonBodyValueModulesItemStopAfterAllItersIf,
     )
@@ -31,6 +34,9 @@ if TYPE_CHECKING:
     )
     from ..models.run_flow_preview_json_body_value_modules_item_timeout_type_1 import (
         RunFlowPreviewJsonBodyValueModulesItemTimeoutType1,
+    )
+    from ..models.run_flow_preview_json_body_value_modules_item_timeout_type_2 import (
+        RunFlowPreviewJsonBodyValueModulesItemTimeoutType2,
     )
 
 
@@ -52,13 +58,15 @@ class RunFlowPreviewJsonBodyValueModulesItem:
         skip_if (Union[Unset, RunFlowPreviewJsonBodyValueModulesItemSkipIf]): Conditionally skip this step based on
             previous results or flow inputs
         sleep (Union['RunFlowPreviewJsonBodyValueModulesItemSleepType0',
-            'RunFlowPreviewJsonBodyValueModulesItemSleepType1', Unset]): Maps input parameters for a step. Can be a static
-            value or a JavaScript expression that references previous results or flow inputs
+            'RunFlowPreviewJsonBodyValueModulesItemSleepType1', 'RunFlowPreviewJsonBodyValueModulesItemSleepType2', Unset]):
+            Maps input parameters for a step. Can be a static value or a JavaScript expression that references previous
+            results or flow inputs
         cache_ttl (Union[Unset, float]): Cache duration in seconds for this step's results
         cache_ignore_s3_path (Union[Unset, bool]):
         timeout (Union['RunFlowPreviewJsonBodyValueModulesItemTimeoutType0',
-            'RunFlowPreviewJsonBodyValueModulesItemTimeoutType1', Unset]): Maps input parameters for a step. Can be a static
-            value or a JavaScript expression that references previous results or flow inputs
+            'RunFlowPreviewJsonBodyValueModulesItemTimeoutType1', 'RunFlowPreviewJsonBodyValueModulesItemTimeoutType2',
+            Unset]): Maps input parameters for a step. Can be a static value or a JavaScript expression that references
+            previous results or flow inputs
         delete_after_use (Union[Unset, bool]): If true, this step's result is deleted after use to save memory
         summary (Union[Unset, str]): Short description of what this step does
         mock (Union[Unset, RunFlowPreviewJsonBodyValueModulesItemMock]): Mock configuration for testing without
@@ -77,13 +85,17 @@ class RunFlowPreviewJsonBodyValueModulesItem:
     stop_after_all_iters_if: Union[Unset, "RunFlowPreviewJsonBodyValueModulesItemStopAfterAllItersIf"] = UNSET
     skip_if: Union[Unset, "RunFlowPreviewJsonBodyValueModulesItemSkipIf"] = UNSET
     sleep: Union[
-        "RunFlowPreviewJsonBodyValueModulesItemSleepType0", "RunFlowPreviewJsonBodyValueModulesItemSleepType1", Unset
+        "RunFlowPreviewJsonBodyValueModulesItemSleepType0",
+        "RunFlowPreviewJsonBodyValueModulesItemSleepType1",
+        "RunFlowPreviewJsonBodyValueModulesItemSleepType2",
+        Unset,
     ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
     cache_ignore_s3_path: Union[Unset, bool] = UNSET
     timeout: Union[
         "RunFlowPreviewJsonBodyValueModulesItemTimeoutType0",
         "RunFlowPreviewJsonBodyValueModulesItemTimeoutType1",
+        "RunFlowPreviewJsonBodyValueModulesItemTimeoutType2",
         Unset,
     ] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
@@ -99,8 +111,14 @@ class RunFlowPreviewJsonBodyValueModulesItem:
         from ..models.run_flow_preview_json_body_value_modules_item_sleep_type_0 import (
             RunFlowPreviewJsonBodyValueModulesItemSleepType0,
         )
+        from ..models.run_flow_preview_json_body_value_modules_item_sleep_type_1 import (
+            RunFlowPreviewJsonBodyValueModulesItemSleepType1,
+        )
         from ..models.run_flow_preview_json_body_value_modules_item_timeout_type_0 import (
             RunFlowPreviewJsonBodyValueModulesItemTimeoutType0,
+        )
+        from ..models.run_flow_preview_json_body_value_modules_item_timeout_type_1 import (
+            RunFlowPreviewJsonBodyValueModulesItemTimeoutType1,
         )
 
         id = self.id
@@ -126,6 +144,11 @@ class RunFlowPreviewJsonBodyValueModulesItem:
             if not isinstance(self.sleep, Unset):
                 sleep = self.sleep.to_dict()
 
+        elif isinstance(self.sleep, RunFlowPreviewJsonBodyValueModulesItemSleepType1):
+            sleep = UNSET
+            if not isinstance(self.sleep, Unset):
+                sleep = self.sleep.to_dict()
+
         else:
             sleep = UNSET
             if not isinstance(self.sleep, Unset):
@@ -138,6 +161,11 @@ class RunFlowPreviewJsonBodyValueModulesItem:
             timeout = UNSET
 
         elif isinstance(self.timeout, RunFlowPreviewJsonBodyValueModulesItemTimeoutType0):
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
+        elif isinstance(self.timeout, RunFlowPreviewJsonBodyValueModulesItemTimeoutType1):
             timeout = UNSET
             if not isinstance(self.timeout, Unset):
                 timeout = self.timeout.to_dict()
@@ -219,6 +247,9 @@ class RunFlowPreviewJsonBodyValueModulesItem:
         from ..models.run_flow_preview_json_body_value_modules_item_sleep_type_1 import (
             RunFlowPreviewJsonBodyValueModulesItemSleepType1,
         )
+        from ..models.run_flow_preview_json_body_value_modules_item_sleep_type_2 import (
+            RunFlowPreviewJsonBodyValueModulesItemSleepType2,
+        )
         from ..models.run_flow_preview_json_body_value_modules_item_stop_after_all_iters_if import (
             RunFlowPreviewJsonBodyValueModulesItemStopAfterAllItersIf,
         )
@@ -233,6 +264,9 @@ class RunFlowPreviewJsonBodyValueModulesItem:
         )
         from ..models.run_flow_preview_json_body_value_modules_item_timeout_type_1 import (
             RunFlowPreviewJsonBodyValueModulesItemTimeoutType1,
+        )
+        from ..models.run_flow_preview_json_body_value_modules_item_timeout_type_2 import (
+            RunFlowPreviewJsonBodyValueModulesItemTimeoutType2,
         )
 
         d = src_dict.copy()
@@ -268,6 +302,7 @@ class RunFlowPreviewJsonBodyValueModulesItem:
         ) -> Union[
             "RunFlowPreviewJsonBodyValueModulesItemSleepType0",
             "RunFlowPreviewJsonBodyValueModulesItemSleepType1",
+            "RunFlowPreviewJsonBodyValueModulesItemSleepType2",
             Unset,
         ]:
             if isinstance(data, Unset):
@@ -285,16 +320,29 @@ class RunFlowPreviewJsonBodyValueModulesItem:
                 return sleep_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _sleep_type_1 = data
+                sleep_type_1: Union[Unset, RunFlowPreviewJsonBodyValueModulesItemSleepType1]
+                if isinstance(_sleep_type_1, Unset):
+                    sleep_type_1 = UNSET
+                else:
+                    sleep_type_1 = RunFlowPreviewJsonBodyValueModulesItemSleepType1.from_dict(_sleep_type_1)
+
+                return sleep_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _sleep_type_1 = data
-            sleep_type_1: Union[Unset, RunFlowPreviewJsonBodyValueModulesItemSleepType1]
-            if isinstance(_sleep_type_1, Unset):
-                sleep_type_1 = UNSET
+            _sleep_type_2 = data
+            sleep_type_2: Union[Unset, RunFlowPreviewJsonBodyValueModulesItemSleepType2]
+            if isinstance(_sleep_type_2, Unset):
+                sleep_type_2 = UNSET
             else:
-                sleep_type_1 = RunFlowPreviewJsonBodyValueModulesItemSleepType1.from_dict(_sleep_type_1)
+                sleep_type_2 = RunFlowPreviewJsonBodyValueModulesItemSleepType2.from_dict(_sleep_type_2)
 
-            return sleep_type_1
+            return sleep_type_2
 
         sleep = _parse_sleep(d.pop("sleep", UNSET))
 
@@ -307,6 +355,7 @@ class RunFlowPreviewJsonBodyValueModulesItem:
         ) -> Union[
             "RunFlowPreviewJsonBodyValueModulesItemTimeoutType0",
             "RunFlowPreviewJsonBodyValueModulesItemTimeoutType1",
+            "RunFlowPreviewJsonBodyValueModulesItemTimeoutType2",
             Unset,
         ]:
             if isinstance(data, Unset):
@@ -324,16 +373,29 @@ class RunFlowPreviewJsonBodyValueModulesItem:
                 return timeout_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _timeout_type_1 = data
+                timeout_type_1: Union[Unset, RunFlowPreviewJsonBodyValueModulesItemTimeoutType1]
+                if isinstance(_timeout_type_1, Unset):
+                    timeout_type_1 = UNSET
+                else:
+                    timeout_type_1 = RunFlowPreviewJsonBodyValueModulesItemTimeoutType1.from_dict(_timeout_type_1)
+
+                return timeout_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _timeout_type_1 = data
-            timeout_type_1: Union[Unset, RunFlowPreviewJsonBodyValueModulesItemTimeoutType1]
-            if isinstance(_timeout_type_1, Unset):
-                timeout_type_1 = UNSET
+            _timeout_type_2 = data
+            timeout_type_2: Union[Unset, RunFlowPreviewJsonBodyValueModulesItemTimeoutType2]
+            if isinstance(_timeout_type_2, Unset):
+                timeout_type_2 = UNSET
             else:
-                timeout_type_1 = RunFlowPreviewJsonBodyValueModulesItemTimeoutType1.from_dict(_timeout_type_1)
+                timeout_type_2 = RunFlowPreviewJsonBodyValueModulesItemTimeoutType2.from_dict(_timeout_type_2)
 
-            return timeout_type_1
+            return timeout_type_2
 
         timeout = _parse_timeout(d.pop("timeout", UNSET))
 

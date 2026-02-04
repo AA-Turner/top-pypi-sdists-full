@@ -145,6 +145,7 @@ class MainController:
         self.execution_repository = repositories.execution
         self.execution_logs_repository = repositories.execution_logs
         self.linter_repository = repositories.linter
+        self.code_markers_repository = repositories.code_markers
 
     def deploy_without_git(self):
         DeployMessages.start(method="upload")
@@ -175,6 +176,28 @@ class MainController:
         self.reset_tasks_repository()
 
     def get_workspace(self) -> StyleSettingsWithSidebar:
+        """
+        Get the current workspace settings including styling and sidebar configuration.
+
+        Retrieves the project's branding settings and navigation sidebar items.
+
+        Returns:
+            StyleSettingsWithSidebar: Workspace configuration containing:
+                - name (str): Workspace display name
+                - language (str): Language code
+                - theme (str): Theme name or null
+                - logo_url (str): Path to logo image
+                - favicon_url (str): Path to favicon
+                - brand_name (str): Brand display name
+                - main_color (str): Primary color hex
+                - font_family (str): Font family name
+                - font_color (str): Font color hex
+                - sidebar (list): Navigation sidebar items
+
+        Copywritings:
+            Get workspace settings
+            Retrieving workspace settings...
+        """
         project = self.repositories.project.load()
         return project.get_workspace()
 
@@ -1040,6 +1063,41 @@ class MainController:
         }
 
     def update_workspace(self, changes: Dict[str, Any]):
+        """
+        Update workspace branding and styling settings.
+
+        Modifies the project's visual branding including name, logo, colors,
+        and language preferences. Changes are saved to abstra.json.
+
+        Args:
+            changes (Dict[str, Any]): Dictionary of settings to update.
+                Supported keys:
+                - name (str): Workspace display name
+                - language (str): Language code ('en', 'pt', 'de', 'es', 'fr', 'hi')
+                - theme (str): Theme identifier or null
+                - logo_url (str): Path to logo image (e.g., './logo.png')
+                - favicon_url (str): Path to favicon
+                - brand_name (str): Brand display name
+                - main_color (str): Primary color hex (e.g., '#FF5733')
+                - font_family (str): Font family name
+                - font_color (str): Font color hex
+
+        Returns:
+            StyleSettings: The updated workspace settings.
+
+        Example:
+            ```python
+            controller.update_workspace({
+                "brand_name": "My Company",
+                "main_color": "#3B82F6",
+                "language": "en"
+            })
+            ```
+
+        Copywritings:
+            Update workspace branding settings
+            Updating workspace branding settings...
+        """
         project = self.repositories.project.load()
         project.workspace.update(changes)
         self.repositories.project.save(project)
@@ -1434,7 +1492,7 @@ class MainController:
         This method allows modification of stage metadata properties. For code
         modifications, use the specialized code editing methods instead.
 
-        WARNING:  **For code updates, use dedicated methods**:
+        WARNING: **For code updates, use dedicated methods**:
         - `replace_code_context()` for targeted code changes (RECOMMENDED)
         - `replace_file_content()` for complete file rewrites
 
@@ -1442,9 +1500,27 @@ class MainController:
             id (str): Unique identifier of the stage to update.
             changes (Dict[str, Any]): Dictionary containing the properties to update.
 
-            Supported keys:
-                - 'title': Stage display name
-                - 'workflow_position': [x, y] coordinates in workflow editor
+            **Common properties (all stage types):**
+                - title (str): Display name
+                - workflow_position (list): [x, y] coordinates in workflow editor
+
+            **FormStage properties:**
+                - path (str): URL path for the form
+                - end_message (str): Message shown when form completes
+                - start_message (str): Welcome message
+                - error_message (str): Error message
+                - timeout_message (str): Timeout message
+                - start_button_text (str): Button text
+                - auto_start (bool): Auto-start flag
+                - access_control (dict): { is_public: bool, required_roles: list }
+                - notification_trigger (dict): { variable_name: str, enabled: bool }
+
+            **HookStage properties:**
+                - path (str): URL path for the hook
+                - enabled (bool): Enable/disable flag
+
+            **JobStage properties:**
+                - schedule (str): Cron expression (e.g., "0 9 * * *")
 
         Returns:
             Stage: The updated stage object with new properties applied.
@@ -1454,22 +1530,16 @@ class MainController:
 
         Example:
             ```python
-            controller = MainController(repositories)
-
-            # Update stage title and position
-            updated_stage = controller.update_stage("form-123", {
-                "title": "New Form Title",
-                "workflow_position": (100, 150)
+            # Update form title and access control
+            controller.update_stage("form-123", {
+                "title": "Customer Registration",
+                "access_control": {"is_public": False, "required_roles": ["admin"]}
             })
 
-            # Don't use for code updates - use dedicated methods instead:
-            # controller.update_stage("form-123", {"code_content": "..."})  # Avoid
-
-            # Better: Use context-based code editing
-            controller.replace_code_context("forms/form_123.py", [{
-                "old_context": "af.display('old message')",
-                "new_context": "af.display('new message')"
-            }])
+            # Update job schedule
+            controller.update_stage("job-456", {
+                "schedule": "0 9 * * 1-5"  # Weekdays at 9 AM
+            })
             ```
 
         Note:
@@ -1604,8 +1674,81 @@ class MainController:
 
     # access_control
     def list_access_controls(self):
+        """
+        List access control settings for all secured stages.
+
+        Returns access control configuration for the home page and all forms.
+        Each item includes the stage ID, title, type, and access settings.
+
+        Returns:
+            List[Dict]: List of access control configurations, each containing:
+                - id (str): Stage identifier ('home' for home page, UUID for forms)
+                - title (str): Display name of the stage
+                - type (str): Stage type ('home' or 'forms')
+                - is_public (bool): Whether the stage is publicly accessible
+                - required_roles (list): List of role names required for access
+
+        Example:
+            ```python
+            controls = controller.list_access_controls()
+            # Returns:
+            # [
+            #   {"id": "home", "title": "Home", "type": "home", "is_public": True, "required_roles": []},
+            #   {"id": "abc-123", "title": "My Form", "type": "forms", "is_public": False, "required_roles": ["admin"]}
+            # ]
+            ```
+
+        Copywritings:
+            List access control settings
+            Listing access control settings...
+        """
         project = self.repositories.project.load()
         return [s.to_access_dto() for s in project.secured_stages]
+
+    def update_access_control(
+        self, id: str, is_public: bool, required_roles: List[str]
+    ):
+        """
+        Update access control settings for a specific stage or home page.
+
+        Modifies who can access a particular stage or the home page.
+        Use 'home' as the ID to update the home page access control.
+
+        Args:
+            id (str): Stage identifier. Use 'home' for the home page, or the stage UUID for forms.
+            is_public (bool): If True, anyone can access. If False, authentication is required.
+            required_roles (List[str]): List of role names. User must have at least one of these roles.
+                Empty list means any authenticated user can access (when is_public is False).
+
+        Returns:
+            Dict: The updated access control configuration.
+
+        Example:
+            ```python
+            # Make home page private, requiring 'admin' or 'manager' role
+            controller.update_access_control(
+                id="home",
+                is_public=False,
+                required_roles=["admin", "manager"]
+            )
+
+            # Make a form public
+            controller.update_access_control(
+                id="form-uuid-123",
+                is_public=True,
+                required_roles=[]
+            )
+            ```
+
+        Copywritings:
+            Update access control settings
+            Updating access control settings...
+        """
+        project = self.repositories.project.load()
+        changes = [{"id": id, "is_public": is_public, "required_roles": required_roles}]
+        response = project.update_access_controls(changes)
+        self.repositories.project.save(project)
+        return response[0] if response else None
 
     def update_access_controls(self, changes: List[Dict[str, Any]]):
         project = self.repositories.project.load()

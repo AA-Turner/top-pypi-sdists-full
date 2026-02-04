@@ -1,12 +1,11 @@
 from adam.commands.command import Command
 from adam.commands.devices.devices import Devices
 from adam.config import Config
+from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.utils import log2
-from adam.utils_k8s.cassandra_nodes import CassandraNodes
 from adam.repl_state import ReplState, RequiredState
 from adam.utils_k8s.pod_files import PodFiles
-from adam.utils_k8s.pods import Pods
 
 class DownloadCassandraLog(Command):
     COMMAND = 'download cassandra log'

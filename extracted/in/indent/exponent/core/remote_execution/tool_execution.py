@@ -31,6 +31,8 @@ from exponent.core.remote_execution.cli_rpc_types import (
     ReadToolArtifactResult,
     ReadToolInput,
     ReadToolResult,
+    StoreArtifactToolInput,
+    StoreArtifactToolResult,
     StreamingCodeExecutionRequest,
     StreamingCodeExecutionResponse,
     ToolInputType,
@@ -76,10 +78,10 @@ class BackgroundBashResult:
 async def execute_tool(
     tool_input: ToolInputType,
     working_directory: str,
-    upload_client: "RemoteExecutionClient | None" = None,
+    client: "RemoteExecutionClient",
 ) -> ToolResultType:
     if isinstance(tool_input, ReadToolInput):
-        return await execute_read_file(tool_input, working_directory, upload_client)
+        return await execute_read_file(tool_input, working_directory, client)
     elif isinstance(tool_input, WriteToolInput):
         return await execute_write_file(tool_input, working_directory)
     elif isinstance(tool_input, GlobToolInput):
@@ -92,6 +94,8 @@ async def execute_tool(
         return await execute_download_artifact(tool_input, working_directory)
     elif isinstance(tool_input, UploadArtifactToolInput):
         return await execute_upload_artifact(tool_input, working_directory)
+    elif isinstance(tool_input, StoreArtifactToolInput):
+        return await execute_store_artifact(tool_input, working_directory, client)
     elif isinstance(tool_input, BashToolInput):
         raise ValueError("Bash tool input should be handled by execute_bash_tool")
     else:
@@ -114,7 +118,7 @@ def is_image_file(file_path: str) -> tuple[bool, str | None]:
 async def execute_read_file(  # noqa: PLR0911
     tool_input: ReadToolInput,
     working_directory: str,
-    upload_client: "RemoteExecutionClient | None" = None,
+    client: "RemoteExecutionClient",
 ) -> ReadToolResult | ErrorToolResult:
     # Validate absolute path requirement
     if not tool_input.file_path.startswith("/"):
@@ -131,14 +135,14 @@ async def execute_read_file(  # noqa: PLR0911
 
     file = AsyncPath(working_directory, tool_input.file_path)
 
-    # Check if this is an image file and we have an upload client
+    # Check if this is an image file
     is_image, media_type = is_image_file(tool_input.file_path)
-    if is_image and media_type and upload_client is not None:
+    if is_image and media_type:
         try:
             file_name = Path(tool_input.file_path).name
             s3_key = f"images/{uuid.uuid4()}/{file_name}"
 
-            upload_response = await upload_client.request_upload_url(s3_key, media_type)
+            upload_response = await client.request_upload_url(s3_key, media_type)
 
             f = await file.open("rb")
             async with f:
@@ -491,7 +495,6 @@ async def execute_bash_tool(
             timeout=120 if tool_input.timeout is None else tool_input.timeout,
             correlation_id=str(uuid.uuid4()),
         ),
-        session=None,
         working_directory=working_directory,
         should_halt=should_halt,
         chat_uuid=chat_uuid,
@@ -568,6 +571,28 @@ async def execute_bash_tool_background(
     return BackgroundBashResult(result=result, process=process)
 
 
+async def _download_from_presigned_url(presigned_url: str, dest_path: Path) -> bytes:
+    """Download content from a presigned URL and write to dest_path.
+
+    Creates parent directories if needed. Returns the downloaded bytes.
+    Raises aiohttp.ClientResponseError on HTTP errors.
+    """
+    async with aiohttp.ClientSession() as session:
+        async with session.get(presigned_url) as response:
+            if response.status != 200:
+                error_text = await response.text()
+                raise aiohttp.ClientResponseError(
+                    response.request_info,
+                    response.history,
+                    status=response.status,
+                    message=error_text,
+                )
+            content = await response.read()
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            dest_path.write_bytes(content)
+            return content
+
+
 async def execute_download_artifact(
     tool_input: DownloadArtifactToolInput, working_directory: str
 ) -> DownloadArtifactToolResult | ErrorToolResult:
@@ -585,19 +610,9 @@ async def execute_download_artifact(
         )
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(tool_input.presigned_url) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    return ErrorToolResult(
-                        error_message=f"Failed to download artifact: HTTP {response.status} - {error_text}"
-                    )
-
-                file_path.parent.mkdir(parents=True, exist_ok=True)
-
-                content = await response.read()
-                file_path.write_bytes(content)
-
+        content = await _download_from_presigned_url(
+            tool_input.presigned_url, file_path
+        )
         file_size = len(content)
 
         content_preview = None
@@ -632,7 +647,10 @@ async def execute_download_artifact(
             total_lines=total_lines,
             truncated=truncated,
         )
-
+    except aiohttp.ClientResponseError as e:
+        return ErrorToolResult(
+            error_message=f"Failed to download artifact: HTTP {e.status} - {e.message}"
+        )
     except Exception as e:
         logger.exception("Failed to download artifact")
         return ErrorToolResult(error_message=f"Failed to download artifact: {e!s}")
@@ -681,3 +699,43 @@ async def execute_upload_artifact(
     except Exception as e:
         logger.exception("Failed to upload artifact")
         return ErrorToolResult(error_message=f"Failed to upload artifact: {e!s}")
+
+
+async def execute_store_artifact(
+    tool_input: StoreArtifactToolInput,
+    working_directory: str,
+    client: "RemoteExecutionClient",
+) -> StoreArtifactToolResult | ErrorToolResult:
+    """Store an artifact to the CLI's config directory.
+
+    Downloads from a presigned URL and stores in ~/.indent/chats/{chat_uuid}/{filename}.
+    The CLI resolves the path using its own INDENT_HOME configuration.
+    """
+    if (
+        "/" in tool_input.filename
+        or "\\" in tool_input.filename
+        or ".." in tool_input.filename
+    ):
+        return ErrorToolResult(
+            error_message=f"Invalid filename (must not contain path separators): {tool_input.filename}"
+        )
+
+    chat_uuid = client.chat_uuid
+    artifacts_dir = get_chat_artifacts_dir(chat_uuid)
+    local_path = Path(artifacts_dir) / tool_input.filename
+
+    try:
+        content = await _download_from_presigned_url(
+            tool_input.presigned_url, local_path
+        )
+        return StoreArtifactToolResult(
+            local_path=str(local_path),
+            file_size_bytes=len(content),
+        )
+    except aiohttp.ClientResponseError as e:
+        return ErrorToolResult(
+            error_message=f"Failed to download artifact: HTTP {e.status} - {e.message}"
+        )
+    except Exception as e:
+        logger.exception("Failed to store artifact")
+        return ErrorToolResult(error_message=f"Failed to store artifact: {e!s}")

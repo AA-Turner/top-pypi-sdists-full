@@ -5,10 +5,10 @@ from adam.commands.cql.utils_cql import cassandra, cassandra_table_names
 from adam.commands.devices.device import Device
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import log2, wait_log
+from adam.utils import log2, log_timing, wait_log
+from adam.utils_cassandra.cassandra_clusters import CassandraClusters
 from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
-from adam.utils_k8s.cassandra_clusters import CassandraClusters
 from adam.utils_k8s.custom_resources import CustomResources
 from adam.utils_k8s.kube_context import KubeContext
 from adam.utils_k8s.statefulsets import StatefulSets
@@ -55,8 +55,10 @@ class DeviceCass(Command, Device):
         if state.pod:
             return self.bash(state, state, cmd.split(' '))
         elif state.sts and state.namespace:
-            show_pods(StatefulSets.pods(state.sts, state.namespace), state.namespace, show_namespace=not KubeContext.in_cluster_namespace(), ctx=ctx)
-            show_rollout(state.sts, state.namespace, ctx=ctx)
+            with log_timing('show.pods'):
+                show_pods(StatefulSets.pods(state.sts, state.namespace), state.namespace, show_namespace=not KubeContext.in_cluster_namespace(), ctx=ctx)
+            with log_timing('show.rollout'):
+                show_rollout(state.sts, state.namespace, ctx=ctx)
         else:
             self.show_statefulsets()
 

@@ -15,6 +15,9 @@ if TYPE_CHECKING:
     from ..models.list_completed_jobs_response_200_item_raw_flow_modules_item_suspend_user_groups_required_type_1 import (
         ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType1,
     )
+    from ..models.list_completed_jobs_response_200_item_raw_flow_modules_item_suspend_user_groups_required_type_2 import (
+        ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType2,
+    )
 
 
 T = TypeVar("T", bound="ListCompletedJobsResponse200ItemRawFlowModulesItemSuspend")
@@ -31,7 +34,8 @@ class ListCompletedJobsResponse200ItemRawFlowModulesItemSuspend:
             collecting input when resuming
         user_auth_required (Union[Unset, bool]): If true, only authenticated users can approve
         user_groups_required (Union['ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType0',
-            'ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType1', Unset]): Maps input
+            'ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType1',
+            'ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType2', Unset]): Maps input
             parameters for a step. Can be a static value or a JavaScript expression that references previous results or flow
             inputs
         self_approval_disabled (Union[Unset, bool]): If true, the user who started the flow cannot approve
@@ -46,6 +50,7 @@ class ListCompletedJobsResponse200ItemRawFlowModulesItemSuspend:
     user_groups_required: Union[
         "ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType0",
         "ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType1",
+        "ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType2",
         Unset,
     ] = UNSET
     self_approval_disabled: Union[Unset, bool] = UNSET
@@ -56,6 +61,9 @@ class ListCompletedJobsResponse200ItemRawFlowModulesItemSuspend:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.list_completed_jobs_response_200_item_raw_flow_modules_item_suspend_user_groups_required_type_0 import (
             ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType0,
+        )
+        from ..models.list_completed_jobs_response_200_item_raw_flow_modules_item_suspend_user_groups_required_type_1 import (
+            ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType1,
         )
 
         required_events = self.required_events
@@ -71,6 +79,13 @@ class ListCompletedJobsResponse200ItemRawFlowModulesItemSuspend:
 
         elif isinstance(
             self.user_groups_required, ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType0
+        ):
+            user_groups_required = UNSET
+            if not isinstance(self.user_groups_required, Unset):
+                user_groups_required = self.user_groups_required.to_dict()
+
+        elif isinstance(
+            self.user_groups_required, ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType1
         ):
             user_groups_required = UNSET
             if not isinstance(self.user_groups_required, Unset):
@@ -118,6 +133,9 @@ class ListCompletedJobsResponse200ItemRawFlowModulesItemSuspend:
         from ..models.list_completed_jobs_response_200_item_raw_flow_modules_item_suspend_user_groups_required_type_1 import (
             ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType1,
         )
+        from ..models.list_completed_jobs_response_200_item_raw_flow_modules_item_suspend_user_groups_required_type_2 import (
+            ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType2,
+        )
 
         d = src_dict.copy()
         required_events = d.pop("required_events", UNSET)
@@ -138,6 +156,7 @@ class ListCompletedJobsResponse200ItemRawFlowModulesItemSuspend:
         ) -> Union[
             "ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType0",
             "ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType1",
+            "ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType2",
             Unset,
         ]:
             if isinstance(data, Unset):
@@ -161,22 +180,41 @@ class ListCompletedJobsResponse200ItemRawFlowModulesItemSuspend:
                 return user_groups_required_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _user_groups_required_type_1 = data
+                user_groups_required_type_1: Union[
+                    Unset, ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType1
+                ]
+                if isinstance(_user_groups_required_type_1, Unset):
+                    user_groups_required_type_1 = UNSET
+                else:
+                    user_groups_required_type_1 = (
+                        ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType1.from_dict(
+                            _user_groups_required_type_1
+                        )
+                    )
+
+                return user_groups_required_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _user_groups_required_type_1 = data
-            user_groups_required_type_1: Union[
-                Unset, ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType1
+            _user_groups_required_type_2 = data
+            user_groups_required_type_2: Union[
+                Unset, ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType2
             ]
-            if isinstance(_user_groups_required_type_1, Unset):
-                user_groups_required_type_1 = UNSET
+            if isinstance(_user_groups_required_type_2, Unset):
+                user_groups_required_type_2 = UNSET
             else:
-                user_groups_required_type_1 = (
-                    ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType1.from_dict(
-                        _user_groups_required_type_1
+                user_groups_required_type_2 = (
+                    ListCompletedJobsResponse200ItemRawFlowModulesItemSuspendUserGroupsRequiredType2.from_dict(
+                        _user_groups_required_type_2
                     )
                 )
 
-            return user_groups_required_type_1
+            return user_groups_required_type_2
 
         user_groups_required = _parse_user_groups_required(d.pop("user_groups_required", UNSET))
 

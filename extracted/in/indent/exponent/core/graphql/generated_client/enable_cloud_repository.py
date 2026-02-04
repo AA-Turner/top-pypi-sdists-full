@@ -10,13 +10,29 @@ from .base_model import BaseModel
 
 class EnableCloudRepository(BaseModel):
     enable_cloud_repository: Union[
-        "EnableCloudRepositoryEnableCloudRepositoryEnableCloudRepositoriesResult",
-        "EnableCloudRepositoryEnableCloudRepositoryUnauthenticatedError",
-        "EnableCloudRepositoryEnableCloudRepositoryCloudConfigNotFoundError",
-        "EnableCloudRepositoryEnableCloudRepositoryGithubConfigNotFoundError",
+        "EnableCloudRepositoryEnableCloudRepositoryInputValidationError",
+        "EnableCloudRepositoryEnableCloudRepositoryNotFoundError",
         "EnableCloudRepositoryEnableCloudRepositoryCloudSessionError",
+        "EnableCloudRepositoryEnableCloudRepositoryEnableCloudRepositoriesResult",
         "EnableCloudRepositoryEnableCloudRepositoryError",
+        "EnableCloudRepositoryEnableCloudRepositoryUnauthenticatedError",
     ] = Field(alias="enableCloudRepository", discriminator="typename__")
+
+
+class EnableCloudRepositoryEnableCloudRepositoryInputValidationError(BaseModel):
+    typename__: Literal["InputValidationError"] = Field(alias="__typename")
+
+
+class EnableCloudRepositoryEnableCloudRepositoryNotFoundError(BaseModel):
+    typename__: Literal["NotFoundError"] = Field(alias="__typename")
+    resource_type: str = Field(alias="resourceType")
+    resource_id: Optional[str] = Field(alias="resourceId")
+    message: str
+
+
+class EnableCloudRepositoryEnableCloudRepositoryCloudSessionError(BaseModel):
+    typename__: Literal["CloudSessionError"] = Field(alias="__typename")
+    message: str
 
 
 class EnableCloudRepositoryEnableCloudRepositoryEnableCloudRepositoriesResult(
@@ -50,28 +66,13 @@ class EnableCloudRepositoryEnableCloudRepositoryEnableCloudRepositoriesResultRes
     updated_at: Any = Field(alias="updatedAt")
 
 
-class EnableCloudRepositoryEnableCloudRepositoryUnauthenticatedError(BaseModel):
-    typename__: Literal["UnauthenticatedError"] = Field(alias="__typename")
-    message: str
-
-
-class EnableCloudRepositoryEnableCloudRepositoryCloudConfigNotFoundError(BaseModel):
-    typename__: Literal["CloudConfigNotFoundError"] = Field(alias="__typename")
-    message: str
-
-
-class EnableCloudRepositoryEnableCloudRepositoryGithubConfigNotFoundError(BaseModel):
-    typename__: Literal["GithubConfigNotFoundError"] = Field(alias="__typename")
-    message: str
-
-
-class EnableCloudRepositoryEnableCloudRepositoryCloudSessionError(BaseModel):
-    typename__: Literal["CloudSessionError"] = Field(alias="__typename")
-    message: str
-
-
 class EnableCloudRepositoryEnableCloudRepositoryError(BaseModel):
     typename__: Literal["Error"] = Field(alias="__typename")
+    message: str
+
+
+class EnableCloudRepositoryEnableCloudRepositoryUnauthenticatedError(BaseModel):
+    typename__: Literal["UnauthenticatedError"] = Field(alias="__typename")
     message: str
 
 

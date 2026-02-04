@@ -28,7 +28,7 @@ check-lint:
 
 .PHONY: check-type
 check-type:
-	uv run mypy dbtmetabase
+	uv run pyright dbtmetabase
 
 .PHONY: check
 check: check-lint check-type
@@ -58,7 +58,7 @@ install: build
 sandbox-up:
 	( cd sandbox && docker compose up --build --attach app )
 
-.PHONY: sandbox-up
+.PHONY: sandbox-down
 sandbox-down:
 	( cd sandbox && docker compose down )
 

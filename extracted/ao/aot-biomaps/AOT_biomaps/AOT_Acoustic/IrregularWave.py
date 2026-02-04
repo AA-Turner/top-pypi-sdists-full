@@ -12,9 +12,6 @@ class IrregularWave(AcousticField):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.waveType = WaveType.IrregularWave
-        self.params = {
-            'typeSim': TypeSim.IRREGULAR.value,
-        }
 
     def getName_field(self):
         raise NotImplementedError("getName_field method not implemented for IrregularWave.")

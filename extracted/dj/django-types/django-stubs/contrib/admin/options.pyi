@@ -1,14 +1,13 @@
+import enum
 from collections import OrderedDict
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from typing import Any, Generic, Literal, TypeVar
-from typing_extensions import TypedDict
+from typing import Any, Generic, Literal, TypeAlias, TypeVar, cast
 
 from django.contrib.admin.filters import ListFilter
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.models import LogEntry
 from django.contrib.admin.sites import AdminSite
 from django.contrib.admin.views.main import ChangeList
-from django.contrib.auth.forms import AdminPasswordChangeForm
 from django.contrib.contenttypes.models import ContentType
 from django.core.checks.messages import CheckMessage
 from django.core.paginator import Paginator
@@ -38,13 +37,19 @@ from django.http.response import (
 from django.template.response import TemplateResponse
 from django.urls.resolvers import URLPattern
 from django.utils.safestring import SafeText
+from typing_extensions import TypedDict
 
 IS_POPUP_VAR: str
 TO_FIELD_VAR: str
 HORIZONTAL: Literal[1] = ...
 VERTICAL: Literal[2] = ...
 
-_Direction = Literal[1, 2]
+_Direction: TypeAlias = Literal[1, 2]
+
+class ShowFacets(enum.Enum):
+    NEVER = cast(str, ...)
+    ALLOW = cast(str, ...)
+    ALWAYS = cast(str, ...)
 
 def get_content_type_for_model(obj: type[Model] | Model) -> ContentType: ...
 def get_ul_class(radio_style: int) -> str: ...
@@ -65,8 +70,8 @@ class _FieldOpts(_OptionalFieldOpts, total=True):
 # https://github.com/python/mypy/issues/8921
 # _FieldsetSpec = Sequence[tuple[str | None, _FieldOpts]]
 _T = TypeVar("_T")
-_ListOrTuple = tuple[_T, ...] | list[_T]
-_FieldsetSpec = _ListOrTuple[tuple[str | None, _FieldOpts]]
+_ListOrTuple: TypeAlias = tuple[_T, ...] | list[_T]
+_FieldsetSpec: TypeAlias = _ListOrTuple[tuple[str | None, _FieldOpts]]
 
 # Generic type specifically for models, for use in BaseModelAdmin and subclasses
 # https://github.com/typeddjango/django-stubs/issues/482
@@ -107,7 +112,7 @@ class BaseModelAdmin(Generic[_ModelT]):
         self,
         db_field: ManyToManyField[Any, Any],
         request: HttpRequest | None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> ModelMultipleChoiceField: ...
     def get_autocomplete_fields(self, request: HttpRequest) -> Sequence[str]: ...
     def get_view_on_site_url(self, obj: _ModelT | None = ...) -> str | None: ...
@@ -172,10 +177,13 @@ class ModelAdmin(BaseModelAdmin[_ModelT]):
     delete_selected_confirmation_template: str = ...
     object_history_template: str = ...
     popup_response_template: str = ...
-    actions: Sequence[
-        Callable[[ModelAdmin[Any], HttpRequest, QuerySet[Any]], HttpResponse | None]
-        | str
-    ] | None = ...
+    actions: (
+        Sequence[
+            Callable[[ModelAdmin[Any], HttpRequest, QuerySet[Any]], HttpResponse | None]
+            | str
+        ]
+        | None
+    ) = ...
     action_form: type[ActionForm] = ...
     actions_on_top: bool = ...
     actions_on_bottom: bool = ...
@@ -198,7 +206,7 @@ class ModelAdmin(BaseModelAdmin[_ModelT]):
         request: HttpRequest,
         obj: _ModelT | None = ...,
         change: bool = ...,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> type[ModelForm]: ...
     def get_changelist(
         self, request: HttpRequest, **kwargs: Any
@@ -255,7 +263,7 @@ class ModelAdmin(BaseModelAdmin[_ModelT]):
     def construct_change_message(
         self,
         request: HttpRequest,
-        form: AdminPasswordChangeForm,
+        form: BaseForm,
         formsets: None,
         add: bool = ...,
     ) -> list[dict[str, dict[str, list[str]]]]: ...

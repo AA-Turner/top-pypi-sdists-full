@@ -1652,13 +1652,18 @@ Global___SetThreadJointStatusRequest: _TypeAlias = SetThreadJointStatusRequest  
 
 @_typing.final
 class StreamThreadRequest(_message.Message):
+    """Request to stream events from a thread."""
+
     DESCRIPTOR: _descriptor.Descriptor
 
     THREAD_ID_FIELD_NUMBER: _builtins.int
     FILTERS_FIELD_NUMBER: _builtins.int
-    LAST_EVENT_ID_FIELD_NUMBER: _builtins.int
     STREAM_MODES_FIELD_NUMBER: _builtins.int
+    LAST_EVENT_ID_FIELD_NUMBER: _builtins.int
     last_event_id: _builtins.str
+    """Optional: replay cached events from this point.
+    Use "-" to replay from the beginning.
+    """
     @_builtins.property
     def thread_id(self) -> Global___UUID: ...
     @_builtins.property
@@ -1670,8 +1675,8 @@ class StreamThreadRequest(_message.Message):
         *,
         thread_id: Global___UUID | None = ...,
         filters: _abc.Iterable[Global___AuthFilter] | None = ...,
-        last_event_id: _builtins.str | None = ...,
         stream_modes: _abc.Iterable[_enum_thread_stream_mode_pb2.ThreadStreamMode.ValueType] | None = ...,
+        last_event_id: _builtins.str | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["_last_event_id", b"_last_event_id", "last_event_id", b"last_event_id", "thread_id", b"thread_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...

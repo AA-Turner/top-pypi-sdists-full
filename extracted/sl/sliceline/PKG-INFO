@@ -1,21 +1,41 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: sliceline
-Version: 0.2.20
-Summary: ✂️ Fast slice finding for Machine Learning model debugging.
-License: BSD-3-Clause
+Version: 0.3.0
+Summary: Fast slice finding for Machine Learning model debugging.
+Project-URL: Homepage, https://github.com/DataDome/sliceline
+Project-URL: Documentation, https://sliceline.readthedocs.io/en/stable/
+Project-URL: Repository, https://github.com/DataDome/sliceline
 Author: Antoine de Daran
-Requires-Python: >=3.10,<4
+License-Expression: BSD-3-Clause
+License-File: LICENSE
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: numpy (>=1.25,<2.0)
-Requires-Dist: scikit-learn (>=1.6.0,<2.0.0)
-Requires-Dist: scipy (>=1.12,<2.0)
-Project-URL: Documentation, https://sliceline.readthedocs.io/en/stable/
-Project-URL: Repository, https://github.com/DataDome/sliceline
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: <4,>=3.10
+Requires-Dist: numpy<3,>=1.25
+Requires-Dist: scikit-learn<2,>=1.6.0
+Requires-Dist: scipy<2,>=1.12
+Provides-Extra: dev
+Requires-Dist: jupyter>=1.0.0; extra == 'dev'
+Requires-Dist: matplotlib>=3.9; extra == 'dev'
+Requires-Dist: nbconvert>=7.0.0; extra == 'dev'
+Requires-Dist: optbinning>=0.15.0; extra == 'dev'
+Requires-Dist: pandas>=2.1.1; extra == 'dev'
+Requires-Dist: pytest-benchmark>=4.0.0; extra == 'dev'
+Requires-Dist: pytest-cov>=3.0.0; extra == 'dev'
+Requires-Dist: pytest>=7.2.0; extra == 'dev'
+Requires-Dist: ruff>=0.9.0; extra == 'dev'
+Requires-Dist: sphinx-rtd-theme>=3.0.0; extra == 'dev'
+Requires-Dist: sphinx>=8.0.0; extra == 'dev'
+Provides-Extra: optimized
+Requires-Dist: numba>=0.60.0; extra == 'optimized'
 Description-Content-Type: text/x-rst
 
 Sliceline
@@ -85,6 +105,47 @@ Or, through SSH:
 
    pip install git+ssh://git@github.com/datadome/sliceline.git --upgrade
 
+⚡ Performance Optimization
+---------------------------
+
+Sliceline includes optional Numba JIT compilation for **5-50x performance improvements** on scoring operations.
+
+**Quick Installation:**
+
+.. code:: sh
+
+   # With optimization support
+   pip install sliceline[optimized]
+
+**Benefits:**
+
+- 5-6x faster scoring operations
+- 1.4-4.5x faster overall fit() performance
+- Up to 17% memory reduction on large datasets
+- Automatic fallback to pure NumPy if Numba not available
+
+**System Requirements:**
+
+Numba requires LLVM to be installed:
+
+.. code:: sh
+
+   # macOS
+   brew install llvm
+
+   # Linux (Ubuntu/Debian)
+   sudo apt-get install llvm
+
+**Verify Optimization:**
+
+.. code:: python
+
+   from sliceline import is_numba_available
+
+   print("Numba available:", is_numba_available())
+
+See the `performance benchmarks <https://github.com/DataDome/sliceline/tree/main/benchmarks>`__ for detailed metrics.
+
 🔗 Useful links
 ---------------
 
@@ -116,4 +177,3 @@ if you want to bring modifications to the code base.
 ----------
 
 Sliceline is free and open-source software licensed under the `3-clause BSD license <https://github.com/DataDome/sliceline/blob/main/LICENSE>`__.
-

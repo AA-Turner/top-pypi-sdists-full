@@ -10,6 +10,8 @@
 
 """RDM record schemas."""
 
+from datetime import datetime, timezone
+
 import arrow
 from invenio_i18n import lazy_gettext as _
 from marshmallow import Schema, ValidationError, fields, validates, validates_schema
@@ -34,7 +36,7 @@ class EmbargoSchema(Schema):
 
         if data.get("active", False):
             # 'active' is set to True => 'until' must be set to a future date
-            if until_date is None or until_date < arrow.utcnow():
+            if until_date is None or until_date < datetime.now(timezone.utc):
                 raise ValidationError(
                     _("Embargo end date must be set to a future date."),
                     field_name="until",
@@ -43,7 +45,7 @@ class EmbargoSchema(Schema):
         elif data.get("active", None) is not None:
             # 'active' is set to False => 'until' must be either set to a past
             #                             date, or not set at all
-            if until_date is not None and until_date > arrow.utcnow():
+            if until_date is not None and until_date > datetime.now(timezone.utc):
                 raise ValidationError(
                     _("Embargo end date must be unset or in the past."),
                     field_name="until",

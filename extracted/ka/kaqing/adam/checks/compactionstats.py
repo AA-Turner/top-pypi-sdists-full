@@ -6,7 +6,7 @@ from adam.checks.check_result import CheckResult
 from adam.checks.issue import Issue
 from adam.config import Config
 from adam.utils import Color
-from adam.utils_k8s.cassandra_nodes import CassandraNodes
+from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 
 class CompactionStats(Check):
     def name(self):

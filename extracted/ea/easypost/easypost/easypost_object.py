@@ -8,7 +8,6 @@ from typing import (
 
 from easypost.constant import NO_ATTRIBUTE_ERROR
 
-
 EASYPOST_OBJECT_ID_PREFIX_TO_CLASS_NAME_MAP: dict[str, Any] = {
     "adr": "Address",
     "ak": "ApiKey",
@@ -73,7 +72,7 @@ def convert_to_easypost_object(
         # Dynamically import class models due to circular imports of EasyPostObject
         class_model = (
             getattr(
-                importlib.import_module(f'easypost.models.{re.sub(r"(?<!^)(?=[A-Z])", "_", class_name).lower()}'),
+                importlib.import_module(f"easypost.models.{re.sub(r'(?<!^)(?=[A-Z])', '_', class_name).lower()}"),
                 class_name,
             )
             if class_name != EasyPostObject

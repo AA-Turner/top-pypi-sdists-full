@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from liger_kernel.transformers.auto_model import AutoLigerKernelForCausalLM  # noqa: F401
     from liger_kernel.transformers.monkey_patch import _apply_liger_kernel  # noqa: F401
     from liger_kernel.transformers.monkey_patch import _apply_liger_kernel_to_instance  # noqa: F401
+    from liger_kernel.transformers.monkey_patch import apply_liger_kernel_to_exaone4  # noqa: F401
     from liger_kernel.transformers.monkey_patch import apply_liger_kernel_to_falcon_h1  # noqa: F401
     from liger_kernel.transformers.monkey_patch import apply_liger_kernel_to_gemma  # noqa: F401
     from liger_kernel.transformers.monkey_patch import apply_liger_kernel_to_gemma2  # noqa: F401
@@ -41,6 +42,7 @@ if TYPE_CHECKING:
     from liger_kernel.transformers.monkey_patch import apply_liger_kernel_to_glm4  # noqa: F401
     from liger_kernel.transformers.monkey_patch import apply_liger_kernel_to_glm4v  # noqa: F401
     from liger_kernel.transformers.monkey_patch import apply_liger_kernel_to_glm4v_moe  # noqa: F401
+    from liger_kernel.transformers.monkey_patch import apply_liger_kernel_to_gpt_oss  # noqa: F401
     from liger_kernel.transformers.monkey_patch import apply_liger_kernel_to_granite  # noqa: F401
     from liger_kernel.transformers.monkey_patch import apply_liger_kernel_to_hunyuan_v1_dense  # noqa: F401
     from liger_kernel.transformers.monkey_patch import apply_liger_kernel_to_hunyuan_v1_moe  # noqa: F401
@@ -110,6 +112,7 @@ def __getattr__(name: str):
         "apply_liger_kernel_to_glm4",
         "apply_liger_kernel_to_glm4v",
         "apply_liger_kernel_to_glm4v_moe",
+        "apply_liger_kernel_to_gpt_oss",
         "apply_liger_kernel_to_granite",
         "apply_liger_kernel_to_internvl",
         "apply_liger_kernel_to_llama",
@@ -134,6 +137,7 @@ def __getattr__(name: str):
         "apply_liger_kernel_to_smolvlm",
         "apply_liger_kernel_to_hunyuan_v1_dense",
         "apply_liger_kernel_to_hunyuan_v1_moe",
+        "apply_liger_kernel_to_exaone4",
     }
 
     if name in monkey_patch_symbols:
@@ -187,6 +191,7 @@ if _TRANSFORMERS_AVAILABLE:
             "apply_liger_kernel_to_glm4",
             "apply_liger_kernel_to_glm4v",
             "apply_liger_kernel_to_glm4v_moe",
+            "apply_liger_kernel_to_gpt_oss",
             "apply_liger_kernel_to_granite",
             "apply_liger_kernel_to_internvl",
             "apply_liger_kernel_to_llama",
@@ -211,5 +216,6 @@ if _TRANSFORMERS_AVAILABLE:
             "apply_liger_kernel_to_smolvlm",
             "apply_liger_kernel_to_hunyuan_v1_dense",
             "apply_liger_kernel_to_hunyuan_v1_moe",
+            "apply_liger_kernel_to_exaone4",
         ]
     )

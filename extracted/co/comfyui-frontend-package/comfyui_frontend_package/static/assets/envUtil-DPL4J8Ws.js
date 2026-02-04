@@ -1,0 +1,2 @@
+import{r as e}from"./rolldown-runtime-DCMCV6zW.js";function isElectron(){return`electronAPI`in window&&window.electronAPI!==void 0}function electronAPI(){return window.electronAPI}function showNativeSystemMenu(){electronAPI()?.showContextMenu()}function isNativeWindow(){return isElectron()&&!!window.navigator.windowControlsOverlay?.visible}export{showNativeSystemMenu as i,isElectron as n,isNativeWindow as r,electronAPI as t};
+//# sourceMappingURL=envUtil-DPL4J8Ws.js.map

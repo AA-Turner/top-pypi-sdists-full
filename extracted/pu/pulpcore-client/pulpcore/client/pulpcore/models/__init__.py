@@ -153,6 +153,8 @@ from pulpcore.client.pulpcore.models.rbac_content_guard import RBACContentGuard
 from pulpcore.client.pulpcore.models.rbac_content_guard_response import RBACContentGuardResponse
 from pulpcore.client.pulpcore.models.reclaim_space import ReclaimSpace
 from pulpcore.client.pulpcore.models.redis_connection_response import RedisConnectionResponse
+from pulpcore.client.pulpcore.models.remote_network_config import RemoteNetworkConfig
+from pulpcore.client.pulpcore.models.remote_network_config_response import RemoteNetworkConfigResponse
 from pulpcore.client.pulpcore.models.repair import Repair
 from pulpcore.client.pulpcore.models.repository_add_remove_content import RepositoryAddRemoveContent
 from pulpcore.client.pulpcore.models.repository_response import RepositoryResponse

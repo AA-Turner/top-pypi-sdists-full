@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: prospector
-Version: 1.17.3
+Version: 1.18.0
 Summary: Prospector is a tool to analyse Python code by aggregating the result of other tools.
 License: GPLv2+
+License-File: LICENSE
 Keywords: prospector,pylint,static code analysis
 Author: Carl Crowder
 Author-email: git@carlcrowder.com
@@ -20,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Quality Assurance
 Provides-Extra: with-bandit
 Provides-Extra: with-everything
@@ -40,14 +42,14 @@ Requires-Dist: pep8-naming (>=0.3.3,<=0.10.0)
 Requires-Dist: pycodestyle (>=2.9.0)
 Requires-Dist: pydocstyle (>=2.0.0)
 Requires-Dist: pyflakes (>=2.2.0)
-Requires-Dist: pylint (>=3.0)
+Requires-Dist: pylint (>=4.0)
 Requires-Dist: pylint-celery (==0.3)
 Requires-Dist: pylint-django (>=2.6.1)
 Requires-Dist: pyright ; extra == "with-everything"
 Requires-Dist: pyright ; extra == "with-pyright"
 Requires-Dist: pyroma ; extra == "with-everything"
 Requires-Dist: pyroma ; extra == "with-pyroma"
-Requires-Dist: requirements-detector (>=1.3.2)
+Requires-Dist: requirements-detector (>=1.5.0)
 Requires-Dist: ruff ; extra == "with-everything"
 Requires-Dist: ruff ; extra == "with-ruff"
 Requires-Dist: setoptconf-tmp (>=0.3.1,<0.4.0)

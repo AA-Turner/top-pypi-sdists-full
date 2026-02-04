@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime
 import logging
 import types
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -28,25 +28,43 @@ from seeq.spy.workbooks._template import ItemTemplate
 from seeq.spy.workbooks._workbook import Workbook, WorkbookList, DatasourceMapList
 
 
-@Status.handle_keyboard_interrupt()
-def push(workbooks, *, path: Optional[str] = None, owner: Optional[str] = None,
-         label: Optional[str] = None, datasource: Optional[str] = None, datasource_map_folder: Optional[str] = None,
-         use_full_path: bool = False, access_control: Optional[str] = None, override_max_interp: bool = False,
-         include_inventory: Optional[bool] = None, include_annotations: bool = True,
-         dry_run: bool = False, refresh: bool = True, lookup_df: pd.DataFrame = None,
-         specific_worksheet_ids: Optional[List[str]] = None, create_dummy_items_in_workbook: Optional[str] = None,
-         assume_dependencies_exist: bool = False, reconcile_inventory_by: str = 'id',
-         global_inventory: Optional[str] = None, item_map: Optional[ItemMap] = None,
-         verbose: bool = False, errors: Optional[str] = None, quiet: Optional[bool] = None,
-         status: Optional[Status] = None, session: Optional[Session] = None,
-         scope_globals_to_workbook: Optional[bool] = None) -> pd.DataFrame:
+@Status.top_level_spy_function()
+def push(
+    workbooks: Union[Workbook, List[Workbook], WorkbookList],
+    *,
+    path: Optional[str] = None,
+    owner: Optional[str] = None,
+    label: Optional[str] = None,
+    datasource: Optional[str] = None,
+    datasource_map_folder: Optional[str] = None,
+    use_full_path: bool = False,
+    access_control: Optional[str] = None,
+    override_max_interp: bool = False,
+    include_inventory: Optional[bool] = None,
+    include_annotations: bool = True,
+    dry_run: bool = False,
+    refresh: bool = True,
+    lookup_df: Optional[pd.DataFrame] = None,
+    specific_worksheet_ids: Optional[List[str]] = None,
+    create_dummy_items_in_workbook: Optional[str] = None,
+    assume_dependencies_exist: bool = False,
+    reconcile_inventory_by: str = 'id',
+    global_inventory: Optional[str] = None,
+    item_map: Optional[ItemMap] = None,
+    verbose: bool = False,
+    errors: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None,
+    scope_globals_to_workbook: Optional[bool] = None
+) -> pd.DataFrame:
     """
     Pushes workbooks into Seeq using a list of Workbook object definitions.
 
     Parameters
     ----------
-    workbooks : {Workbook, list[Workbook]}
-        A Workbook object or list of Workbook objects to be pushed into Seeq.
+    workbooks : {Workbook, list[Workbook], WorkbookList}
+        A Workbook object, list of Workbook objects, or WorkbookList to be pushed into Seeq.
 
     path : str, default None
         A '>>'-delimited folder path to create to contain the workbooks. Note
@@ -279,36 +297,7 @@ def push(workbooks, *, path: Optional[str] = None, owner: Optional[str] = None,
                             spy.workbooks.push call
         =================== ===================================================
     """
-    function_name = 'spy.workbooks.push'
-    input_args = Status.function_prologue(
-        session, status, function_name, [
-            (workbooks, 'workbooks', (Workbook, list)),
-            (path, 'path', str),
-            (owner, 'owner', str),
-            (label, 'label', str),
-            (datasource, 'datasource', str),
-            (datasource_map_folder, 'datasource_map_folder', str),
-            (use_full_path, 'use_full_path', bool),
-            (access_control, 'access_control', str),
-            (override_max_interp, 'override_max_interp', bool),
-            (include_inventory, 'include_inventory', bool),
-            (include_annotations, 'include_annotations', bool),
-            (dry_run, 'dry_run', bool),
-            (refresh, 'refresh', bool),
-            (lookup_df, 'lookup_df', pd.DataFrame),
-            (specific_worksheet_ids, 'specific_worksheet_ids', list),
-            (create_dummy_items_in_workbook, 'create_dummy_items_in_workbook', str),
-            (assume_dependencies_exist, 'assume_dependencies_exist', bool),
-            (reconcile_inventory_by, 'reconcile_inventory_by', str),
-            (global_inventory, 'global_inventory', str),
-            (verbose, 'verbose', bool),
-            (errors, 'errors', str),
-            (quiet, 'quiet', bool),
-            (status, 'status', Status),
-            (session, 'session', Session),
-            (scope_globals_to_workbook, 'scope_globals_to_workbook', bool),
-            (item_map, 'item_map', (dict, ItemMap))
-        ])
+    input_args = locals()
 
     if (dry_run or verbose) and not status.verbose:
         status.set_verbose(True)
@@ -581,7 +570,7 @@ def push(workbooks, *, path: Optional[str] = None, owner: Optional[str] = None,
         status.update('Push successful', Status.SUCCESS)
 
     output_df_properties = types.SimpleNamespace(
-        func=function_name,
+        func='spy.workbooks.push',
         kwargs=input_args,
         input=workbooks,
         output=new_workbooks,

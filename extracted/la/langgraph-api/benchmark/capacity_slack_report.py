@@ -22,8 +22,8 @@ def load_capacity_results(results_dir: str) -> list[dict]:
     {
         "clusterName": "dr-small",
         "workloads": {
-            "parallel-small": {"maxSuccessfulTarget": 10, "avgExecutionLatencySeconds": 1.5},
-            "parallel-tiny": {"maxSuccessfulTarget": 20, "avgExecutionLatencySeconds": 0.8}
+            "parallel-small": {"maxSuccessfulTarget": 10, "avgExecutionLatencySeconds": 1.5, "p95ExecutionLatencySeconds": 2.0, "p99ExecutionLatencySeconds": 2.5},
+            "parallel-tiny": {"maxSuccessfulTarget": 20, "avgExecutionLatencySeconds": 0.8, "p95ExecutionLatencySeconds": 1.2, "p99ExecutionLatencySeconds": 1.5}
         }
     }
     """
@@ -53,6 +53,12 @@ def load_capacity_results(results_dir: str) -> list[dict]:
                         "avgExecutionLatencySeconds": workload_data.get(
                             "avgExecutionLatencySeconds"
                         ),
+                        "p95ExecutionLatencySeconds": workload_data.get(
+                            "p95ExecutionLatencySeconds"
+                        ),
+                        "p99ExecutionLatencySeconds": workload_data.get(
+                            "p99ExecutionLatencySeconds"
+                        ),
                     }
                 )
         except (OSError, json.JSONDecodeError):
@@ -66,6 +72,16 @@ def format_latency(value: float | None) -> str:
     if value is None:
         return "N/A"
     return f"{value:.3f}s"
+
+
+def format_latency_compact(
+    avg: float | None, p95: float | None, p99: float | None
+) -> str:
+    """Format latencies in compact format: avg/p95/p99."""
+    avg_str = f"{avg:.2f}" if avg is not None else "-"
+    p95_str = f"{p95:.2f}" if p95 is not None else "-"
+    p99_str = f"{p99:.2f}" if p99 is not None else "-"
+    return f"{avg_str}/{p95_str}/{p99_str}"
 
 
 def format_target(value: int | None) -> str:
@@ -102,16 +118,16 @@ def generate_capacity_table(results: list[dict]) -> tuple[list[str], bool]:
         lines.append(f"\n*Workload: `{workload}`*")
         lines.append("```")
 
-        # Header
+        # Header - latency format: avg/p95/p99 (in seconds)
         header = (
             f"{'Size':<8} | "
-            f"{'DR Max Runs':>12} | "
-            f"{'PY Max Runs':>12} | "
-            f"{'DR Latency':>12} | "
-            f"{'PY Latency':>12}"
+            f"{'DR Max':>8} | "
+            f"{'PY Max':>8} | "
+            f"{'DR Lat(avg/p95/p99)':>20} | "
+            f"{'PY Lat(avg/p95/p99)':>20}"
         )
         lines.append(header)
-        lines.append("-" * 72)
+        lines.append("-" * 76)
 
         for size in sizes:
             dr_cluster = f"dr-{size}"
@@ -136,20 +152,28 @@ def generate_capacity_table(results: list[dict]) -> tuple[list[str], bool]:
                 dr_lat = (
                     "❌"
                     if not dr_data
-                    else format_latency(dr_data.get("avgExecutionLatencySeconds"))
+                    else format_latency_compact(
+                        dr_data.get("avgExecutionLatencySeconds"),
+                        dr_data.get("p95ExecutionLatencySeconds"),
+                        dr_data.get("p99ExecutionLatencySeconds"),
+                    )
                 )
                 py_lat = (
                     "❌"
                     if not py_data
-                    else format_latency(py_data.get("avgExecutionLatencySeconds"))
+                    else format_latency_compact(
+                        py_data.get("avgExecutionLatencySeconds"),
+                        py_data.get("p95ExecutionLatencySeconds"),
+                        py_data.get("p99ExecutionLatencySeconds"),
+                    )
                 )
 
                 line = (
                     f"{size:<8} | "
-                    f"{dr_runs:>12} | "
-                    f"{py_runs:>12} | "
-                    f"{dr_lat:>12} | "
-                    f"{py_lat:>12}"
+                    f"{dr_runs:>8} | "
+                    f"{py_runs:>8} | "
+                    f"{dr_lat:>20} | "
+                    f"{py_lat:>20}"
                 )
                 lines.append(line)
                 continue
@@ -157,8 +181,8 @@ def generate_capacity_table(results: list[dict]) -> tuple[list[str], bool]:
             # Both clusters have data - compare and add trophies
             dr_max = dr_data.get("maxSuccessfulTarget", 0)
             py_max = py_data.get("maxSuccessfulTarget", 0)
-            dr_latency = dr_data.get("avgExecutionLatencySeconds", float("inf"))
-            py_latency = py_data.get("avgExecutionLatencySeconds", float("inf"))
+            dr_avg_latency = dr_data.get("avgExecutionLatencySeconds", float("inf"))
+            py_avg_latency = py_data.get("avgExecutionLatencySeconds", float("inf"))
 
             # Format runs with trophy for winner
             if dr_max > py_max:
@@ -172,21 +196,29 @@ def generate_capacity_table(results: list[dict]) -> tuple[list[str], bool]:
                 dr_runs_str = str(dr_max)
                 py_runs_str = str(py_max)
 
-            # Format latency with trophy for winner (lower is better)
-            dr_lat_str = format_latency(dr_latency)
-            py_lat_str = format_latency(py_latency)
+            # Format latency with trophy for winner (lower avg is better)
+            dr_lat_str = format_latency_compact(
+                dr_data.get("avgExecutionLatencySeconds"),
+                dr_data.get("p95ExecutionLatencySeconds"),
+                dr_data.get("p99ExecutionLatencySeconds"),
+            )
+            py_lat_str = format_latency_compact(
+                py_data.get("avgExecutionLatencySeconds"),
+                py_data.get("p95ExecutionLatencySeconds"),
+                py_data.get("p99ExecutionLatencySeconds"),
+            )
 
-            if dr_latency < py_latency:
+            if dr_avg_latency < py_avg_latency:
                 dr_lat_str = f"🏆{dr_lat_str}"
-            elif py_latency < dr_latency:
+            elif py_avg_latency < dr_avg_latency:
                 py_lat_str = f"🏆{py_lat_str}"
 
             line = (
                 f"{size:<8} | "
-                f"{dr_runs_str:>12} | "
-                f"{py_runs_str:>12} | "
-                f"{dr_lat_str:>12} | "
-                f"{py_lat_str:>12}"
+                f"{dr_runs_str:>8} | "
+                f"{py_runs_str:>8} | "
+                f"{dr_lat_str:>20} | "
+                f"{py_lat_str:>20}"
             )
             lines.append(line)
 
@@ -274,8 +306,9 @@ def generate_slack_messages(results: list[dict], run_url: str) -> list[str]:
         "",
         "📖 *Metrics Explanation:*",
         "• *Max Runs*: Maximum number of concurrent runs the cluster can handle successfully",
-        "• *Latency*: Average(mean) execution time across all maximum successful runs (lower is better)",
-        "• 🏆: Winner in the comparison (higher Max Runs or lower Latency)",
+        "• *Latency (avg/p95/p99)*: Execution time in seconds across all max successful runs (lower is better)",
+        "  - avg: average(mean), p95: 95th percentile, p99: 99th percentile",
+        "• 🏆: Winner in the comparison (higher Max Runs or lower avg Latency)",
     ]
 
     if has_missing_data:

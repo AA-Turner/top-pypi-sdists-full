@@ -1516,9 +1516,9 @@ class GeoLine(Agg[_R]):
     ordered by the chosen sort field.
 
     :arg point: (required) The name of the geo_point field.
-    :arg sort: (required) The name of the numeric field to use as the sort
-        key for ordering the points. When the `geo_line` aggregation is
-        nested inside a `time_series` aggregation, this field defaults to
+    :arg sort: The name of the numeric field to use as the sort key for
+        ordering the points. When the `geo_line` aggregation is nested
+        inside a `time_series` aggregation, this field defaults to
         `@timestamp`, and any other value will result in error.
     :arg include_sort: When `true`, returns an additional array of the
         sort values in the feature properties.
@@ -1855,9 +1855,9 @@ class Inference(Pipeline[_R]):
 class Line(Agg[_R]):
     """
     :arg point: (required) The name of the geo_point field.
-    :arg sort: (required) The name of the numeric field to use as the sort
-        key for ordering the points. When the `geo_line` aggregation is
-        nested inside a `time_series` aggregation, this field defaults to
+    :arg sort: The name of the numeric field to use as the sort key for
+        ordering the points. When the `geo_line` aggregation is nested
+        inside a `time_series` aggregation, this field defaults to
         `@timestamp`, and any other value will result in error.
     :arg include_sort: When `true`, returns an additional array of the
         sort values in the feature properties.

@@ -5,7 +5,8 @@ import pandas as pd
 import pytest
 from dask.distributed import Client, LocalCluster
 
-from stumpy import aamped, config
+from stumpy import config
+from stumpy.aamped import aamped
 
 
 @pytest.fixture(scope="module")
@@ -16,7 +17,7 @@ def dask_cluster():
         dashboard_address=None,
         worker_dashboard_address=None,
     )
-    yield cluster
+    yield cluster.scheduler_address
     cluster.close()
 
 

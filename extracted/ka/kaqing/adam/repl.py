@@ -84,7 +84,10 @@ def enter_repl(state: ReplState):
                         # print(json.dumps(completions, indent=4))
                         completer = ReplCompleter.from_nested_dict(completions)
 
-                cmd = session.prompt(HTML(f'<ansibrightblue>{prompt_msg()}</ansibrightblue>'), completer=completer, key_bindings=kb)
+                cmd = session.prompt(HTML(f'<ansibrightblue>{prompt_msg()}</ansibrightblue>'),
+                                     completer=completer,
+                                     key_bindings=kb,
+                                     bottom_toolbar=None)
                 s0 = time.time()
 
                 if state.bash_session:

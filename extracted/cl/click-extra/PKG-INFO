@@ -1,10 +1,11 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: click-extra
-Version: 7.4.0
+Version: 7.5.0
 Summary: 🌈 Drop-in replacement for Click to make user-friendly and colorful CLI
 Keywords: ansi-colors,cli,cloup,colorization,configuration,console,ini,json,json5,jsonc,hjson,logging,multiplatform,pygments,pytest,python,python-tabulate,sphinx,terminal,toml,xml,yaml
 Author: Kevin Deldycke
 Author-email: Kevin Deldycke <kevin@deldycke.com>
+License-File: license
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: Plugins
@@ -44,7 +45,7 @@ Requires-Dist: boltons>=25.0.0
 Requires-Dist: click>=8.3.1
 Requires-Dist: cloup>=3.0.7
 Requires-Dist: deepmerge>=2.0
-Requires-Dist: extra-platforms>=5.0.0
+Requires-Dist: extra-platforms>=8.0.0
 Requires-Dist: requests>=2.32.5
 Requires-Dist: tabulate[widechars]>=0.9
 Requires-Dist: tomli>=2.3.0 ; python_full_version < '3.11'
@@ -62,12 +63,12 @@ Requires-Dist: sphinx>=8.0.0 ; extra == 'sphinx'
 Requires-Dist: xmltodict>=1.0.0 ; extra == 'xml'
 Requires-Dist: pyyaml>=6.0.3 ; extra == 'yaml'
 Requires-Python: >=3.10
-Project-URL: Changelog, https://github.com/kdeldycke/click-extra/blob/main/changelog.md
-Project-URL: Documentation, https://kdeldycke.github.io/click-extra
-Project-URL: Funding, https://github.com/sponsors/kdeldycke
 Project-URL: Homepage, https://github.com/kdeldycke/click-extra
+Project-URL: Download, https://github.com/kdeldycke/click-extra/releases/tag/v7.5.0
+Project-URL: Changelog, https://github.com/kdeldycke/click-extra/blob/main/changelog.md
 Project-URL: Issues, https://github.com/kdeldycke/click-extra/issues
 Project-URL: Repository, https://github.com/kdeldycke/click-extra
+Project-URL: Funding, https://github.com/sponsors/kdeldycke
 Provides-Extra: hjson
 Provides-Extra: json5
 Provides-Extra: jsonc

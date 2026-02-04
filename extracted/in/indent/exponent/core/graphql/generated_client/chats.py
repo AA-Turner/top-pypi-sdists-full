@@ -37,9 +37,7 @@ class ChatsChatsChatsChats(BaseModel):
         Annotated[
             Union[
                 "ChatsChatsChatsChatsPrStatusPRInfo",
-                "ChatsChatsChatsChatsPrStatusPRStatusNotFoundError",
-                "ChatsChatsChatsChatsPrStatusPRStatusPermissionError",
-                "ChatsChatsChatsChatsPrStatusPRStatusError",
+                "ChatsChatsChatsChatsPrStatusNotFoundError",
             ],
             Field(discriminator="typename__"),
         ]
@@ -53,16 +51,8 @@ class ChatsChatsChatsChatsPrStatusPRInfo(BaseModel):
     status: PRStatus
 
 
-class ChatsChatsChatsChatsPrStatusPRStatusNotFoundError(BaseModel):
-    typename__: Literal["PRStatusNotFoundError"] = Field(alias="__typename")
-
-
-class ChatsChatsChatsChatsPrStatusPRStatusPermissionError(BaseModel):
-    typename__: Literal["PRStatusPermissionError"] = Field(alias="__typename")
-
-
-class ChatsChatsChatsChatsPrStatusPRStatusError(BaseModel):
-    typename__: Literal["PRStatusError"] = Field(alias="__typename")
+class ChatsChatsChatsChatsPrStatusNotFoundError(BaseModel):
+    typename__: Literal["NotFoundError"] = Field(alias="__typename")
 
 
 Chats.model_rebuild()

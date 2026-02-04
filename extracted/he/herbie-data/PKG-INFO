@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: herbie-data
-Version: 2026.1.0
+Version: 2026.1.1
 Summary: Download numerical weather prediction GRIB2 model data.
 Project-URL: Homepage, https://github.com/blaylockbk/Herbie
 Project-URL: Documentation, https://herbie.readthedocs.io/

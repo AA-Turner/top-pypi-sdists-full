@@ -17,6 +17,10 @@ class ConditionalGrpcCommonHook(BuildHookInterface):
     PLUGIN_NAME = "conditional_grpc_common"
 
     def initialize(self, version: str, build_data: dict[str, Any]) -> None:
+        # Skip vendoring for editable installs - grpc_common installed as dev dependency
+        if version == "editable":
+            return
+
         # Path when building directly from the repo
         repo_path = Path(self.root) / ".." / "grpc_common_py" / "langgraph_grpc_common"
         # Path when building wheel from sdist (already vendored)

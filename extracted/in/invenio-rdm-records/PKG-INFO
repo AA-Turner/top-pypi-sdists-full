@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: invenio-rdm-records
-Version: 23.2.2
+Version: 24.0.0
 Summary: InvenioRDM module for the communities feature.
 Home-page: https://github.com/inveniosoftware/invenio-rdm-records
 Author: CERN
@@ -20,20 +20,20 @@ Requires-Dist: commonmeta-py<0.182,>=0.8.4
 Requires-Dist: datacite<2.0.0,>=1.1.1
 Requires-Dist: dcxml<1.0.0,>=0.1.2
 Requires-Dist: Faker>=2.0.3
-Requires-Dist: flask-iiif<2.0.0,>=1.0.0
-Requires-Dist: invenio-administration<5.0.0,>=4.0.0
+Requires-Dist: flask-iiif<3.0.0,>=2.0.0
+Requires-Dist: invenio-administration<6.0.0,>=5.0.0
 Requires-Dist: invenio-base<3.0.0,>=2.3.0
-Requires-Dist: invenio-checks<4.0.0,>=3.0.0
-Requires-Dist: invenio-communities<23.0.0,>=22.0.0
-Requires-Dist: invenio-drafts-resources<8.0.0,>=7.0.0
-Requires-Dist: invenio-records-resources<9.0.0,>=8.0.0
-Requires-Dist: invenio-github<5.0.0,>=4.0.0
+Requires-Dist: invenio-checks<5.0.0,>=4.0.0
+Requires-Dist: invenio-communities<24.0.0,>=23.0.0
+Requires-Dist: invenio-drafts-resources<9.0.0,>=8.0.0
+Requires-Dist: invenio-records-resources<10.0.0,>=9.0.0
+Requires-Dist: invenio-github<6.0.0,>=5.0.0
 Requires-Dist: invenio-i18n<4.0.0,>=3.0.0
-Requires-Dist: invenio-jobs<7.0.0,>=6.0.0
-Requires-Dist: invenio-oaiserver<4.0.0,>=3.0.0
-Requires-Dist: invenio-oauth2server<4.0.0,>=3.0.0
-Requires-Dist: invenio-stats<6.0.0,>=5.0.0
-Requires-Dist: invenio-vocabularies<10.0.0,>=9.0.0
+Requires-Dist: invenio-jobs<8.0.0,>=7.0.0
+Requires-Dist: invenio-oaiserver<5.0.0,>=4.0.0
+Requires-Dist: invenio-oauth2server<5.0.0,>=4.0.0
+Requires-Dist: invenio-stats<7.0.0,>=6.0.0
+Requires-Dist: invenio-vocabularies<11.0.0,>=10.0.0
 Requires-Dist: nameparser>=1.1.1
 Requires-Dist: pycountry>=22.3.5
 Requires-Dist: pydash<7.0.0,>=6.0.0
@@ -41,10 +41,10 @@ Requires-Dist: pytz>=2020.4
 Requires-Dist: pyyaml>=5.4.0
 Requires-Dist: python-slugify>=8.0.1
 Provides-Extra: tests
-Requires-Dist: pytest-black-ng>=0.4.0; extra == "tests"
-Requires-Dist: invenio-app<3.0.0,>=2.1.0; extra == "tests"
-Requires-Dist: invenio-db[mysql,postgresql]<3.0.0,>=2.0.0; extra == "tests"
-Requires-Dist: pytest-invenio<4.0.0,>=3.0.0; extra == "tests"
+Requires-Dist: pytest-black>=0.6.0; extra == "tests"
+Requires-Dist: invenio-app<4.0.0,>=3.0.0; extra == "tests"
+Requires-Dist: invenio-db[mysql,postgresql]<3.0.0,>=2.2.0; extra == "tests"
+Requires-Dist: pytest-invenio<5.0.0,>=4.0.0; extra == "tests"
 Requires-Dist: pytest-mock>=1.6.0; extra == "tests"
 Requires-Dist: sphinx>=4.5.0; extra == "tests"
 Requires-Dist: tripoli>=2.0.0; extra == "tests"
@@ -113,7 +113,7 @@ Tests
     Copyright (C) 2019-2025 CERN.
     Copyright (C) 2019-2024 Northwestern University.
     Copyright (C) 2024      KTH Royal Institute of Technology.
-    Copyright (C) 2024-2025 Graz University of Technology.
+    Copyright (C) 2024-2026 Graz University of Technology.
 
     Invenio-RDM-Records is free software; you can redistribute it and/or
     modify it under the terms of the MIT License; see LICENSE file for more
@@ -121,6 +121,29 @@ Tests
 
 Changes
 =======
+
+Version v24.0.0 (released 2026-02-03)
+
+- chore(setup): bump dependencies
+- refactor(Link): take into account upstream changes
+- chore(black): update formatting to >= 26.0
+- refactor: replace deprecated Link usage
+- revert: part of utcnow fix
+- fix: SyntaxWarning: "\d" is invalid
+- fix: ChangedInMarshmallow4Warning
+- fix: FutureWarning
+- fix:  PytestCollectionWarning
+- fix(Warning): Received  for a non-boolean attribute .
+- fix(js): react warnings
+- fix(chore): RemovedInMarshmallow4Warning
+- fix(chore): DeprecationWarning stdlib
+- fix(chore): LegacyAPIWarning sqlalchemy
+- fix(chore): DeprecationWarning stdlib
+- fix:  DeprecationWarning
+- refactor: remove max_number form context
+- refactor: remove usage of is_parent context
+- refactor(schema): remove usage of object_key
+- fix(access_requests_ui): Fix view for guest when receiver isnt community
 
 Version 23.2.2 (release 2026-01-27)
 

@@ -10,15 +10,15 @@ from collections.abc import (
     Sized,
 )
 from typing import Any, Generic, TypeVar, overload
-from typing_extensions import Self
 
 from django.db import models
 from django.db.models import Manager
 from django.db.models.base import Model
-from django.db.models.expressions import Combinable as Combinable  # noqa: F401
+from django.db.models.expressions import Combinable as Combinable
 from django.db.models.expressions import F as F
-from django.db.models.query_utils import Q as Q  # noqa: F401
+from django.db.models.query_utils import Q as Q
 from django.db.models.sql.query import Query, RawQuery
+from typing_extensions import Self
 
 _T = TypeVar("_T", bound=models.Model)
 
@@ -63,7 +63,7 @@ class _BaseQuerySet(Generic[_T], Sized):
         objs: Iterable[_T],
         batch_size: int | None = ...,
         ignore_conflicts: bool = ...,
-        update_conflicts: Sequence[str] | None = ...,
+        update_conflicts: bool | None = ...,
         update_fields: Sequence[str] | None = ...,
         unique_fields: Sequence[str] | None = ...,
     ) -> list[_T]: ...
@@ -112,10 +112,10 @@ class _BaseQuerySet(Generic[_T], Sized):
     def raw(
         self,
         raw_query: str,
-        params: Any = ...,
+        params: tuple[Any] | list[Any] | dict[str, Any] = ...,
         translations: dict[str, str] | None = ...,
         using: str | None = ...,
-    ) -> RawQuerySet[Any]: ...
+    ) -> RawQuerySet[_T]: ...
     # The type of values may be overridden to be more specific in the mypy plugin, depending on the fields param
     def values(
         self, *fields: str | Combinable, **expressions: Any

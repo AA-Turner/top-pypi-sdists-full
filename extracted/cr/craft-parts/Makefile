@@ -96,9 +96,6 @@ endif
 ifeq ($(wildcard /usr/share/doc/tinyproxy/copyright),)
 APT_PACKAGES += tinyproxy
 endif
-ifeq ($(wildcard /usr/share/doc/gradle/copyright),)
-APT_PACKAGES += gradle
-endif
 # Maven
 ifeq ($(wildcard /usr/share/doc/maven/copyright),)
 APT_PACKAGES += maven
@@ -144,6 +141,28 @@ endif
 ifeq ($(wildcard /usr/share/doc/meson/copyright),)
 APT_PACKAGES += meson
 endif
+endif
+endif
+
+# Colcon is not available in apt on jammy or focal.
+ifeq ($(filter $(VERSION_CODENAME),jammy focal),)
+ifeq ($(wildcard /usr/share/doc/colcon/copyright),)
+APT_PACKAGES += colcon
+endif
+ifeq ($(wildcard /usr/share/doc/python3-colcon-core/),)
+APT_PACKAGES += python3-colcon-core
+endif
+ifeq ($(wildcard /usr/share/doc/python3-colcon-cmake/),)
+APT_PACKAGES += python3-colcon-cmake
+endif
+ifeq ($(wildcard /usr/share/doc/python3-colcon-package-selection/),)
+APT_PACKAGES += python3-colcon-package-selection
+endif
+ifeq ($(wildcard /usr/share/doc/python3-colcon-python-setup-py/),)
+APT_PACKAGES += python3-colcon-python-setup-py
+endif
+ifeq ($(wildcard /usr/share/doc/python3-colcon-parallel-executor/),)
+APT_PACKAGES += python3-colcon-parallel-executor
 endif
 endif
 
@@ -242,8 +261,19 @@ else
 	sudo snap install core20
 endif
 
+.PHONY: install-gradle
+install-gradle:
+ifneq ($(NO_JAVA),1)
+ifneq ($(wildcard /snap/gradle/),)
+else ifeq ($(shell which snap),)
+	$(warning Cannot install gradle without snap. Please install it yourself.)
+else
+	sudo snap install gradle --classic
+endif
+endif
+
 .PHONY: install-build-snaps
-install-build-snaps: install-chisel install-go install-core20 install-dotnet install-rustup
+install-build-snaps: install-chisel install-go install-core20 install-dotnet install-rustup install-gradle
 
 # Used for installing build dependencies in CI.
 .PHONY: install-build-deps
@@ -262,7 +292,7 @@ install-lint-build-deps:
 
 .PHONY: install-rustup
 install-rustup:
-ifeq ($(shell which rustup),)
+ifneq ($(shell which rustup),)
 else ifeq ($(shell which snap),)
 	$(warning Cannot install rustup without snap. Install it yourself.)
 else
@@ -291,14 +321,6 @@ else
 	sudo snap install dotnet --classic
 endif
 endif
-endif
-
-.PHONY: install-rustup
-install-rustup:
-ifeq ($(shell which snap),)
-	$(warning Cannot install rustup without snap.)
-else
-	sudo snap install rustup --classic
 endif
 
 .PHONY: _gh-runner-clean

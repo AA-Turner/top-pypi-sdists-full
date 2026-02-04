@@ -16,8 +16,7 @@ class Phantom:
         :param params: Configuration parameters for the phantom.
         """
         try:
-            absorber_params = params.optic['absorbers']
-            self.absorbers = [Absorber(**a) for a in absorber_params] if absorber_params else []
+            self.absorbers = [Absorber(**a) for a in params.optic['absorbers']] if params.optic['absorbers'] else []
             self.laser = Laser(params)
             self.phantom = self._apply_absorbers()
             self.phantom = np.transpose(self.phantom)

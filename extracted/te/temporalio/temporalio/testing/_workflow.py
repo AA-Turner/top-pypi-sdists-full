@@ -9,10 +9,6 @@ from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import (
     Any,
-    List,
-    Optional,
-    Type,
-    Union,
     cast,
 )
 
@@ -27,7 +23,6 @@ import temporalio.converter
 import temporalio.exceptions
 import temporalio.runtime
 import temporalio.service
-import temporalio.types
 import temporalio.worker
 
 logger = logging.getLogger(__name__)
@@ -79,10 +74,10 @@ class WorkflowEnvironment:
         plugins: Sequence[temporalio.client.Plugin] = [],
         default_workflow_query_reject_condition: None
         | (temporalio.common.QueryRejectCondition) = None,
-        retry_config: temporalio.client.RetryConfig | None = None,
+        retry_config: temporalio.service.RetryConfig | None = None,
         rpc_metadata: Mapping[str, str | bytes] = {},
         identity: str | None = None,
-        tls: bool | temporalio.client.TLSConfig = False,
+        tls: bool | temporalio.service.TLSConfig = False,
         ip: str = "127.0.0.1",
         port: int | None = None,
         download_dest_dir: str | None = None,
@@ -96,6 +91,7 @@ class WorkflowEnvironment:
         dev_server_download_version: str = "default",
         dev_server_extra_args: Sequence[str] = [],
         dev_server_download_ttl: timedelta | None = None,
+        ui_port: int | None = None,
     ) -> WorkflowEnvironment:
         """Start a full Temporal server locally, downloading if necessary.
 
@@ -154,6 +150,7 @@ class WorkflowEnvironment:
             dev_server_extra_args: Extra arguments for the CLI binary.
             dev_server_download_ttl: TTL for the downloaded CLI binary. If unset, it will be
                 cached indefinitely.
+            ui_port: UI port to use if UI is enabled.
 
         Returns:
             The started CLI dev server workflow environment.
@@ -178,6 +175,7 @@ class WorkflowEnvironment:
                 new_args.append(f"{attr.name}={attr._metadata_type}")
             new_args += dev_server_extra_args
             dev_server_extra_args = new_args
+
         # Start CLI dev server
         runtime = runtime or temporalio.runtime.Runtime.default()
         download_ttl_ms = None
@@ -196,12 +194,14 @@ class WorkflowEnvironment:
                 port=port,
                 database_filename=dev_server_database_filename,
                 ui=ui,
+                ui_port=ui_port,
                 log_format=dev_server_log_format,
                 log_level=dev_server_log_level,
                 extra_args=dev_server_extra_args,
                 download_ttl_ms=download_ttl_ms,
             ),
         )
+
         # If we can't connect to the server, we should shut it down
         try:
             return _EphemeralServerWorkflowEnvironment(
@@ -224,7 +224,7 @@ class WorkflowEnvironment:
             try:
                 await server.shutdown()
             except:
-                logger.warn(
+                logger.warning(
                     "Failed stopping local server on client connection failure",
                     exc_info=True,
                 )
@@ -239,7 +239,7 @@ class WorkflowEnvironment:
         plugins: Sequence[temporalio.client.Plugin] = [],
         default_workflow_query_reject_condition: None
         | (temporalio.common.QueryRejectCondition) = None,
-        retry_config: temporalio.client.RetryConfig | None = None,
+        retry_config: temporalio.service.RetryConfig | None = None,
         rpc_metadata: Mapping[str, str | bytes] = {},
         identity: str | None = None,
         port: int | None = None,
@@ -344,7 +344,7 @@ class WorkflowEnvironment:
             try:
                 await server.shutdown()
             except:
-                logger.warn(
+                logger.warning(
                     "Failed stopping test server on client connection failure",
                     exc_info=True,
                 )
@@ -362,7 +362,7 @@ class WorkflowEnvironment:
         """Noop for ``async with`` support."""
         return self
 
-    async def __aexit__(self, *args) -> None:
+    async def __aexit__(self, *args: Any) -> None:
         """For ``async with`` support to just call :py:meth:`shutdown`."""
         await self.shutdown()
 

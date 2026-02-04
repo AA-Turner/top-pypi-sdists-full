@@ -7,16 +7,17 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
-from numpy.random import RandomState
-from sklearn.datasets import make_regression
-from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import BaseCrossValidator, KFold, LeaveOneOut, ShuffleSplit
-from sklearn.utils.validation import check_is_fitted
-
 from numpy.typing import ArrayLike, NDArray
+from sklearn.datasets import make_regression
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.model_selection import BaseCrossValidator, KFold, LeaveOneOut, ShuffleSplit
+from sklearn.pipeline import Pipeline
 
 from mapie.regression.quantile_regression import _MapieQuantileRegressor
 from mapie.utils import (
+    NotFittedError,
+    _cast_point_predictions_to_ndarray,
+    _cast_predictions_to_ndarray_tuple,
     _check_alpha,
     _check_alpha_and_n_samples,
     _check_array_inf,
@@ -24,7 +25,9 @@ from mapie.utils import (
     _check_arrays_length,
     _check_binary_zero_one,
     _check_cv,
+    _check_cv_not_string,
     _check_gamma,
+    _check_if_param_in_allowed_values,
     _check_lower_upper_bounds,
     _check_n_features_in,
     _check_n_jobs,
@@ -36,19 +39,17 @@ from mapie.utils import (
     _check_verbose,
     _compute_quantiles,
     _fit_estimator,
-    _get_binning_groups,
-    train_conformalize_test_split,
+    _prepare_fit_params_and_sample_weight,
+    _prepare_params,
+    _raise_error_if_fit_called_in_prefit_mode,
+    _raise_error_if_method_already_called,
+    _raise_error_if_previous_method_not_called,
     _transform_confidence_level_to_alpha,
     _transform_confidence_level_to_alpha_list,
-    _check_if_param_in_allowed_values,
-    _check_cv_not_string,
-    _cast_point_predictions_to_ndarray,
-    _cast_predictions_to_ndarray_tuple,
-    _prepare_params,
-    _prepare_fit_params_and_sample_weight,
-    _raise_error_if_previous_method_not_called,
-    _raise_error_if_method_already_called,
-    _raise_error_if_fit_called_in_prefit_mode,
+    check_is_fitted,
+    check_sklearn_user_model_is_fitted,
+    check_valid_ltt_params_index,
+    train_conformalize_test_split,
 )
 
 
@@ -223,6 +224,88 @@ class TestTrainConformalizeTestSplit:
         assert np.array_equal(np.concatenate((y_train, y_conformalize, y_test)), y)
 
 
+class TestCheckValidLTTParamsIndex:
+    def test_warns_empty_sequence_multi_alpha_with_alpha(
+        self,
+    ):
+        predict_params = np.array([0.1, 0.2, 0.3])
+        valid_index = [[], [0, 1]]
+        alpha = np.array([0.1, 0.2])
+
+        with pytest.warns(
+            UserWarning,
+            match=r"No predict parameters were found to control the risk at the.*alpha=0.1",
+        ):
+            check_valid_ltt_params_index(
+                predict_params=predict_params,
+                valid_index=valid_index,
+                alpha=alpha,
+            )
+
+    def test_warns_empty_sequence_multi_alpha_without_alpha(
+        self,
+    ):
+        predict_params = np.array([0.1, 0.2])
+        valid_index = [[], [1]]
+
+        with pytest.warns(
+            UserWarning,
+            match=r"No predict parameters were found to control the risk at the.*",
+        ):
+            check_valid_ltt_params_index(
+                predict_params=predict_params,
+                valid_index=valid_index,
+            )
+
+    def test_warns_empty_sequence_binary(self):
+        predict_params = np.array([0.1, 0.2, 0.3])
+        valid_index = []
+
+        with pytest.warns(
+            UserWarning,
+            match=r"No predict parameters were found to control the risk at the.*",
+        ):
+            check_valid_ltt_params_index(
+                predict_params=predict_params,
+                valid_index=valid_index,
+            )
+
+    def test_warns_all_predict_params_valid(self):
+        predict_params = np.array([0.1, 0.2, 0.3])
+        valid_index = [0, 1, 2]
+
+        with pytest.warns(
+            UserWarning,
+            match=r"All provided predict_params control the risk",
+        ):
+            check_valid_ltt_params_index(
+                predict_params=predict_params,
+                valid_index=valid_index,
+            )
+
+    def test_no_warning_multi_alpha_non_empty(self, recwarn):
+        predict_params = np.array([0.1, 0.2])
+        valid_index = [[0], [1]]
+        alpha = np.array([0.1, 0.2])
+
+        check_valid_ltt_params_index(
+            predict_params=predict_params,
+            valid_index=valid_index,
+            alpha=alpha,
+        )
+        assert len(recwarn) == 0
+
+    def test_no_warning_binary_partial_valid(self, recwarn):
+        predict_params = np.array([0.1, 0.2, 0.3])
+        valid_index = [1]
+
+        check_valid_ltt_params_index(
+            predict_params=predict_params,
+            valid_index=valid_index,
+        )
+        assert len(recwarn) == 0
+
+
 @pytest.fixture
 def point_predictions():
     return np.array([1, 2, 3])
@@ -371,49 +454,6 @@ ALPHAS = [
 ]
 
 random_state = 1234567890
-prng = RandomState(random_state)
-y_score = prng.random(51)
-y_scores = prng.random((51, 5))
-y_true = prng.randint(0, 2, 51)
-
-results_binning = {
-    "quantile": [
-        0.03075388,
-        0.17261836,
-        0.33281326,
-        0.43939618,
-        0.54867626,
-        0.64881987,
-        0.73440899,
-        0.77793816,
-        0.89000413,
-        0.99610621,
-    ],
-    "uniform": [
-        0,
-        0.11111111,
-        0.22222222,
-        0.33333333,
-        0.44444444,
-        0.55555556,
-        0.66666667,
-        0.77777778,
-        0.88888889,
-        1,
-    ],
-    "array split": [
-        0.62689056,
-        0.74743526,
-        0.87642114,
-        0.88321124,
-        0.8916548,
-        0.94083846,
-        0.94999075,
-        0.98759822,
-        0.99610621,
-        np.inf,
-    ],
-}
 
 
 class DumbEstimator:
@@ -449,12 +489,15 @@ def test_check_null_weight_with_zeros() -> None:
     np.testing.assert_almost_equal(np.array(y_out), np.array([7, 9, 11, 13, 15]))
 
 
+@pytest.mark.filterwarnings(
+    "ignore:Estimator exposes fitted-like attributes.*:UserWarning"
+)
 @pytest.mark.parametrize("estimator", [LinearRegression(), DumbEstimator()])
 @pytest.mark.parametrize("sample_weight", [None, np.ones_like(y_toy)])
 def test_fit_estimator(estimator: Any, sample_weight: Optional[NDArray]) -> None:
     """Test that the returned estimator is always fitted."""
     estimator = _fit_estimator(estimator, X_toy, y_toy, sample_weight)
-    check_is_fitted(estimator)
+    check_sklearn_user_model_is_fitted(estimator)
 
 
 def test_fit_estimator_sample_weight() -> None:
@@ -689,13 +732,6 @@ def test_quantile_prefit_non_iterable(estimator: Any) -> None:
         mapie_reg.fit([1, 2, 3], [4, 5, 6])
 
 
-@pytest.mark.parametrize("strategy", ["quantile", "uniform", "array split"])
-def test_binning_group_strategies(strategy: str) -> None:
-    """Test that different strategies have the correct outputs."""
-    bins_ = _get_binning_groups(y_score, num_bins=10, strategy=strategy)
-    np.testing.assert_allclose(results_binning[strategy], bins_, rtol=1e-05)
-
-
 def test_wrong_split_strategy() -> None:
     """Test for wrong split strategies."""
     with pytest.raises(ValueError, match=r"Please provide a valid*"):
@@ -879,3 +915,70 @@ def test_invalid_n_samples_float(n_samples: float) -> None:
         ),
     ):
         _check_n_samples(X=X, n_samples=n_samples, indices=indices)
+
+
+class DummyModel:
+    pass
+
+
+def test_check_is_fitted_raises_before_fit():
+    model = DummyModel()
+    with pytest.raises(NotFittedError) as excinfo:
+        check_is_fitted(model)
+    assert "DummyModel is not fitted yet" in str(excinfo.value)
+
+
+def test_check_is_fitted_passes_after_fit():
+    model = DummyModel()
+    model.is_fitted = True
+    check_is_fitted(model)
+
+
+def test_check_user_model_is_fitted_unfitted():
+    model = DummyModel()
+    with pytest.warns(UserWarning, match=r".*Estimator does not appear fitted.*"):
+        check_sklearn_user_model_is_fitted(model)
+
+
+def test_check_user_model_is_fitted_raises_for_unfitted_model():
+    model = LinearRegression()
+    with pytest.warns(UserWarning, match=r".*Estimator does not appear fitted.*"):
+        check_sklearn_user_model_is_fitted(model)
+
+
+@pytest.mark.parametrize(
+    "Model",
+    [
+        LinearRegression(),
+        LogisticRegression(),
+        Pipeline([("LinearRegression", LinearRegression())]),
+    ],
+)
+def test_check_user_model_is_fitted_sklearn_models(Model):
+    """Check that sklearn classifiers and regressors pass."""
+    X = np.random.randn(20, 4)
+    y = (
+        (np.random.randn(20) > 0).astype(int)
+        if isinstance(Model, LogisticRegression)
+        else np.random.randn(20)
+    )
+    model = Model.fit(X, y)
+    assert check_sklearn_user_model_is_fitted(model) is True
+
+
+class BrokenPredictModel:
+    """Model with n_features_in_ but predict always fails"""
+
+    n_features_in_ = 3
+
+    def predict(self, X):
+        raise RuntimeError("Predict failure")
+
+
+def test_check_user_model_is_fitted_predict_fails():
+    model = BrokenPredictModel()
+    with pytest.raises(
+        UserWarning,
+        match=r".*has `n_features_in_` but failed a minimal prediction test.*",
+    ):
+        check_sklearn_user_model_is_fitted(model)

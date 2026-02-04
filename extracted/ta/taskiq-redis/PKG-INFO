@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: taskiq-redis
-Version: 1.2.1
+Version: 1.2.2
 Summary: Redis integration for taskiq
 Keywords: async,distributed,redis,result_backend,taskiq,tasks
 Author: Taskiq team

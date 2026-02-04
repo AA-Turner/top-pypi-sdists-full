@@ -15,6 +15,9 @@ if TYPE_CHECKING:
     from ..models.branch_one_branches_item_modules_item_suspend_user_groups_required_type_1 import (
         BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType1,
     )
+    from ..models.branch_one_branches_item_modules_item_suspend_user_groups_required_type_2 import (
+        BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType2,
+    )
 
 
 T = TypeVar("T", bound="BranchOneBranchesItemModulesItemSuspend")
@@ -31,7 +34,8 @@ class BranchOneBranchesItemModulesItemSuspend:
             when resuming
         user_auth_required (Union[Unset, bool]): If true, only authenticated users can approve
         user_groups_required (Union['BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType0',
-            'BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType1', Unset]): Maps input parameters for a step. Can
+            'BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType1',
+            'BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType2', Unset]): Maps input parameters for a step. Can
             be a static value or a JavaScript expression that references previous results or flow inputs
         self_approval_disabled (Union[Unset, bool]): If true, the user who started the flow cannot approve
         hide_cancel (Union[Unset, bool]): If true, hide the cancel button on the approval form
@@ -45,6 +49,7 @@ class BranchOneBranchesItemModulesItemSuspend:
     user_groups_required: Union[
         "BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType0",
         "BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType1",
+        "BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType2",
         Unset,
     ] = UNSET
     self_approval_disabled: Union[Unset, bool] = UNSET
@@ -55,6 +60,9 @@ class BranchOneBranchesItemModulesItemSuspend:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.branch_one_branches_item_modules_item_suspend_user_groups_required_type_0 import (
             BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType0,
+        )
+        from ..models.branch_one_branches_item_modules_item_suspend_user_groups_required_type_1 import (
+            BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType1,
         )
 
         required_events = self.required_events
@@ -69,6 +77,11 @@ class BranchOneBranchesItemModulesItemSuspend:
             user_groups_required = UNSET
 
         elif isinstance(self.user_groups_required, BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType0):
+            user_groups_required = UNSET
+            if not isinstance(self.user_groups_required, Unset):
+                user_groups_required = self.user_groups_required.to_dict()
+
+        elif isinstance(self.user_groups_required, BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType1):
             user_groups_required = UNSET
             if not isinstance(self.user_groups_required, Unset):
                 user_groups_required = self.user_groups_required.to_dict()
@@ -115,6 +128,9 @@ class BranchOneBranchesItemModulesItemSuspend:
         from ..models.branch_one_branches_item_modules_item_suspend_user_groups_required_type_1 import (
             BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType1,
         )
+        from ..models.branch_one_branches_item_modules_item_suspend_user_groups_required_type_2 import (
+            BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType2,
+        )
 
         d = src_dict.copy()
         required_events = d.pop("required_events", UNSET)
@@ -135,6 +151,7 @@ class BranchOneBranchesItemModulesItemSuspend:
         ) -> Union[
             "BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType0",
             "BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType1",
+            "BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType2",
             Unset,
         ]:
             if isinstance(data, Unset):
@@ -158,18 +175,37 @@ class BranchOneBranchesItemModulesItemSuspend:
                 return user_groups_required_type_0
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _user_groups_required_type_1 = data
+                user_groups_required_type_1: Union[
+                    Unset, BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType1
+                ]
+                if isinstance(_user_groups_required_type_1, Unset):
+                    user_groups_required_type_1 = UNSET
+                else:
+                    user_groups_required_type_1 = (
+                        BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType1.from_dict(
+                            _user_groups_required_type_1
+                        )
+                    )
+
+                return user_groups_required_type_1
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            _user_groups_required_type_1 = data
-            user_groups_required_type_1: Union[Unset, BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType1]
-            if isinstance(_user_groups_required_type_1, Unset):
-                user_groups_required_type_1 = UNSET
+            _user_groups_required_type_2 = data
+            user_groups_required_type_2: Union[Unset, BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType2]
+            if isinstance(_user_groups_required_type_2, Unset):
+                user_groups_required_type_2 = UNSET
             else:
-                user_groups_required_type_1 = BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType1.from_dict(
-                    _user_groups_required_type_1
+                user_groups_required_type_2 = BranchOneBranchesItemModulesItemSuspendUserGroupsRequiredType2.from_dict(
+                    _user_groups_required_type_2
                 )
 
-            return user_groups_required_type_1
+            return user_groups_required_type_2
 
         user_groups_required = _parse_user_groups_required(d.pop("user_groups_required", UNSET))
 

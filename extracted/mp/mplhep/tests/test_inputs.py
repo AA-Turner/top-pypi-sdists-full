@@ -5,16 +5,14 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
-from matplotlib.testing.decorators import check_figures_equal
 
 os.environ["RUNNING_PYTEST"] = "true"
 
 import boost_histogram as bh
 import uproot
-import uproot4
 from skhep_testdata import data_path
 
-import mplhep as hep
+import mplhep as mh
 
 """
 To test run:
@@ -34,10 +32,10 @@ def test_inputs_basic():
     h, bins = H
 
     fig, ax = plt.subplots()
-    hep.histplot(H, label="tuple", ls="--")
+    mh.histplot(H, label="tuple", ls="--")
     H = (h * 2, bins)
-    hep.histplot(H, label="unwrap", ls=":")
-    hep.histplot(h * 3, bins, label="split")
+    mh.histplot(H, label="unwrap", ls=":")
+    mh.histplot(h * 3, bins, label="split")
 
     return fig
 
@@ -45,34 +43,14 @@ def test_inputs_basic():
 @pytest.mark.mpl_image_compare(style="default", remove_text=True)
 def test_inputs_uproot():
     fname = data_path("uproot-hepdata-example.root")
-    f = uproot4.open(fname)
+    f = uproot.open(fname)
 
     fig, axs = plt.subplots(1, 2, figsize=(14, 5))
     TH1, TH2 = f["hpx"], f["hpxpy"]
-    hep.histplot(TH1, yerr=False, ax=axs[0])
-    hep.hist2dplot(TH2, ax=axs[1], cbar=False)
+    mh.histplot(TH1, yerr=False, ax=axs[0])
+    mh.hist2dplot(TH2, ax=axs[1], cbar=False)
 
     return fig
-
-
-@check_figures_equal(extensions=("png", "pdf"))
-def test_uproot_versions(fig_test, fig_ref):
-    fname = data_path("uproot-hepdata-example.root")
-    f4 = uproot4.open(fname)
-    f3 = uproot.open(fname)
-
-    fig_test.set_size_inches(14, 5)
-    fig_ref.set_size_inches(14, 5)
-
-    test_axs = fig_test.subplots(1, 2)
-    TH1u4, TH2u4 = f4["hpx"], f4["hpxpy"]
-    hep.histplot(TH1u4, ax=test_axs[0])
-    hep.hist2dplot(TH2u4, ax=test_axs[1], cbar=False)
-
-    ref_axs = fig_ref.subplots(1, 2)
-    TH1u3, TH2u3 = f3["hpx"], f3["hpxpy"]
-    hep.histplot(TH1u3, ax=ref_axs[0])
-    hep.hist2dplot(TH2u3, ax=ref_axs[1], cbar=False)
 
 
 @pytest.mark.mpl_image_compare(style="default", remove_text=True)
@@ -83,8 +61,8 @@ def test_inputs_bh():
     hist2d.fill(np.random.normal(0.5, 0.2, 1000), np.random.normal(0.5, 0.2, 1000))
 
     fig, axs = plt.subplots(1, 2, figsize=(14, 5))
-    hep.histplot(hist2d.project(0), yerr=False, ax=axs[0])
-    hep.hist2dplot(hist2d, labels=True, cbar=False, ax=axs[1])
+    mh.histplot(hist2d.project(0), yerr=False, ax=axs[0])
+    mh.hist2dplot(hist2d, labels=True, cbar=False, ax=axs[1])
 
     return fig
 
@@ -105,7 +83,7 @@ def test_inputs_bh_cat():
     hist2d.fill(x, y)
 
     fig, axs = plt.subplots(1, 2, figsize=(14, 5))
-    hep.histplot(hist2d.project(0), yerr=False, ax=axs[0])
-    hep.hist2dplot(hist2d, cbar=False, ax=axs[1])
+    mh.histplot(hist2d.project(0), yerr=False, ax=axs[0])
+    mh.hist2dplot(hist2d, cbar=False, ax=axs[1])
 
     return fig

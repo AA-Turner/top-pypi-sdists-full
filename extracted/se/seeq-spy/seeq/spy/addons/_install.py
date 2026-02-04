@@ -13,7 +13,6 @@ from seeq import spy
 from seeq.sdk import *
 from seeq.spy import _common
 from seeq.spy import _compatibility
-from seeq.spy import _login
 from seeq.spy import _url
 from seeq.spy import addons
 from seeq.spy._errors import *
@@ -22,11 +21,19 @@ from seeq.spy._status import Status
 from seeq.spy.addons import _permissions
 
 
-@Status.handle_keyboard_interrupt()
-def install(tool: Union[pd.DataFrame, pd.Series, dict, list], *, include_workbook_parameters: bool = True,
-            update_tool: bool = False, update_permissions: bool = False, in_development: bool = False,
-            errors: Optional[str] = None, quiet: Optional[bool] = None, status: Optional[Status] = None,
-            session: Optional[Session] = None) -> pd.DataFrame:
+@Status.top_level_spy_function()
+def install(
+    tool: Union[pd.DataFrame, pd.Series, dict, list],
+    *,
+    include_workbook_parameters: bool = True,
+    update_tool: bool = False,
+    update_permissions: bool = False,
+    in_development: bool = False,
+    errors: Optional[str] = None,
+    quiet: Optional[bool] = None,
+    status: Optional[Status] = None,
+    session: Optional[Session] = None
+) -> pd.DataFrame:
     """
     Installs or updates Add-on tool(s) in Seeq Workbench.
     Installing Add-on tools for other users or groups requires administrator access.
@@ -272,20 +279,7 @@ def install(tool: Union[pd.DataFrame, pd.Series, dict, list], *, include_workboo
     >>> df_installed = spy.addons.install(searched_tools,update_permissions=True)
 
     """
-
-    input_args = _common.validate_argument_types([
-        (tool, 'tool', (str, dict, list, pd.DataFrame, pd.Series)),
-        (include_workbook_parameters, 'include_workbook_parameters', bool),
-        (update_tool, "update_tool", bool),
-        (update_permissions, "update_permissions", bool),
-        (in_development, "in_development", bool),
-        (errors, 'errors', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session)
-    ])
-
-    _login.validate_login(session, status)
+    input_args = locals()
 
     try:
         return _install(session, tool, status, include_workbook_parameters=include_workbook_parameters,

@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from collections.abc import Callable
 import copy
+from prompt_toolkit.completion import Completer
 import subprocess
 import sys
 from typing import Union
@@ -35,7 +36,12 @@ class Command:
 
         return None
 
-    def completion(self, state: ReplState, leaf: dict[str, any] = None, pods: tuple[list[str], str] = None, auto: str = 'on', auto_key: str = None) -> dict[str, any]:
+    def completion(self,
+                   state: ReplState,
+                   leaf: Union[dict[str, any], Completer] = None,
+                   pods: tuple[list[str], str] = None,
+                   auto: str = 'on',
+                   auto_key: str = None) -> dict[str, any]:
         # pods is a tuple of list of pod names and the current pod repl is on
         if not pods:
             return self._completion(state, leaf, auto=auto, auto_key=auto_key)
@@ -52,7 +58,12 @@ class Command:
 
         return c
 
-    def _completion(self, state: ReplState, leaf: dict[str, any] = None, to_validate = True, auto: str = 'on', auto_key: str = None) -> dict[str, any]:
+    def _completion(self,
+                    state: ReplState,
+                    leaf: Union[dict[str, any], Completer] = None,
+                    to_validate = True,
+                    auto: str = 'on',
+                    auto_key: str = None) -> dict[str, any]:
         if to_validate and not self.validate_state(state, show_err=False):
             return {}
 

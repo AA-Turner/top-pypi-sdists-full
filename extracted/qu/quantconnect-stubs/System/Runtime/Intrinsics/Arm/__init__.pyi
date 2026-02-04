@@ -4267,22 +4267,52 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    @overload
+    def create_break_after_mask(total_mask: System.Numerics.Vector[float], from_mask: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
+        ...
+
+    @staticmethod
+    @overload
     def create_break_after_mask(total_mask: System.Numerics.Vector[int], from_mask: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
     @staticmethod
+    @overload
+    def create_break_after_propagate_mask(mask: System.Numerics.Vector[float], left: System.Numerics.Vector[float], right: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
+        ...
+
+    @staticmethod
+    @overload
     def create_break_after_propagate_mask(mask: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
     @staticmethod
+    @overload
+    def create_break_before_mask(total_mask: System.Numerics.Vector[float], from_mask: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
+        ...
+
+    @staticmethod
+    @overload
     def create_break_before_mask(total_mask: System.Numerics.Vector[int], from_mask: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
     @staticmethod
+    @overload
+    def create_break_before_propagate_mask(mask: System.Numerics.Vector[float], left: System.Numerics.Vector[float], right: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
+        ...
+
+    @staticmethod
+    @overload
     def create_break_before_propagate_mask(mask: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
     @staticmethod
+    @overload
+    def create_break_propagate_mask(total_mask: System.Numerics.Vector[float], from_mask: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
+        ...
+
+    @staticmethod
+    @overload
     def create_break_propagate_mask(total_mask: System.Numerics.Vector[int], from_mask: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
@@ -4327,6 +4357,12 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    @overload
+    def create_mask_for_first_active_element(total_mask: System.Numerics.Vector[float], from_mask: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
+        ...
+
+    @staticmethod
+    @overload
     def create_mask_for_first_active_element(total_mask: System.Numerics.Vector[int], from_mask: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
@@ -4773,6 +4809,10 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def get_ffr_double() -> System.Numerics.Vector[float]:
+        ...
+
+    @staticmethod
     def get_ffr_int_16() -> System.Numerics.Vector[int]:
         ...
 
@@ -4786,6 +4826,10 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
 
     @staticmethod
     def get_ffr_s_byte() -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def get_ffr_single() -> System.Numerics.Vector[float]:
         ...
 
     @staticmethod
@@ -5477,6 +5521,12 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    @overload
+    def set_ffr(value: System.Numerics.Vector[float]) -> None:
+        ...
+
+    @staticmethod
+    @overload
     def set_ffr(value: System.Numerics.Vector[int]) -> None:
         ...
 
@@ -5599,14 +5649,32 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    @overload
+    def test_any_true(mask: System.Numerics.Vector[float], right_mask: System.Numerics.Vector[float]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
     def test_any_true(mask: System.Numerics.Vector[int], right_mask: System.Numerics.Vector[int]) -> bool:
         ...
 
     @staticmethod
+    @overload
+    def test_first_true(left_mask: System.Numerics.Vector[float], right_mask: System.Numerics.Vector[float]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
     def test_first_true(left_mask: System.Numerics.Vector[int], right_mask: System.Numerics.Vector[int]) -> bool:
         ...
 
     @staticmethod
+    @overload
+    def test_last_true(left_mask: System.Numerics.Vector[float], right_mask: System.Numerics.Vector[float]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
     def test_last_true(left_mask: System.Numerics.Vector[int], right_mask: System.Numerics.Vector[int]) -> bool:
         ...
 

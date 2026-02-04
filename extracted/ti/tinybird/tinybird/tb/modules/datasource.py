@@ -672,6 +672,12 @@ def datasource_sync(ctx: Context, datasource_name: str, yes: bool):
     type=click.Choice(["@auto", "@once"], case_sensitive=False),
     help="S3 import schedule (@auto for automatic ingestion, @once for on-demand)",
 )
+@click.option(
+    "--s3-format",
+    "s3_format_param",
+    type=click.Choice(["csv", "ndjson", "parquet"], case_sensitive=False),
+    help="S3 import format (default: auto-detected from file extension)",
+)
 @click.option("--yes", is_flag=True, default=False, help="Do not ask for confirmation")
 @click.pass_context
 def datasource_create(
@@ -691,6 +697,7 @@ def datasource_create(
     s3_bucket_uri_param: Optional[str],
     s3_sample_file_param: Optional[str],
     s3_schedule_param: Optional[str],
+    s3_format_param: Optional[str],
     yes: bool,
 ):
     wizard_data: dict[str, str | bool | float] = {
@@ -1174,6 +1181,7 @@ ENGINE "MergeTree"
                 s3_bucket_uri = select_bucket_uri(None)
 
             s3_sample_file = select_sample_file_uri(s3_sample_file_param, s3_bucket_uri, s3_connection_id, client)
+            s3_format: str = s3_format_param.lower() if s3_format_param else select_format_file(None)
 
             s3_schedule: Optional[str] = None
             if s3_schedule_param:
@@ -1194,10 +1202,13 @@ ENGINE "MergeTree"
                 assert s3_bucket_uri is not None
                 assert s3_sample_file is not None
                 assert s3_schedule is not None
+                assert s3_format is not None
                 click.echo(FeedbackManager.gray(message="\n» Generating schema..."))
                 response = client.preview_s3(s3_connection_id, s3_bucket_uri, s3_sample_file, None)
                 meta = response.get("preview", {}).get("meta", [])
-                ds_content = meta_to_s3_datasource_datafile(meta, connection_name, s3_bucket_uri, s3_schedule)
+                ds_content = meta_to_s3_datasource_datafile(
+                    meta, connection_name, s3_bucket_uri, s3_schedule, s3_format
+                )
 
             while not confirmed:
                 # Select connection if not set or if user wants to change it
@@ -1235,7 +1246,9 @@ ENGINE "MergeTree"
                 preview_result = echo_s3_data(s3_connection_id, connection_name, s3_bucket_uri, s3_sample_file, client)
                 click.echo(FeedbackManager.highlight(message=f"\n» Previewing {name}.datasource"))
                 meta = preview_result["meta"]
-                ds_content = meta_to_s3_datasource_datafile(meta, connection_name, s3_bucket_uri, s3_schedule)
+                ds_content = meta_to_s3_datasource_datafile(
+                    meta, connection_name, s3_bucket_uri, s3_schedule, s3_format
+                )
                 click.echo(create_terminal_box(ds_content, title=f"{name}.datasource"))
 
                 # Confirmation step
@@ -1361,3 +1374,21 @@ def select_auto_offset_reset(current_value: Optional[str] = None) -> str:
         default=current_value or "latest",
         show_default=True,
     )
+
+
+def select_format_file(current_value: Optional[str] = None) -> str:
+    """Select file format for import operations.
+
+    Args:
+        current_value: Current format value to use as default
+
+    Returns:
+        Selected format string ("auto", "csv", "ndjson", or "parquet")
+    """
+    result = click.prompt(
+        FeedbackManager.highlight(message="? Import format"),
+        type=click.Choice(["Auto", "CSV", "NDJSON", "Parquet"], case_sensitive=False),
+        default=current_value or "Auto",
+        show_default=True,
+    )
+    return result.lower()

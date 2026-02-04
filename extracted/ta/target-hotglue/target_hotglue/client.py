@@ -11,11 +11,14 @@ from target_hotglue.auth import Authenticator
 from target_hotglue.common import HGJSONEncoder
 from singer_sdk.plugin_base import PluginBase
 from singer_sdk.sinks import RecordSink, BatchSink
+import os
 
 class HotglueBaseSink(Rest):
     summary_init = False
     # include any stream names if externalId needs to be passed in the payload
     allows_externalid = []
+    previous_state = None
+    processed_hashes = []
 
     @property
     @abstractmethod
@@ -59,7 +62,34 @@ class HotglueBaseSink(Rest):
     def validate_output(self, mapping):
         return mapping
 
+    def get_previous_state(self):
+        if not self.previous_state:
+            previous_state_path = self._target.incremental_target_state_path
+            if os.path.exists(previous_state_path):
+                with open(previous_state_path, "r") as f:
+                    self.previous_state = json.load(f)
+            else:
+                self.previous_state = {}
+
+        # remove failed records from the previous state so retrigger retries those records
+        if self.previous_state:
+            for stream in self.previous_state["bookmarks"]:
+                self.previous_state["bookmarks"][stream] = [record for record in self.previous_state["bookmarks"][stream] if record.get("success") != False]
+            for stream in self.previous_state["summary"]:
+                self.previous_state["summary"][stream]["fail"] = 0
+        return self.previous_state
+
     def init_state(self):
+        # on first run, initialize state with the previous job state if it exists
+        if self.previous_state is None:
+            previous_state = self.get_previous_state()
+            if previous_state:
+                self._target._latest_state = previous_state
+        
+        # if previous state exists, add the hashes to the processed_hashes
+        if self.previous_state:
+            self.processed_hashes.extend([record["hash"] for record in self.previous_state["bookmarks"][self.name] if record.get("hash")])
+
         # get the full target state
         target_state = self._target._latest_state
 
@@ -128,14 +158,14 @@ class HotglueSink(HotglueBaseSink, RecordSink):
 
     def build_record_hash(self, record: dict):
         return hashlib.sha256(json.dumps(record, cls=HGJSONEncoder).encode()).hexdigest()
-
+    
     def get_existing_state(self, hash: str):
+        """
+        Returns the existing state if it exists
+        """
         states = self.latest_state["bookmarks"][self.name]
 
         existing_state = next((s for s in states if hash==s.get("hash") and s.get("success")), None)
-
-        if existing_state:
-            self.latest_state["summary"][self.name]["existing"] += 1
 
         return existing_state
 
@@ -149,6 +179,10 @@ class HotglueSink(HotglueBaseSink, RecordSink):
             self.init_state()
 
         hash = self.build_record_hash(record)
+
+        if hash in self.processed_hashes:
+            self.logger.info(f"Record of type {self.name} already exists with hash: {hash}")
+            return
 
         existing_state =  self.get_existing_state(hash)
 

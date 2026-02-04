@@ -68,17 +68,16 @@ def get_manual_task_addresses(
 
     # If config_types specified, filter to only include tasks with matching current configs
     if config_types is not None:
-        query = query.join(ManualTaskConfig, ManualTask.id == ManualTaskConfig.task_id).filter(
+        query = query.join(
+            ManualTaskConfig, ManualTask.id == ManualTaskConfig.task_id
+        ).filter(
             ManualTaskConfig.is_current.is_(True),
             ManualTaskConfig.config_type.in_(config_types),
         )
 
     connection_configs = query.distinct().all()
 
-    return [
-        ManualTaskAddress.create(config.key)
-        for config in connection_configs
-    ]
+    return [ManualTaskAddress.create(config.key) for config in connection_configs]
 
 
 def get_manual_task_for_connection_config(
@@ -91,9 +90,7 @@ def get_manual_task_for_connection_config(
         db.query(ManualTask)
         .join(ConnectionConfig, ManualTask.parent_entity_id == ConnectionConfig.id)
         .options(
-            selectinload(ManualTask.configs).selectinload(
-                "field_definitions"
-            ),  # type: ignore[attr-defined]
+            selectinload(ManualTask.configs).selectinload("field_definitions"),  # type: ignore[attr-defined]
             selectinload(ManualTask.conditional_dependencies),
         )
         .filter(
@@ -250,9 +247,7 @@ def create_manual_task_artificial_graphs(
         db.query(ManualTask, ConnectionConfig.key)
         .join(ConnectionConfig, ManualTask.parent_entity_id == ConnectionConfig.id)
         .options(
-            selectinload(ManualTask.configs).selectinload(
-                "field_definitions"
-            ),  # type: ignore[attr-defined]
+            selectinload(ManualTask.configs).selectinload("field_definitions"),  # type: ignore[attr-defined]
             selectinload(ManualTask.conditional_dependencies),
         )
         .filter(

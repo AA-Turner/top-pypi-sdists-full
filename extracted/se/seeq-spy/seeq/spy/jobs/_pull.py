@@ -18,10 +18,14 @@ from seeq.spy.jobs import _push
 from seeq.spy.jobs import _schedule
 
 
-@Status.handle_keyboard_interrupt(no_status=True)
-def pull(datalab_notebook_url: Optional[str] = None, label: Optional[str] = None,
-         interactive_index: Union[Optional[int], Optional[str]] = None,
-         all: bool = False, session: Optional[Session] = None) -> Optional[pd.Series]:
+@Status.top_level_spy_function(no_status=True)
+def pull(
+    datalab_notebook_url: Optional[str] = None,
+    label: Optional[str] = None,
+    interactive_index: Optional[Union[int, str]] = None,
+    all: bool = False,
+    session: Optional[Session] = None
+) -> Optional[pd.Series]:
     """
     Retrieves a jobs DataFrame previously created by a call to spy.jobs.push or
     spy.jobs.schedule.  The DataFrame will have been stored as a pickle (.pkl)
@@ -67,14 +71,6 @@ def pull(datalab_notebook_url: Optional[str] = None, label: Optional[str] = None
         returned
 
 """
-    _common.validate_argument_types([
-        (datalab_notebook_url, 'datalab_notebook_url', str),
-        (label, 'label', str),
-        (interactive_index, 'interactive_index', (int, str)),
-        (all, 'all', bool),
-        (session, 'session', Session)
-    ])
-
     if interactive_index is None and not all and not _datalab.is_executor():
         raise SPyValueError(f'When not running in an executor, an interactive_index must be supplied for spy.jobs.pull '
                             f'unless all=True')
