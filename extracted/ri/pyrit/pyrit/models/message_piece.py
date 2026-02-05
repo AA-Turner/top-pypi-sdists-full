@@ -5,11 +5,11 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Dict, List, Literal, Optional, Union, cast, get_args
+from typing import Any, Dict, List, Literal, Optional, Union, get_args
 from uuid import uuid4
 
-from pyrit.models.chat_message import ChatMessage, ChatMessageRole
-from pyrit.models.literals import PromptDataType, PromptResponseError
+from pyrit.identifiers import ConverterIdentifier, ScorerIdentifier, TargetIdentifier
+from pyrit.models.literals import ChatMessageRole, PromptDataType, PromptResponseError
 from pyrit.models.score import Score
 
 Originator = Literal["attack", "converter", "undefined", "scorer"]
@@ -37,10 +37,10 @@ class MessagePiece:
         sequence: int = -1,
         labels: Optional[Dict[str, str]] = None,
         prompt_metadata: Optional[Dict[str, Union[str, int]]] = None,
-        converter_identifiers: Optional[List[Dict[str, str]]] = None,
-        prompt_target_identifier: Optional[Dict[str, str]] = None,
+        converter_identifiers: Optional[List[Union[ConverterIdentifier, Dict[str, str]]]] = None,
+        prompt_target_identifier: Optional[Union[TargetIdentifier, Dict[str, Any]]] = None,
         attack_identifier: Optional[Dict[str, str]] = None,
-        scorer_identifier: Optional[Dict[str, str]] = None,
+        scorer_identifier: Optional[Union[ScorerIdentifier, Dict[str, str]]] = None,
         original_value_data_type: PromptDataType = "text",
         converted_value_data_type: Optional[PromptDataType] = None,
         response_error: PromptResponseError = "none",
@@ -68,10 +68,12 @@ class MessagePiece:
                 Because memory is how components talk with each other, this can be component specific.
                 e.g. the URI from a file uploaded to a blob store, or a document type you want to upload.
                 Defaults to None.
-            converter_identifiers: The converter identifiers for the prompt. Defaults to None.
+            converter_identifiers: The converter identifiers for the prompt. Can be ConverterIdentifier
+                objects or dicts (deprecated, will be removed in 0.14.0). Defaults to None.
             prompt_target_identifier: The target identifier for the prompt. Defaults to None.
             attack_identifier: The attack identifier for the prompt. Defaults to None.
-            scorer_identifier: The scorer identifier for the prompt. Defaults to None.
+            scorer_identifier: The scorer identifier for the prompt. Can be a ScorerIdentifier or a
+                dict (deprecated, will be removed in 0.13.0). Defaults to None.
             original_value_data_type: The data type of the original prompt (text, image). Defaults to "text".
             converted_value_data_type: The data type of the converted prompt (text, image). Defaults to "text".
             response_error: The response error type. Defaults to "none".
@@ -86,7 +88,7 @@ class MessagePiece:
         if role not in ChatMessageRole.__args__:  # type: ignore
             raise ValueError(f"Role {role} is not a valid role.")
 
-        self.role: ChatMessageRole = role
+        self._role: ChatMessageRole = role
 
         if converted_value is None:
             converted_value = original_value
@@ -104,11 +106,24 @@ class MessagePiece:
         self.labels = labels or {}
         self.prompt_metadata = prompt_metadata or {}
 
-        self.converter_identifiers = converter_identifiers if converter_identifiers else []
+        # Handle converter_identifiers: normalize to ConverterIdentifier (handles dict with deprecation warning)
+        self.converter_identifiers: List[ConverterIdentifier] = (
+            [ConverterIdentifier.normalize(conv_id) for conv_id in converter_identifiers]
+            if converter_identifiers
+            else []
+        )
 
-        self.prompt_target_identifier = prompt_target_identifier or {}
+        # Handle prompt_target_identifier: normalize to TargetIdentifier (handles dict with deprecation warning)
+        self.prompt_target_identifier: Optional[TargetIdentifier] = (
+            TargetIdentifier.normalize(prompt_target_identifier) if prompt_target_identifier else None
+        )
+
         self.attack_identifier = attack_identifier or {}
-        self.scorer_identifier = scorer_identifier or {}
+
+        # Handle scorer_identifier: normalize to ScorerIdentifier (handles dict with deprecation warning)
+        self.scorer_identifier: Optional[ScorerIdentifier] = (
+            ScorerIdentifier.normalize(scorer_identifier) if scorer_identifier else None
+        )
 
         self.original_value = original_value
 
@@ -140,7 +155,7 @@ class MessagePiece:
         self.scores = scores if scores else []
         self.targeted_harm_categories = targeted_harm_categories if targeted_harm_categories else []
 
-    async def set_sha256_values_async(self):
+    async def set_sha256_values_async(self) -> None:
         """
         This method computes the SHA256 hash values asynchronously.
         It should be called after object creation if `original_value` and `converted_value` are set.
@@ -152,20 +167,82 @@ class MessagePiece:
 
         original_serializer = data_serializer_factory(
             category="prompt-memory-entries",
-            data_type=cast(PromptDataType, self.original_value_data_type),
+            data_type=self.original_value_data_type,
             value=self.original_value,
         )
         self.original_value_sha256 = await original_serializer.get_sha256()
 
         converted_serializer = data_serializer_factory(
             category="prompt-memory-entries",
-            data_type=cast(PromptDataType, self.converted_value_data_type),
+            data_type=self.converted_value_data_type,
             value=self.converted_value,
         )
         self.converted_value_sha256 = await converted_serializer.get_sha256()
 
-    def to_chat_message(self) -> ChatMessage:
-        return ChatMessage(role=cast(ChatMessageRole, self.role), content=self.converted_value)
+    @property
+    def api_role(self) -> ChatMessageRole:
+        """
+        Role to use for API calls.
+
+        Maps simulated_assistant to assistant for API compatibility.
+        Use this property when sending messages to external APIs.
+        """
+        return "assistant" if self._role == "simulated_assistant" else self._role
+
+    @property
+    def is_simulated(self) -> bool:
+        """
+        Check if this is a simulated assistant response.
+
+        Simulated responses come from prepended conversations or generated
+        simulated conversations, not from actual target responses.
+        """
+        return self._role == "simulated_assistant"
+
+    def get_role_for_storage(self) -> ChatMessageRole:
+        """
+        Get the actual stored role, including simulated_assistant.
+
+        Use this when duplicating messages or preserving role information
+        for storage. For API calls or comparisons, use api_role instead.
+
+        Returns:
+            The actual role stored (may be simulated_assistant).
+        """
+        return self._role
+
+    @property
+    def role(self) -> ChatMessageRole:
+        """
+        Deprecated: Use api_role for comparisons or _role for internal storage.
+
+        This property is deprecated and will be removed in a future version.
+        Returns api_role for backward compatibility.
+        """
+        import warnings
+
+        warnings.warn(
+            "MessagePiece.role getter is deprecated. Use api_role for comparisons. "
+            "This property will be removed in 0.13.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.api_role
+
+    @role.setter
+    def role(self, value: ChatMessageRole) -> None:
+        """
+        Set the role for this message piece.
+
+        Args:
+            value: The role to set (system, user, assistant, simulated_assistant, tool, developer).
+
+        Raises:
+            ValueError: If the role is not a valid ChatMessageRole.
+        """
+        if value not in ChatMessageRole.__args__:  # type: ignore
+            raise ValueError(f"Role {value} is not a valid role.")
+        self._role = value
 
     def to_message(self) -> Message:  # type: ignore # noqa F821
         from pyrit.models.message import Message
@@ -184,7 +261,7 @@ class MessagePiece:
         """
         return self.response_error == "blocked"
 
-    def set_piece_not_in_database(self):
+    def set_piece_not_in_database(self) -> None:
         """
         Set that the prompt is not in the database.
 
@@ -192,20 +269,22 @@ class MessagePiece:
         """
         self.id = None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         return {
             "id": str(self.id),
-            "role": self.role,
+            "role": self._role,
             "conversation_id": self.conversation_id,
             "sequence": self.sequence,
             "timestamp": self.timestamp.isoformat() if self.timestamp else None,
             "labels": self.labels,
             "targeted_harm_categories": self.targeted_harm_categories if self.targeted_harm_categories else None,
             "prompt_metadata": self.prompt_metadata,
-            "converter_identifiers": self.converter_identifiers,
-            "prompt_target_identifier": self.prompt_target_identifier,
+            "converter_identifiers": [conv.to_dict() for conv in self.converter_identifiers],
+            "prompt_target_identifier": (
+                self.prompt_target_identifier.to_dict() if self.prompt_target_identifier else None
+            ),
             "attack_identifier": self.attack_identifier,
-            "scorer_identifier": self.scorer_identifier,
+            "scorer_identifier": self.scorer_identifier.to_dict() if self.scorer_identifier else None,
             "original_value_data_type": self.original_value_data_type,
             "original_value": self.original_value,
             "original_value_sha256": self.original_value_sha256,
@@ -218,15 +297,18 @@ class MessagePiece:
             "scores": [score.to_dict() for score in self.scores],
         }
 
-    def __str__(self):
-        return f"{self.prompt_target_identifier}: {self.role}: {self.converted_value}"
+    def __str__(self) -> str:
+        target_str = self.prompt_target_identifier.class_name if self.prompt_target_identifier else "Unknown"
+        return f"{target_str}: {self._role}: {self.converted_value}"
 
     __repr__ = __str__
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, MessagePiece):
+            return NotImplemented
         return (
             self.id == other.id
-            and self.role == other.role
+            and self._role == other._role
             and self.original_value == other.original_value
             and self.original_value_data_type == other.original_value_data_type
             and self.original_value_sha256 == other.original_value_sha256

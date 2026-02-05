@@ -1,49 +1,47 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: ansimarkup
-Version: 2.1.0
+Version: 2.2.0
 Summary: Produce colored terminal text with an xml-like markup
+Author: Georgi Valkov
 Author-email: Georgi Valkov <georgi.t.valkov@gmail.com>
 License: BSD 3-Clause License
-        
-        Copyright (c) 2017, Georgi Valkov. All rights reserved.
-        
-        Redistribution and use in source and binary forms, with or without
-        modification, are permitted provided that the following conditions are met:
-        
-        * Redistributions of source code must retain the above copyright notice, this
-          list of conditions and the following disclaimer.
-        
-        * Redistributions in binary form must reproduce the above copyright notice,
-          this list of conditions and the following disclaimer in the documentation
-          and/or other materials provided with the distribution.
-        
-        * Neither the name of the copyright holder nor the names of its
-          contributors may be used to endorse or promote products derived from
-          this software without specific prior written permission.
-        
-        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-        
-Project-URL: Homepage, https://github.com/gvalkov/python-ansimarkup
+         
+         Copyright (c) 2017, Georgi Valkov. All rights reserved.
+         
+         Redistribution and use in source and binary forms, with or without
+         modification, are permitted provided that the following conditions are met:
+         
+         * Redistributions of source code must retain the above copyright notice, this
+           list of conditions and the following disclaimer.
+         
+         * Redistributions in binary form must reproduce the above copyright notice,
+           this list of conditions and the following disclaimer in the documentation
+           and/or other materials provided with the distribution.
+         
+         * Neither the name of the copyright holder nor the names of its
+           contributors may be used to endorse or promote products derived from
+           this software without specific prior written permission.
+         
+         THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+         AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+         IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+         DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+         FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+         DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+         SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+         CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+         OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+         OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
+Requires-Dist: colorama
 Requires-Python: >=3.6
+Project-URL: Homepage, https://github.com/gvalkov/python-ansimarkup
 Description-Content-Type: text/markdown
-Provides-Extra: test
-Provides-Extra: benchmark
-License-File: LICENSE.txt
 
 # Ansimarkup
 
@@ -296,22 +294,20 @@ processing to a minimum. The [benchmark.py] script attempts to benchmark
 different ansi escape code libraries:
 
     Benchmark 1: <r><b>red bold</b></r>
-      colorama     0.1959 μs
-      colr         1.8022 μs
-      ansimarkup   3.1681 μs
-      termcolor    5.3734 μs
-      rich         9.0673 μs
-      pastel       10.7440 μs
-      plumbum      14.0620 μs
-    
+      colorama     0.0873 μs
+      termcolor    0.4854 μs
+      ansimarkup   1.5728 μs
+      rich         4.1645 μs
+      pastel       4.4223 μs
+      plumbum      6.7151 μs
+
     Benchmark 2: <r><b>red bold</b>red</r><b>bold</b>
-      colorama     0.5360 μs
-      colr         4.5575 μs
-      ansimarkup   4.5727 μs
-      termcolor    15.8462 μs
-      rich         21.2631 μs
-      pastel       22.9391 μs
-      plumbum      33.1179 μs
+      colorama     0.1799 μs
+      termcolor    1.0695 μs
+      ansimarkup   2.2035 μs
+      rich         9.4981 μs
+      pastel       9.8800 μs
+      plumbum      15.2062 μs
 
 
 ## Limitations

@@ -1,7 +1,7 @@
 import difflib
 import json
 import pprint
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import boto3
 from botocore.exceptions import ClientError
@@ -25,7 +25,10 @@ from anyscale.client.openapi_client.models.subnet_id_with_availability_zone_aws 
     SubnetIdWithAvailabilityZoneAWS,
 )
 from anyscale.shared_anyscale_utils.aws import AwsRoleArn
-from anyscale.shared_anyscale_utils.conf import ANYSCALE_CORS_ORIGIN
+from anyscale.shared_anyscale_utils.conf import (
+    ANYSCALE_CORS_EXPOSE_HEADERS,
+    ANYSCALE_CORS_ORIGIN,
+)
 from anyscale.util import (  # pylint:disable=private-import
     _get_subnet,
     contains_control_plane_role,
@@ -51,6 +54,36 @@ S3_STORAGE_PREFIX = "s3://"
 GCS_STORAGE_PREFIX = "gs://"
 
 HTTPS_INGRESS_PORT = 443
+
+
+def check_aws_cors_rules(cors_rules: List[Any]) -> Tuple[bool, str]:
+    """
+    Check if AWS S3 CORS rules are correctly configured for Anyscale.
+
+    This is a shared helper used by both cloud verification and CORS update utilities.
+
+    Args:
+        cors_rules: List of CORS rule dictionaries from S3 bucket (can be dict or CORSRuleTypeDef)
+
+    Returns:
+        Tuple of (is_correct, reason)
+    """
+    if not cors_rules:
+        return False, "No CORS configuration exists"
+
+    for rule in cors_rules:
+        if not isinstance(rule, dict):
+            return False, f"Malformed CORS rule: {rule}"
+        expose_headers = rule.get("ExposeHeaders", [])
+        if (
+            ANYSCALE_CORS_ORIGIN in rule.get("AllowedOrigins", [])
+            and "*" in rule.get("AllowedHeaders", [])
+            and "GET" in rule.get("AllowedMethods", [])
+            and all(h in expose_headers for h in ANYSCALE_CORS_EXPOSE_HEADERS)
+        ):
+            return True, "CORS already configured correctly"
+
+    return False, "CORS missing required ExposeHeaders for file viewer"
 
 
 def compare_dicts_diff(d1: Dict[Any, Any], d2: Dict[Any, Any]) -> str:
@@ -615,23 +648,14 @@ def verify_aws_s3(  # noqa: PLR0911, PLR0912
         else:
             raise e
 
-    for rule in cors_rules:
-        if not isinstance(rule, dict):
-            logger.log_resource_error(
-                CloudAnalyticsEventCloudResource.AWS_S3_BUCKET,
-                CloudSetupError.MALFORMED_CORS_RULE,
-            )
-            logger.error(f"Malformed CORS rule {rule} for your S3 bucket.")
-            return False
-        expose_headers = rule.get("ExposeHeaders", [])
-        has_correct_cors_rule = (
-            ANYSCALE_CORS_ORIGIN in rule.get("AllowedOrigins", [])
-            and "*" in rule.get("AllowedHeaders", [])
-            and "GET" in rule.get("AllowedMethods", [])
-            and "Accept-Ranges" in expose_headers
-            and "Content-Range" in expose_headers
-            and "Content-Length" in expose_headers
+    has_correct_cors_rule, cors_reason = check_aws_cors_rules(cors_rules)
+    if "Malformed" in cors_reason:
+        logger.log_resource_error(
+            CloudAnalyticsEventCloudResource.AWS_S3_BUCKET,
+            CloudSetupError.MALFORMED_CORS_RULE,
         )
+        logger.error(cors_reason)
+        return False
 
     if not has_correct_cors_rule:
         logger.log_resource_error(

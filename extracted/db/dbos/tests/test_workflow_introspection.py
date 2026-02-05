@@ -66,6 +66,10 @@ def test_list_workflow(dbos: DBOS) -> None:
     assert len(outputs) == 0
     outputs = DBOS.list_workflows(name=simple_workflow.__qualname__)
     assert len(outputs) == 1
+    outputs = DBOS.list_workflows(name=[simple_workflow.__qualname__, "no"])
+    assert len(outputs) == 1
+    outputs = DBOS.list_workflows(name=["no", "also_no"])
+    assert len(outputs) == 0
 
     # Test searching by workflow ID
     outputs = DBOS.list_workflows(workflow_ids=["no"])
@@ -78,12 +82,20 @@ def test_list_workflow(dbos: DBOS) -> None:
     assert len(outputs) == 0
     outputs = DBOS.list_workflows(app_version=DBOS.application_version)
     assert len(outputs) == 1
+    outputs = DBOS.list_workflows(app_version=[DBOS.application_version, "no"])
+    assert len(outputs) == 1
+    outputs = DBOS.list_workflows(app_version=["no", "also_no"])
+    assert len(outputs) == 0
 
     # Test searching by executor ID
     outputs = DBOS.list_workflows(executor_id="nonexistent_executor")
     assert len(outputs) == 0
     outputs = DBOS.list_workflows(executor_id=GlobalParams.executor_id)
     assert len(outputs) == 1
+    outputs = DBOS.list_workflows(executor_id=[GlobalParams.executor_id, "no"])
+    assert len(outputs) == 1
+    outputs = DBOS.list_workflows(executor_id=["no", "also_no"])
+    assert len(outputs) == 0
 
 
 def test_list_workflow_error(dbos: DBOS) -> None:
@@ -224,6 +236,12 @@ def test_list_workflow_prefix(dbos: DBOS) -> None:
     assert len(output) == 1
     output = DBOS.list_workflows(workflow_id_prefix="test1")
     assert len(output) == 1
+    output = DBOS.list_workflows(workflow_id_prefix=["test1", "test_"])
+    assert len(output) == 2
+    output = DBOS.list_workflows(workflow_id_prefix=["test1", "invalid"])
+    assert len(output) == 1
+    output = DBOS.list_workflows(workflow_id_prefix=["invalid", "also_invalid"])
+    assert len(output) == 0
 
 
 def test_list_workflow_end_times_positive(
@@ -367,9 +385,19 @@ def test_queued_workflows(dbos: DBOS, skip_with_sqlite_imprecise_time: None) -> 
     assert len(workflows) == queued_steps
     workflows = DBOS.list_queued_workflows(queue_name="no")
     assert len(workflows) == 0
+    workflows = DBOS.list_queued_workflows(queue_name=[queue.name, "no"])
+    assert len(workflows) == queued_steps
+    workflows = DBOS.list_queued_workflows(queue_name=["no", "also_no"])
+    assert len(workflows) == 0
     workflows = DBOS.list_queued_workflows(name=f"<temp>.{blocking_step.__qualname__}")
     assert len(workflows) == queued_steps
     workflows = DBOS.list_queued_workflows(name="no")
+    assert len(workflows) == 0
+    workflows = DBOS.list_queued_workflows(
+        name=[f"<temp>.{blocking_step.__qualname__}", "no"]
+    )
+    assert len(workflows) == queued_steps
+    workflows = DBOS.list_queued_workflows(name=["no", "also_no"])
     assert len(workflows) == 0
     now = datetime.now(timezone.utc)
     start_time = (now - timedelta(seconds=10)).isoformat()
@@ -390,6 +418,10 @@ def test_queued_workflows(dbos: DBOS, skip_with_sqlite_imprecise_time: None) -> 
     assert len(workflows) == 0
     workflows = DBOS.list_queued_workflows(executor_id=GlobalParams.executor_id)
     assert len(workflows) == queued_steps
+    workflows = DBOS.list_queued_workflows(executor_id=[GlobalParams.executor_id, "no"])
+    assert len(workflows) == queued_steps
+    workflows = DBOS.list_queued_workflows(executor_id=["no", "also_no"])
+    assert len(workflows) == 0
 
     # Confirm the workflow finishes and nothing is enqueued afterwards
     event.set()
@@ -1178,3 +1210,70 @@ async def test_async_step_timing(dbos: DBOS) -> None:
         assert s["completed_at_epoch_ms"] >= s["started_at_epoch_ms"]
         if s["function_id"] < num_steps:
             assert s["completed_at_epoch_ms"] - s["started_at_epoch_ms"] >= 100
+
+
+def test_list_workflows_by_parent(dbos: DBOS) -> None:
+    @DBOS.workflow()
+    def child_workflow(name: str) -> str:
+        return f"child_{name}"
+
+    @DBOS.workflow()
+    def parent_workflow() -> tuple[str, str, str]:
+        parent_id = DBOS.workflow_id
+        assert parent_id is not None
+        # Start multiple child workflows
+        child_workflow("sync")
+        handle1 = dbos.start_workflow(child_workflow, "async1")
+        handle2 = dbos.start_workflow(child_workflow, "async2")
+        handle1.get_result()
+        handle2.get_result()
+        return parent_id, handle1.workflow_id, handle2.workflow_id
+
+    # Run the parent workflow
+    parent_id = str(uuid.uuid4())
+    with SetWorkflowID(parent_id):
+        _, async_child1_id, async_child2_id = parent_workflow()
+
+    # The sync child workflow ID follows the pattern: parent_id-function_id
+    sync_child_id = f"{parent_id}-1"
+
+    # Verify each child handle has correct parent_workflow_id
+    sync_child_status = DBOS.get_workflow_status(sync_child_id)
+    assert sync_child_status is not None
+    assert sync_child_status.parent_workflow_id == parent_id
+
+    async_child1_status = DBOS.get_workflow_status(async_child1_id)
+    assert async_child1_status is not None
+    assert async_child1_status.parent_workflow_id == parent_id
+
+    async_child2_status = DBOS.get_workflow_status(async_child2_id)
+    assert async_child2_status is not None
+    assert async_child2_status.parent_workflow_id == parent_id
+
+    # List all workflows - should have parent + 3 children
+    all_workflows = DBOS.list_workflows()
+    assert len(all_workflows) == 4
+
+    # List workflows by parent_workflow_id - should only return the 3 children
+    children = DBOS.list_workflows(parent_workflow_id=parent_id)
+    assert len(children) == 3
+    for child in children:
+        assert child.parent_workflow_id == parent_id
+        assert child.name == child_workflow.__qualname__
+
+    # Verify parent workflow has no parent
+    parent_status = DBOS.get_workflow_status(parent_id)
+    assert parent_status is not None
+    assert parent_status.parent_workflow_id is None
+
+    # Filter with non-existent parent ID returns nothing
+    no_children = DBOS.list_workflows(parent_workflow_id="nonexistent")
+    assert len(no_children) == 0
+
+    # Test searching by parent_workflow_id as a list
+    children = DBOS.list_workflows(parent_workflow_id=[parent_id, "nonexistent"])
+    assert len(children) == 3
+    no_children = DBOS.list_workflows(
+        parent_workflow_id=["nonexistent", "also_nonexistent"]
+    )
+    assert len(no_children) == 0

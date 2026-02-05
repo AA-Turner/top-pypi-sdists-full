@@ -10560,6 +10560,21 @@ def cssl_guimaker(file):
         click.secho("Make sure PyQt6 is installed: pip install PyQt6", fg='yellow')
 
 
+@cssl.command(name='service')
+def cssl_service():
+    """Launch CSSL Service Manager — runtime control & introspection tool.
+
+    \b
+    Professional GUI for discovering, monitoring, inspecting, and
+    remotely controlling CSSL/Python runtime instances.
+    """
+    try:
+        from includecpp.gui.cssl_service import launch_service_manager
+        launch_service_manager()
+    except Exception as e:
+        click.secho(f"Failed to launch Service Manager: {e}", fg='red')
+
+
 # Register hidden cssl command group
 cli.add_command(cssl)
 
@@ -10688,31 +10703,35 @@ def vscode(force, reinstall, stubs_only):
                     click.echo(f"  Location: {target_dir}")
                     click.echo()
 
-                    # Run npm install for vscode-languageclient dependency
-                    click.secho("  Installing Node.js dependencies...", fg='cyan')
-                    npm_path = shutil.which('npm')
-                    if npm_path:
-                        try:
-                            # Use cwd instead of --prefix for better Windows compatibility
-                            result = subprocess.run(
-                                [npm_path, 'install'],
-                                capture_output=True,
-                                text=True,
-                                timeout=120,
-                                cwd=str(target_dir)
-                            )
-                            if result.returncode == 0:
-                                click.secho("  Node.js dependencies installed", fg='green')
-                            else:
-                                click.secho("  Warning: npm install had issues", fg='yellow')
-                                click.echo(f"  Run manually: cd \"{target_dir}\" && npm install")
-                        except subprocess.TimeoutExpired:
-                            click.secho("  Warning: npm install timed out", fg='yellow')
-                        except Exception as e:
-                            click.secho(f"  Warning: npm install failed: {e}", fg='yellow')
-                            click.echo(f"  Run manually: cd \"{target_dir}\" && npm install")
+                    # Check if node_modules are already bundled (they should be from copytree)
+                    bundled_lc = target_dir / 'node_modules' / 'vscode-languageclient'
+                    if bundled_lc.exists():
+                        click.secho("  Node.js dependencies: bundled (OK)", fg='green')
                     else:
-                        click.secho("  Note: npm not found - install Node.js for full LSP support", fg='yellow')
+                        # Only run npm install if bundled modules are missing
+                        click.secho("  Installing Node.js dependencies...", fg='cyan')
+                        npm_path = shutil.which('npm')
+                        if npm_path:
+                            try:
+                                result = subprocess.run(
+                                    [npm_path, 'install'],
+                                    capture_output=True,
+                                    text=True,
+                                    timeout=120,
+                                    cwd=str(target_dir)
+                                )
+                                if result.returncode == 0:
+                                    click.secho("  Node.js dependencies installed", fg='green')
+                                else:
+                                    click.secho("  Warning: npm install had issues", fg='yellow')
+                                    click.echo(f"  Run manually: cd \"{target_dir}\" && npm install")
+                            except subprocess.TimeoutExpired:
+                                click.secho("  Warning: npm install timed out", fg='yellow')
+                            except Exception as e:
+                                click.secho(f"  Warning: npm install failed: {e}", fg='yellow')
+                                click.echo(f"  Run manually: cd \"{target_dir}\" && npm install")
+                        else:
+                            click.secho("  Note: npm not found - install Node.js for full LSP support", fg='yellow')
 
                     click.secho("  Restart VSCode to activate the extension!", fg='yellow', bold=True)
             else:

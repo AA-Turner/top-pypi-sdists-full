@@ -14,7 +14,7 @@ def GtoPdb_get_ligand(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Optional[dict[str, Any]]:
     """
     Get detailed information about a specific ligand by its GtoPdb ligand ID. Returns comprehensive d...
 
@@ -31,7 +31,7 @@ def GtoPdb_get_ligand(
 
     Returns
     -------
-    dict[str, Any]
+    Optional[dict[str, Any]]
     """
     # Handle mutable defaults to avoid B006 linting error
 

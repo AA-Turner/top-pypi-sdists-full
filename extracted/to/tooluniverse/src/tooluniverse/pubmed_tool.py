@@ -1,4 +1,6 @@
 import requests
+import time
+import threading
 from typing import Any, Dict, Optional
 from .base_tool import BaseTool
 from .base_rest_tool import BaseRESTTool
@@ -8,13 +10,45 @@ from .tool_registry import register_tool
 
 @register_tool("PubMedRESTTool")
 class PubMedRESTTool(BaseRESTTool):
-    """Generic REST tool for PubMed E-utilities (efetch, elink)."""
+    """Generic REST tool for PubMed E-utilities (efetch, elink).
+
+    Implements rate limiting per NCBI guidelines:
+    - Without API key: 3 requests/second
+    - With API key: 10 requests/second
+    """
+
+    # Class-level rate limiting (shared across all instances)
+    _last_request_time = 0.0
+    _rate_limit_lock = threading.Lock()
 
     def _get_param_mapping(self) -> Dict[str, str]:
         """Map PubMed E-utilities parameter names."""
         return {
             "limit": "retmax",  # limit -> retmax for E-utilities
         }
+
+    def _enforce_rate_limit(self, has_api_key: bool) -> None:
+        """Enforce NCBI E-utilities rate limits.
+
+        Args:
+            has_api_key: Whether an API key is provided
+        """
+        # Rate limits per NCBI guidelines
+        # https://www.ncbi.nlm.nih.gov/books/NBK25497/#chapter2.Usage_Guidelines_and_Requiremen
+        # Using conservative intervals to avoid rate limit errors:
+        # - Without API key: 3 req/sec -> 0.4s interval (more conservative than 0.33s)
+        # - With API key: 10 req/sec -> 0.15s interval (more conservative than 0.1s)
+        min_interval = 0.15 if has_api_key else 0.4
+
+        with self._rate_limit_lock:
+            current_time = time.time()
+            time_since_last = current_time - PubMedRESTTool._last_request_time
+
+            if time_since_last < min_interval:
+                sleep_time = min_interval - time_since_last
+                time.sleep(sleep_time)
+
+            PubMedRESTTool._last_request_time = time.time()
 
     def _build_params(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Build E-utilities parameters with special handling."""
@@ -51,9 +85,14 @@ class PubMedRESTTool(BaseRESTTool):
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
         PubMed E-utilities need special handling for direct endpoint URLs.
+        Enforces NCBI rate limits to prevent API errors.
         """
         url = None
         try:
+            # Enforce rate limiting before making request
+            has_api_key = bool(arguments.get("api_key"))
+            self._enforce_rate_limit(has_api_key)
+
             endpoint = self.tool_config["fields"]["endpoint"]
             params = self._build_params(arguments)
 
@@ -79,6 +118,15 @@ class PubMedRESTTool(BaseRESTTool):
             try:
                 data = response.json()
 
+                # Check for API errors in response
+                if "ERROR" in data:
+                    error_msg = data.get("ERROR", "Unknown API error")
+                    return {
+                        "status": "error",
+                        "data": f"NCBI API error: {error_msg[:200]}",
+                        "url": response.url,
+                    }
+
                 # For esearch responses, extract ID list
                 if "esearchresult" in data:
                     esearch_result = data.get("esearchresult", {})
@@ -91,9 +139,18 @@ class PubMedRESTTool(BaseRESTTool):
                         "url": response.url,
                     }
 
-                # For elink responses, extract linksets
+                # For elink responses with LinkOut URLs (llinks command)
                 if "linksets" in data:
                     linksets = data.get("linksets", [])
+                    # Check for empty linksets with errors
+                    if not linksets or (linksets and len(linksets) == 0):
+                        return {
+                            "status": "success",
+                            "data": [],
+                            "count": 0,
+                            "url": response.url,
+                        }
+
                     if linksets and len(linksets) > 0:
                         linkset = linksets[0]
                         # Extract linked IDs
@@ -107,13 +164,21 @@ class PubMedRESTTool(BaseRESTTool):
                                     "count": len(links),
                                     "url": response.url,
                                 }
-                        # Extract LinkOut URLs
+                        # Extract LinkOut URLs (idurllist)
                         elif "idurllist" in linkset:
                             return {
                                 "status": "success",
                                 "data": linkset.get("idurllist", {}),
                                 "url": response.url,
                             }
+
+                # For elink responses with LinkOut URLs (llinks returns direct idurllist)
+                if "idurllist" in data:
+                    return {
+                        "status": "success",
+                        "data": data.get("idurllist", []),
+                        "url": response.url,
+                    }
 
                 return {
                     "status": "success",

@@ -1,5 +1,5 @@
 //
-// Copyright 2022 Staysail Systems, Inc. <info@staysail.tech>
+// Copyright 2024 Staysail Systems, Inc. <info@staysail.tech>
 // Copyright 2018 Capitar IT Group BV <info@capitar.com>
 //
 // This software is supplied under the terms of the MIT License, a
@@ -10,6 +10,7 @@
 
 #include "nng/nng.h"
 #include "core/nng_impl.h"
+#include "core/platform.h"
 
 // This file provides the "public" API.  This is a thin wrapper around
 // internal API functions.  We use the public prefix instead of internal,
@@ -31,7 +32,7 @@ nng_fini(void)
 }
 
 int
-nng_close(nng_socket s)
+nng_socket_close(nng_socket s)
 {
 	int       rv;
 	nni_sock *sock;
@@ -44,6 +45,12 @@ nng_close(nng_socket s)
 	// No release -- close releases it.
 	nni_sock_close(sock);
 	return (0);
+}
+
+int
+nng_close(nng_socket s)
+{
+	return (nng_socket_close(s));
 }
 
 int
@@ -212,7 +219,7 @@ nng_sendmsg(nng_socket s, nng_msg *msg, int flags)
 }
 
 void
-nng_recv_aio(nng_socket s, nng_aio *aio)
+nng_sock_recv(nng_socket s, nng_aio *aio)
 {
 	nni_sock *sock;
 	int       rv;
@@ -228,7 +235,13 @@ nng_recv_aio(nng_socket s, nng_aio *aio)
 }
 
 void
-nng_send_aio(nng_socket s, nng_aio *aio)
+nng_recv_aio(nng_socket s, nng_aio *aio)
+{
+	nng_sock_recv(s, aio);
+}
+
+void
+nng_sock_send(nng_socket s, nng_aio *aio)
 {
 	nni_sock *sock;
 	int       rv;
@@ -247,6 +260,12 @@ nng_send_aio(nng_socket s, nng_aio *aio)
 	}
 	nni_sock_send(sock, aio);
 	nni_sock_rele(sock);
+}
+
+void
+nng_send_aio(nng_socket s, nng_aio *aio)
+{
+	nng_sock_send(s, aio);
 }
 
 int
@@ -467,11 +486,13 @@ nng_ctx_get_ms(nng_ctx id, const char *n, nng_duration *v)
 	return (ctx_get(id, n, v, NULL, NNI_TYPE_DURATION));
 }
 
+#ifndef NNG_ELIDE_DEPRECATED
 int
 nng_ctx_get_addr(nng_ctx id, const char *n, nng_sockaddr *v)
 {
 	return (ctx_get(id, n, v, NULL, NNI_TYPE_SOCKADDR));
 }
+#endif
 
 static int
 ctx_set(nng_ctx id, const char *n, const void *v, size_t sz, nni_type t)
@@ -539,11 +560,13 @@ nng_ctx_set_string(nng_ctx id, const char *n, const char *v)
 	    ctx_set(id, n, v, v == NULL ? 0 : strlen(v) + 1, NNI_TYPE_STRING));
 }
 
+#ifndef NNG_ELIDE_DEPRECATED
 int
 nng_ctx_set_addr(nng_ctx id, const char *n, const nng_sockaddr *v)
 {
 	return (ctx_set(id, n, v, sizeof(*v), NNI_TYPE_SOCKADDR));
 }
+#endif
 
 int
 nng_dial(nng_socket sid, const char *addr, nng_dialer *dp, int flags)
@@ -1138,6 +1161,85 @@ int
 nng_socket_get_addr(nng_socket id, const char *n, nng_sockaddr *v)
 {
 	return (socket_get(id, n, v, NULL, NNI_TYPE_SOCKADDR));
+}
+
+int
+nng_socket_proto_id(nng_socket id, uint16_t *idp)
+{
+	int       rv;
+	nni_sock *sock;
+
+	if (((rv = nni_init()) != 0) ||
+	    ((rv = nni_sock_find(&sock, id.id)) != 0)) {
+		return (rv);
+	}
+
+	*idp = nni_sock_proto_id(sock);
+	nni_sock_rele(sock);
+	return (0);
+}
+
+int
+nng_socket_peer_id(nng_socket id, uint16_t *idp)
+{
+	int       rv;
+	nni_sock *sock;
+
+	if (((rv = nni_init()) != 0) ||
+	    ((rv = nni_sock_find(&sock, id.id)) != 0)) {
+		return (rv);
+	}
+
+	*idp = nni_sock_peer_id(sock);
+	nni_sock_rele(sock);
+	return (0);
+}
+
+int
+nng_socket_proto_name(nng_socket id, const char **name)
+{
+	int       rv;
+	nni_sock *sock;
+
+	if (((rv = nni_init()) != 0) ||
+	    ((rv = nni_sock_find(&sock, id.id)) != 0)) {
+		return (rv);
+	}
+
+	*name = nni_sock_proto_name(sock);
+	nni_sock_rele(sock);
+	return (0);
+}
+
+int
+nng_socket_peer_name(nng_socket id, const char **name)
+{
+	int       rv;
+	nni_sock *sock;
+
+	if (((rv = nni_init()) != 0) ||
+	    ((rv = nni_sock_find(&sock, id.id)) != 0)) {
+		return (rv);
+	}
+
+	*name = nni_sock_peer_name(sock);
+	nni_sock_rele(sock);
+	return (0);
+}
+
+int
+nng_socket_raw(nng_socket id, bool *rawp)
+{
+	int       rv;
+	nni_sock *sock;
+
+	if (((rv = nni_init()) != 0) ||
+	    ((rv = nni_sock_find(&sock, id.id)) != 0)) {
+		return (rv);
+	}
+	*rawp = nni_sock_raw(sock);
+	nni_sock_rele(sock);
+	return (0);
 }
 
 int
@@ -1919,6 +2021,12 @@ nng_aio_set_timeout(nng_aio *aio, nni_duration when)
 	nni_aio_set_timeout(aio, when);
 }
 
+void
+nng_aio_set_expire(nng_aio *aio, nng_time when)
+{
+	nni_aio_set_expire(aio, when);
+}
+
 int
 nng_aio_set_iov(nng_aio *aio, unsigned niov, const nng_iov *iov)
 {
@@ -2004,4 +2112,232 @@ nng_version(void)
 {
 	return (xstr(NNG_MAJOR_VERSION) "." xstr(NNG_MINOR_VERSION) "." xstr(
 	    NNG_PATCH_VERSION) NNG_RELEASE_SUFFIX);
+}
+
+void
+nng_init_set_parameter(nng_init_parameter p, uint64_t value)
+{
+	nni_init_set_param(p, value);
+}
+
+nng_time
+nng_clock(void)
+{
+	(void) nni_init();
+	return (nni_clock());
+}
+
+// Sleep for specified msecs.
+void
+nng_msleep(nng_duration dur)
+{
+	(void) nni_init();
+	nni_msleep(dur);
+}
+
+// Create and start a thread.  Note that on some platforms, this might
+// actually be a coroutine, with limitations about what system APIs
+// you can call.  Therefore, these threads should only be used with the
+// I/O APIs provided by nng.  The thread runs until completion.
+int
+nng_thread_create(nng_thread **thrp, void (*func)(void *), void *arg)
+{
+	nni_thr *thr;
+	int      rv;
+
+	(void) nni_init();
+
+	if ((thr = NNI_ALLOC_STRUCT(thr)) == NULL) {
+		return (NNG_ENOMEM);
+	}
+	*thrp = (void *) thr;
+	if ((rv = nni_thr_init(thr, func, arg)) != 0) {
+		return (rv);
+	}
+	nni_thr_run(thr);
+	return (0);
+}
+
+void
+nng_thread_set_name(nng_thread *thr, const char *name)
+{
+	nni_thr_set_name((void *) thr, name);
+}
+
+// Destroy a thread (waiting for it to complete.)  When this function
+// returns all resources for the thread are cleaned up.
+void
+nng_thread_destroy(nng_thread *thr)
+{
+	nni_thr *t = (void *) thr;
+	nni_thr_fini(t);
+	NNI_FREE_STRUCT(t);
+}
+
+struct nng_mtx {
+	nni_mtx m;
+};
+
+int
+nng_mtx_alloc(nng_mtx **mpp)
+{
+	nng_mtx *mp;
+
+	(void) nni_init();
+
+	if ((mp = NNI_ALLOC_STRUCT(mp)) == NULL) {
+		return (NNG_ENOMEM);
+	}
+	nni_mtx_init(&mp->m);
+	*mpp = mp;
+	return (0);
+}
+
+void
+nng_mtx_free(nng_mtx *mp)
+{
+	if (mp != NULL) {
+		nni_mtx_fini(&mp->m);
+		NNI_FREE_STRUCT(mp);
+	}
+}
+
+void
+nng_mtx_lock(nng_mtx *mp)
+{
+	nni_mtx_lock(&mp->m);
+}
+
+void
+nng_mtx_unlock(nng_mtx *mp)
+{
+	nni_mtx_unlock(&mp->m);
+}
+
+struct nng_cv {
+	nni_cv c;
+};
+
+int
+nng_cv_alloc(nng_cv **cvp, nng_mtx *mx)
+{
+	nng_cv *cv;
+
+	if ((cv = NNI_ALLOC_STRUCT(cv)) == NULL) {
+		return (NNG_ENOMEM);
+	}
+	nni_cv_init(&cv->c, &mx->m);
+	*cvp = cv;
+	return (0);
+}
+
+void
+nng_cv_free(nng_cv *cv)
+{
+	if (cv != NULL) {
+		nni_cv_fini(&cv->c);
+		NNI_FREE_STRUCT(cv);
+	}
+}
+
+void
+nng_cv_wait(nng_cv *cv)
+{
+	nni_cv_wait(&cv->c);
+}
+
+int
+nng_cv_until(nng_cv *cv, nng_time when)
+{
+	return (nni_cv_until(&cv->c, (nni_time) when));
+}
+
+void
+nng_cv_wake(nng_cv *cv)
+{
+	nni_cv_wake(&cv->c);
+}
+
+void
+nng_cv_wake1(nng_cv *cv)
+{
+	nni_cv_wake1(&cv->c);
+}
+
+uint32_t
+nng_random(void)
+{
+	(void) nni_init();
+	return (nni_random());
+}
+
+int
+nng_socket_pair(int fds[2])
+{
+	return (nni_socket_pair(fds));
+}
+
+int
+nng_udp_open(nng_udp **udp, nng_sockaddr *sa)
+{
+	(void) nni_init();
+	return (nni_plat_udp_open((nni_plat_udp **) udp, sa));
+}
+
+void
+nng_udp_close(nng_udp *udp)
+{
+	nni_plat_udp_close((nni_plat_udp *) udp);
+}
+
+int
+nng_udp_sockname(nng_udp *udp, nng_sockaddr *sa)
+{
+	return (nni_plat_udp_sockname((nni_plat_udp *) udp, sa));
+}
+
+void
+nng_udp_send(nng_udp *udp, nng_aio *aio)
+{
+	nni_plat_udp_send((nni_plat_udp *) udp, aio);
+}
+
+void
+nng_udp_recv(nng_udp *udp, nng_aio *aio)
+{
+	nni_plat_udp_recv((nni_plat_udp *) udp, aio);
+}
+
+int
+nng_udp_multicast_membership(nng_udp *udp, nng_sockaddr *sa, bool join)
+{
+	return (
+	    nni_plat_udp_multicast_membership((nni_plat_udp *) udp, sa, join));
+}
+
+
+int
+nng_dialer_get_url(nng_dialer id, const nng_url **urlp)
+{
+       int         rv;
+       nni_dialer *d;
+       if ((rv = nni_dialer_find(&d, id.id)) != 0) {
+               return (rv);
+       }
+       *urlp = nni_dialer_url(d);
+       nni_dialer_rele(d);
+       return (0);
+}
+
+int
+nng_listener_get_url(nng_listener id, const nng_url **urlp)
+{
+       int           rv;
+       nni_listener *l;
+       if ((rv = nni_listener_find(&l, id.id)) != 0) {
+               return (rv);
+       }
+       *urlp = nni_listener_url(l);
+       nni_listener_rele(l);
+       return (0);
 }

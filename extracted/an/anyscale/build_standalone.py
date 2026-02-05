@@ -21,7 +21,7 @@ import time
 
 # Constants
 CLI_DIR = Path(__file__).parent
-PYINSTALLER_VERSION = "6.14.2"
+PYINSTALLER_VERSION = "6.18.0"
 
 
 def get_version():

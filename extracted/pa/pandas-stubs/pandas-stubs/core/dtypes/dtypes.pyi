@@ -1,8 +1,10 @@
-import datetime as dt
-import sys
+from datetime import timezone
 from typing import (
     Any,
     Literal,
+    Self,
+    TypeAlias,
+    overload,
 )
 
 import numpy as np
@@ -17,6 +19,7 @@ from pandas._libs.tslibs.offsets import (
     SingleConstructorOffset,
 )
 from pandas._typing import (
+    Dtype,
     Ordered,
     TimeZones,
     npt,
@@ -26,6 +29,8 @@ from pandas.core.dtypes.base import (
     ExtensionDtype as ExtensionDtype,
     register_extension_dtype as register_extension_dtype,
 )
+
+_dt_units: TypeAlias = Literal["s", "ms", "us", "ns"]
 
 class BaseMaskedDtype(ExtensionDtype):
     @property
@@ -44,12 +49,16 @@ class CategoricalDtype(PandasExtensionDtype, ExtensionDtype):
     @property
     def ordered(self) -> Ordered: ...
 
+@register_extension_dtype
 class DatetimeTZDtype(PandasExtensionDtype):
-    def __init__(self, unit: Literal["ns"] = ..., tz: TimeZones = ...) -> None: ...
+    @overload
+    def __init__(self, unit: _dt_units | Self = "ns", *, tz: TimeZones) -> None: ...
+    @overload
+    def __init__(self, unit: _dt_units | Self, tz: TimeZones) -> None: ...
     @property
-    def unit(self) -> Literal["ns"]: ...
+    def unit(self) -> _dt_units: ...
     @property
-    def tz(self) -> dt.tzinfo: ...
+    def tz(self) -> timezone: ...
     @property
     def na_value(self) -> NaTType: ...
 
@@ -64,11 +73,8 @@ class PeriodDtype(PandasExtensionDtype):
 
 class IntervalDtype(PandasExtensionDtype):
     def __init__(self, subtype: str | npt.DTypeLike | None = ...) -> None: ...
-    if sys.version_info >= (3, 11):
-        @property
-        def subtype(self) -> np.dtype | None: ...
-    else:
-        @property
-        def subtype(self) -> np.dtype[Any] | None: ...
+    @property
+    def subtype(self) -> np.dtype | None: ...
 
-class SparseDtype(ExtensionDtype): ...
+class SparseDtype(ExtensionDtype):
+    def __init__(self, dtype: Dtype = ..., fill_value: Any = None) -> None: ...

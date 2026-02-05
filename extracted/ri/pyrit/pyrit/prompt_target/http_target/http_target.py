@@ -9,12 +9,14 @@ from typing import Any, Callable, Dict, Optional, Sequence
 
 import httpx
 
+from pyrit.identifiers import TargetIdentifier
 from pyrit.models import (
     Message,
     MessagePiece,
     construct_response_from_request,
 )
-from pyrit.prompt_target import PromptTarget, limit_requests_per_minute
+from pyrit.prompt_target.common.prompt_target import PromptTarget
+from pyrit.prompt_target.common.utils import limit_requests_per_minute
 
 logger = logging.getLogger(__name__)
 
@@ -42,12 +44,28 @@ class HTTPTarget(PromptTarget):
         http_request: str,
         prompt_regex_string: str = "{PROMPT}",
         use_tls: bool = True,
-        callback_function: Optional[Callable] = None,
+        callback_function: Optional[Callable[..., Any]] = None,
         max_requests_per_minute: Optional[int] = None,
         client: Optional[httpx.AsyncClient] = None,
         model_name: str = "",
         **httpx_client_kwargs: Any,
     ) -> None:
+        """
+        Initialize the HTTPTarget.
+
+        Args:
+            http_request (str): The raw HTTP request string.
+            prompt_regex_string (str): Regex string to match prompt location. Defaults to "{PROMPT}".
+            use_tls (bool): Whether to use TLS. Defaults to True.
+            callback_function (Callable, Optional): Function to parse HTTP response.
+            max_requests_per_minute (int, Optional): Maximum number of requests per minute.
+            client (httpx.AsyncClient, Optional): Pre-configured httpx client.
+            model_name (str): The model name. Defaults to empty string.
+            **httpx_client_kwargs: Additional keyword arguments for httpx.AsyncClient.
+
+        Raises:
+            ValueError: If both client and httpx_client_kwargs are provided.
+        """
         # Initialize attributes needed by parse_raw_http_request before calling it
         self._client = client
         self.use_tls = use_tls
@@ -65,13 +83,28 @@ class HTTPTarget(PromptTarget):
         if client and httpx_client_kwargs:
             raise ValueError("Cannot provide both a pre-configured client and additional httpx client kwargs.")
 
+    def _build_identifier(self) -> TargetIdentifier:
+        """
+        Build the identifier with HTTP target-specific parameters.
+
+        Returns:
+            TargetIdentifier: The identifier for this target instance.
+        """
+        return self._create_identifier(
+            target_specific_params={
+                "use_tls": self.use_tls,
+                "prompt_regex_string": self.prompt_regex_string,
+                "callback_function": getattr(self.callback_function, "__name__", None),
+            },
+        )
+
     @classmethod
     def with_client(
         cls,
         client: httpx.AsyncClient,
         http_request: str,
         prompt_regex_string: str = "{PROMPT}",
-        callback_function: Callable | None = None,
+        callback_function: Callable[..., Any] | None = None,
         max_requests_per_minute: Optional[int] = None,
     ) -> "HTTPTarget":
         """
@@ -83,6 +116,9 @@ class HTTPTarget(PromptTarget):
             prompt_regex_string: the placeholder for the prompt
             callback_function: function to parse HTTP response
             max_requests_per_minute: Optional rate limiting
+
+        Returns:
+            HTTPTarget: an instance of HTTPTarget
         """
         instance = cls(
             http_request=http_request,
@@ -95,8 +131,14 @@ class HTTPTarget(PromptTarget):
 
     def _inject_prompt_into_request(self, request: MessagePiece) -> str:
         """
-        Adds the prompt into the URL if the prompt_regex_string is found in the
+        Add the prompt into the URL if the prompt_regex_string is found in the
         http_request.
+
+        Args:
+            request: The message piece containing the prompt to inject.
+
+        Returns:
+            str: the http request with the prompt added in
         """
         re_pattern = re.compile(self.prompt_regex_string)
         if re.search(self.prompt_regex_string, self.http_request):
@@ -107,6 +149,15 @@ class HTTPTarget(PromptTarget):
 
     @limit_requests_per_minute
     async def send_prompt_async(self, *, message: Message) -> list[Message]:
+        """
+        Asynchronously send a message to the HTTP target.
+
+        Args:
+            message (Message): The message object containing the prompt to send.
+
+        Returns:
+            list[Message]: A list containing the response from the prompt target.
+        """
         self._validate_request(message=message)
         request = message.message_pieces[0]
 
@@ -162,7 +213,7 @@ class HTTPTarget(PromptTarget):
 
     def parse_raw_http_request(self, http_request: str) -> tuple[Dict[str, str], RequestBody, str, str, str]:
         """
-        Parses the HTTP request string into a dictionary of headers.
+        Parse the HTTP request string into a dictionary of headers.
 
         Parameters:
             http_request: the header parameters as a request str with
@@ -174,6 +225,9 @@ class HTTPTarget(PromptTarget):
             url (str): string with URL
             http_method (str): method (ie GET vs POST)
             http_version (str): HTTP version to use
+
+        Raises:
+            ValueError: If the HTTP request line is invalid.
         """
         headers_dict: Dict[str, str] = {}
         if self._client:

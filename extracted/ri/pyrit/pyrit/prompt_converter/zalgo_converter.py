@@ -5,6 +5,7 @@ import logging
 import random
 from typing import Optional
 
+from pyrit.identifiers import ConverterIdentifier
 from pyrit.prompt_converter.text_selection_strategy import WordSelectionStrategy
 from pyrit.prompt_converter.word_level_converter import WordLevelConverter
 
@@ -28,7 +29,7 @@ class ZalgoConverter(WordLevelConverter):
         word_selection_strategy: Optional[WordSelectionStrategy] = None,
     ):
         """
-        Initializes the converter with the specified selection parameters.
+        Initialize the converter with the specified selection parameters.
 
         Args:
             intensity (int): Number of combining marks per character (higher = more cursed). Default is 10.
@@ -39,6 +40,19 @@ class ZalgoConverter(WordLevelConverter):
         super().__init__(word_selection_strategy=word_selection_strategy)
         self._intensity = self._normalize_intensity(intensity)
         self._seed = seed
+
+    def _build_identifier(self) -> ConverterIdentifier:
+        """
+        Build the converter identifier with zalgo parameters.
+
+        Returns:
+            ConverterIdentifier: The identifier for this converter.
+        """
+        return self._create_identifier(
+            converter_specific_params={
+                "intensity": self._intensity,
+            },
+        )
 
     def _normalize_intensity(self, intensity: int) -> int:
         try:
@@ -55,6 +69,15 @@ class ZalgoConverter(WordLevelConverter):
         return normalized_intensity
 
     async def convert_word_async(self, word: str) -> str:
+        """
+        Convert a single word into the target format supported by the converter.
+
+        Args:
+            word (str): The word to be converted.
+
+        Returns:
+            str: The converted word.
+        """
         if self._intensity <= 0:
             return word
 
@@ -64,6 +87,7 @@ class ZalgoConverter(WordLevelConverter):
         return "".join(glitch(c) if c.isalnum() else c for c in word)
 
     def validate_input(self, prompt: str) -> None:
+        """Validate the input prompt before conversion."""
         # Initialize the random seed before processing any words
         if self._seed is not None:
             random.seed(self._seed)

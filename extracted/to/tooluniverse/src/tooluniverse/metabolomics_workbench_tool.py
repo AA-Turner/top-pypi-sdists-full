@@ -83,13 +83,32 @@ class MetabolomicsWorkbenchTool(BaseTool):
                     return {
                         "error": data.get("message", "API returned an error status")
                     }
-                return data
+
+                # Convert exactmass from string to number if present
+                data = self._normalize_numeric_fields(data)
+
+                return {"status": "success", "data": data}
             except ValueError:
                 # Return as text if not JSON (though we requested JSON)
-                return {"data": response.text}
+                return {"status": "success", "data": response.text}
 
         except requests.RequestException as e:
             raise self.handle_error(e)
+
+    def _normalize_numeric_fields(self, data: Any) -> Any:
+        """Convert numeric string fields to actual numbers."""
+        if isinstance(data, dict):
+            # Convert exactmass from string to float
+            if "exactmass" in data and isinstance(data["exactmass"], str):
+                try:
+                    data["exactmass"] = float(data["exactmass"])
+                except (ValueError, TypeError):
+                    pass
+            # Recursively process nested dicts
+            return {k: self._normalize_numeric_fields(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            return [self._normalize_numeric_fields(item) for item in data]
+        return data
 
     def _query_study(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Query study metadata."""

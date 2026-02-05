@@ -1033,10 +1033,6 @@ class ChalkAPIClientImpl(ChalkClient):
         self._branch: str | None = branch
         self._skip_token_cache: bool = _skip_cache
         self._api_server: str | None = api_server
-        self._env_id_to_engine_url_map: Mapping[str, str] | None = None
-        self._env_id_to_env_name_map: Mapping[str, str] | None = None
-        self._env_name_to_env_id_map: Mapping[str, str] | None = None
-        self._access_token: str | None = None
 
         self._default_headers = {
             "Accept": "application/json",
@@ -1047,7 +1043,7 @@ class ChalkAPIClientImpl(ChalkClient):
         if additional_headers:
             self._default_headers.update(additional_headers)
 
-        self._primary_environment: EnvironmentId | None = environment
+        self._primary_environment = environment
 
         self.__class__.latest_client = self
         if notebook.is_notebook():
@@ -1120,21 +1116,11 @@ class ChalkAPIClientImpl(ChalkClient):
             creds = ExchangeCredentialsResponse(**response_json)
         except ValidationError:
             raise HTTPError(response=resp)
-
-        self._save_credentials_response(creds)
-
+        self._default_headers["Authorization"] = f"Bearer {creds.access_token}"
         # FIXME: We should NOT be using the X-Chalk-Client-Id for anything, as it is NOT authenticated
         self._default_headers["X-Chalk-Client-Id"] = self._client_id
-
-    def _save_credentials_response(self, creds: ExchangeCredentialsResponse):
-        self._access_token = creds.access_token
-        self._default_headers["Authorization"] = f"Bearer {creds.access_token}"
         if self._primary_environment is None:
             self._primary_environment = creds.primary_environment
-        self._env_id_to_engine_url_map = creds.engines
-        self._env_id_to_env_name_map = creds.environment_id_to_name
-        if self._env_id_to_env_name_map is not None:
-            self._env_name_to_env_id_map = {v: k for k, v in self._env_id_to_env_name_map.items()}
 
     def _get_headers(
         self,
@@ -1397,53 +1383,6 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
             method=method, headers=headers, url=url, json=json_body, data=data, timeout=timeout_value
         )
 
-    def _get_engine_host(self, environment_override: Optional[str]) -> str | None:
-        """
-        Returns the host to use for data-plane requests to the engine. May fall back to
-        the metadata plane api server host if no engine host can be determined.
-        :param environment_override: Optional user-provided environment name or id.
-        :return: Host for direct engine (data-plane) requests
-        """
-
-        # always respect user-provided query_server override
-        if self._query_server is not None:
-            return self._query_server
-
-        # if we have no environment information, we likely have not done creds exchange yet.
-        # there's no way to determine an engine host here, so just fall back to api server
-        env_id_or_name: str | None = environment_override or self._primary_environment
-        if env_id_or_name is None:
-            return self._api_server
-
-        # get the correct engine url given a valid env id or env name
-        if self._env_id_to_engine_url_map is not None:
-            if env_id_or_name in self._env_id_to_engine_url_map:
-                return self._env_id_to_engine_url_map[env_id_or_name]
-            elif self._env_name_to_env_id_map is not None and env_id_or_name in self._env_name_to_env_id_map:
-                env_id = self._env_name_to_env_id_map[env_id_or_name]
-                return self._env_id_to_engine_url_map.get(env_id, self._api_server)
-
-        # env name or id is invalid, or we failed to auth, so fall back to api server
-        return self._api_server
-
-    def _get_request_host(self, metadata_request: bool, environment_override: Optional[str]) -> str:
-        """
-        Returns the hostname to use for any requests made by the Chalk Client, whether they are
-        metadata-plane-only requests or data-plane requests (to the engine).
-        :param metadata_request: Is this a metadata-plane-only request? If so, we always use the API server.
-        :param environment_override: Optional user-provided environment name or id.
-        :return: Host to use for any request made by the Chalk Client
-        """
-        if metadata_request:
-            host = self._api_server
-        else:
-            host = self._get_engine_host(environment_override)
-
-        return host or "https://api.chalk.ai"
-
-    def _has_authorization_header(self) -> bool:
-        return "Authorization" in self._default_headers or "authorization" in self._default_headers
-
     def _request(
         self,
         method: str,
@@ -1460,18 +1399,25 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
         timeout: float | None | ellipsis = ...,
         connect_timeout: float | None | ellipsis = ...,
     ) -> T | requests.Response:
-        # If we don't have an access token, we cannot make a request.
-        # Always fetch an access token if we do not have one before making a request.
-        # If we fetched an access token during this call and we get 401/403 on this request,
-        # then do not retry the credential exchange again.
-        # Additional Note: if the user has explicitly provided an Authorization header, we should
-        # not attempt to exchange credentials, as they are explicitly managing auth themselves.
         allow_credential_exchange: bool = True
-        if self._access_token is None and not self._has_authorization_header():
+
+        if metadata_request or self._query_server is None:
+            host = self._api_server
+        else:
+            host = self._query_server
+
+        if host is None:
+            # We definitively need to exchange credentials to get a host
             self._exchange_credentials()
             allow_credential_exchange = False
 
-        host = self._get_request_host(metadata_request, environment_override)
+            # After exchanging credentials, the api server is never none
+            assert self._api_server is not None
+
+            if metadata_request or self._query_server is None:
+                host = self._api_server
+            else:
+                host = self._query_server
 
         r = self._do_request_inner(
             method=method,
@@ -1492,7 +1438,14 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
             # It is possible that credentials expired, or that we changed permissions since we last
             # got a token. Exchange them and try again
             self._exchange_credentials()
-            host = self._get_request_host(metadata_request, environment_override)
+
+            # After exchanging credentials, the api server is never null
+            assert self._api_server is not None
+
+            if metadata_request or self._query_server is None:
+                host = self._api_server
+            else:
+                host = self._query_server
 
             r = self._do_request_inner(
                 method=method,
@@ -4061,8 +4014,9 @@ https://docs.chalk.ai/cli/apply
             environment_override=context.environment,
             preview_deployment_id=preview_deployment_id,
             branch=branch,
-            # all offline query requests should be routed through api server
-            metadata_request=True,
+            # If using multiple computers, then we must route through the metadata server
+            # So we can actually spin up multiple pods
+            metadata_request=request.use_multiple_computers,
         )
         return response
 
@@ -4136,6 +4090,19 @@ https://docs.chalk.ai/cli/apply
             json=None,
             preview_deployment_id=None,
             branch=None,
+        )
+
+    def _get_query_inputs(
+        self, job_id: uuid.UUID, environment: Optional[EnvironmentId], branch: Optional[BranchId]
+    ) -> GetOfflineQueryJobResponse:
+        return self._request(
+            method="GET",
+            uri=f"/v2/offline_query_inputs/{job_id}",
+            response=GetOfflineQueryJobResponse,
+            environment_override=environment,
+            json=None,
+            preview_deployment_id=None,
+            branch=branch,
         )
 
     def _get_dataset_from_name_or_id(

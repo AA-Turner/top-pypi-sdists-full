@@ -172,6 +172,50 @@ class DatasetTool(BaseTool):
 
             if match_found:
                 result_row = row.to_dict()
+                # Convert numpy arrays and pandas types to regular Python types for JSON serialization
+                for key, value in result_row.items():
+                    if hasattr(value, "tolist"):  # numpy array
+                        result_row[key] = value.tolist()
+                    elif hasattr(value, "item"):  # numpy/pandas scalar
+                        # Get the Python native value
+                        native_val = value.item()
+                        # Keep score/numeric fields as numbers
+                        if "score" in key.lower() or "count" in key.lower():
+                            result_row[key] = native_val
+                        # For ID fields, convert integer-like floats to strings
+                        elif (
+                            "id" in key.lower()
+                            and isinstance(native_val, float)
+                            and native_val == int(native_val)
+                        ):
+                            result_row[key] = str(int(native_val))
+                        else:
+                            result_row[key] = native_val
+                    # Convert regular Python float
+                    elif isinstance(value, float) and not isinstance(value, bool):
+                        # NaN becomes None to match schema null expectation
+                        if value != value:
+                            result_row[key] = None
+                        # Keep score/numeric fields as numbers
+                        elif "score" in key.lower() or "count" in key.lower():
+                            result_row[key] = value
+                        # For ID fields, convert integer-like floats to strings
+                        elif "id" in key.lower() and value == int(value):
+                            result_row[key] = str(int(value))
+                    # Convert numeric string to number if key contains 'score' or similar numeric fields
+                    elif (
+                        isinstance(value, str)
+                        and "score" in key.lower()
+                        and value.replace(".", "", 1).replace("-", "", 1).isdigit()
+                    ):
+                        # Try to convert numeric strings to numbers for schema validation
+                        try:
+                            if "." in value:
+                                result_row[key] = float(value)
+                            else:
+                                result_row[key] = int(value) if value else None
+                        except (ValueError, TypeError):
+                            pass  # Keep as string if conversion fails
                 result_row["matched_fields"] = matched_fields
                 results.append(result_row)
 
@@ -264,8 +308,54 @@ class DatasetTool(BaseTool):
         except Exception as e:
             return {"error": f"Error applying filter: {str(e)}"}
 
-        # Apply limit
+        # Apply limit and convert to dict
         results = filtered_data.head(limit).to_dict("records")
+
+        # Convert numpy arrays and pandas types to regular Python types for JSON serialization
+        for result_row in results:
+            for key, value in result_row.items():
+                if hasattr(value, "tolist"):  # numpy array
+                    result_row[key] = value.tolist()
+                elif hasattr(value, "item"):  # numpy/pandas scalar
+                    # Get the Python native value
+                    native_val = value.item()
+                    # Keep score/numeric fields as numbers
+                    if "score" in key.lower() or "count" in key.lower():
+                        result_row[key] = native_val
+                    # For ID fields, convert integer-like floats to strings
+                    elif (
+                        "id" in key.lower()
+                        and isinstance(native_val, float)
+                        and native_val == int(native_val)
+                    ):
+                        result_row[key] = str(int(native_val))
+                    else:
+                        result_row[key] = native_val
+                # Convert regular Python float
+                elif isinstance(value, float) and not isinstance(value, bool):
+                    # NaN becomes None to match schema null expectation
+                    if value != value:
+                        result_row[key] = None
+                    # Keep score/numeric fields as numbers
+                    elif "score" in key.lower() or "count" in key.lower():
+                        result_row[key] = value
+                    # For ID fields, convert integer-like floats to strings
+                    elif "id" in key.lower() and value == int(value):
+                        result_row[key] = str(int(value))
+                # Convert numeric string to number if key contains 'score' or similar numeric fields
+                elif (
+                    isinstance(value, str)
+                    and "score" in key.lower()
+                    and value.replace(".", "", 1).replace("-", "", 1).isdigit()
+                ):
+                    # Try to convert numeric strings to numbers for schema validation
+                    try:
+                        if "." in value:
+                            result_row[key] = float(value)
+                        else:
+                            result_row[key] = int(value) if value else None
+                    except (ValueError, TypeError):
+                        pass  # Keep as string if conversion fails
 
         return {
             "total_matches": len(filtered_data),

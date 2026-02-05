@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections import ChainMap
 from collections.abc import Iterable, Mapping, MutableMapping
 from copy import deepcopy
 from functools import cache, lru_cache
@@ -85,18 +86,33 @@ def _find(obj: object, predicate: lt.Callable[[lt.Any], bool]) -> Iterable[objec
 
 def _dereference(namespace: MutableMapping, base_schema: Namespace) -> None:
     # In-place, recursively dereference objects
-    # This allows a referenced object to itself contain a reference
-    # A dependency graph could be constructed, but would likely be slower
-    # to build than to duplicate a couple dereferences
+    # This allows for referencing objects that contain references,
+    # as well as objects that do not exist until a parent is dereferenced.
     for struct in _find(namespace, lambda obj: "$ref" in obj):
         assert isinstance(struct, MutableMapping)
-        target = base_schema.get(struct["$ref"])
-        if target is None:
-            raise ValueError(f"Reference {struct['$ref']} not found in schema.")
-        if isinstance(target, MutableMapping):
+        refs = struct["$ref"]
+        if isinstance(refs, str):
+            refs = [refs]
+        targets = []
+        for ref in refs:
+            target: Namespace = base_schema
+            for part in ref.split("."):
+                if part not in target:
+                    raise ValueError(f"Reference {ref} not found in schema.")
+                target = target[part]
+                if "$ref" in target:
+                    _dereference(target, base_schema)
+            targets.append(target)
+
+        if all(isinstance(target, MutableMapping) for target in targets):
             struct.pop("$ref")
-            _dereference(target, base_schema)
-            struct.update({**target, **struct})
+
+            struct.update({**ChainMap(*targets), **struct})
+
+            # Use `key: null` to delete fields
+            for key, value in list(struct.items()):
+                if value is None:
+                    del struct[key]
 
 
 @cache

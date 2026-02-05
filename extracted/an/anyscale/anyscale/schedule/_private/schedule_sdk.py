@@ -180,6 +180,35 @@ class PrivateScheduleSDK(BaseSDK):
         self.logger.info(f"Triggered job for schedule '{schedule_model.name}'.")
         return schedule_model.id
 
+    def delete(
+        self,
+        *,
+        id: Optional[str] = None,  # noqa: A002
+        name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+    ) -> str:
+        """Delete a schedule.
+
+        If the schedule is active, it will be automatically paused before deletion.
+        The schedule must have no active triggered jobs.
+
+        Args:
+            id: The schedule ID.
+            name: The schedule name (requires cloud and project).
+            cloud: Cloud name (required with name).
+            project: Project name (required with name).
+
+        Returns:
+            The ID of the deleted schedule.
+        """
+        schedule_model = self._resolve_to_schedule_model(
+            name=name, id=id, cloud=cloud, project=project
+        )
+        self.client.delete_schedule(schedule_id=schedule_model.id)
+        self.logger.info(f"Schedule '{schedule_model.name}' deleted.")
+        return schedule_model.id
+
     def url(
         self,
         *,

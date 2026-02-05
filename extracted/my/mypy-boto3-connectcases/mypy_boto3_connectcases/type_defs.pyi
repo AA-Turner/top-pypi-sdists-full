@@ -108,6 +108,7 @@ __all__ = (
     "EventBridgeConfigurationUnionTypeDef",
     "EventIncludedDataOutputTypeDef",
     "EventIncludedDataTypeDef",
+    "FieldAttributesTypeDef",
     "FieldErrorTypeDef",
     "FieldFilterTypeDef",
     "FieldGroupOutputTypeDef",
@@ -212,6 +213,7 @@ __all__ = (
     "TagValueTypeDef",
     "TemplateRuleTypeDef",
     "TemplateSummaryTypeDef",
+    "TextAttributesTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateCaseRequestTypeDef",
     "UpdateCaseRuleRequestTypeDef",
@@ -266,21 +268,6 @@ FieldErrorTypeDef = TypedDict(
         "id": str,
         "errorCode": str,
         "message": NotRequired[str],
-    },
-)
-GetFieldResponseTypeDef = TypedDict(
-    "GetFieldResponseTypeDef",
-    {
-        "fieldId": str,
-        "name": str,
-        "fieldArn": str,
-        "type": FieldTypeType,
-        "namespace": FieldNamespaceType,
-        "description": NotRequired[str],
-        "tags": NotRequired[dict[str, str]],
-        "deleted": NotRequired[bool],
-        "createdTime": NotRequired[datetime],
-        "lastModifiedTime": NotRequired[datetime],
     },
 )
 
@@ -348,16 +335,6 @@ class ContactTypeDef(TypedDict):
 class CreateDomainRequestTypeDef(TypedDict):
     name: str
 
-CreateFieldRequestTypeDef = TypedDict(
-    "CreateFieldRequestTypeDef",
-    {
-        "domainId": str,
-        "name": str,
-        "type": FieldTypeType,
-        "description": NotRequired[str],
-    },
-)
-
 class LayoutConfigurationTypeDef(TypedDict):
     defaultLayout: NotRequired[str]
 
@@ -404,6 +381,9 @@ class DomainSummaryTypeDef(TypedDict):
 class RelatedItemEventIncludedDataTypeDef(TypedDict):
     includeContent: bool
 
+class TextAttributesTypeDef(TypedDict):
+    isMultiline: bool
+
 FieldItemTypeDef = TypedDict(
     "FieldItemTypeDef",
     {
@@ -418,17 +398,6 @@ class ParentChildFieldOptionsMappingOutputTypeDef(TypedDict):
 class ParentChildFieldOptionsMappingTypeDef(TypedDict):
     parentFieldOptionValue: str
     childFieldOptionValues: Sequence[str]
-
-FieldSummaryTypeDef = TypedDict(
-    "FieldSummaryTypeDef",
-    {
-        "fieldId": str,
-        "fieldArn": str,
-        "name": str,
-        "type": FieldTypeType,
-        "namespace": FieldNamespaceType,
-    },
-)
 
 class FieldValueUnionOutputTypeDef(TypedDict):
     stringValue: NotRequired[str]
@@ -553,12 +522,6 @@ class UntagResourceRequestTypeDef(TypedDict):
     arn: str
     tagKeys: Sequence[str]
 
-class UpdateFieldRequestTypeDef(TypedDict):
-    domainId: str
-    fieldId: str
-    name: NotRequired[str]
-    description: NotRequired[str]
-
 class AuditEventFieldTypeDef(TypedDict):
     eventFieldId: str
     newValue: AuditEventFieldValueUnionTypeDef
@@ -640,11 +603,6 @@ class GetCaseRequestTypeDef(TypedDict):
     fields: Sequence[FieldIdentifierTypeDef]
     nextToken: NotRequired[str]
 
-class BatchGetFieldResponseTypeDef(TypedDict):
-    fields: list[GetFieldResponseTypeDef]
-    errors: list[FieldErrorTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class BatchPutFieldOptionsRequestTypeDef(TypedDict):
     domainId: str
     fieldId: str
@@ -684,6 +642,9 @@ class ListDomainsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class FieldAttributesTypeDef(TypedDict):
+    text: NotRequired[TextAttributesTypeDef]
+
 class FieldGroupOutputTypeDef(TypedDict):
     fields: list[FieldItemTypeDef]
     name: NotRequired[str]
@@ -701,11 +662,6 @@ class FieldOptionsCaseRuleTypeDef(TypedDict):
     parentChildFieldOptionsMappings: Sequence[ParentChildFieldOptionsMappingTypeDef]
     parentFieldId: NotRequired[str]
     childFieldId: NotRequired[str]
-
-class ListFieldsResponseTypeDef(TypedDict):
-    fields: list[FieldSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
 
 FieldValueOutputTypeDef = TypedDict(
     "FieldValueOutputTypeDef",
@@ -793,6 +749,51 @@ class BooleanConditionOutputTypeDef(TypedDict):
 class BooleanConditionTypeDef(TypedDict):
     equalTo: NotRequired[BooleanOperandsTypeDef]
     notEqualTo: NotRequired[BooleanOperandsTypeDef]
+
+CreateFieldRequestTypeDef = TypedDict(
+    "CreateFieldRequestTypeDef",
+    {
+        "domainId": str,
+        "name": str,
+        "type": FieldTypeType,
+        "description": NotRequired[str],
+        "attributes": NotRequired[FieldAttributesTypeDef],
+    },
+)
+FieldSummaryTypeDef = TypedDict(
+    "FieldSummaryTypeDef",
+    {
+        "fieldId": str,
+        "fieldArn": str,
+        "name": str,
+        "type": FieldTypeType,
+        "namespace": FieldNamespaceType,
+        "attributes": NotRequired[FieldAttributesTypeDef],
+    },
+)
+GetFieldResponseTypeDef = TypedDict(
+    "GetFieldResponseTypeDef",
+    {
+        "fieldId": str,
+        "name": str,
+        "fieldArn": str,
+        "type": FieldTypeType,
+        "namespace": FieldNamespaceType,
+        "description": NotRequired[str],
+        "tags": NotRequired[dict[str, str]],
+        "deleted": NotRequired[bool],
+        "createdTime": NotRequired[datetime],
+        "lastModifiedTime": NotRequired[datetime],
+        "attributes": NotRequired[FieldAttributesTypeDef],
+    },
+)
+
+class UpdateFieldRequestTypeDef(TypedDict):
+    domainId: str
+    fieldId: str
+    name: NotRequired[str]
+    description: NotRequired[str]
+    attributes: NotRequired[FieldAttributesTypeDef]
 
 class SectionOutputTypeDef(TypedDict):
     fieldGroup: NotRequired[FieldGroupOutputTypeDef]
@@ -892,6 +893,16 @@ class RequiredCaseRuleTypeDef(TypedDict):
     defaultValue: bool
     conditions: Sequence[BooleanConditionTypeDef]
 
+class ListFieldsResponseTypeDef(TypedDict):
+    fields: list[FieldSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class BatchGetFieldResponseTypeDef(TypedDict):
+    fields: list[GetFieldResponseTypeDef]
+    errors: list[FieldErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class LayoutSectionsOutputTypeDef(TypedDict):
     sections: NotRequired[list[SectionOutputTypeDef]]
 
@@ -900,6 +911,7 @@ class LayoutSectionsTypeDef(TypedDict):
 
 class SearchCasesResponseTypeDef(TypedDict):
     cases: list[SearchCasesResponseItemTypeDef]
+    totalCount: int
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

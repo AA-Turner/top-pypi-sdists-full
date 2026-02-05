@@ -1,7 +1,7 @@
 """
 metabolights_get_study_data_files
 
-Get data file listings for a MetaboLights study. Returns metadata about analytical data files (ra...
+Search for data files in a MetaboLights study. Returns a list of files matching the search criter...
 """
 
 from typing import Any, Optional, Callable
@@ -10,18 +10,27 @@ from ._shared_client import get_shared_client
 
 def metabolights_get_study_data_files(
     study_id: str,
+    search_pattern: Optional[str] = "FILES/*",
+    file_match: Optional[bool] = True,
+    folder_match: Optional[bool] = False,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
-    Get data file listings for a MetaboLights study. Returns metadata about analytical data files (ra...
+    Search for data files in a MetaboLights study. Returns a list of files matching the search criter...
 
     Parameters
     ----------
     study_id : str
-        MetaboLights study ID (e.g., 'MTBLS1'). Use metabolights_list_studies or meta...
+        MetaboLights study ID (e.g., 'MTBLS1')
+    search_pattern : str
+        Search pattern for files (e.g., '*.mzML', '*.zip', '*.d'). Default is 'FILES/...
+    file_match : bool
+        Include file matches in results. At least one of file_match or folder_match m...
+    folder_match : bool
+        Include folder matches in results. At least one of file_match or folder_match...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -31,14 +40,19 @@ def metabolights_get_study_data_files(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 
     return get_shared_client().run_one_function(
         {
             "name": "metabolights_get_study_data_files",
-            "arguments": {"study_id": study_id},
+            "arguments": {
+                "study_id": study_id,
+                "search_pattern": search_pattern,
+                "file_match": file_match,
+                "folder_match": folder_match,
+            },
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

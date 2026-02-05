@@ -6,8 +6,9 @@ import re
 import string
 from typing import List, Optional
 
+from pyrit.identifiers import ConverterIdentifier
 from pyrit.models import PromptDataType
-from pyrit.prompt_converter import ConverterResult, PromptConverter
+from pyrit.prompt_converter.prompt_converter import ConverterResult, PromptConverter
 
 
 class InsertPunctuationConverter(PromptConverter):
@@ -19,12 +20,15 @@ class InsertPunctuationConverter(PromptConverter):
     "a1b2c3" is a word; "a1 2" are 2 words; "a1,b,3" are 3 words.
     """
 
+    SUPPORTED_INPUT_TYPES = ("text",)
+    SUPPORTED_OUTPUT_TYPES = ("text",)
+
     #: Common punctuation characters. Used if no punctuation list is provided.
     default_punctuation_list = [",", ".", "!", "?", ":", ";", "-"]
 
     def __init__(self, word_swap_ratio: float = 0.2, between_words: bool = True) -> None:
         """
-        Initializes the converter with a word swap ratio and punctuation insertion mode.
+        Initialize the converter with a word swap ratio and punctuation insertion mode.
 
         Args:
             word_swap_ratio (float): Percentage of words to perturb. Defaults to 0.2.
@@ -40,6 +44,20 @@ class InsertPunctuationConverter(PromptConverter):
 
         self._word_swap_ratio = word_swap_ratio
         self._between_words = between_words
+
+    def _build_identifier(self) -> ConverterIdentifier:
+        """
+        Build identifier with punctuation insertion parameters.
+
+        Returns:
+            ConverterIdentifier: The identifier for this converter.
+        """
+        return self._create_identifier(
+            converter_specific_params={
+                "word_swap_ratio": self._word_swap_ratio,
+                "between_words": self._between_words,
+            }
+        )
 
     def _is_valid_punctuation(self, punctuation_list: List[str]) -> bool:
         """
@@ -58,7 +76,7 @@ class InsertPunctuationConverter(PromptConverter):
         self, *, prompt: str, input_type: PromptDataType = "text", punctuation_list: Optional[List[str]] = None
     ) -> ConverterResult:
         """
-        Converts the given prompt by inserting punctuation.
+        Convert the given prompt by inserting punctuation.
 
         Args:
             prompt (str): The text to convert.
@@ -148,7 +166,7 @@ class InsertPunctuationConverter(PromptConverter):
         Insert punctuation at any indices in the prompt, can insert into a word.
 
         Args:
-            promp str: The prompt string
+            prompt (str): The prompt string
             num_insertions (int): Number of punctuations to insert.
             punctuation_list (List[str]): punctuations for insertion.
 
@@ -168,9 +186,3 @@ class InsertPunctuationConverter(PromptConverter):
             prompt_list.insert(index, random.choice(punctuation_list))
 
         return "".join(prompt_list).strip()
-
-    def input_supported(self, input_type: PromptDataType) -> bool:
-        return input_type == "text"
-
-    def output_supported(self, output_type: PromptDataType) -> bool:
-        return output_type == "text"

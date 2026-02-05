@@ -1,5 +1,5 @@
 //
-// Copyright 2021 Staysail Systems, Inc. <info@staysail.tech>
+// Copyright 2024 Staysail Systems, Inc. <info@staysail.tech>
 // Copyright 2018 Capitar IT Group BV <info@capitar.com>
 //
 // This software is supplied under the terms of the MIT License, a
@@ -25,23 +25,24 @@
 // for it to ensure that names can be looked up concurrently.  This isn't
 // as elegant or scalable as a true asynchronous resolver would be, but
 // it has the advantage of being fairly portable, and concurrent enough for
-// the vast, vast majority of use cases.  The total thread count can be
+// the vast majority of use cases.  The total thread count can be
 // changed with this define.  Note that some platforms may not have a
 // thread-safe getaddrinfo().  In that case they should set this to 1.
 
-#ifndef NNG_RESOLV_CONCURRENCY
-#define NNG_RESOLV_CONCURRENCY 4
-#endif
-
 #ifndef AI_NUMERICSERV
 #define AI_NUMERICSERV 0
+#endif
+
+#ifndef NNG_HAVE_INET6
+#undef NNG_ENABLE_IPV6
 #endif
 
 static nni_mtx  resolv_mtx  = NNI_MTX_INITIALIZER;
 static nni_cv   resolv_cv   = NNI_CV_INITIALIZER(&resolv_mtx);
 static bool     resolv_fini = false;
 static nni_list resolv_aios;
-static nni_thr  resolv_thrs[NNG_RESOLV_CONCURRENCY];
+static nni_thr *resolv_thrs;
+static int      resolv_num_thr;
 
 typedef struct resolv_item resolv_item;
 struct resolv_item {
@@ -185,17 +186,23 @@ resolv_task(resolv_item *item)
 
 	rv = NNG_EADDRINVAL;
 	for (probe = results; probe != NULL; probe = probe->ai_next) {
-		if ((probe->ai_addr->sa_family == AF_INET) ||
-		    (probe->ai_addr->sa_family == AF_INET6)) {
+		if (probe->ai_addr->sa_family == AF_INET) {
 			break;
 		}
+#ifdef NNG_ENABLE_IPV6
+		if (probe->ai_addr->sa_family == AF_INET6) {
+			break;
+		}
+#endif
 	}
 
 	nni_mtx_lock(&resolv_mtx);
 	if ((probe != NULL) && (item->aio != NULL)) {
-		struct sockaddr_in  *sin;
+		struct sockaddr_in *sin;
+#ifdef NNG_ENABLE_IPV6
 		struct sockaddr_in6 *sin6;
-		nng_sockaddr        *sa = item->sa;
+#endif
+		nng_sockaddr *sa = item->sa;
 
 		switch (probe->ai_addr->sa_family) {
 		case AF_INET:
@@ -205,6 +212,7 @@ resolv_task(resolv_item *item)
 			sa->s_in.sa_port   = sin->sin_port;
 			sa->s_in.sa_addr   = sin->sin_addr.s_addr;
 			break;
+#ifdef NNG_ENABLE_IPV6
 		case AF_INET6:
 			rv                  = 0;
 			sin6                = (void *) probe->ai_addr;
@@ -213,6 +221,7 @@ resolv_task(resolv_item *item)
 			sa->s_in6.sa_scope  = sin6->sin6_scope_id;
 			memcpy(sa->s_in6.sa_addr, sin6->sin6_addr.s6_addr, 16);
 			break;
+#endif
 		}
 	}
 	nni_mtx_unlock(&resolv_mtx);
@@ -241,12 +250,20 @@ nni_resolv_ip(const char *host, const char *serv, int af, bool passive,
 	case NNG_AF_INET:
 		fam = AF_INET;
 		break;
+
+#ifdef NNG_ENABLE_IPV6
 	case NNG_AF_INET6:
 		fam = AF_INET6;
 		break;
 	case NNG_AF_UNSPEC:
 		fam = AF_UNSPEC;
 		break;
+#else
+	case NNG_AF_UNSPEC:
+		fam = AF_INET;
+		break;
+#endif
+
 	default:
 		nni_aio_finish_error(aio, NNG_ENOTSUP);
 		return;
@@ -345,12 +362,16 @@ parse_ip(const char *addr, nng_sockaddr *sa, bool want_port)
 	struct addrinfo  hints;
 	struct addrinfo *results;
 	int              rv;
-	bool             v6      = false;
-	bool             wrapped = false;
 	char            *port;
 	char            *host;
 	char            *buf;
 	size_t           buf_len;
+
+#ifdef NNG_ENABLE_IPV6
+	bool  v6      = false;
+	bool  wrapped = false;
+	char *s;
+#endif
 
 	if (addr == NULL) {
 		addr = "";
@@ -362,12 +383,12 @@ parse_ip(const char *addr, nng_sockaddr *sa, bool want_port)
 	}
 	memcpy(buf, addr, buf_len);
 	host = buf;
+#ifdef NNG_ENABLE_IPV6
 	if (*host == '[') {
 		v6      = true;
 		wrapped = true;
 		host++;
 	} else {
-		char *s;
 		for (s = host; *s != '\0'; s++) {
 			if (*s == '.') {
 				break;
@@ -397,6 +418,13 @@ parse_ip(const char *addr, nng_sockaddr *sa, bool want_port)
 		rv = NNG_EADDRINVAL;
 		goto done;
 	}
+#else  // NNG_ENABLE_IPV6
+	for (port = host; *port != '\0'; port++) {
+		if (*port == ':') {
+			break;
+		}
+	}
+#endif // NNG_ENABLE_IPV6
 
 	if ((!want_port) && (*port != '\0')) {
 		rv = NNG_EADDRINVAL;
@@ -411,9 +439,13 @@ parse_ip(const char *addr, nng_sockaddr *sa, bool want_port)
 
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_flags = AI_NUMERICSERV | AI_NUMERICHOST | AI_PASSIVE;
+#ifdef NNG_ENABLE_IPV6
 	if (v6) {
 		hints.ai_family = AF_INET6;
 	}
+#else
+	hints.ai_family = AF_INET;
+#endif
 #ifdef AI_ADDRCONFIG
 	hints.ai_flags |= AI_ADDRCONFIG;
 #endif
@@ -450,14 +482,30 @@ nni_posix_resolv_sysinit(void)
 	resolv_fini = false;
 	nni_aio_list_init(&resolv_aios);
 
-	for (int i = 0; i < NNG_RESOLV_CONCURRENCY; i++) {
+#ifndef NNG_RESOLV_CONCURRENCY
+#define NNG_RESOLV_CONCURRENCY 4
+#endif
+
+	resolv_num_thr = (int) nni_init_get_param(
+	    NNG_INIT_NUM_RESOLVER_THREADS, NNG_RESOLV_CONCURRENCY);
+	if (resolv_num_thr < 1) {
+		resolv_num_thr = 1;
+	}
+	// no limit on the maximum for now
+	nni_init_set_effective(NNG_INIT_NUM_RESOLVER_THREADS, resolv_num_thr);
+	resolv_thrs = NNI_ALLOC_STRUCTS(resolv_thrs, resolv_num_thr);
+	if (resolv_thrs == NULL) {
+		return (NNG_ENOMEM);
+	}
+
+	for (int i = 0; i < resolv_num_thr; i++) {
 		int rv = nni_thr_init(&resolv_thrs[i], resolv_worker, NULL);
 		if (rv != 0) {
 			nni_posix_resolv_sysfini();
 			return (rv);
 		}
 	}
-	for (int i = 0; i < NNG_RESOLV_CONCURRENCY; i++) {
+	for (int i = 0; i < resolv_num_thr; i++) {
 		nni_thr_run(&resolv_thrs[i]);
 	}
 
@@ -472,8 +520,11 @@ nni_posix_resolv_sysfini(void)
 	nni_cv_wake(&resolv_cv);
 	nni_mtx_unlock(&resolv_mtx);
 
-	for (int i = 0; i < NNG_RESOLV_CONCURRENCY; i++) {
-		nni_thr_fini(&resolv_thrs[i]);
+	if (resolv_thrs != NULL) {
+		for (int i = 0; i < resolv_num_thr; i++) {
+			nni_thr_fini(&resolv_thrs[i]);
+		}
+		NNI_FREE_STRUCTS(resolv_thrs, resolv_num_thr);
 	}
 }
 

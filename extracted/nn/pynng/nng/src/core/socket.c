@@ -1,5 +1,5 @@
 //
-// Copyright 2023 Staysail Systems, Inc. <info@staysail.tech>
+// Copyright 2024 Staysail Systems, Inc. <info@staysail.tech>
 // Copyright 2018 Capitar IT Group BV <info@capitar.com>
 //
 // This software is supplied under the terms of the MIT License, a
@@ -9,7 +9,10 @@
 //
 
 #include "core/nng_impl.h"
+#include "core/pipe.h"
 #include "list.h"
+#include "nng/nng.h"
+#include "nng/supplemental/tls/tls.h"
 #include "sockimpl.h"
 
 #include <stdio.h>
@@ -81,7 +84,6 @@ struct nni_socket {
 
 	bool s_closing; // Socket is closing
 	bool s_closed;  // Socket closed, protected by global lock
-	bool s_ctxwait; // Waiting for contexts to close.
 
 	nni_mtx          s_pipe_cbs_mtx;
 	nni_sock_pipe_cb s_pipe_cbs[NNG_PIPE_EV_NUM];
@@ -336,6 +338,10 @@ static const nni_option sock_options[] = {
 static void
 nni_free_opt(nni_sockopt *opt)
 {
+	if ((strcmp(opt->name, NNG_OPT_TLS_CONFIG) == 0) &&
+	    (opt->sz == sizeof(nng_tls_config *))) {
+		nng_tls_config_free(*(nng_tls_config **) (opt->data));
+	}
 	nni_strfree(opt->name);
 	nni_free(opt->data, opt->sz);
 	NNI_FREE_STRUCT(opt);
@@ -641,7 +647,7 @@ nni_sock_open(nni_sock **sockp, const nni_proto *proto)
 	}
 
 	nni_mtx_lock(&sock_lk);
-	if ((rv = nni_id_alloc(&sock_ids, &s->s_id, s)) != 0) {
+	if ((rv = nni_id_alloc32(&sock_ids, &s->s_id, s)) != 0) {
 		nni_mtx_unlock(&sock_lk);
 		sock_destroy(s);
 		return (rv);
@@ -732,7 +738,6 @@ nni_sock_shutdown(nni_sock *sock)
 	// a chance to do so gracefully.
 
 	while (!nni_list_empty(&sock->s_ctxs)) {
-		sock->s_ctxwait = true;
 		nni_cv_wait(&sock->s_close_cv);
 	}
 	nni_mtx_unlock(&sock_lk);
@@ -796,7 +801,6 @@ nni_sock_close(nni_sock *s)
 
 	// Wait for all other references to drop.  Note that we
 	// have a reference already (from our caller).
-	s->s_ctxwait = true;
 	while ((s->s_ref > 1) || (!nni_list_empty(&s->s_ctxs))) {
 		nni_cv_wait(&s->s_close_cv);
 	}
@@ -873,16 +877,40 @@ nni_sock_peer_name(nni_sock *sock)
 	return (sock->s_peer_id.p_name);
 }
 
+bool
+nni_sock_raw(nni_sock *sock)
+{
+	return ((nni_sock_flags(sock) & NNI_PROTO_FLAG_RAW) != 0);
+}
+
 struct nni_proto_pipe_ops *
 nni_sock_proto_pipe_ops(nni_sock *sock)
 {
 	return (&sock->s_pipe_ops);
 }
 
+struct nni_proto_sock_ops *
+nni_sock_proto_ops(nni_sock *sock)
+{
+	return (&sock->s_sock_ops);
+}
+
+struct nni_proto_ctx_ops *
+nni_ctx_proto_ops(nni_ctx *ctx)
+{
+	return (&ctx->c_ops);
+}
+
 void *
 nni_sock_proto_data(nni_sock *sock)
 {
 	return (sock->s_data);
+}
+
+void *
+nni_ctx_proto_data(nni_ctx *ctx)
+{
+	return (ctx->c_data);
 }
 
 int
@@ -940,7 +968,7 @@ int
 nni_sock_add_dialer(nni_sock *s, nni_dialer *d)
 {
 	nni_sockopt *sopt;
-	int rv;
+	int          rv;
 
 	// grab a hold on the dialer for the socket
 	if ((rv = nni_dialer_hold(d)) != 0) {
@@ -1046,9 +1074,13 @@ nni_sock_setopt(
 		// TLS options may not be supported if TLS is not
 		// compiled in.  Supporting all these is deprecated.
 	} else if (strcmp(name, NNG_OPT_TLS_CONFIG) == 0) {
-		if ((rv = nni_copyin_ptr(NULL, v, sz, t)) != 0) {
+		nng_tls_config *tc;
+		if ((rv = nni_copyin_ptr((void **) &tc, v, sz, t)) != 0) {
 			return (rv);
 		}
+		// place a hold on this configuration object
+		nng_tls_config_hold(tc);
+
 	} else if ((strcmp(name, NNG_OPT_TLS_SERVER_NAME) == 0) ||
 	    (strcmp(name, NNG_OPT_TLS_CA_FILE) == 0) ||
 	    (strcmp(name, NNG_OPT_TLS_CERT_KEY_FILE) == 0)) {
@@ -1305,9 +1337,7 @@ nni_ctx_rele(nni_ctx *ctx)
 	// tries to avoid ID reuse.
 	nni_id_remove(&ctx_ids, ctx->c_id);
 	nni_list_remove(&sock->s_ctxs, ctx);
-	if (sock->s_closed || sock->s_ctxwait) {
-		nni_cv_wake(&sock->s_close_cv);
-	}
+	nni_cv_wake(&sock->s_close_cv);
 	nni_mtx_unlock(&sock_lk);
 
 	nni_ctx_destroy(ctx);
@@ -1343,7 +1373,7 @@ nni_ctx_open(nni_ctx **ctxp, nni_sock *sock)
 		nni_free(ctx, ctx->c_size);
 		return (NNG_ECLOSED);
 	}
-	if ((rv = nni_id_alloc(&ctx_ids, &ctx->c_id, ctx)) != 0) {
+	if ((rv = nni_id_alloc32(&ctx_ids, &ctx->c_id, ctx)) != 0) {
 		nni_mtx_unlock(&sock_lk);
 		nni_free(ctx, ctx->c_size);
 		return (rv);
@@ -1479,8 +1509,8 @@ dialer_timer_start_locked(nni_dialer *d)
 	// This algorithm may lead to slight biases because we don't
 	// have a statistically perfect distribution with the modulo of
 	// the random number, but this really doesn't matter.
-	nni_sleep_aio(
-	    back_off ? (int) nni_random() % back_off : 0, &d->d_tmo_aio);
+	nni_sleep_aio(back_off ? (nng_duration) (nni_random() % back_off) : 0,
+	    &d->d_tmo_aio);
 }
 
 void
@@ -1522,6 +1552,12 @@ nni_dialer_add_pipe(nni_dialer *d, void *tpipe)
 		nni_stat_inc(&d->st_reject, 1);
 		nni_stat_inc(&s->st_rejects, 1);
 #endif
+		if (nng_log_get_level() >= NNG_LOG_DEBUG) {
+			char addr[NNG_MAXADDRSTRLEN];
+			nng_log_debug("NNG-PIPEREJECT",
+			    "Pipe on socket<%u> from %s rejected by callback",
+			    nni_pipe_sock_id(p), nni_pipe_peer_addr(p, addr));
+		}
 		nni_pipe_rele(p);
 		return;
 	}
@@ -1541,6 +1577,12 @@ nni_dialer_add_pipe(nni_dialer *d, void *tpipe)
 	nni_stat_register(&p->st_root);
 #endif
 	nni_pipe_run_cb(p, NNG_PIPE_EV_ADD_POST);
+	if (nng_log_get_level() >= NNG_LOG_DEBUG) {
+		char addr[NNG_MAXADDRSTRLEN];
+		nng_log_debug("NNG-CONNECT",
+		    "Connected pipe<%u> on socket<%u> to %s", nni_pipe_id(p),
+		    nni_sock_id(s), nni_pipe_peer_addr(p, addr));
+	}
 	nni_pipe_rele(p);
 }
 
@@ -1651,6 +1693,12 @@ nni_listener_add_pipe(nni_listener *l, void *tpipe)
 	nni_stat_register(&p->st_root);
 #endif
 	nni_pipe_run_cb(p, NNG_PIPE_EV_ADD_POST);
+	if (nng_log_get_level() >= NNG_LOG_DEBUG) {
+		char addr[NNG_MAXADDRSTRLEN];
+		nng_log_debug("NNG-ACCEPT",
+		    "Accepted pipe<%u> on socket<%u> from %s", nni_pipe_id(p),
+		    nni_sock_id(s), nni_pipe_peer_addr(p, addr));
+	}
 	nni_pipe_rele(p);
 }
 
@@ -1771,9 +1819,7 @@ nni_pipe_remove(nni_pipe *p)
 		d->d_pipe = NULL;
 		dialer_timer_start_locked(d); // Kick the timer to redial.
 	}
-	if (s->s_closing) {
-		nni_cv_wake(&s->s_cv);
-	}
+	nni_cv_wake(&s->s_cv);
 	nni_mtx_unlock(&s->s_mx);
 }
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: megatron-energon
-Version: 7.3.1
+Version: 7.3.2
 Summary: Megatron's multi-modal data loader
 Project-URL: Homepage, https://github.com/NVIDIA/Megatron-Energon
 Author-email: Lukas Vögtle <lvoegtle@nvidia.com>, Philipp Fischer <pfischer@nvidia.com>
@@ -14,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.10
 Requires-Dist: braceexpand
 Requires-Dist: click
+Requires-Dist: filetype>=1.0.0
 Requires-Dist: mfusepy
 Requires-Dist: multi-storage-client>=0.33.0
 Requires-Dist: numpy
@@ -44,8 +45,6 @@ Requires-Dist: sphinx-rtd-theme; extra == 'dev'
 Requires-Dist: sphinxcontrib-napoleon; extra == 'dev'
 Provides-Extra: google-cloud-storage
 Requires-Dist: multi-storage-client[google-cloud-storage]; extra == 'google-cloud-storage'
-Provides-Extra: guess-content
-Requires-Dist: filetype>=1.0.0; extra == 'guess-content'
 Provides-Extra: huggingface
 Requires-Dist: multi-storage-client[huggingface]; extra == 'huggingface'
 Provides-Extra: oci

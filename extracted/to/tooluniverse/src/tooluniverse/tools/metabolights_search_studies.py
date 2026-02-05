@@ -16,7 +16,7 @@ def metabolights_search_studies(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
     Search MetaboLights studies by query string. Returns a list of matching study IDs. Use metaboligh...
 
@@ -37,7 +37,7 @@ def metabolights_search_studies(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

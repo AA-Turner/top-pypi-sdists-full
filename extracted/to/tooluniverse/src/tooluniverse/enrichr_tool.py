@@ -31,7 +31,12 @@ class EnrichrTool(BaseTool):
                 "GO_Biological_Process_2023",
             ],
         )
-        return self.enrichr_api(genes, libs)
+        connected_path, connections = self.enrichr_api(genes, libs)
+        # Convert to JSON string for schema compatibility
+        import json
+
+        result = {"connected_paths": connected_path, "connections": connections}
+        return {"status": "success", "data": json.dumps(result, indent=2)}
 
     def get_official_gene_name(self, gene_name):
         """

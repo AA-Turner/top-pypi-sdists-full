@@ -338,6 +338,7 @@ class SMCP(FastMCP):
                 hooks_enabled=hooks_enabled,
                 hook_config=hook_config,
                 hook_type=hook_type,
+                enable_name_shortening=True,
             )
 
         # Configuration
@@ -1248,9 +1249,9 @@ class SMCP(FastMCP):
                     continue
 
                 if tool_name and tool_name not in self._exposed_tools:
-                    self._create_mcp_tool_from_tooluniverse(tool_config)
+                    # tool_name is already shortened (primary identifier)
+                    self._create_mcp_tool_from_tooluniverse(tool_config, tool_name)
                     self._exposed_tools.add(tool_name)
-                    self.logger.debug(f"Exposed tool: {tool_name} (type: {tool_type})")
 
             except Exception as e:
                 self.logger.error(f"Error processing tool at index {i}: {e}")
@@ -2200,11 +2201,17 @@ class SMCP(FastMCP):
             # Cleanup
             asyncio.run(self.close())
 
-    def _create_mcp_tool_from_tooluniverse(self, tool_config: Dict[str, Any]):
+    def _create_mcp_tool_from_tooluniverse(
+        self, tool_config: Dict[str, Any], mcp_name: Optional[str] = None
+    ):
         """Create an MCP tool from a ToolUniverse tool configuration.
 
         This method creates a function with proper parameter signatures that match
         the ToolUniverse tool schema, enabling FastMCP's automatic parameter validation.
+
+        Args:
+            tool_config: ToolUniverse tool configuration dictionary
+            mcp_name: Optional shortened name for MCP exposure (if None, uses original name)
         """
         try:
             # Debug: Ensure tool_config is a dictionary
@@ -2214,6 +2221,8 @@ class SMCP(FastMCP):
                 )
 
             tool_name = tool_config["name"]
+            # Use shortened MCP name if provided, otherwise use original
+            exposed_name = mcp_name if mcp_name is not None else tool_name
             description = tool_config.get(
                 "description", f"ToolUniverse tool: {tool_name}"
             )
@@ -2569,8 +2578,8 @@ class SMCP(FastMCP):
                         ensure_ascii=False,
                     )
 
-            # Set function metadata
-            dynamic_tool_function.__name__ = tool_name
+            # Set function metadata (use exposed_name for MCP registration)
+            dynamic_tool_function.__name__ = exposed_name
             dynamic_tool_function.__signature__ = inspect.Signature(func_params)
             annotations = param_annotations.copy()
             annotations["return"] = str
@@ -2605,7 +2614,7 @@ Returns:
                 destructiveHint=annotations_dict.get("destructiveHint"),
             )
 
-            # Register with FastMCP using explicit description and annotations
+            # Register with FastMCP using exposed_name for MCP, but tool execution uses original tool_name
             self.tool(description=description, annotations=tool_annotations)(
                 dynamic_tool_function
             )

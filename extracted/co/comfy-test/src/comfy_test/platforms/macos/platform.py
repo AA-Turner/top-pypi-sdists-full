@@ -115,18 +115,22 @@ class MacOSPlatform(TestPlatform):
             custom_nodes_dir=custom_nodes_dir,
         )
 
-    def install_node(self, paths: TestPaths, node_dir: Path) -> None:
+    def install_node(self, paths: TestPaths, node_dir: Path, deps_installed: bool = False) -> None:
         """
         Install custom node into ComfyUI.
 
         1. Symlink to custom_nodes/
-        2. Install requirements.txt if present
-        3. Run install.py if present
+        2. Install requirements.txt if present - unless deps_installed
+        3. Run install.py if present - unless deps_installed
         """
         node_dir = Path(node_dir).resolve()
         node_name = node_dir.name
 
         target_dir = paths.custom_nodes_dir / node_name
+
+        if deps_installed:
+            self._log("Skipping symlink, requirements.txt, and install.py (--deps-installed)")
+            return
 
         # Create symlink (macOS supports symlinks natively)
         self._log(f"Linking {node_name} to custom_nodes/...")

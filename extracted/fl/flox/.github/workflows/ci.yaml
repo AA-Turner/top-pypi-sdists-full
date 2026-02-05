@@ -23,14 +23,14 @@ jobs:
       matrix:
         os: ["ubuntu-latest"]
         env: ["complete"]
-        python-version: ["3.11", "3.13"]
+        python-version: ["3.11", "3.14"]
         include:
           - os: "windows-latest"
             env: "complete"
-            python-version: "3.13"
+            python-version: "3.14"
           - os: "ubuntu-latest"
             env: "no-dask"
-            python-version: "3.13"
+            python-version: "3.14"
           - os: "ubuntu-latest"
             env: "minimal"
             python-version: "3.11"
@@ -60,7 +60,7 @@ jobs:
       # https://github.com/actions/cache/blob/main/tips-and-workarounds.md#update-a-cache
       - name: Restore cached hypothesis directory
         id: restore-hypothesis-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: .hypothesis/
           key: cache-hypothesis-${{ runner.os }}-${{ matrix.python-version }}-${{ github.run_id }}
@@ -73,7 +73,7 @@ jobs:
           uv run --no-dev python -c "import xarray; xarray.show_versions()" || true
           uv run --no-dev pytest --durations=20 --durations-min=0.5 -n auto --cov=./ --cov-report=xml --hypothesis-profile ci
       - name: Upload code coverage to Codecov
-        uses: codecov/codecov-action@v5.5.1
+        uses: codecov/codecov-action@v5.5.2
         with:
           file: ./coverage.xml
           flags: unittests
@@ -85,7 +85,7 @@ jobs:
       - name: Save cached hypothesis directory
         id: save-hypothesis-cache
         if: always() && steps.status.outcome != 'skipped'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: .hypothesis/
           key: cache-hypothesis-${{ runner.os }}-${{ matrix.python-version }}-${{ github.run_id }}
@@ -101,12 +101,14 @@ jobs:
       - name: Set up Python and uv
         uses: astral-sh/setup-uv@v7
         with:
-          python-version: "3.13"
+          python-version: "3.14"
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
       - name: Install xarray and dependencies
         run: |
-          uv add --dev ".[complete]" "pint>=0.22"
+          uv add --dev ".[dev]" "pint>=0.22"
+          uv pip uninstall h5netcdf
+          uv pip install pytz
       - name: Install upstream flox
         run: |
           uv add git+https://github.com/dcherian/flox.git@${{ github.ref }}

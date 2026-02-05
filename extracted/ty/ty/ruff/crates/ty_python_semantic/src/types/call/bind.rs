@@ -30,6 +30,7 @@ use crate::types::diagnostic::{
     CALL_NON_CALLABLE, CALL_TOP_CALLABLE, CONFLICTING_ARGUMENT_FORMS, INVALID_ARGUMENT_TYPE,
     INVALID_DATACLASS, MISSING_ARGUMENT, NO_MATCHING_OVERLOAD, PARAMETER_ALREADY_ASSIGNED,
     POSITIONAL_ONLY_PARAMETER_AS_KWARG, TOO_MANY_POSITIONAL_ARGUMENTS, UNKNOWN_ARGUMENT,
+    note_numbers_module_not_supported,
 };
 use crate::types::enums::is_enum_class;
 use crate::types::function::{
@@ -44,9 +45,9 @@ use crate::types::tuple::{TupleLength, TupleSpec, TupleType};
 use crate::types::{
     BoundMethodType, BoundTypeVarIdentity, BoundTypeVarInstance, CallableSignature, CallableType,
     CallableTypeKind, ClassLiteral, DATACLASS_FLAGS, DataclassFlags, DataclassParams,
-    FieldInstance, GenericAlias, KnownBoundMethodType, KnownClass, KnownInstanceType,
-    MemberLookupPolicy, NominalInstanceType, PropertyInstanceType, SpecialFormType,
-    TrackedConstraintSet, TypeAliasType, TypeContext, TypeVarVariance, UnionBuilder, UnionType,
+    FieldInstance, GenericAlias, InternedConstraintSet, KnownBoundMethodType, KnownClass,
+    KnownInstanceType, MemberLookupPolicy, NominalInstanceType, PropertyInstanceType,
+    SpecialFormType, TypeAliasType, TypeContext, TypeVarVariance, UnionBuilder, UnionType,
     WrapperDescriptorKind, enums, list_members, todo_type,
 };
 use crate::unpack::EvaluationMode;
@@ -778,7 +779,7 @@ impl<'db> Bindings<'db> {
                             if let [Some(ty_a), Some(ty_b)] = overload.parameter_types() {
                                 let constraints =
                                     ty_a.when_equivalent_to(db, *ty_b, InferableTypeVars::None);
-                                let tracked = TrackedConstraintSet::new(db, constraints);
+                                let tracked = InternedConstraintSet::new(db, constraints);
                                 overload.set_return_type(Type::KnownInstance(
                                     KnownInstanceType::ConstraintSet(tracked),
                                 ));
@@ -789,7 +790,7 @@ impl<'db> Bindings<'db> {
                             if let [Some(ty_a), Some(ty_b)] = overload.parameter_types() {
                                 let constraints =
                                     ty_a.when_subtype_of(db, *ty_b, InferableTypeVars::None);
-                                let tracked = TrackedConstraintSet::new(db, constraints);
+                                let tracked = InternedConstraintSet::new(db, constraints);
                                 overload.set_return_type(Type::KnownInstance(
                                     KnownInstanceType::ConstraintSet(tracked),
                                 ));
@@ -800,7 +801,7 @@ impl<'db> Bindings<'db> {
                             if let [Some(ty_a), Some(ty_b)] = overload.parameter_types() {
                                 let constraints =
                                     ty_a.when_assignable_to(db, *ty_b, InferableTypeVars::None);
-                                let tracked = TrackedConstraintSet::new(db, constraints);
+                                let tracked = InternedConstraintSet::new(db, constraints);
                                 overload.set_return_type(Type::KnownInstance(
                                     KnownInstanceType::ConstraintSet(tracked),
                                 ));
@@ -811,7 +812,7 @@ impl<'db> Bindings<'db> {
                             if let [Some(ty_a), Some(ty_b)] = overload.parameter_types() {
                                 let constraints =
                                     ty_a.when_disjoint_from(db, *ty_b, InferableTypeVars::None);
-                                let tracked = TrackedConstraintSet::new(db, constraints);
+                                let tracked = InternedConstraintSet::new(db, constraints);
                                 overload.set_return_type(Type::KnownInstance(
                                     KnownInstanceType::ConstraintSet(tracked),
                                 ));
@@ -1313,7 +1314,7 @@ impl<'db> Bindings<'db> {
                             return;
                         };
                         let constraints = ConstraintSet::range(db, *lower, *typevar, *upper);
-                        let tracked = TrackedConstraintSet::new(db, constraints);
+                        let tracked = InternedConstraintSet::new(db, constraints);
                         overload.set_return_type(Type::KnownInstance(
                             KnownInstanceType::ConstraintSet(tracked),
                         ));
@@ -1324,7 +1325,7 @@ impl<'db> Bindings<'db> {
                             return;
                         }
                         let constraints = ConstraintSet::from(true);
-                        let tracked = TrackedConstraintSet::new(db, constraints);
+                        let tracked = InternedConstraintSet::new(db, constraints);
                         overload.set_return_type(Type::KnownInstance(
                             KnownInstanceType::ConstraintSet(tracked),
                         ));
@@ -1335,7 +1336,7 @@ impl<'db> Bindings<'db> {
                             return;
                         }
                         let constraints = ConstraintSet::from(false);
-                        let tracked = TrackedConstraintSet::new(db, constraints);
+                        let tracked = InternedConstraintSet::new(db, constraints);
                         overload.set_return_type(Type::KnownInstance(
                             KnownInstanceType::ConstraintSet(tracked),
                         ));
@@ -1354,7 +1355,7 @@ impl<'db> Bindings<'db> {
                             tracked.constraints(db),
                             InferableTypeVars::None,
                         );
-                        let tracked = TrackedConstraintSet::new(db, result);
+                        let tracked = InternedConstraintSet::new(db, result);
                         overload.set_return_type(Type::KnownInstance(
                             KnownInstanceType::ConstraintSet(tracked),
                         ));
@@ -1374,7 +1375,7 @@ impl<'db> Bindings<'db> {
                         let result = tracked
                             .constraints(db)
                             .implies(db, || other.constraints(db));
-                        let tracked = TrackedConstraintSet::new(db, result);
+                        let tracked = InternedConstraintSet::new(db, result);
                         overload.set_return_type(Type::KnownInstance(
                             KnownInstanceType::ConstraintSet(tracked),
                         ));
@@ -2840,40 +2841,24 @@ impl<'a, 'db> ArgumentMatcher<'a, 'db> {
         }
 
         let variadic_type = match argument_type {
-            Some(argument_type @ Type::Union(union)) => {
-                // When accessing an instance attribute that is a `P.args`, the type we infer is
-                // `Unknown | P.args`. This needs to be special cased here to avoid calling
-                // `iterate` on it which will lose the `ParamSpec` information as it will return
-                // `object` that comes from the upper bound of `P.args`. What we want is to always
-                // use the `P.args` type to perform type checking against the parameter type. This
-                // will allow us to error when `*args: P.args` is matched against, for example,
-                // `n: int` and correctly type check when `*args: P.args` is matched against
-                // `*args: P.args` (another ParamSpec).
-                match union.elements(db) {
-                    [paramspec @ Type::TypeVar(typevar), other]
-                    | [other, paramspec @ Type::TypeVar(typevar)]
-                        if typevar.is_paramspec(db) && other.is_unknown() =>
-                    {
-                        VariadicArgumentType::ParamSpec(*paramspec)
-                    }
-                    _ => {
-                        // TODO: Same todo comment as in the non-paramspec case below
-                        VariadicArgumentType::Other(argument_type.iterate(db))
-                    }
-                }
-            }
-            Some(paramspec @ Type::TypeVar(typevar)) if typevar.is_paramspec(db) => {
-                VariadicArgumentType::ParamSpec(paramspec)
-            }
-            Some(argument_type) => {
+            // When accessing an instance attribute that is a `P.args`, the type we infer is
+            // `Unknown | P.args`. This needs to be special cased here to avoid calling
+            // `iterate` on it which will lose the `ParamSpec` information as it will return
+            // `object` that comes from the upper bound of `P.args`. What we want is to always
+            // use the `P.args` type to perform type checking against the parameter type. This
+            // will allow us to error when `*args: P.args` is matched against, for example,
+            // `n: int` and correctly type check when `*args: P.args` is matched against
+            // `*args: P.args` (another ParamSpec).
+            Some(argument_type) => match argument_type.as_paramspec_typevar(db) {
+                Some(paramspec) => VariadicArgumentType::ParamSpec(paramspec),
                 // TODO: `Type::iterate` internally handles unions, but in a lossy way.
                 // It might be superior here to manually map over the union and call `try_iterate`
                 // on each element, similar to the way that `unpacker.rs` does in the `unpack_inner` method.
                 // It might be a bit of a refactor, though.
                 // See <https://github.com/astral-sh/ruff/pull/20377#issuecomment-3401380305>
                 // for more details. --Alex
-                VariadicArgumentType::Other(argument_type.iterate(db))
-            }
+                None => VariadicArgumentType::Other(argument_type.iterate(db)),
+            },
             None => VariadicArgumentType::None,
         };
 
@@ -2985,20 +2970,9 @@ impl<'a, 'db> ArgumentMatcher<'a, 'db> {
             };
 
             let value_type = match argument_type {
-                Some(argument_type @ Type::Union(union)) => {
-                    // See the comment in `match_variadic` for why we special case this situation.
-                    match union.elements(db) {
-                        [paramspec @ Type::TypeVar(typevar), other]
-                        | [other, paramspec @ Type::TypeVar(typevar)]
-                            if typevar.is_paramspec(db) && other.is_unknown() =>
-                        {
-                            *paramspec
-                        }
-                        _ => dunder_getitem_return_type(argument_type),
-                    }
-                }
-                Some(paramspec @ Type::TypeVar(typevar)) if typevar.is_paramspec(db) => paramspec,
-                Some(argument_type) => dunder_getitem_return_type(argument_type),
+                Some(argument_type) => argument_type
+                    .as_paramspec_typevar(db)
+                    .unwrap_or_else(|| dunder_getitem_return_type(argument_type)),
                 None => Type::unknown(),
             };
 
@@ -3622,15 +3596,7 @@ impl<'a, 'db> ArgumentTypeChecker<'a, 'db> {
             }
         } else {
             let mut value_type_fallback = |argument_type: Type<'db>| {
-                let Some((key_type, value_type)) = argument_type.unpack_keys_and_items(self.db)
-                else {
-                    self.errors.push(BindingError::KeywordsNotAMapping {
-                        argument_index: adjusted_argument_index,
-                        provided_ty: argument_type,
-                    });
-
-                    return None;
-                };
+                let (key_type, value_type) = argument_type.unpack_keys_and_items(self.db)?;
 
                 if !key_type
                     .when_assignable_to(
@@ -3649,21 +3615,10 @@ impl<'a, 'db> ArgumentTypeChecker<'a, 'db> {
                 Some(value_type)
             };
 
-            let value_type = match argument_type {
-                Type::Union(union) => {
-                    // See the comment in `match_variadic` for why we special case this situation.
-                    match union.elements(self.db) {
-                        [paramspec @ Type::TypeVar(typevar), other]
-                        | [other, paramspec @ Type::TypeVar(typevar)]
-                            if typevar.is_paramspec(self.db) && other.is_unknown() =>
-                        {
-                            Some(*paramspec)
-                        }
-                        _ => value_type_fallback(argument_type),
-                    }
-                }
-                Type::TypeVar(typevar) if typevar.is_paramspec(self.db) => Some(argument_type),
-                _ => value_type_fallback(argument_type),
+            let value_type = if let Some(paramspec) = argument_type.as_paramspec_typevar(self.db) {
+                Some(paramspec)
+            } else {
+                value_type_fallback(argument_type)
             };
 
             let Some(value_type) = value_type else {
@@ -4237,10 +4192,6 @@ pub(crate) enum BindingError<'db> {
         argument_index: Option<usize>,
         provided_ty: Type<'db>,
     },
-    KeywordsNotAMapping {
-        argument_index: Option<usize>,
-        provided_ty: Type<'db>,
-    },
     /// One or more required parameters (that is, with no default) is not supplied by any argument.
     MissingArguments {
         parameters: ParameterContexts,
@@ -4340,7 +4291,6 @@ impl<'db> BindingError<'db> {
             // Matching errors: the overload doesn't apply to these arguments
             Self::InvalidArgumentType { .. }
             | Self::InvalidKeyType { .. }
-            | Self::KeywordsNotAMapping { .. }
             | Self::MissingArguments { .. }
             | Self::UnknownArgument { .. }
             | Self::PositionalOnlyParameterAsKwarg { .. }
@@ -4515,6 +4465,21 @@ impl<'db> BindingError<'db> {
                 if let Some(union_diag) = union_diag {
                     union_diag.add_union_context(context.db(), &mut diag);
                 }
+
+                // If the type comes from first-party code, the user may have some control over
+                // the parameter annotation; provide additional context to help them fix it.
+                if callable_ty
+                    .definition(context.db())
+                    .and_then(|definition| definition.file(context.db()))
+                    .is_some_and(|file| context.db().should_check_file(file))
+                {
+                    note_numbers_module_not_supported(
+                        context.db(),
+                        &mut diag,
+                        *expected_ty,
+                        *provided_ty,
+                    );
+                }
             }
 
             Self::InvalidKeyType {
@@ -4530,25 +4495,6 @@ impl<'db> BindingError<'db> {
                 let mut diag = builder.into_diagnostic(
                     "Argument expression after ** must be a mapping with `str` key type",
                 );
-                diag.set_primary_message(format_args!("Found `{provided_ty_display}`"));
-
-                if let Some(union_diag) = union_diag {
-                    union_diag.add_union_context(context.db(), &mut diag);
-                }
-            }
-
-            Self::KeywordsNotAMapping {
-                argument_index,
-                provided_ty,
-            } => {
-                let range = Self::get_node(node, *argument_index);
-                let Some(builder) = context.report_lint(&INVALID_ARGUMENT_TYPE, range) else {
-                    return;
-                };
-
-                let provided_ty_display = provided_ty.display(context.db());
-                let mut diag =
-                    builder.into_diagnostic("Argument expression after ** must be a mapping type");
                 diag.set_primary_message(format_args!("Found `{provided_ty_display}`"));
 
                 if let Some(union_diag) = union_diag {

@@ -527,7 +527,10 @@ class PyPIPackageInspector(BaseTool):
         try:
             package_name = arguments.get("package_name", "").strip()
             if not package_name:
-                return {"status": "error", "error": "package_name is required"}
+                return {
+                    "status": "error",
+                    "data": {"error": "package_name is required"},
+                }
 
             include_github = arguments.get("include_github", True)
             include_downloads = arguments.get("include_downloads", True)
@@ -541,8 +544,10 @@ class PyPIPackageInspector(BaseTool):
             if "error" in pypi_data:
                 return {
                     "status": "error",
-                    "error": pypi_data["error"],
-                    "package_name": package_name,
+                    "data": {
+                        "error": pypi_data["error"],
+                        "package_name": package_name,
+                    },
                 }
 
             # Step 2: Get download statistics
@@ -567,7 +572,6 @@ class PyPIPackageInspector(BaseTool):
 
             # Compile comprehensive report
             result = {
-                "status": "success",
                 "package_name": package_name,
                 "pypi_metadata": pypi_data,
                 "download_stats": downloads,
@@ -582,11 +586,13 @@ class PyPIPackageInspector(BaseTool):
                 f"✅ Inspection complete - Overall score: {scores['overall_score']}/100"
             )
 
-            return result
+            return {"status": "success", "data": result}
 
         except Exception as e:
             return {
                 "status": "error",
-                "error": str(e),
-                "package_name": arguments.get("package_name", ""),
+                "data": {
+                    "error": str(e),
+                    "package_name": arguments.get("package_name", ""),
+                },
             }

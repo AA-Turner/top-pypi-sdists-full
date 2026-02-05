@@ -34,13 +34,7 @@ DEFAULT_COMMANDR_PROMPT = """
         Do not write the ```json (...) ``` tag. The output should be a valid JSON.
         If you cannot find the information, write "" for the corresponding field.
         Answer:
-        """  # noqa: E501
-METADATA_HEURISTICS_ATTRIBUTES = [
-    "title",
-    "name",
-    "date",
-    "authors",
-]
+        """
 
 UUID_NAMESPACE = "00000000-0000-0000-0000-000000000000"
 

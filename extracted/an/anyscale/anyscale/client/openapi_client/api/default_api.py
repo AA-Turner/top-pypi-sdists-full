@@ -5500,6 +5500,124 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def create_empty_cloud_api_v2_clouds_empty_post(self, create_empty_cloud, **kwargs):  # noqa: E501
+        """Create Empty Cloud  # noqa: E501
+
+        Create an empty cloud shell (no resources configured yet).  This creates a cloud record without credentials, allowing users to complete the BYOC setup later. Provider and region will be determined when resources are added. The cloud will have 'pending' status until resources are configured.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.create_empty_cloud_api_v2_clouds_empty_post(create_empty_cloud, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param CreateEmptyCloud create_empty_cloud: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: CloudResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.create_empty_cloud_api_v2_clouds_empty_post_with_http_info(create_empty_cloud, **kwargs)  # noqa: E501
+
+    def create_empty_cloud_api_v2_clouds_empty_post_with_http_info(self, create_empty_cloud, **kwargs):  # noqa: E501
+        """Create Empty Cloud  # noqa: E501
+
+        Create an empty cloud shell (no resources configured yet).  This creates a cloud record without credentials, allowing users to complete the BYOC setup later. Provider and region will be determined when resources are added. The cloud will have 'pending' status until resources are configured.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.create_empty_cloud_api_v2_clouds_empty_post_with_http_info(create_empty_cloud, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param CreateEmptyCloud create_empty_cloud: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(CloudResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'create_empty_cloud'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method create_empty_cloud_api_v2_clouds_empty_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'create_empty_cloud' is set
+        if self.api_client.client_side_validation and ('create_empty_cloud' not in local_var_params or  # noqa: E501
+                                                        local_var_params['create_empty_cloud'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `create_empty_cloud` when calling `create_empty_cloud_api_v2_clouds_empty_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'create_empty_cloud' in local_var_params:
+            body_params = local_var_params['create_empty_cloud']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/clouds/empty', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='CloudResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def create_instance_usage_budget_api_v2_instance_usage_budgets_post(self, create_instance_usage_budget, **kwargs):  # noqa: E501
         """Create Instance Usage Budget  # noqa: E501
 
@@ -7978,10 +8096,124 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def delete_cron_job_api_v2_experimental_cron_jobs_cron_job_id_delete(self, cron_job_id, **kwargs):  # noqa: E501
+        """Delete Cron Job  # noqa: E501
+
+        Delete a Schedule  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.delete_cron_job_api_v2_experimental_cron_jobs_cron_job_id_delete(cron_job_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cron_job_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.delete_cron_job_api_v2_experimental_cron_jobs_cron_job_id_delete_with_http_info(cron_job_id, **kwargs)  # noqa: E501
+
+    def delete_cron_job_api_v2_experimental_cron_jobs_cron_job_id_delete_with_http_info(self, cron_job_id, **kwargs):  # noqa: E501
+        """Delete Cron Job  # noqa: E501
+
+        Delete a Schedule  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.delete_cron_job_api_v2_experimental_cron_jobs_cron_job_id_delete_with_http_info(cron_job_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cron_job_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cron_job_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method delete_cron_job_api_v2_experimental_cron_jobs_cron_job_id_delete" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cron_job_id' is set
+        if self.api_client.client_side_validation and ('cron_job_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cron_job_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cron_job_id` when calling `delete_cron_job_api_v2_experimental_cron_jobs_cron_job_id_delete`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'cron_job_id' in local_var_params:
+            path_params['cron_job_id'] = local_var_params['cron_job_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/experimental_cron_jobs/{cron_job_id}', 'DELETE',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type=None,  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def delete_databricks_connection_api_v2_integrations_connections_databricks_connection_id_delete(self, connection_id, **kwargs):  # noqa: E501
         """Delete Databricks Connection  # noqa: E501
 
-        Delete a Databricks connection by ID  # noqa: E501
+        Delete a Databricks connection. Users can only delete their own connections; admins can delete any.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.delete_databricks_connection_api_v2_integrations_connections_databricks_connection_id_delete(connection_id, async_req=True)
@@ -8006,7 +8238,7 @@ class DefaultApi(object):
     def delete_databricks_connection_api_v2_integrations_connections_databricks_connection_id_delete_with_http_info(self, connection_id, **kwargs):  # noqa: E501
         """Delete Databricks Connection  # noqa: E501
 
-        Delete a Databricks connection by ID  # noqa: E501
+        Delete a Databricks connection. Users can only delete their own connections; admins can delete any.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.delete_databricks_connection_api_v2_integrations_connections_databricks_connection_id_delete_with_http_info(connection_id, async_req=True)
@@ -8304,6 +8536,234 @@ class DefaultApi(object):
 
         return self.api_client.call_api(
             '/api/v2/instance_usage_budgets/{instance_usage_budget_id}', 'DELETE',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type=None,  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def delete_job_api_v2_decorated_ha_jobs_production_job_id_delete(self, production_job_id, **kwargs):  # noqa: E501
+        """Delete Job  # noqa: E501
+
+        Delete a job and all associated job runs. Job must be in terminal state.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.delete_job_api_v2_decorated_ha_jobs_production_job_id_delete(production_job_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str production_job_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.delete_job_api_v2_decorated_ha_jobs_production_job_id_delete_with_http_info(production_job_id, **kwargs)  # noqa: E501
+
+    def delete_job_api_v2_decorated_ha_jobs_production_job_id_delete_with_http_info(self, production_job_id, **kwargs):  # noqa: E501
+        """Delete Job  # noqa: E501
+
+        Delete a job and all associated job runs. Job must be in terminal state.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.delete_job_api_v2_decorated_ha_jobs_production_job_id_delete_with_http_info(production_job_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str production_job_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'production_job_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method delete_job_api_v2_decorated_ha_jobs_production_job_id_delete" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'production_job_id' is set
+        if self.api_client.client_side_validation and ('production_job_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['production_job_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `production_job_id` when calling `delete_job_api_v2_decorated_ha_jobs_production_job_id_delete`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'production_job_id' in local_var_params:
+            path_params['production_job_id'] = local_var_params['production_job_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/decorated_ha_jobs/{production_job_id}', 'DELETE',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type=None,  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def delete_job_queue_api_v2_job_queues_job_queue_id_delete(self, job_queue_id, **kwargs):  # noqa: E501
+        """Delete Job Queue  # noqa: E501
+
+        Delete a job queue by setting deleted_at to the current time.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.delete_job_queue_api_v2_job_queues_job_queue_id_delete(job_queue_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str job_queue_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.delete_job_queue_api_v2_job_queues_job_queue_id_delete_with_http_info(job_queue_id, **kwargs)  # noqa: E501
+
+    def delete_job_queue_api_v2_job_queues_job_queue_id_delete_with_http_info(self, job_queue_id, **kwargs):  # noqa: E501
+        """Delete Job Queue  # noqa: E501
+
+        Delete a job queue by setting deleted_at to the current time.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.delete_job_queue_api_v2_job_queues_job_queue_id_delete_with_http_info(job_queue_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str job_queue_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'job_queue_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method delete_job_queue_api_v2_job_queues_job_queue_id_delete" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'job_queue_id' is set
+        if self.api_client.client_side_validation and ('job_queue_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['job_queue_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `job_queue_id` when calling `delete_job_queue_api_v2_job_queues_job_queue_id_delete`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'job_queue_id' in local_var_params:
+            path_params['job_queue_id'] = local_var_params['job_queue_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/job_queues/{job_queue_id}', 'DELETE',
             path_params,
             query_params,
             header_params,
@@ -16775,7 +17235,7 @@ class DefaultApi(object):
     def get_databricks_connection_api_v2_integrations_connections_databricks_connection_id_get(self, connection_id, **kwargs):  # noqa: E501
         """Get Databricks Connection  # noqa: E501
 
-        Get a specific Databricks connection by ID  # noqa: E501
+        Get a specific Databricks connection by ID. Users can only access their own connections.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_databricks_connection_api_v2_integrations_connections_databricks_connection_id_get(connection_id, async_req=True)
@@ -16800,7 +17260,7 @@ class DefaultApi(object):
     def get_databricks_connection_api_v2_integrations_connections_databricks_connection_id_get_with_http_info(self, connection_id, **kwargs):  # noqa: E501
         """Get Databricks Connection  # noqa: E501
 
-        Get a specific Databricks connection by ID  # noqa: E501
+        Get a specific Databricks connection by ID. Users can only access their own connections.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_databricks_connection_api_v2_integrations_connections_databricks_connection_id_get_with_http_info(connection_id, async_req=True)
@@ -22056,6 +22516,151 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_operator_schema_api_v2_dataset_runs_operator_schema_get(self, cluster_id, session_name, operator_uuid, **kwargs):  # noqa: E501
+        """Get Operator Schema  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_operator_schema_api_v2_dataset_runs_operator_schema_get(cluster_id, session_name, operator_uuid, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: (required)
+        :param str session_name: (required)
+        :param str operator_uuid: (required)
+        :param int page_size:
+        :param int offset:
+        :param str text_filter:
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: OperatorSchemaResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_operator_schema_api_v2_dataset_runs_operator_schema_get_with_http_info(cluster_id, session_name, operator_uuid, **kwargs)  # noqa: E501
+
+    def get_operator_schema_api_v2_dataset_runs_operator_schema_get_with_http_info(self, cluster_id, session_name, operator_uuid, **kwargs):  # noqa: E501
+        """Get Operator Schema  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_operator_schema_api_v2_dataset_runs_operator_schema_get_with_http_info(cluster_id, session_name, operator_uuid, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: (required)
+        :param str session_name: (required)
+        :param str operator_uuid: (required)
+        :param int page_size:
+        :param int offset:
+        :param str text_filter:
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(OperatorSchemaResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cluster_id',
+            'session_name',
+            'operator_uuid',
+            'page_size',
+            'offset',
+            'text_filter'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_operator_schema_api_v2_dataset_runs_operator_schema_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cluster_id' is set
+        if self.api_client.client_side_validation and ('cluster_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cluster_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cluster_id` when calling `get_operator_schema_api_v2_dataset_runs_operator_schema_get`")  # noqa: E501
+        # verify the required parameter 'session_name' is set
+        if self.api_client.client_side_validation and ('session_name' not in local_var_params or  # noqa: E501
+                                                        local_var_params['session_name'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `session_name` when calling `get_operator_schema_api_v2_dataset_runs_operator_schema_get`")  # noqa: E501
+        # verify the required parameter 'operator_uuid' is set
+        if self.api_client.client_side_validation and ('operator_uuid' not in local_var_params or  # noqa: E501
+                                                        local_var_params['operator_uuid'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `operator_uuid` when calling `get_operator_schema_api_v2_dataset_runs_operator_schema_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'cluster_id' in local_var_params and local_var_params['cluster_id'] is not None:  # noqa: E501
+            query_params.append(('cluster_id', local_var_params['cluster_id']))  # noqa: E501
+        if 'session_name' in local_var_params and local_var_params['session_name'] is not None:  # noqa: E501
+            query_params.append(('session_name', local_var_params['session_name']))  # noqa: E501
+        if 'operator_uuid' in local_var_params and local_var_params['operator_uuid'] is not None:  # noqa: E501
+            query_params.append(('operator_uuid', local_var_params['operator_uuid']))  # noqa: E501
+        if 'page_size' in local_var_params and local_var_params['page_size'] is not None:  # noqa: E501
+            query_params.append(('page_size', local_var_params['page_size']))  # noqa: E501
+        if 'offset' in local_var_params and local_var_params['offset'] is not None:  # noqa: E501
+            query_params.append(('offset', local_var_params['offset']))  # noqa: E501
+        if 'text_filter' in local_var_params and local_var_params['text_filter'] is not None:  # noqa: E501
+            query_params.append(('text_filter', local_var_params['text_filter']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/dataset_runs/operator_schema', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='OperatorSchemaResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_or_create_build_from_image_uri_api_v2_builds_get_or_create_build_from_image_uri_post(self, get_or_create_build_from_image_uri_request, **kwargs):  # noqa: E501
         """Get Or Create Build From Image Uri  # noqa: E501
 
@@ -25383,6 +25988,111 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_supported_base_images_api_v2_application_templates_supported_base_images_get(self, **kwargs):  # noqa: E501
+        """Get Supported Base Images  # noqa: E501
+
+        Returns the list of supported base images.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_supported_base_images_api_v2_application_templates_supported_base_images_get(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: SupportedbaseimagesresponseResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_supported_base_images_api_v2_application_templates_supported_base_images_get_with_http_info(**kwargs)  # noqa: E501
+
+    def get_supported_base_images_api_v2_application_templates_supported_base_images_get_with_http_info(self, **kwargs):  # noqa: E501
+        """Get Supported Base Images  # noqa: E501
+
+        Returns the list of supported base images.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_supported_base_images_api_v2_application_templates_supported_base_images_get_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(SupportedbaseimagesresponseResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_supported_base_images_api_v2_application_templates_supported_base_images_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/application_templates/supported_base_images', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='SupportedbaseimagesresponseResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_table_metadata_api_v2_data_catalogs_connections_connection_id_catalogs_catalog_id_schemas_schema_id_tables_table_id_metadata_get(self, connection_id, catalog_id, schema_id, table_id, **kwargs):  # noqa: E501
         """Get Table Metadata  # noqa: E501
 
@@ -27517,6 +28227,120 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='WorkspacetemplateversionResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_workload_credentials_internal_api_v2_integrations_internal_clusters_cluster_id_credentials_get(self, cluster_id, **kwargs):  # noqa: E501
+        """Get Workload Credentials Internal  # noqa: E501
+
+        Get integration credentials for workloads on a cluster - heavy-api  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_workload_credentials_internal_api_v2_integrations_internal_clusters_cluster_id_credentials_get(cluster_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: list[WorkloadConnectionCredentials]
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_workload_credentials_internal_api_v2_integrations_internal_clusters_cluster_id_credentials_get_with_http_info(cluster_id, **kwargs)  # noqa: E501
+
+    def get_workload_credentials_internal_api_v2_integrations_internal_clusters_cluster_id_credentials_get_with_http_info(self, cluster_id, **kwargs):  # noqa: E501
+        """Get Workload Credentials Internal  # noqa: E501
+
+        Get integration credentials for workloads on a cluster - heavy-api  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_workload_credentials_internal_api_v2_integrations_internal_clusters_cluster_id_credentials_get_with_http_info(cluster_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(list[WorkloadConnectionCredentials], status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cluster_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_workload_credentials_internal_api_v2_integrations_internal_clusters_cluster_id_credentials_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cluster_id' is set
+        if self.api_client.client_side_validation and ('cluster_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cluster_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cluster_id` when calling `get_workload_credentials_internal_api_v2_integrations_internal_clusters_cluster_id_credentials_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'cluster_id' in local_var_params:
+            path_params['cluster_id'] = local_var_params['cluster_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/integrations/internal/clusters/{cluster_id}/credentials', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='list[WorkloadConnectionCredentials]',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -30418,15 +31242,16 @@ class DefaultApi(object):
     def list_databricks_connections_api_v2_integrations_connections_databricks_get(self, **kwargs):  # noqa: E501
         """List Databricks Connections  # noqa: E501
 
-        List all registered Databricks connections  # noqa: E501
+        List Databricks connections. Non-admins see their own connections; admins see all.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.list_databricks_connections_api_v2_integrations_connections_databricks_get(async_req=True)
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
-        :param ValidationStatus validation_status:
-        :param ConnectionType connection_type:
+        :param ValidationStatus validation_status: Filter by validation status
+        :param ConnectionType connection_type: Filter by connection type
+        :param str name: Search for connection with a name that equals the provided value
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -30444,15 +31269,16 @@ class DefaultApi(object):
     def list_databricks_connections_api_v2_integrations_connections_databricks_get_with_http_info(self, **kwargs):  # noqa: E501
         """List Databricks Connections  # noqa: E501
 
-        List all registered Databricks connections  # noqa: E501
+        List Databricks connections. Non-admins see their own connections; admins see all.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.list_databricks_connections_api_v2_integrations_connections_databricks_get_with_http_info(async_req=True)
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
-        :param ValidationStatus validation_status:
-        :param ConnectionType connection_type:
+        :param ValidationStatus validation_status: Filter by validation status
+        :param ConnectionType connection_type: Filter by connection type
+        :param str name: Search for connection with a name that equals the provided value
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -30471,7 +31297,8 @@ class DefaultApi(object):
 
         all_params = [
             'validation_status',
-            'connection_type'
+            'connection_type',
+            'name'
         ]
         all_params.extend(
             [
@@ -30500,6 +31327,8 @@ class DefaultApi(object):
             query_params.append(('validation_status', local_var_params['validation_status']))  # noqa: E501
         if 'connection_type' in local_var_params and local_var_params['connection_type'] is not None:  # noqa: E501
             query_params.append(('connection_type', local_var_params['connection_type']))  # noqa: E501
+        if 'name' in local_var_params and local_var_params['name'] is not None:  # noqa: E501
+            query_params.append(('name', local_var_params['name']))  # noqa: E501
 
         header_params = {}
 
@@ -38812,7 +39641,7 @@ class DefaultApi(object):
     def register_databricks_connection_api_v2_integrations_connections_databricks_post(self, databricks_register_request, **kwargs):  # noqa: E501
         """Register Databricks Connection  # noqa: E501
 
-        Register Databricks connection configuration  # noqa: E501
+        Register a new Databricks connection. Any authenticated user can create connections.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.register_databricks_connection_api_v2_integrations_connections_databricks_post(databricks_register_request, async_req=True)
@@ -38837,7 +39666,7 @@ class DefaultApi(object):
     def register_databricks_connection_api_v2_integrations_connections_databricks_post_with_http_info(self, databricks_register_request, **kwargs):  # noqa: E501
         """Register Databricks Connection  # noqa: E501
 
-        Register Databricks connection configuration  # noqa: E501
+        Register a new Databricks connection. Any authenticated user can create connections.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.register_databricks_connection_api_v2_integrations_connections_databricks_post_with_http_info(databricks_register_request, async_req=True)
@@ -48844,6 +49673,120 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='object',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def verify_databricks_connection_api_v2_integrations_connections_databricks_connection_id_verify_post(self, connection_id, **kwargs):  # noqa: E501
+        """Verify Databricks Connection  # noqa: E501
+
+        Verify that the Databricks connection is working correctly  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.verify_databricks_connection_api_v2_integrations_connections_databricks_connection_id_verify_post(connection_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str connection_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: ConnectionverificationresultResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.verify_databricks_connection_api_v2_integrations_connections_databricks_connection_id_verify_post_with_http_info(connection_id, **kwargs)  # noqa: E501
+
+    def verify_databricks_connection_api_v2_integrations_connections_databricks_connection_id_verify_post_with_http_info(self, connection_id, **kwargs):  # noqa: E501
+        """Verify Databricks Connection  # noqa: E501
+
+        Verify that the Databricks connection is working correctly  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.verify_databricks_connection_api_v2_integrations_connections_databricks_connection_id_verify_post_with_http_info(connection_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str connection_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(ConnectionverificationresultResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'connection_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method verify_databricks_connection_api_v2_integrations_connections_databricks_connection_id_verify_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'connection_id' is set
+        if self.api_client.client_side_validation and ('connection_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['connection_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `connection_id` when calling `verify_databricks_connection_api_v2_integrations_connections_databricks_connection_id_verify_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'connection_id' in local_var_params:
+            path_params['connection_id'] = local_var_params['connection_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/integrations/connections/databricks/{connection_id}/verify', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='ConnectionverificationresultResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

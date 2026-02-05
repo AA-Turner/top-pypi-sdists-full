@@ -17,7 +17,7 @@ def GtoPdb_get_target_interactions(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Optional[list[Any]]:
     """
     Get all ligand interactions for a specific target by its GtoPdb target ID. Returns detailed inter...
 
@@ -30,7 +30,7 @@ def GtoPdb_get_target_interactions(
     affinity_parameter : str
         Affinity type: 'pKi', 'pIC50', 'pEC50', 'pKd'. Leave empty for all affinity m...
     min_affinity : float
-        Minimum affinity value (e.g., 7.0). Leave empty for all affinities.
+        Minimum affinity value (e.g., 7.0). Leave empty for all affinities. Note: Thi...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -40,7 +40,7 @@ def GtoPdb_get_target_interactions(
 
     Returns
     -------
-    dict[str, Any]
+    Optional[list[Any]]
     """
     # Handle mutable defaults to avoid B006 linting error
 

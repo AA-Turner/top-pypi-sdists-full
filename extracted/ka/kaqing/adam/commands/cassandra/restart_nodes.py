@@ -37,28 +37,21 @@ class RestartNodes(Command):
                 with extract_options(args, '--force') as (args, forced):
                     with validate_args(args, state, name='pod name'):
                         # restart nodes allows comma separator
-                        safe_args = []
-                        for arg in args:
-                            for a in arg.split(','):
-                                if a:
-                                    safe_args.append(a)
-                        args = safe_args
+                        args = self.comma_separated_args(args)
 
                         if background:
                             # start with foreground, it become background if the node restart thread is not yet runnig during scheduling
-                            ctx = Context.new(cmd=cmd, show_out=True)
-
                             for pod in args:
-                                NodeScheduler.schedule(state, pod, ctx)
+                                NodeScheduler.schedule(state, pod, self.context())
                         else:
-                            ctx = Context.new(cmd=cmd, show_out=True, background=background)
+                            ctx: Context = self.context().copy(background=background)
                             for arg in args:
                                 if forced:
                                     ctx.log(f'[{arg}] Restarting...')
                                 else:
                                     ctx.log(f'[{arg}] Checking...')
 
-                                    node: NodeRestartability = CassandraStatus.probe(state, arg, in_restartings=NodeScheduler.restartings(ctx=ctx), ctx=ctx.copy(show_out=False))
+                                    node: NodeRestartability = NodeRestartability.probe(state, arg, in_restartings=NodeScheduler.restartings(ctx=ctx), ctx=ctx.copy(show_out=False))
                                     if not node.restartable():
                                         node.log(ctx=ctx.copy(text_color=Color.gray))
                                         ctx.log2('Please add --force for restarting pod unsafely.')

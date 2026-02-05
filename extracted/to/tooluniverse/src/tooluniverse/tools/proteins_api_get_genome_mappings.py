@@ -15,7 +15,7 @@ def proteins_api_get_genome_mappings(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
     Get reference genome mappings for a protein using the Proteins API. Supports batch operations: pa...
 
@@ -34,7 +34,7 @@ def proteins_api_get_genome_mappings(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

@@ -222,7 +222,7 @@ class PersistentCache:
                 cur = self._conn.execute(
                     """
                     SELECT cache_key, namespace, version, value, ttl,
-                           created_at, last_accessed, hit_count
+                           created_at, last_accessed, expires_at, hit_count
                     FROM cache_entries WHERE namespace = ?
                     """,
                     (namespace,),
@@ -231,7 +231,7 @@ class PersistentCache:
                 cur = self._conn.execute(
                     """
                     SELECT cache_key, namespace, version, value, ttl,
-                           created_at, last_accessed, hit_count
+                           created_at, last_accessed, expires_at, hit_count
                     FROM cache_entries
                     """
                 )
@@ -246,7 +246,8 @@ class PersistentCache:
                 ttl=row[4],
                 created_at=row[5],
                 last_accessed=row[6],
-                hit_count=row[7],
+                hit_count=row[8],
+                expires_at=row[7],
             )
 
     def stats(self) -> Dict[str, Any]:

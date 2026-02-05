@@ -1,4 +1,5 @@
 from collections.abc import Callable
+import re
 import subprocess
 import sys
 import time
@@ -83,7 +84,7 @@ class Pods:
 
         ctx: Context = ctx.copy(show_out=KubeContext.show_out(ctx.show_out))
 
-        with log_timing(f'Pods.exec({pod_name})'):
+        with log_timing(f'Pods.exec({strip_pod_name(pod_name)}, "{strip_command(command)}")'):
             if command.endswith(' &') or ctx and ctx.background:
                 return Pods.exec_backgrounded_with_context(pod_name, container, namespace, command, shell, env_prefix, ctx=ctx)
 
@@ -310,8 +311,8 @@ class Pods:
     def completed(namespace: str, pod_name: str):
         return Pods.get(namespace, pod_name).status.phase in ['Succeeded', 'Failed']
 
-    def pod_status(pod: client.V1Pod):
-        s = 'Unknown'
+    def pod_status(pod: client.V1Pod, default = 'Unknown'):
+        s = default
 
         try:
             s = pod.status.phase
@@ -321,3 +322,20 @@ class Pods:
             pass
 
         return s
+
+def strip_pod_name(pod_name: str):
+    if groups := re.match(r'.*-(.*-\d+)$', pod_name):
+        return groups[1]
+
+    return pod_name
+
+def strip_command(command: str):
+    if command.startswith('nodetool '):
+        tks = command.split(' ')
+        if len(tks) > 2:
+            return tks[0] + ' ... ' + tks[-1]
+
+    if len(command) > 23:
+        return command[:20] + '...'
+
+    return command

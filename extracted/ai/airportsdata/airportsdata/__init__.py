@@ -12,7 +12,7 @@ from typing import Dict, Literal, TypedDict
 
 __project_name__ = __package__
 __min_python_version__ = (3, 10)  # minimum version of Python required to run; supported until October 2025
-__version__ = '20250909'  # numbering follows the release date
+__version__ = '20260205'  # numbering follows the release date (UTC)
 __author__ = 'Mike Borsetti <mike@borsetti.com>'
 __copyright__ = 'Copyright 2020- Mike Borsetti'
 __license__ = 'MIT'
@@ -68,7 +68,7 @@ def load(code_type: CodeType = 'ICAO') -> Dict[str, 'Airport']:
         for row in reader:
             # if row[key] and row[key] in airports:
             #     raise ValueError(f"Duplicate key in csv: '{row[key]}'")
-            airports[row[key]] = row  # type: ignore[assignment]
+            airports[row[key]] = row
     airports.pop('', None)
     return airports
 

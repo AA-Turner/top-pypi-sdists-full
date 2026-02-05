@@ -233,8 +233,16 @@ class Command:
             cmd = s
         print()
 
-    def context(self, show_out=True):
+    def context(self, show_out=True) -> Context:
         return Context.new(self.command(), show_out=show_out)
+
+    def comma_separated_args(self, args: list[str]):
+        safe_args = []
+        for arg in args:
+            for a in arg.split(','):
+                if a:
+                    safe_args.append(a)
+        return safe_args
 
 class InvalidStateException(Exception):
     def __init__(self, state: ReplState):

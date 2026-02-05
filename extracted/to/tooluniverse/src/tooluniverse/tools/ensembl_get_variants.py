@@ -16,7 +16,7 @@ def ensembl_get_variants(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
     Get genetic variants (SNPs, indels) in a genomic region. Returns variant information including po...
 
@@ -37,7 +37,7 @@ def ensembl_get_variants(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

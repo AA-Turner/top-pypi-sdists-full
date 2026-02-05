@@ -70387,17 +70387,23 @@ class scout_dataexport_api_GeneratePresignedLinkResponse(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'presigned_url': ConjureFieldDefinition('presignedUrl', scout_dataexport_api_PresignedUrl)
+            'presigned_url': ConjureFieldDefinition('presignedUrl', scout_dataexport_api_PresignedUrl),
+            'file_size_bytes': ConjureFieldDefinition('fileSizeBytes', int)
         }
 
-    __slots__: List[str] = ['_presigned_url']
+    __slots__: List[str] = ['_presigned_url', '_file_size_bytes']
 
-    def __init__(self, presigned_url: "scout_dataexport_api_PresignedUrl") -> None:
+    def __init__(self, file_size_bytes: int, presigned_url: "scout_dataexport_api_PresignedUrl") -> None:
         self._presigned_url = presigned_url
+        self._file_size_bytes = file_size_bytes
 
     @builtins.property
     def presigned_url(self) -> "scout_dataexport_api_PresignedUrl":
         return self._presigned_url
+
+    @builtins.property
+    def file_size_bytes(self) -> int:
+        return self._file_size_bytes
 
 
 scout_dataexport_api_GeneratePresignedLinkResponse.__name__ = "GeneratePresignedLinkResponse"

@@ -10,8 +10,8 @@ from ._shared_client import get_shared_client
 
 def OSF_search_preprints(
     query: str,
-    max_results: int,
-    provider: str,
+    max_results: Optional[int] = 10,
+    provider: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,

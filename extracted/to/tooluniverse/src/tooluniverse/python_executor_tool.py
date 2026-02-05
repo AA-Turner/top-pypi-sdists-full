@@ -518,11 +518,12 @@ class PythonCodeExecutor(BasePythonExecutor, BaseTool):
             # Extract parameters
             code = arguments.get("code", "")
             if not code:
-                return self._format_error_response(
+                error_response = self._format_error_response(
                     ValueError("Code parameter is required"),
                     "ValueError",
                     execution_time=0,
                 )
+                return {"status": "error", "data": error_response}
 
             timeout = arguments.get("timeout", 30)
             timeout = min(max(timeout, 1), 300)  # Clamp between 1-300 seconds
@@ -537,13 +538,14 @@ class PythonCodeExecutor(BasePythonExecutor, BaseTool):
             # Check AST safety
             is_safe, ast_warnings = self._check_ast_safety(code)
             if not is_safe:
-                return self._format_error_response(
+                error_response = self._format_error_response(
                     ValueError(
                         f"Code contains forbidden operations: {', '.join(ast_warnings)}"
                     ),
                     "SecurityError",
                     execution_time=0,
                 )
+                return {"status": "error", "data": error_response}
 
             # Check dependencies if provided
             dependencies = arguments.get("dependencies", [])
@@ -559,22 +561,25 @@ class PythonCodeExecutor(BasePythonExecutor, BaseTool):
                     if dep_result.get("requires_confirmation"):
                         return {
                             "success": False,
-                            "requires_confirmation": True,
-                            "missing_packages": dep_result["missing_packages"],
-                            "packages_to_install": dep_result.get(
-                                "packages_to_install", []
-                            ),
-                            "install_command": dep_result["install_command"],
-                            "message": dep_result["message"],
+                            "data": {
+                                "requires_confirmation": True,
+                                "missing_packages": dep_result["missing_packages"],
+                                "packages_to_install": dep_result.get(
+                                    "packages_to_install", []
+                                ),
+                                "install_command": dep_result["install_command"],
+                                "message": dep_result["message"],
+                            },
                         }
                     else:
-                        return self._format_error_response(
+                        error_response = self._format_error_response(
                             RuntimeError(
                                 dep_result.get("error", dep_result["message"])
                             ),
                             "DependencyError",
                             execution_time=0,
                         )
+                        return {"status": "error", "data": error_response}
 
             # Create safe execution environment
             safe_globals = self._create_safe_globals(additional_vars)
@@ -598,7 +603,7 @@ class PythonCodeExecutor(BasePythonExecutor, BaseTool):
                 # Count code lines
                 code_lines = len(code.splitlines())
 
-                return self._format_success_response(
+                success_response = self._format_success_response(
                     final_result,
                     stdout,
                     stderr,
@@ -606,17 +611,22 @@ class PythonCodeExecutor(BasePythonExecutor, BaseTool):
                     code_lines,
                     ast_warnings,
                 )
+                return {"status": "success", "data": success_response}
 
             except TimeoutError:
                 execution_time = time.time() - start_time
-                return self._format_error_response(
+                error_response = self._format_error_response(
                     TimeoutError(f"Code execution timed out after {timeout} seconds"),
                     "TimeoutError",
                     execution_time=execution_time,
                 )
+                return {"status": "error", "data": error_response}
 
         except Exception as e:
-            return self._format_error_response(e, type(e).__name__, execution_time=0)
+            error_response = self._format_error_response(
+                e, type(e).__name__, execution_time=0
+            )
+            return {"status": "error", "data": error_response}
 
 
 @register_tool("PythonScriptRunner")
@@ -633,18 +643,20 @@ class PythonScriptRunner(BasePythonExecutor, BaseTool):
             # Extract parameters
             script_path = arguments.get("script_path", "")
             if not script_path:
-                return self._format_error_response(
+                error_response = self._format_error_response(
                     ValueError("script_path parameter is required"),
                     "ValueError",
                     execution_time=0,
                 )
+                return {"status": "error", "data": error_response}
 
             if not os.path.exists(script_path):
-                return self._format_error_response(
+                error_response = self._format_error_response(
                     FileNotFoundError(f"Script file not found: {script_path}"),
                     "FileNotFoundError",
                     execution_time=0,
                 )
+                return {"status": "error", "data": error_response}
 
             script_args = arguments.get("script_args", [])
             timeout = arguments.get("timeout", 60)
@@ -665,22 +677,25 @@ class PythonScriptRunner(BasePythonExecutor, BaseTool):
                     if dep_result.get("requires_confirmation"):
                         return {
                             "success": False,
-                            "requires_confirmation": True,
-                            "missing_packages": dep_result["missing_packages"],
-                            "packages_to_install": dep_result.get(
-                                "packages_to_install", []
-                            ),
-                            "install_command": dep_result["install_command"],
-                            "message": dep_result["message"],
+                            "data": {
+                                "requires_confirmation": True,
+                                "missing_packages": dep_result["missing_packages"],
+                                "packages_to_install": dep_result.get(
+                                    "packages_to_install", []
+                                ),
+                                "install_command": dep_result["install_command"],
+                                "message": dep_result["message"],
+                            },
                         }
                     else:
-                        return self._format_error_response(
+                        error_response = self._format_error_response(
                             RuntimeError(
                                 dep_result.get("error", dep_result["message"])
                             ),
                             "DependencyError",
                             execution_time=0,
                         )
+                        return {"status": "error", "data": error_response}
 
             # Create restricted environment
             restricted_env = os.environ.copy()
@@ -710,7 +725,7 @@ class PythonScriptRunner(BasePythonExecutor, BaseTool):
                 execution_time = time.time() - start_time
 
                 if result.returncode == 0:
-                    return self._format_success_response(
+                    success_response = self._format_success_response(
                         f"Script executed successfully "
                         f"(exit code: {result.returncode})",
                         result.stdout,
@@ -718,8 +733,9 @@ class PythonScriptRunner(BasePythonExecutor, BaseTool):
                         execution_time,
                         code_lines=0,  # Not easily measurable for external scripts
                     )
+                    return {"status": "success", "data": success_response}
                 else:
-                    return self._format_error_response(
+                    error_response = self._format_error_response(
                         RuntimeError(
                             f"Script failed with exit code {result.returncode}"
                         ),
@@ -728,14 +744,19 @@ class PythonScriptRunner(BasePythonExecutor, BaseTool):
                         result.stderr,
                         execution_time,
                     )
+                    return {"status": "error", "data": error_response}
 
             except subprocess.TimeoutExpired:
                 execution_time = time.time() - start_time
-                return self._format_error_response(
+                error_response = self._format_error_response(
                     TimeoutError(f"Script execution timed out after {timeout} seconds"),
                     "TimeoutError",
                     execution_time=execution_time,
                 )
+                return {"status": "error", "data": error_response}
 
         except Exception as e:
-            return self._format_error_response(e, type(e).__name__, execution_time=0)
+            error_response = self._format_error_response(
+                e, type(e).__name__, execution_time=0
+            )
+            return {"status": "error", "data": error_response}

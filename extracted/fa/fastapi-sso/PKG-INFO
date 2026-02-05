@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastapi-sso
-Version: 0.19.0
+Version: 0.20.0
 Summary: FastAPI plugin to enable SSO to most common providers (such as Facebook login, Google login and login via Microsoft Office 365 Account)
 License: MIT
 License-File: LICENSE.md
@@ -67,14 +67,6 @@ Quick links for the eager ones:
 
 ## Security Notice
 
-### Version `0.16.0` Update: Race Condition Bug Fix & Context Manager Change
-
-A race condition bug in the login flow that could, in rare cases, allow one user
-to assume the identity of another due to concurrent login requests was recently discovered
-by [@parikls](https://github.com/parikls).
-This issue was reported in [#186](https://github.com/tomasvotava/fastapi-sso/issues/186) and has been resolved
-in version `0.16.0`.
-
 ### Version `0.19.0` Update: OAuth `state` Validation Fix
 
 A critical OAuth login CSRF vulnerability caused by missing `state` validation was
@@ -84,6 +76,14 @@ in version `0.19.0`.
 
 Starting with `fastapi-sso==1.0.0`, OAuth `state` will be backed by a pluggable server-side store
 (in-memory by default, with support for external stores such as `Redis`).
+
+### Version `0.16.0` Update: Race Condition Bug Fix & Context Manager Change
+
+A race condition bug in the login flow that could, in rare cases, allow one user
+to assume the identity of another due to concurrent login requests was recently discovered
+by [@parikls](https://github.com/parikls).
+This issue was reported in [#186](https://github.com/tomasvotava/fastapi-sso/issues/186) and has been resolved
+in version `0.16.0`.
 
 **Details of the Fix:**
 
@@ -157,6 +157,7 @@ I tend to process Pull Requests faster when properly caffeinated 😉.
 - Seznam (by Tomas Koutek) - [TomasKoutek](https://github.com/TomasKoutek)
 - Discord (by Kaelian Baudelet) - [afi-dev](https://github.com/afi-dev)
 - Bitbucket (by Kaelian Baudelet) - [afi-dev](https://github.com/afi-dev)
+- Soundcloud (by John) - [john-9474](https://github.com/john-9474)
 
 See [Contributing](#contributing) for a guide on how to contribute your own login provider.
 

@@ -15,7 +15,7 @@ def proteins_api_get_comments(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
     Get functional annotations and comments for a protein from the Proteins API. Supports batch opera...
 
@@ -34,7 +34,7 @@ def proteins_api_get_comments(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

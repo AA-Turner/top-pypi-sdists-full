@@ -1,128 +1,226 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
 from __future__ import annotations
 
-from typing import List, Dict, Any
+from typing import Dict, Union, Iterable
+from typing_extensions import Literal
 
-from together.abstract import api_requestor
-from together.together_response import TogetherResponse
-from together.types import (
-    RerankRequest,
-    RerankResponse,
-    TogetherClient,
-    TogetherRequest,
+import httpx
+
+from ..types import rerank_create_params
+from .._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from .._utils import maybe_transform, async_maybe_transform
+from .._compat import cached_property
+from .._resource import SyncAPIResource, AsyncAPIResource
+from .._response import (
+    to_raw_response_wrapper,
+    to_streamed_response_wrapper,
+    async_to_raw_response_wrapper,
+    async_to_streamed_response_wrapper,
 )
+from .._base_client import make_request_options
+from ..types.rerank_create_response import RerankCreateResponse
+
+__all__ = ["RerankResource", "AsyncRerankResource"]
 
 
-class Rerank:
-    def __init__(self, client: TogetherClient) -> None:
-        self._client = client
+class RerankResource(SyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> RerankResourceWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/togethercomputer/together-py#accessing-raw-response-data-eg-headers
+        """
+        return RerankResourceWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> RerankResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/togethercomputer/together-py#with_streaming_response
+        """
+        return RerankResourceWithStreamingResponse(self)
 
     def create(
         self,
         *,
-        model: str,
+        documents: Union[Iterable[Dict[str, object]], SequenceNotStr[str]],
+        model: Union[Literal["Salesforce/Llama-Rank-v1"], str],
         query: str,
-        documents: List[str] | List[Dict[str, Any]],
-        top_n: int | None = None,
-        return_documents: bool = False,
-        rank_fields: List[str] | None = None,
-        **kwargs: Any,
-    ) -> RerankResponse:
+        rank_fields: SequenceNotStr[str] | Omit = omit,
+        return_documents: bool | Omit = omit,
+        top_n: int | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> RerankCreateResponse:
         """
-        Method to generate completions based on a given prompt using a specified model.
+        Query a reranker model
 
         Args:
-            model (str): The name of the model to query.
-            query (str): The input query or list of queries to rerank.
-            documents (List[str] | List[Dict[str, Any]]): List of documents to be reranked.
-            top_n (int | None): Number of top results to return.
-            return_documents (bool): Flag to indicate whether to return documents.
-            rank_fields (List[str] | None): Fields to be used for ranking the documents.
+          documents: List of documents, which can be either strings or objects.
 
-        Returns:
-            RerankResponse: Object containing reranked scores and documents
+          model: The model to be used for the rerank request.
+
+              [See all of Together AI's rerank models](https://docs.together.ai/docs/serverless-models#rerank-models)
+
+          query: The search query to be used for ranking.
+
+          rank_fields: List of keys in the JSON Object document to rank by. Defaults to use all
+              supplied keys for ranking.
+
+          return_documents: Whether to return supplied documents with the response.
+
+          top_n: The number of top results to return.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
         """
-
-        requestor = api_requestor.APIRequestor(
-            client=self._client,
-        )
-
-        parameter_payload = RerankRequest(
-            model=model,
-            query=query,
-            documents=documents,
-            top_n=top_n,
-            return_documents=return_documents,
-            rank_fields=rank_fields,
-            **kwargs,
-        ).model_dump(exclude_none=True)
-
-        response, _, _ = requestor.request(
-            options=TogetherRequest(
-                method="POST",
-                url="rerank",
-                params=parameter_payload,
+        return self._post(
+            "/rerank",
+            body=maybe_transform(
+                {
+                    "documents": documents,
+                    "model": model,
+                    "query": query,
+                    "rank_fields": rank_fields,
+                    "return_documents": return_documents,
+                    "top_n": top_n,
+                },
+                rerank_create_params.RerankCreateParams,
             ),
-            stream=False,
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=RerankCreateResponse,
         )
 
-        assert isinstance(response, TogetherResponse)
 
-        return RerankResponse(**response.data)
+class AsyncRerankResource(AsyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> AsyncRerankResourceWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
 
+        For more information, see https://www.github.com/togethercomputer/together-py#accessing-raw-response-data-eg-headers
+        """
+        return AsyncRerankResourceWithRawResponse(self)
 
-class AsyncRerank:
-    def __init__(self, client: TogetherClient) -> None:
-        self._client = client
+    @cached_property
+    def with_streaming_response(self) -> AsyncRerankResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/togethercomputer/together-py#with_streaming_response
+        """
+        return AsyncRerankResourceWithStreamingResponse(self)
 
     async def create(
         self,
         *,
-        model: str,
+        documents: Union[Iterable[Dict[str, object]], SequenceNotStr[str]],
+        model: Union[Literal["Salesforce/Llama-Rank-v1"], str],
         query: str,
-        documents: List[str] | List[Dict[str, Any]],
-        top_n: int | None = None,
-        return_documents: bool = False,
-        rank_fields: List[str] | None = None,
-        **kwargs: Any,
-    ) -> RerankResponse:
+        rank_fields: SequenceNotStr[str] | Omit = omit,
+        return_documents: bool | Omit = omit,
+        top_n: int | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> RerankCreateResponse:
         """
-        Async method to generate completions based on a given prompt using a specified model.
+        Query a reranker model
 
         Args:
-            model (str): The name of the model to query.
-            query (str): The input query or list of queries to rerank.
-            documents (List[str] | List[Dict[str, Any]]): List of documents to be reranked.
-            top_n (int | None): Number of top results to return.
-            return_documents (bool): Flag to indicate whether to return documents.
-            rank_fields (List[str] | None): Fields to be used for ranking the documents.
+          documents: List of documents, which can be either strings or objects.
 
-        Returns:
-            RerankResponse: Object containing reranked scores and documents
+          model: The model to be used for the rerank request.
+
+              [See all of Together AI's rerank models](https://docs.together.ai/docs/serverless-models#rerank-models)
+
+          query: The search query to be used for ranking.
+
+          rank_fields: List of keys in the JSON Object document to rank by. Defaults to use all
+              supplied keys for ranking.
+
+          return_documents: Whether to return supplied documents with the response.
+
+          top_n: The number of top results to return.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
         """
-
-        requestor = api_requestor.APIRequestor(
-            client=self._client,
-        )
-
-        parameter_payload = RerankRequest(
-            model=model,
-            query=query,
-            documents=documents,
-            top_n=top_n,
-            return_documents=return_documents,
-            rank_fields=rank_fields,
-            **kwargs,
-        ).model_dump(exclude_none=True)
-
-        response, _, _ = await requestor.arequest(
-            options=TogetherRequest(
-                method="POST",
-                url="rerank",
-                params=parameter_payload,
+        return await self._post(
+            "/rerank",
+            body=await async_maybe_transform(
+                {
+                    "documents": documents,
+                    "model": model,
+                    "query": query,
+                    "rank_fields": rank_fields,
+                    "return_documents": return_documents,
+                    "top_n": top_n,
+                },
+                rerank_create_params.RerankCreateParams,
             ),
-            stream=False,
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=RerankCreateResponse,
         )
 
-        assert isinstance(response, TogetherResponse)
 
-        return RerankResponse(**response.data)
+class RerankResourceWithRawResponse:
+    def __init__(self, rerank: RerankResource) -> None:
+        self._rerank = rerank
+
+        self.create = to_raw_response_wrapper(
+            rerank.create,
+        )
+
+
+class AsyncRerankResourceWithRawResponse:
+    def __init__(self, rerank: AsyncRerankResource) -> None:
+        self._rerank = rerank
+
+        self.create = async_to_raw_response_wrapper(
+            rerank.create,
+        )
+
+
+class RerankResourceWithStreamingResponse:
+    def __init__(self, rerank: RerankResource) -> None:
+        self._rerank = rerank
+
+        self.create = to_streamed_response_wrapper(
+            rerank.create,
+        )
+
+
+class AsyncRerankResourceWithStreamingResponse:
+    def __init__(self, rerank: AsyncRerankResource) -> None:
+        self._rerank = rerank
+
+        self.create = async_to_streamed_response_wrapper(
+            rerank.create,
+        )

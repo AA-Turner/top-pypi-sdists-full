@@ -24,12 +24,15 @@ class BioModelsRESTTool(BaseRESTTool):
             content_disposition = response.headers.get("Content-Disposition", "")
             content_type = response.headers.get("Content-Type", "")
 
+            # Wrap in data field for schema validation
             return {
                 "status": "success",
-                "download_url": url,
+                "data": {
+                    "download_url": url,
+                    "filename": content_disposition,
+                    "content_type": content_type,
+                },
                 "url": url,
-                "filename": content_disposition,
-                "content_type": content_type,
             }
         return None
 
@@ -50,6 +53,7 @@ class BioModelsRESTTool(BaseRESTTool):
         if isinstance(data, list):
             result["count"] = len(data)
         elif isinstance(data, dict) and "matches" in data:
-            result["count"] = len(data.get("matches", []))
+            # matches is an integer count, not a list
+            result["count"] = data.get("matches", 0)
 
         return result

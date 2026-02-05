@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-task-sdk
-Version: 1.1.6
+Version: 1.1.7
 Summary: Python Task SDK for Apache Airflow DAG Authors
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
 Project-URL: Documentation, https://airflow.apache.org/docs/
@@ -28,7 +28,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: System :: Monitoring
 Requires-Python: <3.14,>=3.10
-Requires-Dist: apache-airflow-core<3.2.0,>=3.1.5
+Requires-Dist: apache-airflow-core<3.2.0,>=3.1.7
 Requires-Dist: asgiref>=2.3.0
 Requires-Dist: attrs!=25.2.0,>=24.2.0
 Requires-Dist: babel>=2.17.0

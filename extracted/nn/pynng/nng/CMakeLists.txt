@@ -1,5 +1,5 @@
 #
-#   Copyright 2023 Staysail Systems, Inc. <info@staysail.tech>
+#   Copyright 2024 Staysail Systems, Inc. <info@staysail.tech>
 #   Copyright (c) 2012 Martin Sustrik  All rights reserved.
 #   Copyright (c) 2013 GoPivotal, Inc.  All rights reserved.
 #   Copyright (c) 2015-2016 Jack R. Dunaway. All rights reserved.
@@ -25,7 +25,7 @@
 #   IN THE SOFTWARE.
 #
 
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.15)
 
 project(nng C)
 include(CheckCCompilerFlag)
@@ -96,6 +96,9 @@ target_compile_definitions(nng_private INTERFACE NNG_PRIVATE)
 if (NNG_ELIDE_DEPRECATED)
     target_compile_definitions(nng PRIVATE NNG_ELIDE_DEPRECATED)
 endif()
+if (NNG_ENABLE_COMPAT)
+    target_compile_definitions(nng PRIVATE NNG_ENABLE_COMPAT)
+endif()
 
 
 # We can use rlimit to configure the stack size for systems
@@ -114,17 +117,22 @@ endif ()
 
 nng_defines_if(NNG_ENABLE_STATS NNG_ENABLE_STATS)
 
+# IPv6 enable
+nng_defines_if(NNG_ENABLE_IPV6 NNG_ENABLE_IPV6)
+
+set(NNG_RESOLV_CONCURRENCY 4 CACHE STRING "Resolver (DNS) concurrency.")
+mark_as_advanced(NNG_RESOLV_CONCURRENCY)
 if (NNG_RESOLV_CONCURRENCY)
     add_definitions(-DNNG_RESOLV_CONCURRENCY=${NNG_RESOLV_CONCURRENCY})
 endif ()
-mark_as_advanced(NNG_RESOLV_CONCURRENCY)
 
+set(NNG_NUM_TASKQ_THREADS 0 CACHE STRING "Fixed number of task threads, 0 for automatic")
+mark_as_advanced(NNG_NUM_TASKQ_THREADS)
 if (NNG_NUM_TASKQ_THREADS)
     add_definitions(-DNNG_NUM_TASKQ_THREADS=${NNG_NUM_TASKQ_THREADS})
 endif ()
-mark_as_advanced(NNG_NUM_TASKQ_THREADS)
 
-set(NNG_MAX_TASKQ_THREADS 16 CACHE STRING "Upper bound on taskq threads, 0 for no limit")
+set(NNG_MAX_TASKQ_THREADS 16 CACHE STRING "Upper bound on task threads, 0 for no limit")
 mark_as_advanced(NNG_MAX_TASKQ_THREADS)
 if (NNG_MAX_TASKQ_THREADS)
     add_definitions(-DNNG_MAX_TASKQ_THREADS=${NNG_MAX_TASKQ_THREADS})
@@ -132,10 +140,30 @@ endif ()
 
 # Expire threads. This runs the timeout handling, and having more of them
 # reduces contention on the common locks used for aio expiration.
+set(NNG_NUM_EXPIRE_THREADS 0 CACHE STRING "Fixed number of expire threads, 0 for automatic")
+mark_as_advanced(NNG_NUM_EXPIRE_THREADS)
+if (NNG_NUM_EXPIRE_THREADS)
+    add_definitions(-DNNG_NUM_EXPIRE_THREADS=${NNG_NUM_EXPIRE_THREADS})
+endif ()
+
 set(NNG_MAX_EXPIRE_THREADS 8 CACHE STRING "Upper bound on expire threads, 0 for no limit")
 mark_as_advanced(NNG_MAX_EXPIRE_THREADS)
 if (NNG_MAX_EXPIRE_THREADS)
     add_definitions(-DNNG_MAX_EXPIRE_THREADS=${NNG_MAX_EXPIRE_THREADS})
+endif()
+
+# Poller threads.  These threads run the pollers.  This is mostly used
+# on Windows right now, as the POSIX platforms use a single threaded poller.
+set(NNG_NUM_POLLER_THREADS 0 CACHE STRING "Fixed number of I/O poller threads, 0 for automatic")
+if (NNG_NUM_POLLER_THREADS)
+    add_definitions(-DNNG_NUM_POLLER_THREADS=${NNG_NUM_POLLER_THREADS})
+endif ()
+mark_as_advanced(NNG_NUM_POLLER_THREADS)
+
+set(NNG_MAX_POLLER_THREADS 8 CACHE STRING "Upper bound on I/O poller threads, 0 for no limit")
+mark_as_advanced(NNG_MAX_POLLER_THREADS)
+if (NNG_MAX_POLLER_THREADS)
+    add_definitions(-DNNG_MAX_POLLER_THREADS=${NNG_MAX_POLLER_THREADS})
 endif()
 
 #  Platform checks.

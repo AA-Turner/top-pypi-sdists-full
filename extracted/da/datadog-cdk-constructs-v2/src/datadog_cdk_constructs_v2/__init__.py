@@ -979,6 +979,7 @@ class DatadogAppSecMode(enum.Enum):
         "is_datadog_dependency_enabled": "isDatadogDependencyEnabled",
         "is_datadog_essential": "isDatadogEssential",
         "memory_limit_mib": "memoryLimitMiB",
+        "orchestrator_explorer": "orchestratorExplorer",
         "read_only_root_filesystem": "readOnlyRootFilesystem",
         "registry": "registry",
         "service": "service",
@@ -1007,6 +1008,7 @@ class DatadogECSBaseProps:
         is_datadog_dependency_enabled: typing.Optional[builtins.bool] = None,
         is_datadog_essential: typing.Optional[builtins.bool] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
+        orchestrator_explorer: typing.Optional[typing.Union["OrchestratorExplorerFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         read_only_root_filesystem: typing.Optional[builtins.bool] = None,
         registry: typing.Optional[builtins.str] = None,
         service: typing.Optional[builtins.str] = None,
@@ -1031,6 +1033,7 @@ class DatadogECSBaseProps:
         :param is_datadog_dependency_enabled: Configure added containers to have container dependency on the Datadog Agent container.
         :param is_datadog_essential: Configure Datadog Agent container to be essential for the task.
         :param memory_limit_mib: The amount (in MiB) of memory to present to the Datadog Agent container.
+        :param orchestrator_explorer: Orchestrator Explorer feature configuration.
         :param read_only_root_filesystem: Configure Datadog Agent container to run with read-only root filesystem enabled.
         :param registry: The registry to pull the Datadog Agent container image from.
         :param service: The task service name. Used for tagging (UST).
@@ -1043,6 +1046,8 @@ class DatadogECSBaseProps:
             datadog_health_check = _aws_cdk_aws_ecs_ceddda9d.HealthCheck(**datadog_health_check)
         if isinstance(dogstatsd, dict):
             dogstatsd = DogstatsdFeatureConfig(**dogstatsd)
+        if isinstance(orchestrator_explorer, dict):
+            orchestrator_explorer = OrchestratorExplorerFeatureConfig(**orchestrator_explorer)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d27d29c3a8198268022c64bd85cfc6542074c930488b7326c79b53336deaa44a)
             check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
@@ -1062,6 +1067,7 @@ class DatadogECSBaseProps:
             check_type(argname="argument is_datadog_dependency_enabled", value=is_datadog_dependency_enabled, expected_type=type_hints["is_datadog_dependency_enabled"])
             check_type(argname="argument is_datadog_essential", value=is_datadog_essential, expected_type=type_hints["is_datadog_essential"])
             check_type(argname="argument memory_limit_mib", value=memory_limit_mib, expected_type=type_hints["memory_limit_mib"])
+            check_type(argname="argument orchestrator_explorer", value=orchestrator_explorer, expected_type=type_hints["orchestrator_explorer"])
             check_type(argname="argument read_only_root_filesystem", value=read_only_root_filesystem, expected_type=type_hints["read_only_root_filesystem"])
             check_type(argname="argument registry", value=registry, expected_type=type_hints["registry"])
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
@@ -1102,6 +1108,8 @@ class DatadogECSBaseProps:
             self._values["is_datadog_essential"] = is_datadog_essential
         if memory_limit_mib is not None:
             self._values["memory_limit_mib"] = memory_limit_mib
+        if orchestrator_explorer is not None:
+            self._values["orchestrator_explorer"] = orchestrator_explorer
         if read_only_root_filesystem is not None:
             self._values["read_only_root_filesystem"] = read_only_root_filesystem
         if registry is not None:
@@ -1240,6 +1248,14 @@ class DatadogECSBaseProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
+    def orchestrator_explorer(
+        self,
+    ) -> typing.Optional["OrchestratorExplorerFeatureConfig"]:
+        '''Orchestrator Explorer feature configuration.'''
+        result = self._values.get("orchestrator_explorer")
+        return typing.cast(typing.Optional["OrchestratorExplorerFeatureConfig"], result)
+
+    @builtins.property
     def read_only_root_filesystem(self) -> typing.Optional[builtins.bool]:
         '''Configure Datadog Agent container to run with read-only root filesystem enabled.'''
         result = self._values.get("read_only_root_filesystem")
@@ -1315,6 +1331,7 @@ class DatadogECSFargate(
         is_datadog_dependency_enabled: typing.Optional[builtins.bool] = None,
         is_datadog_essential: typing.Optional[builtins.bool] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
+        orchestrator_explorer: typing.Optional[typing.Union["OrchestratorExplorerFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         read_only_root_filesystem: typing.Optional[builtins.bool] = None,
         registry: typing.Optional[builtins.str] = None,
         service: typing.Optional[builtins.str] = None,
@@ -1341,6 +1358,7 @@ class DatadogECSFargate(
         :param is_datadog_dependency_enabled: Configure added containers to have container dependency on the Datadog Agent container.
         :param is_datadog_essential: Configure Datadog Agent container to be essential for the task.
         :param memory_limit_mib: The amount (in MiB) of memory to present to the Datadog Agent container.
+        :param orchestrator_explorer: Orchestrator Explorer feature configuration.
         :param read_only_root_filesystem: Configure Datadog Agent container to run with read-only root filesystem enabled.
         :param registry: The registry to pull the Datadog Agent container image from.
         :param service: The task service name. Used for tagging (UST).
@@ -1367,6 +1385,7 @@ class DatadogECSFargate(
             is_datadog_dependency_enabled=is_datadog_dependency_enabled,
             is_datadog_essential=is_datadog_essential,
             memory_limit_mib=memory_limit_mib,
+            orchestrator_explorer=orchestrator_explorer,
             read_only_root_filesystem=read_only_root_filesystem,
             registry=registry,
             service=service,
@@ -1402,6 +1421,7 @@ class DatadogECSFargate(
         is_datadog_dependency_enabled: typing.Optional[builtins.bool] = None,
         is_datadog_essential: typing.Optional[builtins.bool] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
+        orchestrator_explorer: typing.Optional[typing.Union["OrchestratorExplorerFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         read_only_root_filesystem: typing.Optional[builtins.bool] = None,
         registry: typing.Optional[builtins.str] = None,
         service: typing.Optional[builtins.str] = None,
@@ -1434,6 +1454,7 @@ class DatadogECSFargate(
         :param is_datadog_dependency_enabled: Configure added containers to have container dependency on the Datadog Agent container.
         :param is_datadog_essential: Configure Datadog Agent container to be essential for the task.
         :param memory_limit_mib: The amount (in MiB) of memory to present to the Datadog Agent container.
+        :param orchestrator_explorer: Orchestrator Explorer feature configuration.
         :param read_only_root_filesystem: Configure Datadog Agent container to run with read-only root filesystem enabled.
         :param registry: The registry to pull the Datadog Agent container image from.
         :param service: The task service name. Used for tagging (UST).
@@ -1465,6 +1486,7 @@ class DatadogECSFargate(
             is_datadog_dependency_enabled=is_datadog_dependency_enabled,
             is_datadog_essential=is_datadog_essential,
             memory_limit_mib=memory_limit_mib,
+            orchestrator_explorer=orchestrator_explorer,
             read_only_root_filesystem=read_only_root_filesystem,
             registry=registry,
             service=service,
@@ -1496,6 +1518,7 @@ class DatadogECSFargate(
         "is_datadog_dependency_enabled": "isDatadogDependencyEnabled",
         "is_datadog_essential": "isDatadogEssential",
         "memory_limit_mib": "memoryLimitMiB",
+        "orchestrator_explorer": "orchestratorExplorer",
         "read_only_root_filesystem": "readOnlyRootFilesystem",
         "registry": "registry",
         "service": "service",
@@ -1526,6 +1549,7 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
         is_datadog_dependency_enabled: typing.Optional[builtins.bool] = None,
         is_datadog_essential: typing.Optional[builtins.bool] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
+        orchestrator_explorer: typing.Optional[typing.Union["OrchestratorExplorerFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         read_only_root_filesystem: typing.Optional[builtins.bool] = None,
         registry: typing.Optional[builtins.str] = None,
         service: typing.Optional[builtins.str] = None,
@@ -1552,6 +1576,7 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
         :param is_datadog_dependency_enabled: Configure added containers to have container dependency on the Datadog Agent container.
         :param is_datadog_essential: Configure Datadog Agent container to be essential for the task.
         :param memory_limit_mib: The amount (in MiB) of memory to present to the Datadog Agent container.
+        :param orchestrator_explorer: Orchestrator Explorer feature configuration.
         :param read_only_root_filesystem: Configure Datadog Agent container to run with read-only root filesystem enabled.
         :param registry: The registry to pull the Datadog Agent container image from.
         :param service: The task service name. Used for tagging (UST).
@@ -1566,6 +1591,8 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
             datadog_health_check = _aws_cdk_aws_ecs_ceddda9d.HealthCheck(**datadog_health_check)
         if isinstance(dogstatsd, dict):
             dogstatsd = DogstatsdFeatureConfig(**dogstatsd)
+        if isinstance(orchestrator_explorer, dict):
+            orchestrator_explorer = OrchestratorExplorerFeatureConfig(**orchestrator_explorer)
         if isinstance(cws, dict):
             cws = FargateCWSFeatureConfig(**cws)
         if isinstance(log_collection, dict):
@@ -1589,6 +1616,7 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
             check_type(argname="argument is_datadog_dependency_enabled", value=is_datadog_dependency_enabled, expected_type=type_hints["is_datadog_dependency_enabled"])
             check_type(argname="argument is_datadog_essential", value=is_datadog_essential, expected_type=type_hints["is_datadog_essential"])
             check_type(argname="argument memory_limit_mib", value=memory_limit_mib, expected_type=type_hints["memory_limit_mib"])
+            check_type(argname="argument orchestrator_explorer", value=orchestrator_explorer, expected_type=type_hints["orchestrator_explorer"])
             check_type(argname="argument read_only_root_filesystem", value=read_only_root_filesystem, expected_type=type_hints["read_only_root_filesystem"])
             check_type(argname="argument registry", value=registry, expected_type=type_hints["registry"])
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
@@ -1631,6 +1659,8 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
             self._values["is_datadog_essential"] = is_datadog_essential
         if memory_limit_mib is not None:
             self._values["memory_limit_mib"] = memory_limit_mib
+        if orchestrator_explorer is not None:
+            self._values["orchestrator_explorer"] = orchestrator_explorer
         if read_only_root_filesystem is not None:
             self._values["read_only_root_filesystem"] = read_only_root_filesystem
         if registry is not None:
@@ -1773,6 +1803,14 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
+    def orchestrator_explorer(
+        self,
+    ) -> typing.Optional["OrchestratorExplorerFeatureConfig"]:
+        '''Orchestrator Explorer feature configuration.'''
+        result = self._values.get("orchestrator_explorer")
+        return typing.cast(typing.Optional["OrchestratorExplorerFeatureConfig"], result)
+
+    @builtins.property
     def read_only_root_filesystem(self) -> typing.Optional[builtins.bool]:
         '''Configure Datadog Agent container to run with read-only root filesystem enabled.'''
         result = self._values.get("read_only_root_filesystem")
@@ -1862,6 +1900,7 @@ class DatadogECSFargateTaskDefinition(
         is_datadog_dependency_enabled: typing.Optional[builtins.bool] = None,
         is_datadog_essential: typing.Optional[builtins.bool] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
+        orchestrator_explorer: typing.Optional[typing.Union["OrchestratorExplorerFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         read_only_root_filesystem: typing.Optional[builtins.bool] = None,
         registry: typing.Optional[builtins.str] = None,
         service: typing.Optional[builtins.str] = None,
@@ -1891,6 +1930,7 @@ class DatadogECSFargateTaskDefinition(
         :param is_datadog_dependency_enabled: Configure added containers to have container dependency on the Datadog Agent container.
         :param is_datadog_essential: Configure Datadog Agent container to be essential for the task.
         :param memory_limit_mib: The amount (in MiB) of memory to present to the Datadog Agent container.
+        :param orchestrator_explorer: Orchestrator Explorer feature configuration.
         :param read_only_root_filesystem: Configure Datadog Agent container to run with read-only root filesystem enabled.
         :param registry: The registry to pull the Datadog Agent container image from.
         :param service: The task service name. Used for tagging (UST).
@@ -1922,6 +1962,7 @@ class DatadogECSFargateTaskDefinition(
             is_datadog_dependency_enabled=is_datadog_dependency_enabled,
             is_datadog_essential=is_datadog_essential,
             memory_limit_mib=memory_limit_mib,
+            orchestrator_explorer=orchestrator_explorer,
             read_only_root_filesystem=read_only_root_filesystem,
             registry=registry,
             service=service,
@@ -4111,6 +4152,57 @@ class Node:
 
 
 @jsii.data_type(
+    jsii_type="datadog-cdk-constructs-v2.OrchestratorExplorerFeatureConfig",
+    jsii_struct_bases=[],
+    name_mapping={"is_enabled": "isEnabled", "url": "url"},
+)
+class OrchestratorExplorerFeatureConfig:
+    def __init__(
+        self,
+        *,
+        is_enabled: typing.Optional[builtins.bool] = None,
+        url: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Orchestrator Explorer configuration.
+
+        :param is_enabled: Enables Orchestrator Explorer.
+        :param url: The URL of the Orchestrator Explorer API.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4022108989f302878b69ab88b8214ccc5653754b90275b20f6d4b8ba23719643)
+            check_type(argname="argument is_enabled", value=is_enabled, expected_type=type_hints["is_enabled"])
+            check_type(argname="argument url", value=url, expected_type=type_hints["url"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if is_enabled is not None:
+            self._values["is_enabled"] = is_enabled
+        if url is not None:
+            self._values["url"] = url
+
+    @builtins.property
+    def is_enabled(self) -> typing.Optional[builtins.bool]:
+        '''Enables Orchestrator Explorer.'''
+        result = self._values.get("is_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def url(self) -> typing.Optional[builtins.str]:
+        '''The URL of the Orchestrator Explorer API.'''
+        result = self._values.get("url")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OrchestratorExplorerFeatureConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="datadog-cdk-constructs-v2.Runtime",
     jsii_struct_bases=[],
     name_mapping={"name": "name"},
@@ -4399,6 +4491,7 @@ __all__ = [
     "LogCollectionFeatureConfig",
     "LoggingType",
     "Node",
+    "OrchestratorExplorerFeatureConfig",
     "Runtime",
     "RuntimeType",
     "TagKeys",
@@ -4443,6 +4536,7 @@ def _typecheckingstub__d27d29c3a8198268022c64bd85cfc6542074c930488b7326c79b53336
     is_datadog_dependency_enabled: typing.Optional[builtins.bool] = None,
     is_datadog_essential: typing.Optional[builtins.bool] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
+    orchestrator_explorer: typing.Optional[typing.Union[OrchestratorExplorerFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     read_only_root_filesystem: typing.Optional[builtins.bool] = None,
     registry: typing.Optional[builtins.str] = None,
     service: typing.Optional[builtins.str] = None,
@@ -4476,6 +4570,7 @@ def _typecheckingstub__7e36e6c3fc3a4574bfd3006ff2c205658f6beefccb62229aea1be683f
     is_datadog_dependency_enabled: typing.Optional[builtins.bool] = None,
     is_datadog_essential: typing.Optional[builtins.bool] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
+    orchestrator_explorer: typing.Optional[typing.Union[OrchestratorExplorerFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     read_only_root_filesystem: typing.Optional[builtins.bool] = None,
     registry: typing.Optional[builtins.str] = None,
     service: typing.Optional[builtins.str] = None,
@@ -4504,6 +4599,7 @@ def _typecheckingstub__203f4e755dbe1abe14e7ebcd9aed8ad2720b707b756d8dd72acc9e252
     is_datadog_dependency_enabled: typing.Optional[builtins.bool] = None,
     is_datadog_essential: typing.Optional[builtins.bool] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
+    orchestrator_explorer: typing.Optional[typing.Union[OrchestratorExplorerFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     read_only_root_filesystem: typing.Optional[builtins.bool] = None,
     registry: typing.Optional[builtins.str] = None,
     service: typing.Optional[builtins.str] = None,
@@ -4539,6 +4635,7 @@ def _typecheckingstub__1b705bc69b69e399d2d0fd2c5c39581aa92dc32dccf1793d2785f3b83
     is_datadog_dependency_enabled: typing.Optional[builtins.bool] = None,
     is_datadog_essential: typing.Optional[builtins.bool] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
+    orchestrator_explorer: typing.Optional[typing.Union[OrchestratorExplorerFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     read_only_root_filesystem: typing.Optional[builtins.bool] = None,
     registry: typing.Optional[builtins.str] = None,
     service: typing.Optional[builtins.str] = None,
@@ -4938,6 +5035,14 @@ def _typecheckingstub__94eadcb7ca52ba8bed5cc0d8eb96f43999bf00c06aa40228ba347f64e
 def _typecheckingstub__7b031a9a9356d281380eb23c847fc68b7a40ef4f9c9175b10723b3df950f40fd(
     *,
     default_child: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4022108989f302878b69ab88b8214ccc5653754b90275b20f6d4b8ba23719643(
+    *,
+    is_enabled: typing.Optional[builtins.bool] = None,
+    url: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -2,11 +2,13 @@
 # Licensed under the MIT license.
 
 import textwrap
+from typing import Optional
 
 from colorama import Fore, Style
 
 from pyrit.models.scenario_result import ScenarioResult
 from pyrit.scenario.printer.scenario_result_printer import ScenarioResultPrinter
+from pyrit.score.printer import ConsoleScorerPrinter, ScorerPrinter
 
 
 class ConsoleScenarioResultPrinter(ScenarioResultPrinter):
@@ -18,7 +20,14 @@ class ConsoleScenarioResultPrinter(ScenarioResultPrinter):
     that don't support ANSI characters.
     """
 
-    def __init__(self, *, width: int = 100, indent_size: int = 2, enable_colors: bool = True):
+    def __init__(
+        self,
+        *,
+        width: int = 100,
+        indent_size: int = 2,
+        enable_colors: bool = True,
+        scorer_printer: Optional[ScorerPrinter] = None,
+    ):
         """
         Initialize the console printer.
 
@@ -29,6 +38,8 @@ class ConsoleScenarioResultPrinter(ScenarioResultPrinter):
                 Defaults to 2.
             enable_colors (bool): Whether to enable ANSI color output. When False,
                 all output will be plain text without colors. Defaults to True.
+            scorer_printer (Optional[ScorerPrinter]): Printer for scorer information.
+                If not provided, a ConsoleScorerPrinter with matching settings is created.
 
         Raises:
             ValueError: If width <= 0 or indent_size < 0.
@@ -36,6 +47,9 @@ class ConsoleScenarioResultPrinter(ScenarioResultPrinter):
         self._width = width
         self._indent = " " * indent_size
         self._enable_colors = enable_colors
+        self._scorer_printer = scorer_printer or ConsoleScorerPrinter(
+            indent_size=indent_size, enable_colors=enable_colors
+        )
 
     def _print_colored(self, text: str, *colors: str) -> None:
         """
@@ -101,19 +115,19 @@ class ConsoleScenarioResultPrinter(ScenarioResultPrinter):
         # Target information
         print()
         self._print_colored(f"{self._indent}🎯 Target Information", Style.BRIGHT)
-        target_type = result.objective_target_identifier.get("__type__", "Unknown")
-        target_model = result.objective_target_identifier.get("model_name", "Unknown")
-        target_endpoint = result.objective_target_identifier.get("endpoint", "Unknown")
+        target_id = result.objective_target_identifier
+        target_type = target_id.class_name if target_id else "Unknown"
+        target_model = target_id.model_name if target_id else "Unknown"
+        target_endpoint = target_id.endpoint if target_id else "Unknown"
 
         self._print_colored(f"{self._indent * 2}• Target Type: {target_type}", Fore.CYAN)
         self._print_colored(f"{self._indent * 2}• Target Model: {target_model}", Fore.CYAN)
         self._print_colored(f"{self._indent * 2}• Target Endpoint: {target_endpoint}", Fore.CYAN)
 
-        # Scorer information
-        if result.objective_scorer_identifier:
-            print()
-            self._print_colored(f"{self._indent}📊 Scorer Information", Style.BRIGHT)
-            self._print_scorer_info(result.objective_scorer_identifier, indent_level=2)
+        # Scorer information - use ScorerIdentifier from result
+        scorer_identifier = result.objective_scorer_identifier
+        if scorer_identifier:
+            self._scorer_printer.print_objective_scorer(scorer_identifier=scorer_identifier)
 
         # Overall statistics
         self._print_section_header("Overall Statistics")
@@ -170,32 +184,6 @@ class ConsoleScenarioResultPrinter(ScenarioResultPrinter):
         self._print_colored("=" * self._width, Fore.CYAN)
         print()
 
-    def _print_scorer_info(self, scorer_identifier: dict, *, indent_level: int = 2) -> None:
-        """
-        Print scorer information including nested sub-scorers.
-
-        Args:
-            scorer_identifier (dict): The scorer identifier dictionary.
-            indent_level (int): Current indentation level for nested display.
-        """
-        scorer_type = scorer_identifier.get("__type__", "Unknown")
-        indent = self._indent * indent_level
-
-        self._print_colored(f"{indent}• Scorer Type: {scorer_type}", Fore.CYAN)
-
-        # Check for sub_identifier
-        sub_identifier = scorer_identifier.get("sub_identifier")
-        if sub_identifier:
-            # Handle list of sub-scorers (composite scorer)
-            if isinstance(sub_identifier, list):
-                self._print_colored(f"{indent}  └─ Composite of {len(sub_identifier)} scorer(s):", Fore.CYAN)
-                for sub_scorer in sub_identifier:
-                    self._print_scorer_info(sub_scorer, indent_level=indent_level + 3)
-            # Handle single nested scorer
-            elif isinstance(sub_identifier, dict):
-                self._print_colored(f"{indent}  └─ Wraps:", Fore.CYAN)
-                self._print_scorer_info(sub_identifier, indent_level=indent_level + 2)
-
     def _get_rate_color(self, rate: int) -> str:
         """
         Get color based on success rate.
@@ -207,10 +195,10 @@ class ConsoleScenarioResultPrinter(ScenarioResultPrinter):
             str: Colorama color constant
         """
         if rate >= 75:
-            return Fore.RED  # High success (bad for security)
+            return str(Fore.RED)  # High success (bad for security)
         elif rate >= 50:
-            return Fore.YELLOW  # Medium success
+            return str(Fore.YELLOW)  # Medium success
         elif rate >= 25:
-            return Fore.CYAN  # Low success
+            return str(Fore.CYAN)  # Low success
         else:
-            return Fore.GREEN  # Very low success (good for security)
+            return str(Fore.GREEN)  # Very low success (good for security)

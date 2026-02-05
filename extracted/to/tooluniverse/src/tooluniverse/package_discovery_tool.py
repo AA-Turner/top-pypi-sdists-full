@@ -169,12 +169,13 @@ class DynamicPackageDiscovery(BaseTool):
             candidates = self._search_pypi_via_web(search_query)
 
             if not candidates:
-                return {
+                result = {
                     "status": "success",
                     "candidates": [],
                     "recommendation": None,
                     "message": "No packages found",
                 }
+                return {"status": "success", "data": result}
 
             print(f"📦 Found {len(candidates)} package candidates")
 
@@ -201,17 +202,21 @@ class DynamicPackageDiscovery(BaseTool):
                     f"🏆 Top recommendation: {top_recommendation['name']} (score: {score})"
                 )
 
-            return {
+            result = {
                 "status": "success",
                 "candidates": ranked,
                 "recommendation": top_recommendation,
                 "total_evaluated": len(evaluated),
             }
 
+            return {"status": "success", "data": result}
+
         except Exception as e:
-            return {
+            error_result = {
                 "status": "error",
                 "error": str(e),
                 "candidates": [],
                 "recommendation": None,
             }
+
+            return {"status": "error", "data": error_result}

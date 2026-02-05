@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: platformio
-Version: 6.1.18
+Version: 6.1.19
 Summary: Your Gateway to Embedded Software Development Excellence. Unlock the true potential of embedded software development with PlatformIO's collaborative ecosystem, embracing declarative principles, test-driven methodologies, and modern toolchains for unrivaled success.
 Home-page: https://platformio.org
 Author: PlatformIO Labs
@@ -21,7 +21,7 @@ Classifier: Topic :: Software Development :: Compilers
 Requires-Python: >=3.6
 License-File: LICENSE
 Requires-Dist: bottle==0.13.*
-Requires-Dist: click<8.1.8,>=8.0.4
+Requires-Dist: click<8.4,>=8.0.4
 Requires-Dist: colorama
 Requires-Dist: marshmallow==3.*
 Requires-Dist: pyelftools<1,>=0.27
@@ -30,8 +30,8 @@ Requires-Dist: requests==2.*
 Requires-Dist: semantic_version==2.10.*
 Requires-Dist: tabulate==0.*
 Requires-Dist: ajsonrpc==1.2.*
-Requires-Dist: starlette<0.47,>=0.19
-Requires-Dist: uvicorn<0.35,>=0.16
+Requires-Dist: starlette<0.53,>=0.19
+Requires-Dist: uvicorn<0.41,>=0.16
 Requires-Dist: wsproto==1.*
 Requires-Dist: chardet<6,>=3.0.2; platform_system == "Darwin" and "arm" in platform_machine
 Dynamic: author
@@ -41,6 +41,7 @@ Dynamic: description
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

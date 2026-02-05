@@ -9,7 +9,8 @@ from ._shared_client import get_shared_client
 
 
 def gwas_get_variants_for_trait(
-    efo_trait: str,
+    disease_trait: Optional[str] = None,
+    efo_uri: Optional[str] = None,
     size: Optional[int] = None,
     page: Optional[int] = None,
     *,
@@ -22,8 +23,10 @@ def gwas_get_variants_for_trait(
 
     Parameters
     ----------
-    efo_trait : str
-        EFO trait identifier or name
+    disease_trait : str
+        Disease or trait name for text-based search (e.g., 'diabetes', 'breast cancer')
+    efo_uri : str
+        Full EFO ontology URI (e.g., 'http://www.ebi.ac.uk/efo/EFO_0001645')
     size : int
         Number of results to return per page
     page : int
@@ -44,7 +47,12 @@ def gwas_get_variants_for_trait(
     return get_shared_client().run_one_function(
         {
             "name": "gwas_get_variants_for_trait",
-            "arguments": {"efo_trait": efo_trait, "size": size, "page": page},
+            "arguments": {
+                "disease_trait": disease_trait,
+                "efo_uri": efo_uri,
+                "size": size,
+                "page": page,
+            },
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

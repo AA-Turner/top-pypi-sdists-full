@@ -1,10 +1,13 @@
 import json
 import gc
 import os
+import logging
 from pathlib import Path
 from .utils import get_md5, get_user_cache_dir
 from .base_tool import BaseTool
 from .tool_registry import register_tool
+
+logger = logging.getLogger(__name__)
 
 
 @register_tool("ToolFinderEmbedding")
@@ -52,12 +55,18 @@ class ToolFinderEmbedding(BaseTool):
 
         try:
             self.load_rag_model()
-            print(
+            logger.info(
                 f"Using toolfinder model: {toolfinder_model}, GPU is required for this model for fast speed..."
             )
+            # Initialize embeddings with currently available tools
+            # Note: Embeddings will be refreshed automatically when run() is called if tools are loaded later
             self.load_tool_desc_embedding(
                 tooluniverse, exclude_names=self.exclude_tools
             )
+            if self.tool_name is None or len(self.tool_name) == 0:
+                logger.warning(
+                    "Tool_RAG initialized with no tools. Embeddings will be generated when tools are loaded."
+                )
             self._dependencies_available = True
         except ImportError as e:
             self._dependency_error = e
@@ -72,6 +81,46 @@ class ToolFinderEmbedding(BaseTool):
                 stacklevel=2,
             )
 
+    def _maybe_refresh_embeddings(self):
+        """
+        Check if the tool list has changed and refresh embeddings if needed.
+
+        This method is called before each Tool_RAG query to ensure the embeddings
+        are up-to-date with the currently loaded tools. This is critical when using
+        Tool_RAG via HTTP API where tools are loaded dynamically.
+        """
+        if not hasattr(self, "tooluniverse") or self.tooluniverse is None:
+            logger.warning("ToolUniverse not initialized, skipping embedding refresh")
+            return
+
+        # Get current tool names (excluding special tools)
+        current_tool_names = [
+            tool["name"]
+            for tool in self.tooluniverse.all_tools
+            if tool["name"] not in self.exclude_tools
+        ]
+
+        # Check if tool list has changed
+        needs_refresh = False
+
+        if self.tool_name is None or len(self.tool_name) == 0:
+            # No embeddings loaded yet
+            needs_refresh = True
+            reason = "No embeddings loaded"
+        elif set(current_tool_names) != set(self.tool_name):
+            # Tool list has changed
+            needs_refresh = True
+            reason = f"Tool list changed ({len(self.tool_name)} → {len(current_tool_names)} tools)"
+
+        if needs_refresh:
+            logger.info(f"Refreshing Tool_RAG embeddings... ({reason})")
+            self.load_tool_desc_embedding(
+                self.tooluniverse, exclude_names=self.exclude_tools
+            )
+            logger.info(
+                f"Tool_RAG embeddings refreshed: {len(self.tool_name)} tools indexed"
+            )
+
     def load_rag_model(self):
         """
         Load the sentence transformer model for RAG-based tool retrieval.
@@ -79,20 +128,46 @@ class ToolFinderEmbedding(BaseTool):
         Configures the model with appropriate sequence length and tokenizer settings
         for optimal performance in tool description encoding.
 
+        The model is automatically moved to GPU if available for faster inference.
+
         Raises:
             ImportError: If sentence-transformers is not installed.
         """
         try:
             from sentence_transformers import SentenceTransformer
+            import torch
         except ImportError as e:
             raise ImportError(
                 "ToolFinderEmbedding requires 'sentence-transformers' package. "
                 "Install it with: pip install tooluniverse[embedding] or pip install tooluniverse[ml]"
             ) from e
 
-        self.rag_model = SentenceTransformer(self.toolfinder_model)
+        # Determine device: use GPU if available, otherwise CPU
+        if torch.cuda.is_available():
+            device = "cuda"
+            logger.info(f"CUDA is available. GPU count: {torch.cuda.device_count()}")
+            logger.info(f"Current CUDA device: {torch.cuda.current_device()}")
+            logger.info(f"GPU name: {torch.cuda.get_device_name(0)}")
+        else:
+            device = "cpu"
+            logger.warning("CUDA is not available. Using CPU.")
+
+        # Load model on the appropriate device
+        logger.info(f"Loading SentenceTransformer model on device: {device}")
+        self.rag_model = SentenceTransformer(self.toolfinder_model, device=device)
         self.rag_model.max_seq_length = 4096
         self.rag_model.tokenizer.padding_side = "right"
+        
+        # Verify model is on correct device
+        logger.info(f"Model device after loading: {self.rag_model.device}")
+
+        # Log device information
+        if torch.cuda.is_available():
+            logger.info(
+                f"Tool_RAG model loaded on GPU: {torch.cuda.get_device_name(0)}"
+            )
+        else:
+            logger.warning("Tool_RAG model loaded on CPU (GPU not available)")
 
     def load_tool_desc_embedding(
         self,
@@ -117,7 +192,7 @@ class ToolFinderEmbedding(BaseTool):
             exclude_categories (list, optional): Tool categories to exclude
         """
         self.tooluniverse = tooluniverse
-        print("Loading tool descriptions and embeddings...")
+        logger.info("Loading tool descriptions and embeddings...")
         self.tool_name, _ = tooluniverse.refresh_tool_name_desc(
             enable_full_desc=True,
             include_names=include_names,
@@ -138,7 +213,7 @@ class ToolFinderEmbedding(BaseTool):
             for each in tooluniverse.prepare_tool_prompts(filtered_tools)
         ]
         md5_value = get_md5(str(all_tools_str))
-        print("get the md value of tools:", md5_value)
+        logger.debug(f"MD5 hash of tools: {md5_value}")
 
         # Use ToolUniverse cache directory for embeddings
         cache_dir = Path(get_user_cache_dir()) / "embeddings"
@@ -148,7 +223,6 @@ class ToolFinderEmbedding(BaseTool):
         )
         self.tool_embedding_path = str(cache_dir / embedding_filename)
 
-        # Lazy import torch for loading/saving embeddings
         try:
             import torch
         except ImportError:
@@ -157,28 +231,57 @@ class ToolFinderEmbedding(BaseTool):
                 "Install it with: pip install tooluniverse[embedding] or pip install tooluniverse[ml]"
             ) from None
 
+        # Determine target device for loading embeddings
+        if hasattr(self.rag_model, "device"):
+            target_device = self.rag_model.device
+        else:
+            target_device = "cuda" if torch.cuda.is_available() else "cpu"
+        
+        logger.info(f"Loading embeddings to device: {target_device}")
+
         try:
+            # Load embeddings directly to the target device (GPU if available)
+            # This is more efficient than loading to CPU then moving to GPU
             self.tool_desc_embedding = torch.load(
-                self.tool_embedding_path, weights_only=False
+                self.tool_embedding_path, 
+                map_location=target_device,
+                weights_only=False
             )
+            
+            # Ensure it is a tensor
+            if not isinstance(self.tool_desc_embedding, torch.Tensor):
+                self.tool_desc_embedding = torch.tensor(
+                    self.tool_desc_embedding, 
+                    device=target_device
+                )
+            
+            # PyTorch meta tensor fix: handle meta tensors if present
+            if self.tool_desc_embedding.device.type == 'meta':
+                logger.info("Detected meta tensor, using to_empty()")
+                self.tool_desc_embedding = self.tool_desc_embedding.to_empty(device=target_device)
+            elif self.tool_desc_embedding.device != target_device:
+                # Move to target device if not already there
+                logger.info(f"Moving embeddings from {self.tool_desc_embedding.device} to {target_device}")
+                self.tool_desc_embedding = self.tool_desc_embedding.to(target_device)
+            
+            logger.info(f"Embeddings loaded on device: {self.tool_desc_embedding.device}")
+            
             assert len(self.tool_desc_embedding) == len(self.tool_name), (
                 "The number of tools in the tool_name list is not equal to the number of tool_desc_embedding."
             )
-            print("\033[92mSuccessfully loaded cached embeddings.\033[0m")
+            logger.info("Successfully loaded cached embeddings")
         except (RuntimeError, AssertionError, OSError):
             self.tool_desc_embedding = None
-            print("\033[92mInferring the tool_desc_embedding.\033[0m")
+            logger.info("Inferring tool description embeddings...")
 
             # Generate embeddings
             self.tool_desc_embedding = self.rag_model.encode(
-                all_tools_str, prompt="", normalize_embeddings=True
+                all_tools_str, prompt="", normalize_embeddings=True, convert_to_tensor=True
             )
 
             # Save embeddings to disk
             torch.save(self.tool_desc_embedding, self.tool_embedding_path)
-            print(
-                "\033[92mFinished inferring and saving the tool_desc_embedding.\033[0m"
-            )
+            logger.info("Finished inferring and saving tool description embeddings")
 
             # Clean up intermediate variables
             del all_tools_str
@@ -191,9 +294,7 @@ class ToolFinderEmbedding(BaseTool):
             # Force CPU memory cleanup
             gc.collect()
 
-            print(
-                "\033[92mMemory cleanup completed. Embeddings are ready for use.\033[0m"
-            )
+            logger.debug("Memory cleanup completed. Embeddings are ready for use")
 
     def rag_infer(self, query, top_k=5):
         """
@@ -231,13 +332,40 @@ class ToolFinderEmbedding(BaseTool):
 
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+
+        # Check if embeddings are available
+        if self.tool_desc_embedding is None or (
+            hasattr(self.tool_desc_embedding, "shape")
+            and self.tool_desc_embedding.shape[0] == 0
+        ):
+            raise RuntimeError(
+                "Tool_RAG has no indexed tools. "
+                "This typically happens when Tool_RAG is called before other tools are loaded. "
+                "Please load tools first using load_tools() before calling Tool_RAG."
+            )
+
         queries = [query]
         query_embeddings = self.rag_model.encode(
-            queries, prompt="", normalize_embeddings=True
+            queries, prompt="", normalize_embeddings=True, convert_to_tensor=True
         )
-        if self.tool_desc_embedding is None:
-            print("No tool_desc_embedding")
-            exit()
+
+        # Bug fix: Ensure both embeddings are on the same device before similarity calculation
+        # Query embeddings are created on the model's device (GPU if available)
+        # But tool embeddings might be on a different device (e.g., moved from CPU cache)
+        # This prevents tensor device mismatch errors during similarity computation
+        if isinstance(query_embeddings, torch.Tensor) and isinstance(
+            self.tool_desc_embedding, torch.Tensor
+        ):
+            if query_embeddings.device != self.tool_desc_embedding.device:
+                # PyTorch meta tensor fix: use to_empty() for meta tensors, to() for regular tensors
+                target_device = query_embeddings.device
+                if self.tool_desc_embedding.device.type == 'meta':
+                    # New PyTorch: meta tensors require to_empty()
+                    self.tool_desc_embedding = self.tool_desc_embedding.to_empty(device=target_device)
+                else:
+                    # Old PyTorch or regular tensors: use standard to()
+                    self.tool_desc_embedding = self.tool_desc_embedding.to(target_device)
+
         scores = self.rag_model.similarity(query_embeddings, self.tool_desc_embedding)
         top_k = min(top_k, len(self.tool_name))
         top_k_indices = torch.topk(scores, top_k).indices.tolist()[0]
@@ -314,6 +442,10 @@ class ToolFinderEmbedding(BaseTool):
         import copy
 
         arguments = copy.deepcopy(arguments)
+
+        # Bug fix: Refresh embeddings if tool list has changed
+        # This ensures Tool_RAG works correctly when tools are loaded after initialization
+        self._maybe_refresh_embeddings()
 
         # Extract parameters from arguments with defaults
         message = arguments.get("description", None)

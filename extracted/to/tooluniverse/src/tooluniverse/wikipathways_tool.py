@@ -9,7 +9,11 @@ from tooluniverse.tool_registry import register_tool
 def _http_get(
     url: str, headers: Dict[str, str] | None = None, timeout: int = 30
 ) -> Dict[str, Any]:
-    req = Request(url, headers=headers or {})
+    # WikiPathways API requires User-Agent header to avoid 403 Forbidden
+    default_headers = {"User-Agent": "ToolUniverse/1.0"}
+    if headers:
+        default_headers.update(headers)
+    req = Request(url, headers=default_headers)
     with urlopen(req, timeout=timeout) as resp:
         data = resp.read()
         try:
@@ -50,22 +54,19 @@ class WikiPathwaysSearchTool:
             query["organism"] = arguments.get("organism")
         url = f"{base}/findPathwaysByText?{urlencode(query)}"
         try:
-            data = _http_get(
+            api_data = _http_get(
                 url, headers={"Accept": "application/json"}, timeout=timeout
             )
             return {
-                "source": "WikiPathways",
-                "endpoint": "findPathwaysByText",
-                "query": query,
-                "data": data,
-                "success": True,
+                "status": "success",
+                "data": api_data,
+                "url": url,
             }
         except Exception as e:
             return {
-                "error": str(e),
-                "source": "WikiPathways",
-                "endpoint": "findPathwaysByText",
-                "success": False,
+                "status": "error",
+                "data": {"error": str(e)},
+                "url": url,
             }
 
 
@@ -105,18 +106,15 @@ class WikiPathwaysGetTool:
         url = f"{base}/getPathway?{urlencode(query)}"
         try:
             headers = {"Accept": "application/json"} if fmt == "json" else {}
-            data = _http_get(url, headers=headers, timeout=timeout)
+            api_data = _http_get(url, headers=headers, timeout=timeout)
             return {
-                "source": "WikiPathways",
-                "endpoint": "getPathway",
-                "query": query,
-                "data": data,
-                "success": True,
+                "status": "success",
+                "data": api_data,
+                "url": url,
             }
         except Exception as e:
             return {
-                "error": str(e),
-                "source": "WikiPathways",
-                "endpoint": "getPathway",
-                "success": False,
+                "status": "error",
+                "data": {"error": str(e)},
+                "url": url,
             }

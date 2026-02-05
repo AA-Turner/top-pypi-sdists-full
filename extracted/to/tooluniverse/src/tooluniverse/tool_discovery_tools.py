@@ -151,9 +151,10 @@ class GrepToolsTool(BaseTool):
                     }
 
                 if matched:
+                    # tool_name is already shortened (primary identifier)
                     matching_tools.append(
                         {
-                            "name": tool.get("name", ""),
+                            "name": tool_name,
                             "description": tool.get("description", ""),
                         }
                     )
@@ -260,14 +261,19 @@ class ListToolsTool(BaseTool):
 
         try:
             if mode == "names":
-                # Return only tool names
-                tool_names = [tool_name for tool_name, tool in tools if tool_name]
+                # Return only tool names (use shortened/exposed names for MCP compatibility)
+                tool_names = []
+                for tool_name, tool in tools:
+                    if tool_name:
+                        # tool_name is already shortened (primary identifier)
+                        tool_names.append(tool_name)
 
                 if group_by_category:
                     # Group by category
                     tools_by_category = {}
                     for tool_name, tool in tools:
                         if tool_name:
+                            # tool_name is already shortened (primary identifier)
                             category = _get_tool_category(
                                 tool, tool_name, self.tooluniverse
                             )
@@ -325,6 +331,8 @@ class ListToolsTool(BaseTool):
                 tools_info = []
                 for tool_name, tool in tools:
                     if tool_name:
+                        # Use exposed name from tool config (already shortened during loading)
+                        # tool_name is already shortened (primary identifier)
                         description = tool.get("description", "")
                         if brief and len(description) > 100:
                             # Truncate to first sentence or 100 chars
@@ -444,6 +452,7 @@ class ListToolsTool(BaseTool):
                 tools_info = []
                 for tool_name, tool in tools:
                     if tool_name:
+                        # tool_name is already shortened (primary identifier)
                         description = tool.get("description", "")
                         if brief and len(description) > 100:
                             sentence_end = description.find(". ")
@@ -623,8 +632,10 @@ class GetToolInfoTool(BaseTool):
                 for tool_name in tool_names:
                     tool_config = self.tooluniverse.all_tool_dict.get(tool_name)
                     if not tool_config:
+                        # tool_name is already shortened (primary identifier)
                         results.append({"name": tool_name, "error": "not found"})
                     else:
+                        # tool_name is already shortened (primary identifier)
                         results.append(
                             {
                                 "name": tool_name,

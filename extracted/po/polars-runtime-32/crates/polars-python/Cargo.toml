@@ -10,6 +10,7 @@ description = "Enable running Polars workloads in Python"
 readme = "README.md"
 
 [dependencies]
+polars-buffer = { workspace = true }
 polars-compute = { workspace = true }
 polars-core = { workspace = true, features = ["python"] }
 polars-dtype = { workspace = true }
@@ -146,7 +147,14 @@ parquet = ["polars/parquet", "polars-parquet", "polars-mem-engine/parquet"]
 ipc = ["polars/ipc", "polars-mem-engine/ipc"]
 ipc_streaming = ["polars/ipc_streaming"]
 is_in = ["polars/is_in"]
-json = ["polars/serde", "serde_json", "polars/json", "polars-utils/serde", "polars-mem-engine/json"]
+json = [
+  "polars/serde",
+  "polars-buffer/serde",
+  "serde_json",
+  "polars/json",
+  "polars-utils/serde",
+  "polars-mem-engine/json",
+]
 scan_lines = ["polars/scan_lines", "polars-mem-engine/scan_lines"]
 trigonometry = ["polars/trigonometry"]
 sign = ["polars/sign"]

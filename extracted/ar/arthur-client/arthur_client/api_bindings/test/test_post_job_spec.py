@@ -35,14 +35,18 @@ class TestPostJobSpec(unittest.TestCase):
         model = PostJobSpec()
         if include_optional:
             return PostJobSpec(
-                job_type = 'alert_check',
+                job_type = 'discover_agents',
                 scope_model_id = '',
                 start_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 end_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 connector_id = '',
                 available_dataset_id = '',
                 check_range_start_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
-                check_range_end_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f')
+                check_range_end_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
+                workspace_id = '',
+                data_plane_id = '',
+                project_id = '',
+                lookback_hours = 56
             )
         else:
             return PostJobSpec(
@@ -53,6 +57,8 @@ class TestPostJobSpec(unittest.TestCase):
                 available_dataset_id = '',
                 check_range_start_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 check_range_end_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
+                workspace_id = '',
+                data_plane_id = '',
         )
         """
 

@@ -330,17 +330,29 @@ class HPAGetRnaExpressionBySourceTool(HPASearchApiTool):
         )
 
         if not gene_name:
-            return {"error": "Parameter 'gene_name' is required"}
+            return {
+                "status": "error",
+                "data": {"error": "Parameter 'gene_name' is required"},
+            }
         if not source_type:
-            return {"error": "Parameter 'source_type' is required"}
+            return {
+                "status": "error",
+                "data": {"error": "Parameter 'source_type' is required"},
+            }
         if not source_name:
-            return {"error": "Parameter 'source_name' is required"}
+            return {
+                "status": "error",
+                "data": {"error": "Parameter 'source_name' is required"},
+            }
 
         # Validate source type
         if source_type not in self.source_column_mappings:
             available_types = ", ".join(self.source_column_mappings.keys())
             return {
-                "error": f"Invalid source_type '{source_type}'. Available types: {available_types}"
+                "status": "error",
+                "data": {
+                    "error": f"Invalid source_type '{source_type}'. Available types: {available_types}"
+                },
             }
 
         # Enhanced validation with intelligent recommendations
@@ -389,7 +401,7 @@ class HPAGetRnaExpressionBySourceTool(HPASearchApiTool):
             error_msg += (
                 f"All available sources for '{source_type}': {available_sources}"
             )
-            return {"error": error_msg}
+            return {"status": "error", "data": {"error": error_msg}}
 
         try:
             # Get the correct API column
@@ -400,16 +412,17 @@ class HPAGetRnaExpressionBySourceTool(HPASearchApiTool):
             response_data = self._make_api_request(gene_name, columns)
 
             if "error" in response_data:
-                return response_data
+                return {"status": "error", "data": response_data}
 
             if not response_data or len(response_data) == 0:
-                return {
+                result = {
                     "gene_name": gene_name,
                     "source_type": source_type,
                     "source_name": source_name,
                     "expression_value": "N/A",
                     "status": "Gene not found",
                 }
+                return {"status": "success", "data": result}
 
             # Get the first result
             gene_data = response_data[0]
@@ -471,7 +484,7 @@ class HPAGetRnaExpressionBySourceTool(HPASearchApiTool):
                 except (ValueError, TypeError):
                     expression_level = "unknown"
 
-            return {
+            result = {
                 "gene_name": gene_data.get("Gene", gene_name),
                 "gene_synonym": gene_data.get("Gene synonym", ""),
                 "source_type": source_type,
@@ -492,13 +505,17 @@ class HPAGetRnaExpressionBySourceTool(HPASearchApiTool):
                     else "no_expression_data_for_source"
                 ),
             }
+            return {"status": "success", "data": result}
 
         except Exception as e:
             return {
-                "error": f"Failed to retrieve RNA expression data: {str(e)}",
-                "gene_name": gene_name,
-                "source_type": source_type,
-                "source_name": source_name,
+                "status": "error",
+                "data": {
+                    "error": f"Failed to retrieve RNA expression data: {str(e)}",
+                    "gene_name": gene_name,
+                    "source_type": source_type,
+                    "source_name": source_name,
+                },
             }
 
 

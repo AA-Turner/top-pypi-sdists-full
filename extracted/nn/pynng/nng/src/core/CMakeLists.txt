@@ -1,5 +1,5 @@
 #
-# Copyright 2021 Staysail Systems, Inc. <info@staystail.tech>
+# Copyright 2024 Staysail Systems, Inc. <info@staystail.tech>
 #
 # This software is supplied under the terms of the MIT License, a
 # copy of which should be located in the distribution where this
@@ -14,6 +14,7 @@ nng_check_sym(strlcpy string.h NNG_HAVE_STRLCPY)
 nng_check_sym(strnlen string.h NNG_HAVE_STRNLEN)
 nng_check_sym(strcasecmp string.h NNG_HAVE_STRCASECMP)
 nng_check_sym(strncasecmp string.h NNG_HAVE_STRNCASECMP)
+nng_check_sym(localtime_r time.h NNG_HAVE_LOCALTIME_R)
 
 nng_sources(
         defs.h
@@ -24,6 +25,8 @@ nng_sources(
         device.h
         dialer.c
         dialer.h
+        sockfd.c
+        sockfd.h
         file.c
         file.h
         idhash.c
@@ -36,6 +39,7 @@ nng_sources(
         listener.h
         lmq.c
         lmq.h
+        log.c
         message.c
         message.h
         msgqueue.c
@@ -53,6 +57,7 @@ nng_sources(
         protocol.h
         reap.c
         reap.h
+        sockaddr.c
         socket.c
         socket.h
         sockimpl.h
@@ -68,8 +73,6 @@ nng_sources(
         tcp.h
         thread.c
         thread.h
-        timer.c
-        timer.h
         url.c
         url.h
 )
@@ -78,9 +81,12 @@ nng_test(aio_test)
 nng_test(buf_size_test)
 nng_test(errors_test)
 nng_test(id_test)
+nng_test(init_test)
 nng_test(list_test)
+nng_test(log_test)
 nng_test(message_test)
 nng_test(reconnect_test)
 nng_test(sock_test)
+nng_test(sockaddr_test)
 nng_test(stats_test)
 nng_test(url_test)

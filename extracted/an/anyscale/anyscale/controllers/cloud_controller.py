@@ -116,6 +116,14 @@ from anyscale.utils.cloud_utils import (
     verify_anyscale_access,
     wait_for_lb_resource_termination,
 )
+from anyscale.utils.cors_update_utils import (
+    check_aws_cors_needs_update,
+    check_azure_cors_needs_update,
+    check_gcp_cors_needs_update,
+    update_aws_cors,
+    update_azure_cors,
+    update_gcp_cors,
+)
 from anyscale.utils.imports.gcp import (
     try_import_gcp_managed_setup_utils,
     try_import_gcp_utils,
@@ -185,6 +193,45 @@ class CloudController(BaseController):
             self.cloud_event_producer = CloudEventProducer(
                 cli_version=anyscale_version, api_client=self.api_client
             )
+
+    def create_empty_cloud(self, name: str,) -> str:
+        """
+        Create an empty cloud shell in PENDING_RESOURCES state.
+
+        The cloud can be configured with credentials later via the setup flow.
+        Provider and region will be determined when resources are added.
+
+        This is useful for BYOC onboarding where users want to create the cloud
+        record first and then provide credentials/resources later.
+
+        Returns the cloud ID.
+        """
+        # Make a direct API call to the /clouds/empty endpoint
+        body_params = {
+            "name": name,
+        }
+
+        response = self.api_client.api_client.call_api(
+            "/api/v2/clouds/empty",
+            "POST",
+            path_params={},
+            query_params=[],
+            header_params={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+            body=body_params,
+            post_params=[],
+            files={},
+            response_type="CloudResponse",
+            auth_settings=[],
+            _return_http_data_only=True,
+            _preload_content=True,
+        )
+
+        self.log.info(f"Created empty cloud '{name}' with ID: {response.result.id}")
+        self.log.info("Add cloud resources to complete setup.")
+        return response.result.id
 
     def _get_anyscale_cross_account_iam_policies(
         self, cloud_id: str, _use_strict_iam_permissions: bool,
@@ -312,17 +359,23 @@ class CloudController(BaseController):
         _use_strict_iam_permissions: bool = False,  # This should only be used in testing.
         boto3_session: Optional[boto3.Session] = None,
         shared_storage: SharedStorageType = SharedStorageType.OBJECT_STORAGE,
+        resource_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Run cloudformation to create the AWS resources for a cloud.
 
         When enable_head_node_fault_tolerance is set to True, a memorydb cluster will be created.
+
+        Args:
+            resource_id: Optional unique identifier for the resource. If provided, used as the
+                CFN stack name prefix. If not provided, defaults to cloud_id (backward compatible).
         """
         if boto3_session is None:
             boto3_session = boto3.Session(region_name=region)
 
         cfn_client = boto3_session.client("cloudformation", region_name=region)
-        cfn_stack_name = cloud_id.replace("_", "-").lower()
+        # Use resource_id if provided, otherwise fall back to cloud_id for backward compatibility
+        cfn_stack_name = (resource_id or cloud_id).replace("_", "-").lower()
 
         cfn_template_body = prepare_cloudformation_template(
             region,
@@ -1023,22 +1076,28 @@ class CloudController(BaseController):
                 )
 
             try:
-                anyscale_aws_account = (
-                    self.api_client.get_anyscale_aws_account_api_v2_clouds_anyscale_aws_account_get().result.anyscale_aws_account
+                from anyscale.commands.cloud_commands import (  # noqa: PLC0415
+                    setup_vm_cloud_resource,
                 )
-                cfn_stack = self.run_cloudformation(
-                    region,
-                    cloud_id,
-                    anyscale_iam_role_name,
-                    f"{cloud_id}-cluster_node_role",
-                    enable_head_node_fault_tolerance,
-                    anyscale_aws_account,
-                    _use_strict_iam_permissions=_use_strict_iam_permissions,
-                    boto3_session=boto3_session,
+
+                setup_vm_cloud_resource(
+                    provider=provider,
+                    region=region,
+                    cloud_name=None,
+                    cloud_id=cloud_id,
+                    project_id=None,
+                    enable_head_node_fault_tolerance=enable_head_node_fault_tolerance,
                     shared_storage=shared_storage,
+                    controller=self,
+                    boto3_session=boto3_session,
+                    anyscale_iam_role_name=anyscale_iam_role_name,
+                    cluster_node_iam_role_name=f"{cloud_id}-cluster_node_role",
                 )
                 self.cloud_event_producer.produce(
                     CloudAnalyticsEventName.RESOURCES_CREATED, succeeded=True,
+                )
+                self.cloud_event_producer.produce(
+                    CloudAnalyticsEventName.INFRA_SETUP_COMPLETE, succeeded=True,
                 )
             except Exception as e:  # noqa: BLE001
                 self.log.error(str(e))
@@ -1046,26 +1105,6 @@ class CloudController(BaseController):
                     CloudAnalyticsEventName.RESOURCES_CREATED,
                     succeeded=False,
                     logger=self.log,
-                    internal_error=str(e),
-                )
-                self.api_client.delete_cloud_api_v2_clouds_cloud_id_delete(
-                    cloud_id=cloud_id
-                )
-                raise ClickException("Cloud setup failed!")
-
-            try:
-                self.update_cloud_with_resources(
-                    cfn_stack, cloud_id, region, enable_head_node_fault_tolerance
-                )
-                self.wait_for_cloud_to_be_active(cloud_id, CloudProviders.AWS)
-                self.cloud_event_producer.produce(
-                    CloudAnalyticsEventName.INFRA_SETUP_COMPLETE, succeeded=True,
-                )
-            except Exception as e:  # noqa: BLE001
-                self.log.error(str(e))
-                self.cloud_event_producer.produce(
-                    CloudAnalyticsEventName.INFRA_SETUP_COMPLETE,
-                    succeeded=False,
                     internal_error=str(e),
                 )
                 self.api_client.delete_cloud_api_v2_clouds_cloud_id_delete(
@@ -1161,21 +1200,6 @@ class CloudController(BaseController):
                 self.cloud_event_producer.produce(
                     CloudAnalyticsEventName.RESOURCES_CREATED, succeeded=True,
                 )
-            except Exception as e:  # noqa: BLE001
-                self.log.error(str(e))
-                self.cloud_event_producer.produce(
-                    CloudAnalyticsEventName.RESOURCES_CREATED,
-                    succeeded=False,
-                    internal_error=str(e),
-                    logger=self.log,
-                )
-                self.api_client.delete_cloud_api_v2_clouds_cloud_id_delete(
-                    cloud_id=cloud_id
-                )
-                setup_utils.delete_workload_identity_pool(factory, pool_name, self.log)
-                raise ClickException("Cloud setup failed!")
-
-            try:
                 with self.log.spinner(
                     "Updating Anyscale cloud with cloud resources..."
                 ):
@@ -1195,9 +1219,10 @@ class CloudController(BaseController):
             except Exception as e:  # noqa: BLE001
                 self.log.error(str(e))
                 self.cloud_event_producer.produce(
-                    CloudAnalyticsEventName.INFRA_SETUP_COMPLETE,
+                    CloudAnalyticsEventName.RESOURCES_CREATED,
                     succeeded=False,
                     internal_error=str(e),
+                    logger=self.log,
                 )
                 self.api_client.delete_cloud_api_v2_clouds_cloud_id_delete(
                     cloud_id=cloud_id
@@ -1440,8 +1465,10 @@ class CloudController(BaseController):
                 f"Multiple cloud resources found for Anyscale-managed cloud {cloud.name} ({cloud.id})"
             )
 
-        cloud_resource: CloudDeployment = self._convert_decorated_cloud_resource_to_cloud_deployment(
-            cloud_resources[0]
+        cloud_resource: CloudDeployment = (
+            self._convert_decorated_cloud_resource_to_cloud_deployment(
+                cloud_resources[0]
+            )
         )
 
         if anyscale_version == "0.0.0-dev":
@@ -1508,6 +1535,233 @@ class CloudController(BaseController):
             self.cloud_event_producer.produce(
                 CloudAnalyticsEventName.IAM_ROLE_UPDATED, succeeded=True,
             )
+
+    def update_cors(
+        self,
+        cloud_name: Optional[str],
+        cloud_id: Optional[str],
+        resource: Optional[str] = None,
+        cloud_resource_id: Optional[str] = None,
+        yes: bool = False,
+    ) -> None:
+        """Update CORS configuration for cloud storage.
+
+        This method updates CORS configuration on cloud storage buckets (S3, GCS, Azure Blob)
+        to support Anyscale UI features like the file viewer. Works with both managed and
+        customer-managed clouds.
+
+        Args:
+            cloud_name: Name of the cloud to update CORS for.
+            cloud_id: ID of the cloud to update CORS for.
+            resource: Name of the cloud resource to update. If not provided along with
+                cloud_resource_id, updates all cloud resources.
+            cloud_resource_id: ID of the cloud resource to update. If not provided along
+                with resource, updates all cloud resources.
+            yes: Skip asking for confirmation.
+        """
+        cloud_id, cloud_name = get_cloud_id_and_name(
+            self.api_client, cloud_id, cloud_name
+        )
+        assert cloud_id is not None and cloud_name is not None
+        cloud = self.api_client.get_cloud_api_v2_clouds_cloud_id_get(cloud_id).result
+
+        cloud_resources = self.api_client.get_cloud_resources_api_v2_clouds_cloud_id_resources_get(
+            cloud_id=cloud_id,
+        ).results
+
+        if not cloud_resources:
+            raise ClickException(
+                f"No cloud resources found for cloud {cloud_name} ({cloud_id})"
+            )
+
+        # Convert all cloud resources
+        all_cloud_resources = [
+            self._convert_decorated_cloud_resource_to_cloud_deployment(r)
+            for r in cloud_resources
+        ]
+
+        # Determine which resources to update
+        if resource or cloud_resource_id:
+            # Update a specific cloud resource
+            resolved_resource_id = self._resolve_cloud_resource_id(
+                cloud_id, resource, cloud_resource_id
+            )
+            resources_to_update = [
+                r
+                for r in all_cloud_resources
+                if r.cloud_resource_id == resolved_resource_id
+            ]
+            if not resources_to_update:
+                raise ClickException(
+                    f"Cloud resource {cloud_resource_id or resource} not found in cloud {cloud_name} ({cloud_id})"
+                )
+        else:
+            # Update all cloud resources
+            resources_to_update = all_cloud_resources
+            self.log.info(
+                f"Updating CORS for all {len(resources_to_update)} cloud resource(s) in cloud {cloud_name}"
+            )
+
+        failed_resources: List[Tuple[str, str]] = []
+        for cloud_resource in resources_to_update:
+            resource_name = cloud_resource.name or cloud_resource.cloud_resource_id
+            object_storage = cloud_resource.object_storage
+            if isinstance(object_storage, dict):
+                object_storage = ObjectStorage(**object_storage)
+            bucket_name = object_storage.bucket_name if object_storage else None
+            self.log.info(
+                f"Updating CORS for cloud resource: {resource_name} (bucket: {bucket_name})"
+            )
+            try:
+                self._update_cloud_cors(cloud, cloud_resource, yes)
+            except ClickException as e:
+                self.log.error(
+                    f"Failed to update CORS for {resource_name}: {e.message}"
+                )
+                failed_resources.append((resource_name, e.message))
+
+        if failed_resources:
+            failed_names = ", ".join(name for name, _ in failed_resources)
+            self.log.warning(
+                f"CORS update completed with {len(failed_resources)} failure(s): {failed_names}"
+            )
+        else:
+            self.log.info("CORS update completed.")
+
+    def _update_cloud_cors(
+        self, cloud: Cloud, cloud_resource: CloudDeployment, yes: bool = False,
+    ) -> None:
+        """Update CORS configuration for cloud storage."""
+        self.cloud_event_producer.init_trace_context(
+            CloudAnalyticsEventCommandName.UPDATE, cloud.provider, cloud.id
+        )
+        self.cloud_event_producer.produce(
+            CloudAnalyticsEventName.COMMAND_START, succeeded=True,
+        )
+
+        try:
+            provider = cloud_resource.provider or cloud.provider
+            if provider == CloudProviders.AWS:
+                self._update_cors_aws(cloud, cloud_resource, yes)
+            elif provider == CloudProviders.GCP:
+                self._update_cors_gcp(cloud, cloud_resource, yes)
+            elif provider == CloudProviders.AZURE:
+                self._update_cors_azure(cloud, cloud_resource, yes)
+            else:
+                raise ClickException(
+                    f"CORS update not supported for provider {provider}"
+                )
+        except ClickException:
+            # Re-raise ClickExceptions as-is (they're user-facing errors)
+            raise
+        except Exception as e:  # noqa: BLE001
+            self.cloud_event_producer.produce(
+                CloudAnalyticsEventName.RESOURCES_EDITED,
+                succeeded=False,
+                internal_error=str(e),
+            )
+            raise ClickException(f"CORS update failed: {e}")
+
+        self.cloud_event_producer.produce(
+            CloudAnalyticsEventName.RESOURCES_EDITED, succeeded=True,
+        )
+
+    def _update_cors_aws(
+        self, cloud: Cloud, cloud_resource: CloudDeployment, yes: bool
+    ) -> None:
+        """Update CORS for AWS S3 bucket."""
+        object_storage = cloud_resource.object_storage
+        if isinstance(object_storage, dict):
+            object_storage = ObjectStorage(**object_storage)
+
+        if not object_storage or not object_storage.bucket_name:
+            raise ClickException("No S3 bucket configured for this cloud")
+
+        bucket_name = object_storage.bucket_name
+        if bucket_name.startswith(S3_STORAGE_PREFIX):
+            bucket_name = bucket_name[len(S3_STORAGE_PREFIX) :]
+        if bucket_name.startswith(S3_ARN_PREFIX):
+            bucket_name = bucket_name[len(S3_ARN_PREFIX) :]
+
+        needs_update, reason = check_aws_cors_needs_update(bucket_name, cloud.region)
+
+        if not needs_update:
+            self.log.info(f"S3 bucket {bucket_name}: {reason}")
+            return
+
+        self.log.info(f"S3 bucket {bucket_name} needs CORS update: {reason}")
+        confirm(f"Update CORS configuration for S3 bucket {bucket_name}?", yes)
+
+        update_aws_cors(bucket_name, cloud.region)
+        self.log.info(f"Successfully updated CORS for S3 bucket {bucket_name}")
+
+    def _update_cors_gcp(
+        self, cloud: Cloud, cloud_resource: CloudDeployment, yes: bool  # noqa: ARG002
+    ) -> None:
+        """Update CORS for GCP GCS bucket."""
+        object_storage = cloud_resource.object_storage
+        if isinstance(object_storage, dict):
+            object_storage = ObjectStorage(**object_storage)
+
+        gcp_config = cloud_resource.gcp_config
+        if isinstance(gcp_config, dict):
+            gcp_config = GCPConfig(**gcp_config)
+
+        if not object_storage or not object_storage.bucket_name:
+            raise ClickException("No GCS bucket configured for this cloud")
+
+        bucket_name = object_storage.bucket_name
+        if bucket_name.startswith(GCS_STORAGE_PREFIX):
+            bucket_name = bucket_name[len(GCS_STORAGE_PREFIX) :]
+
+        project_id = gcp_config.project_id if gcp_config else None
+
+        needs_update, reason = check_gcp_cors_needs_update(bucket_name, project_id)
+
+        if not needs_update:
+            self.log.info(f"GCS bucket {bucket_name}: {reason}")
+            return
+
+        self.log.info(f"GCS bucket {bucket_name} needs CORS update: {reason}")
+        confirm(f"Update CORS configuration for GCS bucket {bucket_name}?", yes)
+
+        update_gcp_cors(bucket_name, project_id)
+        self.log.info(f"Successfully updated CORS for GCS bucket {bucket_name}")
+
+    def _update_cors_azure(
+        self, cloud: Cloud, cloud_resource: CloudDeployment, yes: bool  # noqa: ARG002
+    ) -> None:
+        """Update CORS for Azure Blob storage."""
+        object_storage = cloud_resource.object_storage
+        if isinstance(object_storage, dict):
+            object_storage = ObjectStorage(**object_storage)
+
+        if not object_storage or not object_storage.bucket_name:
+            raise ClickException("No Azure storage configured for this cloud")
+
+        # Parse: abfss://container@account.dfs.core.windows.net
+        match = re.match(
+            r"abfss://[^@]+@([^.]+)\.dfs\.core\.windows\.net",
+            object_storage.bucket_name,
+        )
+        if not match:
+            raise ClickException(
+                f"Invalid Azure storage URL: {object_storage.bucket_name}"
+            )
+
+        account_name = match.group(1)
+
+        needs_update, reason = check_azure_cors_needs_update(account_name)
+
+        if not needs_update:
+            self.log.info(f"Azure storage {account_name}: {reason}")
+            return
+
+        self.log.info(f"Azure storage {account_name} needs CORS update: {reason}")
+        confirm(f"Update CORS configuration for Azure storage {account_name}?", yes)
+
+        update_azure_cors(account_name)
+        self.log.info(f"Successfully updated CORS for Azure storage {account_name}")
 
     # Avoid displaying fields with empty values (since the values for optional fields default to None).
     def _remove_empty_values(self, d):
@@ -2152,7 +2406,8 @@ class CloudController(BaseController):
         )
         if enable_log_ingestion is not None:
             self._update_customer_aggregated_logs_config(
-                cloud_id=resolved_cloud_id, is_enabled=enable_log_ingestion,  # type: ignore
+                cloud_id=resolved_cloud_id,
+                is_enabled=enable_log_ingestion,  # type: ignore
             )
             self.log.info(
                 f"Successfully updated log ingestion configuration for cloud, "
@@ -3805,7 +4060,6 @@ class CloudController(BaseController):
 
         for certificate in certificates:
             if "CertificateArn" in certificate:
-
                 certificate_arn = certificate["CertificateArn"]
                 response = acm.list_tags_for_certificate(CertificateArn=certificate_arn)
 
@@ -3939,7 +4193,6 @@ class CloudController(BaseController):
         self.log.info(f"\nTrack progress of Deployment Manager at {deployment_url}")
 
         with self.log.spinner("Deleting cloud resources through Deployment Manager..."):
-
             # Remove firewall policies
             if cloud_resource.gcp_config.firewall_policy_names:
                 for firewall_policy in cloud_resource.gcp_config.firewall_policy_names:

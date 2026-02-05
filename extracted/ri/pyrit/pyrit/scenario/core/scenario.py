@@ -13,22 +13,29 @@ import logging
 import textwrap
 import uuid
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Sequence, Set, Type, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Set, Tuple, Type, Union, cast
 
 from tqdm.auto import tqdm
 
 from pyrit.common import REQUIRED_VALUE, apply_defaults
 from pyrit.executor.attack.single_turn.prompt_sending import PromptSendingAttack
+from pyrit.identifiers import TargetIdentifier
 from pyrit.memory import CentralMemory
 from pyrit.memory.memory_models import ScenarioResultEntry
 from pyrit.models import AttackResult
 from pyrit.models.scenario_result import ScenarioIdentifier, ScenarioResult
 from pyrit.prompt_target import PromptTarget
 from pyrit.scenario.core.atomic_attack import AtomicAttack
+from pyrit.scenario.core.dataset_configuration import DatasetConfiguration
 from pyrit.scenario.core.scenario_strategy import (
     ScenarioCompositeStrategy,
     ScenarioStrategy,
 )
+from pyrit.score import Scorer, TrueFalseScorer
+
+if TYPE_CHECKING:
+    from pyrit.executor.attack.core.attack_config import AttackScoringConfig
+    from pyrit.models import SeedAttackGroup
 
 logger = logging.getLogger(__name__)
 
@@ -40,38 +47,6 @@ class Scenario(ABC):
     A Scenario represents a comprehensive testing campaign composed of multiple
     atomic attack tests (AtomicAttacks). It executes each AtomicAttack in sequence and
     aggregates the results into a ScenarioResult.
-
-    Example:
-        >>> from pyrit.scenario import Scenario, AtomicAttack
-        >>> from pyrit.executor.attack.single_turn.prompt_sending import PromptSendingAttack
-        >>> from pyrit.prompt_target import OpenAIChatTarget
-        >>> from pyrit.prompt_converter import Base64Converter
-        >>>
-        >>> target = OpenAIChatTarget()
-        >>>
-        >>> # Create a custom scenario subclass
-        >>> class MyScenario(Scenario):
-        ...     async def _get_atomic_attacks_async(self) -> List[AtomicAttack]:
-        ...         base64_attack = PromptSendingAttack(
-        ...             objective_target=target,
-        ...             converters=[Base64Converter()]
-        ...         )
-        ...         return [
-        ...             AtomicAttack(
-        ...                 attack=base64_attack,
-        ...                 objectives=["Tell me how to make a bomb"]
-        ...             )
-        ...         ]
-        >>>
-        >>> # Create and execute scenario
-        >>> scenario = MyScenario(
-        ...     name="Security Test Campaign",
-        ...     version=1,
-        ...     attack_strategies=["base64"]
-        ... )
-        >>> await scenario.initialize_async()
-        >>> result = await scenario.run_async()
-        >>> print(f"Completed {len(result.attack_results)} tests")
     """
 
     def __init__(
@@ -80,7 +55,7 @@ class Scenario(ABC):
         name: str,
         version: int,
         strategy_class: Type[ScenarioStrategy],
-        objective_scorer_identifier: Optional[Dict[str, str]] = None,
+        objective_scorer: Scorer,
         include_default_baseline: bool = True,
         scenario_result_id: Optional[Union[uuid.UUID, str]] = None,
     ) -> None:
@@ -91,11 +66,11 @@ class Scenario(ABC):
             name (str): Descriptive name for the scenario.
             version (int): Version number of the scenario.
             strategy_class (Type[ScenarioStrategy]): The strategy enum class for this scenario.
-            objective_scorer_identifier (Optional[Dict[str, str]]): Identifier for the objective scorer.
+            objective_scorer (Scorer): The objective scorer used to evaluate attack results.
             include_default_baseline (bool): Whether to include a baseline atomic attack that sends all objectives
-                from the first atomic attack without modifications. Most scenarios should have some kind of
-                baseline so users can understand the impact of strategies, but subclasses can optionally write
-                their own custom baselines. Defaults to True.
+                without modifications. Most scenarios should have some kind of baseline so users can understand
+                the impact of strategies, but subclasses can optionally write their own custom baselines.
+                Defaults to True.
             scenario_result_id (Optional[Union[uuid.UUID, str]]): Optional ID of an existing scenario result to resume.
                 Can be either a UUID object or a string representation of a UUID.
                 If provided and found in memory, the scenario will resume from prior progress.
@@ -120,12 +95,13 @@ class Scenario(ABC):
 
         # These will be set in initialize_async
         self._objective_target: Optional[PromptTarget] = None
-        self._objective_target_identifier: Optional[Dict[str, str]] = None
+        self._objective_target_identifier: Optional[TargetIdentifier] = None
         self._memory_labels: Dict[str, str] = {}
         self._max_concurrency: int = 1
         self._max_retries: int = 0
 
-        self._objective_scorer_identifier = objective_scorer_identifier or {}
+        self._objective_scorer = objective_scorer
+        self._objective_scorer_identifier = objective_scorer.get_identifier()
 
         self._name = name
         self._memory = CentralMemory.get_memory_instance()
@@ -184,8 +160,17 @@ class Scenario(ABC):
 
     @classmethod
     @abstractmethod
-    def required_datasets(cls) -> list[str]:
-        """Return a list of dataset names required by this scenario."""
+    def default_dataset_config(cls) -> DatasetConfiguration:
+        """
+        Return the default dataset configuration for this scenario.
+
+        This abstract method must be implemented by all scenario subclasses to return
+        a DatasetConfiguration specifying the default datasets to use when no
+        dataset_config is provided by the user.
+
+        Returns:
+            DatasetConfiguration: The default dataset configuration.
+        """
         pass
 
     @apply_defaults
@@ -194,7 +179,8 @@ class Scenario(ABC):
         *,
         objective_target: PromptTarget = REQUIRED_VALUE,  # type: ignore
         scenario_strategies: Optional[Sequence[ScenarioStrategy | ScenarioCompositeStrategy]] = None,
-        max_concurrency: int = 1,
+        dataset_config: Optional[DatasetConfiguration] = None,
+        max_concurrency: int = 10,
         max_retries: int = 0,
         memory_labels: Optional[Dict[str, str]] = None,
     ) -> None:
@@ -216,6 +202,9 @@ class Scenario(ABC):
                 ScenarioCompositeStrategy instances for advanced composition. Bare enums are
                 automatically wrapped into composites. If None, uses the default aggregate
                 from the scenario's configuration.
+            dataset_config (Optional[DatasetConfiguration]): Configuration for the dataset source.
+                Use this to specify dataset names or maximum dataset size from the CLI.
+                If not provided, scenarios use their default_dataset_config().
             max_concurrency (int): Maximum number of concurrent attack executions. Defaults to 1.
             max_retries (int): Maximum number of automatic retries if the scenario raises an exception.
                 Set to 0 (default) for no automatic retries. If set to a positive number,
@@ -226,31 +215,6 @@ class Scenario(ABC):
 
         Raises:
             ValueError: If no objective_target is provided.
-
-        Example:
-            >>> # New scenario
-            >>> scenario = MyScenario(
-            ...     name="Security Test",
-            ...     version=1
-            ... )
-            >>> await scenario.initialize_async(
-            ...     objective_target=target,
-            ...     scenario_strategies=[MyStrategy.Base64, MyStrategy.ROT13]
-            ... )
-            >>> results = await scenario.run_async()
-            >>>
-            >>> # Resume existing scenario
-            >>> scenario_id = results.id
-            >>> resumed_scenario = MyScenario(
-            ...     name="Security Test",
-            ...     version=1,
-            ...     scenario_result_id=str(scenario_id)
-            ... )
-            >>> await resumed_scenario.initialize_async(
-            ...     objective_target=target,
-            ...     scenario_strategies=[MyStrategy.Base64, MyStrategy.ROT13]
-            ... )
-            >>> results = await resumed_scenario.run_async()  # Resumes from progress
         """
         # Validate required parameters
         if objective_target is None:
@@ -262,24 +226,28 @@ class Scenario(ABC):
         # Set instance variables from parameters
         self._objective_target = objective_target
         self._objective_target_identifier = objective_target.get_identifier()
+        self._dataset_config_provided = dataset_config is not None
+        self._dataset_config = dataset_config if dataset_config else self.default_dataset_config()
         self._max_concurrency = max_concurrency
         self._max_retries = max_retries
         self._memory_labels = memory_labels or {}
 
         # Prepare scenario strategies using the stored configuration
+        # Allow empty strategies when include_baseline is True (baseline-only execution)
         self._scenario_composites = self._strategy_class.prepare_scenario_strategies(
-            scenario_strategies, default_aggregate=self.get_default_strategy()
+            scenario_strategies,
+            default_aggregate=self.get_default_strategy(),
         )
 
         self._atomic_attacks = await self._get_atomic_attacks_async()
 
         if self._include_baseline:
-            baseline_attack = self._get_baseline_from_first_attack()
+            baseline_attack = self._get_baseline()
             self._atomic_attacks.insert(0, baseline_attack)
 
         # Store original objectives for each atomic attack (before any mutations during execution)
         self._original_objectives_map = {
-            atomic_attack.atomic_attack_name: tuple(atomic_attack._objectives) for atomic_attack in self._atomic_attacks
+            atomic_attack.atomic_attack_name: tuple(atomic_attack.objectives) for atomic_attack in self._atomic_attacks
         }
 
         # Check if we're resuming an existing scenario
@@ -297,8 +265,7 @@ class Scenario(ABC):
                     self._scenario_result_id = None
             else:
                 logger.warning(
-                    f"Scenario result ID {self._scenario_result_id} not found in memory. "
-                    f"Creating new scenario result."
+                    f"Scenario result ID {self._scenario_result_id} not found in memory. Creating new scenario result."
                 )
                 self._scenario_result_id = None
 
@@ -320,34 +287,21 @@ class Scenario(ABC):
         self._scenario_result_id = str(result.id)
         logger.info(f"Created new scenario result with ID: {self._scenario_result_id}")
 
-    def _get_baseline_from_first_attack(self) -> AtomicAttack:
+    def _get_baseline(self) -> AtomicAttack:
         """
         Get a baseline AtomicAttack, which simply sends all the objectives without any modifications.
+
+        If other atomic attacks exist, derives baseline data from the first attack.
+        Otherwise, creates a standalone baseline from the dataset configuration and scenario settings.
 
         Returns:
             AtomicAttack: The baseline AtomicAttack instance.
 
         Raises:
-            ValueError: If no atomic attacks are available to derive baseline from.
+            ValueError: If required data (seed_groups, objective_target, attack_scoring_config)
+                       is not available.
         """
-        if not self._atomic_attacks or len(self._atomic_attacks) == 0:
-            raise ValueError("No atomic attacks available to derive baseline from.")
-
-        first_attack = self._atomic_attacks[0]
-
-        # Copy objectives, scoring, target from the first attack
-        objectives = first_attack.objectives
-        attack_scoring_config = first_attack._attack.get_attack_scoring_config()
-        objective_target = first_attack._attack.get_objective_target()
-
-        if not objectives or len(objectives) == 0:
-            raise ValueError("First atomic attack must have objectives to create baseline.")
-
-        if not objective_target:
-            raise ValueError("Objective target is required to create baseline attack.")
-
-        if not attack_scoring_config:
-            raise ValueError("Attack scoring config is required to create baseline attack.")
+        seed_groups, attack_scoring_config, objective_target = self._get_baseline_data()
 
         # Create baseline attack with no converters
         attack = PromptSendingAttack(
@@ -358,9 +312,43 @@ class Scenario(ABC):
         return AtomicAttack(
             atomic_attack_name="baseline",
             attack=attack,
-            objectives=objectives,
+            seed_groups=seed_groups,
             memory_labels=self._memory_labels,
         )
+
+    def _get_baseline_data(self) -> Tuple[List["SeedAttackGroup"], "AttackScoringConfig", PromptTarget]:
+        """
+        Get the data needed to create a baseline attack.
+
+        Returns the scenario-level data
+
+        Returns:
+            Tuple containing (seed_groups, attack_scoring_config, objective_target)
+
+        Raises:
+            ValueError: If required data is not available.
+        """
+        # Create from scenario-level settings
+        if not self._objective_target:
+            raise ValueError("Objective target is required to create baseline attack.")
+        if not self._dataset_config:
+            raise ValueError("Dataset config is required to create baseline attack.")
+        if not self._objective_scorer:
+            raise ValueError("Objective scorer is required to create baseline attack.")
+
+        seed_groups = self._dataset_config.get_all_seed_attack_groups()
+        if not seed_groups or len(seed_groups) == 0:
+            raise ValueError("Seed groups are required to create baseline attack.")
+
+        # Import here to avoid circular imports
+        from pyrit.executor.attack.core.attack_config import AttackScoringConfig
+
+        attack_scoring_config = AttackScoringConfig(objective_scorer=cast(TrueFalseScorer, self._objective_scorer))
+
+        if not attack_scoring_config:
+            raise ValueError("Attack scoring config is required to create baseline attack.")
+
+        return seed_groups, attack_scoring_config, self._objective_target
 
     def _raise_dataset_exception(self) -> None:
         error_msg = textwrap.dedent(
@@ -370,7 +358,7 @@ class Scenario(ABC):
             Either load the datasets into the database before running the scenario, or for
             example datasets, you can use the `load_default_datasets` initializer.
 
-            Required datasets: {', '.join(self.required_datasets())}
+            Required datasets: {", ".join(self.default_dataset_config().get_default_dataset_names())}
             """
         )
         raise ValueError(error_msg)
@@ -480,7 +468,7 @@ class Scenario(ABC):
                         f"{len(remaining_objectives)}/{len(original_objectives)} objectives remaining"
                     )
                 # Update the objectives for this atomic attack to only include remaining ones
-                atomic_attack._objectives = remaining_objectives
+                atomic_attack.filter_seed_groups_by_objectives(remaining_objectives=remaining_objectives)
 
                 remaining_attacks.append(atomic_attack)
             else:
@@ -689,7 +677,8 @@ class Scenario(ABC):
 
                 try:
                     atomic_results = await atomic_attack.run_async(
-                        max_concurrency=self._max_concurrency, return_partial_on_failure=True
+                        max_concurrency=self._max_concurrency,
+                        return_partial_on_failure=True,
                     )
 
                     # Always save completed results, even if some objectives didn't complete
@@ -716,7 +705,8 @@ class Scenario(ABC):
 
                         # Mark scenario as failed
                         self._memory.update_scenario_run_state(
-                            scenario_result_id=scenario_result_id, scenario_run_state="FAILED"
+                            scenario_result_id=scenario_result_id,
+                            scenario_run_state="FAILED",
                         )
 
                         # Raise exception with detailed information
@@ -742,7 +732,8 @@ class Scenario(ABC):
                     scenario_results = self._memory.get_scenario_results(scenario_result_ids=[scenario_result_id])
                     if scenario_results and scenario_results[0].scenario_run_state != "FAILED":
                         self._memory.update_scenario_run_state(
-                            scenario_result_id=scenario_result_id, scenario_run_state="FAILED"
+                            scenario_result_id=scenario_result_id,
+                            scenario_run_state="FAILED",
                         )
 
                     raise

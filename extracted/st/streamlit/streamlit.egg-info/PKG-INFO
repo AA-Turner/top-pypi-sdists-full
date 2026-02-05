@@ -1,23 +1,20 @@
 Metadata-Version: 2.4
 Name: streamlit
-Version: 1.53.1
+Version: 1.54.0
 Summary: A faster way to build and share data apps
-Home-page: https://streamlit.io
-Author: Snowflake Inc
-Author-email: hello@streamlit.io
-License: Apache License 2.0
+Author-email: Snowflake Inc <hello@streamlit.io>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://streamlit.io
+Project-URL: Documentation, https://docs.streamlit.io/
 Project-URL: Source Code, https://github.com/streamlit/streamlit
 Project-URL: Bug Tracker, https://github.com/streamlit/streamlit/issues
-Project-URL: Release notes, https://docs.streamlit.io/develop/quick-reference/changelog
-Project-URL: Documentation, https://docs.streamlit.io/
+Project-URL: Release Notes, https://docs.streamlit.io/develop/quick-reference/changelog
 Project-URL: Community, https://discuss.streamlit.io/
-Project-URL: Twitter, https://twitter.com/streamlit
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -35,20 +32,20 @@ Requires-Dist: altair!=5.4.0,!=5.4.1,<7,>=4.0
 Requires-Dist: blinker<2,>=1.5.0
 Requires-Dist: cachetools<7,>=5.5
 Requires-Dist: click<9,>=7.0
+Requires-Dist: gitpython!=3.1.19,<4,>=3.0.7
 Requires-Dist: numpy<3,>=1.23
 Requires-Dist: packaging>=20
 Requires-Dist: pandas<3,>=1.4.0
 Requires-Dist: pillow<13,>=7.1.0
+Requires-Dist: pydeck<1,>=0.8.0b4
 Requires-Dist: protobuf<7,>=3.20
 Requires-Dist: pyarrow>=7.0
 Requires-Dist: requests<3,>=2.27
 Requires-Dist: tenacity<10,>=8.1.0
 Requires-Dist: toml<2,>=0.10.1
+Requires-Dist: tornado!=6.5.0,<7,>=6.0.3
 Requires-Dist: typing-extensions<5,>=4.10.0
 Requires-Dist: watchdog<7,>=2.1.5; platform_system != "Darwin"
-Requires-Dist: gitpython!=3.1.19,<4,>=3.0.7
-Requires-Dist: pydeck<1,>=0.8.0b4
-Requires-Dist: tornado!=6.5.0,<7,>=6.0.3
 Provides-Extra: snowflake
 Requires-Dist: snowflake-snowpark-python[modin]>=1.17.0; python_version < "3.12" and extra == "snowflake"
 Requires-Dist: snowflake-connector-python>=3.3.0; python_version < "3.12" and extra == "snowflake"
@@ -72,23 +69,11 @@ Provides-Extra: sql
 Requires-Dist: SQLAlchemy>=2.0.0; extra == "sql"
 Provides-Extra: performance
 Requires-Dist: orjson>=3.5.0; extra == "performance"
-Requires-Dist: uvloop>=0.15.2; (sys_platform != "win32" and (sys_platform != "cygwin" and platform_python_implementation != "PyPy")) and extra == "performance"
+Requires-Dist: uvloop>=0.15.2; (sys_platform != "win32" and sys_platform != "cygwin" and platform_python_implementation != "PyPy") and extra == "performance"
 Requires-Dist: httptools>=0.6.3; extra == "performance"
 Provides-Extra: all
 Requires-Dist: streamlit[auth,charts,pdf,performance,snowflake,sql]; extra == "all"
 Requires-Dist: rich>=11.0.0; extra == "all"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 <br>
 

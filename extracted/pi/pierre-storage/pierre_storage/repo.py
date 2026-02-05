@@ -1,5 +1,6 @@
 """Repository implementation for Pierre Git Storage SDK."""
 
+import warnings
 from datetime import datetime
 from types import TracebackType
 from typing import Any, Callable, Dict, List, Optional
@@ -227,6 +228,62 @@ class RepoImpl:
                 },
                 timeout=30.0,
             )
+            response = await stream_context.__aenter__()
+            response.raise_for_status()
+        except Exception:
+            await client.aclose()
+            raise
+
+        return StreamingResponse(response, client)
+
+    async def get_archive_stream(
+        self,
+        *,
+        ref: Optional[str] = None,
+        include_globs: Optional[List[str]] = None,
+        exclude_globs: Optional[List[str]] = None,
+        archive_prefix: Optional[str] = None,
+        ttl: Optional[int] = None,
+    ) -> StreamingResponse:
+        """Get repository archive as streaming response.
+
+        Args:
+            ref: Git ref (branch, tag, or commit SHA)
+            include_globs: Optional include globs for archived files
+            exclude_globs: Optional exclude globs for archived files
+            archive_prefix: Optional archive prefix for tar entries
+            ttl: Token TTL in seconds
+
+        Returns:
+            HTTP response with archive stream
+        """
+        ttl = ttl or DEFAULT_TOKEN_TTL_SECONDS
+        jwt = self.generate_jwt(self._id, {"permissions": ["git:read"], "ttl": ttl})
+
+        body: Dict[str, Any] = {}
+        if ref and ref.strip():
+            body["ref"] = ref.strip()
+        if include_globs:
+            body["include_globs"] = include_globs
+        if exclude_globs:
+            body["exclude_globs"] = exclude_globs
+        if archive_prefix and archive_prefix.strip():
+            body["archive"] = {"prefix": archive_prefix.strip()}
+
+        url = f"{self.api_base_url}/api/v{self.api_version}/repos/archive"
+
+        client = httpx.AsyncClient()
+        try:
+            request_kwargs: Dict[str, Any] = {
+                "headers": {
+                    "Authorization": f"Bearer {jwt}",
+                    "Code-Storage-Agent": get_user_agent(),
+                },
+                "timeout": 30.0,
+            }
+            if body:
+                request_kwargs["json"] = body
+            stream_context = client.stream("POST", url, **request_kwargs)
             response = await stream_context.__aenter__()
             response.raise_for_status()
         except Exception:
@@ -785,6 +842,7 @@ class RepoImpl:
         *,
         pattern: str,
         ref: Optional[str] = None,
+        rev: Optional[str] = None,
         paths: Optional[list[str]] = None,
         case_sensitive: Optional[bool] = None,
         file_filters: Optional[Dict[str, Any]] = None,
@@ -798,6 +856,7 @@ class RepoImpl:
         Args:
             pattern: Regex pattern to search for
             ref: Git ref to search (defaults to server-side default branch)
+            rev: Deprecated alias for ref
             paths: Git pathspecs to restrict search
             case_sensitive: Whether search is case-sensitive (default: server default)
             file_filters: Optional filters with include_globs/exclude_globs/extension_filters
@@ -812,6 +871,12 @@ class RepoImpl:
         pattern_clean = pattern.strip()
         if not pattern_clean:
             raise ValueError("grep pattern is required")
+        if rev and rev.strip():
+            warnings.warn(
+                "repo.grep rev is deprecated; use ref instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         ttl_value = ttl or DEFAULT_TOKEN_TTL_SECONDS
         jwt = self.generate_jwt(self._id, {"permissions": ["git:read"], "ttl": ttl_value})
@@ -825,7 +890,9 @@ class RepoImpl:
         if case_sensitive is not None:
             body["query"]["case_sensitive"] = bool(case_sensitive)
         if ref:
-            body["rev"] = ref
+            body["ref"] = ref
+        elif rev:
+            body["ref"] = rev
         if paths:
             body["paths"] = paths
         if file_filters:

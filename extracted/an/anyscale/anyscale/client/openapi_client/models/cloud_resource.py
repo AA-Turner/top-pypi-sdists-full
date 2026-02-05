@@ -46,6 +46,7 @@ class CloudResource(object):
         'cloud_storage_bucket_region': 'str',
         'nfs_mount_targets': 'list[NFSMountTarget]',
         'nfs_mount_path': 'str',
+        'user_tag_annotation_prefix': 'str',
         'aws_vpc_id': 'str',
         'aws_subnet_ids_with_availability_zones': 'list[SubnetIdWithAvailabilityZoneAWS]',
         'aws_iam_role_arns': 'list[str]',
@@ -75,6 +76,7 @@ class CloudResource(object):
         'cloud_storage_bucket_region': 'cloud_storage_bucket_region',
         'nfs_mount_targets': 'nfs_mount_targets',
         'nfs_mount_path': 'nfs_mount_path',
+        'user_tag_annotation_prefix': 'user_tag_annotation_prefix',
         'aws_vpc_id': 'aws_vpc_id',
         'aws_subnet_ids_with_availability_zones': 'aws_subnet_ids_with_availability_zones',
         'aws_iam_role_arns': 'aws_iam_role_arns',
@@ -90,7 +92,7 @@ class CloudResource(object):
         'cloud_id': 'cloud_id'
     }
 
-    def __init__(self, compute_stack=None, kubernetes_ingress_external_address=None, kubernetes_namespaces=None, kubernetes_zones=None, kubernetes_dataplane_identity=None, kubernetes_nfs_persistent_volume_claim=None, persistent_volume_claim=None, csi_ephemeral_volume_driver=None, cloud_storage_bucket_name=None, cloud_storage_bucket_endpoint=None, cloud_storage_bucket_region=None, nfs_mount_targets=None, nfs_mount_path=None, aws_vpc_id=None, aws_subnet_ids_with_availability_zones=None, aws_iam_role_arns=None, aws_security_groups=None, aws_s3_id=None, aws_efs_id=None, aws_efs_mount_target_ip=None, aws_cloudformation_stack_id=None, gcp_vpc_id=None, gcp_subnet_ids=None, memorydb_cluster_config=None, id=None, cloud_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, compute_stack=None, kubernetes_ingress_external_address=None, kubernetes_namespaces=None, kubernetes_zones=None, kubernetes_dataplane_identity=None, kubernetes_nfs_persistent_volume_claim=None, persistent_volume_claim=None, csi_ephemeral_volume_driver=None, cloud_storage_bucket_name=None, cloud_storage_bucket_endpoint=None, cloud_storage_bucket_region=None, nfs_mount_targets=None, nfs_mount_path=None, user_tag_annotation_prefix=None, aws_vpc_id=None, aws_subnet_ids_with_availability_zones=None, aws_iam_role_arns=None, aws_security_groups=None, aws_s3_id=None, aws_efs_id=None, aws_efs_mount_target_ip=None, aws_cloudformation_stack_id=None, gcp_vpc_id=None, gcp_subnet_ids=None, memorydb_cluster_config=None, id=None, cloud_id=None, local_vars_configuration=None):  # noqa: E501
         """CloudResource - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -109,6 +111,7 @@ class CloudResource(object):
         self._cloud_storage_bucket_region = None
         self._nfs_mount_targets = None
         self._nfs_mount_path = None
+        self._user_tag_annotation_prefix = None
         self._aws_vpc_id = None
         self._aws_subnet_ids_with_availability_zones = None
         self._aws_iam_role_arns = None
@@ -150,6 +153,8 @@ class CloudResource(object):
             self.nfs_mount_targets = nfs_mount_targets
         if nfs_mount_path is not None:
             self.nfs_mount_path = nfs_mount_path
+        if user_tag_annotation_prefix is not None:
+            self.user_tag_annotation_prefix = user_tag_annotation_prefix
         if aws_vpc_id is not None:
             self.aws_vpc_id = aws_vpc_id
         if aws_subnet_ids_with_availability_zones is not None:
@@ -473,6 +478,29 @@ class CloudResource(object):
         """
 
         self._nfs_mount_path = nfs_mount_path
+
+    @property
+    def user_tag_annotation_prefix(self):
+        """Gets the user_tag_annotation_prefix of this CloudResource.  # noqa: E501
+
+        Prefix for user-defined tag annotations on K8s pods. If not set, tags are added without any prefix.  # noqa: E501
+
+        :return: The user_tag_annotation_prefix of this CloudResource.  # noqa: E501
+        :rtype: str
+        """
+        return self._user_tag_annotation_prefix
+
+    @user_tag_annotation_prefix.setter
+    def user_tag_annotation_prefix(self, user_tag_annotation_prefix):
+        """Sets the user_tag_annotation_prefix of this CloudResource.
+
+        Prefix for user-defined tag annotations on K8s pods. If not set, tags are added without any prefix.  # noqa: E501
+
+        :param user_tag_annotation_prefix: The user_tag_annotation_prefix of this CloudResource.  # noqa: E501
+        :type: str
+        """
+
+        self._user_tag_annotation_prefix = user_tag_annotation_prefix
 
     @property
     def aws_vpc_id(self):

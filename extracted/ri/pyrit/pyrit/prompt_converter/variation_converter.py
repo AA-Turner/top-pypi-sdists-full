@@ -15,13 +15,14 @@ from pyrit.exceptions import (
     pyrit_json_retry,
     remove_markdown_json,
 )
+from pyrit.identifiers import ConverterIdentifier
 from pyrit.models import (
     Message,
     MessagePiece,
     PromptDataType,
     SeedPrompt,
 )
-from pyrit.prompt_converter import ConverterResult, PromptConverter
+from pyrit.prompt_converter.prompt_converter import ConverterResult, PromptConverter
 from pyrit.prompt_target import PromptChatTarget
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,9 @@ class VariationConverter(PromptConverter):
     Generates variations of the input prompts using the converter target.
     """
 
+    SUPPORTED_INPUT_TYPES = ("text",)
+    SUPPORTED_OUTPUT_TYPES = ("text",)
+
     @apply_defaults
     def __init__(
         self,
@@ -40,7 +44,7 @@ class VariationConverter(PromptConverter):
         prompt_template: Optional[SeedPrompt] = None,
     ):
         """
-        Initializes the converter with the specified target and prompt template.
+        Initialize the converter with the specified target and prompt template.
 
         Args:
             converter_target (PromptChatTarget): The target to which the prompt will be sent for conversion.
@@ -64,12 +68,24 @@ class VariationConverter(PromptConverter):
 
         self.system_prompt = str(prompt_template.render_template_value(number_iterations=str(self.number_variations)))
 
+    def _build_identifier(self) -> ConverterIdentifier:
+        """
+        Build the converter identifier with variation parameters.
+
+        Returns:
+            ConverterIdentifier: The identifier for this converter.
+        """
+        return self._create_identifier(
+            converter_target=self.converter_target,
+        )
+
     async def convert_async(self, *, prompt: str, input_type: PromptDataType = "text") -> ConverterResult:
         """
-        Converts the given prompt by generating variations of it using the converter target.
+        Convert the given prompt by generating variations of it using the converter target.
 
         Args:
             prompt (str): The prompt to be converted.
+            input_type (PromptDataType): The type of input data.
 
         Returns:
             ConverterResult: The result containing the generated variations.
@@ -116,8 +132,19 @@ class VariationConverter(PromptConverter):
         return ConverterResult(output_text=response_msg, output_type="text")
 
     @pyrit_json_retry
-    async def send_variation_prompt_async(self, request):
-        """Sends the message to the converter target and retrieves the response."""
+    async def send_variation_prompt_async(self, request: Message) -> str:
+        """
+        Send the message to the converter target and retrieve the response.
+
+        Args:
+            request (Message): The message to be sent to the converter target.
+
+        Returns:
+            str: The response message from the converter target.
+
+        Raises:
+            InvalidJsonException: If the response is not valid JSON or does not contain the expected keys.
+        """
         response = await self.converter_target.send_prompt_async(message=request)
 
         response_msg = response[0].get_value()
@@ -129,12 +156,6 @@ class VariationConverter(PromptConverter):
             raise InvalidJsonException(message=f"Invalid JSON response: {response_msg}")
 
         try:
-            return response[0]
+            return str(response[0])
         except KeyError:
             raise InvalidJsonException(message=f"Invalid JSON response: {response_msg}")
-
-    def input_supported(self, input_type: PromptDataType) -> bool:
-        return input_type == "text"
-
-    def output_supported(self, output_type: PromptDataType) -> bool:
-        return output_type == "text"

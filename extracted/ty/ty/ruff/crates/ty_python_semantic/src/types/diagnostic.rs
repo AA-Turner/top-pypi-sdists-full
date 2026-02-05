@@ -18,6 +18,7 @@ use crate::types::class::{CodeGeneratorKind, DisjointBase, DisjointBaseKind, Met
 use crate::types::function::{FunctionDecorators, FunctionType, KnownFunction, OverloadLiteral};
 use crate::types::infer::UnsupportedComparisonError;
 use crate::types::overrides::MethodKind;
+use crate::types::protocol_class::ProtocolMember;
 use crate::types::string_annotation::{
     BYTE_STRING_TYPE_ANNOTATION, ESCAPE_CHARACTER_IN_FORWARD_ANNOTATION, FSTRING_TYPE_ANNOTATION,
     IMPLICIT_CONCATENATED_STRING_TYPE_ANNOTATION, INVALID_SYNTAX_IN_FORWARD_ANNOTATION,
@@ -30,7 +31,9 @@ use crate::types::{
     ProtocolInstanceType, SpecialFormType, SubclassOfInner, Type, TypeContext, binding_type,
     protocol_class::ProtocolClass,
 };
-use crate::types::{DataclassFlags, KnownInstanceType, MemberLookupPolicy, TypeVarInstance};
+use crate::types::{
+    DataclassFlags, KnownInstanceType, MemberLookupPolicy, TypeVarInstance, UnionType,
+};
 use crate::{Db, DisplaySettings, FxIndexMap, Program, declare_lint};
 use itertools::Itertools;
 use ruff_db::{
@@ -44,7 +47,7 @@ use ruff_python_ast::{self as ast, AnyNodeRef, PythonVersion, StringFlags};
 use ruff_text_size::{Ranged, TextRange};
 use rustc_hash::FxHashSet;
 use std::fmt::{self, Formatter};
-use ty_module_resolver::{Module, ModuleName};
+use ty_module_resolver::{KnownModule, Module, ModuleName, file_to_module};
 
 const RUNTIME_CHECKABLE_DOCS_URL: &str =
     "https://docs.python.org/3/library/typing.html#typing.runtime_checkable";
@@ -66,12 +69,14 @@ pub(crate) fn register_lints(registry: &mut LintRegistryBuilder) {
     registry.register_lint(&DIVISION_BY_ZERO);
     registry.register_lint(&DUPLICATE_BASE);
     registry.register_lint(&DUPLICATE_KW_ONLY);
+    registry.register_lint(&DATACLASS_FIELD_ORDER);
     registry.register_lint(&EMPTY_BODY);
     registry.register_lint(&INSTANCE_LAYOUT_CONFLICT);
     registry.register_lint(&INCONSISTENT_MRO);
     registry.register_lint(&INDEX_OUT_OF_BOUNDS);
     registry.register_lint(&INVALID_KEY);
     registry.register_lint(&ISINSTANCE_AGAINST_PROTOCOL);
+    registry.register_lint(&ISINSTANCE_AGAINST_TYPED_DICT);
     registry.register_lint(&INVALID_ARGUMENT_TYPE);
     registry.register_lint(&INVALID_RETURN_TYPE);
     registry.register_lint(&INVALID_ASSIGNMENT);
@@ -100,6 +105,7 @@ pub(crate) fn register_lints(registry: &mut LintRegistryBuilder) {
     registry.register_lint(&INVALID_TYPE_GUARD_DEFINITION);
     registry.register_lint(&INVALID_TYPE_GUARD_CALL);
     registry.register_lint(&INVALID_TYPE_VARIABLE_CONSTRAINTS);
+    registry.register_lint(&INVALID_TYPE_VARIABLE_BOUND);
     registry.register_lint(&MISSING_ARGUMENT);
     registry.register_lint(&NO_MATCHING_OVERLOAD);
     registry.register_lint(&NOT_SUBSCRIPTABLE);
@@ -112,6 +118,7 @@ pub(crate) fn register_lints(registry: &mut LintRegistryBuilder) {
     registry.register_lint(&SUBCLASS_OF_FINAL_CLASS);
     registry.register_lint(&OVERRIDE_OF_FINAL_METHOD);
     registry.register_lint(&INEFFECTIVE_FINAL);
+    registry.register_lint(&FINAL_WITHOUT_VALUE);
     registry.register_lint(&ABSTRACT_METHOD_IN_FINAL_CLASS);
     registry.register_lint(&TYPE_ASSERTION_FAILURE);
     registry.register_lint(&ASSERT_TYPE_UNSPELLABLE_SUBTYPE);
@@ -139,6 +146,7 @@ pub(crate) fn register_lints(registry: &mut LintRegistryBuilder) {
     registry.register_lint(&SUPER_CALL_IN_NAMED_TUPLE_METHOD);
     registry.register_lint(&INVALID_FROZEN_DATACLASS_SUBCLASS);
     registry.register_lint(&INVALID_TOTAL_ORDERING);
+    registry.register_lint(&INVALID_LEGACY_POSITIONAL_PARAMETER);
 
     // String annotations
     registry.register_lint(&BYTE_STRING_TYPE_ANNOTATION);
@@ -435,6 +443,32 @@ declare_lint! {
     pub(crate) static DUPLICATE_KW_ONLY = {
         summary: "detects dataclass definitions with more than one usage of `KW_ONLY`",
         status: LintStatus::stable("0.0.1-alpha.12"),
+        default_level: Level::Error,
+    }
+}
+
+declare_lint! {
+    /// ## What it does
+    /// Checks for dataclass definitions where required fields are defined after
+    /// fields with default values.
+    ///
+    /// ## Why is this bad?
+    /// In dataclasses, all required fields (fields without default values) must be
+    /// defined before fields with default values. This is a Python requirement that
+    /// will raise a `TypeError` at runtime if violated.
+    ///
+    /// ## Example
+    /// ```python
+    /// from dataclasses import dataclass
+    ///
+    /// @dataclass
+    /// class Example:
+    ///     x: int = 1    # Field with default value
+    ///     y: str        # Error: Required field after field with default
+    /// ```
+    pub(crate) static DATACLASS_FIELD_ORDER = {
+        summary: "detects dataclass definitions with required fields after fields with default values",
+        status: LintStatus::preview("1.0.0"),
         default_level: Level::Error,
     }
 }
@@ -770,36 +804,84 @@ declare_lint! {
 
 declare_lint! {
     /// ## What it does
-    /// Reports runtime checks against non-runtime-checkable `Protocol` classes.
-    /// This includes explicit calls to `isinstance()`/`issubclass()` and implicit
-    /// checks performed by `match` class patterns.
+    /// Reports invalid runtime checks against `Protocol` classes.
+    /// This includes explicit calls `isinstance()`/`issubclass()` against
+    /// non-runtime-checkable protocols, `issubclass()` calls against protocols
+    /// that have non-method members, and implicit `isinstance()` checks against
+    /// non-runtime-checkable protocols via pattern matching.
     ///
     /// ## Why is this bad?
-    /// Using a non-runtime-checkable protocol in these contexts raises `TypeError`
-    /// at runtime.
+    /// These calls (implicit or explicit) raise `TypeError` at runtime.
     ///
     /// ## Examples
     /// ```python
-    /// from typing_extensions import Protocol
+    /// from typing_extensions import Protocol, runtime_checkable
     ///
     /// class HasX(Protocol):
     ///     x: int
     ///
+    /// @runtime_checkable
+    /// class HasY(Protocol):
+    ///     y: int
+    ///
     /// def f(arg: object, arg2: type):
-    ///     isinstance(arg, HasX)  # error: [isinstance-against-protocol]
-    ///     issubclass(arg2, HasX)  # error: [isinstance-against-protocol]
+    ///     isinstance(arg, HasX)  # error: [isinstance-against-protocol] (not runtime-checkable)
+    ///     issubclass(arg2, HasX)  # error: [isinstance-against-protocol] (not runtime-checkable)
     ///
     /// def g(arg: object):
     ///     match arg:
-    ///         case HasX():  # error: [isinstance-against-protocol]
+    ///         case HasX():  # error: [isinstance-against-protocol] (not runtime-checkable)
     ///             pass
+    ///
+    /// def h(arg2: type):
+    ///     isinstance(arg2, HasY)  # fine (runtime-checkable)
+    ///
+    ///     # `HasY` is runtime-checkable, but has non-method members,
+    ///     # so it still can't be used in `issubclass` checks)
+    ///     issubclass(arg2, HasY)  # error: [isinstance-against-protocol]
     /// ```
     ///
     /// ## References
     /// - [Typing documentation: `@runtime_checkable`](https://docs.python.org/3/library/typing.html#typing.runtime_checkable)
     pub(crate) static ISINSTANCE_AGAINST_PROTOCOL = {
-        summary: "reports runtime checks against non-runtime-checkable protocol classes",
+        summary: "reports invalid runtime checks against protocol classes",
         status: LintStatus::stable("0.0.14"),
+        default_level: Level::Error,
+    }
+}
+
+declare_lint! {
+    /// ## What it does
+    /// Reports runtime checks against `TypedDict` classes.
+    /// This includes explicit calls to `isinstance()`/`issubclass()` and implicit
+    /// checks performed by `match` class patterns.
+    ///
+    /// ## Why is this bad?
+    /// Using a `TypedDict` class in these contexts raises `TypeError` at runtime.
+    ///
+    /// ## Examples
+    /// ```python
+    /// from typing_extensions import TypedDict
+    ///
+    /// class Movie(TypedDict):
+    ///     name: str
+    ///     director: str
+    ///
+    /// def f(arg: object, arg2: type):
+    ///     isinstance(arg, Movie)  # error: [isinstance-against-typed-dict]
+    ///     issubclass(arg2, Movie)  # error: [isinstance-against-typed-dict]
+    ///
+    /// def g(arg: object):
+    ///     match arg:
+    ///         case Movie():  # error: [isinstance-against-typed-dict]
+    ///             pass
+    /// ```
+    ///
+    /// ## References
+    /// - [Typing specification: `TypedDict`](https://typing.python.org/en/latest/spec/typeddict.html)
+    pub(crate) static ISINSTANCE_AGAINST_TYPED_DICT = {
+        summary: "reports runtime checks against `TypedDict` classes",
+        status: LintStatus::stable("0.0.15"),
         default_level: Level::Error,
     }
 }
@@ -866,6 +948,7 @@ declare_lint! {
     ///
     /// Functions with empty bodies are permitted in certain contexts where they serve as
     /// declarations rather than implementations:
+    ///
     /// - Functions in stub files (`.pyi`)
     /// - Methods in Protocol classes
     /// - Abstract methods decorated with `@abstractmethod`
@@ -1608,29 +1691,66 @@ declare_lint! {
 
 declare_lint! {
     /// ## What it does
-    /// Checks for constrained [type variables] with only one constraint.
+    ///
+    /// Checks for constrained [type variables] with only one constraint,
+    /// or that those constraints reference type variables.
     ///
     /// ## Why is this bad?
+    ///
     /// A constrained type variable must have at least two constraints.
     ///
     /// ## Examples
+    ///
     /// ```python
     /// from typing import TypeVar
     ///
     /// T = TypeVar('T', str)  # invalid constrained TypeVar
+    ///
+    /// I = TypeVar('I', bound=int)
+    /// U = TypeVar('U', list[I], int)  # invalid constrained TypeVar
     /// ```
     ///
     /// Use instead:
+    ///
     /// ```python
     /// T = TypeVar('T', str, int)  # valid constrained TypeVar
+    ///
     /// # or
+    ///
     /// T = TypeVar('T', bound=str)  # valid bound TypeVar
+    ///
+    /// U = TypeVar('U', list[int], int)  # valid constrained Type
     /// ```
     ///
     /// [type variables]: https://docs.python.org/3/library/typing.html#typing.TypeVar
     pub(crate) static INVALID_TYPE_VARIABLE_CONSTRAINTS = {
         summary: "detects invalid type variable constraints",
         status: LintStatus::stable("0.0.1-alpha.1"),
+        default_level: Level::Error,
+    }
+}
+
+declare_lint! {
+    /// ## What it does
+    /// Checks for [type variables] whose bounds reference type variables.
+    ///
+    /// ## Why is this bad?
+    /// The bound of a type variable must be a concrete type.
+    ///
+    /// ## Examples
+    /// ```python
+    /// T = TypeVar('T', bound=list['T'])  # error: [invalid-type-variable-bound]
+    /// U = TypeVar('U')
+    /// T = TypeVar('T', bound=U)  # error: [invalid-type-variable-bound]
+    ///
+    /// def f[T: list[T]](): ...  # error: [invalid-type-variable-bound]
+    /// def g[U, T: U](): ...  # error: [invalid-type-variable-bound]
+    /// ```
+    ///
+    /// [type variable]: https://docs.python.org/3/library/typing.html#typing.TypeVar
+    pub(crate) static INVALID_TYPE_VARIABLE_BOUND = {
+        summary: "detects invalid type variable bounds",
+        status: LintStatus::stable("0.0.15"),
         default_level: Level::Error,
     }
 }
@@ -1961,6 +2081,33 @@ declare_lint! {
         summary: "detects calls to `final()` that type checkers cannot interpret",
         status: LintStatus::stable("0.0.1-alpha.33"),
         default_level: Level::Warn,
+    }
+}
+
+declare_lint! {
+    /// ## What it does
+    /// Checks for `Final` symbols that are declared without a value and are never
+    /// assigned a value in their scope.
+    ///
+    /// ## Why is this bad?
+    /// A `Final` symbol must be initialized with a value at the time of declaration
+    /// or in a subsequent assignment. At module or function scope, the assignment must
+    /// occur in the same scope. In a class body, the assignment may occur in `__init__`.
+    ///
+    /// ## Examples
+    /// ```python
+    /// from typing import Final
+    ///
+    /// # Error: `Final` symbol without a value
+    /// MY_CONSTANT: Final[int]
+    ///
+    /// # OK: `Final` symbol with a value
+    /// MY_CONSTANT: Final[int] = 1
+    /// ```
+    pub(crate) static FINAL_WITHOUT_VALUE = {
+        summary: "detects `Final` declarations without a value",
+        status: LintStatus::stable("0.0.15"),
+        default_level: Level::Error,
     }
 }
 
@@ -2717,6 +2864,60 @@ declare_lint! {
     }
 }
 
+declare_lint! {
+    /// ## What it does
+    ///
+    /// Checks for parameters that appear to be attempting to use the legacy convention
+    /// to specify that a parameter is positional-only, but do so incorrectly.
+    ///
+    /// The "legacy convention" for specifying positional-only parameters was
+    /// specified in [PEP 484]. It states that parameters with names starting with
+    /// `__` should be considered positional-only by type checkers. [PEP 570], introduced
+    /// in Python 3.8, added dedicated syntax for specifying positional-only parameters,
+    /// rendering the legacy convention obsolete. However, some codebases may still
+    /// use the legacy convention for compatibility with older Python versions.
+    ///
+    /// ## Why is this bad?
+    ///
+    /// In most cases, a type checker will not consider a parameter to be positional-only
+    /// if it comes after a positional-or-keyword parameter, even if its name starts with
+    /// `__`. This may be unexpected to the author of the code.
+    ///
+    /// ## Example
+    ///
+    /// ```python
+    /// def f(x, __y):  # Error: `__y` is not considered positional-only
+    ///     pass
+    /// ```
+    ///
+    /// Use instead:
+    ///
+    /// ```python
+    /// def f(__x, __y):  # If you need compatibility with Python <=3.7
+    ///     pass
+    /// ```
+    ///
+    /// or:
+    ///
+    /// ```python
+    /// def f(x, y, /):  # Python 3.8+ syntax
+    ///     pass
+    /// ```
+    ///
+    /// ## References
+    ///
+    /// - [Typing spec: positional-only parameters (legacy syntax)](https://typing.python.org/en/latest/spec/historical.html#pos-only-double-underscore)
+    /// - [Python glossary: parameters](https://docs.python.org/3/glossary.html#term-parameter)
+    ///
+    /// [PEP 484]: https://peps.python.org/pep-0484/#positional-only-arguments
+    /// [PEP 570]: https://peps.python.org/pep-0570/
+    pub(crate) static INVALID_LEGACY_POSITIONAL_PARAMETER = {
+        summary: "detects incorrect usage of the legacy convention for specifying positional-only parameters",
+        status: LintStatus::stable("0.0.15"),
+        default_level: Level::Warn,
+    }
+}
+
 /// A collection of type check diagnostics.
 #[derive(Default, Eq, PartialEq, get_size2::GetSize)]
 pub struct TypeCheckDiagnostics {
@@ -2887,6 +3088,35 @@ fn report_invalid_assignment_with_message<'db, 'ctx: 'db, T: Ranged>(
     Some(diag)
 }
 
+pub(super) fn note_numbers_module_not_supported<'db>(
+    db: &'db dyn Db,
+    diag: &mut Diagnostic,
+    target_ty: Type<'db>,
+    value_ty: Type<'db>,
+) {
+    const BUILTIN_NUMBERS: [KnownClass; 3] =
+        [KnownClass::Int, KnownClass::Float, KnownClass::Complex];
+
+    if let Type::NominalInstance(target_instance) = target_ty {
+        let file = target_instance.class(db).class_literal(db).file(db);
+        if let Some(module) = file_to_module(db, file)
+            && module.is_known(db, KnownModule::Numbers)
+        {
+            let is_numeric = value_ty.is_subtype_of(
+                db,
+                UnionType::from_elements(db, BUILTIN_NUMBERS.iter().map(|cls| cls.to_instance(db))),
+            );
+
+            if is_numeric {
+                diag.info(
+                    "Types from the `numbers` module aren't supported for static type checking",
+                );
+                diag.help("Consider using a protocol instead, such as `typing.SupportsFloat`");
+            }
+        }
+    }
+}
+
 pub(super) fn report_invalid_assignment<'db>(
     context: &InferContext<'db, '_>,
     target_node: AnyNodeRef,
@@ -2968,6 +3198,9 @@ pub(super) fn report_invalid_assignment<'db>(
         let message = diag.primary_message().to_string();
         diag.set_concise_message(message);
     }
+
+    // special case message
+    note_numbers_module_not_supported(context.db(), &mut diag, target_ty, value_ty);
 }
 
 pub(super) fn report_invalid_attribute_assignment(
@@ -3664,7 +3897,7 @@ pub(crate) fn report_runtime_check_against_non_runtime_checkable_protocol(
     };
     let db = context.db();
     let class_name = protocol.name(db);
-    let function_name: &'static str = function.into();
+    let function_name = function.name();
     let mut diagnostic = builder.into_diagnostic(format_args!(
         "Class `{class_name}` cannot be used as the second argument to `{function_name}`",
     ));
@@ -3675,6 +3908,86 @@ pub(crate) fn report_runtime_check_against_non_runtime_checkable_protocol(
             with `@typing.runtime_checkable` or `@typing_extensions.runtime_checkable`"
     ));
     diagnostic.info(format_args!("See {RUNTIME_CHECKABLE_DOCS_URL}"));
+}
+
+pub(crate) fn report_issubclass_check_against_protocol_with_non_method_members<'db>(
+    context: &'db InferContext<'db, '_>,
+    call: &ast::ExprCall,
+    protocol: ProtocolClass<'db>,
+    non_method_members: &[ProtocolMember<'db, 'db>],
+) {
+    let Some(builder) = context.report_lint(&ISINSTANCE_AGAINST_PROTOCOL, call) else {
+        return;
+    };
+    let db = context.db();
+    let class_name = protocol.name(db);
+    let mut diagnostic = builder.into_diagnostic(format_args!(
+        "Class `{class_name}` cannot be used as the second argument to `issubclass`",
+    ));
+    diagnostic.set_concise_message(format_args!(
+        "`{class_name}` cannot be used as the second argument to `issubclass` \
+        as it is a protocol with non-method members"
+    ));
+    diagnostic.set_primary_message("This call will raise `TypeError` at runtime");
+    if let [single_member] = non_method_members {
+        let mut sub = SubDiagnostic::new(
+            SubDiagnosticSeverity::Info,
+            "A protocol class cannot be used in `issubclass` checks \
+            if it has non-method members",
+        );
+        if let Some(definition) = single_member.definition() {
+            let file = definition.file(db);
+            let module = parsed_module(db, file).load(db);
+            let span = Span::from(definition.focus_range(db, &module));
+            sub.annotate(Annotation::primary(span).message(format_args!(
+                "Non-method member `{}` declared here",
+                single_member.name()
+            )));
+        }
+        diagnostic.sub(sub);
+    } else {
+        diagnostic.info(
+            "A protocol class cannot be used in `issubclass` checks \
+            if it has non-method members",
+        );
+        let mut sub = SubDiagnostic::new(
+            SubDiagnosticSeverity::Info,
+            format_args!(
+                "`{class_name}` has non-method members {}",
+                format_enumeration(non_method_members.iter().map(ProtocolMember::name))
+            ),
+        );
+        if let Some((name, definition)) = non_method_members
+            .iter()
+            .find_map(|member| Some((member.name(), member.definition()?)))
+        {
+            let file = definition.file(db);
+            let module = parsed_module(db, file).load(db);
+            let span = Span::from(definition.focus_range(db, &module));
+            sub.annotate(
+                Annotation::primary(span)
+                    .message(format_args!("Non-method member `{name}` declared here")),
+            );
+        }
+        diagnostic.sub(sub);
+    }
+}
+
+pub(crate) fn report_runtime_check_against_typed_dict(
+    context: &InferContext,
+    call: &ast::ExprCall,
+    class: ClassLiteral,
+    function: KnownFunction,
+) {
+    let Some(builder) = context.report_lint(&ISINSTANCE_AGAINST_TYPED_DICT, call) else {
+        return;
+    };
+    let class_name = class.name(context.db());
+    let mut diagnostic = builder.into_diagnostic(format_args!(
+        "`TypedDict` class `{class_name}` cannot be used as the second argument to `{function_name}`",
+        function_name = function.name()
+    ));
+    diagnostic.set_primary_message("This call will raise `TypeError` at runtime");
 }
 
 pub(crate) fn report_match_pattern_against_non_runtime_checkable_protocol<T: Ranged>(
@@ -3697,6 +4010,22 @@ pub(crate) fn report_match_pattern_against_non_runtime_checkable_protocol<T: Ran
             with `@typing.runtime_checkable` or `@typing_extensions.runtime_checkable`",
     );
     diagnostic.info(format_args!("See {RUNTIME_CHECKABLE_DOCS_URL}"));
+}
+
+pub(crate) fn report_match_pattern_against_typed_dict<T: Ranged>(
+    context: &InferContext,
+    pattern_cls: T,
+    class: ClassLiteral,
+) {
+    let Some(builder) = context.report_lint(&ISINSTANCE_AGAINST_TYPED_DICT, pattern_cls) else {
+        return;
+    };
+    let db = context.db();
+    let class_name = class.name(db);
+    let mut diagnostic = builder.into_diagnostic(format_args!(
+        "`TypedDict` class `{class_name}` cannot be used in a class pattern",
+    ));
+    diagnostic.set_primary_message("This will raise `TypeError` at runtime");
 }
 
 fn add_non_runtime_checkable_protocol_context<'db>(

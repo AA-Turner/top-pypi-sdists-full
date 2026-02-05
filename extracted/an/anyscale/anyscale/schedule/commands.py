@@ -248,3 +248,44 @@ def url(
 ) -> str:
     """Get the web UI URL for a schedule."""
     return _private_sdk.url(id=id, name=name, cloud=cloud, project=project)  # type: ignore
+
+
+_DELETE_EXAMPLE = """
+import anyscale
+
+# Delete by ID
+anyscale.schedule.delete(id="cronjob_xxx")
+
+# Delete by name
+anyscale.schedule.delete(name="my-schedule", cloud="my-cloud", project="my-project")
+"""
+
+_DELETE_ARG_DOCSTRINGS = {
+    "id": "The schedule ID.",
+    "name": "The schedule name (requires cloud and project).",
+    "cloud": "Cloud name (required with name).",
+    "project": "Project name (required with name).",
+}
+
+
+@sdk_command(
+    _SCHEDULE_SDK_SINGLETON_KEY,
+    PrivateScheduleSDK,
+    doc_py_example=_DELETE_EXAMPLE,
+    arg_docstrings=_DELETE_ARG_DOCSTRINGS,
+)
+def delete(
+    *,
+    id: Optional[str] = None,  # noqa: A002
+    name: Optional[str] = None,
+    cloud: Optional[str] = None,
+    project: Optional[str] = None,
+    _private_sdk: Optional[PrivateScheduleSDK] = None,
+) -> str:
+    """Delete a schedule.
+
+    If the schedule is active, it will be automatically paused before deletion.
+    The schedule must have no active triggered jobs.
+    Returns the ID of the deleted schedule.
+    """
+    return _private_sdk.delete(id=id, name=name, cloud=cloud, project=project)  # type: ignore

@@ -3,6 +3,7 @@
 
 from typing import Optional
 
+from pyrit.identifiers import ConverterIdentifier
 from pyrit.prompt_converter.text_selection_strategy import WordSelectionStrategy
 from pyrit.prompt_converter.word_level_converter import WordLevelConverter
 
@@ -16,11 +17,11 @@ class FirstLetterConverter(WordLevelConverter):
     def __init__(
         self,
         *,
-        letter_separator=" ",
+        letter_separator: str = " ",
         word_selection_strategy: Optional[WordSelectionStrategy] = None,
-    ):
+    ) -> None:
         """
-        Initializes the converter with the specified letter separator and selection strategy.
+        Initialize the converter with the specified letter separator and selection strategy.
 
         Args:
             letter_separator (str): The string used to join the first letters.
@@ -30,10 +31,39 @@ class FirstLetterConverter(WordLevelConverter):
         super().__init__(word_selection_strategy=word_selection_strategy, word_split_separator=None)
         self.letter_separator = letter_separator
 
+    def _build_identifier(self) -> ConverterIdentifier:
+        """
+        Build identifier with first letter converter parameters.
+
+        Returns:
+            ConverterIdentifier: The identifier for this converter.
+        """
+        base_params = super()._build_identifier().converter_specific_params or {}
+        base_params["letter_separator"] = self.letter_separator
+        return self._create_identifier(converter_specific_params=base_params)
+
     async def convert_word_async(self, word: str) -> str:
+        """
+        Convert a single word into the target format supported by the converter.
+
+        Args:
+            word (str): The word to be converted.
+
+        Returns:
+            str: The converted word.
+        """
         stripped_word = "".join(filter(str.isalnum, word))
         return stripped_word[:1]
 
     def join_words(self, words: list[str]) -> str:
+        """
+        Join the converted words using the specified letter separator.
+
+        Args:
+            words (list[str]): The list of converted words.
+
+        Returns:
+            str: The joined string of converted words.
+        """
         cleaned_words = list(filter(None, words))
         return self.letter_separator.join(cleaned_words)

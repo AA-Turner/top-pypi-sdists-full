@@ -1,8 +1,8 @@
 from adam.commands import extract_options, extract_trailing_options
 from adam.commands.command import Command
-from adam.commands.cql.utils_cql import cassandra
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
+from adam.utils_cassandra.table_renderer import renderer
 from adam.utils_context import Context
 
 class ShowCassandraStorage(Command):
@@ -32,7 +32,7 @@ class ShowCassandraStorage(Command):
                 with extract_options(args, ['-s', '--show']) as (args, verbose):
                     cols = Config().get('storage.columns', 'pod,volume_root,volume_cassandra,snapshots,data,compactions')
                     header = Config().get('storage.header', 'POD_NAME,VOLUME /,VOLUME CASS,SNAPSHOTS,DATA,COMPACTIONS')
-                    with cassandra(state) as pods:
+                    with renderer(state) as pods:
                         pods.display_table(cols, header, ctx=Context.new(cmd, background=background, show_verbose=verbose))
 
                     return state

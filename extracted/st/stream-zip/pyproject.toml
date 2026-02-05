@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "stream-zip"
-version = "0.0.83"
+version = "0.0.84"
 authors = [
   { name="Department for International Trade", email="sre@digital.trade.gov.uk" },
 ]
@@ -36,8 +36,8 @@ ci = [
     "stream-unzip==0.0.86",
     "pyzipper==0.3.6",
     # Type checking
-    "mypy==0.971",
-    'types-contextvars==2.4.7.3; python_version<"3.7"',
+    "mypy>=0.971",
+    'types-contextvars>=2.4.7.3; python_version<"3.9"',
 ]
 
 [project.urls]

@@ -1,9 +1,9 @@
 from operator import attrgetter
-from typing import Dict, List, Sequence, cast
+from typing import Dict, List, Sequence
 from uuid import UUID
 
 from galileo_core.schemas.logging.session import BaseSession, Session
-from galileo_core.schemas.logging.span import Span
+from galileo_core.schemas.logging.span import Span, SpanAdapter
 from galileo_core.schemas.logging.step import BaseStep, StepType
 from galileo_core.schemas.logging.trace import Trace
 
@@ -15,10 +15,13 @@ def create_tree_for_trace(records: Sequence[BaseStep]) -> Sequence[Trace]:
     for record in records:
         if record.id is None:
             raise ValueError("Node ID cannot be None")
-        if record.type is StepType.trace:
-            trace_id_to_trace[record.id] = Trace.model_validate(record)
-        elif record.type is not StepType.session:
-            span_id_to_span[record.id] = cast(Span, record)
+        # Handle both enum and string values for type
+        record_type = record.type if isinstance(record.type, StepType) else StepType(record.type)
+        if record_type == StepType.trace:
+            trace_id_to_trace[record.id] = Trace.model_validate(record, from_attributes=True)
+        elif record_type != StepType.session:
+            # Use SpanAdapter with discriminator to pick the correct span class
+            span_id_to_span[record.id] = SpanAdapter.validate_python(record, from_attributes=True)
             if (
                 hasattr(record, "parent_id") and record.parent_id is not None
             ):  # Only add value to the parent-child relationship if there is a parent
@@ -51,8 +54,10 @@ def create_tree_for_session(records: Sequence[BaseStep]) -> List[Session]:
     for record in records:
         if record.id is None:
             raise ValueError("Node ID cannot be None")
-        if record.type is StepType.session:
-            session = BaseSession.model_validate(record)
+        # Handle both enum and string values for type
+        record_type = record.type if isinstance(record.type, StepType) else StepType(record.type)
+        if record_type == StepType.session:
+            session = BaseSession.model_validate(record, from_attributes=True)
             session_id_to_session[record.id] = Session(**session.model_dump(), traces=[])
         else:
             if (

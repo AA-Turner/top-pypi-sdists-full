@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.aws-pricing-mcp-server
-Version: 1.0.23
+Version: 1.0.24
 Summary: An AWS Labs Model Context Protocol (MCP) server for official pricing of AWS services
 Project-URL: Homepage, https://awslabs.github.io/mcp/
 Project-URL: Documentation, https://awslabs.github.io/mcp/servers/aws-pricing-mcp-server/

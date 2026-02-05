@@ -1,303 +1,374 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
 from __future__ import annotations
 
-from typing import Any, Dict, List
-import sys
+from typing import Iterable
+from typing_extensions import Literal
 
-from together.abstract import api_requestor
-from together.together_response import TogetherResponse
-from together.types import (
-    TogetherClient,
-    TogetherRequest,
+import httpx
+
+from ..types import video_create_params
+from .._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from .._utils import maybe_transform, async_maybe_transform
+from .._compat import cached_property
+from .._resource import SyncAPIResource, AsyncAPIResource
+from .._response import (
+    to_raw_response_wrapper,
+    to_streamed_response_wrapper,
+    async_to_raw_response_wrapper,
+    async_to_streamed_response_wrapper,
 )
-from together.types.videos import (
-    CreateVideoResponse,
-    CreateVideoBody,
-    VideoJob,
-)
+from .._base_client import make_request_options
+from ..types.video_job import VideoJob
 
-if sys.version_info >= (3, 8):
-    from typing import Literal
-else:
-    from typing_extensions import Literal
+__all__ = ["VideosResource", "AsyncVideosResource"]
 
 
-class Videos:
-    def __init__(self, client: TogetherClient) -> None:
-        self._client = client
+class VideosResource(SyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> VideosResourceWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/togethercomputer/together-py#accessing-raw-response-data-eg-headers
+        """
+        return VideosResourceWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> VideosResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/togethercomputer/together-py#with_streaming_response
+        """
+        return VideosResourceWithStreamingResponse(self)
 
     def create(
         self,
         *,
         model: str,
-        prompt: str | None = None,
-        height: int | None = None,
-        width: int | None = None,
-        seconds: str | None = None,
-        fps: int | None = None,
-        steps: int | None = None,
-        seed: int | None = None,
-        guidance_scale: float | None = None,
-        output_format: Literal["MP4", "WEBM"] | None = None,
-        output_quality: int | None = None,
-        negative_prompt: str | None = None,
-        frame_images: List[Dict[str, Any]] | None = None,
-        reference_images: List[str] | None = None,
-        **kwargs: Any,
-    ) -> CreateVideoResponse:
+        fps: int | Omit = omit,
+        frame_images: Iterable[video_create_params.FrameImage] | Omit = omit,
+        guidance_scale: int | Omit = omit,
+        height: int | Omit = omit,
+        negative_prompt: str | Omit = omit,
+        output_format: Literal["MP4", "WEBM"] | Omit = omit,
+        output_quality: int | Omit = omit,
+        prompt: str | Omit = omit,
+        reference_images: SequenceNotStr[str] | Omit = omit,
+        seconds: str | Omit = omit,
+        seed: int | Omit = omit,
+        steps: int | Omit = omit,
+        width: int | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> VideoJob:
         """
-        Method to generate videos based on a given prompt using a specified model.
+        Create a video
 
         Args:
-            model (str): The model to use for video generation.
+          model: The model to be used for the video creation request.
 
-            prompt (str): A description of the desired video. Positive prompt for the generation.
+          fps: Frames per second. Defaults to 24.
 
-            height (int, optional): Height of the video to generate in pixels.
+          frame_images: Array of images to guide video generation, similar to keyframes.
 
-            width (int, optional): Width of the video to generate in pixels.
+          guidance_scale: Controls how closely the video generation follows your prompt. Higher values
+              make the model adhere more strictly to your text description, while lower values
+              allow more creative freedom. guidence_scale affects both visual content and
+              temporal consistency.Recommended range is 6.0-10.0 for most video models. Values
+              above 12 may cause over-guidance artifacts or unnatural motion patterns.
 
-            seconds (str, optional): Length of generated video in seconds. Min 1 max 10.
+          negative_prompt: Similar to prompt, but specifies what to avoid instead of what to include
 
-            fps (int, optional): Frames per second, min 15 max 60. Defaults to 24.
+          output_format: Specifies the format of the output video. Defaults to MP4.
 
-            steps (int, optional): The number of denoising steps the model performs during video
-                generation. More steps typically result in higher quality output but require longer
-                processing time. Min 10 max 50. Defaults to 20.
+          output_quality: Compression quality. Defaults to 20.
 
-            seed (int, optional): Seed to use in initializing the video generation. Using the same
-                seed allows deterministic video generation. If not provided, a random seed is
-                generated for each request. Note: When requesting multiple videos with the same
-                seed, the seed will be incremented by 1 (+1) for each video generated.
+          prompt: Text prompt that describes the video to generate.
 
-            guidance_scale (float, optional): Controls how closely the video generation follows your
-                prompt. Higher values make the model adhere more strictly to your text description,
-                while lower values allow more creative freedom. Recommended range is 6.0-10.0 for
-                most video models. Values above 12 may cause over-guidance artifacts or unnatural
-                motion patterns. Defaults to 8.
+          reference_images: Unlike frame_images which constrain specific timeline positions, reference
+              images guide the general appearance that should appear consistently across the
+              video.
 
-            output_format (str, optional): Specifies the format of the output video. Either "MP4"
-                or "WEBM". Defaults to "MP4".
+          seconds: Clip duration in seconds.
 
-            output_quality (int, optional): Compression quality. Defaults to 20.
+          seed: Seed to use in initializing the video generation. Using the same seed allows
+              deterministic video generation. If not provided a random seed is generated for
+              each request.
 
-            negative_prompt (str, optional): Similar to prompt, but specifies what to avoid instead
-                of what to include. Defaults to None.
+          steps: The number of denoising steps the model performs during video generation. More
+              steps typically result in higher quality output but require longer processing
+              time.
 
-            frame_images (List[Dict[str, Any]], optional): Array of images to guide video generation,
-                like keyframes. If size 1, starting frame; if size 2, starting and ending frame;
-                if more than 2 then frame must be specified. Defaults to None.
+          extra_headers: Send extra headers
 
-            reference_images (List[str], optional): An array containing reference images
-                used to condition the generation process. These images provide visual guidance to
-                help the model generate content that aligns with the style, composition, or
-                characteristics of the reference materials. Defaults to None.
+          extra_query: Add additional query parameters to the request
 
-        Returns:
-            CreateVideoResponse: Object containing video generation job id
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
         """
-
-        requestor = api_requestor.APIRequestor(
-            client=self._client,
-        )
-
-        parameter_payload = CreateVideoBody(
-            prompt=prompt,
-            model=model,
-            height=height,
-            width=width,
-            seconds=seconds,
-            fps=fps,
-            steps=steps,
-            seed=seed,
-            guidance_scale=guidance_scale,
-            output_format=output_format,
-            output_quality=output_quality,
-            negative_prompt=negative_prompt,
-            frame_images=frame_images,
-            reference_images=reference_images,
-            **kwargs,
-        ).model_dump(exclude_none=True)
-
-        response, _, _ = requestor.request(
-            options=TogetherRequest(
-                method="POST",
-                url="../v2/videos",
-                params=parameter_payload,
+        return self._post(
+            "/videos" if self._client._base_url_overridden else "https://api.together.xyz/v2/videos",
+            body=maybe_transform(
+                {
+                    "model": model,
+                    "fps": fps,
+                    "frame_images": frame_images,
+                    "guidance_scale": guidance_scale,
+                    "height": height,
+                    "negative_prompt": negative_prompt,
+                    "output_format": output_format,
+                    "output_quality": output_quality,
+                    "prompt": prompt,
+                    "reference_images": reference_images,
+                    "seconds": seconds,
+                    "seed": seed,
+                    "steps": steps,
+                    "width": width,
+                },
+                video_create_params.VideoCreateParams,
             ),
-            stream=False,
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=VideoJob,
         )
-
-        assert isinstance(response, TogetherResponse)
-
-        return CreateVideoResponse(**response.data)
 
     def retrieve(
         self,
         id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VideoJob:
         """
-        Method to retrieve a video creation job.
+        Fetch video metadata
 
         Args:
-            id (str): The ID of the video creation job to retrieve.
+          extra_headers: Send extra headers
 
-        Returns:
-            VideoJob: Object containing the current status and details of the video creation job
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
         """
-
-        requestor = api_requestor.APIRequestor(
-            client=self._client,
-        )
-
-        response, _, _ = requestor.request(
-            options=TogetherRequest(
-                method="GET",
-                url=f"../v2/videos/{id}",
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return self._get(
+            f"/videos/{id}" if self._client._base_url_overridden else f"https://api.together.xyz/v2/videos/{id}",
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            stream=False,
+            cast_to=VideoJob,
         )
 
-        assert isinstance(response, TogetherResponse)
 
-        return VideoJob(**response.data)
+class AsyncVideosResource(AsyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> AsyncVideosResourceWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
 
+        For more information, see https://www.github.com/togethercomputer/together-py#accessing-raw-response-data-eg-headers
+        """
+        return AsyncVideosResourceWithRawResponse(self)
 
-class AsyncVideos:
-    def __init__(self, client: TogetherClient) -> None:
-        self._client = client
+    @cached_property
+    def with_streaming_response(self) -> AsyncVideosResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/togethercomputer/together-py#with_streaming_response
+        """
+        return AsyncVideosResourceWithStreamingResponse(self)
 
     async def create(
         self,
         *,
-        prompt: str,
         model: str,
-        height: int | None = None,
-        width: int | None = None,
-        seconds: float | None = None,
-        fps: int | None = None,
-        steps: int | None = None,
-        seed: int | None = None,
-        guidance_scale: float | None = None,
-        output_format: Literal["MP4", "WEBM"] | None = None,
-        output_quality: int | None = None,
-        negative_prompt: str | None = None,
-        frame_images: List[Dict[str, Any]] | None = None,
-        reference_images: List[str] | None = None,
-        **kwargs: Any,
-    ) -> CreateVideoResponse:
+        fps: int | Omit = omit,
+        frame_images: Iterable[video_create_params.FrameImage] | Omit = omit,
+        guidance_scale: int | Omit = omit,
+        height: int | Omit = omit,
+        negative_prompt: str | Omit = omit,
+        output_format: Literal["MP4", "WEBM"] | Omit = omit,
+        output_quality: int | Omit = omit,
+        prompt: str | Omit = omit,
+        reference_images: SequenceNotStr[str] | Omit = omit,
+        seconds: str | Omit = omit,
+        seed: int | Omit = omit,
+        steps: int | Omit = omit,
+        width: int | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> VideoJob:
         """
-        Async method to create videos based on a given prompt using a specified model.
+        Create a video
 
         Args:
-            prompt (str): A description of the desired video. Positive prompt for the generation.
+          model: The model to be used for the video creation request.
 
-            model (str): The model to use for video generation.
+          fps: Frames per second. Defaults to 24.
 
-            height (int, optional): Height of the video to generate in pixels.
+          frame_images: Array of images to guide video generation, similar to keyframes.
 
-            width (int, optional): Width of the video to generate in pixels.
+          guidance_scale: Controls how closely the video generation follows your prompt. Higher values
+              make the model adhere more strictly to your text description, while lower values
+              allow more creative freedom. guidence_scale affects both visual content and
+              temporal consistency.Recommended range is 6.0-10.0 for most video models. Values
+              above 12 may cause over-guidance artifacts or unnatural motion patterns.
 
-            seconds (float, optional): Length of generated video in seconds. Min 1 max 10.
+          negative_prompt: Similar to prompt, but specifies what to avoid instead of what to include
 
-            fps (int, optional): Frames per second, min 15 max 60. Defaults to 24.
+          output_format: Specifies the format of the output video. Defaults to MP4.
 
-            steps (int, optional): The number of denoising steps the model performs during video
-                generation. More steps typically result in higher quality output but require longer
-                processing time. Min 10 max 50. Defaults to 20.
+          output_quality: Compression quality. Defaults to 20.
 
-            seed (int, optional): Seed to use in initializing the video generation. Using the same
-                seed allows deterministic video generation. If not provided, a random seed is
-                generated for each request. Note: When requesting multiple videos with the same
-                seed, the seed will be incremented by 1 (+1) for each video generated.
+          prompt: Text prompt that describes the video to generate.
 
-            guidance_scale (float, optional): Controls how closely the video generation follows your
-                prompt. Higher values make the model adhere more strictly to your text description,
-                while lower values allow more creative freedom. Recommended range is 6.0-10.0 for
-                most video models. Values above 12 may cause over-guidance artifacts or unnatural
-                motion patterns. Defaults to 8.
+          reference_images: Unlike frame_images which constrain specific timeline positions, reference
+              images guide the general appearance that should appear consistently across the
+              video.
 
-            output_format (Literal["MP4", "WEBM"], optional): Specifies the format of the output video. Either "MP4"
-                or "WEBM". Defaults to "MP4".
+          seconds: Clip duration in seconds.
 
-            output_quality (int, optional): Compression quality. Defaults to 20.
+          seed: Seed to use in initializing the video generation. Using the same seed allows
+              deterministic video generation. If not provided a random seed is generated for
+              each request.
 
-            negative_prompt (str, optional): Similar to prompt, but specifies what to avoid instead
-                of what to include. Defaults to None.
+          steps: The number of denoising steps the model performs during video generation. More
+              steps typically result in higher quality output but require longer processing
+              time.
 
-            frame_images (List[Dict[str, Any]], optional): Array of images to guide video generation,
-                like keyframes. If size 1, starting frame; if size 2, starting and ending frame;
-                if more than 2 then frame must be specified. Defaults to None.
+          extra_headers: Send extra headers
 
-            reference_images (List[str], optional): An array containing reference images
-                used to condition the generation process. These images provide visual guidance to
-                help the model generate content that aligns with the style, composition, or
-                characteristics of the reference materials. Defaults to None.
+          extra_query: Add additional query parameters to the request
 
-        Returns:
-            CreateVideoResponse: Object containing video creation job id
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
         """
-
-        requestor = api_requestor.APIRequestor(
-            client=self._client,
-        )
-
-        parameter_payload = CreateVideoBody(
-            prompt=prompt,
-            model=model,
-            height=height,
-            width=width,
-            seconds=seconds,
-            fps=fps,
-            steps=steps,
-            seed=seed,
-            guidance_scale=guidance_scale,
-            output_format=output_format,
-            output_quality=output_quality,
-            negative_prompt=negative_prompt,
-            frame_images=frame_images,
-            reference_images=reference_images,
-            **kwargs,
-        ).model_dump(exclude_none=True)
-
-        response, _, _ = await requestor.arequest(
-            options=TogetherRequest(
-                method="POST",
-                url="../v2/videos",
-                params=parameter_payload,
+        return await self._post(
+            "/videos" if self._client._base_url_overridden else "https://api.together.xyz/v2/videos",
+            body=await async_maybe_transform(
+                {
+                    "model": model,
+                    "fps": fps,
+                    "frame_images": frame_images,
+                    "guidance_scale": guidance_scale,
+                    "height": height,
+                    "negative_prompt": negative_prompt,
+                    "output_format": output_format,
+                    "output_quality": output_quality,
+                    "prompt": prompt,
+                    "reference_images": reference_images,
+                    "seconds": seconds,
+                    "seed": seed,
+                    "steps": steps,
+                    "width": width,
+                },
+                video_create_params.VideoCreateParams,
             ),
-            stream=False,
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=VideoJob,
         )
-
-        assert isinstance(response, TogetherResponse)
-
-        return CreateVideoResponse(**response.data)
 
     async def retrieve(
         self,
         id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VideoJob:
         """
-        Async method to retrieve a video creation job.
+        Fetch video metadata
 
         Args:
-            id (str): The ID of the video creation job to retrieve.
+          extra_headers: Send extra headers
 
-        Returns:
-            VideoJob: Object containing the current status and details of the video creation job
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
         """
-
-        requestor = api_requestor.APIRequestor(
-            client=self._client,
-        )
-
-        response, _, _ = await requestor.arequest(
-            options=TogetherRequest(
-                method="GET",
-                url=f"../v2/videos/{id}",
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return await self._get(
+            f"/videos/{id}" if self._client._base_url_overridden else f"https://api.together.xyz/v2/videos/{id}",
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            stream=False,
+            cast_to=VideoJob,
         )
 
-        assert isinstance(response, TogetherResponse)
 
-        return VideoJob(**response.data)
+class VideosResourceWithRawResponse:
+    def __init__(self, videos: VideosResource) -> None:
+        self._videos = videos
+
+        self.create = to_raw_response_wrapper(
+            videos.create,
+        )
+        self.retrieve = to_raw_response_wrapper(
+            videos.retrieve,
+        )
+
+
+class AsyncVideosResourceWithRawResponse:
+    def __init__(self, videos: AsyncVideosResource) -> None:
+        self._videos = videos
+
+        self.create = async_to_raw_response_wrapper(
+            videos.create,
+        )
+        self.retrieve = async_to_raw_response_wrapper(
+            videos.retrieve,
+        )
+
+
+class VideosResourceWithStreamingResponse:
+    def __init__(self, videos: VideosResource) -> None:
+        self._videos = videos
+
+        self.create = to_streamed_response_wrapper(
+            videos.create,
+        )
+        self.retrieve = to_streamed_response_wrapper(
+            videos.retrieve,
+        )
+
+
+class AsyncVideosResourceWithStreamingResponse:
+    def __init__(self, videos: AsyncVideosResource) -> None:
+        self._videos = videos
+
+        self.create = async_to_streamed_response_wrapper(
+            videos.create,
+        )
+        self.retrieve = async_to_streamed_response_wrapper(
+            videos.retrieve,
+        )

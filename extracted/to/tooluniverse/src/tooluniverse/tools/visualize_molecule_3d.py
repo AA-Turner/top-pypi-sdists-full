@@ -9,9 +9,9 @@ from ._shared_client import get_shared_client
 
 
 def visualize_molecule_3d(
-    smiles: str,
-    mol_content: str,
-    sdf_content: str,
+    smiles: Optional[str] = None,
+    mol_content: Optional[str] = None,
+    sdf_content: Optional[str] = None,
     style: Optional[str] = "stick",
     color_scheme: Optional[str] = "default",
     width: Optional[int] = 800,

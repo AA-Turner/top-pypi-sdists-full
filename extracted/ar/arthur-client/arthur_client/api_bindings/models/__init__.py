@@ -14,6 +14,8 @@
 
 
 # import models into model package
+from arthur_client.api_bindings.models.agent_metadata import AgentMetadata
+from arthur_client.api_bindings.models.agent_metadata_response import AgentMetadataResponse
 from arthur_client.api_bindings.models.aggregation_kind import AggregationKind
 from arthur_client.api_bindings.models.aggregation_metric_type import AggregationMetricType
 from arthur_client.api_bindings.models.aggregation_spec import AggregationSpec
@@ -103,11 +105,14 @@ from arthur_client.api_bindings.models.definition import Definition
 from arthur_client.api_bindings.models.delete_group_membership import DeleteGroupMembership
 from arthur_client.api_bindings.models.delete_model_task_job_spec import DeleteModelTaskJobSpec
 from arthur_client.api_bindings.models.dimension import Dimension
+from arthur_client.api_bindings.models.discover_agents_job_spec import DiscoverAgentsJobSpec
 from arthur_client.api_bindings.models.example_config import ExampleConfig
 from arthur_client.api_bindings.models.examples_config import ExamplesConfig
 from arthur_client.api_bindings.models.extended_role import ExtendedRole
 from arthur_client.api_bindings.models.fetch_data_job_spec import FetchDataJobSpec
 from arthur_client.api_bindings.models.fetch_model_task_job_spec import FetchModelTaskJobSpec
+from arthur_client.api_bindings.models.gcp_agent_metadata import GCPAgentMetadata
+from arthur_client.api_bindings.models.gcp_agent_metadata_response import GCPAgentMetadataResponse
 from arthur_client.api_bindings.models.generate_metrics_spec_request import GenerateMetricsSpecRequest
 from arthur_client.api_bindings.models.group import Group
 from arthur_client.api_bindings.models.group_membership import GroupMembership
@@ -260,6 +265,7 @@ from arthur_client.api_bindings.models.reasoning_effort_enum import ReasoningEff
 from arthur_client.api_bindings.models.regenerate_task_validation_key_job_spec import RegenerateTaskValidationKeyJobSpec
 from arthur_client.api_bindings.models.regex_config import RegexConfig
 from arthur_client.api_bindings.models.register_user import RegisterUser
+from arthur_client.api_bindings.models.registered_agent_provider import RegisteredAgentProvider
 from arthur_client.api_bindings.models.relevance_metric_config import RelevanceMetricConfig
 from arthur_client.api_bindings.models.reported_custom_aggregation import ReportedCustomAggregation
 from arthur_client.api_bindings.models.resource_kind import ResourceKind

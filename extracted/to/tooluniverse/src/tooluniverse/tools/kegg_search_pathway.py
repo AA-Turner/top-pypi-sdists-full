@@ -14,7 +14,7 @@ def kegg_search_pathway(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
     Search KEGG pathways by keyword. Returns pathway IDs and descriptions matching the search term.
 
@@ -31,7 +31,7 @@ def kegg_search_pathway(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

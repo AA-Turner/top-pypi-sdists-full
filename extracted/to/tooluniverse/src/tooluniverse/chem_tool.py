@@ -132,6 +132,13 @@ class ChEMBLRESTTool(BaseTool):
         try:
             url = self._build_url(arguments)
             params = self._build_params(arguments)
+            tool_name = self.tool_config.get("name", "")
+
+            # Check if this is an image endpoint
+            is_image_endpoint = (
+                "get_molecule_image" in tool_name.lower() or "/image/" in url
+            )
+
             response = request_with_retry(
                 self.session,
                 "GET",
@@ -142,6 +149,19 @@ class ChEMBLRESTTool(BaseTool):
                 backoff_seconds=0.5,
             )
             response.raise_for_status()
+
+            # Handle image endpoints differently
+            if is_image_endpoint:
+                content_type = response.headers.get("Content-Type", "")
+                if "image" in content_type or "svg" in content_type:
+                    # Return the image URL and content type for binary data
+                    return {
+                        "status": "success",
+                        "data": f"Image data available at URL (Content-Type: {content_type})",
+                        "url": response.url,
+                        "content_type": content_type,
+                        "image_size_bytes": len(response.content),
+                    }
 
             data = response.json()
 

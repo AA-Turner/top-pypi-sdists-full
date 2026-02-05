@@ -15,7 +15,7 @@ def PRIDE_search_proteomics(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
     Search the PRIDE Archive for proteomics experiments and mass spectrometry datasets. Returns proje...
 
@@ -34,7 +34,7 @@ def PRIDE_search_proteomics(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

@@ -11,6 +11,7 @@ from anyscale._private.anyscale_client.common import (
     WORKSPACE_CLUSTER_NAME_PREFIX,
 )
 from anyscale._private.models.image_uri import ImageURI
+from anyscale._private.models.integrations import ConnectionType
 from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models import (
     AdminCreatedUser,
@@ -258,6 +259,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self._rolled_back_service: Optional[Tuple[str, Optional[int]]] = None
         self._terminated_service: Optional[str] = None
         self._archived_jobs: Dict[str, ProductionJob] = {}
+        self._deleted_jobs: Dict[str, ProductionJob] = {}
         self._requirements_path: Optional[str] = None
         self._upload_uri_mapping: Dict[str, str] = {}
         self._upload_bucket_path_mapping: Dict[
@@ -284,6 +286,9 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self.delete_resource_tags_calls: List[Tuple[str, str, List[str]]] = []
         # Store resource tags in-memory for list operations
         self._resource_tags_store: Dict[Tuple[str, str], Dict[str, str]] = {}
+
+        # Store connections for testing - keyed by connection ID
+        self._connections: Dict[str, Any] = {}
 
         # Cloud resource ID -> DecoratedCloudResource
         self._cloud_resources: Dict[str, DecoratedCloudResource] = {}
@@ -398,6 +403,32 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         """Return mock user information for testing."""
         # Return a Mock with the minimal attributes needed by SDK code
         return Mock(id=self.DEFAULT_USER_ID, email=self.DEFAULT_USER_EMAIL)
+
+    def list_databricks_connections(self, *, name: Optional[str] = None) -> List[Any]:
+        """Return mock Databricks connections for testing."""
+        connections = list(self._connections.values())
+        if name is not None:
+            connections = [c for c in connections if c.name == name]
+        return connections
+
+    def get_databricks_connection(self, connection_id: str) -> Any:
+        """Get a Databricks connection by ID."""
+        if connection_id not in self._connections:
+            raise ValueError(f"Connection {connection_id} not found")
+        return self._connections[connection_id]
+
+    def add_third_party_connection(
+        self,
+        connection_id: str,
+        name: str,
+        connection_type: str = ConnectionType.DATABRICKS_U2M,
+    ) -> None:
+        """Add a mock third-party connection for testing."""
+        mock_conn = Mock()
+        mock_conn.id = connection_id
+        mock_conn.name = name
+        mock_conn.connection_type = connection_type
+        self._connections[connection_id] = mock_conn
 
     def get_job_ui_url(self, job_id: str) -> str:
         return f"{self.BASE_UI_URL}/jobs/{job_id}"
@@ -1395,17 +1426,30 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         job_id: Optional[str],
         cloud: Optional[str],
         project: Optional[str],
+        include_archived: bool = False,
     ) -> Optional[ProductionJob]:
         if job_id is not None:
-            return self._jobs.get(job_id, None)
+            # God mode: job_id lookup always finds job regardless of archive status
+            if job_id in self._jobs:
+                return self._jobs[job_id]
+            if job_id in self._archived_jobs:
+                return self._archived_jobs[job_id]
+            return None
         else:
+            # Name-based lookup: respect archive filtering
             cloud_id = self.get_cloud_id(cloud_name=cloud)
             cloud_project_dict = self._project_to_id.get(cloud_id, None)
             project_id = (
                 cloud_project_dict.get(project, None) if cloud_project_dict else None
             )
+
+            # Build the list of jobs to search
+            target_jobs = list(self._jobs.values())
+            if include_archived:
+                target_jobs.extend(list(self._archived_jobs.values()))
+
             result: ProductionJob = None
-            for job in self._jobs.values():
+            for job in target_jobs:
                 if (
                     job is not None
                     and job.name == name
@@ -1439,6 +1483,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         _sorting_directives: Optional[
             List[JobQueueSortDirective]
         ] = None,  # noqa: ARG002
+        include_archived: bool = False,  # noqa: ARG002
     ) -> DecoratedjobqueueListResponse:
         """Mock implementation of list_job_queues API for testing.
 
@@ -1489,6 +1534,11 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
     def update_job_queue(self, model: DecoratedJobQueue):
         self._job_queues[model.id] = model
+
+    def delete_job_queue(self, job_queue_id: str) -> None:
+        """Mock implementation of delete_job_queue API for testing."""
+        if job_queue_id in self._job_queues:
+            del self._job_queues[job_queue_id]
 
     def register_project_by_name(
         self,
@@ -1670,13 +1720,28 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         return job
 
     def terminate_job(self, job_id: str):
-        self._jobs[job_id].state = HaJobStates.TERMINATED
+        if job_id in self._jobs:
+            self._jobs[job_id].state = HaJobStates.TERMINATED
+        elif job_id in self._archived_jobs:
+            self._archived_jobs[job_id].state = HaJobStates.TERMINATED
 
     def archive_job(self, job_id: str):
+        if job_id in self._archived_jobs:
+            # Already archived, idempotent
+            return
         self._archived_jobs[job_id] = self._jobs.pop(job_id)
 
     def is_archived_job(self, job_id: str) -> bool:
         return job_id in self._archived_jobs
+
+    def delete_job(self, job_id: str) -> None:
+        if job_id in self._jobs:
+            self._deleted_jobs[job_id] = self._jobs.pop(job_id)
+        elif job_id in self._archived_jobs:
+            self._deleted_jobs[job_id] = self._archived_jobs.pop(job_id)
+
+    def is_deleted_job(self, job_id: str) -> bool:
+        return job_id in self._deleted_jobs
 
     def upload_local_dir_to_cloud_storage(
         self,
@@ -1812,6 +1877,13 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
     def trigger_counts(self, id: str):  # noqa: A002
         return self._schedule_trigger_counts[id]
+
+    def delete_schedule(self, schedule_id: str) -> None:
+        """Delete a schedule from the fake client."""
+        if schedule_id in self._schedules:
+            del self._schedules[schedule_id]
+        if schedule_id in self._schedule_trigger_counts:
+            del self._schedule_trigger_counts[schedule_id]
 
     def list_schedules(
         self,

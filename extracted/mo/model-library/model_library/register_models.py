@@ -170,6 +170,7 @@ class DefaultParameters(BaseModel):
     top_p: float | None = None
     top_k: int | None = None
     reasoning_effort: str | bool | None = None
+    compute_effort: str | bool | None = None
 
 
 class RawModelConfig(BaseModel):
@@ -338,6 +339,10 @@ def _register_models() -> ModelRegistry:
                         copy.slug = key.replace("/", "_")
                         copy.full_key = key
                         copy.alternative_keys = []
+                        copy.provider_properties = ProviderProperties.model_validate(
+                            provider_properties
+                        )
+
                         registry[key] = copy
 
     return registry

@@ -7,7 +7,7 @@ from kubernetes import client
 from adam.utils_k8s.pods import Pods
 
 from .kube_context import KubeContext
-from adam.utils import log2
+from adam.utils import log2, log_timing
 
 
 T = TypeVar('T')
@@ -62,7 +62,7 @@ class StatefulSets:
         if not sts:
             return []
 
-        return [pod.metadata.name for pod in StatefulSets.pods(sts, ns)]
+        return log_timing('k8s.pods', lambda: [pod.metadata.name for pod in StatefulSets.pods(sts, ns)])
 
     def pod_name_n_ips(sts: str, ns: str) -> list[tuple[str, str]]:
         if not sts:
@@ -73,12 +73,12 @@ class StatefulSets:
     def running_pods(sts: str, namespace: str):
         return [p.metadata.name for p in StatefulSets.pods(sts, namespace) if Pods.pod_status(p) == 'Running']
 
-    def restarted_at(ss: str, ns: str):
+    def restarted_at(sts: str, ns: str):
         # returns timestamp and if being rolled out
         restarted: float = 0.0
 
         apps_v1_api = client.AppsV1Api()
-        statefulset = apps_v1_api.read_namespaced_stateful_set(name=ss, namespace=ns)
+        statefulset = apps_v1_api.read_namespaced_stateful_set(name=sts, namespace=ns)
         spec = statefulset.spec
         status = statefulset.status
         if spec and spec.template and spec.template.metadata and spec.template.metadata.annotations and 'kubectl.kubernetes.io/restartedAt' in spec.template.metadata.annotations:

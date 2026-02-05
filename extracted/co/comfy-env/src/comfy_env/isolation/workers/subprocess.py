@@ -248,10 +248,15 @@ def _to_shm(obj, registry, visited=None):
         return result
 
     # torch.Tensor -> convert to numpy -> shared memory (with marker to restore type)
+    # IMPORTANT: Inline serialization to avoid caching ephemeral numpy array by id().
+    # The temp array can be GC'd and its address reused, causing cache collisions.
     if t == 'Tensor':
-        arr = obj.detach().cpu().numpy()
-        result = _to_shm(arr, registry, visited)
-        result["__was_tensor__"] = True
+        arr = np.ascontiguousarray(obj.detach().cpu().numpy())
+        block = shm.SharedMemory(create=True, size=arr.nbytes)
+        np.ndarray(arr.shape, arr.dtype, buffer=block.buf)[:] = arr
+        registry.append(block)
+        result = {"__shm_np__": block.name, "shape": list(arr.shape), "dtype": str(arr.dtype), "__was_tensor__": True}
+        visited[obj_id] = result  # Cache by tensor id, not temp array id
         return result
 
     # trimesh.Trimesh -> pickle -> shared memory (preserves visual, metadata, normals)
@@ -483,6 +488,7 @@ import traceback
 import faulthandler
 import collections
 import time
+import importlib
 from types import SimpleNamespace
 
 # Enable faulthandler to dump traceback on SIGSEGV/SIGABRT/etc
@@ -515,13 +521,16 @@ def _watchdog():
             f.write("=== END ===\\n")
             f.flush()
 
-        # Also print
-        print(f"\\n=== WATCHDOG TICK {tick} (debug only, don't worry) ===", flush=True)
-        print(dump, flush=True)
-        print("=== END ===\\n", flush=True)
+        # Also print (only if debug enabled)
+        if _DEBUG:
+            print(f"\\n=== WATCHDOG TICK {tick} ===", flush=True)
+            print(dump, flush=True)
+            print("=== END ===\\n", flush=True)
 
-_watchdog_thread = threading.Thread(target=_watchdog, daemon=True)
-_watchdog_thread.start()
+# Only start watchdog when debugging (still logs to file if needed)
+if _DEBUG:
+    _watchdog_thread = threading.Thread(target=_watchdog, daemon=True)
+    _watchdog_thread.start()
 if _DEBUG:
     print(f"[worker] Watchdog started, logging to: {_watchdog_log}", flush=True)
 
@@ -668,10 +677,7 @@ def _to_shm(obj, registry, visited=None):
         visited = {}
     obj_id = id(obj)
     if obj_id in visited:
-        cached = visited[obj_id]
-        if isinstance(cached, dict) and cached.get("__type__") == "TensorRef":
-            print(f"[SHM DEBUG] _to_shm CACHE HIT: id={obj_id} -> storage_key=...{cached.get('storage_key','?')[-20:]}, tensor_size={cached.get('tensor_size')}", file=sys.stderr)
-        return cached
+        return visited[obj_id]
     t = type(obj).__name__
 
     # Tensor -> use PyTorch's native shared memory (bypasses resource_tracker)
@@ -679,7 +685,6 @@ def _to_shm(obj, registry, visited=None):
         import torch
         tensor = obj.detach().cpu().contiguous()
         result = _serialize_tensor_native(tensor, registry)
-        print(f"[SHM DEBUG] _to_shm Tensor: id={obj_id}, orig_shape={list(obj.shape)}, new_shape={list(tensor.shape)} -> storage_key=...{result.get('storage_key','?')[-20:]}, tensor_size={result.get('tensor_size')}", file=sys.stderr)
         visited[obj_id] = result
         return result
 
@@ -720,6 +725,10 @@ def _to_shm(obj, registry, visited=None):
         result = [_to_shm(v, registry, visited) for v in obj]
         visited[obj_id] = result
         return result
+
+    # Convert numpy scalars to Python primitives for JSON serialization
+    if isinstance(obj, (np.floating, np.integer, np.bool_)):
+        return obj.item()
 
     return obj
 
@@ -765,6 +774,8 @@ def _deserialize_tensor_native(data):
 
 def _from_shm(obj):
     """Reconstruct from shared memory metadata. Does NOT unlink - caller handles that."""
+    if _DEBUG and isinstance(obj, dict) and any(k in obj for k in ("__type__", "__shm_np__", "tensor_size")):
+        print(f"[comfy-env] _from_shm got dict with keys: {list(obj.keys())[:5]}", file=sys.stderr, flush=True)
     if not isinstance(obj, dict):
         if isinstance(obj, list):
             return [_from_shm(v) for v in obj]
@@ -772,8 +783,11 @@ def _from_shm(obj):
 
     # TensorRef -> use PyTorch's native deserialization (new format, worker->parent)
     if obj.get("__type__") == "TensorRef":
+        if _DEBUG:
+            print(f"[comfy-env] DESERIALIZE TensorRef: tensor_size={obj.get('tensor_size')}", file=sys.stderr, flush=True)
         tensor = _deserialize_tensor_native(obj)
-        print(f"[SHM DEBUG] _from_shm TensorRef: storage_key=...{obj.get('storage_key','?')[-20:]}, expected_size={obj.get('tensor_size')} -> actual_shape={list(tensor.shape)}", file=sys.stderr)
+        if _DEBUG:
+            print(f"[comfy-env] DESERIALIZED tensor shape: {tensor.shape}", file=sys.stderr, flush=True)
         # Convert back to numpy if it was originally numpy
         if obj.get("__was_numpy__"):
             return tensor.numpy()
@@ -781,9 +795,19 @@ def _from_shm(obj):
 
     # __shm_np__ -> legacy format (parent->worker, uses Python SharedMemory)
     if "__shm_np__" in obj:
+        if _DEBUG:
+            print(f"[comfy-env] DESERIALIZE __shm_np__: shape={obj.get('shape')}, was_tensor={obj.get('__was_tensor__')}", file=sys.stderr, flush=True)
         block = shm.SharedMemory(name=obj["__shm_np__"])
+        # Unregister from resource_tracker - parent owns these blocks and will clean them up
+        try:
+            from multiprocessing.resource_tracker import unregister
+            unregister(block._name, "shared_memory")
+        except Exception:
+            pass
         arr = np.ndarray(tuple(obj["shape"]), dtype=np.dtype(obj["dtype"]), buffer=block.buf).copy()
         block.close()
+        if _DEBUG:
+            print(f"[comfy-env] DESERIALIZED arr shape: {arr.shape}", file=sys.stderr, flush=True)
         # Convert back to tensor if it was originally a tensor
         if obj.get("__was_tensor__"):
             import torch
@@ -794,9 +818,15 @@ def _from_shm(obj):
     if "__shm_trimesh__" in obj:
         import pickle
         block = shm.SharedMemory(name=obj["name"])
+        # Unregister from resource_tracker - parent owns these blocks
+        try:
+            from multiprocessing.resource_tracker import unregister
+            unregister(block._name, "shared_memory")
+        except Exception:
+            pass
         mesh_bytes = bytes(block.buf[:obj["size"]])
         block.close()
-        block.unlink()
+        # Don't unlink - parent will clean up
         return pickle.loads(mesh_bytes)
 
     return {k: _from_shm(v) for k, v in obj.items()}
@@ -1121,12 +1151,17 @@ def main():
                 inputs = _deserialize_isolated_objects(inputs)
                 inputs = _deserialize_input(inputs)
                 wlog(f"[worker] Inputs ready: {list(inputs.keys()) if isinstance(inputs, dict) else type(inputs)}")
+                # Debug: log tensor shapes
+                if isinstance(inputs, dict):
+                    for k, v in inputs.items():
+                        if hasattr(v, 'shape'):
+                            wlog(f"[worker] Input '{k}' shape: {v.shape}")
             else:
                 inputs = {}
 
             # Import module
             wlog(f"[worker] Importing module {module_name}...")
-            module = __import__(module_name, fromlist=[""])
+            module = importlib.import_module(module_name)
             wlog(f"[worker] Module imported")
 
             if request_type == "call_method":
@@ -1619,6 +1654,10 @@ class SubprocessWorker(Worker):
             try:
                 # Serialize kwargs to shared memory
                 if kwargs:
+                    if _DEBUG:
+                        for k, v in kwargs.items():
+                            if hasattr(v, 'shape'):
+                                print(f"[comfy-env] PRE-SERIALIZE '{k}' shape: {v.shape}", file=sys.stderr, flush=True)
                     if _DEBUG:
                         print(f"[SubprocessWorker] serializing kwargs to shm...", file=sys.stderr, flush=True)
                     kwargs_meta = _to_shm(kwargs, shm_registry)

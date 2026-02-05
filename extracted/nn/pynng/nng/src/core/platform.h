@@ -1,5 +1,5 @@
 //
-// Copyright 2021 Staysail Systems, Inc. <info@staysail.tech>
+// Copyright 2024 Staysail Systems, Inc. <info@staysail.tech>
 // Copyright 2018 Capitar IT Group BV <info@capitar.com>
 // Copyright 2018 Devolutions <info@devolutions.net>
 //
@@ -234,8 +234,8 @@ extern bool nni_atomic_cas(nni_atomic_int *, int, int);
 
 // atomic pointers.  We only support a few operations.
 typedef struct nni_atomic_ptr nni_atomic_ptr;
-extern void nni_atomic_set_ptr(nni_atomic_ptr *, void *);
-extern void *nni_atomic_get_ptr(nni_atomic_ptr *);
+extern void                   nni_atomic_set_ptr(nni_atomic_ptr *, void *);
+extern void                  *nni_atomic_get_ptr(nni_atomic_ptr *);
 
 //
 // Clock Support
@@ -248,6 +248,9 @@ extern void *nni_atomic_get_ptr(nni_atomic_ptr *);
 // relax this last constraint, but there is no reason to, and leaves us the
 // option of using negative values for other purposes in the future.)
 extern nni_time nni_clock(void);
+
+// Get the real time, in seconds and nanoseconds
+extern int nni_time_get(uint64_t *seconds, uint32_t *nanoseconds);
 
 // nni_msleep sleeps for the specified number of milliseconds (at least).
 extern void nni_msleep(nni_duration);
@@ -386,9 +389,9 @@ extern int nni_ipc_listener_alloc(nng_stream_listener **, const nng_url *);
 typedef struct nni_plat_udp nni_plat_udp;
 
 // nni_plat_udp_open initializes a UDP socket, binding to the local
-// address specified specified in the AIO.  The remote address is
+// address specified in the AIO.  The remote address is
 // not used.  The resulting nni_plat_udp structure is returned in the
-// the aio's a_pipe.
+// aio's a_pipe.
 extern int nni_plat_udp_open(nni_plat_udp **, nni_sockaddr *);
 
 // nni_plat_udp_close closes the underlying UDP socket.
@@ -403,6 +406,10 @@ extern void nni_plat_udp_send(nni_plat_udp *, nni_aio *);
 // from the UDP payload.  If the UDP payload will not fit, then
 // NNG_EMSGSIZE results.
 extern void nni_plat_udp_recv(nni_plat_udp *, nni_aio *);
+
+// nni_plat_udp_membership provides for joining or leaving multicast groups.
+extern int nni_plat_udp_multicast_membership(
+    nni_plat_udp *udp, nni_sockaddr *sa, bool join);
 
 //
 // Notification Pipe Pairs
@@ -433,6 +440,19 @@ extern void nni_plat_pipe_clear(int);
 extern void nni_plat_pipe_close(int, int);
 
 extern int nni_plat_udp_sockname(nni_plat_udp *, nni_sockaddr *);
+
+// nni_socket_pair is used to create a socket pair using socketpair()
+// on POSIX systems.  (Windows might provide a similar solution, using
+// AF_UNIX at some point, in which case the arguments will actually be
+// an array of HANDLEs.)  If not supported, this returns NNG_ENOTSUP.
+//
+// This API can only create a pair of open file descriptors, suitable for use
+// with the socket transport, each bound to the other.  The transport must be
+// a bidirectional reliable byte stream.  This should be suitable for use
+// in APIs to transport file descriptors, or across a fork/exec boundary (so
+// that child processes may use these with socket to inherit a socket that is
+// connected to the parent.)
+extern int nni_socket_pair(int[2]);
 
 //
 // File/Store Support

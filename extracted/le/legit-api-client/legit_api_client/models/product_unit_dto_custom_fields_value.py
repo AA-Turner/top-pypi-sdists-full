@@ -23,11 +23,12 @@ from legit_api_client.models.custom_field_file_type_dto import CustomFieldFileTy
 from legit_api_client.models.custom_field_identity_type_dto import CustomFieldIdentityTypeDto
 from legit_api_client.models.custom_field_number_type_dto import CustomFieldNumberTypeDto
 from legit_api_client.models.custom_field_text_type_dto import CustomFieldTextTypeDto
+from legit_api_client.models.custom_field_ticket_template_type_dto import CustomFieldTicketTemplateTypeDto
 from pydantic import StrictStr, Field
 from typing import Union, List, Set, Optional, Dict
 from typing_extensions import Literal, Self
 
-PRODUCTUNITDTOCUSTOMFIELDSVALUE_ONE_OF_SCHEMAS = ["CustomFieldBoolTypeDto", "CustomFieldDateTypeDto", "CustomFieldFileTypeDto", "CustomFieldIdentityTypeDto", "CustomFieldNumberTypeDto", "CustomFieldTextTypeDto"]
+PRODUCTUNITDTOCUSTOMFIELDSVALUE_ONE_OF_SCHEMAS = ["CustomFieldBoolTypeDto", "CustomFieldDateTypeDto", "CustomFieldFileTypeDto", "CustomFieldIdentityTypeDto", "CustomFieldNumberTypeDto", "CustomFieldTextTypeDto", "CustomFieldTicketTemplateTypeDto"]
 
 class ProductUnitDtoCustomFieldsValue(BaseModel):
     """
@@ -45,8 +46,10 @@ class ProductUnitDtoCustomFieldsValue(BaseModel):
     oneof_schema_5_validator: Optional[CustomFieldFileTypeDto] = None
     # data type: CustomFieldIdentityTypeDto
     oneof_schema_6_validator: Optional[CustomFieldIdentityTypeDto] = None
-    actual_instance: Optional[Union[CustomFieldBoolTypeDto, CustomFieldDateTypeDto, CustomFieldFileTypeDto, CustomFieldIdentityTypeDto, CustomFieldNumberTypeDto, CustomFieldTextTypeDto]] = None
-    one_of_schemas: Set[str] = { "CustomFieldBoolTypeDto", "CustomFieldDateTypeDto", "CustomFieldFileTypeDto", "CustomFieldIdentityTypeDto", "CustomFieldNumberTypeDto", "CustomFieldTextTypeDto" }
+    # data type: CustomFieldTicketTemplateTypeDto
+    oneof_schema_7_validator: Optional[CustomFieldTicketTemplateTypeDto] = None
+    actual_instance: Optional[Union[CustomFieldBoolTypeDto, CustomFieldDateTypeDto, CustomFieldFileTypeDto, CustomFieldIdentityTypeDto, CustomFieldNumberTypeDto, CustomFieldTextTypeDto, CustomFieldTicketTemplateTypeDto]] = None
+    one_of_schemas: Set[str] = { "CustomFieldBoolTypeDto", "CustomFieldDateTypeDto", "CustomFieldFileTypeDto", "CustomFieldIdentityTypeDto", "CustomFieldNumberTypeDto", "CustomFieldTextTypeDto", "CustomFieldTicketTemplateTypeDto" }
 
     model_config = ConfigDict(
         validate_assignment=True,
@@ -105,12 +108,17 @@ class ProductUnitDtoCustomFieldsValue(BaseModel):
             error_messages.append(f"Error! Input type `{type(v)}` is not `CustomFieldIdentityTypeDto`")
         else:
             match += 1
+        # validate data type: CustomFieldTicketTemplateTypeDto
+        if not isinstance(v, CustomFieldTicketTemplateTypeDto):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `CustomFieldTicketTemplateTypeDto`")
+        else:
+            match += 1
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when setting `actual_instance` in ProductUnitDtoCustomFieldsValue with oneOf schemas: CustomFieldBoolTypeDto, CustomFieldDateTypeDto, CustomFieldFileTypeDto, CustomFieldIdentityTypeDto, CustomFieldNumberTypeDto, CustomFieldTextTypeDto. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when setting `actual_instance` in ProductUnitDtoCustomFieldsValue with oneOf schemas: CustomFieldBoolTypeDto, CustomFieldDateTypeDto, CustomFieldFileTypeDto, CustomFieldIdentityTypeDto, CustomFieldNumberTypeDto, CustomFieldTextTypeDto, CustomFieldTicketTemplateTypeDto. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when setting `actual_instance` in ProductUnitDtoCustomFieldsValue with oneOf schemas: CustomFieldBoolTypeDto, CustomFieldDateTypeDto, CustomFieldFileTypeDto, CustomFieldIdentityTypeDto, CustomFieldNumberTypeDto, CustomFieldTextTypeDto. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting `actual_instance` in ProductUnitDtoCustomFieldsValue with oneOf schemas: CustomFieldBoolTypeDto, CustomFieldDateTypeDto, CustomFieldFileTypeDto, CustomFieldIdentityTypeDto, CustomFieldNumberTypeDto, CustomFieldTextTypeDto, CustomFieldTicketTemplateTypeDto. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -164,13 +172,19 @@ class ProductUnitDtoCustomFieldsValue(BaseModel):
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
+        # deserialize data into CustomFieldTicketTemplateTypeDto
+        try:
+            instance.actual_instance = CustomFieldTicketTemplateTypeDto.from_json(json_str)
+            match += 1
+        except (ValidationError, ValueError) as e:
+            error_messages.append(str(e))
 
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when deserializing the JSON string into ProductUnitDtoCustomFieldsValue with oneOf schemas: CustomFieldBoolTypeDto, CustomFieldDateTypeDto, CustomFieldFileTypeDto, CustomFieldIdentityTypeDto, CustomFieldNumberTypeDto, CustomFieldTextTypeDto. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when deserializing the JSON string into ProductUnitDtoCustomFieldsValue with oneOf schemas: CustomFieldBoolTypeDto, CustomFieldDateTypeDto, CustomFieldFileTypeDto, CustomFieldIdentityTypeDto, CustomFieldNumberTypeDto, CustomFieldTextTypeDto, CustomFieldTicketTemplateTypeDto. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into ProductUnitDtoCustomFieldsValue with oneOf schemas: CustomFieldBoolTypeDto, CustomFieldDateTypeDto, CustomFieldFileTypeDto, CustomFieldIdentityTypeDto, CustomFieldNumberTypeDto, CustomFieldTextTypeDto. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into ProductUnitDtoCustomFieldsValue with oneOf schemas: CustomFieldBoolTypeDto, CustomFieldDateTypeDto, CustomFieldFileTypeDto, CustomFieldIdentityTypeDto, CustomFieldNumberTypeDto, CustomFieldTextTypeDto, CustomFieldTicketTemplateTypeDto. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -184,7 +198,7 @@ class ProductUnitDtoCustomFieldsValue(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], CustomFieldBoolTypeDto, CustomFieldDateTypeDto, CustomFieldFileTypeDto, CustomFieldIdentityTypeDto, CustomFieldNumberTypeDto, CustomFieldTextTypeDto]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], CustomFieldBoolTypeDto, CustomFieldDateTypeDto, CustomFieldFileTypeDto, CustomFieldIdentityTypeDto, CustomFieldNumberTypeDto, CustomFieldTextTypeDto, CustomFieldTicketTemplateTypeDto]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None

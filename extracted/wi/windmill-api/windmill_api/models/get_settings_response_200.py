@@ -56,6 +56,8 @@ class GetSettingsResponse200:
         mute_critical_alerts (Union[Unset, bool]):
         color (Union[Unset, str]):
         operator_settings (Union[Unset, None, GetSettingsResponse200OperatorSettings]):
+        public_app_execution_limit_per_minute (Union[Unset, int]): Rate limit for public app executions per minute per
+            server. NULL or 0 means disabled.
     """
 
     workspace_id: Union[Unset, str] = UNSET
@@ -86,6 +88,7 @@ class GetSettingsResponse200:
     mute_critical_alerts: Union[Unset, bool] = UNSET
     color: Union[Unset, str] = UNSET
     operator_settings: Union[Unset, None, "GetSettingsResponse200OperatorSettings"] = UNSET
+    public_app_execution_limit_per_minute: Union[Unset, int] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -150,6 +153,8 @@ class GetSettingsResponse200:
         if not isinstance(self.operator_settings, Unset):
             operator_settings = self.operator_settings.to_dict() if self.operator_settings else None
 
+        public_app_execution_limit_per_minute = self.public_app_execution_limit_per_minute
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -209,6 +214,8 @@ class GetSettingsResponse200:
             field_dict["color"] = color
         if operator_settings is not UNSET:
             field_dict["operator_settings"] = operator_settings
+        if public_app_execution_limit_per_minute is not UNSET:
+            field_dict["public_app_execution_limit_per_minute"] = public_app_execution_limit_per_minute
 
         return field_dict
 
@@ -340,6 +347,8 @@ class GetSettingsResponse200:
         else:
             operator_settings = GetSettingsResponse200OperatorSettings.from_dict(_operator_settings)
 
+        public_app_execution_limit_per_minute = d.pop("public_app_execution_limit_per_minute", UNSET)
+
         get_settings_response_200 = cls(
             workspace_id=workspace_id,
             slack_name=slack_name,
@@ -369,6 +378,7 @@ class GetSettingsResponse200:
             mute_critical_alerts=mute_critical_alerts,
             color=color,
             operator_settings=operator_settings,
+            public_app_execution_limit_per_minute=public_app_execution_limit_per_minute,
         )
 
         get_settings_response_200.additional_properties = d

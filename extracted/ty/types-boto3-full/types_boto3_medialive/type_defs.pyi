@@ -87,6 +87,7 @@ from .literals import (
     CmafTimedMetadataId3FrameType,
     CmafTimedMetadataPassthroughType,
     ColorSpaceType,
+    ConnectionModeType,
     DashRoleAudioType,
     DashRoleCaptionType,
     DeviceSettingsSyncStateType,
@@ -838,7 +839,9 @@ __all__ = (
     "NielsenNaesIiNwTypeDef",
     "NielsenWatermarksSettingsTypeDef",
     "NodeInterfaceMappingCreateRequestTypeDef",
+    "NodeInterfaceMappingOutputTypeDef",
     "NodeInterfaceMappingTypeDef",
+    "NodeInterfaceMappingUnionTypeDef",
     "OfferingTypeDef",
     "OutputDestinationOutputTypeDef",
     "OutputDestinationSettingsTypeDef",
@@ -924,6 +927,10 @@ __all__ = (
     "SrtCallerSourceRequestTypeDef",
     "SrtCallerSourceTypeDef",
     "SrtGroupSettingsTypeDef",
+    "SrtListenerDecryptionRequestTypeDef",
+    "SrtListenerDecryptionTypeDef",
+    "SrtListenerSettingsRequestTypeDef",
+    "SrtListenerSettingsTypeDef",
     "SrtOutputDestinationSettingsTypeDef",
     "SrtOutputSettingsTypeDef",
     "SrtSettingsRequestTypeDef",
@@ -1449,15 +1456,16 @@ class RouteTypeDef(TypedDict):
     Cidr: NotRequired[str]
     Gateway: NotRequired[str]
 
-class NodeInterfaceMappingTypeDef(TypedDict):
-    LogicalInterfaceName: NotRequired[str]
-    NetworkInterfaceMode: NotRequired[NetworkInterfaceModeType]
-    PhysicalInterfaceName: NotRequired[str]
-
 class NodeInterfaceMappingCreateRequestTypeDef(TypedDict):
     LogicalInterfaceName: NotRequired[str]
     NetworkInterfaceMode: NotRequired[NetworkInterfaceModeType]
     PhysicalInterfaceName: NotRequired[str]
+
+class NodeInterfaceMappingOutputTypeDef(TypedDict):
+    LogicalInterfaceName: NotRequired[str]
+    NetworkInterfaceMode: NotRequired[NetworkInterfaceModeType]
+    PhysicalInterfaceName: NotRequired[str]
+    PhysicalInterfaceIpAddresses: NotRequired[list[str]]
 
 class SdiSourceMappingTypeDef(TypedDict):
     CardNumber: NotRequired[int]
@@ -2263,6 +2271,12 @@ class NielsenNaesIiNwTypeDef(TypedDict):
     Sid: float
     Timezone: NotRequired[NielsenWatermarkTimezonesType]
 
+class NodeInterfaceMappingTypeDef(TypedDict):
+    LogicalInterfaceName: NotRequired[str]
+    NetworkInterfaceMode: NotRequired[NetworkInterfaceModeType]
+    PhysicalInterfaceName: NotRequired[str]
+    PhysicalInterfaceIpAddresses: NotRequired[Sequence[str]]
+
 class OutputDestinationSettingsTypeDef(TypedDict):
     PasswordParam: NotRequired[str]
     StreamName: NotRequired[str]
@@ -2273,6 +2287,8 @@ class SrtOutputDestinationSettingsTypeDef(TypedDict):
     EncryptionPassphraseSecretArn: NotRequired[str]
     StreamId: NotRequired[str]
     Url: NotRequired[str]
+    ConnectionMode: NotRequired[ConnectionModeType]
+    ListenerPort: NotRequired[int]
 
 class RtmpGroupSettingsOutputTypeDef(TypedDict):
     AdMarkers: NotRequired[list[Literal["ON_CUE_POINT_SCTE35"]]]
@@ -2375,6 +2391,14 @@ class SrtCallerDecryptionRequestTypeDef(TypedDict):
 class SrtCallerDecryptionTypeDef(TypedDict):
     Algorithm: NotRequired[AlgorithmType]
     PassphraseSecretArn: NotRequired[str]
+
+class SrtListenerDecryptionRequestTypeDef(TypedDict):
+    Algorithm: AlgorithmType
+    PassphraseSecretArn: str
+
+class SrtListenerDecryptionTypeDef(TypedDict):
+    Algorithm: AlgorithmType
+    PassphraseSecretArn: str
 
 class StartChannelRequestTypeDef(TypedDict):
     ChannelId: str
@@ -3084,14 +3108,6 @@ class UpdateNetworkResponseTypeDef(TypedDict):
     State: NetworkStateType
     ResponseMetadata: ResponseMetadataTypeDef
 
-class CreateNodeRegistrationScriptRequestTypeDef(TypedDict):
-    ClusterId: str
-    Id: NotRequired[str]
-    Name: NotRequired[str]
-    NodeInterfaceMappings: NotRequired[Sequence[NodeInterfaceMappingTypeDef]]
-    RequestId: NotRequired[str]
-    Role: NotRequired[NodeRoleType]
-
 class CreateNodeRequestTypeDef(TypedDict):
     ClusterId: str
     Name: NotRequired[str]
@@ -3108,7 +3124,7 @@ class CreateNodeResponseTypeDef(TypedDict):
     Id: str
     InstanceArn: str
     Name: str
-    NodeInterfaceMappings: list[NodeInterfaceMappingTypeDef]
+    NodeInterfaceMappings: list[NodeInterfaceMappingOutputTypeDef]
     Role: NodeRoleType
     State: NodeStateType
     SdiSourceMappings: list[SdiSourceMappingTypeDef]
@@ -3122,7 +3138,7 @@ class DeleteNodeResponseTypeDef(TypedDict):
     Id: str
     InstanceArn: str
     Name: str
-    NodeInterfaceMappings: list[NodeInterfaceMappingTypeDef]
+    NodeInterfaceMappings: list[NodeInterfaceMappingOutputTypeDef]
     Role: NodeRoleType
     State: NodeStateType
     SdiSourceMappings: list[SdiSourceMappingTypeDef]
@@ -3136,7 +3152,7 @@ class DescribeNodeResponseTypeDef(TypedDict):
     Id: str
     InstanceArn: str
     Name: str
-    NodeInterfaceMappings: list[NodeInterfaceMappingTypeDef]
+    NodeInterfaceMappings: list[NodeInterfaceMappingOutputTypeDef]
     Role: NodeRoleType
     State: NodeStateType
     SdiSourceMappings: list[SdiSourceMappingTypeDef]
@@ -3151,7 +3167,7 @@ class DescribeNodeSummaryTypeDef(TypedDict):
     InstanceArn: NotRequired[str]
     ManagedInstanceId: NotRequired[str]
     Name: NotRequired[str]
-    NodeInterfaceMappings: NotRequired[list[NodeInterfaceMappingTypeDef]]
+    NodeInterfaceMappings: NotRequired[list[NodeInterfaceMappingOutputTypeDef]]
     Role: NotRequired[NodeRoleType]
     State: NotRequired[NodeStateType]
     SdiSourceMappings: NotRequired[list[SdiSourceMappingTypeDef]]
@@ -3164,7 +3180,7 @@ class UpdateNodeResponseTypeDef(TypedDict):
     Id: str
     InstanceArn: str
     Name: str
-    NodeInterfaceMappings: list[NodeInterfaceMappingTypeDef]
+    NodeInterfaceMappings: list[NodeInterfaceMappingOutputTypeDef]
     Role: NodeRoleType
     State: NodeStateType
     SdiSourceMappings: list[SdiSourceMappingTypeDef]
@@ -3178,7 +3194,7 @@ class UpdateNodeStateResponseTypeDef(TypedDict):
     Id: str
     InstanceArn: str
     Name: str
-    NodeInterfaceMappings: list[NodeInterfaceMappingTypeDef]
+    NodeInterfaceMappings: list[NodeInterfaceMappingOutputTypeDef]
     Role: NodeRoleType
     State: NodeStateType
     SdiSourceMappings: list[SdiSourceMappingTypeDef]
@@ -3411,6 +3427,7 @@ class DescribeInputSecurityGroupResponseTypeDef(TypedDict):
     State: InputSecurityGroupStateType
     Tags: dict[str, str]
     WhitelistRules: list[InputWhitelistRuleTypeDef]
+    Channels: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class InputSecurityGroupTypeDef(TypedDict):
@@ -3420,6 +3437,7 @@ class InputSecurityGroupTypeDef(TypedDict):
     State: NotRequired[InputSecurityGroupStateType]
     Tags: NotRequired[dict[str, str]]
     WhitelistRules: NotRequired[list[InputWhitelistRuleTypeDef]]
+    Channels: NotRequired[list[str]]
 
 class DescribeLinkedChannelSettingsTypeDef(TypedDict):
     FollowerChannelSettings: NotRequired[DescribeFollowerChannelSettingsTypeDef]
@@ -3775,6 +3793,10 @@ class NielsenWatermarksSettingsTypeDef(TypedDict):
     NielsenDistributionType: NotRequired[NielsenWatermarksDistributionTypesType]
     NielsenNaesIiNwSettings: NotRequired[NielsenNaesIiNwTypeDef]
 
+NodeInterfaceMappingUnionTypeDef = Union[
+    NodeInterfaceMappingTypeDef, NodeInterfaceMappingOutputTypeDef
+]
+
 class OutputDestinationOutputTypeDef(TypedDict):
     Id: NotRequired[str]
     MediaPackageSettings: NotRequired[list[MediaPackageOutputDestinationSettingsTypeDef]]
@@ -3850,6 +3872,16 @@ class SrtCallerSourceTypeDef(TypedDict):
     MinimumLatency: NotRequired[int]
     SrtListenerAddress: NotRequired[str]
     SrtListenerPort: NotRequired[str]
+    StreamId: NotRequired[str]
+
+class SrtListenerSettingsRequestTypeDef(TypedDict):
+    Decryption: SrtListenerDecryptionRequestTypeDef
+    MinimumLatency: int
+    StreamId: NotRequired[str]
+
+class SrtListenerSettingsTypeDef(TypedDict):
+    Decryption: NotRequired[SrtListenerDecryptionTypeDef]
+    MinimumLatency: NotRequired[int]
     StreamId: NotRequired[str]
 
 StaticImageOutputDeactivateScheduleActionSettingsUnionTypeDef = Union[
@@ -4698,6 +4730,14 @@ class MultiplexProgramSettingsTypeDef(TypedDict):
 class AudioWatermarkSettingsTypeDef(TypedDict):
     NielsenWatermarksSettings: NotRequired[NielsenWatermarksSettingsTypeDef]
 
+class CreateNodeRegistrationScriptRequestTypeDef(TypedDict):
+    ClusterId: str
+    Id: NotRequired[str]
+    Name: NotRequired[str]
+    NodeInterfaceMappings: NotRequired[Sequence[NodeInterfaceMappingUnionTypeDef]]
+    RequestId: NotRequired[str]
+    Role: NotRequired[NodeRoleType]
+
 OutputDestinationUnionTypeDef = Union[OutputDestinationTypeDef, OutputDestinationOutputTypeDef]
 
 class GlobalConfigurationTypeDef(TypedDict):
@@ -4718,9 +4758,11 @@ class Scte35DescriptorSettingsTypeDef(TypedDict):
 
 class SrtSettingsRequestTypeDef(TypedDict):
     SrtCallerSources: NotRequired[Sequence[SrtCallerSourceRequestTypeDef]]
+    SrtListenerSettings: NotRequired[SrtListenerSettingsRequestTypeDef]
 
 class SrtSettingsTypeDef(TypedDict):
     SrtCallerSources: NotRequired[list[SrtCallerSourceTypeDef]]
+    SrtListenerSettings: NotRequired[SrtListenerSettingsTypeDef]
 
 class DescribeThumbnailsResponseTypeDef(TypedDict):
     ThumbnailDetails: list[ThumbnailDetailTypeDef]
@@ -5332,6 +5374,7 @@ class ChannelSummaryTypeDef(TypedDict):
     ChannelEngineVersion: NotRequired[ChannelEngineVersionResponseTypeDef]
     UsedChannelEngineVersions: NotRequired[list[ChannelEngineVersionResponseTypeDef]]
     LinkedChannelSettings: NotRequired[DescribeLinkedChannelSettingsTypeDef]
+    ChannelSecurityGroups: NotRequired[list[str]]
 
 class OutputGroupOutputTypeDef(TypedDict):
     OutputGroupSettings: OutputGroupSettingsOutputTypeDef
@@ -5461,6 +5504,7 @@ class ChannelTypeDef(TypedDict):
     AnywhereSettings: NotRequired[DescribeAnywhereSettingsTypeDef]
     ChannelEngineVersion: NotRequired[ChannelEngineVersionResponseTypeDef]
     LinkedChannelSettings: NotRequired[DescribeLinkedChannelSettingsTypeDef]
+    ChannelSecurityGroups: NotRequired[list[str]]
 
 class DeleteChannelResponseTypeDef(TypedDict):
     Arn: str
@@ -5484,6 +5528,7 @@ class DeleteChannelResponseTypeDef(TypedDict):
     AnywhereSettings: DescribeAnywhereSettingsTypeDef
     ChannelEngineVersion: ChannelEngineVersionResponseTypeDef
     LinkedChannelSettings: DescribeLinkedChannelSettingsTypeDef
+    ChannelSecurityGroups: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeChannelResponseTypeDef(TypedDict):
@@ -5508,6 +5553,7 @@ class DescribeChannelResponseTypeDef(TypedDict):
     AnywhereSettings: DescribeAnywhereSettingsTypeDef
     ChannelEngineVersion: ChannelEngineVersionResponseTypeDef
     LinkedChannelSettings: DescribeLinkedChannelSettingsTypeDef
+    ChannelSecurityGroups: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RestartChannelPipelinesResponseTypeDef(TypedDict):
@@ -5533,6 +5579,7 @@ class RestartChannelPipelinesResponseTypeDef(TypedDict):
     AnywhereSettings: DescribeAnywhereSettingsTypeDef
     ChannelEngineVersion: ChannelEngineVersionResponseTypeDef
     LinkedChannelSettings: DescribeLinkedChannelSettingsTypeDef
+    ChannelSecurityGroups: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartChannelResponseTypeDef(TypedDict):
@@ -5557,6 +5604,7 @@ class StartChannelResponseTypeDef(TypedDict):
     AnywhereSettings: DescribeAnywhereSettingsTypeDef
     ChannelEngineVersion: ChannelEngineVersionResponseTypeDef
     LinkedChannelSettings: DescribeLinkedChannelSettingsTypeDef
+    ChannelSecurityGroups: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StopChannelResponseTypeDef(TypedDict):
@@ -5581,6 +5629,7 @@ class StopChannelResponseTypeDef(TypedDict):
     AnywhereSettings: DescribeAnywhereSettingsTypeDef
     ChannelEngineVersion: ChannelEngineVersionResponseTypeDef
     LinkedChannelSettings: DescribeLinkedChannelSettingsTypeDef
+    ChannelSecurityGroups: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 EncoderSettingsUnionTypeDef = Union[EncoderSettingsTypeDef, EncoderSettingsOutputTypeDef]
@@ -5639,6 +5688,7 @@ class CreateChannelRequestTypeDef(TypedDict):
     ChannelEngineVersion: NotRequired[ChannelEngineVersionRequestTypeDef]
     DryRun: NotRequired[bool]
     LinkedChannelSettings: NotRequired[LinkedChannelSettingsTypeDef]
+    ChannelSecurityGroups: NotRequired[Sequence[str]]
 
 class UpdateChannelRequestTypeDef(TypedDict):
     ChannelId: str
@@ -5655,6 +5705,7 @@ class UpdateChannelRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     AnywhereSettings: NotRequired[AnywhereSettingsTypeDef]
     LinkedChannelSettings: NotRequired[LinkedChannelSettingsTypeDef]
+    ChannelSecurityGroups: NotRequired[Sequence[str]]
 
 class BatchUpdateScheduleRequestTypeDef(TypedDict):
     ChannelId: str

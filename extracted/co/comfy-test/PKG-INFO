@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: comfy-test
-Version: 0.1.71
+Version: 0.1.81
 Summary: Installation testing infrastructure for ComfyUI custom nodes
 Project-URL: Homepage, https://github.com/PozzettiAndrea/comfy-test
 Project-URL: Repository, https://github.com/PozzettiAndrea/comfy-test
@@ -85,7 +85,7 @@ comfy-test runs 7 test levels in sequence:
 Each level depends on previous levels. You can run up to a specific level with `--level`:
 
 ```bash
-comfy-test run --level registration  # Runs: SYNTAX → INSTALL → REGISTRATION
+comfy-test run --level registration  # Runs: SYNTAX -> INSTALL -> REGISTRATION
 ```
 
 ## Workflow Validation (4 Levels)

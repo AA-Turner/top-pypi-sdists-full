@@ -10,13 +10,13 @@ from ._shared_client import get_shared_client
 
 def cellosaurus_search_cell_lines(
     q: str,
-    offset: int,
-    size: int,
+    offset: Optional[int] = 0,
+    size: Optional[int] = 20,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Optional[dict[str, Any]]:
     """
     Search Cellosaurus cell lines using the /search/cell-line endpoint. Supports Solr query syntax fo...
 
@@ -37,7 +37,7 @@ def cellosaurus_search_cell_lines(
 
     Returns
     -------
-    dict[str, Any]
+    Optional[dict[str, Any]]
     """
     # Handle mutable defaults to avoid B006 linting error
 

@@ -11,6 +11,9 @@ from starlette.exceptions import HTTPException
 from typing_extensions import TypedDict
 
 from langgraph_api.encryption.middleware import encrypt_request
+from langgraph_api.encryption.shared import (
+    using_custom_encryption,
+)
 from langgraph_api.feature_flags import FF_USE_CORE_API
 from langgraph_api.graph import GRAPHS, get_assistant_id
 from langgraph_api.grpc.ops import Runs as GrpcRuns
@@ -270,17 +273,21 @@ async def create_valid_run(
 
     # We can't pass payload directly because config and context have
     # been modified above (with auth context, checkpoint info, etc.)
-    encrypted = await encrypt_request(
-        {
-            "metadata": payload.get("metadata"),
-            "input": payload.get("input"),
-            "config": config,
-            "context": context,
-            "command": payload.get("command"),
-        },
-        "run",
-        ["metadata", "input", "config", "context", "command"],
-    )
+    fields_to_encrypt = {
+        "metadata": payload.get("metadata"),
+        "input": payload.get("input"),
+        "config": config,
+        "context": context,
+        "command": payload.get("command"),
+    }
+    if FF_USE_CORE_API and using_custom_encryption():
+        encrypted = fields_to_encrypt  # Go layer handles encryption at rest
+    else:
+        encrypted = await encrypt_request(
+            fields_to_encrypt,
+            "run",
+            ["metadata", "input", "config", "context", "command"],
+        )
 
     run_coro = CrudRuns.put(
         conn,

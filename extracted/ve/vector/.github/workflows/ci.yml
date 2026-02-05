@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Check SDist
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: 3.x
@@ -38,14 +38,15 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.9"
           - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
+          - "3.14"
+          - "3.14t"
     name: Python ${{ matrix.python-version }} - Lite
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
         with:
@@ -64,14 +65,15 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.9"
           - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
+          - "3.14"
+          - "3.14t"
     name: Python ${{ matrix.python-version }} - Full
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
         with:
@@ -91,7 +93,7 @@ jobs:
         run: nox -s coverage-${{ matrix.python-version }} --verbose
 
       - name: Upload coverage report
-        uses: codecov/codecov-action@v5.5.1
+        uses: codecov/codecov-action@v5.5.2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -104,7 +106,7 @@ jobs:
   # root:
   #   runs-on: ubuntu-latest
   #   steps:
-  #   - uses: actions/checkout@v5
+  #   - uses: actions/checkout@v6
 
   #   - name: Get Conda
   #     uses: conda-incubator/setup-miniconda@v2

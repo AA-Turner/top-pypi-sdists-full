@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.1.4642"
+__version__ = "1.1.4644"
 
 # Define package exports
 __all__ = [
@@ -107,6 +107,7 @@ __all__ = [
     "CustomFieldIdentityTypeDto",
     "CustomFieldNumberTypeDto",
     "CustomFieldTextTypeDto",
+    "CustomFieldTicketTemplateTypeDto",
     "CustomFieldType",
     "CustomerFacingDependencyDto",
     "CustomerFacingDependencyDtoCustomerFacingCursorPagedDto",
@@ -217,6 +218,7 @@ __all__ = [
     "SdlcAssetType",
     "SecretIssueValidityStatus",
     "SecretsDataDto",
+    "SetProductUnitTicketTemplateDto",
     "Severity",
     "SnoozedType",
     "SourceDto",
@@ -330,6 +332,7 @@ from legit_api_client.models.custom_field_file_type_dto import CustomFieldFileTy
 from legit_api_client.models.custom_field_identity_type_dto import CustomFieldIdentityTypeDto as CustomFieldIdentityTypeDto
 from legit_api_client.models.custom_field_number_type_dto import CustomFieldNumberTypeDto as CustomFieldNumberTypeDto
 from legit_api_client.models.custom_field_text_type_dto import CustomFieldTextTypeDto as CustomFieldTextTypeDto
+from legit_api_client.models.custom_field_ticket_template_type_dto import CustomFieldTicketTemplateTypeDto as CustomFieldTicketTemplateTypeDto
 from legit_api_client.models.custom_field_type import CustomFieldType as CustomFieldType
 from legit_api_client.models.customer_facing_dependency_dto import CustomerFacingDependencyDto as CustomerFacingDependencyDto
 from legit_api_client.models.customer_facing_dependency_dto_customer_facing_cursor_paged_dto import CustomerFacingDependencyDtoCustomerFacingCursorPagedDto as CustomerFacingDependencyDtoCustomerFacingCursorPagedDto
@@ -440,6 +443,7 @@ from legit_api_client.models.sdlc_asset_meta_type import SdlcAssetMetaType as Sd
 from legit_api_client.models.sdlc_asset_type import SdlcAssetType as SdlcAssetType
 from legit_api_client.models.secret_issue_validity_status import SecretIssueValidityStatus as SecretIssueValidityStatus
 from legit_api_client.models.secrets_data_dto import SecretsDataDto as SecretsDataDto
+from legit_api_client.models.set_product_unit_ticket_template_dto import SetProductUnitTicketTemplateDto as SetProductUnitTicketTemplateDto
 from legit_api_client.models.severity import Severity as Severity
 from legit_api_client.models.snoozed_type import SnoozedType as SnoozedType
 from legit_api_client.models.source_dto import SourceDto as SourceDto

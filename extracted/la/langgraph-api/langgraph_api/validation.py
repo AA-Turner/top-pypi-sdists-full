@@ -130,6 +130,7 @@ CronCreate = jsonschema_rs.validator_for(openapi["components"]["schemas"]["CronC
 ThreadCronCreate = jsonschema_rs.validator_for(
     openapi["components"]["schemas"]["ThreadCronCreate"]
 )
+CronPatch = jsonschema_rs.validator_for(openapi["components"]["schemas"]["CronPatch"])
 CronSearch = jsonschema_rs.validator_for(openapi["components"]["schemas"]["CronSearch"])
 CronCountRequest = jsonschema_rs.validator_for(
     openapi["components"]["schemas"]["CronCountRequest"]

@@ -110,7 +110,7 @@ class StructuredWave(AcousticField):
             super().__init__(**kwargs)
             self.waveType = WaveType.StructuredWave
             if  self.params.general['Nt'] is None:
-                self.kgrid.setTime(int(self.kgrid.Nt*1.5),self.kgrid.dt) # Extend the time grid to allow for delays
+                self.medium.kgrid.setTime(int(self.medium.kgrid.Nt*1.5),self.medium.kgrid.dt) # Extend the time grid to allow for delays
             if space_0 is not None and space_1 is not None and move_head_0_2tail is not None and move_tail_1_2head is not None and angle_deg is not None:
                 self.pattern = self.PatternParams(space_0, space_1, move_head_0_2tail, move_tail_1_2head, self.params.acoustic['probe']['num_elements'] // 4)
                 self.angle = angle_deg
@@ -203,7 +203,7 @@ class StructuredWave(AcousticField):
                 dx = self.params.general['dx']
             if c0 is None:
                 c0 = self.params.acoustic['medium']['c0']
-            actual_dt = dt if dt is not None else self.kgrid.dt
+            actual_dt = dt if dt is not None else self.medium.kgrid.dt
             # Calculate the total number of grid points for all elements
             total_grid_points = self.params.acoustic['probe']['num_elements'] * int(round(self.params.acoustic['probe']['element_width'] / dx))
 
@@ -311,7 +311,7 @@ class StructuredWave(AcousticField):
                 f"!number of bytes per pixel := 4\n"
                 f"scaling factor (mm/pixel) [1] := {self.params.general['dx'] * 1000}\n"
                 f"scaling factor (mm/pixel) [2] := {self.params.general['dz'] * 1000}\n"
-                f"scaling factor (s/pixel) [3] := {1 / self.params.general['f_saving']}\n"
+                f"scaling factor (s/pixel) [3] := {1 / self.params.acoustic['f_saving']}\n"
                 f"first pixel offset (mm) [1] := {self.params.general['Xrange'][0] * 1e3}\n"
                 f"first pixel offset (mm) [2] := {self.params.general['Zrange'][0] * 1e3}\n"
                 f"first pixel offset (s) [3] := 0\n"

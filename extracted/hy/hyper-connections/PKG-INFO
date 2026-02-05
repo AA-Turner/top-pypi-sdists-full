@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hyper-connections
-Version: 0.4.7
+Version: 0.4.9
 Summary: Hyper-Connections
 Project-URL: Homepage, https://pypi.org/project/hyper-connections/
 Project-URL: Repository, https://github.com/lucidrains/hyper-connections
@@ -35,6 +35,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.9
 Requires-Dist: einops>=0.8.1
+Requires-Dist: torch-einops-utils>=0.0.20
 Requires-Dist: torch>=2.5
 Provides-Extra: examples
 Description-Content-Type: text/markdown

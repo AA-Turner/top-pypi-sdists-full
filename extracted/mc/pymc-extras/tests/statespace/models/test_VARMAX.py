@@ -10,12 +10,15 @@ import statsmodels.api as sm
 
 from numpy.testing import assert_allclose, assert_array_less
 from pymc.model.transform.optimization import freeze_dims_and_data
+from pymc.testing import mock_sample_setup_and_teardown
 
 from pymc_extras.statespace import BayesianVARMAX
 from pymc_extras.statespace.utils.constants import SHORT_NAME_TO_LONG
 from tests.statespace.shared_fixtures import (  # pylint: disable=unused-import
     rng,
 )
+
+mock_sample = pytest.fixture(scope="function")(mock_sample_setup_and_teardown)
 
 floatX = pytensor.config.floatX
 ps = [0, 1, 2, 3]
@@ -200,6 +203,48 @@ def test_forecast(varma_mod, idata, rng):
     assert np.isfinite(forecast.forecast_observed.values).all()
 
 
+def test_varmax_workflow(rng, mock_sample):
+    df = pd.read_csv(
+        "tests/statespace/_data/statsmodels_macrodata_processed.csv",
+        index_col=0,
+        parse_dates=True,
+    ).astype(floatX)
+    df.index.freq = df.index.inferred_freq
+
+    ss_mod = BayesianVARMAX(
+        endog_names=df.columns,
+        order=(1, 0),
+        stationary_initialization=True,
+        measurement_error=True,
+        verbose=False,
+    )
+
+    with pm.Model(coords=ss_mod.coords) as m:
+        state_cov_diag = pm.Exponential("state_cov_diag", 1, dims=["shock"])
+        pm.Deterministic("state_cov", pt.diag(state_cov_diag), dims=["shock", "shock_aux"])
+        pm.Normal("ar_params", sigma=0.1, dims=["observed_state", "lag_ar", "observed_state_aux"])
+        pm.Exponential("sigma_obs", 1, dims=["observed_state"])
+
+        ss_mod.build_statespace_graph(df)
+
+        idata = pm.sample()
+
+    post = ss_mod.sample_conditional_posterior(idata, mvn_method="svd")
+    assert "filtered_posterior" in post
+    assert "smoothed_posterior" in post
+    assert "predicted_posterior" in post
+
+    forecast = ss_mod.forecast(idata, periods=10, random_seed=rng)
+    assert "forecast_latent" in forecast
+    assert "forecast_observed" in forecast
+    assert np.isfinite(forecast.forecast_latent.values).all()
+    assert np.isfinite(forecast.forecast_observed.values).all()
+
+    irf = ss_mod.impulse_response_function(idata, n_steps=10, random_seed=rng)
+    assert "irf" in irf
+    assert np.isfinite(irf.irf.values).all()
+
+
 class TestVARMAXWithExogenous:
     def test_create_varmax_with_exogenous_list_of_names(self, data):
         mod = BayesianVARMAX(
@@ -212,9 +257,9 @@ class TestVARMAXWithExogenous:
         )
         assert mod.k_exog == 2
         assert mod.exog_state_names == ["foo", "bar"]
-        assert mod.data_names == ["exogenous_data"]
+        assert mod.data_names == ("exogenous_data",)
         assert mod.param_dims["beta_exog"] == ("observed_state", "exogenous")
-        assert mod.coords["exogenous"] == ["foo", "bar"]
+        assert mod.coords["exogenous"] == ("foo", "bar")
         assert mod.param_info["beta_exog"]["shape"] == (mod.k_endog, 2)
         assert mod.param_info["beta_exog"]["dims"] == ("observed_state", "exogenous")
 
@@ -229,9 +274,9 @@ class TestVARMAXWithExogenous:
         )
         assert mod.k_exog == 2
         assert mod.exog_state_names == ["a", "b"]
-        assert mod.data_names == ["exogenous_data"]
+        assert mod.data_names == ("exogenous_data",)
         assert mod.param_dims["beta_exog"] == ("observed_state", "exogenous")
-        assert mod.coords["exogenous"] == ["a", "b"]
+        assert mod.coords["exogenous"] == ("a", "b")
         assert mod.param_info["beta_exog"]["shape"] == (mod.k_endog, 2)
         assert mod.param_info["beta_exog"]["dims"] == ("observed_state", "exogenous")
 
@@ -247,11 +292,11 @@ class TestVARMAXWithExogenous:
         )
         assert mod.k_exog == {"observed_0": 2, "observed_1": 1, "observed_2": 0}
         assert mod.exog_state_names == exog_state_names
-        assert mod.data_names == [
+        assert mod.data_names == (
             "observed_0_exogenous_data",
             "observed_1_exogenous_data",
             "observed_2_exogenous_data",
-        ]
+        )
         assert mod.param_dims["beta_observed_0"] == ("exogenous_observed_0",)
         assert mod.param_dims["beta_observed_1"] == ("exogenous_observed_1",)
         assert (
@@ -260,9 +305,9 @@ class TestVARMAXWithExogenous:
             or mod.param_info.get("beta_observed_2", {}).get("shape", (0,))[0] == 0
         )
 
-        assert mod.coords["exogenous_observed_0"] == ["a", "b"]
-        assert mod.coords["exogenous_observed_1"] == ["c"]
-        assert "exogenous_observed_2" in mod.coords and mod.coords["exogenous_observed_2"] == []
+        assert mod.coords["exogenous_observed_0"] == ("a", "b")
+        assert mod.coords["exogenous_observed_1"] == ("c",)
+        assert "exogenous_observed_2" in mod.coords and mod.coords["exogenous_observed_2"] == ()
 
         assert mod.param_info["beta_observed_0"]["shape"] == (2,)
         assert mod.param_info["beta_observed_0"]["dims"] == ("exogenous_observed_0",)
@@ -286,9 +331,9 @@ class TestVARMAXWithExogenous:
 
         assert mod.k_exog == 2
         assert mod.exog_state_names == ["a", "b"]
-        assert mod.data_names == ["exogenous_data"]
+        assert mod.data_names == ("exogenous_data",)
         assert mod.param_dims["beta_exog"] == ("observed_state", "exogenous")
-        assert mod.coords["exogenous"] == ["a", "b"]
+        assert mod.coords["exogenous"] == ("a", "b")
         assert mod.param_info["beta_exog"]["shape"] == (mod.k_endog, 2)
         assert mod.param_info["beta_exog"]["dims"] == ("observed_state", "exogenous")
 

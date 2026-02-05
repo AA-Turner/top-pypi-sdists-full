@@ -1783,8 +1783,15 @@ class Root(PyMenu):
             Singleton RayTracingOptions.
             """
             def __init__(self, service, rules, path):
+                self.UseVolumeRendererForRaytracing = self.__class__.UseVolumeRendererForRaytracing(service, rules, path + [("UseVolumeRendererForRaytracing", "")])
                 self.VolumeRenderingMethod = self.__class__.VolumeRenderingMethod(service, rules, path + [("VolumeRenderingMethod", "")])
                 super().__init__(service, rules, path)
+
+            class UseVolumeRendererForRaytracing(PyParameter):
+                """
+                Parameter UseVolumeRendererForRaytracing of value type bool.
+                """
+                pass
 
             class VolumeRenderingMethod(PyTextual):
                 """

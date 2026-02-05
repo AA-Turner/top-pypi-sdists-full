@@ -24,8 +24,10 @@ import os
 import re
 import shutil
 import subprocess  # nosec B404
+from typing import Any, TextIO
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-import requests
+import urllib3
 
 from ... import AmbientCredentialError, GitHubOidcPermissionCredentialError
 
@@ -43,6 +45,32 @@ _GCP_GENERATEIDTOKEN_REQUEST_URL = (
 )
 
 _env_var_regex = re.compile(r"[^A-Z0-9_]|^[^A-Z_]")
+
+
+def _request(
+    method: str,
+    url: str,
+    *,
+    fields: dict[str, str] | None = None,
+    **kwargs: Any,
+) -> urllib3.BaseHTTPResponse:
+    """request wrapper that handles adding query parameters to URLs that may already have them"""
+    _encode_url_methods = {"DELETE", "GET", "HEAD", "OPTIONS"}
+    if method.upper() in _encode_url_methods and fields:
+        url_parts = list(urlparse(url))
+        query = dict(parse_qsl(url_parts[4]))
+        query.update(fields)
+        url_parts[4] = urlencode(query)
+
+        url = urlunparse(url_parts)
+        fields = None
+
+    return urllib3.request(method, url, fields=fields, **kwargs)
+
+
+# Wrap `open` for testing purposes
+def _open(filename: str) -> TextIO:
+    return open(filename)
 
 
 def detect_github(audience: str) -> str | None:
@@ -77,21 +105,22 @@ def detect_github(audience: str) -> str | None:
         )
 
     logger.debug("GitHub: requesting OIDC token")
-    resp = requests.get(
-        req_url,
-        params={"audience": audience},
-        headers={"Authorization": f"bearer {req_token}"},
-        timeout=30,
-    )
+
     try:
-        resp.raise_for_status()
-    except requests.HTTPError as http_error:
-        raise AmbientCredentialError(
-            f"GitHub: OIDC token request failed (code={resp.status_code}, "
-            f"body={resp.content.decode()!r})"
-        ) from http_error
-    except requests.Timeout:
+        resp = _request(
+            "GET",
+            req_url,
+            fields={"audience": audience},
+            headers={"Authorization": f"bearer {req_token}"},
+            timeout=30,
+        )
+    except urllib3.exceptions.MaxRetryError:
         raise AmbientCredentialError("GitHub: OIDC token request timed out")
+
+    if resp.status != 200:
+        raise AmbientCredentialError(
+            f"GitHub: OIDC token request failed (code={resp.status}, body={resp.data.decode()!r})"
+        )
 
     try:
         body = resp.json()
@@ -122,46 +151,48 @@ def detect_gcp(audience: str) -> str | None:
         logger.debug("GCP: GOOGLE_SERVICE_ACCOUNT_NAME set; attempting impersonation")
 
         logger.debug("GCP: requesting access token")
-        resp = requests.get(
-            _GCP_TOKEN_REQUEST_URL,
-            params={"scopes": "https://www.googleapis.com/auth/cloud-platform"},
-            headers={"Metadata-Flavor": "Google"},
-            timeout=30,
-        )
+
         try:
-            resp.raise_for_status()
-        except requests.HTTPError as http_error:
-            raise AmbientCredentialError(
-                f"GCP: access token request failed (code={resp.status_code}, "
-                f"body={resp.content.decode()!r})"
-            ) from http_error
-        except requests.Timeout:
+            resp = _request(
+                "GET",
+                _GCP_TOKEN_REQUEST_URL,
+                fields={"scopes": "https://www.googleapis.com/auth/cloud-platform"},
+                headers={"Metadata-Flavor": "Google"},
+                timeout=30,
+            )
+        except urllib3.exceptions.MaxRetryError:
             raise AmbientCredentialError("GCP: access token request timed out")
+
+        if resp.status != 200:
+            raise AmbientCredentialError(
+                f"GCP: access token request failed (code={resp.status}, "
+                f"body={resp.data.decode()!r})"
+            )
 
         access_token = resp.json().get("access_token")
 
         if not access_token:
             raise AmbientCredentialError("GCP: access token missing from response")
 
-        resp = requests.post(
-            _GCP_GENERATEIDTOKEN_REQUEST_URL.format(service_account_name),
-            json={"audience": audience, "includeEmail": True},
-            headers={
-                "Authorization": f"Bearer {access_token}",
-            },
-            timeout=30,
-        )
-
         logger.debug("GCP: requesting OIDC token")
+
         try:
-            resp.raise_for_status()
-        except requests.HTTPError as http_error:
-            raise AmbientCredentialError(
-                f"GCP: OIDC token request failed (code={resp.status_code}, "
-                f"body={resp.content.decode()!r})"
-            ) from http_error
-        except requests.Timeout:
+            resp = _request(
+                "POST",
+                _GCP_GENERATEIDTOKEN_REQUEST_URL.format(service_account_name),
+                json={"audience": audience, "includeEmail": True},
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                },
+                timeout=30,
+            )
+        except urllib3.exceptions.MaxRetryError:
             raise AmbientCredentialError("GCP: OIDC token request timed out")
+
+        if resp.status != 200:
+            raise AmbientCredentialError(
+                f"GCP: OIDC token request failed (code={resp.status}, body={resp.data.decode()!r})"
+            )
 
         oidc_token: str = resp.json().get("token")
 
@@ -175,7 +206,7 @@ def detect_gcp(audience: str) -> str | None:
         logger.debug("GCP: GOOGLE_SERVICE_ACCOUNT_NAME not set; skipping impersonation")
 
         try:
-            with open(_GCP_PRODUCT_NAME_FILE) as f:
+            with _open(_GCP_PRODUCT_NAME_FILE) as f:
                 name = f.read().strip()
         except OSError:
             logger.debug("GCP: environment doesn't have GCP product name file; giving up")
@@ -186,25 +217,25 @@ def detect_gcp(audience: str) -> str | None:
             return None
 
         logger.debug("GCP: requesting OIDC token")
-        resp = requests.get(
-            _GCP_IDENTITY_REQUEST_URL,
-            params={"audience": audience, "format": "full"},
-            headers={"Metadata-Flavor": "Google"},
-            timeout=30,
-        )
 
         try:
-            resp.raise_for_status()
-        except requests.HTTPError as http_error:
-            raise AmbientCredentialError(
-                f"GCP: OIDC token request failed (code={resp.status_code}, "
-                f"body={resp.content.decode()!r})"
-            ) from http_error
-        except requests.Timeout:
+            resp = _request(
+                "GET",
+                _GCP_IDENTITY_REQUEST_URL,
+                fields={"audience": audience, "format": "full"},
+                headers={"Metadata-Flavor": "Google"},
+                timeout=30,
+            )
+        except urllib3.exceptions.MaxRetryError:
             raise AmbientCredentialError("GCP: OIDC token request timed out")
 
+        if resp.status != 200:
+            raise AmbientCredentialError(
+                f"GCP: OIDC token request failed (code={resp.status}, body={resp.data.decode()!r})"
+            )
+
         logger.debug("GCP: successfully requested OIDC token")
-        return resp.text
+        return resp.data.decode()
 
 
 def detect_buildkite(audience: str) -> str | None:
@@ -293,7 +324,7 @@ def detect_gitlab(audience: str) -> str | None:
     return token
 
 
-def detect_circleci(audience: str) -> str | None:
+def detect_circleci(audience: str, root_issuer: bool = True) -> str | None:
     """
     Detect and return a CircleCI ambient OIDC credential.
 
@@ -312,17 +343,21 @@ def detect_circleci(audience: str) -> str | None:
     if shutil.which("circleci") is None:
         raise AmbientCredentialError("CircleCI: could not find `circleci` in the environment")
 
-    # See NOTE on `detect_buildkite` for why we silence these warnings.
     payload = json.dumps({"aud": audience})
+    cmd = ["circleci", "run", "oidc", "get", "--claims", payload]
+    if root_issuer:
+        cmd.append("--root-issuer")
+
+    # See NOTE on `detect_buildkite` for why we silence these warnings.
     process = subprocess.run(  # nosec B603, B607
-        ["circleci", "run", "oidc", "get", "--claims", payload],
+        cmd,
         capture_output=True,
         text=True,
     )
 
     if process.returncode != 0:
         raise AmbientCredentialError(
-            f"CircleCI: the `circleci` tool encountered an error: {process.stdout}"
+            f"CircleCI: the `circleci` tool encountered an error: {process.stderr}"
         )
 
     return process.stdout.strip()

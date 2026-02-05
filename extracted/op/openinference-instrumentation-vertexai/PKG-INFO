@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation-vertexai
-Version: 0.1.11
+Version: 0.1.12
 Summary: OpenInference VertexAI Instrumentation
 Project-URL: homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-vertexai
 Author-email: OpenInference Authors <oss@arize.com>

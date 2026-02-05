@@ -63,13 +63,3 @@ class WaveType(Enum):
     PlaneWave = 'plane'
     """A wave type where the wavefronts are parallel and travel in a single direction."""
 
-class PhantomType(Enum):
-    """
-    Enum for different types of acoustic phantoms.
-
-    Selection of phantom types:
-    """
-    PVA = 'PVA'
-    """Polyvinyl Alcohol phantom.""" 
-    Homogeneous = 'Homogeneous'   
-    """Homogeneous phantom (water or uniform medium)."""

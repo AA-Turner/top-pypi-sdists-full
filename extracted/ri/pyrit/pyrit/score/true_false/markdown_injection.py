@@ -4,6 +4,7 @@
 import re
 from typing import Optional
 
+from pyrit.identifiers import ScorerIdentifier
 from pyrit.models import MessagePiece, Score
 from pyrit.score.scorer_prompt_validator import ScorerPromptValidator
 from pyrit.score.true_false.true_false_score_aggregator import (
@@ -38,8 +39,20 @@ class MarkdownInjectionScorer(TrueFalseScorer):
             score_aggregator (TrueFalseAggregatorFunc): The aggregator function to use.
                 Defaults to TrueFalseScoreAggregator.OR.
         """
-        super().__init__(validator=validator or self._default_validator, score_aggregator=score_aggregator)
         self._category = "security"
+
+        super().__init__(validator=validator or self._default_validator, score_aggregator=score_aggregator)
+
+    def _build_identifier(self) -> ScorerIdentifier:
+        """
+        Build the scorer evaluation identifier for this scorer.
+
+        Returns:
+            ScorerIdentifier: The identifier for this scorer.
+        """
+        return self._create_identifier(
+            score_aggregator=self._score_aggregator.__name__,
+        )
 
     async def _score_piece_async(self, message_piece: MessagePiece, *, objective: Optional[str] = None) -> list[Score]:
         """

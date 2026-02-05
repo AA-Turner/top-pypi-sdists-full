@@ -1,24 +1,33 @@
-from functools import cached_property
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from together.resources.chat.completions import AsyncChatCompletions, ChatCompletions
-from together.types import (
-    TogetherClient,
+from .chat import (
+    ChatResource,
+    AsyncChatResource,
+    ChatResourceWithRawResponse,
+    AsyncChatResourceWithRawResponse,
+    ChatResourceWithStreamingResponse,
+    AsyncChatResourceWithStreamingResponse,
+)
+from .completions import (
+    CompletionsResource,
+    AsyncCompletionsResource,
+    CompletionsResourceWithRawResponse,
+    AsyncCompletionsResourceWithRawResponse,
+    CompletionsResourceWithStreamingResponse,
+    AsyncCompletionsResourceWithStreamingResponse,
 )
 
-
-class Chat:
-    def __init__(self, client: TogetherClient) -> None:
-        self._client = client
-
-    @cached_property
-    def completions(self) -> ChatCompletions:
-        return ChatCompletions(self._client)
-
-
-class AsyncChat:
-    def __init__(self, client: TogetherClient) -> None:
-        self._client = client
-
-    @cached_property
-    def completions(self) -> AsyncChatCompletions:
-        return AsyncChatCompletions(self._client)
+__all__ = [
+    "CompletionsResource",
+    "AsyncCompletionsResource",
+    "CompletionsResourceWithRawResponse",
+    "AsyncCompletionsResourceWithRawResponse",
+    "CompletionsResourceWithStreamingResponse",
+    "AsyncCompletionsResourceWithStreamingResponse",
+    "ChatResource",
+    "AsyncChatResource",
+    "ChatResourceWithRawResponse",
+    "AsyncChatResourceWithRawResponse",
+    "ChatResourceWithStreamingResponse",
+    "AsyncChatResourceWithStreamingResponse",
+]

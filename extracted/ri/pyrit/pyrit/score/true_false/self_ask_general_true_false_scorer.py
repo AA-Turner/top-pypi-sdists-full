@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from pyrit.identifiers import ScorerIdentifier
 from pyrit.models import MessagePiece, Score, UnvalidatedScore
 from pyrit.prompt_target import PromptChatTarget
 from pyrit.score.scorer_prompt_validator import ScorerPromptValidator
@@ -83,6 +84,20 @@ class SelfAskGeneralTrueFalseScorer(TrueFalseScorer):
         self._description_output_key = description_output_key
         self._metadata_output_key = metadata_output_key
         self._category_output_key = category_output_key
+
+    def _build_identifier(self) -> ScorerIdentifier:
+        """
+        Build the scorer evaluation identifier for this scorer.
+
+        Returns:
+            ScorerIdentifier: The identifier for this scorer.
+        """
+        return self._create_identifier(
+            system_prompt_template=self._system_prompt_format_string,
+            user_prompt_template=self._prompt_format_string,
+            prompt_target=self._prompt_target,
+            score_aggregator=self._score_aggregator.__name__,
+        )
 
     async def _score_piece_async(self, message_piece: MessagePiece, *, objective: Optional[str] = None) -> list[Score]:
         """

@@ -21,14 +21,15 @@ from datetime import (
     timedelta,
 )
 from pathlib import Path
-import sys
 from typing import (
     Any,
     ClassVar,
     Generic,
     Literal,
+    Never,
     NoReturn,
     Protocol,
+    Self,
     TypeAlias,
     final,
     overload,
@@ -41,7 +42,6 @@ from _typeshed import (
     SupportsMul,
     SupportsRAdd,
     SupportsRMul,
-    _T_contra,
 )
 from matplotlib.axes import (
     Axes as PlotAxes,
@@ -54,6 +54,11 @@ from pandas import (
     PeriodDtype,
     Timedelta,
     Timestamp,
+)
+from pandas._stubs_only import (
+    OrderableT,
+    T_co,
+    T_contra,
 )
 from pandas.core.api import (
     Int8Dtype as Int8Dtype,
@@ -106,13 +111,13 @@ from pandas.core.indexes.interval import IntervalIndex
 from pandas.core.indexes.multi import MultiIndex
 from pandas.core.indexes.period import PeriodIndex
 from pandas.core.indexes.timedeltas import TimedeltaIndex
-from pandas.core.indexing import (
-    _AtIndexer,
-    _iAtIndexer,
-    _iLocIndexer,
-    _IndexSliceTuple,
-    _LocIndexer,
-)
+
+# The classes are private in pandas implementation. We have to ignore the private usage in the stubs.
+from pandas.core.indexing import _AtIndexer  # pyright: ignore[reportPrivateUsage]
+from pandas.core.indexing import _IndexSliceTuple  # pyright: ignore[reportPrivateUsage]
+from pandas.core.indexing import _LocIndexer  # pyright: ignore[reportPrivateUsage]
+from pandas.core.indexing import _iAtIndexer  # pyright: ignore[reportPrivateUsage]
+from pandas.core.indexing import _iLocIndexer  # pyright: ignore[reportPrivateUsage]
 from pandas.core.strings.accessor import StringMethods
 from pandas.core.window import (
     Expanding,
@@ -122,16 +127,9 @@ from pandas.core.window.rolling import (
     Rolling,
     Window,
 )
-from typing_extensions import (
-    Never,
-    Self,
-)
 import xarray as xr
 
-from pandas._libs.interval import (
-    Interval,
-    _OrderableT,
-)
+from pandas._libs.interval import Interval
 from pandas._libs.lib import NoDefaultDoNotUse
 from pandas._libs.missing import NAType
 from pandas._libs.tslibs import BaseOffset
@@ -221,7 +219,6 @@ from pandas._typing import (
     ValueKeyFunc,
     VoidDtypeArg,
     WriteBuffer,
-    _T_co,
     np_1darray,
     np_1darray_anyint,
     np_1darray_bool,
@@ -250,21 +247,23 @@ from pandas.core.dtypes.dtypes import CategoricalDtype
 
 from pandas.plotting import PlotAccessor
 
-@type_check_only
-class _SupportsAdd(Protocol[_T_co]):
-    def __add__(self, value: Self, /) -> _T_co: ...
+MaskTypeNoList: TypeAlias = Series[bool] | np_ndarray_bool
 
 @type_check_only
-class SupportsSelfSub(Protocol[_T_co]):
-    def __sub__(self, x: Self, /) -> _T_co: ...
+class _SupportsAdd(Protocol[T_co]):
+    def __add__(self, value: Self, /) -> T_co: ...
 
 @type_check_only
-class _SupportsMul(Protocol[_T_co]):
-    def __mul__(self, value: Self, /) -> _T_co: ...
+class SupportsSelfSub(Protocol[T_co]):
+    def __sub__(self, x: Self, /) -> T_co: ...
 
 @type_check_only
-class SupportsTruedivInt(Protocol[_T_co]):
-    def __truediv__(self, value: int, /) -> _T_co: ...
+class _SupportsMul(Protocol[T_co]):
+    def __mul__(self, value: Self, /) -> T_co: ...
+
+@type_check_only
+class SupportsTruedivInt(Protocol[T_co]):
+    def __truediv__(self, value: int, /) -> T_co: ...
 
 class _iLocIndexerSeries(_iLocIndexer, Generic[S1]):
     # get item
@@ -441,16 +440,16 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     def __new__(
         cls,
         data: (
-            IntervalIndex[Interval[_OrderableT]]
-            | Interval[_OrderableT]
-            | Sequence[Interval[_OrderableT]]
-            | dict[Hashable, Interval[_OrderableT]]
+            IntervalIndex[Interval[OrderableT]]
+            | Interval[OrderableT]
+            | Sequence[Interval[OrderableT]]
+            | dict[Hashable, Interval[OrderableT]]
         ),
         index: AxesData | None = None,
         dtype: Literal["Interval"] = ...,
         name: Hashable = None,
         copy: bool | None = None,
-    ) -> Series[Interval[_OrderableT]]: ...
+    ) -> Series[Interval[OrderableT]]: ...
     @overload
     def __new__(  # pyright: ignore[reportOverlappingOverload]
         cls,
@@ -559,15 +558,9 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     def __array_ufunc__(
         self, ufunc: Callable[..., Any], method: _str, *inputs: Any, **kwargs: Any
     ) -> Any: ...
-    if sys.version_info >= (3, 11):
-        def __array__(
-            self, dtype: _str | np.dtype = ..., copy: bool | None = ...
-        ) -> np_1darray: ...
-    else:
-        def __array__(
-            self, dtype: _str | np.dtype[Any] = ..., copy: bool | None = ...
-        ) -> np_1darray: ...
-
+    def __array__(
+        self, dtype: _str | np.dtype = ..., copy: bool | None = ...
+    ) -> np_1darray: ...
     @final
     def __getattr__(self, name: _str) -> S1: ...
 
@@ -957,11 +950,9 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
         self, other: Series[S1], min_periods: int | None = None, ddof: int = 1
     ) -> float: ...
     @overload
-    def diff(  # type: ignore[overload-overlap]
-        self: Series[Never] | Series[int], periods: int = ...
-    ) -> Series[float]: ...
-    @overload
     def diff(self: Series[_bool], periods: int = ...) -> Series: ...
+    @overload
+    def diff(self: Series[int], periods: int = ...) -> Series[float]: ...
     @overload
     def diff(
         self: Series[BooleanDtype], periods: int = ...
@@ -1208,7 +1199,6 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
         join: JoinHow = "outer",
         axis: Axis | None = 0,
         level: Level | None = None,
-        copy: _bool = True,
         fill_value: Scalar | NAType | None = None,
     ) -> tuple[Series, Series]: ...
     @overload
@@ -1264,42 +1254,21 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
         limit: int | None = None,
         tolerance: Scalar | AnyArrayLike | Sequence[Scalar] | None = None,
     ) -> Self: ...
-    @overload
     def fillna(
         self,
         value: Scalar | NAType | dict[Any, Any] | Series[S1] | DataFrame | None = ...,
         *,
         axis: AxisIndex = ...,
         limit: int | None = ...,
-        inplace: Literal[True],
-    ) -> None: ...
-    @overload
-    def fillna(
-        self,
-        value: Scalar | NAType | dict[Any, Any] | Series[S1] | DataFrame | None = ...,
-        *,
-        axis: AxisIndex = ...,
-        limit: int | None = ...,
-        inplace: Literal[False] = False,
+        inplace: _bool = False,
     ) -> Series[S1]: ...
-    @overload
     def replace(
         self,
         to_replace: ReplaceValue = ...,
         value: ReplaceValue = ...,
         *,
         regex: ReplaceValue = ...,
-        inplace: Literal[True],
-        # TODO: pandas-dev/pandas#63195 return Self after Pandas 3.0
-    ) -> None: ...
-    @overload
-    def replace(
-        self,
-        to_replace: ReplaceValue = ...,
-        value: ReplaceValue = ...,
-        *,
-        regex: ReplaceValue = ...,
-        inplace: Literal[False] = False,
+        inplace: _bool = False,
     ) -> Series[S1]: ...
     def shift(
         self,
@@ -1507,63 +1476,29 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     def copy(self, deep: _bool = True) -> Series[S1]: ...
     @final
     def infer_objects(self, copy: _bool = True) -> Series[S1]: ...
-    @overload
     def ffill(
         self,
         *,
         axis: AxisIndex | None = 0,
-        inplace: Literal[True],
-        limit: int | None = ...,
-        limit_area: Literal["inside", "outside"] | None = ...,
-    ) -> None: ...
-    @overload
-    def ffill(
-        self,
-        *,
-        axis: AxisIndex | None = 0,
-        inplace: Literal[False] = False,
+        inplace: _bool = False,
         limit: int | None = ...,
         limit_area: Literal["inside", "outside"] | None = ...,
     ) -> Series[S1]: ...
-    @overload
     def bfill(
         self,
         *,
         axis: AxisIndex | None = 0,
-        inplace: Literal[True],
-        limit: int | None = ...,
-        limit_area: Literal["inside", "outside"] | None = ...,
-    ) -> None: ...
-    @overload
-    def bfill(
-        self,
-        *,
-        axis: AxisIndex | None = 0,
-        inplace: Literal[False] = False,
+        inplace: _bool = False,
         limit: int | None = ...,
         limit_area: Literal["inside", "outside"] | None = ...,
     ) -> Series[S1]: ...
-    @overload
     def interpolate(
         self,
         method: InterpolateOptions = ...,
         *,
         axis: AxisIndex | None = 0,
         limit: int | None = ...,
-        inplace: Literal[True],
-        limit_direction: Literal["forward", "backward", "both"] | None = ...,
-        limit_area: Literal["inside", "outside"] | None = ...,
-        **kwargs: Any,
-        # TODO: pandas-dev/pandas#63195 return Self after Pandas 3.0
-    ) -> None: ...
-    @overload
-    def interpolate(
-        self,
-        method: InterpolateOptions = ...,
-        *,
-        axis: AxisIndex | None = 0,
-        limit: int | None = ...,
-        inplace: Literal[False] = False,
+        inplace: _bool = False,
         limit_direction: Literal["forward", "backward", "both"] | None = ...,
         limit_area: Literal["inside", "outside"] | None = ...,
         **kwargs: Any,
@@ -1575,13 +1510,13 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
         subset: None = None,
     ) -> Scalar | Series[S1]: ...
     @overload
-    def clip(  # pyright: ignore[reportOverlappingOverload]
+    def clip(
         self,
         lower: None = None,
         upper: None = None,
         *,
         axis: AxisIndex | None = 0,
-        inplace: Literal[True],
+        inplace: _bool = False,
         **kwargs: Any,
     ) -> Self: ...
     @overload
@@ -1591,18 +1526,7 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
         upper: AnyArrayLike | float | None = ...,
         *,
         axis: AxisIndex | None = 0,
-        inplace: Literal[True],
-        **kwargs: Any,
-        # TODO: pandas-dev/pandas#63195 return Self after Pandas 3.0
-    ) -> None: ...
-    @overload
-    def clip(
-        self,
-        lower: AnyArrayLike | float | None = ...,
-        upper: AnyArrayLike | float | None = ...,
-        *,
-        axis: AxisIndex | None = 0,
-        inplace: Literal[False] = False,
+        inplace: _bool = False,
         **kwargs: Any,
     ) -> Series[S1]: ...
     @final
@@ -2266,11 +2190,11 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     # ignore needed for mypy as we want different results based on the arguments
     @overload  # type: ignore[override]
     def __and__(  # pyright: ignore[reportOverlappingOverload] # pyrefly: ignore[bad-override]
-        self, other: bool | list[int] | MaskType
+        self, other: bool | Series[bool] | np_ndarray_bool
     ) -> Series[bool]: ...
     @overload
     def __and__(self, other: int | np_ndarray_anyint | Series[int]) -> Series[int]: ...
-    def __eq__(self, other: object) -> Series[_bool]: ...  # type: ignore[override] # pyright: ignore[reportIncompatibleMethodOverride] # pyrefly: ignore[bad-override] # ty: ignore[invalid-method-override]
+    def __eq__(self, other: object) -> Series[_bool]: ...  # type: ignore[override] # pyright: ignore[reportIncompatibleMethodOverride] # pyrefly: ignore[bad-override]
     @overload
     def __floordiv__(self, other: np_ndarray_dt) -> Never: ...
     @overload
@@ -2295,8 +2219,7 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     ) -> Never: ...
     @overload
     def __floordiv__(
-        self: Supports_ProtoFloorDiv[_T_contra, S2],
-        other: _T_contra | Sequence[_T_contra],
+        self: Supports_ProtoFloorDiv[T_contra, S2], other: T_contra | Sequence[T_contra]
     ) -> Series[S2]: ...
     @overload
     def __floordiv__(
@@ -2361,8 +2284,8 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     ) -> Series: ...
     @overload
     def floordiv(
-        self: Supports_ProtoFloorDiv[_T_contra, S2],
-        other: _T_contra | Sequence[_T_contra],
+        self: Supports_ProtoFloorDiv[T_contra, S2],
+        other: T_contra | Sequence[T_contra],
         level: Level | None = ...,
         fill_value: float | None = None,
         axis: AxisIndex | None = 0,
@@ -2445,8 +2368,8 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     ) -> Series: ...
     @overload
     def __rfloordiv__(
-        self: Supports_ProtoRFloorDiv[_T_contra, S2],
-        other: _T_contra | Sequence[_T_contra],
+        self: Supports_ProtoRFloorDiv[T_contra, S2],
+        other: T_contra | Sequence[T_contra],
     ) -> Series[S2]: ...
     @overload
     def __rfloordiv__(
@@ -2506,8 +2429,8 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     ) -> Series: ...
     @overload
     def rfloordiv(
-        self: Supports_ProtoRFloorDiv[_T_contra, S2],
-        other: _T_contra | Sequence[_T_contra],
+        self: Supports_ProtoRFloorDiv[T_contra, S2],
+        other: T_contra | Sequence[T_contra],
         level: Level | None = ...,
         fill_value: float | None = None,
         axis: AxisIndex = ...,
@@ -2641,7 +2564,7 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     ) -> Series[_str]: ...
     @overload
     def __mul__(
-        self: Supports_ProtoMul[_T_contra, S2], other: _T_contra | Sequence[_T_contra]
+        self: Supports_ProtoMul[T_contra, S2], other: T_contra | Sequence[T_contra]
     ) -> Series[S2]: ...
     @overload
     def __mul__(
@@ -2733,8 +2656,8 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     ) -> Series[_str]: ...
     @overload
     def mul(
-        self: Supports_ProtoMul[_T_contra, S2],
-        other: _T_contra | Sequence[_T_contra],
+        self: Supports_ProtoMul[T_contra, S2],
+        other: T_contra | Sequence[T_contra],
         level: Level | None = None,
         fill_value: float | None = None,
         axis: int = 0,
@@ -2857,7 +2780,7 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     ) -> Series[_str]: ...
     @overload
     def __rmul__(
-        self: Supports_ProtoRMul[_T_contra, S2], other: _T_contra | Sequence[_T_contra]
+        self: Supports_ProtoRMul[T_contra, S2], other: T_contra | Sequence[T_contra]
     ) -> Series[S2]: ...
     @overload
     def __rmul__(
@@ -2948,8 +2871,8 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     ) -> Series[_str]: ...
     @overload
     def rmul(
-        self: Supports_ProtoRMul[_T_contra, S2],
-        other: _T_contra | Sequence[_T_contra],
+        self: Supports_ProtoRMul[T_contra, S2],
+        other: T_contra | Sequence[T_contra],
         level: Level | None = None,
         fill_value: float | None = None,
         axis: int = 0,
@@ -3013,19 +2936,19 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
         axis: int = 0,
     ) -> Series[complex]: ...
     def __mod__(self, other: float | ListLike | Series[S1]) -> Series[S1]: ...
-    def __ne__(self, other: object) -> Series[_bool]: ...  # type: ignore[override] # pyright: ignore[reportIncompatibleMethodOverride] # pyrefly: ignore[bad-override] # ty: ignore[invalid-method-override]
+    def __ne__(self, other: object) -> Series[_bool]: ...  # type: ignore[override] # pyright: ignore[reportIncompatibleMethodOverride] # pyrefly: ignore[bad-override]
     def __pow__(self, other: complex | ListLike | Series[S1]) -> Series[S1]: ...
     # ignore needed for mypy as we want different results based on the arguments
     @overload  # type: ignore[override]
     def __or__(  # pyright: ignore[reportOverlappingOverload] # pyrefly: ignore[bad-override]
-        self, other: bool | list[int] | MaskType
+        self, other: bool | Series[bool] | np_1darray_bool
     ) -> Series[bool]: ...
     @overload
-    def __or__(self, other: int | np_ndarray_anyint | Series[int]) -> Series[int]: ...
+    def __or__(self, other: int | Series[int] | np_ndarray_anyint) -> Series[int]: ...
     # ignore needed for mypy as we want different results based on the arguments
     @overload  # type: ignore[override]
-    def __rand__(  # pyright: ignore[reportOverlappingOverload] # pyrefly: ignore[bad-override]
-        self, other: bool | MaskType | list[int]
+    def __rand__(  # type: ignore[misc] # pyright: ignore[reportOverlappingOverload] # pyrefly: ignore[bad-override]
+        self, other: bool | Series[bool] | np_ndarray_bool
     ) -> Series[bool]: ...
     @overload
     def __rand__(self, other: int | np_ndarray_anyint | Series[int]) -> Series[int]: ...
@@ -3034,15 +2957,15 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     def __rpow__(self, other: complex | ListLike | Series[S1]) -> Series[S1]: ...
     # ignore needed for mypy as we want different results based on the arguments
     @overload  # type: ignore[override]
-    def __ror__(  # pyright: ignore[reportOverlappingOverload] # pyrefly: ignore[bad-override]
-        self, other: bool | MaskType | list[int]
+    def __ror__(  # type: ignore[misc]  # pyright: ignore[reportOverlappingOverload] # pyrefly: ignore[bad-override]
+        self, other: bool | Series[bool] | np_ndarray_bool
     ) -> Series[bool]: ...
     @overload
     def __ror__(self, other: int | np_ndarray_anyint | Series[int]) -> Series[int]: ...
     # ignore needed for mypy as we want different results based on the arguments
     @overload  # type: ignore[override]
-    def __rxor__(  # pyright: ignore[reportOverlappingOverload] # pyrefly: ignore[bad-override]
-        self, other: bool | MaskType | list[int]
+    def __rxor__(  # type: ignore[misc]  # pyright: ignore[reportOverlappingOverload]  # pyrefly: ignore[bad-override]
+        self, other: bool | Series[bool] | np_ndarray_bool
     ) -> Series[bool]: ...
     @overload
     def __rxor__(self, other: int | np_ndarray_anyint | Series[int]) -> Series[int]: ...
@@ -3701,8 +3624,8 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     ) -> Never: ...
     @overload
     def __truediv__(
-        self: Supports_ProtoTrueDiv[_T_contra, S2],
-        other: _T_contra | Sequence[_T_contra],
+        self: Supports_ProtoTrueDiv[T_contra, S2],
+        other: T_contra | Sequence[T_contra],
     ) -> Series[S2]: ...
     @overload
     def __truediv__(
@@ -3786,8 +3709,8 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     ) -> Series: ...
     @overload
     def truediv(
-        self: Supports_ProtoTrueDiv[_T_contra, S2],
-        other: _T_contra | Sequence[_T_contra],
+        self: Supports_ProtoTrueDiv[T_contra, S2],
+        other: T_contra | Sequence[T_contra],
         level: Level | None = None,
         fill_value: float | None = None,
         axis: AxisIndex = 0,
@@ -3904,8 +3827,8 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     ) -> Series: ...
     @overload
     def __rtruediv__(
-        self: Supports_ProtoRTrueDiv[_T_contra, S2],
-        other: _T_contra | Sequence[_T_contra],
+        self: Supports_ProtoRTrueDiv[T_contra, S2],
+        other: T_contra | Sequence[T_contra],
     ) -> Series[S2]: ...
     @overload
     def __rtruediv__(
@@ -3979,8 +3902,8 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     ) -> Series: ...
     @overload
     def rtruediv(
-        self: Supports_ProtoRTrueDiv[_T_contra, S2],
-        other: _T_contra | Sequence[_T_contra],
+        self: Supports_ProtoRTrueDiv[T_contra, S2],
+        other: T_contra | Sequence[T_contra],
         level: Level | None = None,
         fill_value: float | None = None,
         axis: AxisIndex = 0,
@@ -4083,7 +4006,7 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     # ignore needed for mypy as we want different results based on the arguments
     @overload  # type: ignore[override]
     def __xor__(  # pyright: ignore[reportOverlappingOverload] # pyrefly: ignore[bad-override]
-        self, other: bool | MaskType | list[int]
+        self, other: bool | Series[bool] | np_1darray_bool
     ) -> Series[bool]: ...
     @overload
     def __xor__(self, other: int | np_ndarray_anyint | Series[int]) -> Series[int]: ...

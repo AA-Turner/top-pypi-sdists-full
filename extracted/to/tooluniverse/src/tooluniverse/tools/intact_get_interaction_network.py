@@ -16,7 +16,7 @@ def intact_get_interaction_network(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
     Get interaction network centered on a specific interactor. Returns network of interactions with c...
 
@@ -37,7 +37,7 @@ def intact_get_interaction_network(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

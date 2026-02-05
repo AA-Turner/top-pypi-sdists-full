@@ -15,9 +15,14 @@ from langgraph_api.encryption.middleware import (
     decrypt_responses,
     encrypt_request,
 )
-from langgraph_api.feature_flags import FF_USE_CORE_API
+from langgraph_api.encryption.shared import using_aes_encryption
+from langgraph_api.feature_flags import (
+    FF_USE_CORE_API,
+    IS_POSTGRES_OR_GRPC_BACKEND,
+)
 from langgraph_api.graph import _validate_assistant_id
 from langgraph_api.grpc.ops import Runs as GrpcRuns
+from langgraph_api.grpc.ops import Threads as GrpcThreads
 from langgraph_api.models.run import create_valid_run
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
 from langgraph_api.schema import (
@@ -39,6 +44,7 @@ from langgraph_api.utils import (
 from langgraph_api.validation import (
     CronCountRequest,
     CronCreate,
+    CronPatch,
     CronSearch,
     RunBatchCreate,
     RunCreateStateful,
@@ -49,10 +55,18 @@ from langgraph_api.validation import (
 from langgraph_api.webhook import validate_webhook_url_or_raise
 from langgraph_license.validation import plus_features_enabled
 from langgraph_runtime.database import connect
-from langgraph_runtime.ops import Crons, Runs, Threads
+from langgraph_runtime.ops import Crons, Runs
 from langgraph_runtime.retry import retry_db
 
 CrudRuns = GrpcRuns if FF_USE_CORE_API else Runs
+
+if IS_POSTGRES_OR_GRPC_BACKEND:
+    CrudThreads = GrpcThreads
+else:
+    from langgraph_runtime.ops import Threads
+
+    CrudThreads = Threads
+
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -77,15 +91,18 @@ def _ensure_crons_enabled() -> None:
 def _thread_values_fallback(thread_id: UUID) -> _RunResultFallback:
     async def fetch_thread_values() -> bytes:
         async with connect() as conn:
-            thread_iter = await Threads.get(conn, thread_id)
+            thread_iter = await CrudThreads.get(conn, thread_id)
             try:
                 row = await anext(thread_iter)
                 # Decrypt thread fields (values, interrupts, error) if encryption is enabled
-                thread = await decrypt_response(
-                    dict(row),
-                    "thread",
-                    ["values", "interrupts", "error"],
-                )
+                if IS_POSTGRES_OR_GRPC_BACKEND and not using_aes_encryption():
+                    thread = dict(row)
+                else:
+                    thread = await decrypt_response(
+                        dict(row),
+                        "thread",
+                        ["values", "interrupts", "error"],
+                    )
                 if row["status"] == "error":
                     return json_dumpb({"__error__": json_loads(thread["error"])})
                 if row["status"] == "interrupted":
@@ -189,7 +206,8 @@ async def create_run(request: ApiRequest):
             request.headers,
             request_start_time=request.scope.get("request_start_time_ms"),
         )
-    run = await decrypt_response(run, "run", RUN_ENCRYPTION_FIELDS)
+    if not FF_USE_CORE_API or using_aes_encryption():
+        run = await decrypt_response(run, "run", RUN_ENCRYPTION_FIELDS)
     return ApiResponse(
         run,
         headers={"Content-Location": f"/threads/{thread_id}/runs/{run['run_id']}"},
@@ -209,7 +227,8 @@ async def create_stateless_run(request: ApiRequest):
             request.headers,
             request_start_time=request.scope.get("request_start_time_ms"),
         )
-    run = await decrypt_response(run, "run", RUN_ENCRYPTION_FIELDS)
+    if not FF_USE_CORE_API or using_aes_encryption():
+        run = await decrypt_response(run, "run", RUN_ENCRYPTION_FIELDS)
     return ApiResponse(
         run,
         headers={"Content-Location": f"/runs/{run['run_id']}"},
@@ -234,7 +253,8 @@ async def create_stateless_run_batch(request: ApiRequest):
             for payload in batch_payload
         ]
         runs = await asyncio.gather(*coros)
-    runs = await decrypt_responses(list(runs), "run", RUN_ENCRYPTION_FIELDS)
+    if not FF_USE_CORE_API or using_aes_encryption():
+        runs = await decrypt_responses(list(runs), "run", RUN_ENCRYPTION_FIELDS)
     return ApiResponse(runs)
 
 
@@ -446,7 +466,7 @@ async def list_runs(
 
     async with connect() as conn, conn.pipeline():
         thread, runs = await asyncio.gather(
-            Threads.get(conn, thread_id),
+            CrudThreads.get(conn, thread_id),
             CrudRuns.search(
                 conn,
                 thread_id,
@@ -460,8 +480,8 @@ async def list_runs(
 
     # Collect and decrypt runs
     runs_list = [run async for run in runs]
-    runs_list = await decrypt_responses(runs_list, "run", RUN_ENCRYPTION_FIELDS)
-
+    if not FF_USE_CORE_API or using_aes_encryption():
+        runs_list = await decrypt_responses(runs_list, "run", RUN_ENCRYPTION_FIELDS)
     return ApiResponse(runs_list)
 
 
@@ -475,7 +495,7 @@ async def get_run(request: ApiRequest):
 
     async with connect() as conn, conn.pipeline():
         thread, run = await asyncio.gather(
-            Threads.get(conn, thread_id),
+            CrudThreads.get(conn, thread_id),
             CrudRuns.get(
                 conn,
                 run_id,
@@ -486,7 +506,8 @@ async def get_run(request: ApiRequest):
     run_dict = await fetchone(run)
 
     # Decrypt run metadata and kwargs
-    run_dict = await decrypt_response(run_dict, "run", RUN_ENCRYPTION_FIELDS)
+    if not FF_USE_CORE_API or using_aes_encryption():
+        run_dict = await decrypt_response(run_dict, "run", RUN_ENCRYPTION_FIELDS)
 
     return ApiResponse(run_dict)
 
@@ -737,6 +758,44 @@ async def create_thread_cron(request: ApiRequest):
 
 
 @retry_db
+async def patch_cron(request: ApiRequest):
+    """Update a cron by ID."""
+    _ensure_crons_enabled()
+    cron_id = request.path_params["cron_id"]
+    validate_uuid(cron_id, "Invalid cron ID: must be a UUID")
+
+    payload = await request.json(CronPatch)
+    if not payload:
+        raise HTTPException(status_code=400, detail="Request body cannot be empty")
+
+    if webhook := payload.get("webhook"):
+        await validate_webhook_url_or_raise(str(webhook))
+
+    # Encrypt payload subfields before storage
+    encrypted_payload = await encrypt_request(
+        payload,
+        "cron",
+        CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
+    )
+
+    async with connect() as conn:
+        cron = await Crons.update(
+            conn,
+            cron_id=cron_id,
+            schedule=payload.get("schedule"),
+            end_time=payload.get("end_time"),
+            enabled=payload.get("enabled"),
+            on_run_completed=payload.get("on_run_completed"),
+            payload=encrypted_payload,
+            metadata=encrypted_payload.get("metadata"),
+        )
+    cron_dict = await fetchone(cron)
+    cron_dict = await decrypt_response(cron_dict, "cron", CRON_ENCRYPTION_FIELDS)
+
+    return ApiResponse(cron_dict)
+
+
+@retry_db
 async def delete_cron(request: ApiRequest):
     """Delete a cron by ID."""
     _ensure_crons_enabled()
@@ -827,6 +886,7 @@ runs_routes = [
     ApiRoute("/threads/{thread_id}/runs", create_run, methods=["POST"]),
     ApiRoute("/threads/{thread_id}/runs/crons", create_thread_cron, methods=["POST"]),
     ApiRoute("/threads/{thread_id}/runs", list_runs, methods=["GET"]),
+    ApiRoute("/runs/crons/{cron_id}", patch_cron, methods=["PATCH"]),
     ApiRoute("/runs/crons/{cron_id}", delete_cron, methods=["DELETE"]),
 ]
 

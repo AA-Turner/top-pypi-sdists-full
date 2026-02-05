@@ -11,6 +11,8 @@ from anyscale.job.commands import (
     _ADD_TAGS_EXAMPLE,
     _ARCHIVE_ARG_DOCSTRINGS,
     _ARCHIVE_EXAMPLE,
+    _DELETE_ARG_DOCSTRINGS,
+    _DELETE_EXAMPLE,
     _GET_LOGS_ARG_DOCSTRINGS,
     _GET_LOGS_EXAMPLE,
     _LIST_ARG_DOCSTRINGS as _LIST_ARG_DOCSTRINGS,
@@ -30,6 +32,7 @@ from anyscale.job.commands import (
     _WAIT_EXAMPLE,
     add_tags as add_tags,
     archive as archive,
+    delete as delete,
     get_logs as get_logs,
     list as list,  # noqa: A004
     list_tags as list_tags,
@@ -72,12 +75,17 @@ class JobSDK:
         id: Optional[str] = None,  # noqa: A002
         cloud: Optional[str] = None,
         project: Optional[str] = None,
+        include_archived: bool = False,
         **_kwargs: Dict[str, Any],
     ) -> JobStatus:
         """Get the status of a job."""
         id = _resolve_id_from_args(id, _kwargs)  # noqa: A001
         return self._private_sdk.status(
-            name=name, job_id=id, cloud=cloud, project=project
+            name=name,
+            job_id=id,
+            cloud=cloud,
+            project=project,
+            include_archived=include_archived,
         )
 
     @sdk_docs(
@@ -90,6 +98,7 @@ class JobSDK:
         id: Optional[str] = None,  # noqa: A002
         cloud: Optional[str] = None,
         project: Optional[str] = None,
+        include_archived: bool = False,
         **_kwargs: Dict[str, Any],
     ) -> str:
         """Terminate a job.
@@ -100,7 +109,11 @@ class JobSDK:
         """
         id = _resolve_id_from_args(id, _kwargs)  # noqa: A001
         return self._private_sdk.terminate(
-            name=name, job_id=id, cloud=cloud, project=project
+            name=name,
+            job_id=id,
+            cloud=cloud,
+            project=project,
+            include_archived=include_archived,
         )
 
     @sdk_docs(
@@ -113,6 +126,7 @@ class JobSDK:
         id: Optional[str] = None,  # noqa: A002
         cloud: Optional[str] = None,
         project: Optional[str] = None,
+        include_archived: bool = False,
         **_kwargs: Dict[str, Any],
     ) -> str:
         """Archive a job.
@@ -123,7 +137,40 @@ class JobSDK:
         """
         id = _resolve_id_from_args(id, _kwargs)  # noqa: A001
         return self._private_sdk.archive(
-            name=name, job_id=id, cloud=cloud, project=project
+            name=name,
+            job_id=id,
+            cloud=cloud,
+            project=project,
+            include_archived=include_archived,
+        )
+
+    @sdk_docs(
+        doc_py_example=_DELETE_EXAMPLE, arg_docstrings=_DELETE_ARG_DOCSTRINGS,
+    )
+    def delete(  # noqa: F811
+        self,
+        *,
+        name: Optional[str] = None,
+        id: Optional[str] = None,  # noqa: A002
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+        include_archived: bool = False,
+        **_kwargs: Dict[str, Any],
+    ) -> str:
+        """Delete a job and all associated job runs.
+
+        The job must be in a terminal state (SUCCEEDED, FAILED).
+        This action permanently removes the job and cannot be undone.
+
+        Returns the ID of the deleted job.
+        """
+        id = _resolve_id_from_args(id, _kwargs)  # noqa: A001
+        return self._private_sdk.delete(
+            name=name,
+            job_id=id,
+            cloud=cloud,
+            project=project,
+            include_archived=include_archived,
         )
 
     @sdk_docs(
@@ -138,6 +185,7 @@ class JobSDK:
         project: Optional[str] = None,
         state: Union[JobState, str] = JobState.SUCCEEDED,
         timeout_s: float = 1800,
+        include_archived: bool = False,
         **_kwargs: Dict[str, Any],
     ) -> str:
         """"Wait for a job to enter a specific state."""
@@ -149,6 +197,7 @@ class JobSDK:
             project=project,
             state=state,
             timeout_s=timeout_s,
+            include_archived=include_archived,
         )
 
     @sdk_docs(
@@ -164,6 +213,7 @@ class JobSDK:
         run: Optional[str] = None,
         mode: Union[str, JobLogMode] = JobLogMode.TAIL,
         max_lines: Optional[int] = None,
+        include_archived: bool = False,
         **_kwargs: Dict[str, Any],
     ) -> str:
         """"Wait for a job to enter a specific state."""
@@ -176,6 +226,7 @@ class JobSDK:
             run=run,
             mode=mode,
             max_lines=max_lines,
+            include_archived=include_archived,
         )
 
     @sdk_docs(
@@ -189,10 +240,16 @@ class JobSDK:
         cloud: Optional[str] = None,
         project: Optional[str] = None,
         tags: Dict[str, str],
+        include_archived: bool = False,
     ) -> None:
         """Upsert (add/update) tag key/value pairs for a job."""
         return self._private_sdk.add_tags(
-            job_id=job_id, name=name, cloud=cloud, project=project, tags=tags
+            job_id=job_id,
+            name=name,
+            cloud=cloud,
+            project=project,
+            tags=tags,
+            include_archived=include_archived,
         )
 
     @sdk_docs(
@@ -206,10 +263,16 @@ class JobSDK:
         cloud: Optional[str] = None,
         project: Optional[str] = None,
         keys: list,
+        include_archived: bool = False,
     ) -> None:
         """Remove tags by key from a job."""
         return self._private_sdk.remove_tags(
-            job_id=job_id, name=name, cloud=cloud, project=project, keys=keys
+            job_id=job_id,
+            name=name,
+            cloud=cloud,
+            project=project,
+            keys=keys,
+            include_archived=include_archived,
         )
 
     @sdk_docs(
@@ -222,10 +285,15 @@ class JobSDK:
         name: Optional[str] = None,
         cloud: Optional[str] = None,
         project: Optional[str] = None,
+        include_archived: bool = False,
     ) -> Dict[str, str]:
         """List tags for a job."""
         return self._private_sdk.list_tags(
-            job_id=job_id, name=name, cloud=cloud, project=project
+            job_id=job_id,
+            name=name,
+            cloud=cloud,
+            project=project,
+            include_archived=include_archived,
         )
 
     @sdk_docs(doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_ARG_DOCSTRINGS)

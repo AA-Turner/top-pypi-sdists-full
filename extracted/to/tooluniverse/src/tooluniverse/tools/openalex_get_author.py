@@ -15,7 +15,7 @@ def openalex_get_author(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Optional[dict[str, Any]]:
     """
     Get a single OpenAlex author by Author ID (A...). You can pass either the short ID (e.g., "A50012...
 
@@ -34,7 +34,7 @@ def openalex_get_author(
 
     Returns
     -------
-    dict[str, Any]
+    Optional[dict[str, Any]]
     """
     # Handle mutable defaults to avoid B006 linting error
 

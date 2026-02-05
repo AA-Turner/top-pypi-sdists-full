@@ -1,5 +1,5 @@
 //
-// Copyright 2021 Staysail Systems, Inc. <info@staysail.tech>
+// Copyright 2024 Staysail Systems, Inc. <info@staysail.tech>
 // Copyright 2018 Capitar IT Group BV <info@capitar.com>
 //
 // This software is supplied under the terms of the MIT License, a
@@ -25,17 +25,15 @@ typedef struct surv0_ctx  surv0_ctx;
 
 static void surv0_pipe_send_cb(void *);
 static void surv0_pipe_recv_cb(void *);
-static void surv0_ctx_timeout(void *);
 
 struct surv0_ctx {
-	surv0_sock *   sock;
+	surv0_sock    *sock;
 	uint32_t       survey_id; // survey id
-	nni_timer_node timer;
-	nni_time       expire;
 	nni_lmq        recv_lmq;
 	nni_list       recv_queue;
 	nni_atomic_int recv_buf;
 	nni_atomic_int survey_time;
+	nni_time       expire;
 	int            err;
 };
 
@@ -53,8 +51,8 @@ struct surv0_sock {
 
 // surv0_pipe is our per-pipe protocol private structure.
 struct surv0_pipe {
-	nni_pipe *    pipe;
-	surv0_sock *  sock;
+	nni_pipe     *pipe;
+	surv0_sock   *sock;
 	nni_lmq       send_queue;
 	nni_list_node node;
 	nni_aio       aio_send;
@@ -66,7 +64,7 @@ struct surv0_pipe {
 static void
 surv0_ctx_abort(surv0_ctx *ctx, int err)
 {
-	nni_aio *   aio;
+	nni_aio    *aio;
 	surv0_sock *sock = ctx->sock;
 
 	while ((aio = nni_list_first(&ctx->recv_queue)) != NULL) {
@@ -99,15 +97,14 @@ surv0_ctx_fini(void *arg)
 	surv0_ctx *ctx = arg;
 
 	surv0_ctx_close(ctx);
-	nni_timer_cancel(&ctx->timer);
 	nni_lmq_fini(&ctx->recv_lmq);
 }
 
 static void
 surv0_ctx_init(void *c, void *s)
 {
-	surv0_ctx *  ctx  = c;
-	surv0_sock * sock = s;
+	surv0_ctx   *ctx  = c;
+	surv0_sock  *sock = s;
 	int          len;
 	nng_duration tmo;
 
@@ -129,13 +126,12 @@ surv0_ctx_init(void *c, void *s)
 	ctx->sock = sock;
 
 	nni_lmq_init(&ctx->recv_lmq, len);
-	nni_timer_init(&ctx->timer, surv0_ctx_timeout, ctx);
 }
 
 static void
 surv0_ctx_cancel(nni_aio *aio, void *arg, int rv)
 {
-	surv0_ctx * ctx  = arg;
+	surv0_ctx  *ctx  = arg;
 	surv0_sock *sock = ctx->sock;
 	nni_mtx_lock(&sock->mtx);
 	if (nni_list_active(&ctx->recv_queue, aio)) {
@@ -152,20 +148,31 @@ surv0_ctx_cancel(nni_aio *aio, void *arg, int rv)
 static void
 surv0_ctx_recv(void *arg, nni_aio *aio)
 {
-	surv0_ctx * ctx  = arg;
-	surv0_sock *sock = ctx->sock;
-	nni_msg *   msg;
+	surv0_ctx   *ctx  = arg;
+	surv0_sock  *sock = ctx->sock;
+	nni_msg     *msg;
+	nni_time     now;
+	nni_duration timeout;
 
 	if (nni_aio_begin(aio) != 0) {
 		return;
 	}
 
+	now = nni_clock();
+
 	nni_mtx_lock(&sock->mtx);
-	if (ctx->survey_id == 0) {
+	if ((ctx->survey_id == 0) || (now >= ctx->expire)) {
 		nni_mtx_unlock(&sock->mtx);
 		nni_aio_finish_error(aio, NNG_ESTATE);
 		return;
 	}
+
+	timeout = nni_aio_get_timeout(aio);
+	if ((timeout < 1) || ((now + timeout) > ctx->expire)) {
+		// limit the timeout to the survey time
+		nni_aio_set_expire(aio, ctx->expire);
+	}
+
 again:
 	if (nni_lmq_get(&ctx->recv_lmq, &msg) != 0) {
 		int rv;
@@ -190,32 +197,14 @@ again:
 	nni_aio_finish_msg(aio, msg);
 }
 
-void
-surv0_ctx_timeout(void *arg)
-{
-	surv0_ctx * ctx  = arg;
-	surv0_sock *sock = ctx->sock;
-
-	nni_mtx_lock(&sock->mtx);
-	if (nni_clock() < ctx->expire) {
-		nni_mtx_unlock(&sock->mtx);
-		return;
-	}
-
-	// Abort any pending receives.
-	surv0_ctx_abort(ctx, NNG_ETIMEDOUT);
-	nni_mtx_unlock(&sock->mtx);
-}
-
 static void
 surv0_ctx_send(void *arg, nni_aio *aio)
 {
-	surv0_ctx *  ctx  = arg;
-	surv0_sock * sock = ctx->sock;
-	surv0_pipe * pipe;
-	nni_msg *    msg = nni_aio_get_msg(aio);
+	surv0_ctx   *ctx  = arg;
+	surv0_sock  *sock = ctx->sock;
+	surv0_pipe  *pipe;
+	nni_msg     *msg = nni_aio_get_msg(aio);
 	size_t       len = nni_msg_len(msg);
-	nni_time     now = nni_clock();
 	nng_duration survey_time;
 	int          rv;
 
@@ -229,10 +218,9 @@ surv0_ctx_send(void *arg, nni_aio *aio)
 
 	// Abort everything outstanding.
 	surv0_ctx_abort(ctx, NNG_ECANCELED);
-	nni_timer_cancel(&ctx->timer);
 
 	// Allocate the new ID.
-	if ((rv = nni_id_alloc(&sock->surveys, &ctx->survey_id, ctx)) != 0) {
+	if ((rv = nni_id_alloc32(&sock->surveys, &ctx->survey_id, ctx)) != 0) {
 		nni_mtx_unlock(&sock->mtx);
 		nni_aio_finish_error(aio, rv);
 		return;
@@ -258,8 +246,9 @@ surv0_ctx_send(void *arg, nni_aio *aio)
 		}
 	}
 
-	ctx->expire = now + survey_time;
-	nni_timer_schedule(&ctx->timer, ctx->expire);
+	// save the survey time, so we know the maximum timeout to use when
+	// waiting for receive
+	ctx->expire = nni_clock() + survey_time;
 
 	nni_mtx_unlock(&sock->mtx);
 	nni_msg_free(msg);
@@ -371,6 +360,9 @@ surv0_pipe_start(void *arg)
 	surv0_sock *s = p->sock;
 
 	if (nni_pipe_peer(p->pipe) != NNG_SURVEYOR0_PEER) {
+		nng_log_warn("NNG-PEER-MISMATCH",
+		    "Peer protocol mismatch: %d != %d, rejected.",
+		    nni_pipe_peer(p->pipe), NNG_SURVEYOR0_PEER);
 		return (NNG_EPROTO);
 	}
 
@@ -405,7 +397,7 @@ surv0_pipe_send_cb(void *arg)
 {
 	surv0_pipe *p    = arg;
 	surv0_sock *sock = p->sock;
-	nni_msg *   msg;
+	nni_msg    *msg;
 
 	if (nni_aio_result(&p->aio_send) != 0) {
 		nni_msg_free(nni_aio_get_msg(&p->aio_send));
@@ -433,10 +425,10 @@ surv0_pipe_recv_cb(void *arg)
 {
 	surv0_pipe *p    = arg;
 	surv0_sock *sock = p->sock;
-	surv0_ctx * ctx;
-	nni_msg *   msg;
+	surv0_ctx  *ctx;
+	nni_msg    *msg;
 	uint32_t    id;
-	nni_aio *   aio;
+	nni_aio    *aio;
 
 	if (nni_aio_result(&p->aio_recv) != 0) {
 		nni_pipe_close(p->pipe);
@@ -481,7 +473,7 @@ static int
 surv0_ctx_set_survey_time(
     void *arg, const void *buf, size_t sz, nni_opt_type t)
 {
-	surv0_ctx *  ctx = arg;
+	surv0_ctx   *ctx = arg;
 	nng_duration expire;
 	int          rv;
 	if ((rv = nni_copyin_ms(&expire, buf, sz, t)) == 0) {

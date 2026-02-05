@@ -9,6 +9,7 @@ from typing import (
     Concatenate,
     Literal,
     Protocol,
+    Self,
     overload,
 )
 
@@ -16,7 +17,9 @@ from matplotlib.colors import Colormap
 from openpyxl.workbook.workbook import Workbook as OpenXlWorkbook
 from pandas.core.frame import DataFrame
 from pandas.core.series import Series
-from typing_extensions import Self
+from xlsxwriter import (  # pyright: ignore[reportMissingTypeStubs]
+    Workbook as XlsxWorkbook,
+)
 
 from pandas._typing import (
     Axis,
@@ -47,10 +50,6 @@ from pandas.io.formats.style_render import (
     StyleExportDict,
     StylerRenderer,
     Subset,
-)
-
-from xlsxwriter.workbook import (  # pyright: ignore[reportMissingTypeStubs] # isort: skip
-    Workbook as XlsxWorkbook,  # pyright: ignore[reportUnknownVariableType]
 )
 
 class _SeriesFunc(Protocol):
@@ -108,7 +107,7 @@ class Styler(StylerRenderer):
     ) -> Styler: ...
     def to_excel(
         self,
-        excel_writer: (  # pyright: ignore[reportUnknownParameterType]
+        excel_writer: (
             FilePath | WriteExcelBuffer | ExcelWriter[OpenXlWorkbook | XlsxWorkbook]
         ),
         sheet_name: str = "Sheet1",

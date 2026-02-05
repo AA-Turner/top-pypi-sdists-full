@@ -30,14 +30,15 @@ from langgraph_api import _checkpointer as api_checkpointer
 from langgraph_api import store as api_store
 from langgraph_api.command import map_cmd
 from langgraph_api.config import THREAD_TTL
-from langgraph_api.encryption.middleware import encrypt_json_if_needed
 from langgraph_api.encryption.shared import get_encryption
 from langgraph_api.graph import get_graph
 from langgraph_api.grpc.client import get_shared_client
 from langgraph_api.grpc.ops import (
     Authenticated,
+    _filters_to_proto,
     _handle_grpc_error,
     _map_sort_order,
+    build_encryption_context,
     grpc_error_guard,
     map_if_exists,
     transform_grpc_error_event,
@@ -47,6 +48,7 @@ from langgraph_api.schema import ThreadUpdateResponse
 from langgraph_api.serde import json_dumpb, json_dumpb_optional, json_loads
 from langgraph_api.state import patch_interrupt, state_snapshot_to_thread_state
 from langgraph_api.utils import fetchone
+from langgraph_runtime.ops import Runs as ApiRuns
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -247,24 +249,40 @@ def _normalize_uuid(value: UUID | str) -> str:
     return str(value) if isinstance(value, UUID) else str(UUID(str(value)))
 
 
-async def _serialize_exception(
-    exception: BaseException | dict[str, Any] | None,
-) -> bytes | None:
-    """Serialize (and optionally encrypt) an exception for storage."""
-    if exception is None:
+def _serialize_for_encryption(
+    data: BaseException | dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Serialize data to JSON-compatible form before encryption.
+
+    This converts non-JSON-serializable types (like bytes) to JSON-safe forms
+    (like base64 strings) using the existing serde machinery.
+    """
+    if data is None:
         return None
 
-    # JSON roundtrip handles BaseException via serde.default handler
-    exception_dict = json_loads(json_dumpb(exception))
+    return json_loads(json_dumpb(data))
 
-    enc = get_encryption()
-    if enc:
-        exception_dict = (
-            await encrypt_json_if_needed(exception_dict, enc, "thread", field="error")
-            or exception_dict
-        )
 
-    return json_dumpb(exception_dict)
+async def _encrypt_thread_field(
+    data: BaseException | dict[str, Any] | None, field_name: str
+) -> dict[str, Any] | None:
+    """Apply encryption to a thread field (AES mode only)
+
+    Encryption is handled by the gRPC server for custom encryption,
+    but not for AES encryption."""
+    from langgraph_api.encryption.middleware import encrypt_json_if_needed
+    from langgraph_api.encryption.shared import using_custom_encryption
+
+    if isinstance(data, BaseException):
+        data = {"error": type(data).__name__, "message": str(data)}
+    if using_custom_encryption() or data is None:
+        return data
+    if not (enc := get_encryption()):
+        return data
+
+    return await encrypt_json_if_needed(
+        _serialize_for_encryption(data), enc, "thread", field=field_name
+    )
 
 
 async def _thread_status_checkpoint_to_proto(
@@ -282,21 +300,15 @@ async def _thread_status_checkpoint_to_proto(
         for t in checkpoint.get("tasks", [])
         if t.get("interrupts")
     }
-
-    # Encrypt if encryption is enabled
-    enc = get_encryption()
-    if enc:
-        if values:
-            values = await encrypt_json_if_needed(values, enc, "thread", field="values")
-        if interrupts:
-            interrupts = await encrypt_json_if_needed(
-                interrupts, enc, "thread", field="interrupts"
-            )
+    encrypted_interrupts, encrypted_values = await asyncio.gather(
+        _encrypt_thread_field(interrupts, "interrupts"),
+        _encrypt_thread_field(values, "values"),
+    )
 
     return pb.ThreadStatusCheckpoint(
-        values_json=json_dumpb(values),
+        values_json=json_dumpb(encrypted_values),
         next=list(checkpoint.get("next", [])),
-        interrupts_json=json_dumpb(interrupts),
+        interrupts_json=json_dumpb(encrypted_interrupts),
     )
 
 
@@ -466,7 +478,7 @@ class Threads(Authenticated):
         conn,  # Not used
         thread_id: UUID | str,
         ctx: Auth.types.BaseAuthContext | None = None,
-        filters: Auth.types.FilterType | None = None,
+        filters: Auth.types.FilterType | list[pb.AuthFilter] | None = None,
         include_ttl: bool = False,
     ) -> AsyncIterator[Thread]:  # type: ignore[return-value]
         """Get a thread by ID.
@@ -475,7 +487,9 @@ class Threads(Authenticated):
             conn: Not used (required for interface compatibility)
             thread_id: Thread ID
             ctx: Auth context
-            filters: Additional auth filters to merge with auth context filters
+            filters: Additional auth filters to merge with auth context filters.
+                     Accepts either raw dict filters (FilterType) or pre-processed
+                     proto filters (list[pb.AuthFilter]).
             include_ttl: Not yet supported in gRPC - parameter ignored.
         """
         auth_filters = await Threads.handle_event(
@@ -484,7 +498,12 @@ class Threads(Authenticated):
         # Merge auth filters with any additional parent filters provided.
         # (Parent filters take precedence.)
         if filters:
-            auth_filters = {**(auth_filters or {}), **(filters or {})}
+            if isinstance(filters, list):
+                # Already proto format
+                auth_filters = (auth_filters or []) + filters
+            else:
+                # Raw dict format, convert to proto
+                auth_filters = (auth_filters or []) + _filters_to_proto(filters)
 
         request = pb.GetThreadRequest(
             thread_id=pb.UUID(value=_normalize_uuid(thread_id)),
@@ -527,6 +546,7 @@ class Threads(Authenticated):
             filters=auth_filters,
             if_exists=map_if_exists(if_exists),
             metadata_json=json_dumpb_optional(metadata),
+            encryption_context=build_encryption_context("thread"),
         )
         ttl_config = ttl if ttl is not None else THREAD_TTL
         mapped_ttl_config = _map_thread_ttl(ttl_config)
@@ -566,6 +586,7 @@ class Threads(Authenticated):
             thread_id=pb.UUID(value=_normalize_uuid(thread_id)),
             filters=auth_filters,
             metadata_json=json_dumpb_optional(metadata),
+            encryption_context=build_encryption_context("thread"),
         )
 
         ttl_config = _map_thread_ttl(ttl)
@@ -743,9 +764,9 @@ class Threads(Authenticated):
             request_kwargs["checkpoint"] = checkpoint_proto
 
         # Map exception to JSON bytes (with optional encryption)
-        exception_json = await _serialize_exception(exception)
-        if exception_json is not None:
-            request_kwargs["exception_json"] = exception_json
+        encrypted_exception = await _encrypt_thread_field(exception, "error")
+        if encrypted_exception:
+            request_kwargs["exception_json"] = json_dumpb(encrypted_exception)
 
         # Map expected_status to enum values
         if expected_status:
@@ -758,6 +779,10 @@ class Threads(Authenticated):
                     status_enums.append(mapped)
             if status_enums:
                 request_kwargs["expected_status"] = status_enums
+
+        enc_ctx = build_encryption_context("thread")
+        if enc_ctx is not None:
+            request_kwargs["encryption_context"] = enc_ctx
 
         client = await get_shared_client()
         await client.threads.SetStatus(pb.SetThreadStatusRequest(**request_kwargs))
@@ -801,9 +826,13 @@ class Threads(Authenticated):
             request_kwargs["checkpoint"] = checkpoint_proto
 
         # Map exception to JSON bytes
-        exception_json = await _serialize_exception(exception)
-        if exception_json is not None:
-            request_kwargs["exception_json"] = exception_json
+        encrypted_exception = await _encrypt_thread_field(exception, "error")
+        if encrypted_exception:
+            request_kwargs["exception_json"] = json_dumpb(encrypted_exception)
+
+        enc_ctx = build_encryption_context("thread")
+        if enc_ctx is not None:
+            request_kwargs["encryption_context"] = enc_ctx
 
         client = await get_shared_client()
         await client.threads.SetJointStatus(
@@ -1022,7 +1051,7 @@ class Threads(Authenticated):
                         "state": state_snapshot_to_thread_state(state),
                         "thread_id": str(thread_id),
                     }
-                    await Runs.Stream.publish(
+                    await ApiRuns.Stream.publish(
                         "*",
                         "state_update",
                         json_dumpb(event_data),
@@ -1122,7 +1151,7 @@ class Threads(Authenticated):
                         "state": state_snapshot_to_thread_state(state),
                         "thread_id": str(thread_id),
                     }
-                    await Runs.Stream.publish(
+                    await ApiRuns.Stream.publish(
                         "*",
                         "state_update",
                         json_dumpb(event_data),

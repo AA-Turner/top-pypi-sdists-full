@@ -33,6 +33,56 @@ from anyscale.sdk.anyscale_client.models import ClusterComputeConfig
 # to match the instance type hardware.
 UNSCHEDULABLE_RESOURCES = Resources(cpu=0, gpu=0)
 
+# Label key for accelerator type (used by Ray for GPU/TPU scheduling)
+RAY_ACCELERATOR_TYPE_LABEL = "ray.io/accelerator-type"
+
+
+def _validate_no_tpu_on_vm_stack(
+    node_config: Union[HeadNodeConfig, WorkerNodeGroupConfig],
+    compute_stack: str,
+    node_name: str,
+) -> None:
+    """Raise error if TPU resources are specified on a VM stack.
+
+    TPU free pod shapes are only supported on Kubernetes (GKE) stacks.
+    For VM stacks, users must use GPU or specify explicit instance types.
+
+    Args:
+        node_config: The head or worker node configuration to validate.
+        compute_stack: The compute stack type ("VM" or "KUBERNETES").
+        node_name: Name of the node group for error messages.
+
+    Raises:
+        ValueError: If TPU resources are specified on a VM stack.
+    """
+    if compute_stack != "VM":
+        return
+
+    pr = node_config.required_resources
+    if pr is None:
+        return
+
+    # Check for TPU count or hosts in required_resources
+    has_tpu = (pr.TPU is not None and pr.TPU > 0) or (
+        pr.tpu_hosts is not None and pr.tpu_hosts > 0
+    )
+
+    # Check for TPU accelerator type in accelerator field or labels
+    accel = pr.accelerator or ""
+    if not accel:
+        if node_config.required_labels:
+            accel = node_config.required_labels.get(RAY_ACCELERATOR_TYPE_LABEL, "")
+        if not accel and node_config.labels:
+            accel = node_config.labels.get(RAY_ACCELERATOR_TYPE_LABEL, "")
+
+    has_tpu_accel = accel.upper().startswith("TPU") if accel else False
+
+    if has_tpu or has_tpu_accel:
+        raise ValueError(
+            f"Node group '{node_name}': TPU free pod shapes are not supported on VM stacks. "
+            f"For TPU workloads, please use a Kubernetes (GKE) cloud deployment, or switch to GPU resources."
+        )
+
 
 class PrivateComputeConfigSDK(BaseSDK):
     def _convert_resource_dict_to_api_model(
@@ -49,6 +99,46 @@ class PrivateComputeConfigSDK(BaseSDK):
             object_store_memory=resource_dict.pop("object_store_memory", None),
             custom_resources=resource_dict or None,
         )
+
+    def _validate_tpu_on_vm_stack(
+        self, cloud_id: str, compute_config: ComputeConfig
+    ) -> None:
+        """Validate that TPU resources are not used on VM stacks.
+
+        TPU free pod shapes are only supported on Kubernetes (GKE) cloud deployments.
+        This provides early validation before making backend API calls.
+
+        Args:
+            cloud_id: The cloud ID to look up the cloud resource.
+            compute_config: The compute config to validate.
+
+        Raises:
+            ValueError: If TPU resources are specified on a VM stack.
+        """
+        # Only validate if cloud_resource is specified (free pod shapes require this)
+        if not compute_config.cloud_resource:
+            return
+
+        # Look up the cloud resource to get its compute stack type
+        cloud_resource = self._client.get_cloud_resource_by_name(
+            cloud_id=cloud_id, cloud_resource_name=compute_config.cloud_resource
+        )
+        if not cloud_resource or not cloud_resource.compute_stack:
+            return
+
+        compute_stack = str(cloud_resource.compute_stack).upper()
+
+        # Validate head node
+        if compute_config.head_node:
+            _validate_no_tpu_on_vm_stack(
+                compute_config.head_node, compute_stack, "head_node"
+            )
+
+        # Validate worker nodes
+        if compute_config.worker_nodes:
+            for worker in compute_config.worker_nodes:
+                node_name = worker.name or worker.instance_type or "worker"
+                _validate_no_tpu_on_vm_stack(worker, compute_stack, node_name)
 
     def _convert_head_node_config_to_api_model(
         self,
@@ -98,7 +188,14 @@ class PrivateComputeConfigSDK(BaseSDK):
                 # To add support for new fields, just add them to this list
                 pr_kwargs = {
                     field: pr_dict[field]
-                    for field in ["cpu", "gpu", "memory", "accelerator", "tpu",]
+                    for field in [
+                        "cpu",
+                        "gpu",
+                        "memory",
+                        "accelerator",
+                        "tpu",
+                        "cpu_architecture",
+                    ]
                     if field in pr_dict
                 }
                 # Handle tpu_hosts which maps to anyscale_tpu_hosts in the API
@@ -146,7 +243,14 @@ class PrivateComputeConfigSDK(BaseSDK):
                 # To add support for new fields, just add them to this list
                 pr_kwargs = {
                     field: pr_dict[field]
-                    for field in ["cpu", "gpu", "memory", "accelerator", "tpu",]
+                    for field in [
+                        "cpu",
+                        "gpu",
+                        "memory",
+                        "accelerator",
+                        "tpu",
+                        "cpu_architecture",
+                    ]
                     if field in pr_dict
                 }
                 # Handle tpu_hosts which maps to anyscale_tpu_hosts in the API
@@ -246,6 +350,9 @@ class PrivateComputeConfigSDK(BaseSDK):
         # Returns the default cloud if user-provided cloud is not specified (`None`).
         cloud_id = self.client.get_cloud_id(cloud_name=compute_config.cloud)  # type: ignore
 
+        # Validate TPU not used on VM stacks (early validation before API call)
+        self._validate_tpu_on_vm_stack(cloud_id, compute_config)
+
         deployment_config = self._convert_single_deployment_compute_config_to_api_model(
             cloud_id, compute_config
         )
@@ -280,8 +387,13 @@ class PrivateComputeConfigSDK(BaseSDK):
         # Returns the default cloud if user-provided cloud is not specified (`None`).
         cloud_id = self.client.get_cloud_id(cloud_name=compute_config.cloud)  # type: ignore
 
-        # Convert each compute config to the CloudDeploymentComputeConfig API model.
+        # Validate TPU not used on VM stacks for each config (early validation)
         assert compute_config.configs
+        for config in compute_config.configs:
+            assert isinstance(config, ComputeConfig)
+            self._validate_tpu_on_vm_stack(cloud_id, config)
+
+        # Convert each compute config to the CloudDeploymentComputeConfig API model.
         deployment_configs = []
         for config in compute_config.configs:
             assert isinstance(config, ComputeConfig)

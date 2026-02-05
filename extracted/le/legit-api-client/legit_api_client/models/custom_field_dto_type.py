@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from legit_api_client.models.custom_field_identity_type_dto import CustomFieldIdentityTypeDto
     from legit_api_client.models.custom_field_number_type_dto import CustomFieldNumberTypeDto
     from legit_api_client.models.custom_field_text_type_dto import CustomFieldTextTypeDto
+    from legit_api_client.models.custom_field_ticket_template_type_dto import CustomFieldTicketTemplateTypeDto
 
 class CustomFieldDtoType(BaseModel):
     """
@@ -53,7 +54,7 @@ class CustomFieldDtoType(BaseModel):
 
     # discriminator mappings
     __discriminator_value_class_map: ClassVar[Dict[str, str]] = {
-        'CustomFieldBoolTypeDto': 'CustomFieldBoolTypeDto','CustomFieldDateTypeDto': 'CustomFieldDateTypeDto','CustomFieldFileTypeDto': 'CustomFieldFileTypeDto','CustomFieldIdentityTypeDto': 'CustomFieldIdentityTypeDto','CustomFieldNumberTypeDto': 'CustomFieldNumberTypeDto','CustomFieldTextTypeDto': 'CustomFieldTextTypeDto'
+        'CustomFieldBoolTypeDto': 'CustomFieldBoolTypeDto','CustomFieldDateTypeDto': 'CustomFieldDateTypeDto','CustomFieldFileTypeDto': 'CustomFieldFileTypeDto','CustomFieldIdentityTypeDto': 'CustomFieldIdentityTypeDto','CustomFieldNumberTypeDto': 'CustomFieldNumberTypeDto','CustomFieldTextTypeDto': 'CustomFieldTextTypeDto','CustomFieldTicketTemplateTypeDto': 'CustomFieldTicketTemplateTypeDto'
     }
 
     @classmethod
@@ -75,7 +76,7 @@ class CustomFieldDtoType(BaseModel):
         return json.dumps(self.to_dict())
 
     @classmethod
-    def from_json(cls, json_str: str) -> Optional[Union[CustomFieldBoolTypeDto, CustomFieldDateTypeDto, CustomFieldFileTypeDto, CustomFieldIdentityTypeDto, CustomFieldNumberTypeDto, CustomFieldTextTypeDto]]:
+    def from_json(cls, json_str: str) -> Optional[Union[CustomFieldBoolTypeDto, CustomFieldDateTypeDto, CustomFieldFileTypeDto, CustomFieldIdentityTypeDto, CustomFieldNumberTypeDto, CustomFieldTextTypeDto, CustomFieldTicketTemplateTypeDto]]:
         """Create an instance of CustomFieldDtoType from a JSON string"""
         return cls.from_dict(json.loads(json_str))
 
@@ -102,7 +103,7 @@ class CustomFieldDtoType(BaseModel):
         return _dict
 
     @classmethod
-    def from_dict(cls, obj: Dict[str, Any]) -> Optional[Union[CustomFieldBoolTypeDto, CustomFieldDateTypeDto, CustomFieldFileTypeDto, CustomFieldIdentityTypeDto, CustomFieldNumberTypeDto, CustomFieldTextTypeDto]]:
+    def from_dict(cls, obj: Dict[str, Any]) -> Optional[Union[CustomFieldBoolTypeDto, CustomFieldDateTypeDto, CustomFieldFileTypeDto, CustomFieldIdentityTypeDto, CustomFieldNumberTypeDto, CustomFieldTextTypeDto, CustomFieldTicketTemplateTypeDto]]:
         """Create an instance of CustomFieldDtoType from a dict"""
         # look up the object type based on discriminator mapping
         object_type = cls.get_discriminator_value(obj)
@@ -118,6 +119,8 @@ class CustomFieldDtoType(BaseModel):
             return import_module("legit_api_client.models.custom_field_number_type_dto").CustomFieldNumberTypeDto.from_dict(obj)
         if object_type ==  'CustomFieldTextTypeDto':
             return import_module("legit_api_client.models.custom_field_text_type_dto").CustomFieldTextTypeDto.from_dict(obj)
+        if object_type ==  'CustomFieldTicketTemplateTypeDto':
+            return import_module("legit_api_client.models.custom_field_ticket_template_type_dto").CustomFieldTicketTemplateTypeDto.from_dict(obj)
 
         raise ValueError("CustomFieldDtoType failed to lookup discriminator value from " +
                             json.dumps(obj) + ". Discriminator property name: " + cls.__discriminator_property_name +

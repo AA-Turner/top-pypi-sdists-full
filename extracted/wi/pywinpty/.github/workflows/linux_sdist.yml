@@ -18,14 +18,8 @@ jobs:
                 PYTHON_VERSION: ["3.11"]
         steps:
           - name: Checkout branch
-            uses: actions/checkout@v5
-          - name: Install latest Rust stable
-            uses: actions-rs/toolchain@v1
-            with:
-              toolchain: stable
-              target: x86_64-pc-windows-msvc
-              override: true
-              components: rustfmt, clippy
+            uses: actions/checkout@v6
+
           - name: Install miniconda
             uses: conda-incubator/setup-miniconda@v3
             with:

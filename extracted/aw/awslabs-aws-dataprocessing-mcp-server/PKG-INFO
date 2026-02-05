@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.aws-dataprocessing-mcp-server
-Version: 0.1.21
+Version: 0.1.22
 Summary: An AWS Labs Model Context Protocol (MCP) server for dataprocessing
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/aws-dataprocessing-mcp-server/

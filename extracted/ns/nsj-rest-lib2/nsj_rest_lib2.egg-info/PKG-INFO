@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nsj_rest_lib2
-Version: 0.0.37
+Version: 0.0.38
 Summary: Biblioteca para permitir a distribuição de rotas dinâmicas numa API, configuradas por meio de EDLs declarativos (em formato JSON).
 Home-page: https://github.com/Nasajon/nsj_rest_lib2
 Author: Nasajon Sistemas

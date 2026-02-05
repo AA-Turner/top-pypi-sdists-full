@@ -10,12 +10,12 @@ from ._shared_client import get_shared_client
 
 def alphafold_get_prediction(
     qualifier: str,
-    sequence_checksum: str,
+    sequence_checksum: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> list[Any]:
+) -> Any:
     """
     Retrieve full AlphaFold 3D structure predictions for a given protein. IMPORTANT: The qualifier mu...
 
@@ -34,7 +34,7 @@ def alphafold_get_prediction(
 
     Returns
     -------
-    list[Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

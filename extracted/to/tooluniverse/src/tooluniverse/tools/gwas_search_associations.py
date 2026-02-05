@@ -1,7 +1,7 @@
 """
 gwas_search_associations
 
-Search for GWAS associations by various criteria including EFO trait, rs ID, accession ID, with s...
+Search for GWAS associations by various criteria including disease trait, rs ID, accession ID, wi...
 """
 
 from typing import Any, Optional, Callable
@@ -9,7 +9,8 @@ from ._shared_client import get_shared_client
 
 
 def gwas_search_associations(
-    efo_trait: Optional[str] = None,
+    disease_trait: Optional[str] = None,
+    efo_uri: Optional[str] = None,
     rs_id: Optional[str] = None,
     accession_id: Optional[str] = None,
     sort: Optional[str] = None,
@@ -22,12 +23,14 @@ def gwas_search_associations(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Search for GWAS associations by various criteria including EFO trait, rs ID, accession ID, with s...
+    Search for GWAS associations by various criteria including disease trait, rs ID, accession ID, wi...
 
     Parameters
     ----------
-    efo_trait : str
-        EFO trait identifier or name
+    disease_trait : str
+        Disease or trait name for text-based search (e.g., 'diabetes', 'coronary arte...
+    efo_uri : str
+        Full EFO ontology URI (e.g., 'http://www.ebi.ac.uk/efo/EFO_0001645')
     rs_id : str
         dbSNP rs identifier
     accession_id : str
@@ -57,7 +60,8 @@ def gwas_search_associations(
         {
             "name": "gwas_search_associations",
             "arguments": {
-                "efo_trait": efo_trait,
+                "disease_trait": disease_trait,
+                "efo_uri": efo_uri,
                 "rs_id": rs_id,
                 "accession_id": accession_id,
                 "sort": sort,

@@ -4,8 +4,9 @@
 import json
 import logging
 import uuid
-from typing import Optional
+from typing import Any, Optional
 
+from pyrit.identifiers import ScorerIdentifier
 from pyrit.models import Message, MessagePiece, Score, ScoreType
 from pyrit.prompt_target import PromptShieldTarget
 from pyrit.score.scorer_prompt_validator import ScorerPromptValidator
@@ -24,7 +25,6 @@ class PromptShieldScorer(TrueFalseScorer):
     """
 
     scorer_type: ScoreType
-    _conversation_id: str
     _prompt_shield_target: PromptShieldTarget
 
     _default_validator: ScorerPromptValidator = ScorerPromptValidator(supported_data_types=["text"])
@@ -45,11 +45,24 @@ class PromptShieldScorer(TrueFalseScorer):
             score_aggregator (TrueFalseAggregatorFunc): The aggregator function to use.
                 Defaults to TrueFalseScoreAggregator.OR.
         """
-        super().__init__(validator=validator or self._default_validator, score_aggregator=score_aggregator)
         self._prompt_target = prompt_shield_target
 
+        super().__init__(validator=validator or self._default_validator, score_aggregator=score_aggregator)
+
+    def _build_identifier(self) -> ScorerIdentifier:
+        """
+        Build the scorer evaluation identifier for this scorer.
+
+        Returns:
+            ScorerIdentifier: The identifier for this scorer.
+        """
+        return self._create_identifier(
+            prompt_target=self._prompt_target,
+            score_aggregator=self._score_aggregator.__name__,
+        )
+
     async def _score_piece_async(self, message_piece: MessagePiece, *, objective: Optional[str] = None) -> list[Score]:
-        self._conversation_id = str(uuid.uuid4())
+        conversation_id = str(uuid.uuid4())
 
         body = message_piece.original_value
 
@@ -59,7 +72,7 @@ class PromptShieldScorer(TrueFalseScorer):
                     role="user",
                     original_value=body,
                     prompt_metadata=message_piece.prompt_metadata,
-                    conversation_id=self._conversation_id,
+                    conversation_id=conversation_id,
                     prompt_target_identifier=self._prompt_target.get_identifier(),
                 )
             ]
@@ -100,13 +113,13 @@ class PromptShieldScorer(TrueFalseScorer):
         Returns:
             list[bool]: A list of boolean values indicating whether an attack was detected.
         """
-        response_json: dict = json.loads(response)
+        response_json: dict[str, Any] = json.loads(response)
 
         user_detections = []
         document_detections = []
 
         user_prompt_attack: dict[str, bool] = response_json.get("userPromptAnalysis", False)
-        documents_attack: list[dict] = response_json.get("documentsAnalysis", False)
+        documents_attack: list[dict[str, Any]] = response_json.get("documentsAnalysis", False)
 
         if not user_prompt_attack:
             user_detections = [False]

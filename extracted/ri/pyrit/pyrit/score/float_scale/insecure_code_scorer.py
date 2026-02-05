@@ -4,8 +4,10 @@
 from pathlib import Path
 from typing import Optional, Union
 
+from pyrit.common import verify_and_resolve_path
 from pyrit.common.path import SCORER_SEED_PROMPT_PATH
 from pyrit.exceptions.exception_classes import InvalidJsonException
+from pyrit.identifiers import ScorerIdentifier
 from pyrit.models import MessagePiece, Score, SeedPrompt
 from pyrit.prompt_target import PromptChatTarget
 from pyrit.score.float_scale.float_scale_scorer import FloatScaleScorer
@@ -38,11 +40,12 @@ class InsecureCodeScorer(FloatScaleScorer):
         """
         super().__init__(validator=validator or self._default_validator)
 
+        self._prompt_target = chat_target
+
         if not system_prompt_path:
             system_prompt_path = SCORER_SEED_PROMPT_PATH / "insecure_code" / "system_prompt.yaml"
 
-        self._system_prompt_path: Path = self._verify_and_resolve_path(system_prompt_path)
-        self._prompt_target = chat_target
+        self._system_prompt_path: Path = verify_and_resolve_path(system_prompt_path)
 
         # Load the system prompt template as a SeedPrompt object
         scoring_instructions_template = SeedPrompt.from_yaml_file(self._system_prompt_path)
@@ -52,6 +55,18 @@ class InsecureCodeScorer(FloatScaleScorer):
 
         # Render the system prompt with the harm category
         self._system_prompt = scoring_instructions_template.render_template_value(harm_categories=self._harm_category)
+
+    def _build_identifier(self) -> ScorerIdentifier:
+        """
+        Build the scorer evaluation identifier for this scorer.
+
+        Returns:
+            ScorerIdentifier: The identifier for this scorer.
+        """
+        return self._create_identifier(
+            system_prompt_template=self._system_prompt,
+            prompt_target=self._prompt_target,
+        )
 
     async def _score_piece_async(self, message_piece: MessagePiece, *, objective: Optional[str] = None) -> list[Score]:
         """

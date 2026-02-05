@@ -55,6 +55,11 @@ $ anyscale job archive -n my-job
 (anyscale +8.5s) Job prodjob_vzq2pvkzyz3c1jw55kl76h4dk1 is successfully archived.
 """
 
+JOB_DELETE_EXAMPLE = """\
+$ anyscale job delete -n my-job
+(anyscale +3.2s) Job 'my-job' (ID: prodjob_abc123) has been deleted.
+"""
+
 JOB_LOGS_EXAMPLE = """\
 $ anyscale job logs -n my-job
 2024-08-23 20:31:10,913 INFO job_manager.py:531 -- Runtime env is setting up.
@@ -182,6 +187,16 @@ Job queue 'my-queue' has been marked for termination.
 Query the status with `anyscale job-queue status --id jq_abc123`.
 """
 
+JOB_QUEUE_DELETE_EXAMPLE = """\
+$ anyscale job-queue delete --id jq_abc123
+Deleting job queue 'jq_abc123'...
+Job queue 'jq_abc123' has been deleted.
+
+$ anyscale job-queue delete --name my-queue --project my-project --cloud my-cloud
+Deleting job queue 'my-queue'...
+Job queue 'my-queue' has been deleted.
+"""
+
 SCHEDULE_APPLY_EXAMPLE = """\
 $ anyscale schedule apply -n my-schedule -f my-schedule.yaml
 (anyscale +0.5s) Applying schedule with config ScheduleConfig(job_config=JobConfig(name='my-schedule', image_uri=None, compute_config=None, env_vars=None, py_modules=None, cloud=None, project=None, ray_version=None, job_queue_config=None), cron_expression='0 0 * * * *', timezone='UTC').
@@ -234,6 +249,14 @@ SCHEDULE_URL_EXAMPLE = """\
 $ anyscale schedule url -n my-schedule
 Output
 (anyscale +2.3s) View your schedule at https://console.anyscale.com/scheduled-jobs/cronjob_7zj
+"""
+
+SCHEDULE_DELETE_EXAMPLE = """\
+$ anyscale schedule delete --id cronjob_vrjrbwcnfjjid7fsld3sfkn8jz
+(anyscale +2.3s) Schedule 'my-schedule' deleted.
+
+$ anyscale schedule delete --name my-schedule --cloud my-cloud --project my-project
+(anyscale +2.5s) Schedule 'my-schedule' deleted.
 """
 
 WORKSPACE_CREATE_EXAMPLE = """\

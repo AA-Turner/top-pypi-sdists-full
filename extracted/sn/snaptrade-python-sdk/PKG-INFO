@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: snaptrade-python-sdk
-Version: 11.0.158
+Version: 11.0.159
 Summary: Client for SnapTrade
 License: MIT
 Author: SnapTrade
@@ -30,7 +30,7 @@ Description-Content-Type: text/markdown
 Connect brokerage accounts to your app for live positions and trading
 
 
-[![PyPI](https://img.shields.io/badge/PyPI-v11.0.158-blue)](https://pypi.org/project/snaptrade-python-sdk/11.0.158)
+[![PyPI](https://img.shields.io/badge/PyPI-v11.0.159-blue)](https://pypi.org/project/snaptrade-python-sdk/11.0.159)
 [![README.md](https://img.shields.io/badge/README-Click%20Here-green)](https://github.com/passiv/snaptrade-sdks/tree/master/sdks/python#readme)
 [![More Info](https://img.shields.io/badge/More%20Info-Click%20Here-orange)](https://snaptrade.com/)
 
@@ -112,7 +112,7 @@ Python >=3.8
 ## Installation<a id="installation"></a>
 
 ```sh
-pip install snaptrade-python-sdk==11.0.158
+pip install snaptrade-python-sdk==11.0.159
 ```
 
 ## Getting Started<a id="getting-started"></a>
@@ -561,9 +561,9 @@ get_user_account_positions_response = (
 
 ### `snaptrade.account_information.get_user_account_recent_orders`<a id="snaptradeaccount_informationget_user_account_recent_orders"></a>
 
-A lightweight endpoint that returns a list of orders executed in the last 24 hours in the specified account.
+A lightweight endpoint that returns the latest page of orders placed in the last 24 hours in the specified account. For most brokerages, the default page size is 100 meaning the endpoint will return a max of 100 orders.
 This endpoint is realtime and can be used to quickly check if account state has recently changed due to an execution, or check status of recently placed orders
-Differs from /orders in that it is realtime, and only checks the last 24 hours as opposed to the last 30 days
+Differs from /orders in that it is always realtime, and only checks the last 24 hours
 By default only returns executed orders, but that can be changed by setting *only_executed* to false
 
 

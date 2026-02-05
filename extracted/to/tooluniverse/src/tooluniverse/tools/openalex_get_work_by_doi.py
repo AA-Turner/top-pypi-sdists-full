@@ -15,7 +15,7 @@ def openalex_get_work_by_doi(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Optional[dict[str, Any]]:
     """
     Get a single OpenAlex work (paper) by DOI. Provide a DOI string like "10.65215/2q58a426" (you can...
 
@@ -34,7 +34,7 @@ def openalex_get_work_by_doi(
 
     Returns
     -------
-    dict[str, Any]
+    Optional[dict[str, Any]]
     """
     # Handle mutable defaults to avoid B006 linting error
 

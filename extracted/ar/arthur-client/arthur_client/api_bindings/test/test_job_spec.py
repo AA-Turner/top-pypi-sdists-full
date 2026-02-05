@@ -35,7 +35,7 @@ class TestJobSpec(unittest.TestCase):
         model = JobSpec()
         if include_optional:
             return JobSpec(
-                job_type = 'test_custom_aggregation',
+                job_type = 'discover_agents',
                 dataset_id = '',
                 available_dataset_id = '',
                 start_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
@@ -74,6 +74,12 @@ class TestJobSpec(unittest.TestCase):
                             relevance_threshold = 1.337, 
                             use_llm_judge = True, ), )
                     ],
+                agent_metadata = arthur_client.api_bindings.models.agent_metadata.AgentMetadata(
+                    provider = 'gcp', 
+                    gcp_metadata = arthur_client.api_bindings.models.gcp_agent_metadata.GCPAgentMetadata(
+                        project_id = '', 
+                        region = '', 
+                        resource_id = '', ), ),
                 rules_to_enable = [
                     ''
                     ],
@@ -92,7 +98,11 @@ class TestJobSpec(unittest.TestCase):
                         config = null, )
                     ],
                 task_id = '',
-                test_custom_aggregation_id = ''
+                test_custom_aggregation_id = '',
+                workspace_id = '',
+                data_plane_id = '',
+                project_id = '',
+                lookback_hours = 56
             )
         else:
             return JobSpec(
@@ -133,6 +143,8 @@ class TestJobSpec(unittest.TestCase):
                     ],
                 task_id = '',
                 test_custom_aggregation_id = '',
+                workspace_id = '',
+                data_plane_id = '',
         )
         """
 

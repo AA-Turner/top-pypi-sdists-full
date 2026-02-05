@@ -46,6 +46,9 @@ from anyscale.client.openapi_client.models import (
     WriteProject,
 )
 from anyscale.client.openapi_client.models.create_schedule import CreateSchedule
+from anyscale.client.openapi_client.models.databricks_connection_info import (
+    DatabricksConnectionInfo,
+)
 from anyscale.client.openapi_client.models.decorated_application_template import (
     DecoratedApplicationTemplate,
 )
@@ -508,8 +511,17 @@ class AnyscaleClientInterface(ABC):
         job_id: Optional[str],
         cloud: Optional[str],
         project: Optional[str],
+        include_archived: bool = False,
     ) -> Optional[ProductionJob]:
         """Get a job by either name or id. Filter by cloud and project.
+
+        Args:
+            name: Name of the job (alternative to job_id).
+            job_id: Unique ID of the job. When provided, bypasses archive filtering.
+            cloud: Cloud filter (only used with name).
+            project: Project filter (only used with name).
+            include_archived: Include archived jobs when searching by name.
+                Ignored when using job_id.
 
         Returns None if not found.
         """
@@ -554,8 +566,18 @@ class AnyscaleClientInterface(ABC):
         count: Optional[int] = None,
         paging_token: Optional[str] = None,
         sorting_directives: Optional[List[JobQueueSortDirective]] = None,
+        include_archived: bool = False,
     ) -> DecoratedjobqueueListResponse:
-        """List job queues."""
+        """List job queues.
+
+        Args:
+            include_archived: If True, include archived job queues in the results.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete_job_queue(self, job_queue_id: str) -> None:
+        """Delete a job queue. Jobs previously submitted remain accessible."""
         raise NotImplementedError
 
     @abstractmethod
@@ -636,6 +658,11 @@ class AnyscaleClientInterface(ABC):
     @abstractmethod
     def archive_job(self, job_id: str):
         """Mark the job to be archived asynchronously."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete_job(self, job_id: str) -> None:
+        """Delete a job and all associated job runs."""
         raise NotImplementedError
 
     @abstractmethod
@@ -756,6 +783,11 @@ class AnyscaleClientInterface(ABC):
     def trigger_schedule(self, id: str):  # noqa: A002
         """Trigger a schedule with id.
         """
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete_schedule(self, schedule_id: str) -> None:
+        """Delete a schedule."""
         raise NotImplementedError
 
     @abstractmethod
@@ -1072,6 +1104,18 @@ class AnyscaleClientInterface(ABC):
         with post-migration permissions (user group only) and returns only
         the actual changes users will experience.
         """
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_databricks_connections(
+        self, *, name: Optional[str] = None
+    ) -> List[DatabricksConnectionInfo]:
+        """List Databricks connections."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_databricks_connection(self, connection_id: str) -> DatabricksConnectionInfo:
+        """Get a Databricks connection by ID."""
         raise NotImplementedError
 
     @abstractmethod

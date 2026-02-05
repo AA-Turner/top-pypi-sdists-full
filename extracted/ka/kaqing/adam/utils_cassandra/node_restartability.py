@@ -1,9 +1,10 @@
-from adam.commands.cql.utils_cql import cassandra
 from adam.commands.nodetool.utils_nodetools import NodeTools
 from adam.config import Config
 from adam.repl_state import ReplState
 from adam.utils import Color, log_timing
 from adam.utils_cassandra.address_table import AddressTable, NATError
+from adam.utils_cassandra.pod_service import cassandra
+from adam.utils_k8s.pods import strip_pod_name
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
@@ -164,7 +165,7 @@ class NodeRestartability:
         if self.downs:
             ip = sorted(list(self.downs.keys()))[0]
             if 'pod' in self.downs[ip]:
-                pod = self.downs[ip]['pod']
+                pod = strip_pod_name(self.downs[ip]['pod'])
 
                 if self.downs[ip]['status'] != 'UN':
                     return f'DN: {pod}'

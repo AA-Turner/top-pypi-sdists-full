@@ -20,7 +20,7 @@ def euhealthinfo_search_alcohol_tobacco_psychoactive_use(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> list[Any]:
+) -> Any:
     """
     This tool provides centralized access to datasets focused on substance usage, including alcohol, ...
 
@@ -49,7 +49,7 @@ def euhealthinfo_search_alcohol_tobacco_psychoactive_use(
 
     Returns
     -------
-    list[Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

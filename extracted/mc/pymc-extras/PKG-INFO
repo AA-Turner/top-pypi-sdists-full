@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymc-extras
-Version: 0.7.0
+Version: 0.8.0
 Summary: A home for new additions to PyMC, which may include unusual probability distribitions, advanced model fitting algorithms, or any code that may be inappropriate to include in the pymc repository, but may want to be made available to users.
 Project-URL: Documentation, https://pymc-extras.readthedocs.io/
 Project-URL: Repository, https://github.com/pymc-devs/pymc-extras.git
@@ -235,8 +235,8 @@ Requires-Python: >=3.11
 Requires-Dist: better-optimize>=0.1.5
 Requires-Dist: preliz>=0.20.0
 Requires-Dist: pydantic>=2.0.0
-Requires-Dist: pymc>=5.27.0
-Requires-Dist: pytensor>=2.36.3
+Requires-Dist: pymc>=5.27.1
+Requires-Dist: pytensor>=2.37.0
 Requires-Dist: scikit-learn
 Provides-Extra: complete
 Requires-Dist: dask[complete]<2025.1.1; extra == 'complete'

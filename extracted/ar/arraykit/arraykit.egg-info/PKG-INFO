@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arraykit
-Version: 1.2.0
+Version: 1.2.1
 Summary: Array utilities for StaticFrame
 Author: Christopher Ariza, Brandt Bucher, Charles Burkland
 License-Expression: MIT
@@ -63,6 +63,13 @@ ArrayKit requires the following:
 
 What is New in ArrayKit
 -------------------------
+
+
+1.2.1
+............
+
+Minor improvement in efficiency of string-to-float conversion in ``delimited_to_arrays()``.
+
 
 1.2.0
 ............

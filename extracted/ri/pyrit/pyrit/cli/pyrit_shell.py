@@ -39,10 +39,12 @@ class PyRITShell(cmd.Cmd):
     Shell Startup Options:
         --database <type>       Database type (InMemory, SQLite, AzureSQL) - default for all runs
         --log-level <level>     Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) - default for all runs
+        --env-files <path> ...  Environment files to load in order - default for all runs
 
     Run Command Options:
         --initializers <name> ...       Built-in initializers to run before the scenario
         --initialization-scripts <...>  Custom Python scripts to run before the scenario
+        --env-files <path> ...          Environment files to load in order (overrides startup default)
         --strategies, -s <s1> ...       Strategy names to use
         --max-concurrency <N>           Maximum concurrent operations
         --max-retries <N>               Maximum retry attempts
@@ -77,7 +79,7 @@ class PyRITShell(cmd.Cmd):
 ║                                                                                              ║
 ║  Quick Start:                                                                                ║
 ║    pyrit> list-scenarios                                                                     ║
-║    pyrit> run foundry_scenario --initializers openai_objective_target load_default_datasets  ║
+║    pyrit> run foundry --initializers openai_objective_target load_default_datasets           ║
 ║                                                                                              ║
 ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
 """
@@ -97,6 +99,7 @@ class PyRITShell(cmd.Cmd):
         self.context = context
         self.default_database = context._database
         self.default_log_level = context._log_level
+        self.default_env_files = context._env_files
 
         # Track scenario execution history: list of (command_string, ScenarioResult) tuples
         self._scenario_history: list[tuple[str, ScenarioResult]] = []
@@ -106,21 +109,19 @@ class PyRITShell(cmd.Cmd):
         self._init_complete = threading.Event()
         self._init_thread.start()
 
-    def _background_init(self):
+    def _background_init(self) -> None:
         """Initialize PyRIT modules in the background. This dramatically speeds up shell startup."""
-        import asyncio
-
         asyncio.run(self.context.initialize_async())
         self._init_complete.set()
 
-    def _ensure_initialized(self):
+    def _ensure_initialized(self) -> None:
         """Wait for initialization to complete if not already done."""
         if not self._init_complete.is_set():
             print("Waiting for PyRIT initialization to complete...")
             sys.stdout.flush()
             self._init_complete.wait()
 
-    def do_list_scenarios(self, arg):
+    def do_list_scenarios(self, arg: str) -> None:
         """List all available scenarios."""
         self._ensure_initialized()
         try:
@@ -128,7 +129,7 @@ class PyRITShell(cmd.Cmd):
         except Exception as e:
             print(f"Error listing scenarios: {e}")
 
-    def do_list_initializers(self, arg):
+    def do_list_initializers(self, arg: str) -> None:
         """List all available initializers."""
         self._ensure_initialized()
         try:
@@ -140,7 +141,7 @@ class PyRITShell(cmd.Cmd):
         except Exception as e:
             print(f"Error listing initializers: {e}")
 
-    def do_run(self, line):
+    def do_run(self, line: str) -> None:
         """
         Run a scenario.
 
@@ -150,6 +151,7 @@ class PyRITShell(cmd.Cmd):
         Options:
             --initializers <name> ...       Built-in initializers to run before the scenario
             --initialization-scripts <...>  Custom Python scripts to run before the scenario
+            --env-files <path> ...          Environment files to load in order
             --strategies, -s <s1> <s2> ...  Strategy names to use
             --max-concurrency <N>           Maximum concurrent operations
             --max-retries <N>               Maximum retry attempts
@@ -158,13 +160,13 @@ class PyRITShell(cmd.Cmd):
             --log-level <level>             Override default log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 
         Examples:
-            run garak.encoding_scenario --initializers openai_objective_target load_default_datasets
-            run garak.encoding_scenario --initializers custom_target load_default_datasets --strategies base64 rot13
-            run foundry_scenario --initializers openai_objective_target load_default_datasets --max-concurrency 10 --max-retries 3
-            run garak.encoding_scenario --initializers custom_target load_default_datasets --memory-labels '{"run_id":"test123","env":"dev"}'
-            run foundry_scenario --initializers openai_objective_target load_default_datasets -s jailbreak crescendo
-            run garak.encoding_scenario --initializers openai_objective_target load_default_datasets --database InMemory --log-level DEBUG
-            run foundry_scenario --initialization-scripts ./my_custom_init.py -s all
+            run garak.encoding --initializers openai_objective_target load_default_datasets
+            run garak.encoding --initializers custom_target load_default_datasets --strategies base64 rot13
+            run foundry --initializers openai_objective_target load_default_datasets --max-concurrency 10 --max-retries 3
+            run garak.encoding --initializers custom_target load_default_datasets --memory-labels '{"run_id":"test123","env":"dev"}'
+            run foundry --initializers openai_objective_target load_default_datasets -s jailbreak crescendo
+            run garak.encoding --initializers openai_objective_target load_default_datasets --database InMemory --log-level DEBUG
+            run foundry --initialization-scripts ./my_custom_init.py -s all
 
         Note:
             Every scenario requires an initializer (--initializers or --initialization-scripts).
@@ -192,7 +194,7 @@ class PyRITShell(cmd.Cmd):
                 f"  --log-level <level>             Override default log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"
             )
             print("\nExample:")
-            print("  run foundry_scenario --initializers openai_objective_target load_default_datasets")
+            print("  run foundry --initializers openai_objective_target load_default_datasets")
             print("\nType 'help run' for more details and examples")
             return
 
@@ -214,11 +216,24 @@ class PyRITShell(cmd.Cmd):
                 print(f"Error: {e}")
                 return
 
+        # Resolve env files if provided
+        resolved_env_files = None
+        if args["env_files"]:
+            try:
+                resolved_env_files = frontend_core.resolve_env_files(env_file_paths=args["env_files"])
+            except ValueError as e:
+                print(f"Error: {e}")
+                return
+        else:
+            # Use default env files from shell startup
+            resolved_env_files = self.default_env_files
+
         # Create a context for this run with overrides
         run_context = frontend_core.FrontendCore(
             database=args["database"] or self.default_database,
             initialization_scripts=resolved_scripts,
             initializer_names=args["initializers"],
+            env_files=resolved_env_files,
             log_level=args["log_level"] or self.default_log_level,
         )
         # Use the existing registries (don't reinitialize)
@@ -235,6 +250,8 @@ class PyRITShell(cmd.Cmd):
                     max_concurrency=args["max_concurrency"],
                     max_retries=args["max_retries"],
                     memory_labels=args["memory_labels"],
+                    dataset_names=args["dataset_names"],
+                    max_dataset_size=args["max_dataset_size"],
                 )
             )
             # Store the command and result in history
@@ -247,7 +264,7 @@ class PyRITShell(cmd.Cmd):
 
             traceback.print_exc()
 
-    def do_scenario_history(self, arg):
+    def do_scenario_history(self, arg: str) -> None:
         """
         Display history of scenario runs.
 
@@ -269,7 +286,7 @@ class PyRITShell(cmd.Cmd):
         print("\nUse 'print-scenario <number>' to view detailed results for a specific run.")
         print("Use 'print-scenario' to view detailed results for all runs.")
 
-    def do_print_scenario(self, arg):
+    def do_print_scenario(self, arg: str) -> None:
         """
         Print detailed results for scenario runs.
 
@@ -323,7 +340,7 @@ class PyRITShell(cmd.Cmd):
             except ValueError:
                 print(f"Error: Invalid scenario number '{arg}'. Must be an integer.")
 
-    def do_help(self, arg):
+    def do_help(self, arg: str) -> None:
         """Show help. Usage: help [command]."""
         if not arg:
             # Show general help
@@ -347,15 +364,15 @@ class PyRITShell(cmd.Cmd):
             print("  --initializers <name> [<name> ...]  (REQUIRED)")
             print(f"      {frontend_core.ARG_HELP['initializers']}")
             print("      Every scenario requires at least one initializer")
-            print("      Example: run foundry_scenario --initializers openai_objective_target load_default_datasets")
+            print("      Example: run foundry --initializers openai_objective_target load_default_datasets")
             print()
             print("  --initialization-scripts <path> [<path> ...]  (Alternative to --initializers)")
             print(f"      {frontend_core.ARG_HELP['initialization_scripts']}")
-            print("      Example: run foundry_scenario --initialization-scripts ./my_init.py")
+            print("      Example: run foundry --initialization-scripts ./my_init.py")
             print()
             print("  --strategies, -s <s1> [<s2> ...]")
             print(f"      {frontend_core.ARG_HELP['scenario_strategies']}")
-            print("      Example: run garak.encoding_scenario --strategies base64 rot13")
+            print("      Example: run garak.encoding --strategies base64 rot13")
             print()
             print("  --max-concurrency <N>")
             print(f"      {frontend_core.ARG_HELP['max_concurrency']}")
@@ -365,7 +382,7 @@ class PyRITShell(cmd.Cmd):
             print()
             print("  --memory-labels <JSON>")
             print(f"      {frontend_core.ARG_HELP['memory_labels']}")
-            print('      Example: run foundry_scenario --memory-labels \'{"env":"test"}\'')
+            print('      Example: run foundry --memory-labels \'{"env":"test"}\'')
             print()
             print("Start the shell like:")
             print("  pyrit_shell")
@@ -374,7 +391,7 @@ class PyRITShell(cmd.Cmd):
             # Show help for specific command
             super().do_help(arg)
 
-    def do_exit(self, arg):
+    def do_exit(self, arg: str) -> bool:
         """
         Exit the shell. Aliases: quit, q.
 
@@ -384,7 +401,7 @@ class PyRITShell(cmd.Cmd):
         print("\nGoodbye!")
         return True
 
-    def do_clear(self, arg):
+    def do_clear(self, arg: str) -> None:
         """Clear the screen."""
         import os
 
@@ -404,13 +421,8 @@ class PyRITShell(cmd.Cmd):
         """
         return False
 
-    def default(self, line):
-        """
-        Handle unknown commands and convert hyphens to underscores.
-
-        Returns:
-            None
-        """
+    def default(self, line: str) -> None:
+        """Handle unknown commands and convert hyphens to underscores."""
         # Try converting hyphens to underscores for command lookup
         parts = line.split(None, 1)
         if parts:
@@ -420,13 +432,14 @@ class PyRITShell(cmd.Cmd):
             if hasattr(self, method_name):
                 # Call the method with the rest of the line as argument
                 arg = parts[1] if len(parts) > 1 else ""
-                return getattr(self, method_name)(arg)
+                getattr(self, method_name)(arg)
+                return
 
         print(f"Unknown command: {line}")
         print("Type 'help' or '?' for available commands")
 
 
-def main():
+def main() -> int:
     """
     Entry point for pyrit_shell.
 
@@ -455,13 +468,30 @@ def main():
         help="Default logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) (default: WARNING, can be overridden per-run)",
     )
 
+    parser.add_argument(
+        "--env-files",
+        type=str,
+        nargs="+",
+        help="Environment files to load in order (default for all runs, can be overridden per-run)",
+    )
+
     args = parser.parse_args()
+
+    # Resolve env files if provided
+    env_files = None
+    if args.env_files:
+        try:
+            env_files = frontend_core.resolve_env_files(env_file_paths=args.env_files)
+        except ValueError as e:
+            print(f"Error: {e}")
+            return 1
 
     # Create context (initializers are specified per-run, not at startup)
     context = frontend_core.FrontendCore(
         database=args.database,
         initialization_scripts=None,
         initializer_names=None,
+        env_files=env_files,
         log_level=args.log_level,
     )
 

@@ -7,6 +7,7 @@ from typing_extensions import TypedDict, TypeGuard
 
 if TYPE_CHECKING:
     from ..items import TResponseInputItem
+    from .session_settings import SessionSettings
 
 
 @runtime_checkable
@@ -18,6 +19,7 @@ class Session(Protocol):
     """
 
     session_id: str
+    session_settings: SessionSettings | None = None
 
     async def get_items(self, limit: int | None = None) -> list[TResponseInputItem]:
         """Retrieve the conversation history for this session.
@@ -63,6 +65,7 @@ class SessionABC(ABC):
     """
 
     session_id: str
+    session_settings: SessionSettings | None = None
 
     @abstractmethod
     async def get_items(self, limit: int | None = None) -> list[TResponseInputItem]:
@@ -138,4 +141,10 @@ def is_openai_responses_compaction_aware_session(
     session: Session | None,
 ) -> TypeGuard[OpenAIResponsesCompactionAwareSession]:
     """Check if a session supports responses compaction."""
-    return isinstance(session, OpenAIResponsesCompactionAwareSession)
+    if session is None:
+        return False
+    try:
+        run_compaction = getattr(session, "run_compaction", None)
+    except Exception:
+        return False
+    return callable(run_compaction)

@@ -6,6 +6,8 @@ from collections.abc import (
 from typing import (
     Any,
     Literal,
+    Never,
+    Self,
     TypeAlias,
     final,
     overload,
@@ -17,7 +19,6 @@ from pandas.core.groupby.generic import SeriesGroupBy
 from pandas.core.groupby.groupby import BaseGroupBy
 from pandas.core.groupby.grouper import Grouper
 from pandas.core.series import Series
-from typing_extensions import Self
 
 from pandas._libs.tslibs.timedeltas import Timedelta
 from pandas._typing import (
@@ -92,13 +93,25 @@ class Resampler(BaseGroupBy[NDFrameT]):
     def nearest(self, limit: int | None = ...) -> NDFrameT: ...
     @final
     def bfill(self, limit: int | None = ...) -> NDFrameT: ...
+    @overload
     def interpolate(
         self,
         method: InterpolateOptions = ...,
         *,
         axis: Axis = ...,
         limit: int | None = ...,
-        inplace: Literal[False] = False,
+        limit_direction: Literal["forward", "backward", "both"] = ...,
+        limit_area: Literal["inside", "outside"] | None = ...,
+        inplace: bool,
+        **kwargs: Any,
+    ) -> Never: ...
+    @overload
+    def interpolate(
+        self,
+        method: InterpolateOptions = ...,
+        *,
+        axis: Axis = ...,
+        limit: int | None = ...,
         limit_direction: Literal["forward", "backward", "both"] = ...,
         limit_area: Literal["inside", "outside"] | None = ...,
         **kwargs: Any,

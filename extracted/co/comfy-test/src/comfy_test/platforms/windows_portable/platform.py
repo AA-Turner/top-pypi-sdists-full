@@ -247,11 +247,15 @@ class WindowsPortablePlatform(TestPlatform):
             custom_nodes_dir=custom_nodes_dir,
         )
 
-    def install_node(self, paths: TestPaths, node_dir: Path) -> None:
+    def install_node(self, paths: TestPaths, node_dir: Path, deps_installed: bool = False) -> None:
         """Install custom node into ComfyUI Portable."""
         node_dir = Path(node_dir).resolve()
         node_name = node_dir.name
         target_dir = paths.custom_nodes_dir / node_name
+
+        if deps_installed:
+            self._log("Skipping copy, requirements.txt, and install.py (--deps-installed)")
+            return
 
         self._log(f"Copying {node_name} to custom_nodes/...")
         if target_dir.exists():

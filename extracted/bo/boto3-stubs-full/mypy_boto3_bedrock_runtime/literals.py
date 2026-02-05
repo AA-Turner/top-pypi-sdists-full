@@ -56,6 +56,7 @@ __all__ = (
     "GuardrailWordPolicyActionType",
     "ImageFormatType",
     "ListAsyncInvokesPaginatorName",
+    "OutputFormatTypeType",
     "PaginatorName",
     "PerformanceConfigLatencyType",
     "ResourceServiceName",
@@ -153,6 +154,7 @@ GuardrailTraceType = Literal["disabled", "enabled", "enabled_full"]
 GuardrailWordPolicyActionType = Literal["BLOCKED", "NONE"]
 ImageFormatType = Literal["gif", "jpeg", "png", "webp"]
 ListAsyncInvokesPaginatorName = Literal["list_async_invokes"]
+OutputFormatTypeType = Literal["json_schema"]
 PerformanceConfigLatencyType = Literal["optimized", "standard"]
 ServiceTierTypeType = Literal["default", "flex", "priority", "reserved"]
 SortAsyncInvocationByType = Literal["SubmissionTime"]

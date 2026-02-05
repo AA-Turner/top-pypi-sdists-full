@@ -97,6 +97,7 @@ __all__ = (
     "CmafTimedMetadataId3FrameType",
     "CmafTimedMetadataPassthroughType",
     "ColorSpaceType",
+    "ConnectionModeType",
     "ContentTypeType",
     "DashRoleAudioType",
     "DashRoleCaptionType",
@@ -564,6 +565,7 @@ CmafNielsenId3BehaviorType = Literal["NO_PASSTHROUGH", "PASSTHROUGH"]
 CmafTimedMetadataId3FrameType = Literal["NONE", "PRIV", "TDRL"]
 CmafTimedMetadataPassthroughType = Literal["DISABLED", "ENABLED"]
 ColorSpaceType = Literal["HDR10", "HLG_2020", "REC_601", "REC_709"]
+ConnectionModeType = Literal["CALLER", "LISTENER"]
 ContentTypeType = Literal["image/jpeg"]
 DashRoleAudioType = Literal[
     "ALTERNATE",
@@ -865,6 +867,7 @@ InputTypeType = Literal[
     "SDI",
     "SMPTE_2110_RECEIVER_GROUP",
     "SRT_CALLER",
+    "SRT_LISTENER",
     "TS_FILE",
     "UDP_PUSH",
     "URL_PULL",

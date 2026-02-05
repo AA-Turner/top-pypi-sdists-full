@@ -126,6 +126,10 @@ class WorkflowStatus:
     queue_partition_key: Optional[str]
     # If this workflow was forked from another, that workflow's ID.
     forked_from: Optional[str]
+    # If this workflow was started as a child of another workflow, that workflow's ID.
+    parent_workflow_id: Optional[str]
+    # The UNIX epoch timestamp at which the workflow was last dequeued, if it had been enqueued
+    dequeued_at: Optional[int]
 
     # INTERNAL FIELDS
 
@@ -160,6 +164,8 @@ class WorkflowStatusInternal(TypedDict):
     inputs: str
     queue_partition_key: Optional[str]
     forked_from: Optional[str]
+    parent_workflow_id: Optional[str]
+    started_at_epoch_ms: Optional[int]
     owner_xid: Optional[str]
 
 
@@ -339,6 +345,7 @@ class SystemDatabase(ABC):
         serializer: Serializer,
         executor_id: Optional[str],
         use_listen_notify: bool = True,
+        notification_listener_polling_interval_sec: float = 1.0,
     ) -> "SystemDatabase":
         """Factory method to create the appropriate SystemDatabase implementation based on URL."""
         if system_database_url.startswith("sqlite"):
@@ -352,6 +359,7 @@ class SystemDatabase(ABC):
                 serializer=serializer,
                 executor_id=executor_id,
                 use_listen_notify=use_listen_notify,
+                notification_listener_polling_interval_sec=notification_listener_polling_interval_sec,
             )
         else:
             from ._sys_db_postgres import PostgresSystemDatabase
@@ -364,6 +372,7 @@ class SystemDatabase(ABC):
                 serializer=serializer,
                 executor_id=executor_id,
                 use_listen_notify=use_listen_notify,
+                notification_listener_polling_interval_sec=notification_listener_polling_interval_sec,
             )
 
     def __init__(
@@ -376,6 +385,7 @@ class SystemDatabase(ABC):
         serializer: Serializer,
         executor_id: Optional[str],
         use_listen_notify: bool = True,
+        notification_listener_polling_interval_sec: float = 1.0,
     ):
         import sqlalchemy.dialects.postgresql as pg
         import sqlalchemy.dialects.sqlite as sq
@@ -421,6 +431,9 @@ class SystemDatabase(ABC):
         self.notifications_map = ThreadSafeConditionDict()
         self.workflow_events_map = ThreadSafeConditionDict()
         self.executor_id = executor_id
+        self._notification_listener_polling_interval_sec = (
+            notification_listener_polling_interval_sec
+        )
 
         self._listener_thread_lock = threading.Lock()
 
@@ -509,6 +522,7 @@ class SystemDatabase(ABC):
                 priority=status["priority"],
                 inputs=status["inputs"],
                 queue_partition_key=status["queue_partition_key"],
+                parent_workflow_id=status["parent_workflow_id"],
                 owner_xid=owner_xid,
             )
             .on_conflict_do_update(
@@ -885,6 +899,8 @@ class SystemDatabase(ABC):
                     SystemSchema.workflow_status.c.inputs,
                     SystemSchema.workflow_status.c.queue_partition_key,
                     SystemSchema.workflow_status.c.forked_from,
+                    SystemSchema.workflow_status.c.parent_workflow_id,
+                    SystemSchema.workflow_status.c.started_at_epoch_ms,
                 ).where(SystemSchema.workflow_status.c.workflow_uuid == workflow_uuid)
             ).fetchone()
             if row is None:
@@ -914,6 +930,8 @@ class SystemDatabase(ABC):
                 "inputs": row[18],
                 "queue_partition_key": row[19],
                 "forked_from": row[20],
+                "parent_workflow_id": row[21],
+                "started_at_epoch_ms": row[22],
                 "owner_xid": None,
             }
             return status
@@ -977,31 +995,44 @@ class SystemDatabase(ABC):
         self,
         *,
         workflow_ids: Optional[List[str]] = None,
-        status: Optional[Union[str, List[str]]] = None,
+        status: Optional[str | list[str]] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
-        name: Optional[str] = None,
-        app_version: Optional[str] = None,
-        forked_from: Optional[str] = None,
-        user: Optional[str] = None,
-        queue_name: Optional[str] = None,
+        name: Optional[str | list[str]] = None,
+        app_version: Optional[str | list[str]] = None,
+        forked_from: Optional[str | list[str]] = None,
+        parent_workflow_id: Optional[str | list[str]] = None,
+        user: Optional[str | list[str]] = None,
+        queue_name: Optional[str | list[str]] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         sort_desc: bool = False,
-        workflow_id_prefix: Optional[str] = None,
+        workflow_id_prefix: Optional[str | list[str]] = None,
         load_input: bool = True,
         load_output: bool = True,
-        executor_id: Optional[str] = None,
+        executor_id: Optional[str | list[str]] = None,
         queues_only: bool = False,
     ) -> List[WorkflowStatus]:
         """
         Retrieve a list of workflows based on the search criteria.
         Returns a list of WorkflowStatus objects.
         """
-        # Normalize status to a list
-        status_list: Optional[List[str]] = (
-            status if status is None or isinstance(status, list) else [status]
-        )
+
+        # Normalize string-or-list parameters to lists
+        def _to_list(val: Optional[str | list[str]]) -> Optional[list[str]]:
+            if val is None:
+                return None
+            return val if isinstance(val, list) else [val]
+
+        status_list = _to_list(status)
+        name_list = _to_list(name)
+        app_version_list = _to_list(app_version)
+        forked_from_list = _to_list(forked_from)
+        parent_workflow_id_list = _to_list(parent_workflow_id)
+        user_list = _to_list(user)
+        queue_name_list = _to_list(queue_name)
+        executor_id_list = _to_list(executor_id)
+        prefix_list = _to_list(workflow_id_prefix)
 
         load_columns = [
             SystemSchema.workflow_status.c.workflow_uuid,
@@ -1025,6 +1056,8 @@ class SystemDatabase(ABC):
             SystemSchema.workflow_status.c.priority,
             SystemSchema.workflow_status.c.queue_partition_key,
             SystemSchema.workflow_status.c.forked_from,
+            SystemSchema.workflow_status.c.parent_workflow_id,
+            SystemSchema.workflow_status.c.started_at_epoch_ms,
         ]
         if load_input:
             load_columns.append(SystemSchema.workflow_status.c.inputs)
@@ -1046,11 +1079,11 @@ class SystemDatabase(ABC):
             query = query.order_by(SystemSchema.workflow_status.c.created_at.desc())
         else:
             query = query.order_by(SystemSchema.workflow_status.c.created_at.asc())
-        if name:
-            query = query.where(SystemSchema.workflow_status.c.name == name)
-        if user:
+        if name_list:
+            query = query.where(SystemSchema.workflow_status.c.name.in_(name_list))
+        if user_list:
             query = query.where(
-                SystemSchema.workflow_status.c.authenticated_user == user
+                SystemSchema.workflow_status.c.authenticated_user.in_(user_list)
             )
         if start_time:
             query = query.where(
@@ -1064,29 +1097,42 @@ class SystemDatabase(ABC):
             )
         if status_list:
             query = query.where(SystemSchema.workflow_status.c.status.in_(status_list))
-        if app_version:
+        if app_version_list:
             query = query.where(
-                SystemSchema.workflow_status.c.application_version == app_version
+                SystemSchema.workflow_status.c.application_version.in_(app_version_list)
             )
-        if forked_from:
+        if forked_from_list:
             query = query.where(
-                SystemSchema.workflow_status.c.forked_from == forked_from
+                SystemSchema.workflow_status.c.forked_from.in_(forked_from_list)
+            )
+        if parent_workflow_id_list:
+            query = query.where(
+                SystemSchema.workflow_status.c.parent_workflow_id.in_(
+                    parent_workflow_id_list
+                )
             )
         if workflow_ids:
             query = query.where(
                 SystemSchema.workflow_status.c.workflow_uuid.in_(workflow_ids)
             )
-        if workflow_id_prefix:
+        if prefix_list:
             query = query.where(
-                SystemSchema.workflow_status.c.workflow_uuid.startswith(
-                    workflow_id_prefix, autoescape=True
+                sa.or_(
+                    *[
+                        SystemSchema.workflow_status.c.workflow_uuid.startswith(
+                            p, autoescape=True
+                        )
+                        for p in prefix_list
+                    ]
                 )
             )
-        if queue_name:
-            query = query.where(SystemSchema.workflow_status.c.queue_name == queue_name)
-        if executor_id:
+        if queue_name_list:
             query = query.where(
-                SystemSchema.workflow_status.c.executor_id == executor_id
+                SystemSchema.workflow_status.c.queue_name.in_(queue_name_list)
+            )
+        if executor_id_list:
+            query = query.where(
+                SystemSchema.workflow_status.c.executor_id.in_(executor_id_list)
             )
         if limit:
             query = query.limit(limit)
@@ -1122,8 +1168,10 @@ class SystemDatabase(ABC):
             info.priority = row[18]
             info.queue_partition_key = row[19]
             info.forked_from = row[20]
+            info.parent_workflow_id = row[21]
+            info.dequeued_at = row[22]
 
-            idx = 21
+            idx = 23
             raw_input = row[idx] if load_input else None
             if load_input:
                 idx += 1
@@ -1602,8 +1650,8 @@ class SystemDatabase(ABC):
 
         while self._run_background_processes:
             try:
-                # Poll every second
-                time.sleep(1)
+                # Poll at the configured interval
+                time.sleep(self._notification_listener_polling_interval_sec)
 
                 # Check all payloads in the notifications_map
                 for payload in list(self.notifications_map._dict.keys()):
@@ -1640,7 +1688,7 @@ class SystemDatabase(ABC):
             except Exception as e:
                 if self._run_background_processes:
                     dbos_logger.warning(f"Notification poller error: {e}")
-                    time.sleep(1)
+                    time.sleep(self._notification_listener_polling_interval_sec)
 
     @staticmethod
     def reset_system_database(database_url: str) -> None:
@@ -2202,41 +2250,53 @@ class SystemDatabase(ABC):
             dbos_logger.error(f"Error connecting to the DBOS system database: {e}")
             raise
 
+    def _stream_insert_stmt(
+        self, workflow_uuid: str, function_id: int, key: str, serialized_value: str
+    ) -> sa.Insert:
+        """Build an atomic INSERT...SELECT that computes the next stream offset."""
+        return sa.insert(SystemSchema.streams).from_select(
+            ["workflow_uuid", "function_id", "key", "value", "offset"],
+            sa.select(
+                sa.literal(workflow_uuid).label("workflow_uuid"),
+                sa.literal(function_id).label("function_id"),
+                sa.literal(key).label("key"),
+                sa.literal(serialized_value).label("value"),
+                (
+                    sa.func.coalesce(
+                        sa.select(sa.func.max(SystemSchema.streams.c.offset))
+                        .where(
+                            SystemSchema.streams.c.workflow_uuid == workflow_uuid,
+                            SystemSchema.streams.c.key == key,
+                        )
+                        .correlate(None)
+                        .scalar_subquery(),
+                        -1,
+                    )
+                    + 1
+                ).label("offset"),
+            ),
+        )
+
     def write_stream_from_step(
         self, workflow_uuid: str, function_id: int, key: str, value: Any
     ) -> None:
         """
         Write a key-value pair to the stream at the first unused offset.
         """
-        with self.engine.begin() as c:
-            # Find the maximum offset for this workflow_uuid and key combination
-            max_offset_result = c.execute(
-                sa.select(sa.func.max(SystemSchema.streams.c.offset)).where(
-                    SystemSchema.streams.c.workflow_uuid == workflow_uuid,
-                    SystemSchema.streams.c.key == key,
+        stmt = self._stream_insert_stmt(
+            workflow_uuid, function_id, key, self.serializer.serialize(value)
+        )
+        while True:
+            try:
+                with self.engine.begin() as c:
+                    c.execute(stmt)
+                return
+            except sa.exc.IntegrityError:
+                dbos_logger.warning(
+                    f"Stream offset conflict for workflow {workflow_uuid}, key {key}; retrying"
                 )
-            ).fetchone()
-
-            # Next offset is max + 1, or 0 if no records exist
-            next_offset = (
-                (max_offset_result[0] + 1)
-                if max_offset_result is not None and max_offset_result[0] is not None
-                else 0
-            )
-
-            # Serialize the value before storing
-            serialized_value = self.serializer.serialize(value)
-
-            # Insert the new stream entry
-            c.execute(
-                sa.insert(SystemSchema.streams).values(
-                    workflow_uuid=workflow_uuid,
-                    function_id=function_id,
-                    key=key,
-                    value=serialized_value,
-                    offset=next_offset,
-                )
-            )
+                time.sleep(0.1)
+                continue
 
     @db_retry()
     def write_stream_from_workflow(
@@ -2251,54 +2311,42 @@ class SystemDatabase(ABC):
             else "DBOS.writeStream"
         )
         start_time = int(time.time() * 1000)
+        stmt = self._stream_insert_stmt(
+            workflow_uuid, function_id, key, self.serializer.serialize(value)
+        )
+        while True:
+            with self.engine.begin() as c:
 
-        with self.engine.begin() as c:
-
-            recorded_output = self._check_operation_execution_txn(
-                workflow_uuid, function_id, function_name, conn=c
-            )
-            if recorded_output is not None:
-                dbos_logger.debug(
-                    f"Replaying writeStream, id: {function_id}, key: {key}"
+                recorded_output = self._check_operation_execution_txn(
+                    workflow_uuid, function_id, function_name, conn=c
                 )
-                return
-            # Find the maximum offset for this workflow_uuid and key combination
-            max_offset_result = c.execute(
-                sa.select(sa.func.max(SystemSchema.streams.c.offset)).where(
-                    SystemSchema.streams.c.workflow_uuid == workflow_uuid,
-                    SystemSchema.streams.c.key == key,
+                if recorded_output is not None:
+                    dbos_logger.debug(
+                        f"Replaying writeStream, id: {function_id}, key: {key}"
+                    )
+                    return
+
+                try:
+                    c.execute(stmt)
+                except sa.exc.IntegrityError:
+                    dbos_logger.warning(
+                        f"Stream offset conflict for workflow {workflow_uuid}, key {key}; retrying"
+                    )
+                    time.sleep(0.1)
+                    continue
+
+                output: OperationResultInternal = {
+                    "workflow_uuid": workflow_uuid,
+                    "function_id": function_id,
+                    "function_name": function_name,
+                    "started_at_epoch_ms": start_time,
+                    "output": None,
+                    "error": None,
+                }
+                self._record_operation_result_txn(
+                    output, int(time.time() * 1000), conn=c
                 )
-            ).fetchone()
-
-            # Next offset is max + 1, or 0 if no records exist
-            next_offset = (
-                (max_offset_result[0] + 1)
-                if max_offset_result is not None and max_offset_result[0] is not None
-                else 0
-            )
-
-            # Serialize the value before storing
-            serialized_value = self.serializer.serialize(value)
-
-            # Insert the new stream entry
-            c.execute(
-                sa.insert(SystemSchema.streams).values(
-                    workflow_uuid=workflow_uuid,
-                    function_id=function_id,
-                    key=key,
-                    value=serialized_value,
-                    offset=next_offset,
-                )
-            )
-            output: OperationResultInternal = {
-                "workflow_uuid": workflow_uuid,
-                "function_id": function_id,
-                "function_name": function_name,
-                "started_at_epoch_ms": start_time,
-                "output": None,
-                "error": None,
-            }
-            self._record_operation_result_txn(output, int(time.time() * 1000), conn=c)
+            return
 
     def close_stream(self, workflow_uuid: str, function_id: int, key: str) -> None:
         """Write a sentinel value to the stream at the first unused offset to mark it as closed."""
@@ -2581,6 +2629,7 @@ class SystemDatabase(ABC):
                         SystemSchema.workflow_status.c.priority,
                         SystemSchema.workflow_status.c.queue_partition_key,
                         SystemSchema.workflow_status.c.forked_from,
+                        SystemSchema.workflow_status.c.parent_workflow_id,
                     ).where(SystemSchema.workflow_status.c.workflow_uuid == wf_id)
                 ).fetchone()
 
@@ -2613,6 +2662,7 @@ class SystemDatabase(ABC):
                     "priority": status_row[22],
                     "queue_partition_key": status_row[23],
                     "forked_from": status_row[24],
+                    "parent_workflow_id": status_row[25],
                 }
 
                 # Export operation_outputs
@@ -2756,6 +2806,7 @@ class SystemDatabase(ABC):
                         priority=status["priority"],
                         queue_partition_key=status["queue_partition_key"],
                         forked_from=status["forked_from"],
+                        parent_workflow_id=status.get("parent_workflow_id"),
                     )
                 )
 

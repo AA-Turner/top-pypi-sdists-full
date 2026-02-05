@@ -40,6 +40,7 @@ class JobKind(str, Enum):
     FETCH_MODEL_TASK = 'fetch_model_task'
     REGENERATE_TASK_VALIDATION_KEY = 'regenerate_task_validation_key'
     TEST_CUSTOM_AGGREGATION = 'test_custom_aggregation'
+    DISCOVER_AGENTS = 'discover_agents'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

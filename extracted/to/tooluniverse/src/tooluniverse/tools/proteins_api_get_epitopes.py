@@ -15,7 +15,7 @@ def proteins_api_get_epitopes(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
     Get epitope sequences for a protein. Returns B-cell and T-cell epitope information with antigenic...
 
@@ -34,7 +34,7 @@ def proteins_api_get_epitopes(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

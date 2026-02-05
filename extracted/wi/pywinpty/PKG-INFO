@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pywinpty
-Version: 3.0.2
+Version: 3.0.3
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: License :: OSI Approved :: MIT License
@@ -18,6 +18,8 @@ Author-email: andfoy@gmail.com
 Maintainer-email: Edgar Margffoy <andfoy@gmail.com>
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Changelog, https://github.com/andfoy/pywinpty/blob/main/CHANGELOG.md
+Project-URL: Repository, https://github.com/andfoy/pywinpty
 
 # PyWinpty: Pseudoterminals for Windows in Python
 

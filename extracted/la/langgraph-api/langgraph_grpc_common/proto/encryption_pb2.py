@@ -24,14 +24,14 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10\x65ncryption.proto\x12\nencryption\"\xbf\x01\n\x11\x45ncryptionContext\x12\x12\n\x05model\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x12\n\x05\x66ield\x18\x02 \x01(\tH\x01\x88\x01\x01\x12=\n\x08metadata\x18\x03 \x03(\x0b\x32+.encryption.EncryptionContext.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x0c:\x02\x38\x01\x42\x08\n\x06_modelB\x08\n\x06_field\"R\n\x12\x45ncryptJSONRequest\x12\x0c\n\x04\x64\x61ta\x18\x01 \x01(\x0c\x12.\n\x07\x63ontext\x18\x02 \x01(\x0b\x32\x1d.encryption.EncryptionContext\"^\n\x12\x44\x65\x63ryptJSONRequest\x12\x0c\n\x04\x64\x61ta\x18\x01 \x01(\x0c\x12\x12\n\x05\x66ield\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x12\n\x05model\x18\x03 \x01(\tH\x01\x88\x01\x01\x42\x08\n\x06_fieldB\x08\n\x06_model\"\x1f\n\x0f\x45ncryptResponse\x12\x0c\n\x04\x64\x61ta\x18\x01 \x01(\x0c\"\x1f\n\x0f\x44\x65\x63ryptResponse\x12\x0c\n\x04\x64\x61ta\x18\x01 \x01(\x0c\x32\xa4\x01\n\nEncryption\x12J\n\x0b\x45ncryptJSON\x12\x1e.encryption.EncryptJSONRequest\x1a\x1b.encryption.EncryptResponse\x12J\n\x0b\x44\x65\x63ryptJSON\x12\x1e.encryption.DecryptJSONRequest\x1a\x1b.encryption.DecryptResponseB?Z=github.com/langchain-ai/langgraph-api/core/internal/engine/pbb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10\x65ncryption.proto\x12\nencryption\"\xbf\x01\n\x11\x45ncryptionContext\x12\x12\n\x05model\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x12\n\x05\x66ield\x18\x02 \x01(\tH\x01\x88\x01\x01\x12=\n\x08metadata\x18\x03 \x03(\x0b\x32+.encryption.EncryptionContext.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x0c:\x02\x38\x01\x42\x08\n\x06_modelB\x08\n\x06_field\"R\n\x12\x45ncryptJSONRequest\x12\x0c\n\x04\x64\x61ta\x18\x01 \x01(\x0c\x12.\n\x07\x63ontext\x18\x02 \x01(\x0b\x32\x1d.encryption.EncryptionContext\"^\n\x12\x44\x65\x63ryptJSONRequest\x12\x0c\n\x04\x64\x61ta\x18\x01 \x01(\x0c\x12\x12\n\x05\x66ield\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x12\n\x05model\x18\x03 \x01(\tH\x01\x88\x01\x01\x42\x08\n\x06_fieldB\x08\n\x06_model\"\x1f\n\x0f\x45ncryptResponse\x12\x0c\n\x04\x64\x61ta\x18\x01 \x01(\x0c\"\x1f\n\x0f\x44\x65\x63ryptResponse\x12\x0c\n\x04\x64\x61ta\x18\x01 \x01(\x0c\x32\xa4\x01\n\nEncryption\x12J\n\x0b\x45ncryptJSON\x12\x1e.encryption.EncryptJSONRequest\x1a\x1b.encryption.EncryptResponse\x12J\n\x0b\x44\x65\x63ryptJSON\x12\x1e.encryption.DecryptJSONRequest\x1a\x1b.encryption.DecryptResponseBAZ?github.com/langchain-ai/langgraph-api/core/internal/core-api/pbb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'encryption_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
-  _globals['DESCRIPTOR']._serialized_options = b'Z=github.com/langchain-ai/langgraph-api/core/internal/engine/pb'
+  _globals['DESCRIPTOR']._serialized_options = b'Z?github.com/langchain-ai/langgraph-api/core/internal/core-api/pb'
   _globals['_ENCRYPTIONCONTEXT_METADATAENTRY']._loaded_options = None
   _globals['_ENCRYPTIONCONTEXT_METADATAENTRY']._serialized_options = b'8\001'
   _globals['_ENCRYPTIONCONTEXT']._serialized_start=33

@@ -20,7 +20,7 @@ def euhealthinfo_search_infectious_diseases(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> list[Any]:
+) -> Any:
     """
     This tool enables users to discover publicly available health-related datasets by searching and a...
 
@@ -49,7 +49,7 @@ def euhealthinfo_search_infectious_diseases(
 
     Returns
     -------
-    list[Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

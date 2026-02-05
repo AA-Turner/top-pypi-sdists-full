@@ -1,7 +1,7 @@
 """
 clinical_trials_get_details
 
-Retrieves comprehensive details about a specific clinical trial using its NCT ID.
+Retrieves comprehensive details about a specific clinical trial using its NCT ID. To find NCT IDs...
 """
 
 from typing import Any, Optional, Callable
@@ -17,7 +17,7 @@ def clinical_trials_get_details(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Retrieves comprehensive details about a specific clinical trial using its NCT ID.
+    Retrieves comprehensive details about a specific clinical trial using its NCT ID. To find NCT IDs...
 
     Parameters
     ----------

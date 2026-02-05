@@ -1,107 +1,274 @@
-[build-system]
-requires = [
-    "poetry",
-    # Starting with NumPy 1.25, NumPy is (by default) as far back compatible
-    # as oldest-support-numpy was (customizable with a NPY_TARGET_VERSION
-    # define).  For older Python versions (where NumPy 1.25 is not yet avaiable)
-    # continue using oldest-support-numpy.
-    "oldest-supported-numpy>=0.14; python_version<'3.9'",
-    "numpy>=1.25; python_version>='3.9'",
-]
-build-backend = "poetry.masonry.api"
-
-[tool.poetry]
+[project]
 name = "together"
-version = "1.5.35"
-authors = ["Together AI <support@together.ai>"]
-description = "Python client for Together's Cloud Platform! Note: SDK 2.0 is now available at https://github.com/togethercomputer/together-py"
-readme = "README.md"
+version = "2.0.0"
+description = "The official Python library for the together API"
+dynamic = ["readme"]
 license = "Apache-2.0"
+authors = [
+{ name = "Together", email = "dev-feedback@TogetherAI.com" },
+]
+
+dependencies = [
+  "httpx>=0.23.0, <1",
+  "pydantic>=1.9.0, <3",
+  "typing-extensions>=4.10, <5",
+  "anyio>=3.5.0, <5",
+  "distro>=1.7.0, <2",
+  "sniffio",
+  "click>=8.1.7",
+  "rich>=13.7.1",
+  "tabulate>=0.9.0",
+  "pillow>=10.4.0",
+  "types-tabulate>=0.9.0.20240106",
+  "tqdm>=4.67.1",
+  "types-tqdm>=4.67.0.20250516",
+  "filelock>=3.13.1",
+  "types-pyyaml>=6.0.12.20250915",
+  "tomli>=2.0.0; python_version < '3.11'",
+]
+
+requires-python = ">= 3.9"
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: Apache Software License",
-    "Operating System :: POSIX :: Linux",
+  "Typing :: Typed",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Operating System :: OS Independent",
+  "Operating System :: POSIX",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: Microsoft :: Windows",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "License :: OSI Approved :: Apache Software License"
 ]
-repository = "https://github.com/togethercomputer/together-python"
-homepage = "https://github.com/togethercomputer/together-python"
 
-[tool.poetry.dependencies]
-python = "^3.10"
-typer = ">=0.9,<0.20"
-requests = "^2.31.0"
-rich = ">=13.8.1,<15.0.0"
-tqdm = "^4.66.2"
-tabulate = "^0.9.0"
-pydantic = "^2.6.3"
-aiohttp = "^3.9.3"
-filelock = "^3.13.1"
-eval-type-backport = ">=0.1.3,<0.3.0"
-click = "^8.1.7"
-pyarrow = { version = ">=10.0.1", optional = true }
-numpy = [
-    { version = ">=1.23.5", python = "<3.12" },
-    { version = ">=1.26.0", python = ">=3.12" },
+[project.urls]
+Homepage = "https://github.com/togethercomputer/together-py"
+Repository = "https://github.com/togethercomputer/together-py"
+
+[project.optional-dependencies]
+aiohttp = ["aiohttp", "httpx_aiohttp>=0.1.9"]
+aiofiles = ["aiofiles>=25.0.0", "types-aiofiles"]
+pyarrow = ["pyarrow>=16.1.0", "pyarrow-stubs>=10.0.1.7"]
+cli = ["PyYAML"]
+
+[project.scripts]
+together = "together.lib.cli:main"
+
+[tool.uv]
+managed = true
+required-version = ">=0.9"
+conflicts = [
+    [
+      { group = "pydantic-v1" },
+      { group = "pydantic-v2" },
+    ],
 ]
-pillow = "^11.1.0"
-black = "^25.9.0"
 
-[tool.poetry.extras]
-pyarrow = ["pyarrow"]
+[dependency-groups]
+# version pins are in uv.lock
+dev = [
+    "pyright==1.1.399",
+    "mypy==1.17",
+    "respx",
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+    "time-machine",
+    "dirty-equals>=0.6.0",
+    "importlib-metadata>=6.7.0",
+    "rich>=13.7.1",
+    "pytest-xdist>=3.6.1",
+    "pytest-mock>=3.14.0",
+    "aiohttp>=3.12.13",
+]
+pydantic-v1 = [
+    "pydantic>=1.9.0,<2",
+]
+pydantic-v2 = [
+    "pydantic~=2.0 ; python_full_version < '3.14'",
+    "pydantic~=2.12 ; python_full_version >= '3.14'",
+]
 
-[tool.poetry.group.quality]
-optional = true
+[build-system]
+requires = ["hatchling==1.26.3", "hatch-fancy-pypi-readme"]
+build-backend = "hatchling.build"
 
-[tool.poetry.group.quality.dependencies]
-black = ">=23.1,<26.0"
-ruff = ">=0.3.2,<0.14.0"
-types-tqdm = "^4.65.0.0"
-types-tabulate = "^0.9.0.3"
-pre-commit = "4.3.0"
-types-requests = "^2.31.0.20240218"
-pyarrow-stubs = ">=10.0.1.7,<20240831.0.0.0"
-mypy = "^1.9.0"
+[tool.hatch.build]
+include = [
+  "src/*"
+]
 
-[tool.poetry.group.tests]
-optional = true
+[tool.hatch.build.targets.wheel]
+packages = ["src/together"]
 
-[tool.poetry.group.tests.dependencies]
-pytest = ">=7.4.2,<9.0.0"
-pytest-watch = "^4.2.0"
-pytest-mock = "^3.14.0"
-pytest-asyncio = "^0.24.0"
-tox = "^4.14.1"
+[tool.hatch.build.targets.sdist]
+# Basically everything except hidden files/directories (such as .github, .devcontainers, .python-version, etc)
+include = [
+  "/*.toml",
+  "/*.json",
+  "/*.lock",
+  "/*.md",
+  "/mypy.ini",
+  "/noxfile.py",
+  "bin/*",
+  "examples/*",
+  "src/*",
+  "tests/*",
+]
 
-[tool.poetry.group.examples]
-optional = true
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
 
-[tool.poetry.group.examples.dependencies]
-datasets = ">=2.18,<5.0"
-transformers = "^4.39.3"
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.md"
 
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+# replace relative links with absolute links
+pattern = '\[(.+?)\]\(((?!https?://)\S+?)\)'
+replacement = '[\1](https://github.com/togethercomputer/together-py/tree/main/\g<2>)'
 
-[tool.poetry.urls]
-"Homepage" = "https://github.com/togethercomputer/together-python"
-"Bug Tracker" = "https://github.com/togethercomputer/together-python/issues"
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--tb=short -n auto"
+xfail_strict = true
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+filterwarnings = [
+  "error"
+]
 
-[tool.poetry.scripts]
-together = "together.cli.cli:main"
+[tool.pyright]
+# this enables practically every flag given by pyright.
+# there are a couple of flags that are still disabled by
+# default in strict mode as they are experimental and niche.
+typeCheckingMode = "strict"
+pythonVersion = "3.9"
 
-[tool.black]
-target-version = ['py310']
+exclude = [
+    "_dev",
+    ".venv",
+    ".nox",
+    ".git",
+    "examples",
+]
 
-[tool.ruff.lint]
-# Never enforce `E501` (line length violations).
-ignore = ["C901", "E501", "E741", "W605"]
-select = ["C", "E", "F", "I", "W"]
+reportImplicitOverride = true
+reportOverlappingOverload = false
 
-# Ignore import violations in all `__init__.py` files.
-[tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["E402", "F401", "F403", "F811"]
-
-[tool.ruff.lint.isort]
-lines-after-imports = 2
-known-first-party = ["together"]
+reportImportCycles = false
+reportPrivateUsage = false
 
 [tool.mypy]
-strict = true
-mypy_path = "."
+pretty = true
+show_error_codes = true
+
+# Exclude _files.py because mypy isn't smart enough to apply
+# the correct type narrowing and as this is an internal module
+# it's fine to just use Pyright.
+#
+# We also exclude our `tests` as mypy doesn't always infer
+# types correctly and Pyright will still catch any type errors.
+exclude = ['src/together/_files.py', '_dev/.*.py', 'tests/.*']
+
+strict_equality = true
+implicit_reexport = true
+check_untyped_defs = true
+no_implicit_optional = true
+
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+
+# Turn these options off as it could cause conflicts
+# with the Pyright options.
+warn_unused_ignores = false
+warn_redundant_casts = false
+
+disallow_any_generics = true
+disallow_untyped_defs = true
+disallow_untyped_calls = true
+disallow_subclassing_any = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+cache_fine_grained = true
+
+# By default, mypy reports an error if you assign a value to the result
+# of a function call that doesn't return anything. We do this in our test
+# cases:
+# ```
+# result = ...
+# assert result is None
+# ```
+# Changing this codegen to make mypy happy would increase complexity
+# and would not be worth it.
+disable_error_code = "func-returns-value,overload-cannot-match"
+
+# https://github.com/python/mypy/issues/12162
+[[tool.mypy.overrides]]
+module = "black.files.*"
+ignore_errors = true
+ignore_missing_imports = true
+
+
+[tool.ruff]
+line-length = 120
+output-format = "grouped"
+target-version = "py38"
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+  # isort
+  "I",
+  # bugbear rules
+  "B",
+  # remove unused imports
+  "F401",
+  # check for missing future annotations
+  "FA102",
+  # bare except statements
+  "E722",
+  # unused arguments
+  "ARG",
+  # print statements
+  "T201",
+  "T203",
+  # misuse of typing.TYPE_CHECKING
+  "TC004",
+  # import rules
+  "TID251",
+]
+ignore = [
+  # mutable defaults
+  "B006",
+]
+unfixable = [
+  # disable auto fix for print statements
+  "T201",
+  "T203",
+]
+
+extend-safe-fixes = ["FA102"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"functools.lru_cache".msg = "This function does not retain type information for the wrapped function's arguments; The `lru_cache` function from `_utils` should be used instead"
+
+[tool.ruff.lint.isort]
+length-sort = true
+length-sort-straight = true
+combine-as-imports = true
+extra-standard-library = ["typing_extensions"]
+known-first-party = ["together", "tests"]
+
+[tool.ruff.lint.per-file-ignores]
+"bin/**.py" = ["T201", "T203"]
+"scripts/**.py" = ["T201", "T203"]
+"tests/**.py" = ["T201", "T203"]
+"examples/**.py" = ["T201", "T203"]

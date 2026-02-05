@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: stream-zip
-Version: 0.0.83
+Version: 0.0.84
 Summary: Python function to construct a ZIP archive with stream processing - without having to store the entire ZIP in memory or disk
 Project-URL: Documentation, https://stream-zip.docs.trade.gov.uk/
 Project-URL: Source, https://github.com/uktrade/stream-zip
@@ -12,11 +12,11 @@ Classifier: Topic :: System :: Archiving :: Compression
 Requires-Python: >=3.6.7
 Requires-Dist: pycryptodome>=3.10.1
 Provides-Extra: ci
-Requires-Dist: mypy==0.971; extra == 'ci'
+Requires-Dist: mypy>=0.971; extra == 'ci'
 Requires-Dist: pycryptodome==3.10.1; extra == 'ci'
 Requires-Dist: pyzipper==0.3.6; extra == 'ci'
 Requires-Dist: stream-unzip==0.0.86; extra == 'ci'
-Requires-Dist: types-contextvars==2.4.7.3; (python_version < '3.7') and extra == 'ci'
+Requires-Dist: types-contextvars>=2.4.7.3; (python_version < '3.9') and extra == 'ci'
 Provides-Extra: dev
 Requires-Dist: coverage>=6.2; extra == 'dev'
 Requires-Dist: mypy>=0.971; extra == 'dev'
@@ -42,7 +42,7 @@ To unZIP files on the fly try [stream-unzip](https://github.com/uktrade/stream-u
 <!-- --8<-- [start:features] -->
 ## Features
 
-In addition to being memory efficient (with some [limitations](https://stream-zip.docs.trade.gov.uk/get-started/#limitations)) stream-zip:
+In addition to being memory efficient (with some [limitations](https://stream-zip.docs.trade.gov.uk/get-started/limitations/)) stream-zip:
 
 - Constructs ZIP files that can be stream unzipped, for example by [stream-unzip](https://stream-unzip.docs.trade.gov.uk/)
 

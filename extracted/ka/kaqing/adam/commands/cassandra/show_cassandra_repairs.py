@@ -1,8 +1,7 @@
 from adam.commands import extract_trailing_options
 from adam.commands.command import Command
-from adam.commands.cql.utils_cql import cassandra
 from adam.repl_state import ReplState, RequiredState
-from adam.utils_context import Context
+from adam.utils_cassandra.pod_service import cassandra
 
 class ShowCassandraRepairs(Command):
     COMMAND = 'show repairs'

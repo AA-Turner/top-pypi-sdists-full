@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.amazon-keyspaces-mcp-server
-Version: 0.0.12
+Version: 0.0.13
 Summary: An Amazon Keyspaces (for Apache Cassandra) MCP server for interacting with Amazon Keyspaces and Apache Cassandra.
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/amazon-keyspaces-mcp-server/

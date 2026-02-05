@@ -1,9 +1,8 @@
 from adam.commands import extract_options, extract_sequence, extract_trailing_options
 from adam.commands.command import Command
-from adam.commands.cql.utils_cql import cassandra
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
-from adam.utils_context import Context
+from adam.utils_cassandra.table_renderer import renderer
 
 class ShowCassandraProcesses(Command):
     COMMAND = 'show processes'
@@ -37,7 +36,7 @@ class ShowCassandraProcesses(Command):
                             cols = Config().get('processes-mpstat.columns', 'pod,cpu,mem')
                             header = Config().get('processes-mpstat.header', 'POD_NAME,Q_CPU/TOTAL,MEM/LIMIT')
 
-                        with cassandra(state) as pods:
+                        with renderer(state) as pods:
                             pods.display_table(cols, header, find_issues=False, ctx=self.context().copy(background=background, show_verbose=verbose))
 
                         return state

@@ -288,7 +288,7 @@ class ExchangeCalendar(ABC):
             return GLOBAL_DEFAULT_END
         return min(GLOBAL_DEFAULT_END, bound_max)
 
-    def __init__(
+    def __init__(  # noqa: PLR0915  # can lose noqa post changes when min pandas bumps to 2.0
         self,
         start: Date | None = None,
         end: Date | None = None,
@@ -367,14 +367,27 @@ class ExchangeCalendar(ABC):
             _all_days, self._break_ends, _special_closes
         )
 
-        break_starts = None if self._break_starts is None else self._break_starts
-        break_ends = None if self._break_ends is None else self._break_ends
-        # NOTE can lose the if line when min supported version of pandas bumps to
-        # 2.0 (`as_unit`` introduced in pandas 2.0). Indeed could then remove the whole
-        # if clause and amend index parameter below to take `_all_days.as_unit("ns")`.
-        # NB pre v3.0 pandas infers resolution here as "ns", not so in v3.
+        break_starts = (
+            self._break_starts
+            if self._break_starts is not None
+            else pd.DatetimeIndex([np.nan] * len(_all_days), tz=UTC)
+        )
+        break_ends = (
+            self._break_ends
+            if self._break_ends is not None
+            else pd.DatetimeIndex([np.nan] * len(_all_days), tz=UTC)
+        )
+
+        # NOTE can lose this if line when min supported version of pandas bumps to
+        # 2.0 (`as_unit` introduced in pandas 2.0) and just dedent the content.
+        # NB pre v3.0 pandas infers resolution here as "ns", not so in v3 which would
+        # otherwise infer as "us".
         if pd.__version__ >= "3.0.0":
             _all_days = _all_days.as_unit("ns")
+            self._opens = self._opens.as_unit("ns")
+            self._closes = self._closes.as_unit("ns")
+            break_starts = break_starts.as_unit("ns")
+            break_ends = break_ends.as_unit("ns")
         self.schedule = pd.DataFrame(
             index=_all_days,
             data=collections.OrderedDict(
@@ -385,7 +398,6 @@ class ExchangeCalendar(ABC):
                     ("close", self._closes),
                 ]
             ),
-            dtype="datetime64[ns, UTC]",
         )
 
         self.opens_nanos = self.schedule.open.values.astype(np.int64)
@@ -2393,7 +2405,7 @@ class ExchangeCalendar(ABC):
             and does not have a time component (or any time component is
             00:00). Otherwise `start` will be interpreted as a time.
 
-            If `period` is one day ("1d") then `start` must be passed as
+            If `period` is one day ("1D") then `start` must be passed as
             a date. The first indice will be either `start`, if `start` is
             a session, or otherwise the nearest session following `start`.
 
@@ -2432,9 +2444,9 @@ class ExchangeCalendar(ABC):
 
             Examples of valid `period` input:
                 pd.Timedelta(minutes=15), pd.Timedelta(minutes=15, hours=2)
-                '15min', '15T', '1H', '4h', '1d', '30s', '2s', '500ms'.
+                '15min', '15T', '1H', '4h', '1D', '30s', '2s', '500ms'.
             Examples of invalid `period` input:
-                '15minutes', '2d'.
+                '15minutes', '2D'.
 
         intervals : default: True
             True to return trading index as a pd.IntervalIndex with indices
@@ -2444,11 +2456,11 @@ class ExchangeCalendar(ABC):
             indices that implicitely represent a period according to
             `closed`.
 
-            If `period` is '1d' then trading index will be returned as a
+            If `period` is '1D' then trading index will be returned as a
             pd.DatetimeIndex.
 
         closed : {"left", "right", "both", "neither"}
-            (ignored if `period` is '1d'.)
+            (ignored if `period` is '1D'.)
 
             If `intervals` is True, the side that intervals should be
             closed on. Must be either "left" or "right" (any time during a
@@ -2472,7 +2484,7 @@ class ExchangeCalendar(ABC):
 
         force_close : default: False
             (ignored if `force` is passed.)
-            (ignored if `period` is '1d')
+            (ignored if `period` is '1D')
             (irrelevant if `intervals` is False and `closed` is "left" or
             "neither")
 
@@ -2487,7 +2499,7 @@ class ExchangeCalendar(ABC):
 
         force_break_close : default: False
             (ignored if `force` is passed.)
-            (ignored if `period` is '1d'.)
+            (ignored if `period` is '1D'.)
             (irrelevant if `intervals` is False and `closed` is "left" or
             "neither.)
 
@@ -2501,7 +2513,7 @@ class ExchangeCalendar(ABC):
             non-trading period.
 
         force : optional
-            (ignored if `period` is '1d'.)
+            (ignored if `period` is '1D'.)
             (irrelevant if `intervals` is False and `closed` is "left" or
             "neither.)
 
@@ -2510,7 +2522,7 @@ class ExchangeCalendar(ABC):
             `force_close` and `force_break_close` will be ignored.
 
         curtail_overlaps : default: False
-            (ignored if `period` is '1d')
+            (ignored if `period` is '1D')
             (irrelevant if (`intervals` is False) or (`force_close` and
             `force_break_close` are both True).)
 
@@ -2527,7 +2539,7 @@ class ExchangeCalendar(ABC):
                 If False, will raise IntervalsOverlapError.
 
         ignore_breaks : default: False
-            (ignored if `period` is '1d')
+            (ignored if `period` is '1D')
             (irrelevant if no session has a break)
 
             Defines whether trading index should respect session breaks.
@@ -2592,7 +2604,7 @@ class ExchangeCalendar(ABC):
         pd.IntervalIndex or pd.DatetimeIndex
             Trading index.
 
-            If `intervals` is False or `period` is '1d' then returned as a
+            If `intervals` is False or `period` is '1D' then returned as a
                 pd.DatetimeIndex.
             If `intervals` is True (default) returned as pd.IntervalIndex.
 
@@ -2623,7 +2635,7 @@ class ExchangeCalendar(ABC):
                     f"`period` receieved as '{period}' although takes type"
                     " 'pd.Timedelta' or a 'str' that is valid as a single input"
                     " to 'pd.Timedelta'. Examples of valid input: pd.Timestamp('15T'),"
-                    " '15min', '15T', '1H', '4h', '1d', '5s', 500ms'."
+                    " '15min', '15T', '1H', '4h', '1D', '5s', 500ms'."
                 )
                 raise ValueError(msg) from None
 

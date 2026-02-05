@@ -16,7 +16,7 @@ def MGnify_search_studies(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
     Search MGnify metagenomics/microbiome studies by biome/keyword. Use to discover study accessions ...
 
@@ -37,7 +37,7 @@ def MGnify_search_studies(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

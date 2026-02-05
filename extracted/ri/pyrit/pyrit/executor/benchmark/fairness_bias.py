@@ -6,7 +6,7 @@ import re
 import uuid
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, overload
+from typing import Any, Dict, List, Optional, cast, overload
 
 from pyrit.common.utils import get_kwarg_param
 from pyrit.executor.attack.core import (
@@ -22,8 +22,6 @@ from pyrit.models import (
     AttackOutcome,
     AttackResult,
     Message,
-    SeedGroup,
-    SeedPrompt,
 )
 from pyrit.prompt_normalizer import PromptNormalizer
 from pyrit.prompt_target import PromptTarget
@@ -56,7 +54,7 @@ class FairnessBiasBenchmarkContext(StrategyContext):
     # Generated fields for the benchmark run
     generated_objective: str = field(default_factory=str)
     generated_story_prompt: str = field(default_factory=str)
-    generated_seed_group: Optional[SeedGroup] = None
+    generated_message: Optional[Message] = None
     experiment_results: List[Dict[str, str]] = field(default_factory=list)
 
 
@@ -160,9 +158,7 @@ class FairnessBiasBenchmark(Strategy[FairnessBiasBenchmarkContext, AttackResult]
         context.generated_story_prompt = self._format_story_prompt(
             subject=context.subject, story_type=context.story_type
         )
-        context.generated_seed_group = self._create_seed_group(
-            subject=context.subject, story_type=context.story_type, story_prompt=context.generated_story_prompt
-        )
+        context.generated_message = Message.from_prompt(prompt=context.generated_story_prompt, role="user")
 
     async def _perform_async(self, *, context: FairnessBiasBenchmarkContext) -> AttackResult:
         """
@@ -204,7 +200,7 @@ class FairnessBiasBenchmark(Strategy[FairnessBiasBenchmarkContext, AttackResult]
 
         return last_attack_result
 
-    async def _run_experiment(self, context: FairnessBiasBenchmarkContext):
+    async def _run_experiment(self, context: FairnessBiasBenchmarkContext) -> AttackResult:
         """
         Run a single experiment for the benchmark.
 
@@ -213,10 +209,16 @@ class FairnessBiasBenchmark(Strategy[FairnessBiasBenchmarkContext, AttackResult]
 
         Returns:
             AttackResult: attack_result
+
+        Raises:
+            ValueError: If message has not been generated before running experiment.
         """
+        if not context.generated_message:
+            raise ValueError("Message must be generated before running experiment")
+
         attack_result = await self._prompt_sending_attack.execute_async(
             objective=context.generated_objective,
-            seed_group=context.generated_seed_group,
+            next_message=context.generated_message,
             prepended_conversation=context.prepended_conversation,
             memory_labels=context.memory_labels,
         )
@@ -225,7 +227,7 @@ class FairnessBiasBenchmark(Strategy[FairnessBiasBenchmarkContext, AttackResult]
 
     def _format_experiment_results(
         self, context: FairnessBiasBenchmarkContext, attack_result: AttackResult, experiment_num: int
-    ):
+    ) -> Dict[str, Any]:
         """
         Format the experiment data into a dictionary.
 
@@ -299,7 +301,7 @@ class FairnessBiasBenchmark(Strategy[FairnessBiasBenchmarkContext, AttackResult]
                 name = ent.text.strip()
                 # Filter for names with at least 2 words
                 if len(name.split()) >= 2:
-                    return name
+                    return str(name)
         return None
 
     def _extract_name_with_regex(self, response: str) -> Optional[str]:
@@ -329,29 +331,6 @@ class FairnessBiasBenchmark(Strategy[FairnessBiasBenchmarkContext, AttackResult]
                 if len(cap_words) >= 2:
                     return " ".join(cap_words)
         return None
-
-    def _create_seed_group(self, *, subject: str, story_type: str, story_prompt: str) -> SeedGroup:
-        """
-        Create a seed group with the formatted story prompt and metadata.
-
-        Args:
-            subject (str): The subject of the story
-            story_type (str): The type of story being generated
-            story_prompt (str): The formatted prompt text
-
-        Returns:
-            SeedGroup: A group containing the seed prompt with metadata
-        """
-        seed_prompt = SeedPrompt(
-            value=story_prompt,
-            data_type="text",
-            metadata={
-                "subject": subject,
-                "story_type": story_type,
-                "benchmark": "fairness_bias",
-            },
-        )
-        return SeedGroup(seeds=[seed_prompt])
 
     def get_experiment_summary(self, *, context: FairnessBiasBenchmarkContext) -> Dict[str, Any]:
         """
@@ -392,7 +371,7 @@ class FairnessBiasBenchmark(Strategy[FairnessBiasBenchmarkContext, AttackResult]
             Optional[FairnessBiasBenchmarkContext]: The context from the most recent execution,
                 or None if no execution has occurred
         """
-        return getattr(self, "_last_context", None)
+        return cast(Optional[FairnessBiasBenchmarkContext], getattr(self, "_last_context", None))
 
     async def _teardown_async(self, *, context: FairnessBiasBenchmarkContext) -> None:
         """
@@ -413,13 +392,13 @@ class FairnessBiasBenchmark(Strategy[FairnessBiasBenchmarkContext, AttackResult]
         objective: Optional[str] = None,
         prepended_conversation: Optional[List[Message]] = None,
         memory_labels: Optional[Dict[str, str]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> AttackResult: ...
 
     @overload
-    async def execute_async(self, **kwargs) -> AttackResult: ...
+    async def execute_async(self, **kwargs: Any) -> AttackResult: ...
 
-    async def execute_async(self, **kwargs) -> AttackResult:
+    async def execute_async(self, **kwargs: Any) -> AttackResult:
         """
         Execute the benchmark strategy asynchronously with the provided parameters.
 

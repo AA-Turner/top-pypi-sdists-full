@@ -4,7 +4,7 @@ from rest_framework.reverse import reverse
 
 from wbcore.contrib.authentication.factories import UserFactory
 from wbcore.contrib.notifications.factories.notifications import (
-    NotificationModelFactory,
+    NotificationFactory,
 )
 from wbcore.contrib.notifications.models.notifications import Notification
 
@@ -109,7 +109,7 @@ class TestNotificationModelViewSet:
 
     @pytest.mark.parametrize("user__user_permissions", [(["notifications.change_notification"])])
     def test_read_all_action_other_notification(self, notification, client, user):
-        notification2 = NotificationModelFactory()
+        notification2 = NotificationFactory()
         assert notification.read is None
         assert notification2.read is None  # type: ignore
         client.force_authenticate(user)
@@ -121,7 +121,7 @@ class TestNotificationModelViewSet:
 
     @pytest.mark.parametrize("user__user_permissions", [(["notifications.change_notification"])])
     def test_delete_all_action(self, notification, client, user):
-        NotificationModelFactory(user=user, read=timezone.now())
+        NotificationFactory(user=user, read=timezone.now())
         assert Notification.objects.filter(user=user).count() == 2
 
         client.force_authenticate(user)
@@ -132,7 +132,7 @@ class TestNotificationModelViewSet:
     @pytest.mark.parametrize("user__user_permissions", [(["notifications.change_notification"])])
     def test_delete_all_action_other_notification(self, notification, client, user):
         user2 = UserFactory()
-        NotificationModelFactory(user=user2, read=timezone.now())
+        NotificationFactory(user=user2, read=timezone.now())
         notification.read = timezone.now()
         notification.save()
         assert Notification.objects.all().count() == 2

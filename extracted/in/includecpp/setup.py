@@ -6,7 +6,7 @@ long_description = (this_directory / "README.md").read_text(encoding="utf-8")
 
 setup(
     name="IncludeCPP",
-    version="4.9.9",
+    version="4.9.11",
     author="Lilias Hatterscheidt",
     author_email="lilias@includecpp.dev",
     description="Professional C++ Python bindings with type-generic templates and native threading",

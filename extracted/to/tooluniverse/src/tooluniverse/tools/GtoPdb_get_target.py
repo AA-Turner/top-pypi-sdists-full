@@ -14,7 +14,7 @@ def GtoPdb_get_target(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Optional[dict[str, Any]]:
     """
     Get detailed information about a specific pharmacological target by its GtoPdb target ID. Returns...
 
@@ -31,7 +31,7 @@ def GtoPdb_get_target(
 
     Returns
     -------
-    dict[str, Any]
+    Optional[dict[str, Any]]
     """
     # Handle mutable defaults to avoid B006 linting error
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.nova-canvas-mcp-server
-Version: 1.0.12
+Version: 1.0.13
 Summary: An AWS Labs Model Context Protocol (MCP) server for Amazon Nova Canvas
 Project-URL: Homepage, https://awslabs.github.io/mcp/
 Project-URL: Documentation, https://awslabs.github.io/mcp/servers/nova-mcp-server/

@@ -9,6 +9,8 @@ from anyscale.schedule._private.schedule_sdk import PrivateScheduleSDK
 from anyscale.schedule.commands import (
     _APPLY_ARG_DOCSTRINGS,
     _APPLY_EXAMPLE,
+    _DELETE_ARG_DOCSTRINGS,
+    _DELETE_EXAMPLE,
     _LIST_ARG_DOCSTRINGS as _LIST_ARG_DOCSTRINGS,
     _LIST_EXAMPLE as _LIST_EXAMPLE,
     _SET_STATE_ARG_DOCSTRINGS,
@@ -20,6 +22,7 @@ from anyscale.schedule.commands import (
     _URL_ARG_DOCSTRINGS,
     _URL_EXAMPLE,
     apply as apply,
+    delete as delete,
     list as list,  # noqa: A004
     set_state as set_state,
     status as status,
@@ -148,3 +151,20 @@ class ScheduleSDK:
             page_size=page_size,
             max_items=max_items,
         )
+
+    @sdk_docs(doc_py_example=_DELETE_EXAMPLE, arg_docstrings=_DELETE_ARG_DOCSTRINGS)
+    def delete(  # noqa: F811
+        self,
+        *,
+        id: Optional[str] = None,  # noqa: A002
+        name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+    ) -> str:
+        """Delete a schedule.
+
+        If the schedule is active, it will be automatically paused before deletion.
+        The schedule must have no active triggered jobs.
+        Returns the ID of the deleted schedule.
+        """
+        return self._private_sdk.delete(id=id, name=name, cloud=cloud, project=project)

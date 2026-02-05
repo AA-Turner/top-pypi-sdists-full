@@ -41,6 +41,22 @@ def config_to_pixi_dict(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str]
             torch_version = CUDA_TORCH_MAP.get(".".join(cuda_version.split(".")[:2]), "2.8")
             log(f"CUDA {cuda_version} -> PyTorch {torch_version}")
 
+    # Pin torch/torchvision versions in pypi-dependencies if they're cuda packages
+    # This ensures transitive dependencies (pytorch_lightning, timm, etc.) get the correct torch version
+    if cfg.cuda_packages and torch_version:
+        pytorch_packages = {"torch", "torchvision", "torchaudio"}
+        torchvision_map = {"2.8": "0.23", "2.4": "0.19"}
+        pypi_deps = pixi_data.setdefault("pypi-dependencies", {})
+        for pkg in cfg.cuda_packages:
+            if pkg in pytorch_packages:
+                if pkg == "torch":
+                    pypi_deps[pkg] = f"=={torch_version}.*"
+                elif pkg == "torchvision":
+                    tv_version = torchvision_map.get(torch_version, "0.23")
+                    pypi_deps[pkg] = f"=={tv_version}.*"
+                elif pkg == "torchaudio":
+                    pypi_deps[pkg] = f"=={torch_version}.*"
+
     # Workspace
     workspace = pixi_data.setdefault("workspace", {})
     workspace.setdefault("name", node_dir.name)
@@ -68,12 +84,6 @@ def config_to_pixi_dict(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str]
         pytorch_index = f"https://download.pytorch.org/whl/cu{cuda_version.replace('.', '')[:3]}"
         extra_urls = pypi_options.setdefault("extra-index-urls", [])
         if pytorch_index not in extra_urls: extra_urls.append(pytorch_index)
-
-    # Enforce torch version
-    if cfg.has_cuda and torch_version:
-        pypi_deps = pixi_data.setdefault("pypi-dependencies", {})
-        torch_minor = int(torch_version.split(".")[1])
-        pypi_deps["torch"] = f">={torch_version},<{torch_version.split('.')[0]}.{torch_minor + 1}"
 
     return pixi_data
 

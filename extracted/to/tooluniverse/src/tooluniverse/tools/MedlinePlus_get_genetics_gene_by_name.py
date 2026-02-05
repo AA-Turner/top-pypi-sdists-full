@@ -1,7 +1,7 @@
 """
 MedlinePlus_get_genetics_gene_by_name
 
-Get detailed information from MedlinePlus Genetics corresponding to gene name, supports JSON or X...
+Get detailed information from MedlinePlus Genetics corresponding to gene name. Returns XML data p...
 """
 
 from typing import Any, Optional, Callable
@@ -10,21 +10,21 @@ from ._shared_client import get_shared_client
 
 def MedlinePlus_get_genetics_gene_by_name(
     gene: str,
-    format: str,
+    format: Optional[str] = "json",
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Get detailed information from MedlinePlus Genetics corresponding to gene name, supports JSON or X...
+    Get detailed information from MedlinePlus Genetics corresponding to gene name. Returns XML data p...
 
     Parameters
     ----------
     gene : str
         URL slug of gene name, e.g., "BRCA1", must match MedlinePlus page path.
     format : str
-        Return format, options "json" or "xml", default "json".
+        Format parameter for the endpoint (note: API always returns XML regardless of...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False

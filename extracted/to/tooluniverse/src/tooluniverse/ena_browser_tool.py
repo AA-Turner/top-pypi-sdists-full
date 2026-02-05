@@ -62,7 +62,12 @@ class ENABrowserRESTTool(BaseTool):
         elif tool_name == "ena_get_entry_history":
             accession = args.get("accession", "")
             if accession:
-                return f"{self.base_url}/history/{accession}"
+                return f"{self.base_url}/versions/{accession}"
+
+        elif tool_name == "ena_get_entry_summary":
+            accession = args.get("accession", "")
+            if accession:
+                return f"{self.base_url}/summary/{accession}"
 
         return self.base_url
 

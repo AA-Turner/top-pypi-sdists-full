@@ -16,7 +16,7 @@ def GtoPdb_list_ligands(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Optional[list[Any]]:
     """
     Search and list ligands from the Guide to Pharmacology including synthetic drugs, natural product...
 
@@ -37,7 +37,7 @@ def GtoPdb_list_ligands(
 
     Returns
     -------
-    dict[str, Any]
+    Optional[list[Any]]
     """
     # Handle mutable defaults to avoid B006 linting error
 

@@ -9,20 +9,20 @@ from ._shared_client import get_shared_client
 
 
 def GtoPdb_get_targets(
-    target_type: Optional[str] = "protein",
+    target_type: Optional[str] = None,
     limit: Optional[int] = 20,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Any:
     """
     Search the IUPHAR/BPS Guide to Pharmacology (GtoPdb) for pharmacological targets including protei...
 
     Parameters
     ----------
     target_type : str
-        Type of pharmacological target. Examples: 'protein', 'receptor', 'enzyme', 'i...
+        Type of pharmacological target. Options: 'GPCR' (G-protein coupled receptor),...
     limit : int
         Maximum number of targets to return (default: 20, max: 1000)
     stream_callback : Callable, optional
@@ -34,7 +34,7 @@ def GtoPdb_get_targets(
 
     Returns
     -------
-    dict[str, Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

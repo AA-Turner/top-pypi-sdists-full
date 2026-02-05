@@ -29,7 +29,7 @@ bitflags = "2"
 blake3 = { version = "1.8.2" }
 boxcar = "0.2.12"
 bytemuck = { version = "1.22", features = ["derive", "extern_crate_alloc"] }
-bytes = { version = "1.10" }
+bytes = { version = "1.11" }
 chrono = { version = "<=0.4.41", default-features = false, features = ["std"] }
 chrono-tz = "0.10"
 compact_str = { version = "0.9.0", features = ["serde"] }
@@ -100,6 +100,7 @@ zmij = "1.0.0"
 zstd = "0.13"
 
 polars = { version = "0.52.0", path = "crates/polars", default-features = false }
+polars-buffer = { version = "0.52.0", path = "crates/polars-buffer", default-features = false }
 polars-compute = { version = "0.52.0", path = "crates/polars-compute", default-features = false }
 polars-core = { version = "0.52.0", path = "crates/polars-core", default-features = false }
 polars-dtype = { version = "0.52.0", path = "crates/polars-dtype", default-features = false }

@@ -1,7 +1,7 @@
 """
 Fatcat_search_scholar
 
-Search Internet Archive Scholar via Fatcat releases search. Fatcat is the underlying database pow...
+Search Internet Archive Scholar via Fatcat releases search and retrieve detailed metadata includi...
 """
 
 from typing import Any, Optional, Callable
@@ -17,7 +17,7 @@ def Fatcat_search_scholar(
     validate: bool = True,
 ) -> list[Any]:
     """
-    Search Internet Archive Scholar via Fatcat releases search. Fatcat is the underlying database pow...
+    Search Internet Archive Scholar via Fatcat releases search and retrieve detailed metadata includi...
 
     Parameters
     ----------

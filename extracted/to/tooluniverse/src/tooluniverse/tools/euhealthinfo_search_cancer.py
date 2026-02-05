@@ -20,7 +20,7 @@ def euhealthinfo_search_cancer(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> list[Any]:
+) -> Any:
     """
     This tool provides a curated list of datasets and resources relevant to cancer-related topics, in...
 
@@ -49,7 +49,7 @@ def euhealthinfo_search_cancer(
 
     Returns
     -------
-    list[Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

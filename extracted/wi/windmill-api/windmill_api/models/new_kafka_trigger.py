@@ -8,6 +8,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.new_kafka_trigger_error_handler_args import NewKafkaTriggerErrorHandlerArgs
+    from ..models.new_kafka_trigger_filters_item import NewKafkaTriggerFiltersItem
     from ..models.new_kafka_trigger_retry import NewKafkaTriggerRetry
 
 
@@ -24,6 +25,7 @@ class NewKafkaTrigger:
         kafka_resource_path (str):
         group_id (str):
         topics (List[str]):
+        filters (List['NewKafkaTriggerFiltersItem']):
         mode (Union[Unset, NewKafkaTriggerMode]): job trigger mode
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, NewKafkaTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
@@ -36,6 +38,7 @@ class NewKafkaTrigger:
     kafka_resource_path: str
     group_id: str
     topics: List[str]
+    filters: List["NewKafkaTriggerFiltersItem"]
     mode: Union[Unset, NewKafkaTriggerMode] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "NewKafkaTriggerErrorHandlerArgs"] = UNSET
@@ -49,6 +52,12 @@ class NewKafkaTrigger:
         kafka_resource_path = self.kafka_resource_path
         group_id = self.group_id
         topics = self.topics
+
+        filters = []
+        for filters_item_data in self.filters:
+            filters_item = filters_item_data.to_dict()
+
+            filters.append(filters_item)
 
         mode: Union[Unset, str] = UNSET
         if not isinstance(self.mode, Unset):
@@ -73,6 +82,7 @@ class NewKafkaTrigger:
                 "kafka_resource_path": kafka_resource_path,
                 "group_id": group_id,
                 "topics": topics,
+                "filters": filters,
             }
         )
         if mode is not UNSET:
@@ -89,6 +99,7 @@ class NewKafkaTrigger:
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.new_kafka_trigger_error_handler_args import NewKafkaTriggerErrorHandlerArgs
+        from ..models.new_kafka_trigger_filters_item import NewKafkaTriggerFiltersItem
         from ..models.new_kafka_trigger_retry import NewKafkaTriggerRetry
 
         d = src_dict.copy()
@@ -103,6 +114,13 @@ class NewKafkaTrigger:
         group_id = d.pop("group_id")
 
         topics = cast(List[str], d.pop("topics"))
+
+        filters = []
+        _filters = d.pop("filters")
+        for filters_item_data in _filters:
+            filters_item = NewKafkaTriggerFiltersItem.from_dict(filters_item_data)
+
+            filters.append(filters_item)
 
         _mode = d.pop("mode", UNSET)
         mode: Union[Unset, NewKafkaTriggerMode]
@@ -134,6 +152,7 @@ class NewKafkaTrigger:
             kafka_resource_path=kafka_resource_path,
             group_id=group_id,
             topics=topics,
+            filters=filters,
             mode=mode,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,

@@ -663,3 +663,76 @@ def url(
             schedule_config_file=schedule_config_file, id=id, name=name
         )
         job_controller.url(resolved_id)
+
+
+def _validate_delete_identifiers(
+    name: Optional[str],
+    id: Optional[str],  # noqa: A002
+    cloud: Optional[str],
+    project: Optional[str],
+):
+    """Validate identifiers for the delete command.
+
+    Either --id OR --name must be provided.
+    When --name is used, --cloud and --project are also required.
+    When --id is used, --cloud and --project cannot be used.
+    """
+    if name is None and id is None:
+        raise click.ClickException("One of '--name' or '--id' must be provided.")
+
+    if name is not None and id is not None:
+        raise click.ClickException("Only one of '--name' or '--id' can be provided.")
+
+    if id is not None and (cloud is not None or project is not None):
+        raise click.ClickException(
+            "'--cloud' and '--project' cannot be used with '--id'."
+        )
+
+    if name is not None and (cloud is None or project is None):
+        raise click.ClickException(
+            "'--cloud' and '--project' are required when using '--name'."
+        )
+
+
+@schedule_cli.command(
+    name="delete", cls=AnyscaleCommand, example=command_examples.SCHEDULE_DELETE_EXAMPLE
+)
+@click.option(
+    "--name", "-n", required=False, default=None, help="Name of the schedule."
+)
+@click.option("--id", "-i", required=False, default=None, help="Id of the schedule.")
+@click.option(
+    "--cloud",
+    required=False,
+    default=None,
+    type=str,
+    help="The named Anyscale Cloud for the schedule (required with --name).",
+)
+@click.option(
+    "--project",
+    required=False,
+    default=None,
+    type=str,
+    help="Named project for the schedule (required with --name).",
+)
+def delete(
+    name: Optional[str],
+    id: Optional[str],  # noqa: A002
+    cloud: Optional[str],
+    project: Optional[str],
+) -> None:
+    """Delete a Schedule.
+
+    If the schedule is active, it will be automatically paused before deletion.
+    The schedule must have no active triggered jobs.
+
+    To specify the schedule by id, use the --id flag.
+
+    To specify the schedule by name, use the --name flag along with --cloud and --project.
+    """
+    _validate_delete_identifiers(name=name, id=id, cloud=cloud, project=project)
+
+    if id is not None:
+        anyscale.schedule.delete(id=id)
+    else:
+        anyscale.schedule.delete(name=name, cloud=cloud, project=project)

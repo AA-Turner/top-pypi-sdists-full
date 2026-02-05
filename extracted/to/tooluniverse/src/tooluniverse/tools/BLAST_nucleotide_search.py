@@ -1,7 +1,7 @@
 """
 BLAST_nucleotide_search
 
-Search nucleotide sequences using NCBI BLAST blastn against nucleotide databases
+Search nucleotide sequences using NCBI BLAST blastn against nucleotide databases. Requires Biopyt...
 """
 
 from typing import Any, Optional, Callable
@@ -19,7 +19,7 @@ def BLAST_nucleotide_search(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Search nucleotide sequences using NCBI BLAST blastn against nucleotide databases
+    Search nucleotide sequences using NCBI BLAST blastn against nucleotide databases. Requires Biopyt...
 
     Parameters
     ----------

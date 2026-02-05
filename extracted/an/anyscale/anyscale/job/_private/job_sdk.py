@@ -480,6 +480,7 @@ class PrivateJobSDK(WorkloadSDK):
         job_id: Optional[str] = None,
         cloud: Optional[str] = None,
         project: Optional[str] = None,
+        include_archived: bool = False,
     ) -> ProductionJob:
         if name is None and job_id is None:
             raise ValueError("One of 'name' or 'job_id' must be provided.")
@@ -492,7 +493,11 @@ class PrivateJobSDK(WorkloadSDK):
 
         try:
             model: Optional[ProductionJob] = self.client.get_job(
-                name=name, job_id=job_id, cloud=cloud, project=project
+                name=name,
+                job_id=job_id,
+                cloud=cloud,
+                project=project,
+                include_archived=include_archived,
             )
         except Exception as e:
             # Convert API exceptions to RuntimeError for user-friendly error messages
@@ -516,9 +521,14 @@ class PrivateJobSDK(WorkloadSDK):
         job_id: Optional[str] = None,
         cloud: Optional[str] = None,
         project: Optional[str] = None,
+        include_archived: bool = False,
     ) -> JobStatus:
         job_model = self._resolve_to_job_model(
-            name=name, job_id=job_id, cloud=cloud, project=project
+            name=name,
+            job_id=job_id,
+            cloud=cloud,
+            project=project,
+            include_archived=include_archived,
         )
         runs = self.client.get_job_runs(job_model.id)
         return self._job_model_to_status(model=job_model, runs=runs)
@@ -530,9 +540,14 @@ class PrivateJobSDK(WorkloadSDK):
         name: Optional[str] = None,
         cloud: Optional[str] = None,
         project: Optional[str] = None,
+        include_archived: bool = False,
     ) -> str:
         job_model = self._resolve_to_job_model(
-            name=name, job_id=job_id, cloud=cloud, project=project
+            name=name,
+            job_id=job_id,
+            cloud=cloud,
+            project=project,
+            include_archived=include_archived,
         )
         self.client.terminate_job(job_model.id)
         self.logger.info(f"Marked job '{job_model.name}' for termination")
@@ -545,9 +560,14 @@ class PrivateJobSDK(WorkloadSDK):
         name: Optional[str] = None,
         cloud: Optional[str] = None,
         project: Optional[str] = None,
+        include_archived: bool = False,
     ) -> str:
         job_model = self._resolve_to_job_model(
-            name=name, job_id=job_id, cloud=cloud, project=project
+            name=name,
+            job_id=job_id,
+            cloud=cloud,
+            project=project,
+            include_archived=include_archived,
         )
 
         ha_state = job_model.state.current_state if job_model.state else None
@@ -558,6 +578,56 @@ class PrivateJobSDK(WorkloadSDK):
 
         self.client.archive_job(job_model.id)
         self.logger.info(f"Job {job_model.id} is successfully archived.")
+        return job_model.id
+
+    def delete(
+        self,
+        *,
+        job_id: Optional[str] = None,
+        name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+        include_archived: bool = False,
+    ) -> str:
+        """Delete a job and all associated job runs.
+
+        The job must be in a terminal state (SUCCEEDED, TERMINATED, OUT_OF_RETRIES, or BROKEN).
+        This action cannot be undone.
+
+        Args:
+            job_id: The ID of the job to delete.
+            name: The name of the job (alternative to job_id).
+            cloud: Cloud filter (only used with name).
+            project: Project filter (only used with name).
+            include_archived: Include archived jobs when searching by name.
+                Ignored when using job_id.
+
+        Returns:
+            The ID of the deleted job.
+
+        Raises:
+            RuntimeError: If job not found or not in terminal state.
+        """
+        job_model = self._resolve_to_job_model(
+            name=name,
+            job_id=job_id,
+            cloud=cloud,
+            project=project,
+            include_archived=include_archived,
+        )
+
+        # Validate terminal state (client-side check for better UX)
+        ha_state = job_model.state.current_state if job_model.state else None
+        if ha_state not in TERMINAL_HA_JOB_STATES:
+            raise RuntimeError(
+                f"Job '{job_model.name}' (ID: {job_model.id}) has not reached a terminal state "
+                f"and cannot be deleted. Current state: {ha_state}"
+            )
+
+        self.client.delete_job(job_model.id)
+        self.logger.info(
+            f"Job '{job_model.name}' (ID: {job_model.id}) has been deleted."
+        )
         return job_model.id
 
     def _stream_logs_for_job_run(
@@ -588,7 +658,7 @@ class PrivateJobSDK(WorkloadSDK):
 
         return next_page_token
 
-    def wait(  # noqa: PLR0912
+    def wait(  # noqa: PLR0912, PLR0913
         self,
         *,
         name: Optional[str] = None,
@@ -599,6 +669,7 @@ class PrivateJobSDK(WorkloadSDK):
         timeout_s: float = 1800,
         interval_s: float = _POLLING_INTERVAL_SECONDS,
         follow: bool = False,
+        include_archived: bool = False,
     ):
         if not isinstance(timeout_s, (int, float)):
             raise TypeError("timeout_s must be a float")
@@ -615,7 +686,11 @@ class PrivateJobSDK(WorkloadSDK):
 
         job_id_or_name = job_id or name
         job_model = self._resolve_to_job_model(
-            name=name, job_id=job_id, cloud=cloud, project=project
+            name=name,
+            job_id=job_id,
+            cloud=cloud,
+            project=project,
+            include_archived=include_archived,
         )
         curr_state = self._job_state_from_job_model(job_model)
 
@@ -629,7 +704,11 @@ class PrivateJobSDK(WorkloadSDK):
 
         for _ in self.timer.poll(timeout_s=timeout_s, interval_s=interval_s):
             job_model = self._resolve_to_job_model(
-                name=name, job_id=job_id, cloud=cloud, project=project
+                name=name,
+                job_id=job_id,
+                cloud=cloud,
+                project=project,
+                include_archived=include_archived,
             )
             new_state = self._job_state_from_job_model(job_model)
 
@@ -674,9 +753,14 @@ class PrivateJobSDK(WorkloadSDK):
         cloud: Optional[str] = None,
         project: Optional[str] = None,
         run: Optional[str] = None,
+        include_archived: bool = False,
     ) -> str:
         job_model = self._resolve_to_job_model(
-            name=name, job_id=job_id, cloud=cloud, project=project
+            name=name,
+            job_id=job_id,
+            cloud=cloud,
+            project=project,
+            include_archived=include_archived,
         )
 
         last_job_run_id = job_model.last_job_run_id
@@ -707,6 +791,7 @@ class PrivateJobSDK(WorkloadSDK):
         run: Optional[str] = None,
         mode: Union[str, JobLogMode] = JobLogMode.TAIL,
         max_lines: Optional[int] = None,
+        include_archived: bool = False,
     ) -> str:
         if max_lines is not None:
             if not isinstance(max_lines, int):
@@ -715,7 +800,12 @@ class PrivateJobSDK(WorkloadSDK):
                 raise ValueError("max_lines must be > 0")
 
         job_run_id = self._resolve_job_run_id(
-            job_id=job_id, name=name, cloud=cloud, project=project, run=run
+            job_id=job_id,
+            name=name,
+            cloud=cloud,
+            project=project,
+            run=run,
+            include_archived=include_archived,
         )
 
         head = mode == JobLogMode.HEAD
@@ -731,6 +821,7 @@ class PrivateJobSDK(WorkloadSDK):
         cloud: Optional[str] = None,
         project: Optional[str] = None,
         tags: Dict[str, str],
+        include_archived: bool = False,
     ) -> None:
         if not tags:
             raise ValueError("At least one tag must be provided.")
@@ -741,7 +832,11 @@ class PrivateJobSDK(WorkloadSDK):
             if name is None:
                 raise ValueError("Either 'job_id' or 'name' must be provided.")
             model = self._resolve_to_job_model(
-                job_id=None, name=name, cloud=cloud, project=project
+                job_id=None,
+                name=name,
+                cloud=cloud,
+                project=project,
+                include_archived=include_archived,
             )
             resource_id = model.id
 
@@ -755,6 +850,7 @@ class PrivateJobSDK(WorkloadSDK):
         cloud: Optional[str] = None,
         project: Optional[str] = None,
         keys: List[str],
+        include_archived: bool = False,
     ) -> None:
         if not keys:
             raise ValueError("At least one tag key must be provided.")
@@ -765,7 +861,11 @@ class PrivateJobSDK(WorkloadSDK):
             if name is None:
                 raise ValueError("Either 'job_id' or 'name' must be provided.")
             model = self._resolve_to_job_model(
-                job_id=None, name=name, cloud=cloud, project=project
+                job_id=None,
+                name=name,
+                cloud=cloud,
+                project=project,
+                include_archived=include_archived,
             )
             resource_id = model.id
 
@@ -778,6 +878,7 @@ class PrivateJobSDK(WorkloadSDK):
         name: Optional[str] = None,
         cloud: Optional[str] = None,
         project: Optional[str] = None,
+        include_archived: bool = False,
     ) -> Dict[str, str]:
         """List tags for a job as a key/value mapping."""
         if job_id is not None:
@@ -786,7 +887,11 @@ class PrivateJobSDK(WorkloadSDK):
             if name is None:
                 raise ValueError("Either 'job_id' or 'name' must be provided.")
             model = self._resolve_to_job_model(
-                job_id=None, name=name, cloud=cloud, project=project
+                job_id=None,
+                name=name,
+                cloud=cloud,
+                project=project,
+                include_archived=include_archived,
             )
             resource_id = model.id
         records = self.client.list_resource_tags(

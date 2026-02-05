@@ -14,7 +14,7 @@ def EMDB_get_sample_info(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Optional[dict[str, Any]]:
     """
     Get detailed sample preparation information for an EMDB entry including macromolecular compositio...
 
@@ -31,7 +31,7 @@ def EMDB_get_sample_info(
 
     Returns
     -------
-    dict[str, Any]
+    Optional[dict[str, Any]]
     """
     # Handle mutable defaults to avoid B006 linting error
 

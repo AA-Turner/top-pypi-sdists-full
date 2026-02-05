@@ -327,7 +327,7 @@ def ci(
         if trace:
             logger.verbose(f"Trace ID: {state.telemetry.get_trace_id():x}")
 
-        state.metrics.configure(metrics)
+        state.metrics.configure(metrics, top_level_span=semgrep_commands_ci_span)
         state.error_handler.configure(suppress_errors)
         scan_handler = None
         capture_core_stderr = not debug
@@ -826,7 +826,6 @@ def ci(
                 exit_code = FATAL_EXIT_CODE
 
             semgrep_commands_ci_span.set_attribute("scan.cli_exitcode", exit_code)
-
             if scan_handler:
                 scan_handler.report_failure(exit_code)
 
@@ -1010,34 +1009,43 @@ def ci(
             # /complete endpoint, so that the symbol analysis is available by the time
             # the dependencies are processed.
             if scan_handler.symbol_analysis and scan_handler.scan_id and token:
-                # legacy combined symbol analysis
-                #
-                # we can remove this in favor of subproject-based
-                # symbol analysis once we confirm nobody else is
-                # depending on it
-                try:
-                    if symbol_analysis is not None:
-                        semgrep.rpc_call.upload_symbol_analysis(
-                            token, scan_handler.scan_id, symbol_analysis
-                        )
-                except Exception as e:
-                    logger.error(f"Failed to upload symbol analysis: {e}")
+                with Progress(
+                    TextColumn("  {task.description}"),
+                    SpinnerColumn(spinner_name="simpleDotsScrolling"),
+                    console=console,
+                ) as progress_bar:
+                    upload_task = progress_bar.add_task("Uploading symbol analysis")
 
-                if sca_symbol_analysis is not None:
-                    for subproject_symbol_analysis in sca_symbol_analysis:
-                        manifest = subproject_symbol_analysis.manifest
-                        manifest_path = manifest.path if manifest else None
+                    # legacy combined symbol analysis
+                    #
+                    # we can remove this in favor of subproject-based
+                    # symbol analysis once we confirm nobody else is
+                    # depending on it
+                    try:
+                        if symbol_analysis is not None:
+                            semgrep.rpc_call.upload_symbol_analysis(
+                                token, scan_handler.scan_id, symbol_analysis
+                            )
+                    except Exception as e:
+                        logger.error(f"Failed to upload symbol analysis: {e}")
 
-                        lockfile = subproject_symbol_analysis.lockfile
-                        lockfile_path = lockfile.path if lockfile else None
+                    if sca_symbol_analysis is not None:
+                        for subproject_symbol_analysis in sca_symbol_analysis:
+                            manifest = subproject_symbol_analysis.manifest
+                            manifest_path = manifest.path if manifest else None
 
-                        semgrep.rpc_call.upload_subproject_symbol_analysis(
-                            token,
-                            scan_handler.scan_id,
-                            manifest_path,
-                            lockfile_path,
-                            subproject_symbol_analysis.symbol_analysis,
-                        )
+                            lockfile = subproject_symbol_analysis.lockfile
+                            lockfile_path = lockfile.path if lockfile else None
+
+                            semgrep.rpc_call.upload_subproject_symbol_analysis(
+                                token,
+                                scan_handler.scan_id,
+                                manifest_path,
+                                lockfile_path,
+                                subproject_symbol_analysis.symbol_analysis,
+                            )
+
+                    progress_bar.update(upload_task, completed=100)
 
             with Progress(
                 TextColumn("  {task.description}"),

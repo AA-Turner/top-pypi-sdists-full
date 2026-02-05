@@ -7,7 +7,7 @@ import urllib.request
 from sky.utils import directory_utils
 
 # Replaced with the current commit when building the wheels.
-_SKYPILOT_COMMIT_SHA = '032d1a81414f6138a73aa9905b7906df839f4c93'
+_SKYPILOT_COMMIT_SHA = '53831f8baae44b7111776b9cf93975c575f7227c'
 
 
 def _get_git_commit():
@@ -37,7 +37,7 @@ def _get_git_commit():
 
 
 __commit__ = _get_git_commit()
-__version__ = '1.0.0.dev20260202'
+__version__ = '1.0.0.dev20260204'
 __root_dir__ = directory_utils.get_sky_dir()
 
 
@@ -155,6 +155,7 @@ Nebius = clouds.Nebius
 Hyperbolic = clouds.Hyperbolic
 Shadeform = clouds.Shadeform
 Seeweb = clouds.Seeweb
+Yotta = clouds.Yotta
 
 __all__ = [
     '__version__',
@@ -180,6 +181,7 @@ __all__ = [
     'Hyperbolic',
     'Shadeform',
     'Seeweb',
+    'Yotta',
     'Optimizer',
     'OptimizeTarget',
     'backends',

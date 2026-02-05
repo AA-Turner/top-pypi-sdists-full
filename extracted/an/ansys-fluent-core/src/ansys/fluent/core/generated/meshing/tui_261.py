@@ -9673,8 +9673,13 @@ class main_menu(TUIMenu):
                 No help available.
                 """
                 def __init__(self, service, version, mode, path):
+                    self.use_volume_renderer_for_raytracing = self.__class__.use_volume_renderer_for_raytracing(service, version, mode, path + ["use_volume_renderer_for_raytracing"])
                     self.volume_rendering_method = self.__class__.volume_rendering_method(service, version, mode, path + ["volume_rendering_method"])
                     super().__init__(service, version, mode, path)
+                class use_volume_renderer_for_raytracing(TUIMethod):
+                    """
+                    No help available.
+                    """
                 class volume_rendering_method(TUIMethod):
                     """
                     No help available.

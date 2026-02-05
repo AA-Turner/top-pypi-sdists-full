@@ -34,6 +34,7 @@ class CreateAppConfigConfigurationSchema(object):
     """
     openapi_types = {
         'base_image': 'SUPPORTEDBASEIMAGESENUM',
+        'base_image_history_reference': 'BASEIMAGESENUM',
         'env_vars': 'object',
         'debian_packages': 'list[str]',
         'python': 'PythonModules',
@@ -42,19 +43,21 @@ class CreateAppConfigConfigurationSchema(object):
 
     attribute_map = {
         'base_image': 'base_image',
+        'base_image_history_reference': 'base_image_history_reference',
         'env_vars': 'env_vars',
         'debian_packages': 'debian_packages',
         'python': 'python',
         'post_build_cmds': 'post_build_cmds'
     }
 
-    def __init__(self, base_image=None, env_vars=None, debian_packages=None, python=None, post_build_cmds=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, base_image=None, base_image_history_reference=None, env_vars=None, debian_packages=None, python=None, post_build_cmds=None, local_vars_configuration=None):  # noqa: E501
         """CreateAppConfigConfigurationSchema - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._base_image = None
+        self._base_image_history_reference = None
         self._env_vars = None
         self._debian_packages = None
         self._python = None
@@ -62,6 +65,8 @@ class CreateAppConfigConfigurationSchema(object):
         self.discriminator = None
 
         self.base_image = base_image
+        if base_image_history_reference is not None:
+            self.base_image_history_reference = base_image_history_reference
         if env_vars is not None:
             self.env_vars = env_vars
         if debian_packages is not None:
@@ -95,6 +100,27 @@ class CreateAppConfigConfigurationSchema(object):
             raise ValueError("Invalid value for `base_image`, must not be `None`")  # noqa: E501
 
         self._base_image = base_image
+
+    @property
+    def base_image_history_reference(self):
+        """Gets the base_image_history_reference of this CreateAppConfigConfigurationSchema.  # noqa: E501
+
+
+        :return: The base_image_history_reference of this CreateAppConfigConfigurationSchema.  # noqa: E501
+        :rtype: BASEIMAGESENUM
+        """
+        return self._base_image_history_reference
+
+    @base_image_history_reference.setter
+    def base_image_history_reference(self, base_image_history_reference):
+        """Sets the base_image_history_reference of this CreateAppConfigConfigurationSchema.
+
+
+        :param base_image_history_reference: The base_image_history_reference of this CreateAppConfigConfigurationSchema.  # noqa: E501
+        :type: BASEIMAGESENUM
+        """
+
+        self._base_image_history_reference = base_image_history_reference
 
     @property
     def env_vars(self):

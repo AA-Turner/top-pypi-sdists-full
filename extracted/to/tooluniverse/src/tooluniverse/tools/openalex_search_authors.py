@@ -17,7 +17,7 @@ def openalex_search_authors(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Optional[dict[str, Any]]:
     """
     Search OpenAlex authors via the /authors endpoint. Use this to discover Author IDs (A...) and the...
 
@@ -40,7 +40,7 @@ def openalex_search_authors(
 
     Returns
     -------
-    dict[str, Any]
+    Optional[dict[str, Any]]
     """
     # Handle mutable defaults to avoid B006 linting error
 

@@ -11,9 +11,9 @@ from ._shared_client import get_shared_client
 def MedlinePlus_connect_lookup_by_code(
     cs: str,
     c: str,
-    dn: str,
-    language: str,
-    format: str,
+    dn: Optional[str] = "",
+    language: Optional[str] = "en",
+    format: Optional[str] = "application/json",
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -33,7 +33,7 @@ def MedlinePlus_connect_lookup_by_code(
     language : str
         Return information language, "en" for English, "es" for Spanish, default "en".
     format : str
-        Return format, options "json" or "xml", default "json".
+        Return format, options "application/json" or "text/xml", default "application...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False

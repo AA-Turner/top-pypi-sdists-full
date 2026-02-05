@@ -6,6 +6,7 @@ from collections.abc import (
 from typing import (
     Any,
     Literal,
+    Self,
     overload,
 )
 
@@ -17,7 +18,6 @@ from pandas.core.arrays.base import ExtensionArray as ExtensionArray
 from pandas.core.base import NoNewAttributesMixin as NoNewAttributesMixin
 from pandas.core.frame import DataFrame
 from pandas.core.indexes.base import Index
-from typing_extensions import Self
 
 from pandas._libs.missing import NAType
 from pandas._typing import (
@@ -55,15 +55,14 @@ class Categorical(NDArrayBackedExtensionArray):
     @property
     def dtype(self) -> CategoricalDtype: ...
     def tolist(self) -> list[Scalar]: ...
-    to_list = ...
     @classmethod
     def from_codes(
         cls,
-        codes: Sequence[int],
+        codes: AnyArrayLike | Sequence[int],
         categories: Index | None = ...,
         ordered: bool | None = ...,
         dtype: CategoricalDtype | None = ...,
-        fastpath: bool = ...,
+        validate: bool = True,
     ) -> Categorical: ...
     @property
     def codes(self) -> np_1darray[np.signedinteger]: ...

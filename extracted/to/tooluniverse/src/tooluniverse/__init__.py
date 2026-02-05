@@ -30,17 +30,16 @@ LAZY_LOADING_ENABLED = os.getenv("TOOLUNIVERSE_LAZY_LOADING", "true").lower() in
     "yes",
 )
 
-# Import MCP functionality
+# Import MCP functionality (but don't patch yet to avoid circular imports)
 if not _LIGHT_IMPORT:
     try:
         from .mcp_integration import _patch_tooluniverse
-
-        # Automatically patch ToolUniverse with MCP methods
-        _patch_tooluniverse()
-
+        _MCP_PATCH_AVAILABLE = True
     except ImportError:
         # MCP functionality not available
-        pass
+        _MCP_PATCH_AVAILABLE = False
+        _patch_tooluniverse = None
+
 
 # Import SMCP with graceful fallback and consistent signatures for type checking
 try:
@@ -63,6 +62,22 @@ except ImportError:
         **kwargs: Any,
     ) -> SMCP:
         raise ImportError("SMCP requires FastMCP. Install with: pip install fastmcp")
+
+
+# Import HTTP Client with graceful fallback for minimal installation
+try:
+    from .http_client import ToolUniverseClient
+
+    _HTTP_CLIENT_AVAILABLE = True
+except ImportError:
+    _HTTP_CLIENT_AVAILABLE = False
+
+    class ToolUniverseClient:  # type: ignore[no-redef]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "HTTP Client requires requests and pydantic. "
+                "Install with: pip install tooluniverse[client]"
+            )
 
 
 def __getattr__(name: str) -> Any:
@@ -118,6 +133,7 @@ __all__ = [
     "get_tool_registry",
     "SMCP",
     "create_smcp_server",
+    "ToolUniverseClient",
     "default_tool_files",
 ]
 
@@ -131,3 +147,8 @@ if not _LIGHT_IMPORT:
         __all__.extend(list(_registry.keys()))
     except Exception:
         pass
+
+# Apply MCP patches after all imports are complete to avoid circular imports
+if not _LIGHT_IMPORT and _MCP_PATCH_AVAILABLE and _patch_tooluniverse is not None:
+    _patch_tooluniverse(ToolUniverse)
+

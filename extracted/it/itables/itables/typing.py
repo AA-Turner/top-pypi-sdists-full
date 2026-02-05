@@ -183,6 +183,7 @@ class ITableOptions(DataTableOptions):
     maxColumns: NotRequired[int]
 
     allow_html: NotRequired[bool]
+    format_floats_in_python: NotRequired[Union[bool, Literal["auto"]]]
 
     table_id: NotRequired[str]
     dt_url: NotRequired[str]
@@ -194,6 +195,7 @@ class ITableOptions(DataTableOptions):
 
     warn_on_unexpected_types: NotRequired[bool]
     warn_on_selected_rows_not_rendered: NotRequired[bool]
+    warn_on_polars_get_fmt_not_found: NotRequired[bool]
     warn_on_undocumented_option: NotRequired[bool]
     warn_on_unexpected_option_type: NotRequired[bool]
     text_in_header_can_be_selected: NotRequired[bool]

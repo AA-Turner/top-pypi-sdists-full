@@ -213,7 +213,9 @@ class JsonEncryptionWrapper:
                 # Add encryption context marker with user's context
                 from langgraph_api.encryption.context import get_encryption_context
 
-                encrypted[ENCRYPTION_CONTEXT_KEY] = get_encryption_context()
+                encrypted[ENCRYPTION_CONTEXT_KEY] = (
+                    ctx.metadata if ctx and ctx.metadata else get_encryption_context()
+                )
 
             return encrypted
 
@@ -278,3 +280,11 @@ class JsonEncryptionWrapper:
             return strip_encryption_metadata(decrypted)
 
         return decryptor
+
+    @property
+    def has_aes(self) -> bool:
+        return self._aes is not None
+
+    @property
+    def has_custom(self) -> bool:
+        return self._custom is not None

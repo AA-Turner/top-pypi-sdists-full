@@ -1,7 +1,7 @@
 """
 PubChem_get_CID_by_compound_name
 
-Retrieve corresponding CID list (IdentifierList) by chemical name.
+Retrieve corresponding CID list (IdentifierList) by chemical compound name. Note: This tool only ...
 """
 
 from typing import Any, Optional, Callable
@@ -16,12 +16,12 @@ def PubChem_get_CID_by_compound_name(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Retrieve corresponding CID list (IdentifierList) by chemical name.
+    Retrieve corresponding CID list (IdentifierList) by chemical compound name. Note: This tool only ...
 
     Parameters
     ----------
     name : str
-        Chemical name (e.g., "Aspirin" or IUPAC name).
+        Chemical compound name (e.g., "Aspirin", "Acetaminophen") or IUPAC name. Do n...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False

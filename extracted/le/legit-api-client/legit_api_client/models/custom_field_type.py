@@ -37,6 +37,7 @@ class CustomFieldType(str, Enum):
     SINGLESELECT = 'SingleSelect'
     MULTISELECT = 'MultiSelect'
     FRAMEWORK = 'FrameWork'
+    TICKETTEMPLATE = 'TicketTemplate'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

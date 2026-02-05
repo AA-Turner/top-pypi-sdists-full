@@ -1,6 +1,17 @@
 # vim: ts=4 sw=4 et ai:
 """This module holds all objects shared by all other modules in tftpy."""
 
+locking_method = None
+try:
+    import fcntl
+    locking_method = 'fcntl'
+except:
+    try:
+        import msvcrt
+        locking_method = 'msvcrt'
+        import os
+    except:
+        raise AssertionError("Unsupported locking method on platform")
 
 MIN_BLKSIZE = 8
 DEF_BLKSIZE = 512
@@ -10,6 +21,10 @@ MAX_DUPS = 20
 DEF_TIMEOUT_RETRIES = 3
 DEF_TFTP_PORT = 69
 
+import logging
+
+log = logging.getLogger("tftpy.TftpShared")
+
 # A hook for deliberately introducing delay in testing.
 DELAY_BLOCK = 0
 # A hook to simulate a bad network
@@ -18,6 +33,30 @@ NETWORK_UNRELIABILITY = 0
 # dropped traffic. For example, 1000 would cause 0.1% of DAT packets to
 # be skipped to simulate lost packets.
 
+def lockfile(fobj, shared=True, blocking=True, unlock=False):
+    """Take appropriate action to advisory lock the file with the descriptor provided,
+    depending on the platform. fobj must be a file object."""
+    log.debug("lockfile on %s, shared %s, blocking %s, unlock %s",
+              fobj.name, shared, blocking, unlock)
+    if locking_method == "fcntl":
+        mode = fcntl.LOCK_UN if unlock else fcntl.LOCK_SH if shared else fcntl.LOCK_EX
+        if not unlock and not blocking:
+            mode |= fcntl.LOCK_NB
+        fcntl.flock(fobj, mode)
+    else:
+        mode = msvcrt.LK_UNLCK if unlock else msvcrt.LK_RLCK if shared else msvcrt.LK_LOCK
+        if not unlock and not blocking:
+            mode = msvcrt.LK_NBLCK if not shared else msvcrt.LK_NBRLCK
+        # Want to lock the whole file.
+        pos = fobj.tell()
+        log.debug("position is %s", pos)
+        fobj.seek(0, os.SEEK_END)
+        nbytes = fobj.tell()
+        log.debug("nbytes is %s", nbytes)
+        # Odd, I get permission denied on the unlock
+        if unlock:
+            return
+        msvcrt.locking(fobj.fileno(), mode, nbytes)
 
 def tftpassert(condition, msg):
     """This function is a simple utility that will check the condition

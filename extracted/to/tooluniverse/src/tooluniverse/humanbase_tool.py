@@ -27,9 +27,14 @@ class HumanBaseTool(BaseTool):
         )
 
         if string_mode:
-            return self._convert_to_string(graph, bp_collection, gene_list, tissue)
+            result = self._convert_to_string(graph, bp_collection, gene_list, tissue)
+            return {"status": "success", "data": result}
         else:
-            return graph, bp_collection
+            # For non-string mode, return structured data
+            return {
+                "status": "success",
+                "data": {"graph": graph, "biological_processes": bp_collection},
+            }
 
     def get_official_gene_name(self, gene_name):
         """

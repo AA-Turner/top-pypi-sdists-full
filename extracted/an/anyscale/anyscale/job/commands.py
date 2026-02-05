@@ -75,6 +75,7 @@ _STATUS_ARG_DOCSTRINGS = {
     "id": "Unique ID of the job",
     "cloud": "The Anyscale Cloud to run this workload on. If not provided, the organization default will be used (or, if running in a workspace, the cloud of the workspace).",
     "project": "Named project to use for the job. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
+    "include_archived": "Include archived jobs when searching by name. Ignored when using id.",
 }
 
 
@@ -90,12 +91,13 @@ def status(
     id: Optional[str] = None,  # noqa: A002
     cloud: Optional[str] = None,
     project: Optional[str] = None,
+    include_archived: bool = False,
     _private_sdk: Optional[PrivateJobSDK] = None,
     **_kwargs: Dict[str, Any],
 ) -> JobStatus:
     """Get the status of a job."""
     id = _resolve_id_from_args(id, _kwargs)  # noqa: A001
-    return _private_sdk.status(name=name, job_id=id, cloud=cloud, project=project)  # type: ignore
+    return _private_sdk.status(name=name, job_id=id, cloud=cloud, project=project, include_archived=include_archived)  # type: ignore
 
 
 _TERMINATE_EXAMPLE = """
@@ -109,6 +111,7 @@ _TERMINATE_ARG_DOCSTRINGS = {
     "id": "Unique ID of the job",
     "cloud": "The Anyscale Cloud to run this workload on. If not provided, the organization default will be used (or, if running in a workspace, the cloud of the workspace).",
     "project": "Named project to use for the job. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
+    "include_archived": "Include archived jobs when searching by name. Ignored when using id.",
 }
 
 
@@ -124,6 +127,7 @@ def terminate(
     id: Optional[str] = None,  # noqa: A002
     cloud: Optional[str] = None,
     project: Optional[str] = None,
+    include_archived: bool = False,
     _private_sdk: Optional[PrivateJobSDK] = None,
     **_kwargs: Dict[str, Any],
 ) -> str:
@@ -134,7 +138,7 @@ def terminate(
     Returns the id of the terminated job.
     """
     id = _resolve_id_from_args(id, _kwargs)  # noqa: A001
-    return _private_sdk.terminate(name=name, job_id=id, cloud=cloud, project=project)  # type: ignore
+    return _private_sdk.terminate(name=name, job_id=id, cloud=cloud, project=project, include_archived=include_archived)  # type: ignore
 
 
 _ARCHIVE_EXAMPLE = """
@@ -148,6 +152,7 @@ _ARCHIVE_ARG_DOCSTRINGS = {
     "id": "Unique ID of the job",
     "cloud": "The Anyscale Cloud to run this workload on. If not provided, the organization default will be used (or, if running in a workspace, the cloud of the workspace).",
     "project": "Named project to use for the job . If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
+    "include_archived": "Include archived jobs when searching by name. Ignored when using id.",
 }
 
 
@@ -163,6 +168,7 @@ def archive(
     id: Optional[str] = None,  # noqa: A002
     cloud: Optional[str] = None,
     project: Optional[str] = None,
+    include_archived: bool = False,
     _private_sdk: Optional[PrivateJobSDK] = None,
     **_kwargs: Dict[str, Any],
 ) -> str:
@@ -173,7 +179,49 @@ def archive(
     Returns the id of the archived job.
     """
     id = _resolve_id_from_args(id, _kwargs)  # noqa: A001
-    return _private_sdk.archive(name=name, job_id=id, cloud=cloud, project=project)  # type: ignore
+    return _private_sdk.archive(name=name, job_id=id, cloud=cloud, project=project, include_archived=include_archived)  # type: ignore
+
+
+_DELETE_EXAMPLE = """
+import anyscale
+
+anyscale.job.delete(name="my-job")
+"""
+
+_DELETE_ARG_DOCSTRINGS = {
+    "name": "Name of the job.",
+    "id": "Unique ID of the job",
+    "cloud": "The Anyscale Cloud to run this workload on. If not provided, the organization default will be used (or, if running in a workspace, the cloud of the workspace).",
+    "project": "Named project to use for the job. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
+    "include_archived": "Include archived jobs when searching by name. Ignored when using id.",
+}
+
+
+@sdk_command(
+    _JOB_SDK_SINGLETON_KEY,
+    PrivateJobSDK,
+    doc_py_example=_DELETE_EXAMPLE,
+    arg_docstrings=_DELETE_ARG_DOCSTRINGS,
+)
+def delete(
+    *,
+    name: Optional[str] = None,
+    id: Optional[str] = None,  # noqa: A002
+    cloud: Optional[str] = None,
+    project: Optional[str] = None,
+    include_archived: bool = False,
+    _private_sdk: Optional[PrivateJobSDK] = None,
+    **_kwargs: Dict[str, Any],
+) -> str:
+    """Delete a job and all associated job runs.
+
+    The job must be in a terminal state (SUCCEEDED, FAILED).
+    This action permanently removes the job and cannot be undone.
+
+    Returns the id of the deleted job.
+    """
+    id = _resolve_id_from_args(id, _kwargs)  # noqa: A001
+    return _private_sdk.delete(name=name, job_id=id, cloud=cloud, project=project, include_archived=include_archived)  # type: ignore
 
 
 _WAIT_EXAMPLE = """\
@@ -189,6 +237,7 @@ _WAIT_ARG_DOCSTRINGS = {
     "state": "Target state of the job",
     "timeout_s": "Number of seconds to wait before timing out, this timeout will not affect job execution",
     "follow": "Whether to follow the logs of the job. If True, the logs will be streamed to the console.",
+    "include_archived": "Include archived jobs when searching by name. Ignored when using id.",
 }
 
 
@@ -207,6 +256,7 @@ def wait(
     state: Union[JobState, str] = JobState.SUCCEEDED,
     timeout_s: float = 1800,
     follow: bool = False,
+    include_archived: bool = False,
     _private_sdk: Optional[PrivateJobSDK] = None,
     **_kwargs: Dict[str, Any],
 ):
@@ -220,6 +270,7 @@ def wait(
         state=state,
         timeout_s=timeout_s,
         follow=follow,
+        include_archived=include_archived,
     )
 
 
@@ -237,6 +288,7 @@ _GET_LOGS_ARG_DOCSTRINGS = {
     "run": "The name of the run to query. Names can be found in the JobStatus. If not provided, the last job run will be used.",
     "mode": "The mode of log fetching to be used. Supported modes can be found in JobLogMode. If not provided, JobLogMode.TAIL will be used.",
     "max_lines": "The number of log lines to be fetched. If not provided, the complete log will be fetched.",
+    "include_archived": "Include archived jobs when searching by name. Ignored when using id.",
 }
 
 
@@ -255,6 +307,7 @@ def get_logs(
     run: Optional[str] = None,
     mode: Union[str, JobLogMode] = JobLogMode.TAIL,
     max_lines: Optional[int] = None,
+    include_archived: bool = False,
     _private_sdk: Optional[PrivateJobSDK] = None,
     **_kwargs: Dict[str, Any],
 ) -> str:
@@ -268,6 +321,7 @@ def get_logs(
         run=run,
         mode=mode,
         max_lines=max_lines,
+        include_archived=include_archived,
     )
 
 
@@ -283,6 +337,7 @@ _ADD_TAGS_ARG_DOCSTRINGS = {
     "cloud": "Cloud name (used when resolving by name).",
     "project": "Project name (used when resolving by name).",
     "tags": "Key/value tags to upsert as a map {key: value}.",
+    "include_archived": "Include archived jobs when searching by name. Ignored when using job_id.",
 }
 
 _REMOVE_TAGS_EXAMPLE = """
@@ -297,6 +352,7 @@ _REMOVE_TAGS_ARG_DOCSTRINGS = {
     "cloud": "Cloud name (used when resolving by name).",
     "project": "Project name (used when resolving by name).",
     "keys": "List of tag keys to remove.",
+    "include_archived": "Include archived jobs when searching by name. Ignored when using job_id.",
 }
 
 
@@ -313,11 +369,17 @@ def add_tags(
     cloud: Optional[str] = None,
     project: Optional[str] = None,
     tags: Dict[str, str],
+    include_archived: bool = False,
     _private_sdk: Optional[PrivateJobSDK] = None,
 ):
     """Upsert (add/update) tag key/value pairs for a job."""
     return _private_sdk.add_tags(  # type: ignore
-        job_id=job_id, name=name, cloud=cloud, project=project, tags=tags
+        job_id=job_id,
+        name=name,
+        cloud=cloud,
+        project=project,
+        tags=tags,
+        include_archived=include_archived,
     )
 
 
@@ -334,11 +396,17 @@ def remove_tags(
     cloud: Optional[str] = None,
     project: Optional[str] = None,
     keys: List[str],
+    include_archived: bool = False,
     _private_sdk: Optional[PrivateJobSDK] = None,
 ):
     """Remove tags by key from a job."""
     return _private_sdk.remove_tags(  # type: ignore
-        job_id=job_id, name=name, cloud=cloud, project=project, keys=keys
+        job_id=job_id,
+        name=name,
+        cloud=cloud,
+        project=project,
+        keys=keys,
+        include_archived=include_archived,
     )
 
 
@@ -353,6 +421,7 @@ _LIST_TAGS_ARG_DOCSTRINGS = {
     "name": "Name of the job. Provide either job_id or name.",
     "cloud": "Cloud name (used when resolving by name).",
     "project": "Project name (used when resolving by name).",
+    "include_archived": "Include archived jobs when searching by name. Ignored when using job_id.",
 }
 
 
@@ -368,11 +437,16 @@ def list_tags(
     name: Optional[str] = None,
     cloud: Optional[str] = None,
     project: Optional[str] = None,
+    include_archived: bool = False,
     _private_sdk: Optional[PrivateJobSDK] = None,
 ) -> Dict[str, str]:
     """List tags for a job as a key/value mapping."""
     return _private_sdk.list_tags(  # type: ignore
-        job_id=job_id, name=name, cloud=cloud, project=project
+        job_id=job_id,
+        name=name,
+        cloud=cloud,
+        project=project,
+        include_archived=include_archived,
     )
 
 

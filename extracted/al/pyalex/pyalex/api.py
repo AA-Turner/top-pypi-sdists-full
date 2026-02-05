@@ -874,7 +874,86 @@ class BaseOpenAlex:
             return resp_list
 
 
+class BaseContent:
+    """Class representing content in OpenAlex."""
+
+    def __init__(self, key):
+        self.key = key
+
+    def __repr__(self):
+        return f"Content(key='{self.key}')"
+
+    @property
+    def url(self):
+        """Get the URL for the content.
+
+        Returns
+        -------
+        str
+            URL for the content.
+        """
+        return f"https://content.openalex.org/works/{self.key}"
+
+    def get(self):
+        """Get the content
+
+        Returns
+        -------
+        bytes
+            Content of the request.
+        """
+        content_url = f"https://content.openalex.org/works/{self.key}"
+
+        res = _get_requests_session().get(
+            content_url, auth=OpenAlexAuth(config), allow_redirects=True
+        )
+        res.raise_for_status()
+        return res.content
+
+    def download(self, filepath):
+        """Download the content to a file.
+
+        Parameters
+        ----------
+        filepath : str
+            Path to save the content.
+        """
+
+        with open(filepath, "wb") as f:
+            f.write(self.get())
+
+
 # The API
+
+
+class PDF(BaseContent):
+    """Class representing a PDF content in OpenAlex."""
+
+    @property
+    def url(self):
+        """Get the URL for the content.
+
+        Returns
+        -------
+        str
+            URL for the content.
+        """
+        return f"https://content.openalex.org/works/{self.key}.pdf"
+
+
+class TEI(BaseContent):
+    """Class representing a TEI content in OpenAlex."""
+
+    @property
+    def url(self):
+        """Get the URL for the content.
+
+        Returns
+        -------
+        str
+            URL for the content.
+        """
+        return f"https://content.openalex.org/works/{self.key}.grobid-xml"
 
 
 class Work(OpenAlexEntity):
@@ -917,6 +996,28 @@ class Work(OpenAlexEntity):
             return resp_list, resp_list.meta
         else:
             return resp_list
+
+    @property
+    def pdf(self):
+        """Get the PDF content for the work.
+
+        Returns
+        -------
+        PDF
+            PDF content object.
+        """
+        return PDF(self["id"].split("/")[-1])
+
+    @property
+    def tei(self):
+        """Get the TEI content for the work.
+
+        Returns
+        -------
+        TEI
+            TEI content object.
+        """
+        return TEI(self["id"].split("/")[-1])
 
 
 class Works(BaseOpenAlex):
@@ -1031,6 +1132,30 @@ class Funders(BaseOpenAlex):
     """Class representing a collection of funder entities in OpenAlex."""
 
     resource_class = Funder
+
+
+class Award(OpenAlexEntity):
+    """Class representing an award entity in OpenAlex."""
+
+    pass
+
+
+class Awards(BaseOpenAlex):
+    """Class representing a collection of award entities in OpenAlex."""
+
+    resource_class = Award
+
+
+class Keyword(OpenAlexEntity):
+    """Class representing a keyword entity in OpenAlex."""
+
+    pass
+
+
+class Keywords(BaseOpenAlex):
+    """Class representing a collection of keyword entities in OpenAlex."""
+
+    resource_class = Keyword
 
 
 class Autocomplete(OpenAlexEntity):

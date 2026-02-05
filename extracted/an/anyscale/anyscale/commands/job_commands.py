@@ -854,11 +854,18 @@ def list(  # noqa: A001 PLR0913 PLR0912
     type=str,
     help="Named project to use for the job. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
 )
+@click.option(
+    "--include-archived",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs when searching by name. Ignored when using --id.",
+)
 def archive(
     id: Optional[str],  # noqa: A002
     name: Optional[str],
     cloud: Optional[str],
     project: Optional[str],
+    include_archived: bool,
 ) -> None:
     """Archive a job.
 
@@ -869,7 +876,66 @@ id should be used, specifying both will result in an error.
 status will be archived.
     """
     _validate_job_name_and_id(name=name, id=id)
-    anyscale.job.archive(id=id, name=name, cloud=cloud, project=project)
+    anyscale.job.archive(
+        id=id,
+        name=name,
+        cloud=cloud,
+        project=project,
+        include_archived=include_archived,
+    )
+
+
+@job_cli.command(
+    name="delete",
+    short_help="Delete a job.",
+    cls=AnyscaleCommand,
+    example=command_examples.JOB_DELETE_EXAMPLE,
+)
+@click.option("--id", "--job-id", required=False, help="Unique ID of the job.")
+@click.option("--name", "-n", required=False, help="Name of the job.")
+@click.option(
+    "--cloud",
+    required=False,
+    default=None,
+    type=str,
+    help="The Anyscale Cloud of this workload. If not provided, the organization default will be used.",
+)
+@click.option(
+    "--project",
+    required=False,
+    default=None,
+    type=str,
+    help="Named project to use for the job. If not provided, the default project will be used.",
+)
+@click.option(
+    "--include-archived",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs when searching by name. Ignored when using --id.",
+)
+def delete(
+    id: Optional[str],  # noqa: A002
+    name: Optional[str],
+    cloud: Optional[str],
+    project: Optional[str],
+    include_archived: bool,
+) -> None:
+    """Delete a job and all associated job runs.
+
+    The job must be in a terminal state (SUCCEEDED, FAILED) before deletion.
+    This action permanently removes the job and cannot be undone.
+
+    To specify the job by name, use the --name flag. To specify by ID, use --id.
+    Either name or ID must be provided, but not both.
+    """
+    _validate_job_name_and_id(name=name, id=id)
+    anyscale.job.delete(
+        id=id,
+        name=name,
+        cloud=cloud,
+        project=project,
+        include_archived=include_archived,
+    )
 
 
 @job_cli.command(
@@ -894,11 +960,18 @@ status will be archived.
     type=str,
     help="Named project to use for the job. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
 )
+@click.option(
+    "--include-archived",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs when searching by name. Ignored when using --id.",
+)
 def terminate(
     id: Optional[str],  # noqa: A002
     name: Optional[str],
     cloud: Optional[str],
     project: Optional[str],
+    include_archived: bool,
 ) -> None:
     """Terminate a job.
 
@@ -909,7 +982,13 @@ id should be used, specifying both will result in an error.
 status will be terminated.
     """
     _validate_job_name_and_id(name=name, id=id)
-    anyscale.job.terminate(name=name, id=id, cloud=cloud, project=project)
+    anyscale.job.terminate(
+        name=name,
+        id=id,
+        cloud=cloud,
+        project=project,
+        include_archived=include_archived,
+    )
     if id is not None:
         log.info(f"Query the status of the job with `anyscale job status --id {id}`.")
     else:
@@ -976,6 +1055,12 @@ status will be terminated.
     default=False,
     help="Listing logs from all attempts no longer supported, instead list jobs by run name.",
 )
+@click.option(
+    "--include-archived",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs when searching by name. Ignored when using --id.",
+)
 def logs(  # noqa: PLR0913
     id: Optional[str],  # noqa: A002
     name: Optional[str],
@@ -987,6 +1072,7 @@ def logs(  # noqa: PLR0913
     max_lines: Optional[int],
     follow: bool = False,
     all_attempts: bool = False,
+    include_archived: bool = False,
 ) -> None:
     """Print the logs of a job.
 
@@ -1025,6 +1111,7 @@ def logs(  # noqa: PLR0913
             project=project,
             mode=mode,
             max_lines=max_lines,
+            include_archived=include_archived,
         )
         print(job_logs)
 
@@ -1069,6 +1156,12 @@ def logs(  # noqa: PLR0913
     type=float,
     help="The timeout in seconds after which this command will exit.",
 )
+@click.option(
+    "--include-archived",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs when searching by name. Ignored when using --id.",
+)
 def wait(
     id: Optional[str],  # noqa: A002
     name: Optional[str],
@@ -1076,6 +1169,7 @@ def wait(
     project: Optional[str],
     state: str = JobState.SUCCEEDED,
     timeout_s=None,
+    include_archived: bool = False,
 ) -> None:
     """Wait for a job to enter a specific state (default: SUCCEEDED).
 
@@ -1099,6 +1193,7 @@ def wait(
             project=project,
             state=state,
             timeout_s=timeout_s,  # type: ignore
+            include_archived=include_archived,
         )
     except Exception as e:  # noqa: BLE001
         raise click.ClickException(str(e)) from None
@@ -1142,6 +1237,12 @@ def wait(
     default=False,
     help="Include verbose details in the status.",
 )
+@click.option(
+    "--include-archived",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs when searching by name. Ignored when using --id.",
+)
 def status(
     name: Optional[str],
     id: Optional[str],  # noqa: A002
@@ -1149,6 +1250,7 @@ def status(
     project: Optional[str],
     json: bool,
     verbose: bool,
+    include_archived: bool,
 ):
     """Query the status of a job.
 
@@ -1161,7 +1263,11 @@ status will be returned.
     _validate_job_name_and_id(name=name, id=id)
 
     status: JobStatus = anyscale.job.status(
-        name=name, id=id, cloud=cloud, project=project
+        name=name,
+        id=id,
+        cloud=cloud,
+        project=project,
+        include_archived=include_archived,
     )
     status_dict = status.to_dict()
 
@@ -1197,13 +1303,23 @@ def job_tags_cli() -> None:
     multiple=True,
     help="Tag in key=value (or key:value) format. Repeat to add multiple.",
 )
-def add_tags(job_id: Optional[str], name: Optional[str], tags: Tuple[str]) -> None:
+@click.option(
+    "--include-archived",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs when searching by name. Ignored when using --id.",
+)
+def add_tags(
+    job_id: Optional[str], name: Optional[str], tags: Tuple[str], include_archived: bool
+) -> None:
     if not job_id and not name:
         raise click.ClickException("Provide either --id or --name.")
     tag_map = parse_tags_kv_to_str_map(tags)
     if not tag_map:
         raise click.ClickException("Provide at least one --tag key=value.")
-    anyscale.job.add_tags(job_id=job_id, name=name, tags=tag_map)
+    anyscale.job.add_tags(
+        job_id=job_id, name=name, tags=tag_map, include_archived=include_archived
+    )
     stderr = Console(stderr=True)
     ident = job_id or name or "<unknown>"
     stderr.print(f"Tags updated for job '{ident}'.")
@@ -1218,13 +1334,23 @@ def add_tags(job_id: Optional[str], name: Optional[str], tags: Tuple[str]) -> No
 @click.option("--id", "job_id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
 @click.option("--key", "keys", multiple=True, help="Tag key to remove. Repeatable.")
-def remove_tags(job_id: Optional[str], name: Optional[str], keys: Tuple[str]) -> None:
+@click.option(
+    "--include-archived",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs when searching by name. Ignored when using --id.",
+)
+def remove_tags(
+    job_id: Optional[str], name: Optional[str], keys: Tuple[str], include_archived: bool
+) -> None:
     if not job_id and not name:
         raise click.ClickException("Provide either --id or --name.")
     key_list = [k for k in keys if k and k.strip()]
     if not key_list:
         raise click.ClickException("Provide at least one --key to remove.")
-    anyscale.job.remove_tags(job_id=job_id, name=name, keys=key_list)
+    anyscale.job.remove_tags(
+        job_id=job_id, name=name, keys=key_list, include_archived=include_archived
+    )
     stderr = Console(stderr=True)
     ident = job_id or name or "<unknown>"
     stderr.print(f"Removed tag keys {key_list} from job '{ident}'.")
@@ -1239,10 +1365,23 @@ def remove_tags(job_id: Optional[str], name: Optional[str], keys: Tuple[str]) ->
 @click.option("--id", "job_id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
 @click.option("--json", "json_output", is_flag=True, default=False, help="JSON output.")
-def list_tags(job_id: Optional[str], name: Optional[str], json_output: bool) -> None:
+@click.option(
+    "--include-archived",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs when searching by name. Ignored when using --id.",
+)
+def list_tags(
+    job_id: Optional[str],
+    name: Optional[str],
+    json_output: bool,
+    include_archived: bool,
+) -> None:
     if not job_id and not name:
         raise click.ClickException("Provide either --id or --name.")
-    tag_map = anyscale.job.list_tags(job_id=job_id, name=name)
+    tag_map = anyscale.job.list_tags(
+        job_id=job_id, name=name, include_archived=include_archived
+    )
     if json_output:
         Console().print_json(json=json_dumps(tag_map, indent=2))
     else:

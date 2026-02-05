@@ -1,74 +1,34 @@
-import enum
+# Manually added to minimize breaking changes from V1
+from ._constants import (
+    MAX_RETRY_DELAY as MAX_RETRY_DELAY,
+    DEFAULT_MAX_RETRIES,
+    INITIAL_RETRY_DELAY as INITIAL_RETRY_DELAY,
+)
+from .lib.constants import (
+    MIN_SAMPLES as MIN_SAMPLES,
+    DISABLE_TQDM as DISABLE_TQDM,
+    MAX_IMAGE_BYTES as MAX_IMAGE_BYTES,
+    NUM_BYTES_IN_GB as NUM_BYTES_IN_GB,
+    MAX_FILE_SIZE_GB as MAX_FILE_SIZE_GB,
+    MIN_PART_SIZE_MB as MIN_PART_SIZE_MB,
+    DOWNLOAD_BLOCK_SIZE as DOWNLOAD_BLOCK_SIZE,
+    MAX_MULTIPART_PARTS as MAX_MULTIPART_PARTS,
+    TARGET_PART_SIZE_MB as TARGET_PART_SIZE_MB,
+    MAX_CONCURRENT_PARTS as MAX_CONCURRENT_PARTS,
+    MAX_IMAGES_PER_EXAMPLE as MAX_IMAGES_PER_EXAMPLE,
+    MULTIPART_THRESHOLD_GB as MULTIPART_THRESHOLD_GB,
+    MAX_BASE64_IMAGE_LENGTH as MAX_BASE64_IMAGE_LENGTH,
+    MULTIPART_UPLOAD_TIMEOUT as MULTIPART_UPLOAD_TIMEOUT,
+    PARQUET_EXPECTED_COLUMNS as PARQUET_EXPECTED_COLUMNS,
+    REQUIRED_COLUMNS_MESSAGE as REQUIRED_COLUMNS_MESSAGE,
+    JSONL_REQUIRED_COLUMNS_MAP as JSONL_REQUIRED_COLUMNS_MAP,
+    POSSIBLE_ROLES_CONVERSATION as POSSIBLE_ROLES_CONVERSATION,
+    DatasetFormat as DatasetFormat,
+)
 
-
-# Session constants
 TIMEOUT_SECS = 600
 MAX_SESSION_LIFETIME_SECS = 180
 MAX_CONNECTION_RETRIES = 2
-MAX_RETRIES = 5
-INITIAL_RETRY_DELAY = 0.5
-MAX_RETRY_DELAY = 8.0
+MAX_RETRIES = DEFAULT_MAX_RETRIES
 
-# API defaults
 BASE_URL = "https://api.together.xyz/v1"
-
-# Download defaults
-DOWNLOAD_BLOCK_SIZE = 10 * 1024 * 1024  # 10 MB
-DISABLE_TQDM = False
-
-# Upload defaults
-MAX_CONCURRENT_PARTS = 4  # Maximum concurrent parts for multipart upload
-
-# Multipart upload constants
-MIN_PART_SIZE_MB = 5  # Minimum part size (S3 requirement)
-TARGET_PART_SIZE_MB = 250  # Target part size
-MAX_MULTIPART_PARTS = 250  # Maximum parts per upload
-MULTIPART_UPLOAD_TIMEOUT = 300  # Timeout in seconds for uploading each part
-MULTIPART_THRESHOLD_GB = 5.0  # threshold for switching to multipart upload
-
-# maximum number of GB sized files we support finetuning for
-MAX_FILE_SIZE_GB = 50.1
-
-
-# Messages
-MISSING_API_KEY_MESSAGE = """TOGETHER_API_KEY not found.
-Please set it as an environment variable or set it as together.api_key
-Find your TOGETHER_API_KEY at https://api.together.xyz/settings/api-keys"""
-
-# Minimum number of samples required for fine-tuning file
-MIN_SAMPLES = 1
-
-# the number of bytes in a gigabyte, used to convert bytes to GB for readable comparison
-NUM_BYTES_IN_GB = 2**30
-
-# Multimodal limits
-MAX_IMAGES_PER_EXAMPLE = 10
-MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10MB
-# Max length = Header length + base64 factor (4/3) * image bytes
-MAX_BASE64_IMAGE_LENGTH = len("data:image/jpeg;base64,") + 4 * MAX_IMAGE_BYTES // 3
-
-# expected columns for Parquet files
-PARQUET_EXPECTED_COLUMNS = ["input_ids", "attention_mask", "labels"]
-
-
-class DatasetFormat(enum.Enum):
-    """Dataset format enum."""
-
-    GENERAL = "general"
-    CONVERSATION = "conversation"
-    INSTRUCTION = "instruction"
-    PREFERENCE_OPENAI = "preference_openai"
-
-
-JSONL_REQUIRED_COLUMNS_MAP = {
-    DatasetFormat.GENERAL: ["text"],
-    DatasetFormat.CONVERSATION: ["messages"],
-    DatasetFormat.INSTRUCTION: ["prompt", "completion"],
-    DatasetFormat.PREFERENCE_OPENAI: [
-        "input",
-        "preferred_output",
-        "non_preferred_output",
-    ],
-}
-REQUIRED_COLUMNS_MESSAGE = ["role", "content"]
-POSSIBLE_ROLES_CONVERSATION = ["system", "user", "assistant"]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pynng
-Version: 0.8.1
+Version: 0.9.0
 Summary: Networking made simply using nng
 Author-email: Cody Piersall <cody.piersall@gmail.com>
 License: The MIT License

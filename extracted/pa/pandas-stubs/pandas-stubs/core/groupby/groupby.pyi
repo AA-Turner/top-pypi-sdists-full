@@ -11,6 +11,7 @@ from typing import (
     Concatenate,
     Generic,
     Literal,
+    Self,
     TypeAlias,
     TypeVar,
     final,
@@ -37,7 +38,6 @@ from pandas.core.window import (
     ExponentialMovingWindowGroupby,
     RollingGroupby,
 )
-from typing_extensions import Self
 
 from pandas._libs.lib import NoDefaultDoNotUse
 from pandas._libs.tslibs import BaseOffset
@@ -69,7 +69,7 @@ from pandas._typing import (
 
 from pandas.plotting import PlotAccessor
 
-_ResamplerGroupBy: TypeAlias = (
+ResamplerGroupBy: TypeAlias = (
     DatetimeIndexResamplerGroupby[NDFrameT]
     | PeriodIndexResamplerGroupby[NDFrameT]
     | TimedeltaIndexResamplerGroupby[NDFrameT]
@@ -211,7 +211,7 @@ class GroupBy(BaseGroupBy[NDFrameT]):
         offset: TimedeltaConvertibleTypes | None = ...,
         group_keys: bool = ...,
         **kwargs: Any,
-    ) -> _ResamplerGroupBy[NDFrameT]: ...
+    ) -> ResamplerGroupBy[NDFrameT]: ...
     @final
     def rolling(
         self,

@@ -13,7 +13,12 @@ class Params:
         self.general['Ny'] =  int(np.round((self.general['Yrange'][1] - self.general['Yrange'][0])/self.general['dy'])) if self.general['Yrange'] is not None else 1,
         self.general['Nz'] =  int(np.round((self.general['Zrange'][1] - self.general['Zrange'][0])/self.general['dz']))
         self.general['Nt'] = int((self.general['Nt'])*int(float(self.acoustic['f_AQ']))/int(float(self.acoustic['f_saving']))) if 'Nt' in self.general else None
+        if self.acoustic['f_AQ'] == 'AUTO':
+            self.acoustic['f_AQ'] = None
         self.acoustic['f_AQ'] = int(float(self.acoustic['f_AQ']))
+        self.acoustic['f_saving'] = int(float(self.acoustic['f_saving']))
+        self.acoustic['f_US'] = int(float(self.acoustic['f_US']))
+        self.acoustic['medium']['size_structures'] = [float(s) for s in self.acoustic['medium']['size_structures']]
     def __repr__(self):
         return (f"Params(general={self.general}, acoustic={self.acoustic}, optic={self.optic}, "
                 f"reconstruction={self.reconstruction})")

@@ -95,6 +95,7 @@ if LAZY_LOADING_ENABLED:
     )
 else:
     debug(f"Full tool registry initialized with {len(tool_type_mappings)} tools")
+
 for _tool_name, _tool_class in sorted(tool_type_mappings.items()):
     debug(f"  - {_tool_name}: {_tool_class.__name__}")
 
@@ -242,6 +243,10 @@ class ToolUniverse:
         callable_functions (dict): Cache of instantiated tool objects
     """
 
+    # Maximum tool name length for MCP compatibility
+    # 50 chars for tool name + 14 chars for 'tooluniverse__' prefix = 64 chars (Claude's limit)
+    MAX_TOOL_NAME_LENGTH = 45
+
     def __init__(
         self,
         tool_files=default_tool_files,
@@ -250,6 +255,7 @@ class ToolUniverse:
         hooks_enabled: bool = False,
         hook_config: dict = None,
         hook_type: str = None,
+        enable_name_shortening: bool = False,
     ):
         """
         Initialize the ToolUniverse with tool file configurations.
@@ -266,6 +272,8 @@ class ToolUniverse:
             hook_type (str or list, optional): Simple hook type selection. Can be 'SummarizationHook',
                                              'FileSaveHook', or a list of both. Defaults to 'SummarizationHook'.
                                              If both hook_config and hook_type are provided, hook_config takes precedence.
+            enable_name_shortening (bool, optional): Whether to enable automatic tool name shortening
+                                                   for MCP compatibility. Defaults to False.
         """
         # Set log level if specified
         if log_level is not None:
@@ -273,6 +281,17 @@ class ToolUniverse:
 
         # Get logger for this class
         self.logger = get_logger("ToolUniverse")
+
+        # Initialize name mapper for shortening and alias support
+        from .tool_name_utils import ToolNameMapper
+
+        self.name_mapper = ToolNameMapper()
+        self.enable_name_shortening = enable_name_shortening
+
+        if enable_name_shortening:
+            self.logger.debug("Name shortening enabled for MCP compatibility")
+        else:
+            self.logger.debug("Name mapper initialized for alias support only")
 
         # Initialize any necessary attributes here FIRST
         self.all_tools: List[Dict[str, Any]] = []
@@ -965,6 +984,19 @@ class ToolUniverse:
                     )
                     continue
 
+            # Check API key requirements for AgenticTool type
+            if each.get("type") == "AgenticTool":
+                from .agentic_tool import AgenticTool
+
+                if not AgenticTool.has_any_api_keys():
+                    self.logger.debug(
+                        f"Skipping agentic tool '{tool_name}' due to missing LLM API keys"
+                    )
+                    all_missing_keys.add(
+                        "LLM API keys (AZURE_OPENAI_API_KEY, OPENROUTER_API_KEY, or GEMINI_API_KEY)"
+                    )
+                    continue
+
             # Handle duplicates
             if tool_name not in tool_name_list:
                 tool_name_list.append(tool_name)
@@ -1585,12 +1617,32 @@ class ToolUniverse:
         tool_name_list = []
         tool_desc_list = []
         for tool in self.all_tools:
-            tool_name_list.append(tool["name"])
+            original_name = tool["name"]
+
+            # If shortening enabled, use shortened name as primary key
+            if self.enable_name_shortening:
+                shortened_name = self.name_mapper.get_shortened(
+                    original_name, max_length=self.MAX_TOOL_NAME_LENGTH
+                )
+                tool["name"] = shortened_name  # Overwrite with shortened name
+                tool["original_name"] = original_name  # Store original for reference
+            else:
+                shortened_name = original_name
+
+            # Use shortened name throughout (it's now the primary identifier)
+            tool_name_list.append(shortened_name)
             if enable_full_desc:
                 tool_desc_list.append(json.dumps(tool))
             else:
-                tool_desc_list.append(tool["name"] + ": " + tool["description"])
-            self.all_tool_dict[tool["name"]] = tool
+                tool_desc_list.append(shortened_name + ": " + tool["description"])
+
+            # Store with SHORTENED name as key (primary identifier)
+            self.all_tool_dict[shortened_name] = tool
+
+            # Register aliases with the name mapper for backward compatibility
+            if "aliases" in tool and tool["aliases"]:
+                for alias in tool["aliases"]:
+                    self.name_mapper.add_alias(alias, shortened_name)
 
         # Apply filtering if any filter argument is provided
         if any([include_names, exclude_names, include_categories, exclude_categories]):
@@ -2116,6 +2168,31 @@ class ToolUniverse:
             error("Not a function call")
             return None
 
+    def _resolve_tool_name(self, function_name: str) -> str:
+        """
+        Resolve tool name to its primary identifier.
+
+        Uses the ToolNameMapper to handle:
+        1. Aliases (e.g., old tool names) -> primary name
+        2. Original names -> shortened names (if shortening enabled)
+        3. Already primary names -> return as-is
+
+        Args:
+            function_name: Tool name (can be alias, original, or shortened)
+
+        Returns:
+            str: Resolved tool name (primary identifier in all_tool_dict)
+        """
+        if function_name:
+            # Let the mapper handle all resolution (aliases, original->short, etc.)
+            resolved = self.name_mapper.resolve(
+                function_name, max_length=self.MAX_TOOL_NAME_LENGTH
+            )
+            # Only return resolved name if it exists in all_tool_dict
+            if resolved in self.all_tool_dict:
+                return resolved
+        return function_name
+
     def run_one_function(
         self, function_call_json, stream_callback=None, use_cache=False, validate=True
     ):
@@ -2137,6 +2214,9 @@ class ToolUniverse:
         """
         function_name = function_call_json.get("name", "")
         arguments = function_call_json.get("arguments", {})
+
+        # Resolve original names to shortened names (all_tool_dict uses shortened as keys)
+        function_name = self._resolve_tool_name(function_name)
 
         # Handle malformed queries gracefully
         if not function_name:
@@ -2166,7 +2246,9 @@ class ToolUniverse:
             ):
                 cache_namespace = tool_instance.get_cache_namespace()
                 cache_version = tool_instance.get_cache_version()
-                cache_key = self._make_cache_key(function_name, arguments)
+                cache_key = self._make_cache_key(
+                    function_name, arguments, tool_instance
+                )
                 composed_cache_key = self.cache_manager.compose_key(
                     cache_namespace, cache_version, cache_key
                 )
@@ -2293,7 +2375,9 @@ class ToolUniverse:
                 and getattr(tool_instance, "supports_caching", lambda: True)()
             ):
                 if cache_key is None:
-                    cache_key = self._make_cache_key(function_name, arguments)
+                    cache_key = self._make_cache_key(
+                        function_name, arguments, tool_instance
+                    )
                 if cache_namespace is None:
                     cache_namespace = tool_instance.get_cache_namespace()
                 if cache_version is None:
@@ -2497,6 +2581,9 @@ class ToolUniverse:
 
     def _get_tool_instance(self, function_name: str, cache: bool = True):
         """Get or create tool instance with optional caching."""
+        # Resolve original names to shortened names (all_tool_dict uses shortened as keys)
+        function_name = self._resolve_tool_name(function_name)
+
         # Check cache first
         if function_name in self.callable_functions:
             return self.callable_functions[function_name]
@@ -2536,9 +2623,21 @@ class ToolUniverse:
                 return False
         return True
 
-    def _make_cache_key(self, function_name: str, arguments: dict) -> str:
-        """Generate cache key by delegating to BaseTool."""
-        tool_instance = self._get_tool_instance(function_name, cache=False)
+    def _make_cache_key(
+        self, function_name: str, arguments: dict, tool_instance=None
+    ) -> str:
+        """Generate cache key by delegating to BaseTool.
+
+        Args:
+            function_name: Name of the tool/function
+            arguments: Arguments passed to the tool
+            tool_instance: Optional pre-fetched tool instance to avoid recreation
+
+        Returns:
+            Cache key string
+        """
+        if tool_instance is None:
+            tool_instance = self._get_tool_instance(function_name, cache=True)
 
         if tool_instance:
             return tool_instance.get_cache_key(arguments)
@@ -2681,7 +2780,7 @@ class ToolUniverse:
                     f"Tool '{function_name}' not found even after loading tools"
                 )
 
-        tool_instance = self._get_tool_instance(function_name, cache=False)
+        tool_instance = self._get_tool_instance(function_name, cache=True)
         if not tool_instance:
             # Check if we have a recorded error for this tool
             tool_errors = get_tool_errors()
@@ -2721,7 +2820,7 @@ class ToolUniverse:
         self, exception: Exception, function_name: str, arguments: dict
     ) -> ToolError:
         """Classify exception by delegating to BaseTool."""
-        tool_instance = self._get_tool_instance(function_name, cache=False)
+        tool_instance = self._get_tool_instance(function_name, cache=True)
 
         if tool_instance:
             return tool_instance.handle_error(exception)
@@ -2732,6 +2831,7 @@ class ToolUniverse:
     def _create_dual_format_error(self, error: ToolError) -> dict:
         """Create dual-format error response for backward compatibility."""
         return {
+            "status": "error",  # Consistent status field
             "error": str(error),  # Backward compatible string
             "error_details": error.to_dict(),  # New structured format
         }
@@ -3160,15 +3260,21 @@ class ToolUniverse:
             stacklevel=2,
         )
         selected_tools = []
-        # If categories are specified, use self.tool_category_dicts to filter
-        categories = set(self.tool_category_dicts.keys())
-        if include_categories is not None:
-            categories &= set(include_categories)
-        if exclude_categories is not None:
-            categories -= set(exclude_categories)
-        # Gather tools from selected categories
-        for cat in categories:
-            selected_tools.extend(self.tool_category_dicts[cat])
+
+        # If no category filters are specified, use all_tools directly
+        # This ensures we include auto-discovered tools that might not be in tool_category_dicts
+        if include_categories is None and exclude_categories is None:
+            selected_tools = list(self.all_tools)
+        else:
+            # If categories are specified, use self.tool_category_dicts to filter
+            categories = set(self.tool_category_dicts.keys())
+            if include_categories is not None:
+                categories &= set(include_categories)
+            if exclude_categories is not None:
+                categories -= set(exclude_categories)
+            # Gather tools from selected categories
+            for cat in categories:
+                selected_tools.extend(self.tool_category_dicts[cat])
         # Further filter by names if needed
         if include_names is not None:
             selected_tools = [

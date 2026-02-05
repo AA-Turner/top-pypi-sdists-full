@@ -268,6 +268,14 @@ def _table_header(
         formatted_columns = "".join(f"<th>{col}</th>" for col in columns)
         html_header = f'<table class="dataframe">\n<thead>\n<tr style="text-align: right;">\n<th></th>\n{formatted_columns}\n</tr>\n</thead>\n  <tbody>\n  </tbody>\n</table>'
 
+    match = pattern.match(html_header)
+    del html_header
+    assert match is not None
+    thead = match.groups()[0]
+    # Don't remove the index header for empty dfs
+    if not show_index and len(df.columns):
+        thead = thead.replace("<th></th>", "", 1)
+
     # NB: The dtype row is not compatible with the footer option
     # which requires a flat header
     if show_dtypes and (footer is False):
@@ -276,15 +284,20 @@ def _table_header(
             if hasattr(dtype, "_string_repr"):
                 return dtype._string_repr()
 
-            dtype = str(dtype)
-            if dtype.startswith("int"):
-                return "i" + dtype[3:]
-            elif dtype.startswith("uint"):
-                return "u" + dtype[4:]
-            elif dtype.startswith("float"):
-                return "f" + dtype[5:]
+            # Use dtype.name for cleaner representation (e.g., "string" instead of "<StringDtype(...)>")
+            if hasattr(dtype, "name"):
+                dtype_str = dtype.name
             else:
-                return dtype
+                dtype_str = str(dtype)
+
+            if dtype_str.startswith("int"):
+                return "i" + dtype_str[3:]
+            elif dtype_str.startswith("uint"):
+                return "u" + dtype_str[4:]
+            elif dtype_str.startswith("float"):
+                return "f" + dtype_str[5:]
+            else:
+                return dtype_str
 
         if show_index:
             pd = sys.modules["pandas"]
@@ -295,20 +308,15 @@ def _table_header(
                 all_dtypes = [df.index.dtype] + list(df.dtypes)
         else:
             all_dtypes = df.dtypes
+
+        column_count = _column_count_in_header(thead)
+        all_dtypes = [""] * (column_count - len(all_dtypes)) + list(all_dtypes)
+
         formatted_dtypes = "".join(
             f"<th><small class='itables-dtype'>{escape_html_chars(format_dtype(dt)) if escape_html else dt}</small></th>"
             for dt in all_dtypes
         )
-        html_header = replace_value(
-            html_header, "</thead>", f"<tr>{formatted_dtypes}</thead>"
-        )
-
-    match = pattern.match(html_header)
-    assert match is not None
-    thead = match.groups()[0]
-    # Don't remove the index header for empty dfs
-    if not show_index and len(df.columns):
-        thead = thead.replace("<th></th>", "", 1)
+        thead = thead + f"<tr>{formatted_dtypes}</tr>"
 
     header = "<thead>{}</thead>".format(
         _flat_header(df, show_index) if column_filters == "header" else thead
@@ -452,6 +460,63 @@ def _evaluate_show_dtypes(
     return False
 
 
+def get_float_columns_to_be_formatted_in_python(
+    df_module_name: DataFrameModuleName,
+    df: DataFrameOrSeries,
+    format_floats_in_python: Union[bool, Literal["auto"]],
+    columnDefs: Optional[Sequence[Mapping[str, Any]]],
+) -> set[int]:
+    """
+    Return the set of column indices that should have their float values formatted in Python
+    """
+    if format_floats_in_python is False:
+        return set()
+
+    if df_module_name in ["pandas", "numpy"]:
+        float_columns_to_be_formatted_in_python = {
+            i for i, dtype in enumerate(df.dtypes) if dtype.kind == "f"
+        }
+    elif df_module_name == "polars":
+        float_columns_to_be_formatted_in_python = {
+            i for i, col in enumerate(df.columns) if df[col].dtype.is_float()
+        }
+    else:
+        import narwhals as nw
+
+        nw_df = nw.from_native(df, eager_only=True, allow_series=True)
+
+        float_columns_to_be_formatted_in_python = {
+            i for i, col in enumerate(nw_df.columns) if nw_df[col].dtype.is_float()
+        }
+
+    if columnDefs is None or format_floats_in_python is True:
+        return float_columns_to_be_formatted_in_python
+
+    # format_floats_in_python="auto":
+    # remove columns that have a render function defined
+    def remove_if_present(target: int):
+        if target < 0:
+            target = len(df.columns) + target
+        if target in float_columns_to_be_formatted_in_python:
+            float_columns_to_be_formatted_in_python.remove(target)
+
+    for col_def in columnDefs:
+        if "render" not in col_def:
+            continue
+        if "targets" not in col_def:
+            continue
+        targets = col_def["targets"]
+        if targets == "_all":
+            return set()
+        if isinstance(targets, int):
+            remove_if_present(targets)
+            continue
+        assert isinstance(targets, list), targets
+        for target in targets:
+            remove_if_present(target)
+    return float_columns_to_be_formatted_in_python
+
+
 def get_itable_arguments(
     df: DataFrameOrSeries,
     caption: Optional[str] = None,
@@ -539,8 +604,12 @@ def get_itable_arguments(
 
     table_id = kwargs.pop("table_id", None)
     footer = kwargs.pop("footer", False)
+    format_floats_in_python = kwargs.pop("format_floats_in_python", "auto")
     warn_on_selected_rows_not_rendered = kwargs.pop(
         "warn_on_selected_rows_not_rendered", False
+    )
+    warn_on_polars_get_fmt_not_found = kwargs.pop(
+        "warn_on_polars_get_fmt_not_found", True
     )
     dt_args = cast(DTForITablesOptions, kwargs)
     if caption is not None:
@@ -592,12 +661,39 @@ def get_itable_arguments(
         # an extra empty column in the table data #141
         column_count = _column_count_in_header(table_header)
         dt_args["table_html"] = table_header
+        columnDefs = dt_args.get("columnDefs") or []
+        float_columns_to_be_formatted_in_python: set[int] = (
+            get_float_columns_to_be_formatted_in_python(
+                df_module_name, df, format_floats_in_python, columnDefs
+            )
+        )
         dt_args["data_json"] = datatables_rows(
             df,
-            column_count,
-            warn_on_unexpected_types=warn_on_unexpected_types,
+            column_count=column_count,
             escape_html=allow_html is not True,
+            float_columns_to_be_formatted_in_python=float_columns_to_be_formatted_in_python,
+            warn_on_unexpected_types=warn_on_unexpected_types,
+            warn_on_polars_get_fmt_not_found=warn_on_polars_get_fmt_not_found,
         )
+        if float_columns_to_be_formatted_in_python:
+            dt_args["columnDefs"] = (
+                [
+                    {
+                        "targets": [
+                            i + column_count - len(df.columns)
+                            for i in float_columns_to_be_formatted_in_python
+                        ],
+                        "render": JavascriptFunction(
+                            """
+                        function (data, type, row, meta) {
+                            return type === 'sort' ? data[1] : data[0];
+                        }
+                    """
+                        ),
+                    }
+                ]
+                + list(columnDefs)
+            )
     else:
         if df_module_name == "pandas" and df_type_name == "Styler":
             if not allow_html:

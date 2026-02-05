@@ -151,7 +151,6 @@ def deep_merge_dicts(dict1, dict2):
             # Otherwise, overwrite or add the value from dict2
             if key in merged_dict and isinstance(merged_dict[key], Completer):
                 pass
-                # print('SEAN completer found, ignoring', key, value)
             else:
                 merged_dict[key] = value
     return merged_dict
@@ -596,8 +595,11 @@ class ParallelMapHandler:
         return ParallelService(self)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if not self.name and self.executor:
-            self.executor.__exit__(exc_type, exc_val, exc_tb)
+        if self.executor:
+            if self.name:
+                pass
+            else:
+                self.executor.__exit__(exc_type, exc_val, exc_tb)
 
         if self.end:
             log2(f'{" ".join(self.end)} in {elapsed_time(self.start_time)}.')

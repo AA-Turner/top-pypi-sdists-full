@@ -45,7 +45,7 @@ show_df_type: bool = False
 The default classes.
 See https://mwouts.github.io/itables/options/classes.html
 """
-classes: Union[str, Sequence[str]] = "display nowrap"
+classes: Union[str, Sequence[str]] = "display nowrap compact"
 
 """
 The default table style.
@@ -76,6 +76,14 @@ order: Optional[
     Union[Sequence[Sequence[Union[int, str]]], Mapping[str, Union[int, str]]]
 ] = []
 
+"""
+Should float values be formatted using the native Python DataFrame formatters?
+
+Use 'auto' to format floats in Python only when the corresponding columns have
+no render function defined in the DataTables columnDefs option.
+"""
+format_floats_in_python: Union[bool, Literal["auto"]] = "auto"
+
 """Authorize, or not, the use of HTML in the table content.
 
 Make sure that you trust the content of your tables before
@@ -95,6 +103,9 @@ warn_on_unexpected_types: bool = True
 """Should a warning appear when the selection targets rows that have been
 filtered by the downsampling?"""
 warn_on_selected_rows_not_rendered: bool = True
+
+"""Display a warning if the private Polars formatting method is not found"""
+warn_on_polars_get_fmt_not_found: bool = True
 
 """The DataTables URL for the connected mode"""
 dt_url: str = utils.UNPKG_DT_BUNDLE_URL

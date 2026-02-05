@@ -240,7 +240,7 @@ def wired_limit(model: nn.Module, streams: Optional[List[mx.Stream]] = None):
         model_bytes = tree_reduce(
             lambda acc, x: acc + x.nbytes if isinstance(x, mx.array) else acc, model, 0
         )
-        max_rec_size = mx.metal.device_info()["max_recommended_working_set_size"]
+        max_rec_size = mx.device_info()["max_recommended_working_set_size"]
         if model_bytes > 0.9 * max_rec_size:
             model_mb = model_bytes // 2**20
             max_rec_mb = max_rec_size // 2**20
@@ -883,7 +883,7 @@ class Batch:
         return [c.extract(idx) for c in self.cache]
 
 
-def _make_cache(model, left_padding):
+def _make_cache(model, left_padding, max_kv_size):
     """
     Convert a list of regular caches into their corresponding
     batch-aware caches.
@@ -908,6 +908,10 @@ def _make_cache(model, left_padding):
         cache = model.make_cache()
         return [to_batch_cache(c) for c in cache]
     else:
+        if max_kv_size is not None:
+            return [
+                BatchRotatingKVCache(max_kv_size, left_padding) for _ in model.layers
+            ]
         return [BatchKVCache(left_padding) for _ in model.layers]
 
 
@@ -947,6 +951,7 @@ class BatchGenerator:
         prompt_progress_callback: Optional[
             Callable[[List[Tuple[int, int, int]]], None]
         ] = None,
+        max_kv_size: Optional[int] = None,
     ):
         self.model = model
         self.unprocessed_prompts = []
@@ -960,12 +965,13 @@ class BatchGenerator:
         self.completion_batch_size = max(completion_batch_size, prefill_batch_size)
         self.prompt_progress_callback = prompt_progress_callback or (lambda *_: None)
         self._stats = BatchStats()
+        self.max_kv_size = max_kv_size
 
         self.active_batch = None
 
         if mx.metal.is_available():
             self._old_wired_limit = mx.set_wired_limit(
-                mx.metal.device_info()["max_recommended_working_set_size"]
+                mx.device_info()["max_recommended_working_set_size"]
             )
         else:
             self._old_wired_limit = None
@@ -1014,10 +1020,16 @@ class BatchGenerator:
         )
         return uids
 
-    def remove(self, uids: List[int]):
+    def remove(self, uids: List[int], return_prompt_caches: bool = False):
+        caches = {}
         uids = set(uids)
         if self.active_batch is not None:
             batch = self.active_batch
+            if return_prompt_caches:
+                for e, uid in enumerate(batch.uids):
+                    if uid not in uids:
+                        continue
+                    caches[uid] = batch.extract_cache(e)
             keep_idx = [e for e, uid in enumerate(batch.uids) if uid not in uids]
             if len(keep_idx) > 0:
                 batch.filter(keep_idx)
@@ -1027,6 +1039,9 @@ class BatchGenerator:
         for i in reversed(range(len(self.unprocessed_prompts))):
             if self.unprocessed_prompts[i][0] in uids:
                 self.unprocessed_prompts.pop(i)
+
+        if return_prompt_caches:
+            return caches
 
     def _process_prompts(self, prompts):
         uids, inputs, max_tokens, caches, samplers, logits_processors = zip(*prompts)
@@ -1045,7 +1060,7 @@ class BatchGenerator:
         #   2. Process
         if all(c[0].empty() for c in caches):
             inputs = _left_pad_prompts(inputs, max_length=max_length)
-            prompt_cache = _make_cache(self.model, padding)
+            prompt_cache = _make_cache(self.model, padding, self.max_kv_size)
 
             while inputs.shape[1] > 1:
                 n_to_process = min(self.prefill_step_size, inputs.shape[1] - 1)

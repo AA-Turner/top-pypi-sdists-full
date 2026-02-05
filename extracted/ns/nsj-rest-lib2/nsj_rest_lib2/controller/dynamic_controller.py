@@ -158,7 +158,7 @@ def setup_dynamic_routes(
                 custom_json_response=bool(custom_json_list_response),
             )
 
-            return route.handle_request(*args, **kwargs)
+            return route.internal_handle_request(*args, **kwargs)
 
         return list_dynamic
 
@@ -201,7 +201,7 @@ def setup_dynamic_routes(
                 custom_json_response=bool(custom_json_get_response),
             )
 
-            return route.handle_request(*args, **kwargs)
+            return route.internal_handle_request(*args, **kwargs)
 
         return get_dynamic
 
@@ -266,7 +266,7 @@ def setup_dynamic_routes(
                 custom_json_response=bool(custom_json_post_response),
             )
 
-            return route.handle_request(*args, **kwargs)
+            return route.internal_handle_request(*args, **kwargs)
 
         return post_dynamic
 
@@ -331,7 +331,7 @@ def setup_dynamic_routes(
                 custom_json_response=bool(custom_json_put_response),
             )
 
-            return route.handle_request(*args, **kwargs)
+            return route.internal_handle_request(*args, **kwargs)
 
         return put_dynamic
 
@@ -388,7 +388,7 @@ def setup_dynamic_routes(
                 custom_json_response=bool(custom_json_patch_response),
             )
 
-            return route.handle_request(*args, **kwargs)
+            return route.internal_handle_request(*args, **kwargs)
 
         return patch_dynamic
 
@@ -433,7 +433,7 @@ def setup_dynamic_routes(
                 custom_json_response=bool(custom_json_delete_response),
             )
 
-            return route.handle_request(*args, **kwargs)
+            return route.internal_handle_request(*args, **kwargs)
 
         return delete_dynamic
 

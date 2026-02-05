@@ -1,8 +1,10 @@
+import copy
 import AOT_biomaps.Settings
 from AOT_biomaps.Config import config
 from AOT_biomaps.AOT_Acoustic.AcousticTools import calculate_envelope_squared, loadmat
 from .AcousticTools import next_power_of_2, reshape_field
-from .AcousticEnums import TypeSim, Dim, FormatSave, WaveType, PhantomType
+from .AcousticEnums import TypeSim, Dim, FormatSave, WaveType
+from AOT_biomaps.AOT_Medium import Medium
 
 from IPython.display import HTML
 import h5py
@@ -10,8 +12,6 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-from kwave.kgrid import kWaveGrid
-from kwave.kmedium import kWaveMedium
 from kwave.utils.signals import tone_burst
 from kwave.ksource import kSource
 from kwave.ksensor import kSensor
@@ -20,11 +20,9 @@ from kwave.kspaceFirstOrder2D import kspaceFirstOrder2D
 from kwave.options.simulation_options import SimulationOptions
 from kwave.options.simulation_execution_options import SimulationExecutionOptions
 from AOT_biomaps.Settings import Params
-from scipy.ndimage import gaussian_filter
-from joblib import dump, load
+
 
 from tempfile import gettempdir
-from math import ceil
 from abc import ABC, abstractmethod
 import logging
 
@@ -44,7 +42,7 @@ class AcousticField(ABC):
     - medium: Medium properties for k-Wave simulation. Because field2 and Hydrophone simulation are not implemented yet, this attribute is set to None for these types of simulation.
     """
 
-    def __init__(self, params):
+    def __init__(self, params, medium):
         """
         Initialize global properties of the AcousticField object.
 
@@ -63,38 +61,18 @@ class AcousticField(ABC):
         - Yrange (list of float, optional): Range of Y coordinates for the acoustic field, specified in meters (m). Default is None, indicating no specific Y range.
         - Zrange (list of float): Range of Z coordinates for the acoustic field, specified in meters (m). Default is from 0 m to 37 mm.
         """
-        if params != None:
-            if type(params) != Params:
-                raise TypeError("params must be an instance of the Params class")
+        if type(params) != Params:
+            raise TypeError("params must be an instance of the Params class")
+        if not isinstance(medium, Medium):
+            raise TypeError("medium must be an instance of the Medium class")
+
+        self.medium = medium
+        self.params = params
+
+        self._generate_burst_signal()
+        if self.params.acoustic["dim"] == Dim.D3 and self.params.general["Yrange"] is None:
+            raise ValueError("Yrange must be provided for 3D fields.")
             
-            self.kgrid = kWaveGrid([self.params.general["Nx"], self.params.general["Nz"]], [self.params.general["dx"], self.params.general["dz"]])
-
-            if self.params.acoustic['f_AQ'] == "AUTO":
-                self.kgrid.makeTime(self.params.acoustic['medium']['c0'])
-                self.params.acoustic['f_AQ'] = int(1/self.kgrid.dt)
-            else:
-                if self.params.general['Nt'] is None:
-                    Nt = ceil((self.params.general['Zrange'][1] - self.params.general['Zrange'][0])*float(params.acoustic['f_AQ']) / self.params.acoustic['c0'])
-                    self.params.general['Nt'] = Nt
-                else:
-                    Nt = self.params.general['Nt']
-                self.kgrid.setTime(Nt,1/float(self.params.acoustic['f_AQ']))
-
-            self._generate_burst_signal()
-
-            if self.params.acoustic["dim"] == Dim.D3 and self.params.general["Yrange"] is None:
-                raise ValueError("Yrange must be provided for 3D fields.")
-            
-            if self.params['typeSim'] == TypeSim.KWAVE.value:
-                if self.params.acoustic['medium']['type'] == PhantomType.Homogeneous.value:
-                    self._generate_kwave_homogeneous_medium()
-                elif self.params.acoustic['medium']['type'] == PhantomType.PVA.value:
-                    self._generate_kwave_pva_medium()
-            elif self.params.acoustic['typeSim'] == TypeSim.FIELD2.value:
-                self.medium = None
-            else:
-                self.medium = None
-
         self.waveType = None
         self.field = None  
 
@@ -212,182 +190,6 @@ class AcousticField(ABC):
     def getName_field(self):
         pass
 
-    def _generate_kwave_homogeneous_medium(self):
-        """
-        Génère un milieu k-Wave homogène basé sur les paramètres définis.
-        """
-        # --- 1. Grid setup et respect de Nyquist ---
-        dx = self.params.general['dx']
-        if dx >= self.params.acoustic['probe']['element_width']:
-            dx = self.params.acoustic['probe']['element_width'] / 2
-        # Dimensions physiques → pixels
-        width = self.params.acoustic['medium'].get('width',
-                self.params.general['Xrange'][1] - self.params.general['Xrange'][0])
-        height = self.params.acoustic['medium'].get('height',
-                self.params.general['Zrange'][1] - self.params.general['Zrange'][0])
-        pva_nx = int(np.round(width / dx))
-        pva_nz = int(np.round(height / dx))
-
-        # Ajout des marges d'air si nécessaire
-        air_margin = 20 if self.params.acoustic['medium']['isAirReflection'] else 0
-        Nx, Nz = pva_nx + 2 * air_margin, pva_nz
-
-        x_start = air_margin
-        x_end = x_start + pva_nx
-
-        # --- 2. Initialisation des cartes (air ou PVA) ---
-        c_map = np.full((Nx, Nz), 343.0 if air_margin else self.params.acoustic['medium']['c0'], dtype=np.float32)
-        rho_map = np.full((Nx, Nz), 1.2 if air_margin else self.params.acoustic['medium']['density'], dtype=np.float32)
-        alpha_coeff_map = np.zeros((Nx, Nz), dtype=np.float32)
-        alpha_power_map = np.full((Nx, Nz), 1.05, dtype=np.float32)
-        BonA_map = np.zeros((Nx, Nz), dtype=np.float32)
-
-        # Vitesse du son et densité dans le phantom
-        c_map[x_start:x_end, :] = self.params.acoustic['medium']['c0']
-        rho_map[x_start:x_end, :] = self.params.acoustic['medium']['density']
-
-        # Atténuation et non-linéarité dans le phantom
-        alpha_coeff_map[x_start:x_end, :] = self.params.acoustic['medium']['alpha_coeff']
-        alpha_power_map[x_start:x_end, :] = self.params.acoustic['medium']['alpha_power']
-        BonA_map[x_start:x_end, :] = self.params.acoustic['medium']['BonA']
-
-        # --- 5. Création du milieu k-Wave ---
-        self.medium = kWaveMedium(
-            sound_speed=c_map,
-            density=rho_map,
-            alpha_coeff=alpha_coeff_map,
-            alpha_power=alpha_power_map,
-            BonA=BonA_map,
-            absorbing=True,
-            stokes=False
-        )
-
-        self.kgrid = kWaveGrid([Nx, Nz], [dx, dx])
-        dt = 1/(self.params.acoustic['f_AQ'])
-        self.kgrid.setTime(self.kgrid.Nt, dt)  # Garder Nt constant
-
-        # Saving variable for later use
-        self.factorX = int(np.ceil(self.params.general['dx'] / dx))
-        self.factorZ = self.factorX
-        self.factorT = int(np.ceil((1/self.kgrid.dt) / (self.params.acoustic['f_saving'])))
-        self.c_mean = np.mean(c_map[:, 0])
-        self.Nx_reshaped = Nx
-        self.Nz_reshaped = Nz
-        self.dx_reshaped = dx
-
-    def _generate_kwave_pva_medium(self):
-        """
-        Génère un milieu k-Wave PVA hétérogène avec gestion optionnelle de l'air.
-        - Si isAirReflection=True : l'air entoure le phantom (marges de 20 pixels).
-        - Sinon : le PVA occupe toute la grille.
-        Respecte Nyquist et optimise la VRAM (float32, calculs in-place).
-        """
-        # --- 1. Grid setup et respect de Nyquist ---
-        dx = self.params.general['dx']
-        if dx >= self.params.acoustic['probe']['element_width']:
-            dx = self.params.acoustic['probe']['element_width'] / 2
-        # Dimensions physiques → pixels
-        width = self.params.acoustic['medium'].get('width',
-                self.params.general['Xrange'][1] - self.params.general['Xrange'][0])
-        height = self.params.acoustic['medium'].get('height',
-                self.params.general['Zrange'][1] - self.params.general['Zrange'][0])
-        pva_nx = int(np.round(width / dx))
-        pva_nz = int(np.round(height / dx))
-
-        # Ajout des marges d'air si nécessaire
-        air_margin = 20 if self.params.acoustic['medium']['isAirReflection'] else 0
-        Nx, Nz = pva_nx + 2 * air_margin, pva_nz
-
-        # --- 2. space factors ---
-        self.factorX = int(np.ceil(self.params.general['dx'] / dx))
-        self.factorZ = self.factorX
-
-        # --- 2. Initialisation des cartes (air ou PVA) ---
-        c_map = np.full((Nx, Nz), 343.0 if air_margin else self.params.acoustic['medium']['c0'], dtype=np.float32)
-        self.c_mean = np.mean(c_map[:, 0])
-        rho_map = np.full((Nx, Nz), 1.2 if air_margin else self.params.acoustic['medium']['density'], dtype=np.float32)
-        alpha_coeff_map = np.zeros((Nx, Nz), dtype=np.float32)
-        alpha_power_map = np.full((Nx, Nz), 1.05, dtype=np.float32)
-        BonA_map = np.zeros((Nx, Nz), dtype=np.float32)
-
-        # --- 3. Région du PVA (avec ou sans marge d'air) ---
-        x_start = air_margin
-        x_end = x_start + pva_nx
-
-        # --- 4. Génération des hétérogènesités (uniquement dans le PVA) ---
-        eta = np.random.randn(pva_nx, pva_nz).astype(np.float32) * self.params.acoustic['medium']['noise_lvl']
-        for _ in range(self.params.acoustic['medium']['n_phases']):
-            sigma_val = np.random.uniform(*[s/self.params.general['dx'] for s in self.params.acoustic['medium']['size_structures']])
-            threshold = np.random.uniform(1.2, 2.2)
-            noise_field = gaussian_filter(np.random.randn(pva_nx, pva_nz), sigma=sigma_val)
-            noise_field /= (np.std(noise_field) + 1e-9)
-            mask = 1 / (1 + np.exp(-self.params.acoustic['medium']['grad_coef'] * (noise_field - threshold)))
-
-            zone_offset = np.random.uniform(-self.params.acoustic['medium']['c0_delta'], self.params.acoustic['medium']['c0_delta'])
-            zone_grain = np.random.randn(pva_nx, pva_nz).astype(np.float32) * self.params.acoustic['medium']['scattering_amplitude']
-            eta = (1 - mask) * eta + mask * (zone_offset + zone_grain)
-
-        # --- 5. Propriétés physiques du PVA ---
-        sound_speed_pva = self.params.acoustic['medium']['c0'] * (1 + eta)
-        density_pva = self.params.acoustic['medium']['density'] * (1 + eta)
-        eta_norm = (eta - np.min(eta)) / (np.max(eta) - np.min(eta) + 1e-9)
-        alpha_coeff_pva = 0.4 + 0.3 * eta_norm  # [0.4, 0.7] dB/(MHz^y cm)
-
-        # --- 6. Insertion dans les cartes globales ---
-        c_map[x_start:x_end, :] = sound_speed_pva
-        rho_map[x_start:x_end, :] = density_pva
-        alpha_coeff_map[x_start:x_end, :] = alpha_coeff_pva
-        if not air_margin:  # Si pas d'air, BonA/alpha_power uniformes sur toute la grille
-            alpha_power_map[:, :] = self.params.acoustic['medium'].get('alpha_power', 1.05)
-            BonA_map[:, :] = self.params.acoustic['medium'].get('BonA', 6.0)
-        else:  # Sinon, uniquement dans le PVA
-            alpha_power_map[x_start:x_end, :] = self.params.acoustic['medium'].get('alpha_power', 1.05)
-            BonA_map[x_start:x_end, :] = self.params.acoustic['medium'].get('BonA', 6.0)
-
-        # --- 7. Création du milieu k-Wave ---
-        self.medium = kWaveMedium(
-            sound_speed=c_map,
-            density=rho_map,
-            sound_speed_ref=self.params.acoustic['medium']['c0'],
-            alpha_coeff=alpha_coeff_map,
-            alpha_power=alpha_power_map,
-            BonA=BonA_map,
-            absorbing=True,
-            stokes=False
-        )
-               
-        self.kgrid = kWaveGrid([Nx, Nz], [dx, dx])
-        dt = 1/(self.params.acoustic['f_AQ'])
-        self.kgrid.setTime(self.kgrid.Nt, dt)  # Garder Nt constant
-        self.factorT = int(np.ceil((1/self.kgrid.dt) / (self.params.acoustic['f_saving'])))
-
-    def save_medium(self, filePath):
-        """
-        Save the medium properties to a .mat file.
-
-        Parameters:
-        - filePath (str): The path where the .mat file will be saved.
-        """
-        try:
-            if self.medium is None:
-                raise ValueError("Medium properties are not defined.")
-            dump(self.medium, filePath)
-        except Exception as e:
-            print(f"Error in save_medium method: {e}")
-            raise
-    
-    def load_medium(self, filePath):
-        """
-        Load the medium properties from a .mat file.
-
-        Parameters:
-        - filePath (str): The path from which the .mat file will be loaded.
-        """
-        try:
-            self.medium = load(filePath)
-        except Exception as e:
-            print(f"Error in load_medium method: {e}")
-            raise   
 
     ## DISPLAY METHODS ##
 
@@ -543,29 +345,6 @@ class AcousticField(ABC):
             print(f"Error in show method: {e}")
             raise
 
-    def plot_medium_properties(self):
-
-        vmin_speed = np.min(self.medium.sound_speed)
-        vmax_speed = np.max(self.medium.sound_speed)
-        vmin_density = np.min(self.medium.density)
-        vmax_density = np.max(self.medium.density)
-        extent = [self.params.general['Xrange'][0]*1e3, self.params.general['Xrange'][1]*1e3, self.params.general['Zrange'][1]*1e3, self.params.general['Zrange'][0]*1e3]
-        plt.figure(figsize=(13,6))
-        plt.subplot(121)
-        plt.imshow(self.medium.sound_speed.T, vmin=vmin_speed, vmax=vmax_speed, cmap='autumn', extent=extent)
-        plt.title('Sound speed map (m/s)')
-        plt.xlabel('X (mm)')
-        plt.ylabel('Z (mm)')
-        plt.colorbar()
-        plt.subplot(122)
-        plt.imshow(self.medium.density.T, vmin=vmin_density, vmax=vmax_density, cmap='summer', extent=extent)
-        plt.title('Density map (kg/m^3)')
-        plt.xlabel('X (mm)')
-        plt.ylabel('Z (mm)')
-        plt.colorbar()
-        plt.tight_layout()
-        plt.show()
-
     ## PRIVATE METHODS ##
 
     def _generate_burst_signal(self):
@@ -581,7 +360,7 @@ class AcousticField(ABC):
         Private method to generate a burst signal based on the specified parameters.
         """
         try:
-            self.burst = tone_burst(1/self.kgrid.dt, self.params.acoustic['f_US'], self.params.acoustic['emission']['num_cycles']).squeeze()
+            self.burst = tone_burst(1/self.medium.kgrid.dt, self.params.acoustic['f_US'], self.params.acoustic['emission']['num_cycles']).squeeze()
         except Exception as e:
             print(f"Error in __generate_burst_signal method: {e}")
             raise
@@ -591,62 +370,58 @@ class AcousticField(ABC):
         Base function to generate a 2D acoustic field using k-Wave.
         Handles common setup, simulation, and post-processing.
         """
-        try:
-    
-            source = kSource()
-            source.p_mask = np.zeros((self.kgrid. self.Nx_reshaped, self.Nz_reshaped))
-            # Appel à la méthode spécialisée
-            source = self._SetUpSource(source, self.Nx_reshaped, self.kgrid.dt, self.dx_reshaped, self.c_mean,self.factorT)  # factorT=1 pour simplifier
+        source = kSource()
+        source.p_mask = np.zeros(( self.medium.Nx_reshaped, self.medium.Nz_reshaped))
+        # Appel à la méthode spécialisée
+        source = self._SetUpSource(source, self.medium.Nx_reshaped, self.medium.kgrid.dt, self.medium.dx_reshaped, self.medium.c_mean,self.medium.factorT)  # factorT=1 pour simplifier
 
-            # --- 4. Sensor setup ---
-            sensor = kSensor()
-            sensor.mask = np.ones((self.Nx_reshaped, self.Nz_reshaped))
+        # --- 4. Sensor setup ---
+        sensor = kSensor()
+        sensor.mask = np.ones((self.medium.Nx_reshaped, self.medium.Nz_reshaped))
+        # --- 5. PML setup ---
+        pml_size = 50 
 
-            # --- 5. PML setup ---
-            pml_size = 50 
+        # --- 7. Simulation options ---
+        simulation_options = SimulationOptions(
+        pml_inside=False, # PML ajoutée autour de la grille Air+PVA
+        pml_size=[1, pml_size],
+        use_sg=False,
+        save_to_disk=True,
+        input_filename=os.path.join(gettempdir(), "KwaveIN.h5"),
+        output_filename=os.path.join(gettempdir(), "KwaveOUT.h5"),
+        smooth_c0 = True,
+        smooth_rho0 = True,
+        smooth_p0 = True
+        )
 
-            # --- 7. Simulation options ---
-            simulation_options = SimulationOptions(
-            pml_inside=False, # PML ajoutée autour de la grille Air+PVA
-            pml_size=[1, pml_size],
-            use_sg=False,
-            save_to_disk=True,
-            input_filename=os.path.join(gettempdir(), "KwaveIN.h5"),
-            output_filename=os.path.join(gettempdir(), "KwaveOUT.h5"),
-            smooth_c0 = True,
-            smooth_rho0 = True,
-            smooth_p0 = True
-            )
+        execution_options = SimulationExecutionOptions(
+            is_gpu_simulation=config.get_process() == 'gpu' and isGPU,
+            device_num=config.bestGPU,
+            show_sim_log=show_log
+        )
 
-            execution_options = SimulationExecutionOptions(
-                is_gpu_simulation=config.get_process() == 'gpu' and isGPU,
-                device_num=config.bestGPU,
-                show_sim_log=show_log
-            )
+        medium_copy = copy.deepcopy(self.medium) # Avoid in-place modifications of the medium properties during simulation, which can affect subsequent simulations if the same medium object is reused.
 
-            # --- 8. Run simulation ---
-            sensor_data = kspaceFirstOrder2D(
-                kgrid=self.kgrid,
-                medium=self.medium,
-                source=source,
-                sensor=sensor,
-                simulation_options=simulation_options,
-                execution_options=execution_options,
-            )
+        # --- 8. Run simulation ---
+        sensor_data = kspaceFirstOrder2D(
+            kgrid=medium_copy.kgrid,
+            medium=medium_copy.kmedium,
+            source=source,
+            sensor=sensor,
+            simulation_options=simulation_options,
+            execution_options=execution_options,
+        )
 
-            # --- 9. Post-process results ---
-            data = sensor_data['p'].reshape(self.kgrid.Nt, self.Nz_reshaped, self.Nx_reshaped    )
-            if self.factorT != 1 or self.factorX != 1 or self.factorZ != 1:
-                data = reshape_field(data, [self.factorT, self.factorX, self.factorZ])
-                xStart = (self.Nx_reshaped//2)//self.factorX - (self.params.general['Nx']//2)
-                return data[:, :self.params.general['Nx'], xStart:xStart+self.params.general['Nx']]
-            else:
-                return data[:, :self.params.general['Nx'], xStart:xStart+self.params.general['Nx']]
-            
-        except Exception as e:
-            print(f"Error generating 2D acoustic field: {e}")
-            return None
-    
+        # --- 9. Post-process results ---
+        data = sensor_data['p'].reshape(self.medium.kgrid.Nt, self.medium.Nz_reshaped, self.medium.Nx_reshaped    )
+        if self.medium.factorT != 1 or self.medium.factorX != 1 or self.medium.factorZ != 1:
+            data = reshape_field(data, [self.medium.factorT, self.medium.factorX, self.medium.factorZ])
+            xStart = (self.medium.Nx_reshaped//2)//self.medium.factorX - (self.params.general['Nx']//2)
+            return data[:, :self.params.general['Nx'], xStart:xStart+self.params.general['Nx']]
+        else:
+            return data[:, :self.params.general['Nx'], xStart:xStart+self.params.general['Nx']]
+
+
     # def _generate_acoustic_field_KWAVE_3D(self, isGPU=True, show_log=True):
     #     """
     #     Generate a 3D acoustic field using k-Wave.

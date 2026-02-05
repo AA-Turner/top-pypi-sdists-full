@@ -6,12 +6,14 @@ import logging
 from typing import Any, Callable, Literal, Optional, Sequence
 
 from pyrit.common import default_values, net_utility
+from pyrit.identifiers import TargetIdentifier
 from pyrit.models import (
     Message,
     MessagePiece,
     construct_response_from_request,
 )
-from pyrit.prompt_target import PromptTarget, limit_requests_per_minute
+from pyrit.prompt_target.common.prompt_target import PromptTarget
+from pyrit.prompt_target.common.utils import limit_requests_per_minute
 
 logger = logging.getLogger(__name__)
 
@@ -92,12 +94,29 @@ class PromptShieldTarget(PromptTarget):
 
         self._force_entry_field: PromptShieldEntryField = field
 
+    def _build_identifier(self) -> TargetIdentifier:
+        """
+        Build the identifier with Prompt Shield-specific parameters.
+
+        Returns:
+            TargetIdentifier: The identifier for this target instance.
+        """
+        return self._create_identifier(
+            target_specific_params={
+                "api_version": self._api_version,
+                "force_entry_field": self._force_entry_field if self._force_entry_field else None,
+            },
+        )
+
     @limit_requests_per_minute
     async def send_prompt_async(self, *, message: Message) -> list[Message]:
         """
-        Parses the text in message to separate the userPrompt and documents contents,
-        then sends an HTTP request to the endpoint and obtains a response in JSON. For more info, visit
+        Parse the text in message to separate the userPrompt and documents contents,
+        then send an HTTP request to the endpoint and obtain a response in JSON. For more info, visit
         https://learn.microsoft.com/en-us/azure/ai-services/content-safety/quickstart-jailbreak.
+
+        Returns:
+            list[Message]: A list containing the response object with generated text pieces.
         """
         self._validate_request(message=message)
 
@@ -115,7 +134,7 @@ class PromptShieldTarget(PromptTarget):
             "api-version": self._api_version,
         }
 
-        parsed_prompt: dict = self._input_parser(request.original_value)
+        parsed_prompt: dict[str, Any] = self._input_parser(request.original_value)
 
         body = {"userPrompt": parsed_prompt["userPrompt"], "documents": parsed_prompt["documents"]}
 
@@ -153,9 +172,16 @@ class PromptShieldTarget(PromptTarget):
         if piece_type != "text":
             raise ValueError(f"This target only supports text prompt input. Received: {piece_type}.")
 
-    def _validate_response(self, request_body: dict, response_body: dict) -> None:
+    def _validate_response(self, request_body: dict[str, Any], response_body: dict[str, Any]) -> None:
         """
-        Ensures that every field sent to the Prompt Shield was analyzed.
+        Ensure that every field sent to the Prompt Shield was analyzed.
+
+        Args:
+            request_body: The request body sent to Prompt Shield.
+            response_body: The response body received from Prompt Shield.
+
+        Raises:
+            ValueError: If any field sent was not analyzed.
         """
         user_prompt_sent: str | None = request_body.get("userPrompt")
         documents_sent: list[str] | None = request_body.get("documents")
@@ -171,8 +197,14 @@ class PromptShieldTarget(PromptTarget):
 
     def _input_parser(self, input_str: str) -> dict[str, Any]:
         """
-        Parses the input given to the target to extract the two fields sent to
+        Parse the input given to the target to extract the two fields sent to
         Prompt Shield: userPrompt: str, and documents: list[str].
+
+        Args:
+            input_str: The input string to parse.
+
+        Returns:
+            dict[str, Any]: A dictionary with 'userPrompt' and 'documents' keys.
         """
         match self._force_entry_field:
             case "userPrompt":
@@ -195,9 +227,12 @@ class PromptShieldTarget(PromptTarget):
 
                 return {"userPrompt": user_prompt, "documents": documents if documents else []}
 
-    def _add_auth_param_to_headers(self, headers: dict) -> None:
+    def _add_auth_param_to_headers(self, headers: dict[str, str]) -> None:
         """
-        Adds the API key or token to the headers.
+        Add the API key or token to the headers.
+
+        Args:
+            headers: The headers dictionary to add authentication to.
         """
         if self._api_key:
             # If callable, call it to get the token

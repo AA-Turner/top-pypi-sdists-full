@@ -14,7 +14,7 @@ def EMDB_get_map_info(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Optional[dict[str, Any]]:
     """
     Get detailed electron density map information for an EMDB entry including map statistics, contour...
 
@@ -31,7 +31,7 @@ def EMDB_get_map_info(
 
     Returns
     -------
-    dict[str, Any]
+    Optional[dict[str, Any]]
     """
     # Handle mutable defaults to avoid B006 linting error
 

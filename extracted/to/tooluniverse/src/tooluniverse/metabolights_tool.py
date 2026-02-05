@@ -86,6 +86,15 @@ class MetaboLightsRESTTool(BaseTool):
             if "page" in args:
                 params["page"] = args["page"]
 
+        elif tool_name == "metabolights_get_study_data_files":
+            # Required parameters for data-files endpoint
+            if "search_pattern" in args:
+                params["search_pattern"] = args["search_pattern"]
+            if "file_match" in args:
+                params["file_match"] = str(args["file_match"]).lower()
+            if "folder_match" in args:
+                params["folder_match"] = str(args["folder_match"]).lower()
+
         return params
 
     def _extract_samples_from_study(self, study_id: str) -> Dict[str, Any]:

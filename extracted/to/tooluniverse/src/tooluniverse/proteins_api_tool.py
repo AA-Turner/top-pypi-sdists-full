@@ -48,8 +48,8 @@ class ProteinsAPIRESTTool(BaseTool):
         elif tool_name == "proteins_api_get_variants":
             accession = args.get("accession", "")
             if accession:
-                # Try variations endpoint - may not be available for all proteins
-                return f"{self.base_url}/proteins/{accession}/variations"
+                # Use the variation API endpoint (not the proteins endpoint)
+                return f"{self.base_url}/variation"
 
         elif tool_name == "proteins_api_get_proteomics":
             accession = args.get("accession", "")
@@ -75,19 +75,32 @@ class ProteinsAPIRESTTool(BaseTool):
         tool_name = self.tool_config.get("name", "")
 
         if tool_name == "proteins_api_search":
-            # Proteins API search - try different parameter formats
-            # The API may require specific parameter names
+            # Proteins API search requires specific parameters:
+            # gene, protein, accession, organism, taxid, etc.
             if "query" in args:
-                # Try 'accession' or 'name' parameters instead
                 query = args["query"]
-                # If it looks like an accession, use accession parameter
-                if query.startswith("P") and len(query) == 6:
-                    params["accession"] = query
+                # Try to intelligently map query to the right parameter
+                # If it looks like an accession (starts with letter and 5-6 chars)
+                if query and len(query) <= 10 and any(c.isalpha() for c in query):
+                    if query[0].isalpha() and len(query) == 6:
+                        params["accession"] = query
+                    else:
+                        # Default to gene parameter (works for gene names like BRCA1)
+                        params["gene"] = query
                 else:
-                    # Try name parameter
-                    params["name"] = query
+                    # For longer queries, try protein parameter
+                    params["protein"] = query
             if "size" in args:
                 params["size"] = args["size"]
+            if "offset" in args:
+                params["offset"] = args["offset"]
+
+        elif tool_name == "proteins_api_get_variants":
+            # Variation API uses accession query parameter
+            if "accession" in args:
+                params["accession"] = args["accession"]
+            if "size" in args:
+                params["size"] = args.get("size", 100)
             if "offset" in args:
                 params["offset"] = args["offset"]
 
@@ -297,6 +310,10 @@ class ProteinsAPIRESTTool(BaseTool):
                 url = self._build_url(single_args)
                 params = self._build_params(single_args)
 
+                # For variants tool, params should contain accession
+                if tool_name == "proteins_api_get_variants":
+                    params["accession"] = acc
+
                 response = self.session.get(url, params=params, timeout=self.timeout)
 
                 # Handle fallback for endpoints that may not exist
@@ -465,14 +482,22 @@ class ProteinsAPIRESTTool(BaseTool):
                     if fallback_result:
                         return fallback_result
 
-            # For variations endpoint, it may not be available for all proteins
-            if tool_name == "proteins_api_get_variants" and "404" in str(e):
-                return {
-                    "status": "error",
-                    "error": "Variations not available for this protein. Variations endpoint may not be available for all proteins.",
-                    "url": url if "url" in locals() else None,
-                    "note": "Try using proteins_api_get_protein to get comprehensive protein information instead.",
-                }
+            # For variations endpoint, provide helpful error
+            if tool_name == "proteins_api_get_variants":
+                if "404" in str(e):
+                    return {
+                        "status": "error",
+                        "error": "No variations found for this protein accession.",
+                        "url": url if "url" in locals() else None,
+                        "note": "The protein may not have annotated variants. Try using proteins_api_get_protein to get other protein information.",
+                    }
+                elif "400" in str(e):
+                    return {
+                        "status": "error",
+                        "error": "Invalid accession format for variation query.",
+                        "url": url if "url" in locals() else None,
+                        "note": "Ensure you're using a valid UniProt accession (e.g., P05067).",
+                    }
             return {
                 "status": "error",
                 "error": f"Proteins API error: {str(e)}",

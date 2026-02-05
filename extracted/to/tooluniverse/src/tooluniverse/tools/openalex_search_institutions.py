@@ -17,7 +17,7 @@ def openalex_search_institutions(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Optional[dict[str, Any]]:
     """
     Search OpenAlex institutions via the /institutions endpoint. Use this to discover Institution IDs...
 
@@ -40,7 +40,7 @@ def openalex_search_institutions(
 
     Returns
     -------
-    dict[str, Any]
+    Optional[dict[str, Any]]
     """
     # Handle mutable defaults to avoid B006 linting error
 

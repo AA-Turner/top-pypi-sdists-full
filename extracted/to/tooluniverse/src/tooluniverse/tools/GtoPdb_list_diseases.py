@@ -15,7 +15,7 @@ def GtoPdb_list_diseases(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Optional[list[Any]]:
     """
     Search and list diseases from the Guide to Pharmacology with associated pharmacological targets a...
 
@@ -34,7 +34,7 @@ def GtoPdb_list_diseases(
 
     Returns
     -------
-    dict[str, Any]
+    Optional[list[Any]]
     """
     # Handle mutable defaults to avoid B006 linting error
 

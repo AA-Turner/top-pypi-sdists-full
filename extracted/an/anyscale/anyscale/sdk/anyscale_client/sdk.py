@@ -114,6 +114,12 @@ IN_PROGRESS_BUILD_STATES = [
 ]
 
 
+class AnyscaleSDKDeprecationError(Exception):
+    """Raised when a deprecated AnyscaleSDK method is called."""
+
+    pass
+
+
 class AnyscaleSDK(DefaultApi):  # type: ignore
     def __init__(
         self,
@@ -633,3 +639,129 @@ class AnyscaleSDK(DefaultApi):  # type: ignore
             )
         cluster_token = cluster.access_token
         return cluster_token
+
+    # =========================================================================
+    # Deprecated methods - these raise AnyscaleSDKDeprecationError
+    # =========================================================================
+
+    # Cloud
+    def get_cloud(self, cloud_id, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.get_cloud() is deprecated. "
+            "Please use anyscale.cloud.get() instead. "
+            "See https://docs.anyscale.com/reference/cloud for details."
+        )
+
+    def get_default_cloud(self, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.get_default_cloud() is deprecated. "
+            "Please use anyscale.cloud.get_default() instead. "
+            "See https://docs.anyscale.com/reference/cloud for details."
+        )
+
+    def search_clouds(self, clouds_query, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.search_clouds() is deprecated. "
+            "Please use anyscale.cloud.list() instead. "
+            "See https://docs.anyscale.com/reference/cloud for details."
+        )
+
+    # Cluster Environment
+    def create_byod_cluster_environment_build(self, create_byod_cluster_environment_build, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.create_byod_cluster_environment_build() is deprecated. "
+            "Please use anyscale.image.register() instead. "
+            "See https://docs.anyscale.com/reference/image for details."
+        )
+
+    def create_cluster_environment_build(self, create_cluster_environment_build, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.create_cluster_environment_build() is deprecated. "
+            "Please use anyscale.image.build() instead. "
+            "See https://docs.anyscale.com/reference/image for details."
+        )
+
+    def find_cluster_environment_build_by_identifier(self, identifier, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.find_cluster_environment_build_by_identifier() is deprecated. "
+            "Please use anyscale.image.get() instead. "
+            "See https://docs.anyscale.com/reference/image for details."
+        )
+
+    def get_cluster_environment_build(self, cluster_environment_build_id, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.get_cluster_environment_build() is deprecated. "
+            "Please use anyscale.image.get() instead. "
+            "See https://docs.anyscale.com/reference/image for details."
+        )
+
+    def list_cluster_environment_builds(self, cluster_environment_id, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.list_cluster_environment_builds() is deprecated. "
+            "Please use anyscale.image.list() instead. "
+            "See https://docs.anyscale.com/reference/image for details."
+        )
+
+    def create_byod_cluster_environment(self, create_byod_cluster_environment, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.create_byod_cluster_environment() is deprecated. "
+            "Please use anyscale.image.register() instead. "
+            "See https://docs.anyscale.com/reference/image for details."
+        )
+
+    def create_cluster_environment(self, create_cluster_environment, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.create_cluster_environment() is deprecated. "
+            "Please use anyscale.image.build() instead. "
+            "See https://docs.anyscale.com/reference/image for details."
+        )
+
+    def get_cluster_environment(self, cluster_environment_id, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.get_cluster_environment() is deprecated. "
+            "Please use anyscale.image.get() instead. "
+            "See https://docs.anyscale.com/reference/image for details."
+        )
+
+    def search_cluster_environments(self, cluster_environments_query, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.search_cluster_environments() is deprecated. "
+            "Please use anyscale.image.list() instead. "
+            "See https://docs.anyscale.com/reference/image for details."
+        )
+        
+    # Compute Config
+    def create_cluster_compute(self, create_cluster_compute, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.create_cluster_compute() is deprecated. "
+            "Please use anyscale.compute_config.create() instead. "
+            "See https://docs.anyscale.com/reference/compute-config-api for details."
+        )
+
+    def delete_cluster_compute(self, cluster_compute_id, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.delete_cluster_compute() is deprecated. "
+            "Please use anyscale.compute_config.archive() instead. "
+            "See https://docs.anyscale.com/reference/compute-config-api for details."
+        )
+
+    def get_cluster_compute(self, cluster_compute_id, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.get_cluster_compute() is deprecated. "
+            "Please use anyscale.compute_config.get() instead. "
+            "See https://docs.anyscale.com/reference/compute-config-api for details."
+        )
+
+    def get_default_cluster_compute(self, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.get_default_cluster_compute() is deprecated. "
+            "Please use anyscale.compute_config.get_default() instead. "
+            "See https://docs.anyscale.com/reference/compute-config-api for details."
+        )
+
+    def search_cluster_computes(self, cluster_computes_query, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.search_cluster_computes() is deprecated. "
+            "Please use anyscale.compute_config.list() instead. "
+            "See https://docs.anyscale.com/reference/compute-config-api for details."
+        )

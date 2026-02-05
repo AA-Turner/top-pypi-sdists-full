@@ -1,65 +1,135 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
 from __future__ import annotations
 
-from together.abstract import api_requestor
-from together.together_response import TogetherResponse
-from together.types import (
-    TogetherClient,
-    TogetherRequest,
-    VoiceListResponse,
+import httpx
+
+from ..._types import Body, Query, Headers, NotGiven, not_given
+from ..._compat import cached_property
+from ..._resource import SyncAPIResource, AsyncAPIResource
+from ..._response import (
+    to_raw_response_wrapper,
+    to_streamed_response_wrapper,
+    async_to_raw_response_wrapper,
+    async_to_streamed_response_wrapper,
 )
+from ..._base_client import make_request_options
+from ...types.audio.voice_list_response import VoiceListResponse
+
+__all__ = ["VoicesResource", "AsyncVoicesResource"]
 
 
-class Voices:
-    def __init__(self, client: TogetherClient) -> None:
-        self._client = client
-
-    def list(self) -> VoiceListResponse:
+class VoicesResource(SyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> VoicesResourceWithRawResponse:
         """
-        Method to return list of available voices on the API
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
 
-        Returns:
-            VoiceListResponse: Response containing models and their available voices
+        For more information, see https://www.github.com/togethercomputer/together-py#accessing-raw-response-data-eg-headers
         """
-        requestor = api_requestor.APIRequestor(
-            client=self._client,
-        )
+        return VoicesResourceWithRawResponse(self)
 
-        response, _, _ = requestor.request(
-            options=TogetherRequest(
-                method="GET",
-                url="voices",
+    @cached_property
+    def with_streaming_response(self) -> VoicesResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/togethercomputer/together-py#with_streaming_response
+        """
+        return VoicesResourceWithStreamingResponse(self)
+
+    def list(
+        self,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> VoiceListResponse:
+        """Fetch available voices for each model"""
+        return self._get(
+            "/voices",
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            stream=False,
+            cast_to=VoiceListResponse,
         )
 
-        assert isinstance(response, TogetherResponse)
 
-        return VoiceListResponse(**response.data)
-
-
-class AsyncVoices:
-    def __init__(self, client: TogetherClient) -> None:
-        self._client = client
-
-    async def list(self) -> VoiceListResponse:
+class AsyncVoicesResource(AsyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> AsyncVoicesResourceWithRawResponse:
         """
-        Async method to return list of available voices on the API
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
 
-        Returns:
-            VoiceListResponse: Response containing models and their available voices
+        For more information, see https://www.github.com/togethercomputer/together-py#accessing-raw-response-data-eg-headers
         """
-        requestor = api_requestor.APIRequestor(
-            client=self._client,
-        )
+        return AsyncVoicesResourceWithRawResponse(self)
 
-        response, _, _ = await requestor.arequest(
-            options=TogetherRequest(
-                method="GET",
-                url="voices",
+    @cached_property
+    def with_streaming_response(self) -> AsyncVoicesResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/togethercomputer/together-py#with_streaming_response
+        """
+        return AsyncVoicesResourceWithStreamingResponse(self)
+
+    async def list(
+        self,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> VoiceListResponse:
+        """Fetch available voices for each model"""
+        return await self._get(
+            "/voices",
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            stream=False,
+            cast_to=VoiceListResponse,
         )
 
-        assert isinstance(response, TogetherResponse)
 
-        return VoiceListResponse(**response.data)
+class VoicesResourceWithRawResponse:
+    def __init__(self, voices: VoicesResource) -> None:
+        self._voices = voices
+
+        self.list = to_raw_response_wrapper(
+            voices.list,
+        )
+
+
+class AsyncVoicesResourceWithRawResponse:
+    def __init__(self, voices: AsyncVoicesResource) -> None:
+        self._voices = voices
+
+        self.list = async_to_raw_response_wrapper(
+            voices.list,
+        )
+
+
+class VoicesResourceWithStreamingResponse:
+    def __init__(self, voices: VoicesResource) -> None:
+        self._voices = voices
+
+        self.list = to_streamed_response_wrapper(
+            voices.list,
+        )
+
+
+class AsyncVoicesResourceWithStreamingResponse:
+    def __init__(self, voices: AsyncVoicesResource) -> None:
+        self._voices = voices
+
+        self.list = async_to_streamed_response_wrapper(
+            voices.list,
+        )

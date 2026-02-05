@@ -52,6 +52,9 @@ class GtoPdbRESTTool(BaseTool):
                     continue
                 # Map parameter name
                 api_key = param_mapping.get(k, k)
+                # Convert boolean to lowercase string for API
+                if isinstance(v, bool):
+                    v = str(v).lower()
                 api_params[api_key] = v
 
             # Build query string

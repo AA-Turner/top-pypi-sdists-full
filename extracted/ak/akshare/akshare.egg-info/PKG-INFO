@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: akshare
-Version: 1.18.21
+Version: 1.18.22
 Summary: AKShare is an elegant and simple financial data interface library for Python, built for human beings!
 Author-email: AKFamily <albertandking@gmail.com>
 License: MIT
@@ -20,7 +20,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: beautifulsoup4>=4.9.1
 Requires-Dist: lxml>=4.2.1
-Requires-Dist: pandas>=0.25
+Requires-Dist: pandas>=2.0.0
 Requires-Dist: requests>=2.22.0
 Requires-Dist: curl_cffi>=0.13.0
 Requires-Dist: html5lib>=1.0.1
@@ -40,14 +40,14 @@ Provides-Extra: qmt
 Requires-Dist: akqmt; extra == "qmt"
 Provides-Extra: dev
 Requires-Dist: akqmt>=0.1.0; extra == "dev"
-Requires-Dist: commitizen>=4.12.0; extra == "dev"
+Requires-Dist: commitizen>=4.12.1; extra == "dev"
 Requires-Dist: pre-commit>=3.6.2; extra == "dev"
 Requires-Dist: sphinx>=7.4.3; extra == "dev"
 Requires-Dist: recommonmark>=0.7.1; extra == "dev"
 Requires-Dist: sphinx_markdown_tables>=0.0.17; extra == "dev"
 Requires-Dist: sphinx_rtd_theme>=1.0.0; extra == "dev"
 Requires-Dist: mplfinance>=0.12.10b0; extra == "dev"
-Requires-Dist: ruff>=0.14.13; extra == "dev"
+Requires-Dist: ruff>=0.14.14; extra == "dev"
 Requires-Dist: ruff-lsp>=0.0.53; extra == "dev"
 Dynamic: license-file
 

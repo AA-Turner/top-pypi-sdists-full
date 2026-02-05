@@ -1,7 +1,7 @@
 """
 arrayexpress_get_experiment
 
-Get detailed information about a specific ArrayExpress experiment by experiment ID. Note: ArrayEx...
+Get detailed information about a specific ArrayExpress experiment by its accession ID (E-GEOD, E-...
 """
 
 from typing import Any, Optional, Callable
@@ -16,7 +16,7 @@ def arrayexpress_get_experiment(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Get detailed information about a specific ArrayExpress experiment by experiment ID. Note: ArrayEx...
+    Get detailed information about a specific ArrayExpress experiment by its accession ID (E-GEOD, E-...
 
     Parameters
     ----------

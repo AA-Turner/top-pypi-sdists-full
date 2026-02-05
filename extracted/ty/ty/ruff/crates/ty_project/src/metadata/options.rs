@@ -65,6 +65,7 @@ pub struct Options {
 
     /// Configures the enabled rules and their severity.
     ///
+    /// The keys are either rule names or `all` to set a default severity for all rules.
     /// See [the rules documentation](https://ty.dev/rules) for a list of all available rules.
     ///
     /// Valid severities are:
@@ -76,7 +77,7 @@ pub struct Options {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[option(
         default = r#"{...}"#,
-        value_type = r#"dict[RuleName, "ignore" | "warn" | "error"]"#,
+        value_type = r#"dict[RuleName | "all", "ignore" | "warn" | "error"]"#,
         example = r#"
             [tool.ty.rules]
             possibly-unresolved-reference = "warn"
@@ -282,15 +283,21 @@ impl Options {
         } else {
             let mut roots = vec![];
             let src = project_root.join("src");
+            let is_package = |dir: &SystemPath| {
+                system.is_file(&dir.join("__init__.py"))
+                    || system.is_file(&dir.join("__init__.pyi"))
+            };
 
-            if system.is_directory(&src) {
+            if system.is_directory(&src) && !is_package(&src) {
                 // Default to `src` and the project root if `src` exists and the root hasn't been specified.
                 // This corresponds to the `src-layout`
                 tracing::debug!(
                     "Including `.` and `./src` in `environment.root` because a `./src` directory exists"
                 );
                 roots.push(src);
-            } else if system.is_directory(&project_root.join(project_name).join(project_name)) {
+            } else if system.is_directory(&project_root.join(project_name).join(project_name))
+                && !is_package(&project_root.join(project_name))
+            {
                 // `src-layout` but when the folder isn't called `src` but has the same name as the project.
                 // For example, the "src" folder for `psycopg` is called `psycopg` and the python files are in `psycopg/psycopg/_adapters_map.py`
                 tracing::debug!(
@@ -304,11 +311,7 @@ impl Options {
             }
 
             let python = project_root.join("python");
-            if system.is_directory(&python)
-                && !system.is_file(&python.join("__init__.py"))
-                && !system.is_file(&python.join("__init__.pyi"))
-                && !roots.contains(&python)
-            {
+            if system.is_directory(&python) && !is_package(&python) && !roots.contains(&python) {
                 // If a `./python` directory exists, include it as a source root. This is the recommended layout
                 // for maturin-based rust/python projects [1].
                 //
@@ -896,18 +899,31 @@ impl Rules {
 
         for (rule_name, level) in &self.inner {
             let source = rule_name.source();
+            let lint_source = match source {
+                ValueSource::File(_) => LintSource::File,
+                ValueSource::Cli => LintSource::Cli,
+                ValueSource::Editor => LintSource::Editor,
+            };
+
+            let mut set_lint_level = |lint| {
+                if let Ok(severity) = Severity::try_from(**level) {
+                    selection.enable(lint, severity, lint_source);
+                } else {
+                    selection.disable(lint);
+                }
+            };
+
+            // Handle "all" as a special case - apply the level to all rules
+            if rule_name.eq_ignore_ascii_case("all") {
+                for lint in registry.lints() {
+                    set_lint_level(*lint);
+                }
+                continue;
+            }
+
             match registry.get(rule_name) {
                 Ok(lint) => {
-                    let lint_source = match source {
-                        ValueSource::File(_) => LintSource::File,
-                        ValueSource::Cli => LintSource::Cli,
-                        ValueSource::Editor => LintSource::Editor,
-                    };
-                    if let Ok(severity) = Severity::try_from(**level) {
-                        selection.enable(lint, severity, lint_source);
-                    } else {
-                        selection.disable(lint);
-                    }
+                    set_lint_level(lint);
                 }
                 Err(error) => {
                     // `system_path_to_file` can return `Err` if the file was deleted since the configuration
@@ -1494,7 +1510,7 @@ pub struct OverrideOptions {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[option(
         default = r#"{...}"#,
-        value_type = r#"dict[RuleName, "ignore" | "warn" | "error"]"#,
+        value_type = r#"dict[RuleName | "all", "ignore" | "warn" | "error"]"#,
         example = r#"
             [[tool.ty.overrides]]
             include = ["src"]

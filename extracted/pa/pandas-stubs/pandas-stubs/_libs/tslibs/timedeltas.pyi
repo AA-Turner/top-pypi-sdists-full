@@ -1,4 +1,3 @@
-# pyright: strict
 from datetime import (
     date,
     datetime,
@@ -8,6 +7,7 @@ from typing import (
     ClassVar,
     Literal,
     NamedTuple,
+    Self,
     TypeAlias,
     overload,
 )
@@ -19,9 +19,10 @@ from pandas.core.indexes.datetimes import DatetimeIndex
 from pandas.core.indexes.period import PeriodIndex
 from pandas.core.indexes.timedeltas import TimedeltaIndex
 from pandas.core.series import Series
-from typing_extensions import Self
 
-from pandas._libs.tslibs import NaTType
+from pandas._libs.tslibs import (
+    NaTType,
+)
 from pandas._libs.tslibs.period import Period
 from pandas._libs.tslibs.timestamps import Timestamp
 from pandas._typing import (
@@ -36,6 +37,8 @@ from pandas._typing import (
     np_ndarray_float,
     np_ndarray_td,
 )
+
+from pandas.tseries.offsets import Tick
 
 class Components(NamedTuple):
     days: int
@@ -96,7 +99,7 @@ class Timedelta(timedelta):
     value: int
     def __new__(
         cls,
-        value: str | float | Timedelta | timedelta | np.timedelta64 = ...,
+        value: str | float | Timedelta | Tick | timedelta | np.timedelta64 = ...,
         unit: TimeDeltaUnitChoices = ...,
         *,
         days: float | np.integer | np.floating = ...,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: morecantile
-Version: 7.0.2
+Version: 7.0.3
 Summary: Construct and use map tile grids (a.k.a TileMatrixSet / TMS).
 Project-URL: Source, https://github.com/developmentseed/morecantile
 Project-URL: Documentation, https://developmentseed.org/morecantile/

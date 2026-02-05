@@ -19,6 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from arthur_client.api_bindings.models.agent_metadata_response import AgentMetadataResponse
 from arthur_client.api_bindings.models.metric_response import MetricResponse
 from arthur_client.api_bindings.models.rule_response import RuleResponse
 from typing import Optional, Set
@@ -33,9 +34,10 @@ class TaskResponse(BaseModel):
     created_at: StrictInt = Field(description="Time the task was created in unix milliseconds")
     updated_at: StrictInt = Field(description="Time the task was created in unix milliseconds")
     is_agentic: Optional[StrictBool] = None
+    agent_metadata: Optional[AgentMetadataResponse] = None
     rules: List[RuleResponse] = Field(description="List of all the rules for the task.")
     metrics: Optional[List[MetricResponse]] = None
-    __properties: ClassVar[List[str]] = ["id", "name", "created_at", "updated_at", "is_agentic", "rules", "metrics"]
+    __properties: ClassVar[List[str]] = ["id", "name", "created_at", "updated_at", "is_agentic", "agent_metadata", "rules", "metrics"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -76,6 +78,9 @@ class TaskResponse(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of agent_metadata
+        if self.agent_metadata:
+            _dict['agent_metadata'] = self.agent_metadata.to_dict()
         # override the default output from pydantic by calling `to_dict()` of each item in rules (list)
         _items = []
         if self.rules:
@@ -94,6 +99,11 @@ class TaskResponse(BaseModel):
         # and model_fields_set contains the field
         if self.is_agentic is None and "is_agentic" in self.model_fields_set:
             _dict['is_agentic'] = None
+
+        # set to None if agent_metadata (nullable) is None
+        # and model_fields_set contains the field
+        if self.agent_metadata is None and "agent_metadata" in self.model_fields_set:
+            _dict['agent_metadata'] = None
 
         # set to None if metrics (nullable) is None
         # and model_fields_set contains the field
@@ -117,6 +127,7 @@ class TaskResponse(BaseModel):
             "created_at": obj.get("created_at"),
             "updated_at": obj.get("updated_at"),
             "is_agentic": obj.get("is_agentic"),
+            "agent_metadata": AgentMetadataResponse.from_dict(obj["agent_metadata"]) if obj.get("agent_metadata") is not None else None,
             "rules": [RuleResponse.from_dict(_item) for _item in obj["rules"]] if obj.get("rules") is not None else None,
             "metrics": [MetricResponse.from_dict(_item) for _item in obj["metrics"]] if obj.get("metrics") is not None else None
         })

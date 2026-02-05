@@ -1,10 +1,7 @@
-import os
-
 from adam.commands.command import Command
-from adam.commands.devices.devices import Devices
-from adam.config import Config
+from adam.commands.devices.devices import device
 from adam.repl_state import ReplState
-from adam.utils import Color, log2, log_dir, pod_log_dir
+from adam.utils import pod_log_dir
 from adam.utils_context import Context
 from adam.utils_k8s.pods import Pods
 
@@ -31,8 +28,8 @@ class RmLogs(Command):
             cmd = f'rm -rf {pod_log_dir()}/*'
             action = 'rm-logs'
             msg = 'd`Running|Ran ' + action + ' onto {size} pods'
-            pods = Devices.of(state).pod_names(state)
-            container = Devices.of(state).default_container(state)
+            pods = device(state).pod_names(state)
+            container = device(state).default_container(state)
             with Pods.parallelize(pods, len(pods), msg=msg, action=action) as exec:
                 ctx: Context = Context.new(show_out=True)
 

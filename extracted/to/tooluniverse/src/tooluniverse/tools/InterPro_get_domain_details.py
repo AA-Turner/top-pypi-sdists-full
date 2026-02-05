@@ -21,7 +21,7 @@ def InterPro_get_domain_details(
     Parameters
     ----------
     accession : str
-        InterPro accession ID (e.g., IPR000719, IPR000719)
+        InterPro accession ID (e.g., IPR000719)
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False

@@ -17,7 +17,7 @@ def FAERS_count_additive_reaction_outcomes(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Any:
     """
     Determine reaction outcome counts (e.g., recovered, resolving, fatal) across medicinal products. ...
 
@@ -40,7 +40,7 @@ def FAERS_count_additive_reaction_outcomes(
 
     Returns
     -------
-    dict[str, Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

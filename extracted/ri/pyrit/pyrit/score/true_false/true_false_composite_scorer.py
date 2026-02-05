@@ -4,6 +4,7 @@
 import asyncio
 from typing import List, Optional
 
+from pyrit.identifiers import ScorerIdentifier
 from pyrit.models import ChatMessageRole, Message, MessagePiece, Score
 from pyrit.score.scorer_prompt_validator import ScorerPromptValidator
 from pyrit.score.true_false.true_false_score_aggregator import TrueFalseAggregatorFunc
@@ -51,6 +52,18 @@ class TrueFalseCompositeScorer(TrueFalseScorer):
                 raise ValueError("All scorers must be true_false scorers.")
 
         self._scorers = scorers
+
+    def _build_identifier(self) -> ScorerIdentifier:
+        """
+        Build the scorer evaluation identifier for this scorer.
+
+        Returns:
+            ScorerIdentifier: The identifier for this scorer.
+        """
+        return self._create_identifier(
+            sub_scorers=self._scorers,
+            score_aggregator=self._score_aggregator.__name__,
+        )
 
     async def _score_async(
         self,
@@ -124,12 +137,3 @@ class TrueFalseCompositeScorer(TrueFalseScorer):
             NotImplementedError: Always, since composite scoring operates at the response level.
         """
         raise NotImplementedError("TrueFalseCompositeScorer does not support piecewise scoring.")
-
-    def _get_sub_identifier(self):
-        """
-        Return the identifiers of all constituent scorers.
-
-        Returns:
-            list[dict]: A list of identifier dictionaries from all wrapped scorers.
-        """
-        return [scorer.get_identifier() for scorer in self._scorers]

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pierre-storage"
-version = "0.12.1"
+version = "1.0.0"
 description = "Pierre Git Storage SDK for Python"
 readme = "README.md"
 license = "MIT"
@@ -44,8 +44,8 @@ dev = [
 [project.urls]
 Homepage = "https://pierre.io"
 Documentation = "https://docs.pierre.io"
-Repository = "https://github.com/pierre/monorepo"
-Issues = "https://github.com/pierre/monorepo/issues"
+Repository = "https://github.com/pierrecomputer/pierre"
+Issues = "https://github.com/pierrecomputer/pierre/issues"
 
 [tool.setuptools.packages.find]
 include = ["pierre_storage*"]

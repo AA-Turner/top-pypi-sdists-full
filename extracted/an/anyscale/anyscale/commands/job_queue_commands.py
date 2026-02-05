@@ -161,6 +161,12 @@ VIEW_COLUMNS: Dict[ViewOption, List[JobQueueStatusKeys]] = {
 @click.option(
     "-j", "--json", "json_output", is_flag=True, default=False, help="JSON output.",
 )
+@click.option(
+    "--include-archived",
+    is_flag=True,
+    default=False,
+    help="Include archived job queues when searching by name. Ignored when using --id.",
+)
 def list_job_queues(  # noqa: PLR0913
     job_queue_id: Optional[str],
     name: Optional[str],
@@ -175,6 +181,7 @@ def list_job_queues(  # noqa: PLR0913
     sort_dirs: List[JobQueueSortDirective],
     interactive: bool,
     json_output: bool,
+    include_archived: bool,
 ) -> None:
     """List and page job queues according to filters and view."""
     if max_items and interactive:
@@ -202,6 +209,7 @@ def list_job_queues(  # noqa: PLR0913
             interactive=interactive,
             page_size=page_size,
             effective_max=effective_max if not interactive else None,
+            include_archived=include_archived,
         )
 
     try:
@@ -216,6 +224,7 @@ def list_job_queues(  # noqa: PLR0913
             page_size=page_size,
             max_items=None if interactive else effective_max,
             sorting_directives=sort_dirs,
+            include_archived=include_archived,
         )
         cols = VIEW_COLUMNS[view]
         table_fn = partial(_create_table, view)
@@ -253,6 +262,8 @@ def list_job_queues(  # noqa: PLR0913
 )
 @click.option("--id", "job_queue_id", help="ID of the job queue.")
 @click.option("--name", "-n", help="Name of the job queue.")
+@click.option("--project", "-p", help="Project name (required when using --name).")
+@click.option("--cloud", help="Cloud name (required when using --name).")
 @click.option("--max-concurrency", type=int, help="Max number of concurrent jobs.")
 @click.option("--idle-timeout-s", type=int, help="Idle timeout in seconds.")
 @click.option(
@@ -261,6 +272,8 @@ def list_job_queues(  # noqa: PLR0913
 def update_job_queue(
     job_queue_id: Optional[str],
     name: Optional[str],
+    project: Optional[str],
+    cloud: Optional[str],
     max_concurrency: Optional[int],
     idle_timeout_s: Optional[int],
     json_output: bool,
@@ -278,6 +291,8 @@ def update_job_queue(
         jq = anyscale.job_queue.update(
             job_queue_id=job_queue_id,
             job_queue_name=name,
+            project=project,
+            cloud=cloud,
             max_concurrency=max_concurrency,
             idle_timeout_s=idle_timeout_s,
         )
@@ -380,6 +395,8 @@ def list_tags(
 )
 @click.option("--id", "job_queue_id", help="ID of the job queue.")
 @click.option("--name", "-n", help="Name of the job queue.")
+@click.option("--project", "-p", help="Project name to filter by when using --name.")
+@click.option("--cloud", help="Cloud name to filter by when using --name.")
 @click.option(
     "--view",
     type=click.Choice([opt.value for opt in ViewOption], case_sensitive=False),
@@ -390,22 +407,41 @@ def list_tags(
 @click.option(
     "--json", "json_output", is_flag=True, default=False, help="JSON output.",
 )
+@click.option(
+    "--include-archived",
+    is_flag=True,
+    default=False,
+    help="Include archived job queues when searching by name. Ignored when using --id.",
+)
 def status(
     job_queue_id: Optional[str],
     name: Optional[str],
+    project: Optional[str],
+    cloud: Optional[str],
     view: ViewOption,
     json_output: bool,
+    include_archived: bool,
 ) -> None:
     """Fetch and display a single job queue's details."""
     if not job_queue_id and not name:
         raise click.ClickException("Provide either --id or --name.")
+    if job_queue_id and (project or cloud):
+        raise click.ClickException(
+            "--project and --cloud should only be used with --name, not --id."
+        )
 
     stderr = Console(stderr=True)
     ident = job_queue_id or name or "<unknown>"
     if not json_output:
         stderr.print(f"Fetching job queue '{ident}'...")
     try:
-        jq = anyscale.job_queue.status(job_queue_id=job_queue_id, name=name)
+        jq = anyscale.job_queue.status(
+            job_queue_id=job_queue_id,
+            name=name,
+            project=project,
+            cloud=cloud,
+            include_archived=include_archived,
+        )
         if json_output:
             Console().print_json(json_dumps(_format_data(jq), indent=2))
         else:
@@ -470,11 +506,18 @@ def archive_job_queue(
 @click.option("--name", "-n", help="Name of the job queue.")
 @click.option("--project", help="Project name (required with --name).")
 @click.option("--cloud", help="Cloud name (required with --name).")
+@click.option(
+    "--include-archived",
+    is_flag=True,
+    default=False,
+    help="Include archived job queues when searching by name. Ignored when using --id.",
+)
 def terminate_job_queue(
     job_queue_id: Optional[str],
     name: Optional[str],
     project: Optional[str],
     cloud: Optional[str],
+    include_archived: bool,
 ) -> None:
     """Terminate a job queue and all its jobs."""
     if not job_queue_id and not name:
@@ -494,12 +537,74 @@ def terminate_job_queue(
 
     try:
         jq_id = anyscale.job_queue.terminate(
-            job_queue_id=job_queue_id, name=name, project=project, cloud=cloud,
+            job_queue_id=job_queue_id,
+            name=name,
+            project=project,
+            cloud=cloud,
+            include_archived=include_archived,
         )
         stderr.print(f"Job queue '{ident}' has been marked for termination.")
         stderr.print(f"Query the status with `anyscale job-queue status --id {jq_id}`.")
     except Exception as e:  # noqa: BLE001
         stderr.print(f"Terminate failed: {e}", style="red")
+        sys.exit(1)
+
+
+@job_queue_cli.command(
+    name="delete",
+    help="Delete a job queue. Jobs previously submitted remain accessible.",
+    cls=AnyscaleCommand,
+    example=command_examples.JOB_QUEUE_DELETE_EXAMPLE,
+)
+@click.option("--id", "job_queue_id", help="ID of the job queue.")
+@click.option("--name", "-n", help="Name of the job queue.")
+@click.option("--project", help="Project name (required with --name).")
+@click.option("--cloud", help="Cloud name (required with --name).")
+@click.option(
+    "--include-archived",
+    is_flag=True,
+    default=False,
+    help="Include archived job queues when searching by name. Ignored when using --id.",
+)
+def delete_job_queue(
+    job_queue_id: Optional[str],
+    name: Optional[str],
+    project: Optional[str],
+    cloud: Optional[str],
+    include_archived: bool,
+) -> None:
+    """Delete a job queue.
+
+    Jobs previously submitted to the queue remain accessible.
+    The job queue must have all jobs in terminal state and no running clusters.
+    This action cannot be undone.
+    """
+    if not job_queue_id and not name:
+        raise click.ClickException("Provide either --id or --name.")
+    if name and not project:
+        raise click.ClickException("--project is required when using --name.")
+    if name and not cloud:
+        raise click.ClickException("--cloud is required when using --name.")
+    if job_queue_id and (project or cloud):
+        raise click.ClickException(
+            "--project and --cloud should only be used with --name, not --id."
+        )
+
+    stderr = Console(stderr=True)
+    ident = job_queue_id or name or "<unknown>"
+    stderr.print(f"Deleting job queue '{ident}'...")
+
+    try:
+        anyscale.job_queue.delete(
+            job_queue_id=job_queue_id,
+            name=name,
+            project=project,
+            cloud=cloud,
+            include_archived=include_archived,
+        )
+        stderr.print(f"Job queue '{ident}' has been deleted.")
+    except Exception as e:  # noqa: BLE001
+        stderr.print(f"Delete failed: {e}", style="red")
         sys.exit(1)
 
 
@@ -571,6 +676,7 @@ def _print_list_diagnostics(  # noqa: PLR0913
     interactive: bool,
     page_size: int,
     effective_max: Optional[int],
+    include_archived: bool = False,
 ) -> None:
     """Prints diagnostic information for the list_job_queues command."""
     formatted_sort_dirs = [
@@ -581,6 +687,7 @@ def _print_list_diagnostics(  # noqa: PLR0913
     stderr.print("[bold]Listing job-queues with:[/]")
     stderr.print(f"• id              = {job_queue_id or '<any>'}")
     stderr.print(f"• name            = {name or '<any>'}")
+    stderr.print(f"• include_archived= {include_archived}")
     stderr.print(f"• creator         = {'all' if include_all_users else 'mine'}")
     stderr.print(f"• cloud           = {cloud or '<any>'}")
     stderr.print(f"• project         = {project or '<any>'}")

@@ -40,7 +40,10 @@ class TestPutUnregisteredAgents(unittest.TestCase):
                         name = '', 
                         creation_source = arthur_client.api_bindings.models.creation_source.CreationSource(
                             task_id = '', 
-                            top_level_span_name = '', ), 
+                            top_level_span_name = '', 
+                            gcp_project_id = '', 
+                            gcp_region = '', 
+                            gcp_reasoning_engine_id = '', ), 
                         first_detected = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         num_spans = 56, 
                         infrastructure = 'AWS', 
@@ -67,7 +70,10 @@ class TestPutUnregisteredAgents(unittest.TestCase):
                         name = '', 
                         creation_source = arthur_client.api_bindings.models.creation_source.CreationSource(
                             task_id = '', 
-                            top_level_span_name = '', ), 
+                            top_level_span_name = '', 
+                            gcp_project_id = '', 
+                            gcp_region = '', 
+                            gcp_reasoning_engine_id = '', ), 
                         first_detected = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         num_spans = 56, 
                         infrastructure = 'AWS', 

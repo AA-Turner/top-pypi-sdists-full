@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.documentdb-mcp-server
-Version: 1.0.10
+Version: 1.0.11
 Summary: An AWS Labs Model Context Protocol (MCP) server for documentdb
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/documentdb-mcp-server/

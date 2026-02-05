@@ -624,7 +624,7 @@ def select_linked(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select all bones linked by parent/child connections to the current selection"""
+    """Select all bones linked by connected parent/child relationships from the current selection"""
 
 def select_linked_pick(
     execution_context: int | str | None = None,
@@ -633,7 +633,7 @@ def select_linked_pick(
     *,
     extend: bool | None = False,
 ) -> None:
-    """Select bones linked by parent/child connections under the mouse cursor
+    """Select bones linked by connected parent/child relationships under the mouse cursor
 
     :param extend: Extend, Extend selection instead of deselecting everything first
     """

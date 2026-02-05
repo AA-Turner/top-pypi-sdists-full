@@ -158,6 +158,62 @@ class TestRepoFileOperations:
             stream_client.aclose.assert_awaited_once()
 
     @pytest.mark.asyncio
+    async def test_get_archive_stream(self, git_storage_options: dict) -> None:
+        """Ensure archive requests include filters and prefix."""
+        storage = GitStorage(git_storage_options)
+
+        create_response = MagicMock()
+        create_response.status_code = 200
+        create_response.is_success = True
+        create_response.json.return_value = {"repo_id": "test-repo"}
+
+        archive_response = MagicMock()
+        archive_response.status_code = 200
+        archive_response.is_success = True
+        archive_response.raise_for_status = MagicMock()
+        archive_response.aclose = AsyncMock()
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            create_client = MagicMock()
+            create_client.__aenter__.return_value.post = AsyncMock(return_value=create_response)
+            create_client.__aexit__.return_value = False
+
+            stream_client = MagicMock()
+            stream_context = MagicMock()
+            stream_context.__aenter__ = AsyncMock(return_value=archive_response)
+            stream_context.__aexit__ = AsyncMock(return_value=False)
+            stream_client.stream = MagicMock(return_value=stream_context)
+            stream_client.aclose = AsyncMock()
+
+            mock_client_cls.side_effect = [create_client, stream_client]
+
+            repo = await storage.create_repo(id="test-repo")
+            response = await repo.get_archive_stream(
+                ref="main",
+                include_globs=["README.md"],
+                exclude_globs=["vendor/**"],
+                archive_prefix="repo/",
+            )
+
+            assert response.status_code == 200
+            assert stream_client.stream.call_args.args[0] == "POST"
+            called_url = stream_client.stream.call_args.args[1]
+            parsed = urlparse(called_url)
+            assert parsed.path.endswith("/repos/archive")
+            payload = stream_client.stream.call_args.kwargs["json"]
+            assert payload == {
+                "ref": "main",
+                "include_globs": ["README.md"],
+                "exclude_globs": ["vendor/**"],
+                "archive": {"prefix": "repo/"},
+            }
+
+            await response.aclose()
+            stream_client.stream.assert_called_once()
+            archive_response.aclose.assert_awaited_once()
+            stream_client.aclose.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_list_files(self, git_storage_options: dict) -> None:
         """Test listing files in repository."""
         storage = GitStorage(git_storage_options)
@@ -279,7 +335,7 @@ class TestRepoFileOperations:
             assert result["has_more"] is False
 
             _, kwargs = client_instance.post.call_args
-            assert kwargs["json"]["rev"] == "main"
+            assert kwargs["json"]["ref"] == "main"
             assert kwargs["json"]["paths"] == ["src/"]
             assert kwargs["json"]["query"] == {"pattern": "SEARCHME", "case_sensitive": False}
             assert kwargs["json"]["file_filters"] == {
@@ -289,6 +345,44 @@ class TestRepoFileOperations:
             assert kwargs["json"]["context"] == {"before": 1, "after": 2}
             assert kwargs["json"]["limits"] == {"max_lines": 5, "max_matches_per_file": 7}
             assert kwargs["json"]["pagination"] == {"cursor": "abc", "limit": 3}
+
+    @pytest.mark.asyncio
+    async def test_grep_legacy_rev(self, git_storage_options: dict) -> None:
+        """Test grep legacy rev option maps to ref."""
+        storage = GitStorage(git_storage_options)
+
+        create_response = MagicMock()
+        create_response.status_code = 200
+        create_response.is_success = True
+        create_response.json.return_value = {"repo_id": "test-repo"}
+
+        grep_response = MagicMock()
+        grep_response.status_code = 200
+        grep_response.is_success = True
+        grep_response.raise_for_status = MagicMock()
+        grep_response.json.return_value = {
+            "query": {"pattern": "SEARCHME", "case_sensitive": False},
+            "repo": {"ref": "main", "commit": "deadbeef"},
+            "matches": [],
+            "next_cursor": None,
+            "has_more": False,
+        }
+
+        with patch("httpx.AsyncClient") as mock_client:
+            client_instance = mock_client.return_value.__aenter__.return_value
+            client_instance.post = AsyncMock(side_effect=[create_response, grep_response])
+
+            repo = await storage.create_repo(id="test-repo")
+            result = await repo.grep(
+                pattern="SEARCHME",
+                rev="main",
+            )
+
+            assert result["repo"]["ref"] == "main"
+
+            _, kwargs = client_instance.post.call_args
+            assert kwargs["json"]["ref"] == "main"
+            assert "rev" not in kwargs["json"]
 
 
 class TestRepoBranchOperations:

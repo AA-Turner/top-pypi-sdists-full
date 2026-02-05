@@ -13,13 +13,14 @@ from pyrit.exceptions import (
     pyrit_json_retry,
     remove_markdown_json,
 )
+from pyrit.identifiers import ConverterIdentifier
 from pyrit.models import (
     Message,
     MessagePiece,
     PromptDataType,
     SeedPrompt,
 )
-from pyrit.prompt_converter import ConverterResult, PromptConverter
+from pyrit.prompt_converter.prompt_converter import ConverterResult, PromptConverter
 from pyrit.prompt_target import PromptChatTarget
 
 logger = logging.getLogger(__name__)
@@ -44,6 +45,9 @@ class PersuasionConverter(PromptConverter):
             Presenting oneself or an issue in a way that's not genuine or true.
     """
 
+    SUPPORTED_INPUT_TYPES = ("text",)
+    SUPPORTED_OUTPUT_TYPES = ("text",)
+
     @apply_defaults
     def __init__(
         self,
@@ -52,7 +56,7 @@ class PersuasionConverter(PromptConverter):
         persuasion_technique: str,
     ):
         """
-        Initializes the converter with the specified target and prompt template.
+        Initialize the converter with the specified target and prompt template.
 
         Args:
             converter_target (PromptChatTarget): The chat target used to perform rewriting on user prompts.
@@ -74,10 +78,35 @@ class PersuasionConverter(PromptConverter):
         except FileNotFoundError:
             raise ValueError(f"Persuasion technique '{persuasion_technique}' does not exist or is not supported.")
         self.system_prompt = str(prompt_template.value)
+        self._persuasion_technique = persuasion_technique
+
+    def _build_identifier(self) -> ConverterIdentifier:
+        """
+        Build the converter identifier with persuasion parameters.
+
+        Returns:
+            ConverterIdentifier: The identifier for this converter.
+        """
+        return self._create_identifier(
+            converter_target=self.converter_target,
+            converter_specific_params={
+                "persuasion_technique": self._persuasion_technique,
+            },
+        )
 
     async def convert_async(self, *, prompt: str, input_type: PromptDataType = "text") -> ConverterResult:
         """
-        Converts the given prompt using the persuasion technique specified during initialization.
+        Convert the given prompt using the persuasion technique specified during initialization.
+
+        Args:
+            prompt (str): The input prompt to be converted.
+            input_type (PromptDataType): The type of input data.
+
+        Returns:
+            ConverterResult: The result containing the converted prompt text.
+
+        Raises:
+            ValueError: If the input type is not supported.
         """
         if not self.input_supported(input_type):
             raise ValueError("Input type not supported")
@@ -111,8 +140,19 @@ class PersuasionConverter(PromptConverter):
         return ConverterResult(output_text=response, output_type="text")
 
     @pyrit_json_retry
-    async def send_persuasion_prompt_async(self, request):
-        """Sends the prompt to the converter target and processes the response."""
+    async def send_persuasion_prompt_async(self, request: Message) -> str:
+        """
+        Send the prompt to the converter target and process the response.
+
+        Args:
+            request (Message): The message containing the prompt to be converted.
+
+        Returns:
+            str: The converted prompt text extracted from the response.
+
+        Raises:
+            InvalidJsonException: If the response is not valid JSON or missing expected keys.
+        """
         response = await self.converter_target.send_prompt_async(message=request)
 
         response_msg = response[0].get_value()
@@ -124,13 +164,7 @@ class PersuasionConverter(PromptConverter):
                 raise InvalidJsonException(
                     message=f"Invalid JSON encountered; missing 'mutated_text' key: {response_msg}"
                 )
-            return parsed_response["mutated_text"]
+            return str(parsed_response["mutated_text"])
 
         except json.JSONDecodeError:
             raise InvalidJsonException(message=f"Invalid JSON encountered: {response_msg}")
-
-    def input_supported(self, input_type: PromptDataType) -> bool:
-        return input_type == "text"
-
-    def output_supported(self, output_type: PromptDataType) -> bool:
-        return output_type == "text"

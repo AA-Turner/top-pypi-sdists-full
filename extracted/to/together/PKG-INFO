@@ -1,519 +1,521 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.3
 Name: together
-Version: 1.5.35
-Summary: Python client for Together's Cloud Platform! Note: SDK 2.0 is now available at https://github.com/togethercomputer/together-py
+Version: 2.0.0
+Summary: The official Python library for the together API
+Project-URL: Homepage, https://github.com/togethercomputer/together-py
+Project-URL: Repository, https://github.com/togethercomputer/together-py
+Author-email: Together <dev-feedback@TogetherAI.com>
 License: Apache-2.0
-License-File: LICENSE
-Author: Together AI
-Author-email: support@together.ai
-Requires-Python: >=3.10,<4.0
+Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.9
+Requires-Dist: anyio<5,>=3.5.0
+Requires-Dist: click>=8.1.7
+Requires-Dist: distro<2,>=1.7.0
+Requires-Dist: filelock>=3.13.1
+Requires-Dist: httpx<1,>=0.23.0
+Requires-Dist: pillow>=10.4.0
+Requires-Dist: pydantic<3,>=1.9.0
+Requires-Dist: rich>=13.7.1
+Requires-Dist: sniffio
+Requires-Dist: tabulate>=0.9.0
+Requires-Dist: tomli>=2.0.0; python_version < '3.11'
+Requires-Dist: tqdm>=4.67.1
+Requires-Dist: types-pyyaml>=6.0.12.20250915
+Requires-Dist: types-tabulate>=0.9.0.20240106
+Requires-Dist: types-tqdm>=4.67.0.20250516
+Requires-Dist: typing-extensions<5,>=4.10
+Provides-Extra: aiofiles
+Requires-Dist: aiofiles>=25.0.0; extra == 'aiofiles'
+Requires-Dist: types-aiofiles; extra == 'aiofiles'
+Provides-Extra: aiohttp
+Requires-Dist: aiohttp; extra == 'aiohttp'
+Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
+Provides-Extra: cli
+Requires-Dist: pyyaml; extra == 'cli'
 Provides-Extra: pyarrow
-Requires-Dist: aiohttp (>=3.9.3,<4.0.0)
-Requires-Dist: black (>=25.9.0,<26.0.0)
-Requires-Dist: click (>=8.1.7,<9.0.0)
-Requires-Dist: eval-type-backport (>=0.1.3,<0.3.0)
-Requires-Dist: filelock (>=3.13.1,<4.0.0)
-Requires-Dist: numpy (>=1.23.5) ; python_version < "3.12"
-Requires-Dist: numpy (>=1.26.0) ; python_version >= "3.12"
-Requires-Dist: pillow (>=11.1.0,<12.0.0)
-Requires-Dist: pyarrow (>=10.0.1) ; extra == "pyarrow"
-Requires-Dist: pydantic (>=2.6.3,<3.0.0)
-Requires-Dist: requests (>=2.31.0,<3.0.0)
-Requires-Dist: rich (>=13.8.1,<15.0.0)
-Requires-Dist: tabulate (>=0.9.0,<0.10.0)
-Requires-Dist: tqdm (>=4.66.2,<5.0.0)
-Requires-Dist: typer (>=0.9,<0.20)
-Project-URL: Bug Tracker, https://github.com/togethercomputer/together-python/issues
-Project-URL: Homepage, https://github.com/togethercomputer/together-python
-Project-URL: Repository, https://github.com/togethercomputer/together-python
+Requires-Dist: pyarrow-stubs>=10.0.1.7; extra == 'pyarrow'
+Requires-Dist: pyarrow>=16.1.0; extra == 'pyarrow'
 Description-Content-Type: text/markdown
-
-<div align="center">
-  <a href="https://www.together.ai/">
-    <img alt="together.ai" height="100px" src="https://assets-global.website-files.com/64f6f2c0e3f4c5a91c1e823a/654693d569494912cfc0c0d4_favicon.svg">
-  </a>
-</div>
-
-> [!NOTE]
-> ## 🚀 Together Python SDK 2.0 is now available!
->
-> Check out the new SDK: **[together-py](https://github.com/togethercomputer/together-py)**
->
-> 📖 **Migration Guide:** [https://docs.together.ai/docs/pythonv2-migration-guide](https://docs.together.ai/docs/pythonv2-migration-guide)
->
-> ### Install the Beta
->
-> **Using uv (Recommended):**
-> ```bash
-> # Install uv if you haven't already
-> curl -LsSf https://astral.sh/uv/install.sh | sh
->
-> # Install together python SDK
-> uv add together --prerelease allow
->
-> # Or upgrade an existing installation
-> uv sync --upgrade-package together --prerelease allow
-> ```
->
-> **Using pip:**
-> ```bash
-> pip install --pre together
-> ```
->
-> This package will be maintained until January 2026.
 
 # Together Python API library
 
-[![PyPI version](https://img.shields.io/pypi/v/together.svg)](https://pypi.org/project/together/)
-[![Discord](https://dcbadge.limes.pink/api/server/https://discord.gg/9Rk6sSeWEG?style=flat&theme=discord-inverted)](https://discord.com/invite/9Rk6sSeWEG)
-[![Twitter](https://img.shields.io/twitter/url/https/twitter.com/togethercompute.svg?style=social&label=Follow%20%40togethercompute)](https://twitter.com/togethercompute)
+<!-- prettier-ignore -->
+[![PyPI version](https://img.shields.io/pypi/v/together.svg?label=pypi%20(stable))](https://pypi.org/project/together/)
 
-The [Together Python API Library](https://pypi.org/project/together/) is the official Python client for Together's API platform, providing a convenient way for interacting with the REST APIs and enables easy integrations with Python 3.10+ applications with easy to use synchronous and asynchronous clients.
+The Together Python library provides convenient access to the Together REST API from any Python 3.9+
+application. The library includes type definitions for all request params and response fields,
+and offers both synchronous and asynchronous clients powered by [httpx](https://github.com/encode/httpx).
 
+It is generated with [Stainless](https://www.stainless.com/).
 
+## Documentation
+
+The REST API documentation can be found on [docs.together.ai](https://docs.together.ai/). The full API of this library can be found in [api.md](https://github.com/togethercomputer/together-py/tree/main/api.md).
 
 ## Installation
 
-> 🚧
-> The Library was rewritten in v1.0.0 released in April of 2024. There were significant changes made.
-
-To install Together Python Library from PyPI, simply run:
-
-```shell Shell
-pip install --upgrade together
+```sh
+# install from PyPI
+pip install '--pre together'
 ```
 
-### Setting up API Key
+## Usage
 
-> 🚧 You will need to create an account with [Together.ai](https://api.together.xyz/) to obtain a Together API Key.
-
-Once logged in to the Together Playground, you can find available API keys in [this settings page](https://api.together.xyz/settings/api-keys).
-
-#### Setting environment variable
-
-```shell
-export TOGETHER_API_KEY=xxxxx
-```
-
-#### Using the client
-
-```python
-from together import Together
-
-client = Together(api_key="xxxxx")
-```
-
-This repo contains both a Python Library and a CLI. We'll demonstrate how to use both below.
-
-## Usage – Python Client
-
-### Chat Completions
-
-```python
-from together import Together
-
-client = Together()
-
-# Simple text message
-response = client.chat.completions.create(
-    model="meta-llama/Llama-4-Scout-17B-16E-Instruct",
-    messages=[{"role": "user", "content": "tell me about new york"}],
-)
-print(response.choices[0].message.content)
-
-# Multi-modal message with text and image
-response = client.chat.completions.create(
-    model="meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo",
-    messages=[{
-        "role": "user",
-        "content": [
-            {
-                "type": "text",
-                "text": "What's in this image?"
-            },
-            {
-                "type": "image_url",
-                "image_url": {
-                    "url": "https://huggingface.co/datasets/patrickvonplaten/random_img/resolve/main/yosemite.png"
-                }
-            }
-        ]
-    }]
-)
-print(response.choices[0].message.content)
-
-# Multi-modal message with multiple images
-response = client.chat.completions.create(
-    model="Qwen/Qwen2.5-VL-72B-Instruct",
-    messages=[{
-        "role": "user",
-        "content": [
-            {
-                "type": "text",
-                "text": "Compare these two images."
-            },
-            {
-                "type": "image_url",
-                "image_url": {
-                    "url": "https://huggingface.co/datasets/patrickvonplaten/random_img/resolve/main/yosemite.png"
-                }
-            },
-            {
-                "type": "image_url",
-                "image_url": {
-                    "url": "https://huggingface.co/datasets/patrickvonplaten/random_img/resolve/main/slack.png"
-                }
-            }
-        ]
-    }]
-)
-print(response.choices[0].message.content)
-
-# Multi-modal message with text and video
-response = client.chat.completions.create(
-    model="Qwen/Qwen2.5-VL-72B-Instruct",
-    messages=[{
-        "role": "user",
-        "content": [
-            {
-                "type": "text",
-                "text": "What's happening in this video?"
-            },
-            {
-                "type": "video_url",
-                "video_url": {
-                    "url": "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4"
-                }
-            }
-        ]
-    }]
-)
-print(response.choices[0].message.content)
-```
-
-The chat completions API supports three types of content:
-- Plain text messages using the `content` field directly
-- Multi-modal messages with images using `type: "image_url"`
-- Multi-modal messages with videos using `type: "video_url"`
-
-When using multi-modal content, the `content` field becomes an array of content objects, each with its own type and corresponding data.
-
-#### Streaming
+The full API of this library can be found in [api.md](https://github.com/togethercomputer/together-py/tree/main/api.md).
 
 ```python
 import os
 from together import Together
 
+client = Together(
+    api_key=os.environ.get("TOGETHER_API_KEY"),  # This is the default and can be omitted
+)
+
+chat_completion = client.chat.completions.create(
+    messages=[
+        {
+            "role": "user",
+            "content": "Say this is a test!",
+        }
+    ],
+    model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+)
+print(chat_completion.choices)
+```
+
+While you can provide an `api_key` keyword argument,
+we recommend using [python-dotenv](https://pypi.org/project/python-dotenv/)
+to add `TOGETHER_API_KEY="My API Key"` to your `.env` file
+so that your API Key is not stored in source control.
+
+## Async usage
+
+Simply import `AsyncTogether` instead of `Together` and use `await` with each API call:
+
+```python
+import os
+import asyncio
+from together import AsyncTogether
+
+client = AsyncTogether(
+    api_key=os.environ.get("TOGETHER_API_KEY"),  # This is the default and can be omitted
+)
+
+
+async def main() -> None:
+    chat_completion = await client.chat.completions.create(
+        messages=[
+            {
+                "role": "user",
+                "content": "Say this is a test!",
+            }
+        ],
+        model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+    )
+    print(chat_completion.choices)
+
+
+asyncio.run(main())
+```
+
+Functionality between the synchronous and asynchronous clients is otherwise identical.
+
+### With aiohttp
+
+By default, the async client uses `httpx` for HTTP requests. However, for improved concurrency performance you may also use `aiohttp` as the HTTP backend.
+
+You can enable this by installing `aiohttp`:
+
+```sh
+# install from PyPI
+pip install '--pre together[aiohttp]'
+```
+
+Then you can enable it by instantiating the client with `http_client=DefaultAioHttpClient()`:
+
+```python
+import os
+import asyncio
+from together import DefaultAioHttpClient
+from together import AsyncTogether
+
+
+async def main() -> None:
+    async with AsyncTogether(
+        api_key=os.environ.get("TOGETHER_API_KEY"),  # This is the default and can be omitted
+        http_client=DefaultAioHttpClient(),
+    ) as client:
+        chat_completion = await client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Say this is a test!",
+                }
+            ],
+            model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+        )
+        print(chat_completion.choices)
+
+
+asyncio.run(main())
+```
+
+## Streaming responses
+
+We provide support for streaming responses using Server Side Events (SSE).
+
+```python
+from together import Together
+
 client = Together()
+
 stream = client.chat.completions.create(
-    model="meta-llama/Llama-4-Scout-17B-16E-Instruct",
-    messages=[{"role": "user", "content": "tell me about new york"}],
+    messages=[
+        {
+            "role": "user",
+            "content": "Say this is a test!",
+        }
+    ],
+    model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
     stream=True,
 )
-
-for chunk in stream:
-    print(chunk.choices[0].delta.content or "", end="", flush=True)
+for chat_completion in stream:
+    print(chat_completion.choices)
 ```
 
-#### Async usage
+The async client uses the exact same interface.
 
 ```python
-import asyncio
 from together import AsyncTogether
 
-async_client = AsyncTogether()
-messages = [
-    "What are the top things to do in San Francisco?",
-    "What country is Paris in?",
-]
+client = AsyncTogether()
 
-async def async_chat_completion(messages):
-    async_client = AsyncTogether()
-    tasks = [
-        async_client.chat.completions.create(
-            model="meta-llama/Llama-4-Scout-17B-16E-Instruct",
-            messages=[{"role": "user", "content": message}],
-        )
-        for message in messages
-    ]
-    responses = await asyncio.gather(*tasks)
-
-    for response in responses:
-        print(response.choices[0].message.content)
-
-asyncio.run(async_chat_completion(messages))
-```
-
-#### Fetching logprobs
-
-Logprobs are logarithms of token-level generation probabilities that indicate the likelihood of the generated token based on the previous tokens in the context. Logprobs allow us to estimate the model's confidence in its outputs, which can be used to decide how to optimally consume the model's output (e.g. rejecting low confidence outputs, retrying or ensembling model outputs etc).
-
-```python
-from together import Together
-
-client = Together()
-
-response = client.chat.completions.create(
-    model="meta-llama/Llama-3.2-3B-Instruct-Turbo",
-    messages=[{"role": "user", "content": "tell me about new york"}],
-    logprobs=1
-)
-
-response_lobprobs = response.choices[0].logprobs
-
-print(dict(zip(response_lobprobs.tokens, response_lobprobs.token_logprobs)))
-# {'New': -2.384e-07, ' York': 0.0, ',': 0.0, ' also': -0.20703125, ' known': -0.20214844, ' as': -8.34465e-07, ... }
-```
-
-More details about using logprobs in Together's API can be found [here](https://docs.together.ai/docs/logprobs).
-
-
-### Completions
-
-Completions are for code and language models shown [here](https://docs.together.ai/docs/inference-models). Below, a code model example is shown.
-
-```python
-from together import Together
-
-client = Together()
-
-response = client.completions.create(
-    model="codellama/CodeLlama-34b-Python-hf",
-    prompt="Write a Next.js component with TailwindCSS for a header component.",
-    max_tokens=200,
-)
-print(response.choices[0].text)
-```
-
-#### Streaming
-
-```python
-from together import Together
-
-client = Together()
-stream = client.completions.create(
-    model="codellama/CodeLlama-34b-Python-hf",
-    prompt="Write a Next.js component with TailwindCSS for a header component.",
+stream = await client.chat.completions.create(
+    messages=[
+        {
+            "role": "user",
+            "content": "Say this is a test!",
+        }
+    ],
+    model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
     stream=True,
 )
-
-for chunk in stream:
-    print(chunk.choices[0].delta.content or "", end="", flush=True)
+async for chat_completion in stream:
+    print(chat_completion.choices)
 ```
 
-#### Async usage
+## Using types
 
-```python
-import asyncio
-from together import AsyncTogether
+Nested request parameters are [TypedDicts](https://docs.python.org/3/library/typing.html#typing.TypedDict). Responses are [Pydantic models](https://docs.pydantic.dev) which also provide helper methods for things like:
 
-async_client = AsyncTogether()
-prompts = [
-    "Write a Next.js component with TailwindCSS for a header component.",
-    "Write a python function for the fibonacci sequence",
-]
+- Serializing back into JSON, `model.to_json()`
+- Converting to a dictionary, `model.to_dict()`
 
-async def async_chat_completion(prompts):
-    tasks = [
-        async_client.completions.create(
-            model="codellama/CodeLlama-34b-Python-hf",
-            prompt=prompt,
-        )
-        for prompt in prompts
-    ]
-    responses = await asyncio.gather(*tasks)
+Typed requests and responses provide autocomplete and documentation within your editor. If you would like to see type errors in VS Code to help catch bugs earlier, set `python.analysis.typeCheckingMode` to `basic`.
 
-    for response in responses:
-        print(response.choices[0].text)
+## Nested params
 
-asyncio.run(async_chat_completion(prompts))
-```
-
-### Image generation
+Nested parameters are dictionaries, typed using `TypedDict`, for example:
 
 ```python
 from together import Together
 
 client = Together()
 
-response = client.images.generate(
-    prompt="space robots",
-    model="stabilityai/stable-diffusion-xl-base-1.0",
-    steps=10,
-    n=4,
+chat_completion = client.chat.completions.create(
+    messages=[
+        {
+            "content": "content",
+            "role": "system",
+        }
+    ],
+    model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+    reasoning={},
 )
-print(response.data[0].b64_json)
+print(chat_completion.reasoning)
 ```
 
-### Embeddings
+The async client uses the exact same interface. If you pass a [`PathLike`](https://docs.python.org/3/library/os.html#os.PathLike) instance, the file contents will be read asynchronously automatically.
+
+## Handling errors
+
+When the library is unable to connect to the API (for example, due to network connection problems or a timeout), a subclass of `together.APIConnectionError` is raised.
+
+When the API returns a non-success status code (that is, 4xx or 5xx
+response), a subclass of `together.APIStatusError` is raised, containing `status_code` and `response` properties.
+
+All errors inherit from `together.APIError`.
 
 ```python
-from typing import List
+import together
 from together import Together
 
 client = Together()
 
-def get_embeddings(texts: List[str], model: str) -> List[List[float]]:
-    texts = [text.replace("\n", " ") for text in texts]
-    outputs = client.embeddings.create(model=model, input = texts)
-    return [outputs.data[i].embedding for i in range(len(texts))]
-
-input_texts = ['Our solar system orbits the Milky Way galaxy at about 515,000 mph']
-embeddings = get_embeddings(input_texts, model='togethercomputer/m2-bert-80M-8k-retrieval')
-
-print(embeddings)
+try:
+    client.chat.completions.create(
+        messages=[
+            {
+                "role": "user",
+                "content": "Say this is a test",
+            }
+        ],
+        model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+    )
+except together.APIConnectionError as e:
+    print("The server could not be reached")
+    print(e.__cause__)  # an underlying Exception, likely raised within httpx.
+except together.RateLimitError as e:
+    print("A 429 status code was received; we should back off a bit.")
+except together.APIStatusError as e:
+    print("Another non-200-range status code was received")
+    print(e.status_code)
+    print(e.response)
 ```
 
-### Reranking
+Error codes are as follows:
 
-```python
-from typing import List
-from together import Together
+| Status Code | Error Type                 |
+| ----------- | -------------------------- |
+| 400         | `BadRequestError`          |
+| 401         | `AuthenticationError`      |
+| 403         | `PermissionDeniedError`    |
+| 404         | `NotFoundError`            |
+| 422         | `UnprocessableEntityError` |
+| 429         | `RateLimitError`           |
+| >=500       | `InternalServerError`      |
+| N/A         | `APIConnectionError`       |
 
-client = Together()
+### Retries
 
-def get_reranked_documents(query: str, documents: List[str], model: str, top_n: int = 3) -> List[str]:
-    outputs = client.rerank.create(model=model, query=query, documents=documents, top_n=top_n)
-    # sort by relevance score and returns the original docs
-    return [documents[i] for i in [x.index for x in sorted(outputs.results, key=lambda x: x.relevance_score, reverse=True)]]
+Certain errors are automatically retried 2 times by default, with a short exponential backoff.
+Connection errors (for example, due to a network connectivity problem), 408 Request Timeout, 409 Conflict,
+429 Rate Limit, and >=500 Internal errors are all retried by default.
 
-query = "What is the capital of the United States?"
-documents = ["New York","Washington, D.C.", "Los Angeles"]
-
-reranked_documents = get_reranked_documents(query, documents, model='Salesforce/Llama-Rank-V1', top_n=1)
-
-print(reranked_documents)
-```
-
-Read more about Reranking [here](https://docs.together.ai/docs/rerank-overview).
-
-### Files
-
-The files API is used for fine-tuning and allows developers to upload data to fine-tune on. It also has several methods to list all files, retrive files, and delete files. Please refer to our fine-tuning docs [here](https://docs.together.ai/docs/fine-tuning-python).
-
-```python
-from together import Together
-
-client = Together()
-
-client.files.upload(file="somedata.jsonl") # uploads a file
-client.files.list() # lists all uploaded files
-client.files.retrieve(id="file-d0d318cb-b7d9-493a-bd70-1cfe089d3815") # retrieves a specific file
-client.files.retrieve_content(id="file-d0d318cb-b7d9-493a-bd70-1cfe089d3815") # retrieves content of a specific file
-client.files.delete(id="file-d0d318cb-b7d9-493a-bd70-1cfe089d3815") # deletes a file
-```
-
-### Fine-tunes
-
-The finetune API is used for fine-tuning and allows developers to create finetuning jobs. It also has several methods to list all jobs, retrive statuses and get checkpoints. Please refer to our fine-tuning docs [here](https://docs.together.ai/docs/fine-tuning-quickstart).
+You can use the `max_retries` option to configure or disable retry settings:
 
 ```python
 from together import Together
 
-client = Together()
-
-client.fine_tuning.create(
-  training_file = 'file-d0d318cb-b7d9-493a-bd70-1cfe089d3815',
-  model = 'meta-llama/Llama-3.2-3B-Instruct',
-  n_epochs = 3,
-  n_checkpoints = 1,
-  batch_size = "max",
-  learning_rate = 1e-5,
-  suffix = 'my-demo-finetune',
-  wandb_api_key = '1a2b3c4d5e.......',
+# Configure the default for all requests:
+client = Together(
+    # default is 2
+    max_retries=0,
 )
-client.fine_tuning.list() # lists all fine-tuned jobs
-client.fine_tuning.retrieve(id="ft-c66a5c18-1d6d-43c9-94bd-32d756425b4b") # retrieves information on finetune event
-client.fine_tuning.cancel(id="ft-c66a5c18-1d6d-43c9-94bd-32d756425b4b") # Cancels a fine-tuning job
-client.fine_tuning.list_events(id="ft-c66a5c18-1d6d-43c9-94bd-32d756425b4b") #  Lists events of a fine-tune job
-client.fine_tuning.download(id="ft-c66a5c18-1d6d-43c9-94bd-32d756425b4b") # downloads compressed fine-tuned model or checkpoint to local disk
+
+# Or, configure per-request:
+client.with_options(max_retries=5).chat.completions.create(
+    messages=[
+        {
+            "role": "user",
+            "content": "Say this is a test",
+        }
+    ],
+    model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+)
 ```
 
-### Models
+### Timeouts
 
-This lists all the models that Together supports.
+By default requests time out after 1 minute. You can configure this with a `timeout` option,
+which accepts a float or an [`httpx.Timeout`](https://www.python-httpx.org/advanced/timeouts/#fine-tuning-the-configuration) object:
 
 ```python
 from together import Together
 
-client = Together()
+# Configure the default for all requests:
+client = Together(
+    # 20 seconds (default is 1 minute)
+    timeout=20.0,
+)
 
-models = client.models.list()
+# More granular control:
+client = Together(
+    timeout=httpx.Timeout(60.0, read=5.0, write=10.0, connect=2.0),
+)
 
-for model in models:
-    print(model)
+# Override per-request:
+client.with_options(timeout=5.0).chat.completions.create(
+    messages=[
+        {
+            "role": "user",
+            "content": "Say this is a test",
+        }
+    ],
+    model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+)
 ```
 
-### Batch Inference
+On timeout, an `APITimeoutError` is thrown.
 
-The batch API allows you to submit larger inference jobs for completion with a 24 hour turn-around time, below is an example. To learn more refer to the [docs here](https://docs.together.ai/docs/batch-inference).
+Note that requests that time out are [retried twice by default](https://github.com/togethercomputer/together-py/tree/main/#retries).
 
-```python
+## Advanced
+
+### Logging
+
+We use the standard library [`logging`](https://docs.python.org/3/library/logging.html) module.
+
+You can enable logging by setting the environment variable `TOGETHER_LOG` to `info`.
+
+```shell
+$ export TOGETHER_LOG=info
+```
+
+Or to `debug` for more verbose logging.
+
+### How to tell whether `None` means `null` or missing
+
+In an API response, a field may be explicitly `null`, or missing entirely; in either case, its value is `None` in this library. You can differentiate the two cases with `.model_fields_set`:
+
+```py
+if response.my_field is None:
+  if 'my_field' not in response.model_fields_set:
+    print('Got json like {}, without a "my_field" key present at all.')
+  else:
+    print('Got json like {"my_field": null}.')
+```
+
+### Accessing raw response data (e.g. headers)
+
+The "raw" Response object can be accessed by prefixing `.with_raw_response.` to any HTTP method call, e.g.,
+
+```py
 from together import Together
 
 client = Together()
+response = client.chat.completions.with_raw_response.create(
+    messages=[{
+        "role": "user",
+        "content": "Say this is a test",
+    }],
+    model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+)
+print(response.headers.get('X-My-Header'))
 
-# Upload the batch file
-batch_file = client.files.upload(file="simpleqa_batch_student.jsonl", purpose="batch-api")
+completion = response.parse()  # get the object that `chat.completions.create()` would have returned
+print(completion.choices)
+```
 
-# Create the batch job
-batch = client.batches.create_batch(file_id=batch_file.id, endpoint="/v1/chat/completions")
+These methods return an [`APIResponse`](https://github.com/togethercomputer/together-py/tree/main/src/together/_response.py) object.
 
-# Monitor the batch status
-batch_stat = client.batches.get_batch(batch.id)
+The async client returns an [`AsyncAPIResponse`](https://github.com/togethercomputer/together-py/tree/main/src/together/_response.py) with the same structure, the only difference being `await`able methods for reading the response content.
 
-# List all batches - contains other batches as well
-client.batches.list_batches()
+#### `.with_streaming_response`
 
-# Download the file content if job completed
-if batch_stat.status == 'COMPLETED':
-    output_response = client.files.retrieve_content(id=batch_stat.output_file_id,
-                                                    output="simpleqa_v3_output.jsonl")
+The above interface eagerly reads the full response body when you make the request, which may not always be what you want.
+
+To stream the response body, use `.with_streaming_response` instead, which requires a context manager and only reads the response body once you call `.read()`, `.text()`, `.json()`, `.iter_bytes()`, `.iter_text()`, `.iter_lines()` or `.parse()`. In the async client, these are async methods.
+
+```python
+with client.chat.completions.with_streaming_response.create(
+    messages=[
+        {
+            "role": "user",
+            "content": "Say this is a test",
+        }
+    ],
+    model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+) as response:
+    print(response.headers.get("X-My-Header"))
+
+    for line in response.iter_lines():
+        print(line)
+```
+
+The context manager is required so that the response will reliably be closed.
+
+### Making custom/undocumented requests
+
+This library is typed for convenient access to the documented API.
+
+If you need to access undocumented endpoints, params, or response properties, the library can still be used.
+
+#### Undocumented endpoints
+
+To make requests to undocumented endpoints, you can make requests using `client.get`, `client.post`, and other
+http verbs. Options on the client will be respected (such as retries) when making this request.
+
+```py
+import httpx
+
+response = client.post(
+    "/foo",
+    cast_to=httpx.Response,
+    body={"my_param": True},
+)
+
+print(response.headers.get("x-foo"))
+```
+
+#### Undocumented request params
+
+If you want to explicitly send an extra param, you can do so with the `extra_query`, `extra_body`, and `extra_headers` request
+options.
+
+#### Undocumented response properties
+
+To access undocumented response properties, you can access the extra fields like `response.unknown_prop`. You
+can also get all the extra fields on the Pydantic model as a dict with
+[`response.model_extra`](https://docs.pydantic.dev/latest/api/base_model/#pydantic.BaseModel.model_extra).
+
+### Configuring the HTTP client
+
+You can directly override the [httpx client](https://www.python-httpx.org/api/#client) to customize it for your use case, including:
+
+- Support for [proxies](https://www.python-httpx.org/advanced/proxies/)
+- Custom [transports](https://www.python-httpx.org/advanced/transports/)
+- Additional [advanced](https://www.python-httpx.org/advanced/clients/) functionality
+
+```python
+import httpx
+from together import Together, DefaultHttpxClient
+
+client = Together(
+    # Or use the `TOGETHER_BASE_URL` env var
+    base_url="http://my.test.server.example.com:8083",
+    http_client=DefaultHttpxClient(
+        proxy="http://my.test.proxy.example.com",
+        transport=httpx.HTTPTransport(local_address="0.0.0.0"),
+    ),
+)
+```
+
+You can also customize the client on a per-request basis by using `with_options()`:
+
+```python
+client.with_options(http_client=DefaultHttpxClient(...))
+```
+
+### Managing HTTP resources
+
+By default the library closes underlying HTTP connections whenever the client is [garbage collected](https://docs.python.org/3/reference/datamodel.html#object.__del__). You can manually close the client using the `.close()` method if desired, or with a context manager that closes when exiting.
+
+```py
+from together import Together
+
+with Together() as client:
+  # make requests here
+  ...
+
+# HTTP client is now closed
 ```
 
 ## Usage – CLI
-
-### Chat Completions
-
-```bash
-together chat.completions \
-  --message "system" "You are a helpful assistant named Together" \
-  --message "user" "What is your name?" \
-  --model meta-llama/Llama-4-Scout-17B-16E-Instruct
-```
-
-The Chat Completions CLI enables streaming tokens to stdout by default. To disable streaming, use `--no-stream`.
-
-### Completions
-
-```bash
-together completions \
-  "Large language models are " \
-  --model meta-llama/Llama-4-Scout-17B-16E-Instruct \
-  --max-tokens 512 \
-  --stop "."
-```
-
-The Completions CLI enables streaming tokens to stdout by default. To disable streaming, use `--no-stream`.
-
-### Image Generations
-
-```bash
-together images generate \
-  "space robots" \
-  --model stabilityai/stable-diffusion-xl-base-1.0 \
-  --n 4
-```
-
-The image is opened in the default image viewer by default. To disable this, use `--no-show`.
 
 ### Files
 
@@ -577,7 +579,236 @@ together models --help
 together models list
 ```
 
+## Versioning
+
+This package generally follows [SemVer](https://semver.org/spec/v2.0.0.html) conventions, though certain backwards-incompatible changes may be released as minor versions:
+
+1. Changes that only affect static types, without breaking runtime behavior.
+2. Changes to library internals which are technically public but not intended or documented for external use. _(Please open a GitHub issue to let us know if you are relying on such internals.)_
+3. Changes that we do not expect to impact the vast majority of users in practice.
+
+We take backwards-compatibility seriously and work hard to ensure you can rely on a smooth upgrade experience.
+
+We are keen for your feedback; please open an [issue](https://www.github.com/togethercomputer/together-py/issues) with questions, bugs, or suggestions.
+
+### Determining the installed version
+
+If you've upgraded to the latest version but aren't seeing any new features you were expecting then your python environment is likely still using an older version.
+
+You can determine the version that is being used at runtime with:
+
+```py
+import together
+print(together.__version__)
+```
+
+## Requirements
+
+Python 3.9 or higher.
+
+## Usage – CLI
+
+### Files
+
+```bash
+# Help
+together files --help
+
+# Check file
+together files check example.jsonl
+
+# Upload file
+together files upload example.jsonl
+
+# List files
+together files list
+
+# Retrieve file metadata
+together files retrieve file-6f50f9d1-5b95-416c-9040-0799b2b4b894
+
+# Retrieve file content
+together files retrieve-content file-6f50f9d1-5b95-416c-9040-0799b2b4b894
+
+# Delete remote file
+together files delete file-6f50f9d1-5b95-416c-9040-0799b2b4b894
+```
+
+### Fine-tuning
+
+```bash
+# Help
+together fine-tuning --help
+
+# Create fine-tune job
+together fine-tuning create \
+  --model togethercomputer/llama-2-7b-chat \
+  --training-file file-711d8724-b3e3-4ae2-b516-94841958117d
+
+# List fine-tune jobs
+together fine-tuning list
+
+# Retrieve fine-tune job details
+together fine-tuning retrieve ft-c66a5c18-1d6d-43c9-94bd-32d756425b4b
+
+# List fine-tune job events
+together fine-tuning list-events ft-c66a5c18-1d6d-43c9-94bd-32d756425b4b
+
+# List fine-tune checkpoints
+together fine-tuning list-checkpoints ft-c66a5c18-1d6d-43c9-94bd-32d756425b4b
+
+# Cancel running job
+together fine-tuning cancel ft-c66a5c18-1d6d-43c9-94bd-32d756425b4b
+
+# Download fine-tuned model weights
+together fine-tuning download ft-c66a5c18-1d6d-43c9-94bd-32d756425b4b
+
+# Delete fine-tuned model weights
+together fine-tuning delete ft-c66a5c18-1d6d-43c9-94bd-32d756425b4b
+```
+
+### Models
+
+```bash
+# Help
+together models --help
+
+# List models
+together models list
+
+# Upload a model
+together models upload --model-name my-org/my-model --model-source s3-or-hugging-face
+```
+
+### Clusters
+
+```bash
+# Help
+together beta clusters --help
+
+# Create a cluster
+together beta clusters create
+
+# List clusters
+together beta clusters list
+
+# Retrieve cluster details
+together beta clusters retrieve [cluster-id]
+
+# Update a cluster
+together beta clusters update [cluster-id]
+
+# Retrieve Together cluster configuration options such as regions, gpu types and drivers available
+together beta clusters list-regions
+```
+
+##### Cluster Storage
+
+```bash
+# Help
+together beta clusters storage --help
+
+# Create cluster storage volume
+together beta clusters storage create
+
+# List storage volumes
+together beta clusters storage list
+
+# Retrieve storage volume
+together beta clusters storage retrieve [storage-id]
+
+# Delete storage volume
+together beta clusters storage delete [storage-id]
+```
+
+### Jig (Container Deployments)
+
+```bash
+# Help
+together beta jig --help
+
+# Initialize jig configuration (creates pyproject.toml)
+together beta jig init
+
+# Generate Dockerfile from config
+together beta jig dockerfile
+
+# Build container image
+together beta jig build
+together beta jig build --tag v1.0 --warmup
+
+# Push image to registry
+together beta jig push
+together beta jig push --tag v1.0
+
+# Deploy model (builds, pushes, and deploys)
+together beta jig deploy
+together beta jig deploy --build-only
+together beta jig deploy --image existing-image:tag
+
+# Get deployment status
+together beta jig status
+
+# Get deployment endpoint URL
+together beta jig endpoint
+
+# View deployment logs
+together beta jig logs
+together beta jig logs --follow
+
+# Destroy deployment
+together beta jig destroy
+
+# Get queue metrics
+together beta jig queue-status
+
+# List all deployments
+together beta jig list
+```
+
+##### Jig Secrets
+
+```bash
+# Help
+together beta jig secrets --help
+
+# Set a secret (creates or updates)
+together beta jig secrets set --name MY_SECRET --value "secret-value"
+
+# Remove a secret from local state
+together beta jig secrets unset --name MY_SECRET
+
+# List all secrets with sync status
+together beta jig secrets list
+```
+
+##### Jig Volumes
+
+```bash
+# Help
+together beta jig volumes --help
+
+# Create a volume and upload files from directory
+together beta jig volumes create --name my-volume --source ./data
+
+# Update a volume with new files
+together beta jig volumes update --name my-volume --source ./data
+
+# Set volume mount path for deployment
+together beta jig volumes set --name my-volume --mount-path /app/data
+
+# Remove volume from deployment config (does not delete remote volume)
+together beta jig volumes unset --name my-volume
+
+# Delete a volume
+together beta jig volumes delete --name my-volume
+
+# Describe a volume
+together beta jig volumes describe --name my-volume
+
+# List all volumes
+together beta jig volumes list
+```
+
 ## Contributing
 
-Refer to the [Contributing Guide](CONTRIBUTING.md)
-
+See [the contributing documentation](https://github.com/togethercomputer/together-py/tree/main/./CONTRIBUTING.md).

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from pyrit.common.path import SCORER_SEED_PROMPT_PATH
+from pyrit.identifiers import ScorerIdentifier
 from pyrit.models import MessagePiece, Score, SeedPrompt, UnvalidatedScore
 from pyrit.prompt_target import PromptChatTarget
 from pyrit.score.scorer_prompt_validator import ScorerPromptValidator
@@ -49,6 +50,16 @@ class SelfAskRefusalScorer(TrueFalseScorer):
             score_aggregator (TrueFalseAggregatorFunc): The aggregator function to use.
                 Defaults to TrueFalseScoreAggregator.OR.
         """
+        # Set refusal-specific evaluation file mapping before calling super().__init__
+        from pyrit.score.scorer_evaluation.scorer_evaluator import (
+            ScorerEvalDatasetFiles,
+        )
+
+        self.evaluation_file_mapping = ScorerEvalDatasetFiles(
+            human_labeled_datasets_files=["refusal_scorer/*.csv"],
+            result_file="refusal_scorer/refusal_metrics.jsonl",
+        )
+
         super().__init__(score_aggregator=score_aggregator, validator=validator or self._default_validator)
 
         self._prompt_target = chat_target
@@ -60,6 +71,19 @@ class SelfAskRefusalScorer(TrueFalseScorer):
         ).value
 
         self._score_category = ["refusal"]
+
+    def _build_identifier(self) -> ScorerIdentifier:
+        """
+        Build the scorer evaluation identifier for this scorer.
+
+        Returns:
+            ScorerIdentifier: The identifier for this scorer.
+        """
+        return self._create_identifier(
+            system_prompt_template=self._system_prompt_with_objective,
+            prompt_target=self._prompt_target,
+            score_aggregator=self._score_aggregator.__name__,
+        )
 
     async def _score_piece_async(self, message_piece: MessagePiece, *, objective: Optional[str] = None) -> list[Score]:
         """

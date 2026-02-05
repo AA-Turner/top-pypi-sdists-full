@@ -16,7 +16,7 @@ def intact_get_interactions_by_organism(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
     Get all interactions for a specific organism by taxonomy ID. Uses EBI Search API (IntAct domain) ...
 
@@ -37,7 +37,7 @@ def intact_get_interactions_by_organism(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

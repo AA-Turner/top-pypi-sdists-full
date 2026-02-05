@@ -6,9 +6,8 @@ from abc import ABC, abstractmethod
 from typing import Optional, Type, cast
 from uuid import UUID
 
+from pyrit.identifiers import ScorerIdentifier
 from pyrit.models import Message, MessagePiece, Score
-from pyrit.models.literals import PromptResponseError
-from pyrit.models.message_piece import Originator
 from pyrit.score.float_scale.float_scale_scorer import FloatScaleScorer
 from pyrit.score.scorer import Scorer
 from pyrit.score.scorer_prompt_validator import ScorerPromptValidator
@@ -70,8 +69,8 @@ class ConversationScorer(Scorer, ABC):
         for conv_message in conversation:
             for piece in conv_message.message_pieces:
                 # Only include user and assistant messages in the conversation text
-                if piece.role in ["user", "assistant", "tool"]:
-                    role_display = piece.role.capitalize()
+                if piece.api_role in ["user", "assistant", "tool"]:
+                    role_display = "Assistant (simulated)" if piece.is_simulated else piece.api_role.capitalize()
                     conversation_text += f"{role_display}: {piece.converted_value}\n"
 
         # Create a new message with the concatenated conversation text
@@ -80,7 +79,7 @@ class ConversationScorer(Scorer, ABC):
         conversation_message = Message(
             message_pieces=[
                 MessagePiece(
-                    role=original_piece.role,
+                    role=original_piece.get_role_for_storage(),
                     original_value=conversation_text,
                     converted_value=conversation_text,
                     id=original_piece.id,
@@ -90,8 +89,8 @@ class ConversationScorer(Scorer, ABC):
                     attack_identifier=original_piece.attack_identifier,
                     original_value_data_type=original_piece.original_value_data_type,
                     converted_value_data_type=original_piece.converted_value_data_type,
-                    response_error=cast(PromptResponseError, original_piece.response_error),
-                    originator=cast(Originator, original_piece.originator),
+                    response_error=original_piece.response_error,
+                    originator=original_piece.originator,
                     original_prompt_id=(
                         cast(UUID, original_piece.original_prompt_id)
                         if isinstance(original_piece.original_prompt_id, str)
@@ -166,7 +165,7 @@ def create_conversation_scorer(
         ValueError: If the scorer is not an instance of FloatScaleScorer or TrueFalseScorer.
 
     Example:
-        >>> float_scorer = SelfAskLikertScorer(chat_target=target, likert_scale_path=scale_path)
+        >>> float_scorer = SelfAskLikertScorer(chat_target=target, likert_scale=scale)
         >>> conversation_scorer = create_conversation_scorer(scorer=float_scorer)
         >>> isinstance(conversation_scorer, FloatScaleScorer)  # True
         >>> isinstance(conversation_scorer, ConversationScorer)  # True
@@ -188,7 +187,7 @@ def create_conversation_scorer(
     class DynamicConversationScorer(ConversationScorer, scorer_base_class):  # type: ignore
         """Dynamic ConversationScorer that inherits from both ConversationScorer and the wrapped scorer's base class."""
 
-        def __init__(self):
+        def __init__(self) -> None:
             # Initialize with the validator and wrapped scorer
             Scorer.__init__(self, validator=validator or ConversationScorer._default_validator)
             self._wrapped_scorer = scorer
@@ -196,5 +195,16 @@ def create_conversation_scorer(
         def _get_wrapped_scorer(self) -> Scorer:
             """Return the wrapped scorer."""
             return self._wrapped_scorer
+
+        def _build_identifier(self) -> ScorerIdentifier:
+            """
+            Build the scorer evaluation identifier for this conversation scorer.
+
+            Returns:
+                ScorerIdentifier: The identifier for this scorer.
+            """
+            return self._create_identifier(
+                sub_scorers=[self._wrapped_scorer],
+            )
 
     return DynamicConversationScorer()

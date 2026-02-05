@@ -12,6 +12,7 @@ from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 import builtins as _builtins
+from . import encryption_pb2 as _encryption_pb2
 from . import engine_common_pb2 as _engine_common_pb2
 from . import enum_cancel_run_action_pb2 as _enum_cancel_run_action_pb2
 from . import enum_control_signal_pb2 as _enum_control_signal_pb2
@@ -512,6 +513,7 @@ class CreateAssistantRequest(_message.Message):
     NAME_FIELD_NUMBER: _builtins.int
     DESCRIPTION_FIELD_NUMBER: _builtins.int
     METADATA_JSON_FIELD_NUMBER: _builtins.int
+    ENCRYPTION_CONTEXT_FIELD_NUMBER: _builtins.int
     assistant_id: _builtins.str
     graph_id: _builtins.str
     if_exists: Global___OnConflictBehavior.ValueType
@@ -523,6 +525,8 @@ class CreateAssistantRequest(_message.Message):
     def filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
     @_builtins.property
     def config(self) -> _engine_common_pb2.EngineRunnableConfig: ...
+    @_builtins.property
+    def encryption_context(self) -> _encryption_pb2.EncryptionContext: ...
     def __init__(
         self,
         *,
@@ -535,17 +539,22 @@ class CreateAssistantRequest(_message.Message):
         name: _builtins.str = ...,
         description: _builtins.str | None = ...,
         metadata_json: _builtins.bytes | None = ...,
+        encryption_context: _encryption_pb2.EncryptionContext | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_description", b"_description", "_metadata_json", b"_metadata_json", "config", b"config", "description", b"description", "metadata_json", b"metadata_json"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_description", b"_description", "_encryption_context", b"_encryption_context", "_metadata_json", b"_metadata_json", "config", b"config", "description", b"description", "encryption_context", b"encryption_context", "metadata_json", b"metadata_json"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_description", b"_description", "_metadata_json", b"_metadata_json", "assistant_id", b"assistant_id", "config", b"config", "context_json", b"context_json", "description", b"description", "filters", b"filters", "graph_id", b"graph_id", "if_exists", b"if_exists", "metadata_json", b"metadata_json", "name", b"name"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_description", b"_description", "_encryption_context", b"_encryption_context", "_metadata_json", b"_metadata_json", "assistant_id", b"assistant_id", "config", b"config", "context_json", b"context_json", "description", b"description", "encryption_context", b"encryption_context", "filters", b"filters", "graph_id", b"graph_id", "if_exists", b"if_exists", "metadata_json", b"metadata_json", "name", b"name"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__description: _TypeAlias = _typing.Literal["description"]  # noqa: Y015
     _WhichOneofArgType__description: _TypeAlias = _typing.Literal["_description", b"_description"]  # noqa: Y015
+    _WhichOneofReturnType__encryption_context: _TypeAlias = _typing.Literal["encryption_context"]  # noqa: Y015
+    _WhichOneofArgType__encryption_context: _TypeAlias = _typing.Literal["_encryption_context", b"_encryption_context"]  # noqa: Y015
     _WhichOneofReturnType__metadata_json: _TypeAlias = _typing.Literal["metadata_json"]  # noqa: Y015
     _WhichOneofArgType__metadata_json: _TypeAlias = _typing.Literal["_metadata_json", b"_metadata_json"]  # noqa: Y015
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__description) -> _WhichOneofReturnType__description | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__encryption_context) -> _WhichOneofReturnType__encryption_context | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__metadata_json) -> _WhichOneofReturnType__metadata_json | None: ...
 
@@ -583,6 +592,7 @@ class PatchAssistantRequest(_message.Message):
     NAME_FIELD_NUMBER: _builtins.int
     DESCRIPTION_FIELD_NUMBER: _builtins.int
     METADATA_JSON_FIELD_NUMBER: _builtins.int
+    ENCRYPTION_CONTEXT_FIELD_NUMBER: _builtins.int
     assistant_id: _builtins.str
     graph_id: _builtins.str
     context_json: _builtins.bytes
@@ -593,6 +603,8 @@ class PatchAssistantRequest(_message.Message):
     def filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
     @_builtins.property
     def config(self) -> _engine_common_pb2.EngineRunnableConfig: ...
+    @_builtins.property
+    def encryption_context(self) -> _encryption_pb2.EncryptionContext: ...
     def __init__(
         self,
         *,
@@ -604,10 +616,11 @@ class PatchAssistantRequest(_message.Message):
         name: _builtins.str | None = ...,
         description: _builtins.str | None = ...,
         metadata_json: _builtins.bytes | None = ...,
+        encryption_context: _encryption_pb2.EncryptionContext | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_config", b"_config", "_context_json", b"_context_json", "_description", b"_description", "_graph_id", b"_graph_id", "_metadata_json", b"_metadata_json", "_name", b"_name", "config", b"config", "context_json", b"context_json", "description", b"description", "graph_id", b"graph_id", "metadata_json", b"metadata_json", "name", b"name"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_config", b"_config", "_context_json", b"_context_json", "_description", b"_description", "_encryption_context", b"_encryption_context", "_graph_id", b"_graph_id", "_metadata_json", b"_metadata_json", "_name", b"_name", "config", b"config", "context_json", b"context_json", "description", b"description", "encryption_context", b"encryption_context", "graph_id", b"graph_id", "metadata_json", b"metadata_json", "name", b"name"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_config", b"_config", "_context_json", b"_context_json", "_description", b"_description", "_graph_id", b"_graph_id", "_metadata_json", b"_metadata_json", "_name", b"_name", "assistant_id", b"assistant_id", "config", b"config", "context_json", b"context_json", "description", b"description", "filters", b"filters", "graph_id", b"graph_id", "metadata_json", b"metadata_json", "name", b"name"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_config", b"_config", "_context_json", b"_context_json", "_description", b"_description", "_encryption_context", b"_encryption_context", "_graph_id", b"_graph_id", "_metadata_json", b"_metadata_json", "_name", b"_name", "assistant_id", b"assistant_id", "config", b"config", "context_json", b"context_json", "description", b"description", "encryption_context", b"encryption_context", "filters", b"filters", "graph_id", b"graph_id", "metadata_json", b"metadata_json", "name", b"name"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__config: _TypeAlias = _typing.Literal["config"]  # noqa: Y015
     _WhichOneofArgType__config: _TypeAlias = _typing.Literal["_config", b"_config"]  # noqa: Y015
@@ -615,6 +628,8 @@ class PatchAssistantRequest(_message.Message):
     _WhichOneofArgType__context_json: _TypeAlias = _typing.Literal["_context_json", b"_context_json"]  # noqa: Y015
     _WhichOneofReturnType__description: _TypeAlias = _typing.Literal["description"]  # noqa: Y015
     _WhichOneofArgType__description: _TypeAlias = _typing.Literal["_description", b"_description"]  # noqa: Y015
+    _WhichOneofReturnType__encryption_context: _TypeAlias = _typing.Literal["encryption_context"]  # noqa: Y015
+    _WhichOneofArgType__encryption_context: _TypeAlias = _typing.Literal["_encryption_context", b"_encryption_context"]  # noqa: Y015
     _WhichOneofReturnType__graph_id: _TypeAlias = _typing.Literal["graph_id"]  # noqa: Y015
     _WhichOneofArgType__graph_id: _TypeAlias = _typing.Literal["_graph_id", b"_graph_id"]  # noqa: Y015
     _WhichOneofReturnType__metadata_json: _TypeAlias = _typing.Literal["metadata_json"]  # noqa: Y015
@@ -627,6 +642,8 @@ class PatchAssistantRequest(_message.Message):
     def WhichOneof(self, oneof_group: _WhichOneofArgType__context_json) -> _WhichOneofReturnType__context_json | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__description) -> _WhichOneofReturnType__description | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__encryption_context) -> _WhichOneofReturnType__encryption_context | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__graph_id) -> _WhichOneofReturnType__graph_id | None: ...
     @_typing.overload
@@ -1293,6 +1310,7 @@ class CreateThreadRequest(_message.Message):
     IF_EXISTS_FIELD_NUMBER: _builtins.int
     METADATA_JSON_FIELD_NUMBER: _builtins.int
     TTL_FIELD_NUMBER: _builtins.int
+    ENCRYPTION_CONTEXT_FIELD_NUMBER: _builtins.int
     if_exists: Global___OnConflictBehavior.ValueType
     metadata_json: _builtins.bytes
     @_builtins.property
@@ -1301,6 +1319,8 @@ class CreateThreadRequest(_message.Message):
     def filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
     @_builtins.property
     def ttl(self) -> Global___ThreadTTLConfig: ...
+    @_builtins.property
+    def encryption_context(self) -> _encryption_pb2.EncryptionContext: ...
     def __init__(
         self,
         *,
@@ -1309,15 +1329,20 @@ class CreateThreadRequest(_message.Message):
         if_exists: Global___OnConflictBehavior.ValueType = ...,
         metadata_json: _builtins.bytes | None = ...,
         ttl: Global___ThreadTTLConfig | None = ...,
+        encryption_context: _encryption_pb2.EncryptionContext | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_metadata_json", b"_metadata_json", "_ttl", b"_ttl", "metadata_json", b"metadata_json", "thread_id", b"thread_id", "ttl", b"ttl"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_encryption_context", b"_encryption_context", "_metadata_json", b"_metadata_json", "_ttl", b"_ttl", "encryption_context", b"encryption_context", "metadata_json", b"metadata_json", "thread_id", b"thread_id", "ttl", b"ttl"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_metadata_json", b"_metadata_json", "_ttl", b"_ttl", "filters", b"filters", "if_exists", b"if_exists", "metadata_json", b"metadata_json", "thread_id", b"thread_id", "ttl", b"ttl"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_encryption_context", b"_encryption_context", "_metadata_json", b"_metadata_json", "_ttl", b"_ttl", "encryption_context", b"encryption_context", "filters", b"filters", "if_exists", b"if_exists", "metadata_json", b"metadata_json", "thread_id", b"thread_id", "ttl", b"ttl"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__encryption_context: _TypeAlias = _typing.Literal["encryption_context"]  # noqa: Y015
+    _WhichOneofArgType__encryption_context: _TypeAlias = _typing.Literal["_encryption_context", b"_encryption_context"]  # noqa: Y015
     _WhichOneofReturnType__metadata_json: _TypeAlias = _typing.Literal["metadata_json"]  # noqa: Y015
     _WhichOneofArgType__metadata_json: _TypeAlias = _typing.Literal["_metadata_json", b"_metadata_json"]  # noqa: Y015
     _WhichOneofReturnType__ttl: _TypeAlias = _typing.Literal["ttl"]  # noqa: Y015
     _WhichOneofArgType__ttl: _TypeAlias = _typing.Literal["_ttl", b"_ttl"]  # noqa: Y015
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__encryption_context) -> _WhichOneofReturnType__encryption_context | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__metadata_json) -> _WhichOneofReturnType__metadata_json | None: ...
     @_typing.overload
@@ -1356,6 +1381,7 @@ class PatchThreadRequest(_message.Message):
     FILTERS_FIELD_NUMBER: _builtins.int
     METADATA_JSON_FIELD_NUMBER: _builtins.int
     TTL_FIELD_NUMBER: _builtins.int
+    ENCRYPTION_CONTEXT_FIELD_NUMBER: _builtins.int
     metadata_json: _builtins.bytes
     @_builtins.property
     def thread_id(self) -> Global___UUID: ...
@@ -1363,6 +1389,8 @@ class PatchThreadRequest(_message.Message):
     def filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
     @_builtins.property
     def ttl(self) -> Global___ThreadTTLConfig: ...
+    @_builtins.property
+    def encryption_context(self) -> _encryption_pb2.EncryptionContext: ...
     def __init__(
         self,
         *,
@@ -1370,15 +1398,20 @@ class PatchThreadRequest(_message.Message):
         filters: _abc.Iterable[Global___AuthFilter] | None = ...,
         metadata_json: _builtins.bytes | None = ...,
         ttl: Global___ThreadTTLConfig | None = ...,
+        encryption_context: _encryption_pb2.EncryptionContext | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_metadata_json", b"_metadata_json", "_ttl", b"_ttl", "metadata_json", b"metadata_json", "thread_id", b"thread_id", "ttl", b"ttl"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_encryption_context", b"_encryption_context", "_metadata_json", b"_metadata_json", "_ttl", b"_ttl", "encryption_context", b"encryption_context", "metadata_json", b"metadata_json", "thread_id", b"thread_id", "ttl", b"ttl"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_metadata_json", b"_metadata_json", "_ttl", b"_ttl", "filters", b"filters", "metadata_json", b"metadata_json", "thread_id", b"thread_id", "ttl", b"ttl"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_encryption_context", b"_encryption_context", "_metadata_json", b"_metadata_json", "_ttl", b"_ttl", "encryption_context", b"encryption_context", "filters", b"filters", "metadata_json", b"metadata_json", "thread_id", b"thread_id", "ttl", b"ttl"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__encryption_context: _TypeAlias = _typing.Literal["encryption_context"]  # noqa: Y015
+    _WhichOneofArgType__encryption_context: _TypeAlias = _typing.Literal["_encryption_context", b"_encryption_context"]  # noqa: Y015
     _WhichOneofReturnType__metadata_json: _TypeAlias = _typing.Literal["metadata_json"]  # noqa: Y015
     _WhichOneofArgType__metadata_json: _TypeAlias = _typing.Literal["_metadata_json", b"_metadata_json"]  # noqa: Y015
     _WhichOneofReturnType__ttl: _TypeAlias = _typing.Literal["ttl"]  # noqa: Y015
     _WhichOneofArgType__ttl: _TypeAlias = _typing.Literal["_ttl", b"_ttl"]  # noqa: Y015
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__encryption_context) -> _WhichOneofReturnType__encryption_context | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__metadata_json) -> _WhichOneofReturnType__metadata_json | None: ...
     @_typing.overload
@@ -1569,6 +1602,7 @@ class SetThreadStatusRequest(_message.Message):
     CHECKPOINT_FIELD_NUMBER: _builtins.int
     EXCEPTION_JSON_FIELD_NUMBER: _builtins.int
     EXPECTED_STATUS_FIELD_NUMBER: _builtins.int
+    ENCRYPTION_CONTEXT_FIELD_NUMBER: _builtins.int
     exception_json: _builtins.bytes
     """JSON-compatible serialization of an exception."""
     @_builtins.property
@@ -1581,6 +1615,10 @@ class SetThreadStatusRequest(_message.Message):
     def expected_status(self) -> _containers.RepeatedScalarFieldContainer[_enum_thread_status_pb2.ThreadStatus.ValueType]:
         """Expected current status(es) for optimistic locking."""
 
+    @_builtins.property
+    def encryption_context(self) -> _encryption_pb2.EncryptionContext:
+        """Optional encryption context for encrypting values/interrupts/error."""
+
     def __init__(
         self,
         *,
@@ -1588,17 +1626,22 @@ class SetThreadStatusRequest(_message.Message):
         checkpoint: Global___ThreadStatusCheckpoint | None = ...,
         exception_json: _builtins.bytes | None = ...,
         expected_status: _abc.Iterable[_enum_thread_status_pb2.ThreadStatus.ValueType] | None = ...,
+        encryption_context: _encryption_pb2.EncryptionContext | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_checkpoint", b"_checkpoint", "_exception_json", b"_exception_json", "checkpoint", b"checkpoint", "exception_json", b"exception_json", "thread_id", b"thread_id"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_checkpoint", b"_checkpoint", "_encryption_context", b"_encryption_context", "_exception_json", b"_exception_json", "checkpoint", b"checkpoint", "encryption_context", b"encryption_context", "exception_json", b"exception_json", "thread_id", b"thread_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_checkpoint", b"_checkpoint", "_exception_json", b"_exception_json", "checkpoint", b"checkpoint", "exception_json", b"exception_json", "expected_status", b"expected_status", "thread_id", b"thread_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_checkpoint", b"_checkpoint", "_encryption_context", b"_encryption_context", "_exception_json", b"_exception_json", "checkpoint", b"checkpoint", "encryption_context", b"encryption_context", "exception_json", b"exception_json", "expected_status", b"expected_status", "thread_id", b"thread_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__checkpoint: _TypeAlias = _typing.Literal["checkpoint"]  # noqa: Y015
     _WhichOneofArgType__checkpoint: _TypeAlias = _typing.Literal["_checkpoint", b"_checkpoint"]  # noqa: Y015
+    _WhichOneofReturnType__encryption_context: _TypeAlias = _typing.Literal["encryption_context"]  # noqa: Y015
+    _WhichOneofArgType__encryption_context: _TypeAlias = _typing.Literal["_encryption_context", b"_encryption_context"]  # noqa: Y015
     _WhichOneofReturnType__exception_json: _TypeAlias = _typing.Literal["exception_json"]  # noqa: Y015
     _WhichOneofArgType__exception_json: _TypeAlias = _typing.Literal["_exception_json", b"_exception_json"]  # noqa: Y015
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__checkpoint) -> _WhichOneofReturnType__checkpoint | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__encryption_context) -> _WhichOneofReturnType__encryption_context | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__exception_json) -> _WhichOneofReturnType__exception_json | None: ...
 
@@ -1614,6 +1657,7 @@ class SetThreadJointStatusRequest(_message.Message):
     GRAPH_ID_FIELD_NUMBER: _builtins.int
     CHECKPOINT_FIELD_NUMBER: _builtins.int
     EXCEPTION_JSON_FIELD_NUMBER: _builtins.int
+    ENCRYPTION_CONTEXT_FIELD_NUMBER: _builtins.int
     run_status: _builtins.str
     """RunStatus as string"""
     graph_id: _builtins.str
@@ -1625,6 +1669,10 @@ class SetThreadJointStatusRequest(_message.Message):
     def run_id(self) -> Global___UUID: ...
     @_builtins.property
     def checkpoint(self) -> Global___ThreadStatusCheckpoint: ...
+    @_builtins.property
+    def encryption_context(self) -> _encryption_pb2.EncryptionContext:
+        """Optional encryption context for encrypting values/interrupts/error."""
+
     def __init__(
         self,
         *,
@@ -1634,17 +1682,22 @@ class SetThreadJointStatusRequest(_message.Message):
         graph_id: _builtins.str = ...,
         checkpoint: Global___ThreadStatusCheckpoint | None = ...,
         exception_json: _builtins.bytes | None = ...,
+        encryption_context: _encryption_pb2.EncryptionContext | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_checkpoint", b"_checkpoint", "_exception_json", b"_exception_json", "checkpoint", b"checkpoint", "exception_json", b"exception_json", "run_id", b"run_id", "thread_id", b"thread_id"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_checkpoint", b"_checkpoint", "_encryption_context", b"_encryption_context", "_exception_json", b"_exception_json", "checkpoint", b"checkpoint", "encryption_context", b"encryption_context", "exception_json", b"exception_json", "run_id", b"run_id", "thread_id", b"thread_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_checkpoint", b"_checkpoint", "_exception_json", b"_exception_json", "checkpoint", b"checkpoint", "exception_json", b"exception_json", "graph_id", b"graph_id", "run_id", b"run_id", "run_status", b"run_status", "thread_id", b"thread_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_checkpoint", b"_checkpoint", "_encryption_context", b"_encryption_context", "_exception_json", b"_exception_json", "checkpoint", b"checkpoint", "encryption_context", b"encryption_context", "exception_json", b"exception_json", "graph_id", b"graph_id", "run_id", b"run_id", "run_status", b"run_status", "thread_id", b"thread_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__checkpoint: _TypeAlias = _typing.Literal["checkpoint"]  # noqa: Y015
     _WhichOneofArgType__checkpoint: _TypeAlias = _typing.Literal["_checkpoint", b"_checkpoint"]  # noqa: Y015
+    _WhichOneofReturnType__encryption_context: _TypeAlias = _typing.Literal["encryption_context"]  # noqa: Y015
+    _WhichOneofArgType__encryption_context: _TypeAlias = _typing.Literal["_encryption_context", b"_encryption_context"]  # noqa: Y015
     _WhichOneofReturnType__exception_json: _TypeAlias = _typing.Literal["exception_json"]  # noqa: Y015
     _WhichOneofArgType__exception_json: _TypeAlias = _typing.Literal["_exception_json", b"_exception_json"]  # noqa: Y015
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__checkpoint) -> _WhichOneofReturnType__checkpoint | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__encryption_context) -> _WhichOneofReturnType__encryption_context | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__exception_json) -> _WhichOneofReturnType__exception_json | None: ...
 
@@ -1966,6 +2019,7 @@ class CreateRunRequest(_message.Message):
     IF_NOT_EXISTS_FIELD_NUMBER: _builtins.int
     AFTER_SECONDS_FIELD_NUMBER: _builtins.int
     THREAD_TTL_FIELD_NUMBER: _builtins.int
+    ENCRYPTION_CONTEXT_FIELD_NUMBER: _builtins.int
     kwargs_json: _builtins.bytes
     user_id: _builtins.str
     status: _enum_run_status_pb2.RunStatus.ValueType
@@ -1991,6 +2045,8 @@ class CreateRunRequest(_message.Message):
     def run_id(self) -> Global___UUID: ...
     @_builtins.property
     def thread_ttl(self) -> Global___ThreadTTLConfig: ...
+    @_builtins.property
+    def encryption_context(self) -> _encryption_pb2.EncryptionContext: ...
     def __init__(
         self,
         *,
@@ -2008,13 +2064,16 @@ class CreateRunRequest(_message.Message):
         if_not_exists: Global___CreateRunBehavior.ValueType | None = ...,
         after_seconds: _builtins.int | None = ...,
         thread_ttl: Global___ThreadTTLConfig | None = ...,
+        encryption_context: _encryption_pb2.EncryptionContext | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_after_seconds", b"_after_seconds", "_if_not_exists", b"_if_not_exists", "_metadata_json", b"_metadata_json", "_multitask_strategy", b"_multitask_strategy", "_prevent_insert_if_inflight", b"_prevent_insert_if_inflight", "_run_id", b"_run_id", "_status", b"_status", "_thread_id", b"_thread_id", "_thread_ttl", b"_thread_ttl", "_user_id", b"_user_id", "after_seconds", b"after_seconds", "assistant_id", b"assistant_id", "if_not_exists", b"if_not_exists", "metadata_json", b"metadata_json", "multitask_strategy", b"multitask_strategy", "prevent_insert_if_inflight", b"prevent_insert_if_inflight", "run_id", b"run_id", "status", b"status", "thread_id", b"thread_id", "thread_ttl", b"thread_ttl", "user_id", b"user_id"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_after_seconds", b"_after_seconds", "_encryption_context", b"_encryption_context", "_if_not_exists", b"_if_not_exists", "_metadata_json", b"_metadata_json", "_multitask_strategy", b"_multitask_strategy", "_prevent_insert_if_inflight", b"_prevent_insert_if_inflight", "_run_id", b"_run_id", "_status", b"_status", "_thread_id", b"_thread_id", "_thread_ttl", b"_thread_ttl", "_user_id", b"_user_id", "after_seconds", b"after_seconds", "assistant_id", b"assistant_id", "encryption_context", b"encryption_context", "if_not_exists", b"if_not_exists", "metadata_json", b"metadata_json", "multitask_strategy", b"multitask_strategy", "prevent_insert_if_inflight", b"prevent_insert_if_inflight", "run_id", b"run_id", "status", b"status", "thread_id", b"thread_id", "thread_ttl", b"thread_ttl", "user_id", b"user_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_after_seconds", b"_after_seconds", "_if_not_exists", b"_if_not_exists", "_metadata_json", b"_metadata_json", "_multitask_strategy", b"_multitask_strategy", "_prevent_insert_if_inflight", b"_prevent_insert_if_inflight", "_run_id", b"_run_id", "_status", b"_status", "_thread_id", b"_thread_id", "_thread_ttl", b"_thread_ttl", "_user_id", b"_user_id", "after_seconds", b"after_seconds", "assistant_filters", b"assistant_filters", "assistant_id", b"assistant_id", "if_not_exists", b"if_not_exists", "kwargs_json", b"kwargs_json", "metadata_json", b"metadata_json", "multitask_strategy", b"multitask_strategy", "prevent_insert_if_inflight", b"prevent_insert_if_inflight", "run_id", b"run_id", "status", b"status", "thread_filters", b"thread_filters", "thread_id", b"thread_id", "thread_ttl", b"thread_ttl", "user_id", b"user_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_after_seconds", b"_after_seconds", "_encryption_context", b"_encryption_context", "_if_not_exists", b"_if_not_exists", "_metadata_json", b"_metadata_json", "_multitask_strategy", b"_multitask_strategy", "_prevent_insert_if_inflight", b"_prevent_insert_if_inflight", "_run_id", b"_run_id", "_status", b"_status", "_thread_id", b"_thread_id", "_thread_ttl", b"_thread_ttl", "_user_id", b"_user_id", "after_seconds", b"after_seconds", "assistant_filters", b"assistant_filters", "assistant_id", b"assistant_id", "encryption_context", b"encryption_context", "if_not_exists", b"if_not_exists", "kwargs_json", b"kwargs_json", "metadata_json", b"metadata_json", "multitask_strategy", b"multitask_strategy", "prevent_insert_if_inflight", b"prevent_insert_if_inflight", "run_id", b"run_id", "status", b"status", "thread_filters", b"thread_filters", "thread_id", b"thread_id", "thread_ttl", b"thread_ttl", "user_id", b"user_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__after_seconds: _TypeAlias = _typing.Literal["after_seconds"]  # noqa: Y015
     _WhichOneofArgType__after_seconds: _TypeAlias = _typing.Literal["_after_seconds", b"_after_seconds"]  # noqa: Y015
+    _WhichOneofReturnType__encryption_context: _TypeAlias = _typing.Literal["encryption_context"]  # noqa: Y015
+    _WhichOneofArgType__encryption_context: _TypeAlias = _typing.Literal["_encryption_context", b"_encryption_context"]  # noqa: Y015
     _WhichOneofReturnType__if_not_exists: _TypeAlias = _typing.Literal["if_not_exists"]  # noqa: Y015
     _WhichOneofArgType__if_not_exists: _TypeAlias = _typing.Literal["_if_not_exists", b"_if_not_exists"]  # noqa: Y015
     _WhichOneofReturnType__metadata_json: _TypeAlias = _typing.Literal["metadata_json"]  # noqa: Y015
@@ -2035,6 +2094,8 @@ class CreateRunRequest(_message.Message):
     _WhichOneofArgType__user_id: _TypeAlias = _typing.Literal["_user_id", b"_user_id"]  # noqa: Y015
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__after_seconds) -> _WhichOneofReturnType__after_seconds | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__encryption_context) -> _WhichOneofReturnType__encryption_context | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__if_not_exists) -> _WhichOneofReturnType__if_not_exists | None: ...
     @_typing.overload
@@ -2489,7 +2550,9 @@ class PublishStreamEventRequest(_message.Message):
     resumable: _builtins.bool
     """If true, message will be cached with a TTL for resumable streaming"""
     @_builtins.property
-    def run_id(self) -> Global___UUID: ...
+    def run_id(self) -> Global___UUID:
+        """if not set, wildcard (-> threads, but not runs)"""
+
     @_builtins.property
     def thread_id(self) -> Global___UUID: ...
     def __init__(
@@ -2501,10 +2564,13 @@ class PublishStreamEventRequest(_message.Message):
         message: _builtins.bytes = ...,
         resumable: _builtins.bool = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["run_id", b"run_id", "thread_id", b"thread_id"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_run_id", b"_run_id", "run_id", b"run_id", "thread_id", b"thread_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["event_type", b"event_type", "message", b"message", "resumable", b"resumable", "run_id", b"run_id", "thread_id", b"thread_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_run_id", b"_run_id", "event_type", b"event_type", "message", b"message", "resumable", b"resumable", "run_id", b"run_id", "thread_id", b"thread_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__run_id: _TypeAlias = _typing.Literal["run_id"]  # noqa: Y015
+    _WhichOneofArgType__run_id: _TypeAlias = _typing.Literal["_run_id", b"_run_id"]  # noqa: Y015
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__run_id) -> _WhichOneofReturnType__run_id | None: ...
 
 Global___PublishStreamEventRequest: _TypeAlias = PublishStreamEventRequest  # noqa: Y015
 

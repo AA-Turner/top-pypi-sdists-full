@@ -822,6 +822,14 @@ class TestDuckDB(Validator):
             write={"duckdb": "SELECT ARRAY_LENGTH([0], 1) AS x"},
         )
         self.validate_identity("REGEXP_REPLACE(this, pattern, replacement, modifiers)")
+
+        self.validate_identity(
+            "SELECT NTH_VALUE(is_deleted, 2) OVER (PARTITION BY id) AS nth_is_deleted FROM my_table"
+        )
+        self.validate_identity(
+            "SELECT NTH_VALUE(is_deleted, 2 IGNORE NULLS) OVER (PARTITION BY id) AS nth_is_deleted FROM my_table"
+        )
+
         self.validate_all(
             "REGEXP_MATCHES(x, y)",
             write={
@@ -1501,6 +1509,71 @@ class TestDuckDB(Validator):
             },
         )
 
+    def test_array_remove_at(self):
+        # Test remove first element (position 0)
+        self.validate_all(
+            "CASE WHEN [1, 2, 3] IS NULL THEN NULL ELSE [1, 2, 3][2:] END",
+            read={
+                "snowflake": "ARRAY_REMOVE_AT([1, 2, 3], 0)",
+            },
+        )
+
+        # Test remove middle element (position 1)
+        self.validate_all(
+            "CASE WHEN [1, 2, 3] IS NULL THEN NULL ELSE LIST_CONCAT([1, 2, 3][1:1], [1, 2, 3][3:]) END",
+            read={
+                "snowflake": "ARRAY_REMOVE_AT([1, 2, 3], 1)",
+            },
+        )
+
+        # Test remove last element with positive index (position 2 for 3-element array)
+        self.validate_all(
+            "CASE WHEN [1, 2, 3] IS NULL THEN NULL ELSE LIST_CONCAT([1, 2, 3][1:2], [1, 2, 3][4:]) END",
+            read={
+                "snowflake": "ARRAY_REMOVE_AT([1, 2, 3], 2)",
+            },
+        )
+
+        # Test remove last element with negative index (position -1)
+        self.validate_all(
+            "CASE WHEN [1, 2, 3] IS NULL THEN NULL ELSE [1, 2, 3][1:LENGTH([1, 2, 3]) + -1] END",
+            read={
+                "snowflake": "ARRAY_REMOVE_AT([1, 2, 3], -1)",
+            },
+        )
+
+        # Test remove second-to-last element (position -2)
+        self.validate_all(
+            "CASE WHEN [1, 2, 3] IS NULL THEN NULL ELSE LIST_CONCAT([1, 2, 3][1:LENGTH([1, 2, 3]) + -2], [1, 2, 3][LENGTH([1, 2, 3]) + -2 + 2:]) END",
+            read={
+                "snowflake": "ARRAY_REMOVE_AT([1, 2, 3], -2)",
+            },
+        )
+
+        # Test single element array
+        self.validate_all(
+            "CASE WHEN [99] IS NULL THEN NULL ELSE [99][2:] END",
+            read={
+                "snowflake": "ARRAY_REMOVE_AT([99], 0)",
+            },
+        )
+
+        # Test NULL array with column reference
+        self.validate_all(
+            "CASE WHEN arr IS NULL THEN NULL ELSE arr[2:] END",
+            read={
+                "snowflake": "ARRAY_REMOVE_AT(arr, 0)",
+            },
+        )
+
+        # Test non-literal position (should remain untranspiled)
+        self.validate_all(
+            "ARRAY_REMOVE_AT([1, 2, 3], pos)",
+            read={
+                "snowflake": "ARRAY_REMOVE_AT([1, 2, 3], pos)",
+            },
+        )
+
     def test_time(self):
         self.validate_identity("SELECT CURRENT_DATE")
         self.validate_identity("SELECT CURRENT_TIMESTAMP")
@@ -1931,10 +2004,12 @@ class TestDuckDB(Validator):
             },
         )
 
-    def test_sha1(self):
+    def test_sha(self):
         # Round-trip: DuckDB SHA1 should not add unnecessary casts
         self.validate_identity("SHA1('foo')")
         self.validate_identity("SHA1(x)")
+        self.validate_identity("SHA256('foo')")
+        self.validate_identity("SHA256(x)")
 
     def test_rename_table(self):
         self.validate_all(

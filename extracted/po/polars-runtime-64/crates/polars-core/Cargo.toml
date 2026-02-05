@@ -10,6 +10,7 @@ description = "Core of the Polars DataFrame library"
 readme = "README.md"
 
 [dependencies]
+polars-buffer = { workspace = true }
 polars-compute = { workspace = true, features = ["gather"] }
 polars-dtype = { workspace = true }
 polars-error = { workspace = true }
@@ -140,6 +141,7 @@ python = ["polars-error/python"]
 serde = [
   "dep:serde",
   "bitflags/serde",
+  "polars-buffer/serde",
   "polars-schema/serde",
   "polars-utils/serde",
   "polars-compute/serde",

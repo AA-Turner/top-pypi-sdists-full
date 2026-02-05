@@ -1066,7 +1066,28 @@ class CSSLParser:
 
                 # Check if followed by another identifier (function name)
                 if self._check(TokenType.IDENTIFIER):
-                    has_type = True
+                    # v4.9.9: For custom class types, verify this is actually a function
+                    # declaration by scanning past params to check for { or :
+                    # This prevents "leftover_var printl(...)" from being misread as
+                    # "CustomType funcName(...)" after expression parsing
+                    verify_pos = self.pos
+                    self._advance()  # skip function name
+                    if self._check(TokenType.PAREN_START):
+                        self._advance()  # skip (
+                        paren_depth = 1
+                        while paren_depth > 0 and not self._is_at_end():
+                            if self._check(TokenType.PAREN_START):
+                                paren_depth += 1
+                            elif self._check(TokenType.PAREN_END):
+                                paren_depth -= 1
+                            self._advance()
+                        # After ), must see { or : for a real declaration
+                        if self._check(TokenType.BLOCK_START) or self._check(TokenType.COLON):
+                            has_type = True
+                        # else: not a real declaration, fall through
+                    self.pos = verify_pos
+                    if not has_type:
+                        self.pos = inner_saved
                 else:
                     # Not a "Type Name" pattern, restore position
                     self.pos = inner_saved

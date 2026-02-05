@@ -1,0 +1,52 @@
+"""
+Rfam_get_tree_data
+
+Get phylogenetic tree for RNA family in NHX format (New Hampshire eXtended). Returns tree structu...
+"""
+
+from typing import Any, Optional, Callable
+from ._shared_client import get_shared_client
+
+
+def Rfam_get_tree_data(
+    operation: str,
+    family_id: str,
+    *,
+    stream_callback: Optional[Callable[[str], None]] = None,
+    use_cache: bool = False,
+    validate: bool = True,
+) -> dict[str, Any]:
+    """
+    Get phylogenetic tree for RNA family in NHX format (New Hampshire eXtended). Returns tree structu...
+
+    Parameters
+    ----------
+    operation : str
+        Operation type
+    family_id : str
+        Required: Rfam accession or family name
+    stream_callback : Callable, optional
+        Callback for streaming output
+    use_cache : bool, default False
+        Enable caching
+    validate : bool, default True
+        Validate parameters
+
+    Returns
+    -------
+    dict[str, Any]
+    """
+    # Handle mutable defaults to avoid B006 linting error
+
+    return get_shared_client().run_one_function(
+        {
+            "name": "Rfam_get_tree_data",
+            "arguments": {"operation": operation, "family_id": family_id},
+        },
+        stream_callback=stream_callback,
+        use_cache=use_cache,
+        validate=validate,
+    )
+
+
+__all__ = ["Rfam_get_tree_data"]

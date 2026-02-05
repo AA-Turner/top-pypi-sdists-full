@@ -1,14 +1,16 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+import hashlib
 import logging
 import pathlib
 import random
 from typing import Optional
 
 from pyrit.common.path import CONVERTER_SEED_PROMPT_PATH
+from pyrit.identifiers import ConverterIdentifier
 from pyrit.models import PromptDataType, SeedPrompt
-from pyrit.prompt_converter import ConverterResult, PromptConverter
+from pyrit.prompt_converter.prompt_converter import ConverterResult, PromptConverter
 
 logger = logging.getLogger(__name__)
 
@@ -21,13 +23,16 @@ class TemplateSegmentConverter(PromptConverter):
     https://adversa.ai/blog/universal-llm-jailbreak-chatgpt-gpt-4-bard-bing-anthropic-and-beyond/
     """
 
+    SUPPORTED_INPUT_TYPES = ("text",)
+    SUPPORTED_OUTPUT_TYPES = ("text",)
+
     def __init__(
         self,
         *,
         prompt_template: Optional[SeedPrompt] = None,
     ):
         """
-        Initializes the converter with the specified target and prompt template.
+        Initialize the converter with the specified target and prompt template.
 
         Args:
             prompt_template (SeedPrompt, Optional): The prompt template for the conversion. Must have two or more
@@ -66,15 +71,24 @@ class TemplateSegmentConverter(PromptConverter):
                 f"Template parameters: {self.prompt_template.parameters}"
             )
 
-    def input_supported(self, input_type: PromptDataType) -> bool:
-        return input_type == "text"
+    def _build_identifier(self) -> ConverterIdentifier:
+        """
+        Build identifier with template parameters.
 
-    def output_supported(self, output_type: PromptDataType) -> bool:
-        return output_type == "text"
+        Returns:
+            ConverterIdentifier: The identifier for this converter.
+        """
+        template_hash = hashlib.sha256(str(self.prompt_template.value).encode("utf-8")).hexdigest()[:16]
+        return self._create_identifier(
+            converter_specific_params={
+                "template_hash": template_hash,
+                "number_parameters": self._number_parameters,
+            }
+        )
 
     async def convert_async(self, *, prompt: str, input_type: PromptDataType = "text") -> ConverterResult:
         """
-        Converts the given prompt by splitting it into random segments and using them to fill the template parameters.
+        Convert the given prompt by splitting it into random segments and using them to fill the template parameters.
         The prompt is split into N segments (where N is the number of template parameters) at random word boundaries.
         Each segment is then used to fill the corresponding template parameter.
 
@@ -99,7 +113,7 @@ class TemplateSegmentConverter(PromptConverter):
 
     def _split_prompt_into_segments(self, prompt: str) -> list[str]:
         """
-        Splits a prompt into random segments based on word boundaries.
+        Split a prompt into random segments based on word boundaries.
         If there aren't enough words for all parameters, remaining segments will be empty strings.
 
         Args:

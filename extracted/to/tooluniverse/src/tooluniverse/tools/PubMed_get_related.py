@@ -16,7 +16,7 @@ def PubMed_get_related(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Any:
     """
     Get related PubMed articles for a specific PMID using elink. Returns a list of computationally si...
 
@@ -37,7 +37,7 @@ def PubMed_get_related(
 
     Returns
     -------
-    dict[str, Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

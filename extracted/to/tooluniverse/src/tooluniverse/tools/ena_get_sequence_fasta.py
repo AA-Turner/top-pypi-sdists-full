@@ -1,7 +1,7 @@
 """
 ena_get_sequence_fasta
 
-Get nucleotide sequence in FASTA format from ENA by accession number. Returns sequence with heade...
+Get nucleotide sequence in FASTA format from ENA by accession number. Supports EMBL/GenBank acces...
 """
 
 from typing import Any, Optional, Callable
@@ -15,14 +15,14 @@ def ena_get_sequence_fasta(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> str:
     """
-    Get nucleotide sequence in FASTA format from ENA by accession number. Returns sequence with heade...
+    Get nucleotide sequence in FASTA format from ENA by accession number. Supports EMBL/GenBank acces...
 
     Parameters
     ----------
     accession : str
-        ENA accession number (e.g., 'U00096', 'AJ312385')
+        EMBL/GenBank accession number. Supported formats: U#####, M#####, AJ######, A...
     download : bool
         Force download instead of inline display (default: false)
     stream_callback : Callable, optional
@@ -34,7 +34,7 @@ def ena_get_sequence_fasta(
 
     Returns
     -------
-    dict[str, Any]
+    str
     """
     # Handle mutable defaults to avoid B006 linting error
 

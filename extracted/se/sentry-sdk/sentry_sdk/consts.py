@@ -82,6 +82,7 @@ if TYPE_CHECKING:
             "before_send_log": Optional[Callable[[Log, Hint], Optional[Log]]],
             "enable_metrics": Optional[bool],
             "before_send_metric": Optional[Callable[[Metric, Hint], Optional[Metric]]],
+            "trace_lifecycle": Optional[Literal["static", "stream"]],
         },
         total=False,
     )
@@ -462,6 +463,12 @@ class SPANDATA:
     """
     The name of the agent being used.
     Example: "ResearchAssistant"
+    """
+
+    GEN_AI_CONVERSATION_ID = "gen_ai.conversation.id"
+    """
+    The unique identifier for the conversation/thread with the AI model.
+    Example: "conv_abc123"
     """
 
     GEN_AI_CHOICE = "gen_ai.choice"
@@ -867,14 +874,6 @@ class SPANDATA:
     """
     The session identifier for the MCP connection.
     Example: "a1b2c3d4e5f6"
-    """
-
-    META_GEN_AI_ORIGINAL_INPUT_MESSAGES_LENGTH = (
-        "sentry.sdk_meta.gen_ai.input.messages.original_length"
-    )
-    """
-    The original number of input non-system instruction messages, before SDK trimming.
-    Example: 4
     """
 
 
@@ -1491,4 +1490,4 @@ DEFAULT_OPTIONS = _get_default_options()
 del _get_default_options
 
 
-VERSION = "2.51.0"
+VERSION = "2.52.0"

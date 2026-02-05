@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.finch-mcp-server
-Version: 0.1.13
+Version: 0.1.14
 Summary: A Model Context Protocol server for Finch to build and push container images
 Project-URL: Homepage, https://awslabs.github.io/mcp/
 Project-URL: Documentation, https://awslabs.github.io/mcp/servers/finch-mcp-server/

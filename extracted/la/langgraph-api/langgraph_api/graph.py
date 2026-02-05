@@ -90,6 +90,7 @@ async def register_graph(
                 if_exists="do_nothing",
                 name=assistant_name,
                 description=description,
+                system=True,
             )
 
     if not lg_api_config.IS_EXECUTOR_ENTRYPOINT:

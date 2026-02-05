@@ -4,16 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nats-py"
+version = "2.13.0"
 authors = [
   { name="Waldemar Quevedo", email="wally@synadia.com" },
 ]
 description = "NATS client for Python"
-dynamic = ["version"]
 readme = "README.md"
-license = { text = "Apache 2 License" }
+license = "Apache-2.0"
 requires-python = ">=3.7"
 classifiers = [
-    'License :: OSI Approved :: Apache Software License',
     'Intended Audience :: Developers',
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
@@ -37,27 +36,10 @@ fast_parse = ['fast-mail-parser']
 
 [tool.setuptools]
 zip-safe = true
-
-[tool.setuptools.dynamic]
-version = {attr = "nats.aio.client.__version__"}
+package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
-include = ["nats*"]  # package names should match these glob patterns (["*"] by default)
-exclude = ["scripts", "tests"]  # exclude packages matching these glob patterns (empty by default)
-namespaces = false  # to disable scanning PEP 420 namespaces (true by default)
-
-[tool.mypy]
-files = ["nats"]
-python_version = "3.7"
-ignore_missing_imports = true
-follow_imports = "silent"
-show_error_codes = true
-check_untyped_defs = false
-
-[tool.yapf]
-split_before_first_argument = true
-dedent_closing_brackets = true
-coalesce_brackets = true
-allow_split_before_dict_value = false
-indent_dictionary_value = true
-split_before_expression_after_opening_paren = true
+where = ["src"]
+include = ["nats*"]
+exclude = ["scripts", "tests"]
+namespaces = false

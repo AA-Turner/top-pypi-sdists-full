@@ -14,10 +14,13 @@ from google.protobuf.struct_pb2 import Struct  # type: ignore[import]
 from grpc import StatusCode
 from grpc.aio import AioRpcError
 from langgraph_grpc_common.proto import core_api_pb2 as pb
+from langgraph_grpc_common.proto import encryption_pb2 as enc_pb
 from langgraph_sdk.schema import Config
 from starlette.exceptions import HTTPException
 
 from langgraph_api.auth.custom import handle_event as auth_handle_event
+from langgraph_api.encryption.context import get_encryption_context
+from langgraph_api.encryption.shared import using_custom_encryption
 from langgraph_api.serde import json_dumpb
 from langgraph_api.utils import get_auth_ctx
 
@@ -121,6 +124,38 @@ def _map_sort_order(sort_order: str | None) -> Any:
     if sort_order and sort_order.upper() == "ASC":
         return pb.SortOrder.ASC
     return pb.SortOrder.DESC
+
+
+def build_encryption_context(model: str) -> enc_pb.EncryptionContext | None:
+    """Build an EncryptionContext proto from the current request's encryption context.
+
+    The encryption context is extracted from the request-scoped ContextVar
+    which was set by the EncryptionContextMiddleware from X-Encryption-Context
+    header and/or auth context handler.
+
+    Args:
+        model: The model type being operated on (e.g., "assistant", "thread", "run")
+
+    Returns:
+        EncryptionContext proto message, or None if no encryption context is set
+        or if running against the inmem backend.
+    """
+    if not using_custom_encryption():
+        return None
+
+    enc_ctx = enc_pb.EncryptionContext(model=model)
+
+    # Convert metadata dict values to JSON bytes (proto expects map<string, bytes>)
+    # The encryption servicer will JSON-decode these values back to their original types.
+    for key, value in (get_encryption_context() or {}).items():
+        if isinstance(value, bytes):
+            # Bytes are assumed to already be JSON-encoded
+            enc_ctx.metadata[key] = value
+        else:
+            # Serialize all other types (including strings) as JSON bytes
+            enc_ctx.metadata[key] = orjson.dumps(value)
+
+    return enc_ctx
 
 
 def _handle_grpc_error(error: AioRpcError) -> None:

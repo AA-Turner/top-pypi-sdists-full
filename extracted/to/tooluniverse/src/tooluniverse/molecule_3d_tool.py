@@ -174,7 +174,7 @@ class Molecule3DTool(VisualizationTool):
                 "molecular_properties": mol_props,
             }
 
-            return self.create_visualization_response(
+            viz_response = self.create_visualization_response(
                 html_content=html_content,
                 viz_type="molecule_3d",
                 data={
@@ -186,17 +186,22 @@ class Molecule3DTool(VisualizationTool):
                 metadata=metadata,
             )
 
+            # Wrap in standard format for test framework compatibility
+            return {"status": "success", "data": viz_response}
+
         except ImportError as e:
             missing_package = "py3Dmol" if "py3Dmol" in str(e) else "rdkit"
-            return self.create_error_response(
+            error_response = self.create_error_response(
                 f"{missing_package} is not installed. Please install it with: "
                 f"pip install {missing_package}",
                 "MissingDependency",
             )
+            return {"status": "error", "data": error_response}
         except Exception as e:
-            return self.create_error_response(
+            error_response = self.create_error_response(
                 f"Failed to create molecule 3D visualization: {str(e)}"
             )
+            return {"status": "error", "data": error_response}
 
     def _calculate_molecular_properties(self, mol) -> Dict[str, Any]:
         """Calculate basic molecular properties."""

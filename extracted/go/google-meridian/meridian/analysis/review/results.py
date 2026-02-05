@@ -14,9 +14,13 @@
 
 """Data structures for the Model Quality Checks results."""
 
+import abc
+from collections.abc import Mapping
 import dataclasses
 import enum
 from typing import Any
+
+from meridian.analysis.review import configs
 from meridian.analysis.review import constants
 
 
@@ -58,11 +62,16 @@ class ModelCheckCase(BaseCase):
 
 
 @dataclasses.dataclass(frozen=True)
-class BaseResultData:
+class BaseResultData(abc.ABC):
   """Base class for check result data."""
 
   case: BaseCase
-  details: dict[str, Any]
+
+  @property
+  @abc.abstractmethod
+  def details(self) -> Mapping[str, Any]:
+    """Returns the details for message formatting."""
+    raise NotImplementedError
 
 
 @dataclasses.dataclass(frozen=True)
@@ -145,17 +154,18 @@ class ConvergenceCheckResult(CheckResult):
   """The immutable result of the Convergence Check."""
 
   case: ConvergenceCases
+  config: configs.ConvergenceConfig
+  max_rhat: float
+  max_parameter: str
 
-  def __post_init__(self):
-    if self.case == ConvergenceCases.CONVERGED and (
-        constants.CONVERGENCE_THRESHOLD not in self.details
-    ):
-      raise ValueError(
-          "The message template 'The model has likely converged, as all"
-          " parameters have R-hat values < {convergence_threshold}'. is"
-          " missing required formatting arguments: convergence_threshold."
-          f" Details: {self.details}."
-      )
+  @property
+  def details(self) -> Mapping[str, Any]:
+    """The check result details."""
+    return {
+        constants.RHAT: self.max_rhat,
+        constants.PARAMETER: self.max_parameter,
+        constants.CONVERGENCE_THRESHOLD: self.config.convergence_threshold,
+    }
 
 
 # ==============================================================================
@@ -223,24 +233,21 @@ class BaselineCheckResult(CheckResult):
   """The immutable result of the Baseline Check."""
 
   case: BaselineCases
+  config: configs.BaselineConfig
+  negative_baseline_prob: float
 
-  def __post_init__(self):
-    if self.case is BaselineCases.PASS:
-      return
-    if any(
-        key not in self.details
-        for key in (
-            constants.NEGATIVE_BASELINE_PROB,
-            constants.NEGATIVE_BASELINE_PROB_FAIL_THRESHOLD,
-            constants.NEGATIVE_BASELINE_PROB_REVIEW_THRESHOLD,
-        )
-    ):
-      raise ValueError(
-          "The message template is missing required formatting arguments:"
-          " negative_baseline_prob, negative_baseline_prob_fail_threshold,"
-          " negative_baseline_prob_review_threshold. Details:"
-          f" {self.details}."
-      )
+  @property
+  def details(self) -> Mapping[str, Any]:
+    """The check result details."""
+    return {
+        constants.NEGATIVE_BASELINE_PROB: self.negative_baseline_prob,
+        constants.NEGATIVE_BASELINE_PROB_FAIL_THRESHOLD: (
+            self.config.negative_baseline_prob_fail_threshold
+        ),
+        constants.NEGATIVE_BASELINE_PROB_REVIEW_THRESHOLD: (
+            self.config.negative_baseline_prob_review_threshold
+        ),
+    }
 
 
 # ==============================================================================
@@ -287,14 +294,15 @@ class BayesianPPPCheckResult(CheckResult):
   """The immutable result of the Bayesian Posterior Predictive P-value Check."""
 
   case: BayesianPPPCases
+  config: configs.BayesianPPPConfig
+  bayesian_ppp: float
 
-  def __post_init__(self):
-    if constants.BAYESIAN_PPP not in self.details:
-      raise ValueError(
-          "The message template is missing required formatting arguments:"
-          " bayesian_ppp. Details:"
-          f" {self.details}."
-      )
+  @property
+  def details(self) -> Mapping[str, Any]:
+    """The check result details."""
+    return {
+        constants.BAYESIAN_PPP: self.bayesian_ppp,
+    }
 
 
 # ==============================================================================
@@ -338,54 +346,76 @@ class GoodnessOfFitCases(ModelCheckCase, enum.Enum):
 
 
 @dataclasses.dataclass(frozen=True)
+class GoodnessOfFitMetrics:
+  """The metrics for the Goodness of Fit Check."""
+
+  r_squared: float
+  mape: float
+  wmape: float
+  r_squared_train: float | None = None
+  mape_train: float | None = None
+  wmape_train: float | None = None
+  r_squared_test: float | None = None
+  mape_test: float | None = None
+  wmape_test: float | None = None
+
+
+@dataclasses.dataclass(frozen=True)
 class GoodnessOfFitCheckResult(CheckResult):
   """The immutable result of the Goodness of Fit Check."""
 
   case: GoodnessOfFitCases
+  metrics: GoodnessOfFitMetrics
   is_holdout: bool = False
 
   def __post_init__(self):
     if self.is_holdout:
-      required_keys = []
-      for suffix in [
-          constants.ALL_SUFFIX,
-          constants.TRAIN_SUFFIX,
-          constants.TEST_SUFFIX,
-      ]:
-        required_keys.extend([
-            f"{constants.R_SQUARED}_{suffix}",
-            f"{constants.MAPE}_{suffix}",
-            f"{constants.WMAPE}_{suffix}",
-        ])
-      if any(key not in self.details for key in required_keys):
+      if any(
+          metric is None
+          for metric in (
+              self.metrics.r_squared_train,
+              self.metrics.mape_train,
+              self.metrics.wmape_train,
+              self.metrics.r_squared_test,
+              self.metrics.mape_test,
+              self.metrics.wmape_test,
+          )
+      ):
         raise ValueError(
             "The message template is missing required formatting arguments for"
-            f" holdout case. Required keys: {required_keys}. Details:"
-            f" {self.details}."
+            " holdout case. Required keys: r_squared_train, mape_train,"
+            " wmape_train, r_squared_test, mape_test, wmape_test. Metrics:"
+            f" {self.metrics}."
         )
-    elif any(
-        key not in self.details
-        for key in (
-            constants.R_SQUARED,
-            constants.MAPE,
-            constants.WMAPE,
-        )
-    ):
-      raise ValueError(
-          "The message template is missing required formatting arguments:"
-          " r_squared, mape, wmape. Details:"
-          f" {self.details}."
-      )
+
+  @property
+  def details(self) -> Mapping[str, Any]:
+    """The check result details."""
+    return {
+        f"{constants.R_SQUARED}{constants.ALL_SUFFIX}": self.metrics.r_squared,
+        f"{constants.MAPE}{constants.ALL_SUFFIX}": self.metrics.mape,
+        f"{constants.WMAPE}{constants.ALL_SUFFIX}": self.metrics.wmape,
+        f"{constants.R_SQUARED}{constants.TRAIN_SUFFIX}": (
+            self.metrics.r_squared_train
+        ),
+        f"{constants.MAPE}{constants.TRAIN_SUFFIX}": self.metrics.mape_train,
+        f"{constants.WMAPE}{constants.TRAIN_SUFFIX}": self.metrics.wmape_train,
+        f"{constants.R_SQUARED}{constants.TEST_SUFFIX}": (
+            self.metrics.r_squared_test
+        ),
+        f"{constants.MAPE}{constants.TEST_SUFFIX}": self.metrics.mape_test,
+        f"{constants.WMAPE}{constants.TEST_SUFFIX}": self.metrics.wmape_test,
+    }
 
   @property
   def recommendation(self) -> str:
-    """Returns the check result message."""
+    """The check result message."""
     if self.is_holdout:
       report_str = (
-          "R-squared = {r_squared_all:.4f} (All),"
+          "R-squared = {r_squared:.4f} (All),"
           " {r_squared_train:.4f} (Train), {r_squared_test:.4f} (Test); MAPE"
-          " = {mape_all:.4f} (All), {mape_train:.4f} (Train),"
-          " {mape_test:.4f} (Test); wMAPE = {wmape_all:.4f} (All),"
+          " = {mape:.4f} (All), {mape_train:.4f} (Train),"
+          " {mape_test:.4f} (Test); wMAPE = {wmape:.4f} (All),"
           " {wmape_train:.4f} (Train), {wmape_test:.4f} (Test)".format(
               **self.details
           )
@@ -450,6 +480,18 @@ class ROIConsistencyChannelResult(ChannelResult):
   """The immutable result of ROI Consistency Check for a single channel."""
 
   case: ROIConsistencyChannelCases
+  prior_roi_lo: float
+  prior_roi_hi: float
+  posterior_roi_mean: float
+
+  @property
+  def details(self) -> Mapping[str, Any]:
+    """Returns the check result details."""
+    return {
+        constants.PRIOR_ROI_LO: self.prior_roi_lo,
+        constants.PRIOR_ROI_HI: self.prior_roi_hi,
+        constants.POSTERIOR_ROI_MEAN: self.posterior_roi_mean,
+    }
 
 
 @dataclasses.dataclass(frozen=True)
@@ -458,6 +500,12 @@ class ROIConsistencyCheckResult(CheckResult):
 
   case: ROIConsistencyAggregateCases
   channel_results: list[ROIConsistencyChannelResult]
+  aggregate_details: Mapping[str, Any]
+
+  @property
+  def details(self) -> Mapping[str, Any]:
+    """Returns the check result details."""
+    return self.aggregate_details
 
 
 # ==============================================================================
@@ -517,6 +565,11 @@ class PriorPosteriorShiftChannelResult(ChannelResult):
 
   case: PriorPosteriorShiftChannelCases
 
+  @property
+  def details(self) -> Mapping[str, Any]:
+    """Returns the check result details."""
+    return {}
+
 
 @dataclasses.dataclass(frozen=True)
 class PriorPosteriorShiftCheckResult(CheckResult):
@@ -524,6 +577,16 @@ class PriorPosteriorShiftCheckResult(CheckResult):
 
   case: PriorPosteriorShiftAggregateCases
   channel_results: list[PriorPosteriorShiftChannelResult]
+  no_shift_channels: list[str]
+
+  @property
+  def details(self) -> Mapping[str, Any]:
+    """Returns the check result details."""
+    return {
+        "channels_str": ", ".join(
+            f"`{channel}`" for channel in self.no_shift_channels
+        )
+    }
 
 
 # ==============================================================================
@@ -567,7 +630,7 @@ class ReviewSummary:
     return "\n".join(report)
 
   @property
-  def checks_status(self) -> dict[str, str]:
+  def checks_status(self) -> Mapping[str, str]:
     """Returns a dictionary of check names and statuses."""
     return {
         result.__class__.__name__: result.case.status.name

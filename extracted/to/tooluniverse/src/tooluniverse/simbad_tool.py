@@ -62,7 +62,10 @@ class SIMBADTool(BaseTool):
         object_name = arguments.get("object_name")
         if not object_name:
             return {
-                "error": "object_name parameter is required for query_type='object_name'"
+                "status": "error",
+                "data": {
+                    "error": "object_name parameter is required for query_type='object_name'"
+                },
             }
 
         output_format = arguments.get("output_format", "basic")
@@ -94,7 +97,10 @@ class SIMBADTool(BaseTool):
 
         if ra is None or dec is None:
             return {
-                "error": "Both 'ra' and 'dec' parameters are required for query_type='coordinates'"
+                "status": "error",
+                "data": {
+                    "error": "Both 'ra' and 'dec' parameters are required for query_type='coordinates'"
+                },
             }
 
         output_format = arguments.get("output_format", "basic")
@@ -126,7 +132,10 @@ class SIMBADTool(BaseTool):
         identifier = arguments.get("identifier")
         if not identifier:
             return {
-                "error": "identifier parameter is required for query_type='identifier'"
+                "status": "error",
+                "data": {
+                    "error": "identifier parameter is required for query_type='identifier'"
+                },
             }
 
         output_format = arguments.get("output_format", "basic")
@@ -180,11 +189,20 @@ class SIMBADTool(BaseTool):
             response = requests.post(self.base_url, data={"script": script}, timeout=30)
             response.raise_for_status()
         except requests.Timeout:
-            return {"error": "Request to SIMBAD timed out", "query": query_description}
+            return {
+                "status": "error",
+                "data": {
+                    "error": "Request to SIMBAD timed out",
+                    "query": query_description,
+                },
+            }
         except requests.RequestException as e:
             return {
-                "error": f"Network error querying SIMBAD: {str(e)}",
-                "query": query_description,
+                "status": "error",
+                "data": {
+                    "error": f"Network error querying SIMBAD: {str(e)}",
+                    "query": query_description,
+                },
             }
 
         # Parse the response
@@ -202,16 +220,19 @@ class SIMBADTool(BaseTool):
             for line in data_lines
         ):
             return {
-                "error": "Object not found in SIMBAD",
-                "query": query_description,
-                "raw_response": result_text[:500],  # First 500 chars for debugging
+                "status": "error",
+                "data": {
+                    "error": "Object not found in SIMBAD",
+                    "query": query_description,
+                    "raw_response": result_text[:500],  # First 500 chars for debugging
+                },
             }
 
         if not data_lines:
-            return {"error": "No results found", "query": query_description}
-
-        if not data_lines:
-            return {"error": "No results found", "query": query_description}
+            return {
+                "status": "error",
+                "data": {"error": "No results found", "query": query_description},
+            }
 
         # Parse results
         results = []
@@ -234,12 +255,13 @@ class SIMBADTool(BaseTool):
 
                 results.append(result_dict)
 
-        return {
+        result_data = {
             "success": True,
             "query": query_description,
             "count": len(results),
             "results": results,
         }
+        return {"status": "success", "data": result_data}
 
 
 @register_tool("SIMBADAdvancedTool")
@@ -271,7 +293,10 @@ class SIMBADAdvancedTool(BaseTool):
         """
         adql_query = arguments.get("adql_query")
         if not adql_query:
-            return {"error": "adql_query parameter is required"}
+            return {
+                "status": "error",
+                "data": {"error": "adql_query parameter is required"},
+            }
 
         max_results = arguments.get("max_results", 100)
         output_format = arguments.get("format", "json")
@@ -290,24 +315,37 @@ class SIMBADAdvancedTool(BaseTool):
 
             if output_format == "json":
                 try:
-                    return {
+                    result_data = {
                         "success": True,
                         "query": adql_query,
                         "results": response.json(),
                     }
+                    return {"status": "success", "data": result_data}
                 except ValueError:
-                    return {
+                    result_data = {
                         "success": True,
                         "query": adql_query,
                         "results": response.text,
                     }
+                    return {"status": "success", "data": result_data}
             else:
-                return {"success": True, "query": adql_query, "results": response.text}
+                result_data = {
+                    "success": True,
+                    "query": adql_query,
+                    "results": response.text,
+                }
+                return {"status": "success", "data": result_data}
 
         except requests.Timeout:
-            return {"error": "TAP query timed out", "query": adql_query}
+            return {
+                "status": "error",
+                "data": {"error": "TAP query timed out", "query": adql_query},
+            }
         except requests.RequestException as e:
             return {
-                "error": f"Network error executing TAP query: {str(e)}",
-                "query": adql_query,
+                "status": "error",
+                "data": {
+                    "error": f"Network error executing TAP query: {str(e)}",
+                    "query": adql_query,
+                },
             }

@@ -33,7 +33,8 @@ class AppConfigConfigSchema(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'base_image': 'BASEIMAGESENUM',
+        'base_image': 'str',
+        'base_image_history_reference': 'BASEIMAGESENUM',
         'env_vars': 'object',
         'debian_packages': 'list[str]',
         'python': 'PythonModules',
@@ -42,19 +43,21 @@ class AppConfigConfigSchema(object):
 
     attribute_map = {
         'base_image': 'base_image',
+        'base_image_history_reference': 'base_image_history_reference',
         'env_vars': 'env_vars',
         'debian_packages': 'debian_packages',
         'python': 'python',
         'post_build_cmds': 'post_build_cmds'
     }
 
-    def __init__(self, base_image=None, env_vars=None, debian_packages=None, python=None, post_build_cmds=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, base_image=None, base_image_history_reference=None, env_vars=None, debian_packages=None, python=None, post_build_cmds=None, local_vars_configuration=None):  # noqa: E501
         """AppConfigConfigSchema - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._base_image = None
+        self._base_image_history_reference = None
         self._env_vars = None
         self._debian_packages = None
         self._python = None
@@ -62,6 +65,8 @@ class AppConfigConfigSchema(object):
         self.discriminator = None
 
         self.base_image = base_image
+        if base_image_history_reference is not None:
+            self.base_image_history_reference = base_image_history_reference
         if env_vars is not None:
             self.env_vars = env_vars
         if debian_packages is not None:
@@ -75,10 +80,10 @@ class AppConfigConfigSchema(object):
     def base_image(self):
         """Gets the base_image of this AppConfigConfigSchema.  # noqa: E501
 
-        The base image used in the app config. It needs to be one of the base images that we ever supported (BASE_IMAGES_HISTORY).  # noqa: E501
+        The base image used in the app config. It needs to be one of the base images that we ever supported (BASE_IMAGES_HISTORY), or a string for special images like turbonightly.  # noqa: E501
 
         :return: The base_image of this AppConfigConfigSchema.  # noqa: E501
-        :rtype: BASEIMAGESENUM
+        :rtype: str
         """
         return self._base_image
 
@@ -86,15 +91,36 @@ class AppConfigConfigSchema(object):
     def base_image(self, base_image):
         """Sets the base_image of this AppConfigConfigSchema.
 
-        The base image used in the app config. It needs to be one of the base images that we ever supported (BASE_IMAGES_HISTORY).  # noqa: E501
+        The base image used in the app config. It needs to be one of the base images that we ever supported (BASE_IMAGES_HISTORY), or a string for special images like turbonightly.  # noqa: E501
 
         :param base_image: The base_image of this AppConfigConfigSchema.  # noqa: E501
-        :type: BASEIMAGESENUM
+        :type: str
         """
         if self.local_vars_configuration.client_side_validation and base_image is None:  # noqa: E501
             raise ValueError("Invalid value for `base_image`, must not be `None`")  # noqa: E501
 
         self._base_image = base_image
+
+    @property
+    def base_image_history_reference(self):
+        """Gets the base_image_history_reference of this AppConfigConfigSchema.  # noqa: E501
+
+
+        :return: The base_image_history_reference of this AppConfigConfigSchema.  # noqa: E501
+        :rtype: BASEIMAGESENUM
+        """
+        return self._base_image_history_reference
+
+    @base_image_history_reference.setter
+    def base_image_history_reference(self, base_image_history_reference):
+        """Sets the base_image_history_reference of this AppConfigConfigSchema.
+
+
+        :param base_image_history_reference: The base_image_history_reference of this AppConfigConfigSchema.  # noqa: E501
+        :type: BASEIMAGESENUM
+        """
+
+        self._base_image_history_reference = base_image_history_reference
 
     @property
     def env_vars(self):

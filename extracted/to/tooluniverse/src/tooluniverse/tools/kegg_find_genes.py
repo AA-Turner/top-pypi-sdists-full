@@ -15,7 +15,7 @@ def kegg_find_genes(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
     Find genes in KEGG database by keyword. Can search across all organisms or within a specific orga...
 
@@ -34,7 +34,7 @@ def kegg_find_genes(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

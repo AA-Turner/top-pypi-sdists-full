@@ -19,6 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
+from arthur_client.api_bindings.models.agent_metadata import AgentMetadata
 from arthur_client.api_bindings.models.new_metric_request import NewMetricRequest
 from arthur_client.api_bindings.models.new_rule_request import NewRuleRequest
 from arthur_client.api_bindings.models.task_type import TaskType
@@ -36,7 +37,8 @@ class CreateModelTaskJobSpec(BaseModel):
     initial_rules: List[NewRuleRequest] = Field(description="The initial rules to apply to the created model.")
     task_type: Optional[TaskType] = Field(default=None, description="The type of task to create.")
     initial_metrics: List[NewMetricRequest] = Field(description="The initial metrics to apply to agentic tasks.")
-    __properties: ClassVar[List[str]] = ["job_type", "connector_id", "task_name", "onboarding_identifier", "initial_rules", "task_type", "initial_metrics"]
+    agent_metadata: Optional[AgentMetadata] = None
+    __properties: ClassVar[List[str]] = ["job_type", "connector_id", "task_name", "onboarding_identifier", "initial_rules", "task_type", "initial_metrics", "agent_metadata"]
 
     @field_validator('job_type')
     def job_type_validate_enum(cls, value):
@@ -101,10 +103,18 @@ class CreateModelTaskJobSpec(BaseModel):
                 if _item_initial_metrics:
                     _items.append(_item_initial_metrics.to_dict())
             _dict['initial_metrics'] = _items
+        # override the default output from pydantic by calling `to_dict()` of agent_metadata
+        if self.agent_metadata:
+            _dict['agent_metadata'] = self.agent_metadata.to_dict()
         # set to None if onboarding_identifier (nullable) is None
         # and model_fields_set contains the field
         if self.onboarding_identifier is None and "onboarding_identifier" in self.model_fields_set:
             _dict['onboarding_identifier'] = None
+
+        # set to None if agent_metadata (nullable) is None
+        # and model_fields_set contains the field
+        if self.agent_metadata is None and "agent_metadata" in self.model_fields_set:
+            _dict['agent_metadata'] = None
 
         return _dict
 
@@ -124,7 +134,8 @@ class CreateModelTaskJobSpec(BaseModel):
             "onboarding_identifier": obj.get("onboarding_identifier"),
             "initial_rules": [NewRuleRequest.from_dict(_item) for _item in obj["initial_rules"]] if obj.get("initial_rules") is not None else None,
             "task_type": obj.get("task_type"),
-            "initial_metrics": [NewMetricRequest.from_dict(_item) for _item in obj["initial_metrics"]] if obj.get("initial_metrics") is not None else None
+            "initial_metrics": [NewMetricRequest.from_dict(_item) for _item in obj["initial_metrics"]] if obj.get("initial_metrics") is not None else None,
+            "agent_metadata": AgentMetadata.from_dict(obj["agent_metadata"]) if obj.get("agent_metadata") is not None else None
         })
         return _obj
 

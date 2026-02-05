@@ -15,7 +15,7 @@ def openalex_get_work(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Optional[dict[str, Any]]:
     """
     Get a single OpenAlex work (paper) by OpenAlex Work ID (W...). You can pass either the short ID (...
 
@@ -34,7 +34,7 @@ def openalex_get_work(
 
     Returns
     -------
-    dict[str, Any]
+    Optional[dict[str, Any]]
     """
     # Handle mutable defaults to avoid B006 linting error
 

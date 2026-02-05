@@ -2,9 +2,13 @@ from AOT_biomaps.Settings import Params
 from AOT_biomaps.AOT_Optic._mainOptic import Phantom
 from AOT_biomaps.AOT_Acoustic.AcousticEnums import WaveType, FormatSave
 from AOT_biomaps.AOT_Acoustic.StructuredWave import StructuredWave
+from AOT_biomaps.AOT_Medium.HomogeneousMedium import HomogeneousMedium
+from AOT_biomaps.AOT_Medium.PVAMedium import PVAMedium
+from AOT_biomaps.AOT_Medium.MediumEnums import PhantomType
 
 from abc import ABC, abstractmethod
 import os
+
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -19,6 +23,7 @@ class Experiment(ABC):
     def __init__(self, params, acousticType=WaveType.StructuredWave, formatSave=FormatSave.HDR_IMG):
         self.params = params
         self.OpticImage = None
+        self.medium = None
         self.AcousticFields = None
         self.AOsignal_withTumor = None
         self.AOsignal_withoutTumor = None
@@ -42,6 +47,49 @@ class Experiment(ABC):
         This method initializes the OpticImage attribute with a Phantom instance.
         """
         self.OpticImage = Phantom(params=self.params)
+    
+    def generateMedium(self):
+        """
+        Generate the medium for the experiment.
+        This method initializes the medium attribute based on the parameters.
+        """
+        if self.params.acoustic['medium']['type'] == PhantomType.Homogeneous.value:
+            self.medium = HomogeneousMedium(params=self.params)
+            self.medium.generate_medium()
+            print("Medium generated: Homogeneous. -- done.")
+        elif self.params.acoustic['medium']['type'] == PhantomType.PVA.value:
+            try:
+                self.medium = PVAMedium(params=self.params)
+                self.medium.generate_medium()
+                print("Medium generated: PVA heterogeneous. -- done.")
+            except Exception as e:
+                
+                print(f"Error generating PVA medium: {e}")
+                raise
+    
+    def loadMedium(self, folderPath, fileName="medium"):
+        """
+        Load the medium from a .joblib file.
+        This method initializes the medium attribute by loading it from the specified file.
+        """
+        if self.params.acoustic['medium']['type'] == PhantomType.Homogeneous.value:
+            self.medium = HomogeneousMedium(params=self.params)
+            self.medium.load_medium(folderPath, fileName)
+        elif self.params.acoustic['medium']['type'] == PhantomType.PVA.value:
+            self.medium = PVAMedium(params=self.params)
+            self.medium.load_medium(folderPath, fileName)
+
+        print(f"Medium loaded from {os.path.join(folderPath, fileName)} -- done.")
+
+    def saveMedium(self, folderPath, fileName="medium"):
+        """
+        Save the medium to a .joblib file.
+        This method saves the medium attribute to the specified file.
+        """
+        if self.medium is None:
+            raise ValueError("Medium is not initialized. Please generate or set the medium before saving.")
+        self.medium.save_medium(folderPath, fileName)
+        print(f"Medium saved to {os.path.join(folderPath, fileName)} -- done.")
 
     @abstractmethod
     def generateAcousticFields(self, fieldDataPath, fieldParamPath, show_log=True):

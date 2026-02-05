@@ -8,7 +8,7 @@ from wbcore.contrib.notifications.factories.notification_types import (
     NotificationTypeSettingModelFactory,
 )
 from wbcore.contrib.notifications.factories.notifications import (
-    NotificationModelFactory,
+    NotificationFactory,
 )
 from wbcore.contrib.notifications.factories.tokens import (
     NotificationUserTokenModelFactory,
@@ -19,7 +19,7 @@ register(UserFactory)
 register(PersonFactory)
 register(NotificationTypeModelFactory, name="notification_type")
 register(NotificationTypeSettingModelFactory, name="notification_type_setting")
-register(NotificationModelFactory, name="notification")
+register(NotificationFactory)
 register(NotificationUserTokenModelFactory, name="notification_user_token")
 
 

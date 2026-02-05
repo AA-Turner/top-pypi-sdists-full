@@ -78,7 +78,13 @@ class UserAdmin(admin.ModelAdmin):
         (_("Synchronization"), {"fields": ("metadata",)}),
         (
             _("Permissions"),
-            {"fields": ("is_active", "is_register", "is_staff", "is_superuser", "groups", "user_permissions")},
+            {
+                "fields": (
+                    ("is_active", "is_register", "is_staff", "is_superuser", "is_internal"),
+                    ("groups",),
+                    ("user_permissions",),
+                )
+            },
         ),
     )
     raw_id_fields = ("profile",)

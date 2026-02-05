@@ -8,8 +8,43 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List, Tuple
 
 
-def json_type_to_python(json_type: str) -> str:
-    """Convert JSON type to Python type."""
+def json_type_to_python(json_type: str | list) -> str:
+    """Convert JSON type to Python type.
+
+    Args:
+        json_type: JSON type as string or list of types (e.g., ["array", "null"])
+
+    Returns:
+        Python type annotation
+    """
+    # Handle list of types (union types)
+    if isinstance(json_type, list):
+        # Filter out null types and convert to Python types
+        types = []
+        has_null = "null" in json_type
+        for t in json_type:
+            if t == "null":
+                continue
+            py_type = {
+                "string": "str",
+                "integer": "int",
+                "number": "float",
+                "boolean": "bool",
+                "array": "list[Any]",
+                "object": "dict[str, Any]",
+            }.get(t)
+            if py_type and py_type not in types:
+                types.append(py_type)
+
+        if not types:
+            return "Any"
+        elif len(types) == 1:
+            return f"Optional[{types[0]}]" if has_null else types[0]
+        else:
+            # Multiple non-null types - return the most general
+            return "Any"
+
+    # Handle single type string
     return {
         "string": "str",
         "integer": "int",

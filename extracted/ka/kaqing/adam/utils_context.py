@@ -2,7 +2,7 @@ from copy import copy
 
 from adam.repl_session import ReplSession
 from adam.utils import Color, ConfigHolder, _log, log2, pod_log_dir
-from adam.utils_async_job import AsyncJobs
+from adam.utils_job.async_job import AsyncJobs
 
 class Context:
     ALL = 'all'

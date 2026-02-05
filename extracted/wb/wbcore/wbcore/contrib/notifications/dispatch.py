@@ -4,7 +4,6 @@ from celery import shared_task
 from django.conf import settings
 from django.db import transaction
 from django.dispatch import receiver
-from django.utils import timezone
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext
 from rest_framework.reverse import reverse
@@ -13,15 +12,24 @@ from wbcore.contrib.authentication.models.users import User
 from wbcore.shares.signals import handle_widget_sharing
 
 from ...workers import Queue
-from .models import Notification, NotificationType, NotificationTypeSetting
-from .tasks import send_notification_task
+from .models import NotificationType
+from .models.notifications import Notification, send_notification_as_task
 
 
+def get_user(u: User | int) -> User:
+    if isinstance(u, User):
+        return u
+    elif isinstance(u, int):
+        return User.objects.get(id=u)
+    raise ValueError("Invalid user type")
+
+
+@shared_task(queue=Queue.HIGH_PRIORITY.value)
 def send_notification(
     code: str,
     title: str,
     body: str,
-    user: User | Iterable[User],
+    user: User | Iterable[User | int] | int,
     reverse_name: str | None = None,
     reverse_args=None,
     reverse_kwargs=None,
@@ -39,15 +47,16 @@ def send_notification(
         reverse_kwargs: The keyword arguments passed to the `reverse` function
         endpoint: The endpoint of resource. If provided, reverse_name + args + kwargs are disregarded
     """
-    users = user
-    if isinstance(users, User):
-        users = [users]
+    users = []
+    if isinstance(user, list):
+        for u in user:
+            users.append(get_user(u))
+    else:
+        users.append(get_user(user))
+
     for user in users:
         notification_type = NotificationType.objects.get(code=code)
-        if (
-            user.is_active
-            and NotificationTypeSetting.objects.filter(notification_type=notification_type, user=user).exists()
-        ):
+        if user.is_active:
             if not endpoint:
                 endpoint = reverse(reverse_name, reverse_args, reverse_kwargs) if reverse_name else None
             notification = Notification.objects.create(
@@ -56,19 +65,10 @@ def send_notification(
                 user=user,
                 notification_type=notification_type,
                 endpoint=endpoint,
-                sent=timezone.now(),
             )
             transaction.on_commit(
-                lambda notification_pk=notification.pk: send_notification_task.delay(notification_pk)
+                lambda notification_pk=notification.pk: send_notification_as_task.delay(notification_pk)
             )
-
-
-@shared_task(queue=Queue.HIGH_PRIORITY.value)
-def send_notification_as_task(code, title, body, user_id, **kwargs):
-    if not isinstance(user_id, list):
-        user_id = [user_id]
-    user = User.objects.filter(id__in=user_id)
-    send_notification(code, title, body, user, **kwargs)
 
 
 @receiver(handle_widget_sharing)

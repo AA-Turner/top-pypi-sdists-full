@@ -45,6 +45,32 @@ _FILESTORE_NAME_REGEX_PATTERN = r"projects/(?P<project_id>[^/]+)/locations/(?P<l
 PROXY_ONLY_SUBNET_PURPOSE = "REGIONAL_MANAGED_PROXY"
 
 
+def check_gcp_cors_rules(cors_rules: List[dict]) -> Tuple[bool, str]:
+    """
+    Check if GCP GCS CORS rules are correctly configured for Anyscale.
+
+    This is a shared helper used by both cloud verification and CORS update utilities.
+
+    Args:
+        cors_rules: List of CORS config dictionaries from GCS bucket
+
+    Returns:
+        Tuple of (is_correct, reason)
+    """
+    if not cors_rules:
+        return False, "No CORS configuration exists"
+
+    for cors_config in cors_rules:
+        if (
+            ANYSCALE_CORS_ORIGIN in cors_config.get("origin", [])
+            and "*" in cors_config.get("responseHeader", [])
+            and "GET" in cors_config.get("method", [])
+        ):
+            return True, "CORS already configured correctly"
+
+    return False, "CORS missing required responseHeader for file viewer"
+
+
 def verify_gcp_networking(  # noqa: PLR0911, PLR0913
     factory: GoogleCloudClientFactory,
     vpc_name: Optional[str],
@@ -635,14 +661,8 @@ def verify_cloud_storage(  # noqa: PLR0911, PLR0912, PLR0913
         if strict:
             return False
 
-    if not any(
-        (
-            ANYSCALE_CORS_ORIGIN in cors_config.get("origin")
-            and "*" in cors_config.get("responseHeader", [])
-            and "GET" in cors_config.get("method", [])
-        )
-        for cors_config in bucket.cors
-    ):
+    has_correct_cors, _cors_reason = check_gcp_cors_rules(bucket.cors or [])
+    if not has_correct_cors:
         logger.internal.warning(
             f"Bucket {bucket_name} does not have the correct CORS rule for Anyscale. This is safe to ignore if you are not using Anyscale UI.\n"
             "If you are using the UI, please create the correct CORS rule for Anyscale according to https://docs.anyscale.com/cloud-deployment/gcp/deploy-cloud?cloud-deployment=custom#4-create-an-anyscale-cloud"

@@ -470,12 +470,24 @@ class DBOS:
                 GlobalParams.executor_id = generate_uuid()
             dbos_logger.info(f"Executor ID: {GlobalParams.executor_id}")
             dbos_logger.info(f"Application version: {GlobalParams.app_version}")
-            self._executor_field = ThreadPoolExecutor(max_workers=sys.maxsize)
+
+            max_executor_threads = (
+                self._config.get("runtimeConfig", {}).get("max_executor_threads")
+                or sys.maxsize
+            )
+            self._executor_field = ThreadPoolExecutor(max_workers=max_executor_threads)
+
             self._background_event_loop.start()
             assert self._config["database"]["sys_db_engine_kwargs"] is not None
             # Get the schema configuration, use "dbos" as default
             schema = self._config.get("dbos_system_schema", "dbos")
             dbos_logger.debug("Creating system database")
+            self._notification_listener_polling_interval_sec = (
+                self._config.get("runtimeConfig", {}).get(
+                    "notification_listener_polling_interval_sec"
+                )
+                or 1.0
+            )
             self._sys_db_field = SystemDatabase.create(
                 system_database_url=get_system_database_url(self._config),
                 engine_kwargs=self._config["database"]["sys_db_engine_kwargs"],
@@ -484,6 +496,7 @@ class DBOS:
                 serializer=self._serializer,
                 use_listen_notify=self._config["use_listen_notify"],
                 executor_id=GlobalParams.executor_id,
+                notification_listener_polling_interval_sec=self._notification_listener_polling_interval_sec,
             )
             assert self._config["database"]["db_engine_kwargs"] is not None
             if self._config["database_url"]:
@@ -1406,21 +1419,22 @@ class DBOS:
         cls,
         *,
         workflow_ids: Optional[List[str]] = None,
-        status: Optional[Union[str, List[str]]] = None,
+        status: Optional[str | list[str]] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
-        name: Optional[str] = None,
-        app_version: Optional[str] = None,
-        forked_from: Optional[str] = None,
-        user: Optional[str] = None,
-        queue_name: Optional[str] = None,
+        name: Optional[str | list[str]] = None,
+        app_version: Optional[str | list[str]] = None,
+        forked_from: Optional[str | list[str]] = None,
+        parent_workflow_id: Optional[str | list[str]] = None,
+        user: Optional[str | list[str]] = None,
+        queue_name: Optional[str | list[str]] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         sort_desc: bool = False,
-        workflow_id_prefix: Optional[str] = None,
+        workflow_id_prefix: Optional[str | list[str]] = None,
         load_input: bool = True,
         load_output: bool = True,
-        executor_id: Optional[str] = None,
+        executor_id: Optional[str | list[str]] = None,
         queues_only: bool = False,
     ) -> List[WorkflowStatus]:
         check_async("list_workflows")
@@ -1434,6 +1448,7 @@ class DBOS:
                 name=name,
                 app_version=app_version,
                 forked_from=forked_from,
+                parent_workflow_id=parent_workflow_id,
                 user=user,
                 queue_name=queue_name,
                 limit=limit,
@@ -1455,21 +1470,22 @@ class DBOS:
         cls,
         *,
         workflow_ids: Optional[List[str]] = None,
-        status: Optional[Union[str, List[str]]] = None,
+        status: Optional[str | list[str]] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
-        name: Optional[str] = None,
-        app_version: Optional[str] = None,
-        forked_from: Optional[str] = None,
-        user: Optional[str] = None,
-        queue_name: Optional[str] = None,
+        name: Optional[str | list[str]] = None,
+        app_version: Optional[str | list[str]] = None,
+        forked_from: Optional[str | list[str]] = None,
+        parent_workflow_id: Optional[str | list[str]] = None,
+        user: Optional[str | list[str]] = None,
+        queue_name: Optional[str | list[str]] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         sort_desc: bool = False,
-        workflow_id_prefix: Optional[str] = None,
+        workflow_id_prefix: Optional[str | list[str]] = None,
         load_input: bool = True,
         load_output: bool = True,
-        executor_id: Optional[str] = None,
+        executor_id: Optional[str | list[str]] = None,
         queues_only: bool = False,
     ) -> List[WorkflowStatus]:
         step_ctx = snapshot_step_context(reserve_sleep_id=False)
@@ -1484,6 +1500,7 @@ class DBOS:
                 name=name,
                 app_version=app_version,
                 forked_from=forked_from,
+                parent_workflow_id=parent_workflow_id,
                 user=user,
                 queue_name=queue_name,
                 limit=limit,
@@ -1505,21 +1522,22 @@ class DBOS:
         cls,
         *,
         workflow_ids: Optional[List[str]] = None,
-        status: Optional[Union[str, List[str]]] = None,
+        status: Optional[str | list[str]] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
-        name: Optional[str] = None,
-        app_version: Optional[str] = None,
-        forked_from: Optional[str] = None,
-        user: Optional[str] = None,
-        queue_name: Optional[str] = None,
+        name: Optional[str | list[str]] = None,
+        app_version: Optional[str | list[str]] = None,
+        forked_from: Optional[str | list[str]] = None,
+        parent_workflow_id: Optional[str | list[str]] = None,
+        user: Optional[str | list[str]] = None,
+        queue_name: Optional[str | list[str]] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         sort_desc: bool = False,
-        workflow_id_prefix: Optional[str] = None,
+        workflow_id_prefix: Optional[str | list[str]] = None,
         load_input: bool = True,
         load_output: bool = True,
-        executor_id: Optional[str] = None,
+        executor_id: Optional[str | list[str]] = None,
     ) -> List[WorkflowStatus]:
         check_async("list_queued_workflows")
 
@@ -1532,6 +1550,7 @@ class DBOS:
                 name=name,
                 app_version=app_version,
                 forked_from=forked_from,
+                parent_workflow_id=parent_workflow_id,
                 user=user,
                 queue_name=queue_name,
                 limit=limit,
@@ -1555,21 +1574,22 @@ class DBOS:
         cls,
         *,
         workflow_ids: Optional[List[str]] = None,
-        status: Optional[Union[str, List[str]]] = None,
+        status: Optional[str | list[str]] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
-        name: Optional[str] = None,
-        app_version: Optional[str] = None,
-        forked_from: Optional[str] = None,
-        user: Optional[str] = None,
-        queue_name: Optional[str] = None,
+        name: Optional[str | list[str]] = None,
+        app_version: Optional[str | list[str]] = None,
+        forked_from: Optional[str | list[str]] = None,
+        parent_workflow_id: Optional[str | list[str]] = None,
+        user: Optional[str | list[str]] = None,
+        queue_name: Optional[str | list[str]] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         sort_desc: bool = False,
-        workflow_id_prefix: Optional[str] = None,
+        workflow_id_prefix: Optional[str | list[str]] = None,
         load_input: bool = True,
         load_output: bool = True,
-        executor_id: Optional[str] = None,
+        executor_id: Optional[str | list[str]] = None,
     ) -> List[WorkflowStatus]:
         step_ctx = snapshot_step_context(reserve_sleep_id=False)
         await cls._configure_asyncio_thread_pool()
@@ -1583,6 +1603,7 @@ class DBOS:
                 name=name,
                 app_version=app_version,
                 forked_from=forked_from,
+                parent_workflow_id=parent_workflow_id,
                 user=user,
                 queue_name=queue_name,
                 limit=limit,
@@ -1798,7 +1819,7 @@ class DBOS:
 
     @classmethod
     async def read_stream_async(
-        cls, workflow_id: str, key: str
+        cls, workflow_id: str, key: str, *, polling_interval_sec: Optional[float] = None
     ) -> AsyncGenerator[Any, None]:
         """
         Read values from a stream as an async generator.
@@ -1809,6 +1830,8 @@ class DBOS:
         Args:
             workflow_id(str): The workflow instance ID that owns the stream
             key(str): The stream key / name within the workflow
+            polling_interval_sec(float, optional): Polling interval in seconds when waiting for new values.
+                Defaults to the configured notification_listener_polling_interval_sec (1.0 if not configured).
 
         Yields:
             Any: Each value in the stream until the stream is closed
@@ -1816,7 +1839,13 @@ class DBOS:
         """
         await cls._configure_asyncio_thread_pool()
         offset = 0
-        sys_db = _get_dbos_instance()._sys_db
+        dbos_instance = _get_dbos_instance()
+        sys_db = dbos_instance._sys_db
+        polling_interval = (
+            polling_interval_sec
+            if polling_interval_sec is not None
+            else dbos_instance._notification_listener_polling_interval_sec
+        )
 
         while True:
             try:
@@ -1834,7 +1863,7 @@ class DBOS:
                 ).status
                 if not workflow_is_active(status):
                     break
-                await asyncio.sleep(1.0)
+                await asyncio.sleep(polling_interval)
                 continue
 
     @classmethod

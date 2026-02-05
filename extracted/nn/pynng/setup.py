@@ -35,7 +35,9 @@ class BuilderBase(Command):
     flags = ["-DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=true"]
     is_64bit = sys.maxsize > 2**32
     if WINDOWS:
-        if is_64bit:
+        if platform.machine() == 'ARM64':
+            flags += ["-A", "ARM64"]
+        elif is_64bit:
             flags += ["-A", "x64"]
         else:
             flags += ["-A", "win32"]
@@ -85,7 +87,7 @@ class BuildNng(BuilderBase):
             "-DNNG_TESTS=OFF",
             "-DNNG_TOOLS=OFF",
             "-DCMAKE_BUILD_TYPE=Release",
-            "-DMBEDTLS_ROOT_DIR={}/mbedtls/prefix/".format(THIS_DIR),
+            "-DCMAKE_PREFIX_PATH={}/mbedtls/prefix/".format(THIS_DIR),
         ]
 
     def finalize_build(self):
@@ -111,8 +113,11 @@ class BuildMbedTls(BuilderBase):
             "-DENABLE_PROGRAMS=OFF",
             "-DCMAKE_BUILD_TYPE=Release",
             "-DCMAKE_INSTALL_PREFIX=../prefix",
+            "-DCMAKE_INSTALL_LIBDIR=lib",
             "-DENABLE_TESTING=OFF",
         ]
+        if not WINDOWS:
+            self.cmake_extra_args.append("-DCMAKE_C_FLAGS=-Wno-error=array-bounds")
 
     def finalize_build(self):
         check_call(

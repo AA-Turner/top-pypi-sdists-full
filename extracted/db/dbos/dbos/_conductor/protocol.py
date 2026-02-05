@@ -1,7 +1,7 @@
 import json
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Type, TypedDict, TypeVar
+from typing import Dict, List, Optional, Type, TypedDict, TypeVar, Union
 
 from dbos._sys_db import StepInfo, WorkflowStatus
 
@@ -131,21 +131,22 @@ class RestartResponse(BaseMessage):
 
 class ListWorkflowsBody(TypedDict, total=False):
     workflow_uuids: List[str]
-    workflow_name: Optional[str]
-    authenticated_user: Optional[str]
+    workflow_name: Optional[Union[str, List[str]]]
+    authenticated_user: Optional[Union[str, List[str]]]
     start_time: Optional[str]
     end_time: Optional[str]
-    status: Optional[str]
-    application_version: Optional[str]
-    forked_from: Optional[str]
-    queue_name: Optional[str]
+    status: Optional[Union[str, List[str]]]
+    application_version: Optional[Union[str, List[str]]]
+    forked_from: Optional[Union[str, List[str]]]
+    parent_workflow_id: Optional[Union[str, List[str]]]
+    queue_name: Optional[Union[str, List[str]]]
     limit: Optional[int]
     offset: Optional[int]
     sort_desc: bool
-    workflow_id_prefix: Optional[str]
+    workflow_id_prefix: Optional[Union[str, List[str]]]
     load_input: bool
     load_output: bool
-    executor_id: Optional[str]
+    executor_id: Optional[Union[str, List[str]]]
     queues_only: bool
 
 
@@ -173,6 +174,8 @@ class WorkflowsOutput:
     Priority: Optional[str]
     QueuePartitionKey: Optional[str]
     ForkedFrom: Optional[str]
+    ParentWorkflowID: Optional[str]
+    DequeuedAt: Optional[str]
 
     @classmethod
     def from_workflow_information(cls, info: WorkflowStatus) -> "WorkflowsOutput":
@@ -198,6 +201,9 @@ class WorkflowsOutput:
             else None
         )
         priority_str = str(info.priority) if info.priority is not None else None
+        dequeued_at_str = (
+            str(info.dequeued_at) if info.dequeued_at is not None else None
+        )
 
         return cls(
             WorkflowUUID=info.workflow_id,
@@ -222,6 +228,8 @@ class WorkflowsOutput:
             Priority=priority_str,
             QueuePartitionKey=info.queue_partition_key,
             ForkedFrom=info.forked_from,
+            ParentWorkflowID=info.parent_workflow_id,
+            DequeuedAt=dequeued_at_str,
         )
 
 
@@ -273,21 +281,22 @@ class ListWorkflowsResponse(BaseMessage):
 
 class ListQueuedWorkflowsBody(TypedDict, total=False):
     workflow_uuids: List[str]
-    workflow_name: Optional[str]
-    authenticated_user: Optional[str]
+    workflow_name: Optional[Union[str, List[str]]]
+    authenticated_user: Optional[Union[str, List[str]]]
     start_time: Optional[str]
     end_time: Optional[str]
-    status: Optional[str]
-    application_version: Optional[str]
-    forked_from: Optional[str]
-    queue_name: Optional[str]
+    status: Optional[Union[str, List[str]]]
+    application_version: Optional[Union[str, List[str]]]
+    forked_from: Optional[Union[str, List[str]]]
+    parent_workflow_id: Optional[Union[str, List[str]]]
+    queue_name: Optional[Union[str, List[str]]]
     limit: Optional[int]
     offset: Optional[int]
     sort_desc: bool
-    workflow_id_prefix: Optional[str]
+    workflow_id_prefix: Optional[Union[str, List[str]]]
     load_input: bool
     load_output: bool
-    executor_id: Optional[str]
+    executor_id: Optional[Union[str, List[str]]]
 
 
 @dataclass

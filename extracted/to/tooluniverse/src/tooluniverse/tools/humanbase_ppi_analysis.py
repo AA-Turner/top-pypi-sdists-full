@@ -18,7 +18,7 @@ def humanbase_ppi_analysis(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> str:
     """
     Retrieve tissue-specific protein-protein interactions and biological processes from HumanBase. Re...
 
@@ -43,7 +43,7 @@ def humanbase_ppi_analysis(
 
     Returns
     -------
-    dict[str, Any]
+    str
     """
     # Handle mutable defaults to avoid B006 linting error
 

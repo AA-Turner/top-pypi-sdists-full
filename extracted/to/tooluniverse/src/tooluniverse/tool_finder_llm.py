@@ -57,7 +57,6 @@ class ToolFinderLLM(BaseTool):
         self.api_type = configs.get("api_type", "CHATGPT")
         self.model_id = configs.get("model_id", "gpt-4o-1120")
         self.temperature = configs.get("temperature", 0.1)
-        self.max_new_tokens = configs.get("max_new_tokens", 4096)
         self.return_json = configs.get("return_json", True)
 
         # Tool filtering settings
@@ -118,7 +117,6 @@ class ToolFinderLLM(BaseTool):
                 "api_type": self.api_type,
                 "model_id": self.model_id,
                 "temperature": self.temperature,
-                "max_new_tokens": self.max_new_tokens,
                 "return_json": self.return_json,
                 "return_metadata": False,
             },
@@ -198,6 +196,7 @@ Requirements:
             available_tools = []
             for name, desc in zip(tool_names, tool_descriptions):
                 if name not in self.exclude_tools:
+                    # name is already shortened (primary identifier)
                     available_tools.append({"name": name, "description": desc})
 
             # Update cache

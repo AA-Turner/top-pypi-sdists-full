@@ -10,6 +10,9 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from code_puppy.command_line.wiggum_state import is_wiggum_active
+from code_puppy.tools.subagent_context import is_subagent
+
 from .constants import CI_ENV_VARS, DEFAULT_TIMEOUT_SECONDS, MAX_VALIDATION_ERRORS_SHOWN
 from .models import (
     AskUserQuestionInput,
@@ -30,7 +33,7 @@ class AsyncContextError(RuntimeError):
 
 def _cancelled_response() -> AskUserQuestionOutput:
     """Create a standardized cancelled response.
-    
+
     Note: cancelled=True means intentional user action, not an error.
     The error field is left None since cancellation is expected behavior.
     """
@@ -93,6 +96,25 @@ def ask_user_question(
         ['PostgreSQL']
     """
     logger.info("ask_user_question called with %d questions", len(questions))
+
+    # Block interactive tools in sub-agent context
+    if is_subagent():
+        logger.warning("ask_user_question called from sub-agent context - disabled")
+        return AskUserQuestionOutput.error_response(
+            "Interactive tools are disabled for sub-agents. "
+            "Sub-agents should make reasonable decisions or return to the parent agent "
+            "if user input is required."
+        )
+
+    # Block interactive tools in wiggum (autonomous loop) mode
+    if is_wiggum_active():
+        logger.warning("ask_user_question called during wiggum mode - disabled")
+        return AskUserQuestionOutput.error_response(
+            "Interactive tools are disabled during /wiggum mode. "
+            "The agent is running autonomously in a loop. "
+            "Make a reasonable decision to proceed, or stop and wait for user input "
+            "by completing the current task."
+        )
 
     # Check for interactive environment
     if not is_interactive():
@@ -163,9 +185,7 @@ def _run_interactive_picker(
         # No running loop - safe to proceed with asyncio.run()
         pass
 
-    return asyncio.run(
-        interactive_question_picker(questions, timeout_seconds=timeout)
-    )
+    return asyncio.run(interactive_question_picker(questions, timeout_seconds=timeout))
 
 
 def _validate_input(questions: list[dict[str, Any]]) -> AskUserQuestionInput:

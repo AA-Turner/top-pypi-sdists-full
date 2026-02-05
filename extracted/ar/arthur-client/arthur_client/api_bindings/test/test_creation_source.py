@@ -36,7 +36,10 @@ class TestCreationSource(unittest.TestCase):
         if include_optional:
             return CreationSource(
                 task_id = '',
-                top_level_span_name = ''
+                top_level_span_name = '',
+                gcp_project_id = '',
+                gcp_region = '',
+                gcp_reasoning_engine_id = ''
             )
         else:
             return CreationSource(

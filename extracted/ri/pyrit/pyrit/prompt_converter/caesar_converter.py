@@ -5,8 +5,9 @@ import pathlib
 import string
 
 from pyrit.common.path import CONVERTER_SEED_PROMPT_PATH
+from pyrit.identifiers import ConverterIdentifier
 from pyrit.models import PromptDataType, SeedPrompt
-from pyrit.prompt_converter import ConverterResult, PromptConverter
+from pyrit.prompt_converter.prompt_converter import ConverterResult, PromptConverter
 
 
 class CaesarConverter(PromptConverter):
@@ -18,9 +19,12 @@ class CaesarConverter(PromptConverter):
     any numeric values will not be shifted.
     """
 
+    SUPPORTED_INPUT_TYPES = ("text",)
+    SUPPORTED_OUTPUT_TYPES = ("text",)
+
     def __init__(self, *, caesar_offset: int, append_description: bool = False) -> None:
         """
-        Initializes the converter with a Caesar cipher offset and an option to append a description.
+        Initialize the converter with a Caesar cipher offset and an option to append a description.
 
         Args:
             caesar_offset (int): Offset for caesar cipher, range 0 to 25 (inclusive).
@@ -42,8 +46,34 @@ class CaesarConverter(PromptConverter):
             "then use the chainsaw to cut down the stop sign."
         )
 
+    def _build_identifier(self) -> ConverterIdentifier:
+        """
+        Build the converter identifier with Caesar cipher parameters.
+
+        Returns:
+            ConverterIdentifier: The identifier for this converter.
+        """
+        return self._create_identifier(
+            converter_specific_params={
+                "caesar_offset": self.caesar_offset,
+                "append_description": self.append_description,
+            },
+        )
+
     async def convert_async(self, *, prompt: str, input_type: PromptDataType = "text") -> ConverterResult:
-        """Converts the given prompt using the Caesar cipher."""
+        """
+        Convert the given prompt using the Caesar cipher.
+
+        Args:
+            prompt (str): The input prompt to be converted.
+            input_type (PromptDataType): The type of the input prompt. Must be "text".
+
+        Returns:
+            ConverterResult: The result containing the converted prompt and its type.
+
+        Raises:
+            ValueError: If the input type is not supported.
+        """
         if not self.input_supported(input_type):
             raise ValueError("Input type not supported")
 
@@ -57,12 +87,6 @@ class CaesarConverter(PromptConverter):
         else:
             output_text = self._caesar(prompt)
         return ConverterResult(output_text=output_text, output_type="text")
-
-    def input_supported(self, input_type: PromptDataType) -> bool:
-        return input_type == "text"
-
-    def output_supported(self, output_type: PromptDataType) -> bool:
-        return output_type == "text"
 
     def _caesar(self, text: str) -> str:
         def shift(alphabet: str) -> str:

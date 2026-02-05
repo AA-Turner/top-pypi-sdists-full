@@ -37,7 +37,11 @@ class DatabricksConnectionInfo(object):
         'name': 'str',
         'connection_type': 'ConnectionType',
         'connection_config': 'DatabricksConnectionConfig',
-        'validation_status': 'ValidationStatus'
+        'validation_status': 'ValidationStatus',
+        'created_at': 'datetime',
+        'last_verified_at': 'datetime',
+        'connection_expired': 'bool',
+        'creator': 'MiniUser'
     }
 
     attribute_map = {
@@ -45,10 +49,14 @@ class DatabricksConnectionInfo(object):
         'name': 'name',
         'connection_type': 'connection_type',
         'connection_config': 'connection_config',
-        'validation_status': 'validation_status'
+        'validation_status': 'validation_status',
+        'created_at': 'created_at',
+        'last_verified_at': 'last_verified_at',
+        'connection_expired': 'connection_expired',
+        'creator': 'creator'
     }
 
-    def __init__(self, id=None, name=None, connection_type=None, connection_config=None, validation_status=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, connection_type=None, connection_config=None, validation_status=None, created_at=None, last_verified_at=None, connection_expired=None, creator=None, local_vars_configuration=None):  # noqa: E501
         """DatabricksConnectionInfo - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -59,6 +67,10 @@ class DatabricksConnectionInfo(object):
         self._connection_type = None
         self._connection_config = None
         self._validation_status = None
+        self._created_at = None
+        self._last_verified_at = None
+        self._connection_expired = None
+        self._creator = None
         self.discriminator = None
 
         self.id = id
@@ -66,6 +78,13 @@ class DatabricksConnectionInfo(object):
         self.connection_type = connection_type
         self.connection_config = connection_config
         self.validation_status = validation_status
+        self.created_at = created_at
+        if last_verified_at is not None:
+            self.last_verified_at = last_verified_at
+        if connection_expired is not None:
+            self.connection_expired = connection_expired
+        if creator is not None:
+            self.creator = creator
 
     @property
     def id(self):
@@ -181,6 +200,92 @@ class DatabricksConnectionInfo(object):
             raise ValueError("Invalid value for `validation_status`, must not be `None`")  # noqa: E501
 
         self._validation_status = validation_status
+
+    @property
+    def created_at(self):
+        """Gets the created_at of this DatabricksConnectionInfo.  # noqa: E501
+
+
+        :return: The created_at of this DatabricksConnectionInfo.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._created_at
+
+    @created_at.setter
+    def created_at(self, created_at):
+        """Sets the created_at of this DatabricksConnectionInfo.
+
+
+        :param created_at: The created_at of this DatabricksConnectionInfo.  # noqa: E501
+        :type: datetime
+        """
+        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
+            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
+
+        self._created_at = created_at
+
+    @property
+    def last_verified_at(self):
+        """Gets the last_verified_at of this DatabricksConnectionInfo.  # noqa: E501
+
+
+        :return: The last_verified_at of this DatabricksConnectionInfo.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._last_verified_at
+
+    @last_verified_at.setter
+    def last_verified_at(self, last_verified_at):
+        """Sets the last_verified_at of this DatabricksConnectionInfo.
+
+
+        :param last_verified_at: The last_verified_at of this DatabricksConnectionInfo.  # noqa: E501
+        :type: datetime
+        """
+
+        self._last_verified_at = last_verified_at
+
+    @property
+    def connection_expired(self):
+        """Gets the connection_expired of this DatabricksConnectionInfo.  # noqa: E501
+
+
+        :return: The connection_expired of this DatabricksConnectionInfo.  # noqa: E501
+        :rtype: bool
+        """
+        return self._connection_expired
+
+    @connection_expired.setter
+    def connection_expired(self, connection_expired):
+        """Sets the connection_expired of this DatabricksConnectionInfo.
+
+
+        :param connection_expired: The connection_expired of this DatabricksConnectionInfo.  # noqa: E501
+        :type: bool
+        """
+
+        self._connection_expired = connection_expired
+
+    @property
+    def creator(self):
+        """Gets the creator of this DatabricksConnectionInfo.  # noqa: E501
+
+
+        :return: The creator of this DatabricksConnectionInfo.  # noqa: E501
+        :rtype: MiniUser
+        """
+        return self._creator
+
+    @creator.setter
+    def creator(self, creator):
+        """Sets the creator of this DatabricksConnectionInfo.
+
+
+        :param creator: The creator of this DatabricksConnectionInfo.  # noqa: E501
+        :type: MiniUser
+        """
+
+        self._creator = creator
 
     def to_dict(self):
         """Returns the model properties as a dict"""

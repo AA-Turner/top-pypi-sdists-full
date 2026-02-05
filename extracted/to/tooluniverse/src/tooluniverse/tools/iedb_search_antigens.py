@@ -18,7 +18,7 @@ def iedb_search_antigens(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
     Search antigen-related rows (IEDB Query API). This is mainly useful for discovering antigen IRIs/...
 
@@ -43,7 +43,7 @@ def iedb_search_antigens(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

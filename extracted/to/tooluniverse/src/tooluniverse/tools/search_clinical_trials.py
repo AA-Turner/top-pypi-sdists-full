@@ -18,7 +18,7 @@ def search_clinical_trials(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Any:
     """
     Search for clinical trials registered on clinicaltrials.gov based on title, conditions, intervent...
 
@@ -43,7 +43,7 @@ def search_clinical_trials(
 
     Returns
     -------
-    dict[str, Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

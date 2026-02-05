@@ -10,6 +10,10 @@ ResourceDict = Dict[str, float]
 LabelDict = Dict[str, str]
 AdvancedInstanceConfigDict = Dict[str, Any]
 
+# CPU architecture constants
+CPU_ARCHITECTURE_X86_64 = "x86_64"
+CPU_ARCHITECTURE_ARM64 = "arm64"
+
 # TPU configuration constants
 # See: https://cloud.google.com/kubernetes-engine/docs/concepts/plan-tpus
 TPU_DOCS_URL = "https://cloud.google.com/kubernetes-engine/docs/concepts/plan-tpus"
@@ -60,6 +64,7 @@ def _generate_free_pod_shape_name(
     accelerator: Optional[str],
     tpu: Optional[int],
     tpu_hosts: Optional[int],
+    cpu_architecture: Optional[str] = None,
 ) -> str:
     """Generate a unique name for a free pod shape based on physical resources.
 
@@ -68,6 +73,7 @@ def _generate_free_pod_shape_name(
     - "FP-{CPU}CPU-{MEM}GB-{GPU}GPU" for GPU without accelerator type
     - "FP-{CPU}CPU-{MEM}GB-{GPU}GPU-{ACCEL}" for GPU with accelerator type
     - "FP-{CPU}CPU-{MEM}GB-{TPU}TPU-{TPUHOST}TPUHost-{ACCEL}" for TPU
+    - Append "-ARM64" for arm64 architecture
 
     Args:
         cpu: Number of CPUs
@@ -76,6 +82,7 @@ def _generate_free_pod_shape_name(
         accelerator: Accelerator type (e.g., 'T4', 'A100', 'TPU-V6E')
         tpu: Number of TPUs
         tpu_hosts: Number of TPU hosts
+        cpu_architecture: CPU architecture type ('x86_64' or 'arm64')
 
     Returns:
         Generated free pod shape name.
@@ -96,6 +103,10 @@ def _generate_free_pod_shape_name(
         parts.append(f"{gpu}GPU")
         if accelerator:
             parts.append(accelerator)
+
+    # Add ARM64 suffix for non-default architecture
+    if cpu_architecture and cpu_architecture.lower() == CPU_ARCHITECTURE_ARM64:
+        parts.append("ARM64")
 
     return "-".join(parts)
 
@@ -277,7 +288,7 @@ required_resources:
         if cpu_architecture is not None:
             if not isinstance(cpu_architecture, str):
                 raise TypeError("'cpu_architecture' must be a string.")
-            valid_values = ["x86_64", "arm64"]
+            valid_values = [CPU_ARCHITECTURE_X86_64, CPU_ARCHITECTURE_ARM64]
             if cpu_architecture not in valid_values:
                 raise ValueError(
                     f"'cpu_architecture' must be one of {valid_values}, got '{cpu_architecture}'."
@@ -1045,6 +1056,7 @@ worker_nodes:
                     accelerator=accelerator,
                     tpu=pr.TPU,
                     tpu_hosts=pr.tpu_hosts,
+                    cpu_architecture=pr.cpu_architecture,
                 )
             else:
                 name = self.instance_type

@@ -15,7 +15,7 @@ def PubMed_get_links(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Any:
     """
     Get external links (LinkOut) for a specific PubMed article by its PMID using elink. Returns URLs ...
 
@@ -34,7 +34,7 @@ def PubMed_get_links(
 
     Returns
     -------
-    dict[str, Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

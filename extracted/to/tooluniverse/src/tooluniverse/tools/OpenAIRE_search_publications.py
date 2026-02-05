@@ -16,7 +16,7 @@ def OpenAIRE_search_publications(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> list[Any]:
+) -> dict[str, Any]:
     """
     Search OpenAIRE Explore for research products including publications, datasets, and software. Ope...
 
@@ -37,7 +37,7 @@ def OpenAIRE_search_publications(
 
     Returns
     -------
-    list[Any]
+    dict[str, Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

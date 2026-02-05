@@ -1,5 +1,5 @@
 from ._mainExperiment import Experiment
-from AOT_biomaps.AOT_Acoustic.AcousticEnums import WaveType, PhantomType
+from AOT_biomaps.AOT_Acoustic.AcousticEnums import WaveType
 from AOT_biomaps.AOT_Acoustic.StructuredWave import StructuredWave
 from AOT_biomaps.Config import config
 from AOT_biomaps.AOT_Experiment.ExperimentTools import calc_mat_os, convert_to_hex_list, hex_to_binary_profile
@@ -64,6 +64,8 @@ class Tomography(Experiment):
         Returns:
             systemMatrix: A numpy array of the generated fields.
         """
+        if self.medium is None:
+            raise ValueError("Medium is not initialized. Please generate the medium first.")
         if self.TypeAcoustic.value == WaveType.StructuredWave.value:
             self.AcousticFields = self._generateAcousticFields_STRUCT_CPU(fieldDataPath, show_log, nameBlock)
             for i in range(len(self.AcousticFields)):
@@ -646,18 +648,16 @@ class Tomography(Experiment):
         print("Apodisation done.")
 
     # PRIVATE METHODS
-    def _generateAcousticFields_STRUCT_CPU(self, fieldDataPath=None, show_log=False, nameBlock=None, medium = None):
+    def _generateAcousticFields_STRUCT_CPU(self, fieldDataPath=None, show_log=False, nameBlock=None):
         if self.patterns is None:
             raise ValueError("patterns is not initialized. Please load or generate the active list first.")
-        if medium is not None and not isinstance(medium, PhantomType):
-            raise ValueError("medium must be of type PhantomType or None.")
         listAcousticFields = []
         progress_bar = trange(0, len(self.patterns), desc="Generating acoustic fields")
         for i in progress_bar:
             memory = psutil.virtual_memory()
             pattern = self.patterns[i]
             if "fileName" in pattern:
-                AcousticField = StructuredWave(fileName=pattern["fileName"], params=self.params)
+                AcousticField = StructuredWave(fileName=pattern["fileName"], params=self.params, medium=self.medium)
             else:
                 AcousticField = StructuredWave(
                     angle_deg=pattern["angle"],
@@ -665,7 +665,8 @@ class Tomography(Experiment):
                     space_1=pattern["space_1"],
                     move_head_0_2tail=pattern["move_head_0_2tail"],
                     move_tail_1_2head=pattern["move_tail_1_2head"],
-                    params=self.params
+                    params=self.params,
+                    medium=self.medium
                 )
             if fieldDataPath is None:
                 pathField = None

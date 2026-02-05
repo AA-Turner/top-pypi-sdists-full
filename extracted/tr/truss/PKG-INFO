@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: truss
-Version: 0.12.14
+Version: 0.13.1
 Summary: A seamless bridge from model development to model delivery
 Project-URL: Repository, https://github.com/basetenlabs/truss
 Project-URL: Homepage, https://truss.baseten.co
@@ -34,6 +34,7 @@ Requires-Dist: pyyaml>=6.0
 Requires-Dist: requests>=2.31
 Requires-Dist: rich-click<2,>=1.6.1
 Requires-Dist: rich<14,>=13.4.2
+Requires-Dist: ruamel-yaml<0.19,>=0.18.0
 Requires-Dist: ruff>=0.4.8
 Requires-Dist: tenacity>=8.0.1
 Requires-Dist: tomlkit>=0.13.2

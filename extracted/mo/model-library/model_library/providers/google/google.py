@@ -361,16 +361,21 @@ class GoogleModel(LLM):
         contents: list[Content | None] = []
         finish_reason: FinishReason | None = None
 
+        chunks: list[GenerateContentResponse] = []
+
         async for chunk in stream:
+            chunks.append(chunk)
             candidates = chunk.candidates
             if not candidates:
                 continue
 
             content = candidates[0].content
 
+            meaningful_content = False
             if content and content.parts:
                 for part in content.parts:
                     if part.function_call:
+                        meaningful_content = True
                         if not part.function_call.name:
                             raise Exception(f"Invalid function call: {part}")
 
@@ -387,13 +392,15 @@ class GoogleModel(LLM):
                     if not part.text:
                         continue
                     if part.thought:
+                        meaningful_content = True
                         reasoning += part.text
                     else:
+                        meaningful_content = True
                         text += part.text
 
             if chunk.usage_metadata:
                 metadata = chunk.usage_metadata
-            if content:
+            if content and meaningful_content:
                 contents.append(content)
             if candidates[0].finish_reason:
                 finish_reason = candidates[0].finish_reason
@@ -402,6 +409,7 @@ class GoogleModel(LLM):
             self.logger.error(f"Unexpected finish reason: {finish_reason}")
 
         if not text and not reasoning and not tool_calls:
+            self.logger.error(f"Chunks: {chunks}")
             raise ModelNoOutputError("Model returned empty response")
 
         result = QueryResult(

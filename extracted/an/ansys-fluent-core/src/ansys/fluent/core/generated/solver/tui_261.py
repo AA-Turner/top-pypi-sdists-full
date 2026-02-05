@@ -13699,7 +13699,17 @@ class main_menu(TUIMenu):
                 """
                 def __init__(self, service, version, mode, path):
                     self.previous_defaults = self.__class__.previous_defaults(service, version, mode, path + ["previous_defaults"])
+                    self.fast_iso_off = self.__class__.fast_iso_off(service, version, mode, path + ["fast_iso_off"])
+                    self.fast_iso_on = self.__class__.fast_iso_on(service, version, mode, path + ["fast_iso_on"])
                     super().__init__(service, version, mode, path)
+                class fast_iso_off(TUIMethod):
+                    """
+                    Disable Fast Iso Cuts.
+                    """
+                class fast_iso_on(TUIMethod):
+                    """
+                    Enable Fast Iso Cuts.
+                    """
 
                 class previous_defaults(TUIMenu):
                     """
@@ -18166,6 +18176,7 @@ class main_menu(TUIMenu):
                         self.current_endpoint = self.__class__.current_endpoint(service, version, mode, path + ["current_endpoint"])
                         self.current_queue = self.__class__.current_queue(service, version, mode, path + ["current_queue"])
                         self.exclusive = self.__class__.exclusive(service, version, mode, path + ["exclusive"])
+                        self.interconnect_type = self.__class__.interconnect_type(service, version, mode, path + ["interconnect_type"])
                         self.launch_web_server = self.__class__.launch_web_server(service, version, mode, path + ["launch_web_server"])
                         self.maximum_execution_time = self.__class__.maximum_execution_time(service, version, mode, path + ["maximum_execution_time"])
                         self.mode = self.__class__.mode(service, version, mode, path + ["mode"])
@@ -18175,6 +18186,7 @@ class main_menu(TUIMenu):
                         self.number_of_cpus_per_node = self.__class__.number_of_cpus_per_node(service, version, mode, path + ["number_of_cpus_per_node"])
                         self.number_of_gpus_per_node = self.__class__.number_of_gpus_per_node(service, version, mode, path + ["number_of_gpus_per_node"])
                         self.output_files_to_keep = self.__class__.output_files_to_keep(service, version, mode, path + ["output_files_to_keep"])
+                        self.remote_project_name = self.__class__.remote_project_name(service, version, mode, path + ["remote_project_name"])
                         self.use_gpu_solver = self.__class__.use_gpu_solver(service, version, mode, path + ["use_gpu_solver"])
                         self.web_server_token = self.__class__.web_server_token(service, version, mode, path + ["web_server_token"])
                         super().__init__(service, version, mode, path)
@@ -18197,6 +18209,10 @@ class main_menu(TUIMenu):
                     class exclusive(TUIMethod):
                         """
                         Print the Exclusive.
+                        """
+                    class interconnect_type(TUIMethod):
+                        """
+                        Print the Interconnect Type.
                         """
                     class launch_web_server(TUIMethod):
                         """
@@ -18234,6 +18250,10 @@ class main_menu(TUIMenu):
                         """
                         Print the Output Files to Keep.
                         """
+                    class remote_project_name(TUIMethod):
+                        """
+                        Print the Remote Project Name.
+                        """
                     class use_gpu_solver(TUIMethod):
                         """
                         Get state of Use Native GPU Solver option.
@@ -18252,6 +18272,7 @@ class main_menu(TUIMenu):
                         self.cluster_details = self.__class__.cluster_details(service, version, mode, path + ["cluster_details"])
                         self.current_queue = self.__class__.current_queue(service, version, mode, path + ["current_queue"])
                         self.exclusive = self.__class__.exclusive(service, version, mode, path + ["exclusive"])
+                        self.interconnect_type = self.__class__.interconnect_type(service, version, mode, path + ["interconnect_type"])
                         self.launch_web_server = self.__class__.launch_web_server(service, version, mode, path + ["launch_web_server"])
                         self.maximum_execution_time = self.__class__.maximum_execution_time(service, version, mode, path + ["maximum_execution_time"])
                         self.mode = self.__class__.mode(service, version, mode, path + ["mode"])
@@ -18260,6 +18281,7 @@ class main_menu(TUIMenu):
                         self.number_of_cores = self.__class__.number_of_cores(service, version, mode, path + ["number_of_cores"])
                         self.number_of_cpus_per_node = self.__class__.number_of_cpus_per_node(service, version, mode, path + ["number_of_cpus_per_node"])
                         self.number_of_gpus_per_node = self.__class__.number_of_gpus_per_node(service, version, mode, path + ["number_of_gpus_per_node"])
+                        self.remote_project_name = self.__class__.remote_project_name(service, version, mode, path + ["remote_project_name"])
                         self.specify_output_files = self.__class__.specify_output_files(service, version, mode, path + ["specify_output_files"])
                         self.use_gpu_solver = self.__class__.use_gpu_solver(service, version, mode, path + ["use_gpu_solver"])
                         self.web_server_token = self.__class__.web_server_token(service, version, mode, path + ["web_server_token"])
@@ -18279,6 +18301,10 @@ class main_menu(TUIMenu):
                     class exclusive(TUIMethod):
                         """
                         Set the Exclusive.
+                        """
+                    class interconnect_type(TUIMethod):
+                        """
+                        Set the Interconnect Type.
                         """
                     class launch_web_server(TUIMethod):
                         """
@@ -18311,6 +18337,10 @@ class main_menu(TUIMenu):
                     class number_of_gpus_per_node(TUIMethod):
                         """
                         Set the Number of GPUs per Node.
+                        """
+                    class remote_project_name(TUIMethod):
+                        """
+                        Set the Remote Project Name.
                         """
                     class specify_output_files(TUIMethod):
                         """
@@ -20442,8 +20472,13 @@ class main_menu(TUIMenu):
                 No help available.
                 """
                 def __init__(self, service, version, mode, path):
+                    self.use_volume_renderer_for_raytracing = self.__class__.use_volume_renderer_for_raytracing(service, version, mode, path + ["use_volume_renderer_for_raytracing"])
                     self.volume_rendering_method = self.__class__.volume_rendering_method(service, version, mode, path + ["volume_rendering_method"])
                     super().__init__(service, version, mode, path)
+                class use_volume_renderer_for_raytracing(TUIMethod):
+                    """
+                    No help available.
+                    """
                 class volume_rendering_method(TUIMethod):
                     """
                     No help available.
@@ -42126,7 +42161,17 @@ class main_menu(TUIMenu):
             """
             def __init__(self, service, version, mode, path):
                 self.previous_defaults = self.__class__.previous_defaults(service, version, mode, path + ["previous_defaults"])
+                self.fast_iso_off = self.__class__.fast_iso_off(service, version, mode, path + ["fast_iso_off"])
+                self.fast_iso_on = self.__class__.fast_iso_on(service, version, mode, path + ["fast_iso_on"])
                 super().__init__(service, version, mode, path)
+            class fast_iso_off(TUIMethod):
+                """
+                Disable Fast Iso Cuts.
+                """
+            class fast_iso_on(TUIMethod):
+                """
+                Enable Fast Iso Cuts.
+                """
 
             class previous_defaults(TUIMenu):
                 """

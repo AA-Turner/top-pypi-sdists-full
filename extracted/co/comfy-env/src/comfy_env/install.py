@@ -39,7 +39,9 @@ def install(
 
     if cfg.apt_packages: _install_apt_packages(cfg.apt_packages, log, dry_run)
     if cfg.env_vars: _set_persistent_env_vars(cfg.env_vars, log, dry_run)
-    if cfg.node_reqs: _install_node_dependencies(cfg.node_reqs, node_dir, log, dry_run)
+    if cfg.node_reqs:
+        _install_node_dependencies(cfg.node_reqs, node_dir, log, dry_run)
+        _reinstall_main_requirements(node_dir, log, dry_run)
 
     if _is_comfy_env_enabled():
         _install_via_pixi(cfg, node_dir, log, dry_run)
@@ -113,6 +115,17 @@ def _install_node_dependencies(node_reqs: List[NodeDependency], node_dir: Path, 
     install_node_dependencies(node_reqs, custom_nodes_dir, log, {node_dir.name})
 
 
+def _reinstall_main_requirements(node_dir: Path, log: Callable[[str], None], dry_run: bool) -> None:
+    """Re-install main package's requirements.txt after node_reqs to restore correct versions."""
+    from .packages.node_dependencies import install_requirements
+    req_file = node_dir / "requirements.txt"
+    if not req_file.exists():
+        return
+    log(f"\n[requirements] Re-installing main package requirements...")
+    if not dry_run:
+        install_requirements(node_dir, log)
+
+
 def _has_isolated_subdirs(node_dir: Path) -> bool:
     """Check if there are any comfy-env.toml files in subdirectories."""
     for config_file in node_dir.rglob(CONFIG_FILE_NAME):
@@ -182,13 +195,35 @@ def _install_via_pixi(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], 
                                capture_output=True, text=True)
         py_version = result.stdout.strip() if result.returncode == 0 else f"{sys.version_info.major}.{sys.version_info.minor}"
 
+        # PyTorch packages install from official PyTorch index
+        pytorch_packages = {"torch", "torchvision", "torchaudio"}
+        # torchvision has different versioning scheme
+        torchvision_map = {"2.8": "0.23", "2.4": "0.19"}
+        cuda_short = cuda_version.replace(".", "")[:3]
+        pytorch_index = f"https://download.pytorch.org/whl/cu{cuda_short}"
+
         for package in cfg.cuda_packages:
-            wheel_url = get_wheel_url(package, torch_version, cuda_version, py_version)
-            if not wheel_url:
-                raise RuntimeError(f"No wheel for {package}")
-            log(f"  {package}")
-            result = subprocess.run([str(python_path), "-m", "pip", "install", "--no-deps", "--no-cache-dir", wheel_url],
-                                   capture_output=True, text=True)
+            if package in pytorch_packages:
+                # Install from PyTorch CUDA index with version pinning
+                if package == "torch":
+                    pin_version = torch_version
+                elif package == "torchvision":
+                    pin_version = torchvision_map.get(torch_version, "0.23")
+                else:  # torchaudio follows torch versioning
+                    pin_version = torch_version
+                pkg_spec = f"{package}=={pin_version}.*"
+                log(f"  {package} (from PyTorch index, pinned to {pin_version}.*)")
+                result = subprocess.run([str(python_path), "-m", "pip", "install", "--no-cache-dir",
+                                        "--extra-index-url", pytorch_index, pkg_spec],
+                                       capture_output=True, text=True)
+            else:
+                # Install from cuda-wheels
+                wheel_url = get_wheel_url(package, torch_version, cuda_version, py_version)
+                if not wheel_url:
+                    raise RuntimeError(f"No wheel for {package}")
+                log(f"  {package}")
+                result = subprocess.run([str(python_path), "-m", "pip", "install", "--no-deps", "--no-cache-dir", wheel_url],
+                                       capture_output=True, text=True)
             if result.returncode != 0:
                 raise RuntimeError(f"Failed to install {package}:\nstderr: {result.stderr}\nstdout: {result.stdout}")
 

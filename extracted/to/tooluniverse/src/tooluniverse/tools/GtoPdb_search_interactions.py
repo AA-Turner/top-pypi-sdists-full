@@ -20,7 +20,7 @@ def GtoPdb_search_interactions(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Optional[list[Any]]:
     """
     Search pharmacological interactions between targets and ligands across the Guide to Pharmacology ...
 
@@ -49,7 +49,7 @@ def GtoPdb_search_interactions(
 
     Returns
     -------
-    dict[str, Any]
+    Optional[list[Any]]
     """
     # Handle mutable defaults to avoid B006 linting error
 

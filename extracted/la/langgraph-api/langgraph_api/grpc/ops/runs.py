@@ -41,6 +41,7 @@ from langgraph_api.grpc.client import get_shared_client
 from langgraph_api.grpc.ops import (
     Authenticated,
     _handle_grpc_error,
+    build_encryption_context,
     grpc_error_guard,
     transform_grpc_error_event,
 )
@@ -562,6 +563,11 @@ class Runs(Authenticated):
         if after_seconds > 0:
             request_kwargs["after_seconds"] = int(after_seconds)
 
+        # Build encryption context for Go layer
+        enc_ctx = build_encryption_context("run")
+        if enc_ctx is not None:
+            request_kwargs["encryption_context"] = enc_ctx
+
         client = await get_shared_client()
         response = await client.runs.Create(pb.CreateRunRequest(**request_kwargs))
 
@@ -826,7 +832,7 @@ class Runs(Authenticated):
 
         @staticmethod
         async def publish(
-            run_id: UUID | str,
+            run_id: UUID | str | None,
             event: str,
             message: bytes,
             thread_id: UUID | str,
@@ -836,16 +842,18 @@ class Runs(Authenticated):
             """Publish a message to the run stream via gRPC.
 
             Args:
-                run_id: The run ID
+                run_id: The run ID (* or `None` for thread-level events)
                 event: Event type (e.g. 'values', 'updates', 'messages', etc.)
                 message: Event payload (serialized JSON or raw bytes)
                 thread_id: The thread ID
                 resumable: If true, message will be cached with TTL for resumable streaming
             """
-
+            run_id_pb = (
+                None if run_id is None or run_id == "*" else pb.UUID(value=str(run_id))
+            )
             client = await get_shared_client()
             request = pb.PublishStreamEventRequest(
-                run_id=pb.UUID(value=str(run_id)),
+                run_id=run_id_pb,
                 thread_id=pb.UUID(value=str(thread_id)),
                 event_type=event,
                 message=message,

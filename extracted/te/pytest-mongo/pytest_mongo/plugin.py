@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2016 by Clearcode <http://clearcode.cc>
-# and associates (see AUTHORS).
+# Copyright (C) 2013-2026 by associates authors (see git log).
 
 # This file is part of pytest-mongo.
 
@@ -17,7 +16,6 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with pytest-mongo.  If not, see <http://www.gnu.org/licenses/>.
 """Pytest-mongo plugin definition."""
-from tempfile import gettempdir
 
 from pytest import Parser
 
@@ -25,24 +23,21 @@ from pytest_mongo import factories
 
 # pylint:disable=invalid-name
 _help_executable = "Path to MongoDB executable"
-_help_logsdir = "Path to logs directory"
 _help_params = "Additional MongoDB parameters"
 _help_host = "Host at which MongoDB will accept connections"
 _help_port = "Port at which MongoDB will accept connections"
-_help_tz_aware = "Have mongo client timezone aware"
+_help_port_search_count = "Number of times, pytest-mongo will search for free port"
+_help_tz_aware = (
+    "Have mongo client timezone aware (ini: mongo_tz_aware; "
+    "use --mongo-tz-aware/--no-mongo-tz-aware to override)"
+)
 
 
 def pytest_addoption(parser: Parser) -> None:
     """Configure pytest-mongo configuration options."""
-    parser.addini(
-        name="mongo_exec", help=_help_executable, default="/usr/bin/mongod"
-    )
+    parser.addini(name="mongo_exec", help=_help_executable, default="/usr/bin/mongod")
 
     parser.addini(name="mongo_params", help=_help_params, default="")
-
-    parser.addini(
-        name="mongo_logsdir", help=_help_logsdir, default=gettempdir()
-    )
 
     parser.addini(name="mongo_host", help=_help_host, default="127.0.0.1")
 
@@ -50,6 +45,9 @@ def pytest_addoption(parser: Parser) -> None:
         name="mongo_port",
         help=_help_port,
         default=None,
+    )
+    parser.addini(
+        name="mongo_port_search_count", type="int", help=_help_port_search_count, default=5
     )
 
     parser.addini(
@@ -67,17 +65,7 @@ def pytest_addoption(parser: Parser) -> None:
         help=_help_executable,
     )
 
-    parser.addoption(
-        "--mongo-params", action="store", dest="mongo_params", help=_help_params
-    )
-
-    parser.addoption(
-        "--mongo-logsdir",
-        action="store",
-        metavar="path",
-        dest="mongo_logsdir",
-        help=_help_logsdir,
-    )
+    parser.addoption("--mongo-params", action="store", dest="mongo_params", help=_help_params)
 
     parser.addoption(
         "--mongo-host",
@@ -85,14 +73,25 @@ def pytest_addoption(parser: Parser) -> None:
         dest="mongo_host",
         help=_help_host,
     )
-
     parser.addoption(
-        "--mongo-port", action="store", dest="mongo_port", help=_help_port
+        "--mongo-port-search-count",
+        action="store",
+        type=int,
+        dest="mongo_port_search_count",
+        help=_help_port_search_count,
     )
+
+    parser.addoption("--mongo-port", action="store", dest="mongo_port", help=_help_port)
 
     parser.addoption(
         "--mongo-tz-aware",
-        action="store",
+        action="store_true",
+        dest="mongo_tz_aware",
+        help=_help_tz_aware,
+    )
+    parser.addoption(
+        "--no-mongo-tz-aware",
+        action="store_false",
         dest="mongo_tz_aware",
         help=_help_tz_aware,
     )

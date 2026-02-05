@@ -25,6 +25,42 @@ class TableOptions(DefaultJsonObject):
         self.allow_update = allow_update
 
 
+class SSEKeyType(object):
+    SSE_KMS_SERVICE = 1
+    SSE_BYOK = 2
+
+
+class SSESpecification(DefaultJsonObject):
+    def __init__(self, enable=False, key_type=None, key_id=None, role_arn=None):
+        self.enable = enable
+        self.key_type = key_type
+        self.key_id = key_id
+        self.role_arn = role_arn
+        self.check_arguments()
+
+    def check_arguments(self):
+        if self.enable:
+            if self.key_type is None:
+                raise OTSClientError("key type is required when enable is true")
+            else:
+                if self.key_type != SSEKeyType.SSE_BYOK and \
+                        (self.key_id is not None or self.role_arn is not None):
+                    raise OTSClientError("key id and role arn cannot be set when key type is not SSE_BYOK")
+                if self.key_type != SSEKeyType.SSE_KMS_SERVICE and \
+                        (self.key_id is None or self.role_arn is None):
+                    raise OTSClientError("key id and role arn are required when key type is not SSE_KMS_SERVICE")
+        else:
+            if self.key_type is not None:
+                raise OTSClientError("key type cannot be set when enable is false")
+
+
+class SSEDetails(DefaultJsonObject):
+    def __init__(self, enable=False, key_type=None, key_id=None, role_arn=None):
+        self.enable = enable
+        self.key_type = key_type
+        self.key_id = key_id
+        self.role_arn = role_arn
+
 class CapacityUnit(DefaultJsonObject):
 
     def __init__(self, read=0, write=0):
@@ -320,10 +356,11 @@ class UpdateTableResponse(CommonResponse):
 
 class DescribeTableResponse(CommonResponse):
 
-    def __init__(self, table_meta, table_options, reserved_throughput_details, secondary_indexes=[]):
+    def __init__(self, table_meta, table_options, reserved_throughput_details, sse_details, secondary_indexes=[]):
         self.table_meta = table_meta
         self.table_options = table_options
         self.reserved_throughput_details = reserved_throughput_details
+        self.sse_details = sse_details
         self.secondary_indexes = secondary_indexes
 
 

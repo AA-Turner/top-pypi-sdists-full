@@ -7,6 +7,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.update_kafka_trigger_json_body_error_handler_args import UpdateKafkaTriggerJsonBodyErrorHandlerArgs
+    from ..models.update_kafka_trigger_json_body_filters_item import UpdateKafkaTriggerJsonBodyFiltersItem
     from ..models.update_kafka_trigger_json_body_retry import UpdateKafkaTriggerJsonBodyRetry
 
 
@@ -20,6 +21,7 @@ class UpdateKafkaTriggerJsonBody:
         kafka_resource_path (str):
         group_id (str):
         topics (List[str]):
+        filters (List['UpdateKafkaTriggerJsonBodyFiltersItem']):
         path (str):
         script_path (str):
         is_flow (bool):
@@ -32,6 +34,7 @@ class UpdateKafkaTriggerJsonBody:
     kafka_resource_path: str
     group_id: str
     topics: List[str]
+    filters: List["UpdateKafkaTriggerJsonBodyFiltersItem"]
     path: str
     script_path: str
     is_flow: bool
@@ -44,6 +47,12 @@ class UpdateKafkaTriggerJsonBody:
         kafka_resource_path = self.kafka_resource_path
         group_id = self.group_id
         topics = self.topics
+
+        filters = []
+        for filters_item_data in self.filters:
+            filters_item = filters_item_data.to_dict()
+
+            filters.append(filters_item)
 
         path = self.path
         script_path = self.script_path
@@ -64,6 +73,7 @@ class UpdateKafkaTriggerJsonBody:
                 "kafka_resource_path": kafka_resource_path,
                 "group_id": group_id,
                 "topics": topics,
+                "filters": filters,
                 "path": path,
                 "script_path": script_path,
                 "is_flow": is_flow,
@@ -83,6 +93,7 @@ class UpdateKafkaTriggerJsonBody:
         from ..models.update_kafka_trigger_json_body_error_handler_args import (
             UpdateKafkaTriggerJsonBodyErrorHandlerArgs,
         )
+        from ..models.update_kafka_trigger_json_body_filters_item import UpdateKafkaTriggerJsonBodyFiltersItem
         from ..models.update_kafka_trigger_json_body_retry import UpdateKafkaTriggerJsonBodyRetry
 
         d = src_dict.copy()
@@ -91,6 +102,13 @@ class UpdateKafkaTriggerJsonBody:
         group_id = d.pop("group_id")
 
         topics = cast(List[str], d.pop("topics"))
+
+        filters = []
+        _filters = d.pop("filters")
+        for filters_item_data in _filters:
+            filters_item = UpdateKafkaTriggerJsonBodyFiltersItem.from_dict(filters_item_data)
+
+            filters.append(filters_item)
 
         path = d.pop("path")
 
@@ -118,6 +136,7 @@ class UpdateKafkaTriggerJsonBody:
             kafka_resource_path=kafka_resource_path,
             group_id=group_id,
             topics=topics,
+            filters=filters,
             path=path,
             script_path=script_path,
             is_flow=is_flow,

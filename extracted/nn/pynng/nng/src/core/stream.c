@@ -1,5 +1,5 @@
 //
-// Copyright 2020 Staysail Systems, Inc. <info@staysail.tech>
+// Copyright 2024 Staysail Systems, Inc. <info@staysail.tech>
 //
 // This software is supplied under the terms of the MIT License, a
 // copy of which should be located in the distribution where this
@@ -15,14 +15,15 @@
 #include "core/nng_impl.h"
 #include <nng/supplemental/tls/tls.h>
 
+#include "core/sockfd.h"
 #include "core/tcp.h"
 #include "supplemental/tls/tls_api.h"
 #include "supplemental/websocket/websocket.h"
 
 static struct {
 	const char *scheme;
-	int (*dialer_alloc)(nng_stream_dialer **, const nng_url *);
-	int (*listener_alloc)(nng_stream_listener **, const nng_url *);
+	int         (*dialer_alloc)(nng_stream_dialer **, const nng_url *);
+	int         (*listener_alloc)(nng_stream_listener **, const nng_url *);
 
 } stream_drivers[] = {
 	{
@@ -54,11 +55,13 @@ static struct {
 	    .dialer_alloc   = nni_tcp_dialer_alloc,
 	    .listener_alloc = nni_tcp_listener_alloc,
 	},
+#ifdef NNG_ENABLE_IPV6
 	{
 	    .scheme         = "tcp6",
 	    .dialer_alloc   = nni_tcp_dialer_alloc,
 	    .listener_alloc = nni_tcp_listener_alloc,
 	},
+#endif
 	{
 	    .scheme         = "tls+tcp",
 	    .dialer_alloc   = nni_tls_dialer_alloc,
@@ -69,11 +72,13 @@ static struct {
 	    .dialer_alloc   = nni_tls_dialer_alloc,
 	    .listener_alloc = nni_tls_listener_alloc,
 	},
+#ifdef NNG_ENABLE_IPV6
 	{
 	    .scheme         = "tls+tcp6",
 	    .dialer_alloc   = nni_tls_dialer_alloc,
 	    .listener_alloc = nni_tls_listener_alloc,
 	},
+#endif
 	{
 	    .scheme         = "ws",
 	    .dialer_alloc   = nni_ws_dialer_alloc,
@@ -84,16 +89,25 @@ static struct {
 	    .dialer_alloc   = nni_ws_dialer_alloc,
 	    .listener_alloc = nni_ws_listener_alloc,
 	},
+#ifdef NNG_ENABLE_IPV6
 	{
 	    .scheme         = "ws6",
 	    .dialer_alloc   = nni_ws_dialer_alloc,
 	    .listener_alloc = nni_ws_listener_alloc,
 	},
+#endif
 	{
 	    .scheme         = "wss",
 	    .dialer_alloc   = nni_ws_dialer_alloc,
 	    .listener_alloc = nni_ws_listener_alloc,
 	},
+#ifdef NNG_TRANSPORT_FDC
+	{
+	    .scheme         = "socket",
+	    .dialer_alloc   = nni_sfd_dialer_alloc,
+	    .listener_alloc = nni_sfd_listener_alloc,
+	},
+#endif
 	{
 	    .scheme = NULL,
 	},
@@ -499,11 +513,13 @@ nng_stream_set_string(nng_stream *s, const char *n, const char *v)
 	    s, n, v, v == NULL ? 0 : strlen(v) + 1, NNI_TYPE_STRING));
 }
 
+#ifndef NNG_ELIDE_DEPRECATED
 int
 nng_stream_set_addr(nng_stream *s, const char *n, const nng_sockaddr *v)
 {
 	return (nni_stream_set(s, n, v, sizeof(*v), NNI_TYPE_SOCKADDR));
 }
+#endif
 
 int
 nng_stream_dialer_set(

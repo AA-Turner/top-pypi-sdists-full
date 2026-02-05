@@ -1431,7 +1431,7 @@ pub struct PipCompileArgs {
     /// Include optional dependencies from the specified extra name; may be provided more than once.
     ///
     /// Only applies to `pyproject.toml`, `setup.py`, and `setup.cfg` sources.
-    #[arg(long, conflicts_with = "all_extras", value_parser = extra_name_with_clap_error)]
+    #[arg(long, value_delimiter = ',', conflicts_with = "all_extras", value_parser = extra_name_with_clap_error)]
     pub extra: Option<Vec<ExtraName>>,
 
     /// Include all optional dependencies.
@@ -1788,7 +1788,7 @@ pub struct PipSyncArgs {
     /// Include optional dependencies from the specified extra name; may be provided more than once.
     ///
     /// Only applies to `pylock.toml`, `pyproject.toml`, `setup.py`, and `setup.cfg` sources.
-    #[arg(long, conflicts_with = "all_extras", value_parser = extra_name_with_clap_error)]
+    #[arg(long, value_delimiter = ',', conflicts_with = "all_extras", value_parser = extra_name_with_clap_error)]
     pub extra: Option<Vec<ExtraName>>,
 
     /// Include all optional dependencies.
@@ -2157,7 +2157,7 @@ pub struct PipInstallArgs {
     /// Include optional dependencies from the specified extra name; may be provided more than once.
     ///
     /// Only applies to `pylock.toml`, `pyproject.toml`, `setup.py`, and `setup.cfg` sources.
-    #[arg(long, conflicts_with = "all_extras", value_parser = extra_name_with_clap_error)]
+    #[arg(long, value_delimiter = ',', conflicts_with = "all_extras", value_parser = extra_name_with_clap_error)]
     pub extra: Option<Vec<ExtraName>>,
 
     /// Include all optional dependencies.
@@ -3170,8 +3170,15 @@ pub struct VenvArgs {
     /// absolute paths), the entrypoints and scripts themselves will _not_ be relocatable. In other
     /// words, copying those entrypoints and scripts to a location outside the environment will not
     /// work, as they reference paths relative to the environment itself.
-    #[arg(long)]
+    #[arg(long, overrides_with("no_relocatable"))]
     pub relocatable: bool,
+
+    /// Don't make the virtual environment relocatable.
+    ///
+    /// Disables the default relocatable behavior when the `relocatable-envs-default` preview
+    /// feature is enabled.
+    #[arg(long, overrides_with("relocatable"), hide = true)]
+    pub no_relocatable: bool,
 
     #[command(flatten)]
     pub index_args: IndexArgs,
@@ -3462,6 +3469,7 @@ pub struct RunArgs {
         long,
         conflicts_with = "all_extras",
         conflicts_with = "only_group",
+        value_delimiter = ',',
         value_parser = extra_name_with_clap_error,
         value_hint = ValueHint::Other,
     )]
@@ -3789,6 +3797,7 @@ pub struct SyncArgs {
         long,
         conflicts_with = "all_extras",
         conflicts_with = "only_group",
+        value_delimiter = ',',
         value_parser = extra_name_with_clap_error,
         value_hint = ValueHint::Other,
     )]
@@ -4796,7 +4805,7 @@ pub struct ExportArgs {
     /// Include optional dependencies from the specified extra name.
     ///
     /// May be provided more than once.
-    #[arg(long, conflicts_with = "all_extras", conflicts_with = "only_group", value_parser = extra_name_with_clap_error)]
+    #[arg(long, value_delimiter = ',', conflicts_with = "all_extras", conflicts_with = "only_group", value_parser = extra_name_with_clap_error)]
     pub extra: Option<Vec<ExtraName>>,
 
     /// Include all optional dependencies.

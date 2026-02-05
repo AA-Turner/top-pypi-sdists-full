@@ -1,5 +1,16 @@
+import hashlib
+
 from django.conf import settings
 from django.contrib.sites.models import Site
+
+
+def get_checksum(title: str, body: str | None, endpoint: str | None) -> str:
+    content = title
+    if body:
+        content += ":" + body
+    if endpoint:
+        content += ":" + endpoint
+    return hashlib.sha256(content.encode()).hexdigest()
 
 
 def base_domain() -> str:

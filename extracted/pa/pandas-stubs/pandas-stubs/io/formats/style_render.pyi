@@ -6,6 +6,7 @@ from collections.abc import (
 from typing import (
     Any,
     Literal,
+    Self,
     TypeAlias,
     TypedDict,
 )
@@ -14,10 +15,11 @@ from jinja2.environment import (
     Environment,
     Template,
 )
-from jinja2.loaders import PackageLoader
+from jinja2.loaders import FileSystemLoader
 from pandas import Index
-from pandas.core.indexing import _IndexSlice
-from typing_extensions import Self
+
+# The class is private in pandas implementation. We have to ignore the private usage in the stubs.
+from pandas.core.indexing import _IndexSlice  # pyright: ignore[reportPrivateUsage]
 
 from pandas._typing import (
     Axis,
@@ -49,7 +51,7 @@ CSSStyles: TypeAlias = list[CSSDict]
 Subset: TypeAlias = _IndexSlice | slice | tuple[slice, ...] | list[HashableT] | Index
 
 class StylerRenderer:
-    loader: PackageLoader
+    loader: FileSystemLoader
     env: Environment
     template_html: Template
     template_html_table: Template

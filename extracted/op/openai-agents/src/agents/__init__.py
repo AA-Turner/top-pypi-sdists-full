@@ -53,10 +53,13 @@ from .items import (
     HandoffCallItem,
     HandoffOutputItem,
     ItemHelpers,
+    MCPApprovalRequestItem,
+    MCPApprovalResponseItem,
     MessageOutputItem,
     ModelResponse,
     ReasoningItem,
     RunItem,
+    ToolApprovalItem,
     ToolCallItem,
     ToolCallOutputItem,
     TResponseInputItem,
@@ -69,6 +72,7 @@ from .memory import (
     OpenAIResponsesCompactionSession,
     Session,
     SessionABC,
+    SessionSettings,
     SQLiteSession,
     is_openai_responses_compaction_aware_session,
 )
@@ -81,8 +85,16 @@ from .models.openai_responses import OpenAIResponsesModel
 from .prompts import DynamicPromptFunction, GenerateDynamicPromptData, Prompt
 from .repl import run_demo_loop
 from .result import RunResult, RunResultStreaming
-from .run import RunConfig, Runner
+from .run import RunConfig, Runner, ToolErrorFormatter, ToolErrorFormatterArgs
 from .run_context import AgentHookContext, RunContextWrapper, TContext
+from .run_error_handlers import (
+    RunErrorData,
+    RunErrorHandler,
+    RunErrorHandlerInput,
+    RunErrorHandlerResult,
+    RunErrorHandlers,
+)
+from .run_state import RunState
 from .stream_events import (
     AgentUpdatedStreamEvent,
     RawResponsesStreamEvent,
@@ -286,6 +298,9 @@ __all__ = [
     "RunItem",
     "HandoffCallItem",
     "HandoffOutputItem",
+    "ToolApprovalItem",
+    "MCPApprovalRequestItem",
+    "MCPApprovalResponseItem",
     "ToolCallItem",
     "ToolCallOutputItem",
     "ReasoningItem",
@@ -294,6 +309,7 @@ __all__ = [
     "AgentHooks",
     "Session",
     "SessionABC",
+    "SessionSettings",
     "SQLiteSession",
     "OpenAIConversationsSession",
     "OpenAIResponsesCompactionSession",
@@ -305,9 +321,17 @@ __all__ = [
     "RunContextWrapper",
     "TContext",
     "RunErrorDetails",
+    "RunErrorData",
+    "RunErrorHandler",
+    "RunErrorHandlerInput",
+    "RunErrorHandlerResult",
+    "RunErrorHandlers",
     "RunResult",
     "RunResultStreaming",
     "RunConfig",
+    "ToolErrorFormatter",
+    "ToolErrorFormatterArgs",
+    "RunState",
     "RawResponsesStreamEvent",
     "RunItemStreamEvent",
     "AgentUpdatedStreamEvent",

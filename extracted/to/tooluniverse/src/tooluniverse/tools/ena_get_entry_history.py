@@ -1,7 +1,7 @@
 """
 ena_get_entry_history
 
-Get version history for an ENA entry by accession number. Returns all versions of the entry with ...
+Get version history for an ENA entry by accession number. Supports EMBL/GenBank accessions only (...
 """
 
 from typing import Any, Optional, Callable
@@ -16,12 +16,12 @@ def ena_get_entry_history(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Get version history for an ENA entry by accession number. Returns all versions of the entry with ...
+    Get version history for an ENA entry by accession number. Supports EMBL/GenBank accessions only (...
 
     Parameters
     ----------
     accession : str
-        ENA accession number
+        EMBL/GenBank accession number. NOT RefSeq (NC_*, NM_*, NP_*). Examples: 'U000...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False

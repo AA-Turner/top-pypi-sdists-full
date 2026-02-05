@@ -49,9 +49,8 @@ class GWASRESTTool(BaseTool):
         if metadata:
             result["metadata"] = metadata
 
-        # If no _embedded structure, return the original data
-        if not result["data"]:
-            result["data"] = data
+        # If no _embedded structure and no array was extracted, keep data as empty array
+        # This handles the case where API returns pagination metadata but no results
 
         return result
 
@@ -72,9 +71,11 @@ class GWASAssociationSearch(GWASRESTTool):
         """Search for associations with optional filters."""
         params = {}
 
-        # Handle various search parameters based on examples
-        if "efo_trait" in arguments:
-            params["efo_trait"] = arguments["efo_trait"]
+        # Handle various search parameters
+        if "disease_trait" in arguments:
+            params["disease_trait"] = arguments["disease_trait"]
+        if "efo_uri" in arguments:
+            params["efo_uri"] = arguments["efo_uri"]
         if "rs_id" in arguments:
             params["rs_id"] = arguments["rs_id"]
         if "accession_id" in arguments:
@@ -104,10 +105,10 @@ class GWASStudySearch(GWASRESTTool):
         """Search for studies with optional filters."""
         params = {}
 
-        if "efo_trait" in arguments:
-            params["efo_trait"] = arguments["efo_trait"]
         if "disease_trait" in arguments:
             params["disease_trait"] = arguments["disease_trait"]
+        if "efo_uri" in arguments:
+            params["efo_uri"] = arguments["efo_uri"]
         if "cohort" in arguments:
             params["cohort"] = arguments["cohort"]
         if "gxe" in arguments:
@@ -211,14 +212,18 @@ class GWASVariantsForTrait(GWASRESTTool):
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get variants for a trait with pagination support."""
-        if "efo_trait" not in arguments:
-            return {"error": "efo_trait is required"}
+        if "disease_trait" not in arguments and "efo_uri" not in arguments:
+            return {"error": "disease_trait or efo_uri is required"}
 
         params = {
-            "efo_trait": arguments["efo_trait"],
             "size": arguments.get("size", 200),
             "page": arguments.get("page", 0),
         }
+
+        if "disease_trait" in arguments:
+            params["disease_trait"] = arguments["disease_trait"]
+        if "efo_uri" in arguments:
+            params["efo_uri"] = arguments["efo_uri"]
 
         data = self._make_request(self.endpoint, params)
         return self._extract_embedded_data(data, "associations")
@@ -234,16 +239,20 @@ class GWASAssociationsForTrait(GWASRESTTool):
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get associations for a trait, sorted by significance."""
-        if "efo_trait" not in arguments:
-            return {"error": "efo_trait is required"}
+        if "disease_trait" not in arguments and "efo_uri" not in arguments:
+            return {"error": "disease_trait or efo_uri is required"}
 
         params = {
-            "efo_trait": arguments["efo_trait"],
             "sort": "p_value",
             "direction": "asc",
             "size": arguments.get("size", 40),
             "page": arguments.get("page", 0),
         }
+
+        if "disease_trait" in arguments:
+            params["disease_trait"] = arguments["disease_trait"]
+        if "efo_uri" in arguments:
+            params["efo_uri"] = arguments["efo_uri"]
 
         data = self._make_request(self.endpoint, params)
         return self._extract_embedded_data(data, "associations")
@@ -287,18 +296,18 @@ class GWASStudiesForTrait(GWASRESTTool):
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get studies for a trait with optional filters."""
-        if "efo_trait" not in arguments and "disease_trait" not in arguments:
-            return {"error": "efo_trait or disease_trait is required"}
+        if "disease_trait" not in arguments and "efo_uri" not in arguments:
+            return {"error": "disease_trait or efo_uri is required"}
 
         params = {
             "size": arguments.get("size", 200),
             "page": arguments.get("page", 0),
         }
 
-        if "efo_trait" in arguments:
-            params["efo_trait"] = arguments["efo_trait"]
         if "disease_trait" in arguments:
             params["disease_trait"] = arguments["disease_trait"]
+        if "efo_uri" in arguments:
+            params["efo_uri"] = arguments["efo_uri"]
         if "cohort" in arguments:
             params["cohort"] = arguments["cohort"]
         if "gxe" in arguments:

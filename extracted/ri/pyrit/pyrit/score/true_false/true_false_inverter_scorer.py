@@ -4,6 +4,7 @@
 import uuid
 from typing import Optional
 
+from pyrit.identifiers import ScorerIdentifier
 from pyrit.models import ChatMessageRole, Message, MessagePiece, Score
 from pyrit.score.scorer_prompt_validator import ScorerPromptValidator
 from pyrit.score.true_false.true_false_scorer import TrueFalseScorer
@@ -24,11 +25,23 @@ class TrueFalseInverterScorer(TrueFalseScorer):
         Raises:
             ValueError: If the scorer is not an instance of TrueFalseScorer.
         """
-        super().__init__(validator=ScorerPromptValidator())
-
         if not isinstance(scorer, TrueFalseScorer):
             raise ValueError("The scorer must be a true false scorer")
         self._scorer = scorer
+
+        super().__init__(validator=ScorerPromptValidator())
+
+    def _build_identifier(self) -> ScorerIdentifier:
+        """
+        Build the scorer evaluation identifier for this scorer.
+
+        Returns:
+            ScorerIdentifier: The identifier for this scorer.
+        """
+        return self._create_identifier(
+            sub_scorers=[self._scorer],
+            score_aggregator=self._score_aggregator.__name__,
+        )
 
     async def _score_async(
         self,
@@ -61,9 +74,9 @@ class TrueFalseInverterScorer(TrueFalseScorer):
         inv_score.score_value = str(True) if not inv_score.get_value() else str(False)
         inv_score.score_value_description = "Inverted score: " + str(inv_score.score_value_description)
 
-        scorer_type = self._scorer.get_identifier().get("__type__", "Unknown")
+        scorer_type = self._scorer.get_identifier().class_name
         inv_score.score_rationale = (
-            f"Inverted score from {scorer_type} result: {inv_score.score_value}\n" f"{inv_score.score_rationale}"
+            f"Inverted score from {scorer_type} result: {inv_score.score_value}\n{inv_score.score_rationale}"
         )
 
         inv_score.id = uuid.uuid4()
@@ -83,13 +96,4 @@ class TrueFalseInverterScorer(TrueFalseScorer):
         Raises:
             NotImplementedError: Always, since composite scoring operates at the response level.
         """
-        raise NotImplementedError("TrueFalseCompositeScorer does not support piecewise scoring.")
-
-    def _get_sub_identifier(self):
-        """
-        Return the identifier of the underlying true/false scorer.
-
-        Returns:
-            dict: The identifier dictionary of the wrapped scorer.
-        """
-        return self._scorer.get_identifier()
+        raise NotImplementedError("TrueFalseInverterScorer does not support piecewise scoring.")

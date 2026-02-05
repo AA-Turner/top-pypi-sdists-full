@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2025, Saransh Chopra, Henry Schreiner, Eduardo Rodrigues, Jonas Eschle, and Jim Pivarski.
+# Copyright (c) 2019, Saransh Chopra, Henry Schreiner, Eduardo Rodrigues, Jonas Eschle, and Jim Pivarski.
 #
 # Distributed under the 3-clause BSD license, see accompanying file LICENSE
 # or https://github.com/scikit-hep/vector for details.
@@ -127,7 +127,11 @@ def make_conversion(
             coord24,
         ):
             return lib.isclose(
-                coord14, coord24, rtol, atol, equal_nan
+                coord14,
+                coord24,
+                rtol=rtol,
+                atol=atol,
+                equal_nan=equal_nan,
             ) & spatial_isclose(
                 lib,
                 rtol,
@@ -160,9 +164,9 @@ def make_conversion(
             return lib.isclose(
                 to_t1(lib, coord11, coord12, coord13, coord14),
                 to_t2(lib, coord21, coord22, coord23, coord24),
-                rtol,
-                atol,
-                equal_nan,
+                rtol=rtol,
+                atol=atol,
+                equal_nan=equal_nan,
             ) & spatial_isclose(
                 lib,
                 rtol,

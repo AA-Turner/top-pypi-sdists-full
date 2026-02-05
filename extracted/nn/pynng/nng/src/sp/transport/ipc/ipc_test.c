@@ -42,7 +42,7 @@ test_ipc_dialer_perms(void)
 {
 	nng_socket s;
 	nng_dialer d;
-	char *     addr;
+	char      *addr;
 
 	NUTS_ADDR(addr, "ipc");
 	NUTS_OPEN(s);
@@ -59,7 +59,7 @@ test_ipc_dialer_properties(void)
 	nng_dialer   d;
 	nng_sockaddr sa;
 	size_t       z;
-	char         *addr;
+	char        *addr;
 
 	NUTS_ADDR(addr, "ipc");
 	NUTS_OPEN(s);
@@ -84,10 +84,10 @@ test_ipc_listener_perms(void)
 {
 	nng_socket   s;
 	nng_listener l;
-	char         *addr;
+	char        *addr;
 
 #ifndef _WIN32
-	char *      path;
+	char       *path;
 	struct stat st;
 #endif
 
@@ -125,7 +125,7 @@ test_ipc_listener_properties(void)
 	nng_listener l;
 	nng_sockaddr sa;
 	size_t       z;
-	char         *addr;
+	char        *addr;
 
 	NUTS_ADDR(addr, "ipc");
 	NUTS_OPEN(s);
@@ -154,8 +154,9 @@ test_ipc_recv_max(void)
 	nng_socket   s1;
 	nng_listener l;
 	size_t       sz;
-	char         *addr;
+	char        *addr;
 
+	NUTS_ENABLE_LOG(NNG_LOG_INFO);
 	NUTS_ADDR(addr, "ipc");
 	NUTS_OPEN(s0);
 	NUTS_PASS(nng_socket_set_ms(s0, NNG_OPT_RECVTIMEO, 100));
@@ -184,12 +185,12 @@ test_abstract_sockets(void)
 #ifdef NNG_HAVE_ABSTRACT_SOCKETS
 	nng_socket   s1;
 	nng_socket   s2;
-	char         *addr;
+	char        *addr;
 	nng_pipe     p1;
 	nng_pipe     p2;
 	nng_sockaddr sa1;
 	nng_sockaddr sa2;
-	char *       prefix = "abstract://";
+	char        *prefix = "abstract://";
 
 	NUTS_ADDR(addr, "abstract");
 	NUTS_OPEN(s1);
@@ -341,7 +342,7 @@ test_unix_alias(void)
 	char         rng[20];
 	nng_sockaddr sa1;
 	nng_sockaddr sa2;
-	nng_msg *    msg;
+	nng_msg     *msg;
 	nng_pipe     p;
 
 	// Presumes /tmp.
@@ -379,6 +380,59 @@ test_unix_alias(void)
 #endif
 }
 
+void
+test_ipc_pipe_peer(void)
+{
+#ifdef NNG_PLATFORM_POSIX
+	// this test verifies that closing a socket peer
+	// during negotiation is ok.
+	nng_socket s0, s1;
+	nng_msg   *msg;
+	nng_pipe   p;
+	uint64_t   id;
+	char      *addr;
+
+	NUTS_ADDR(addr, "ipc");
+	NUTS_OPEN(s0);
+	NUTS_PASS(nng_listen(s0, addr, NULL, 0));
+	NUTS_OPEN(s1);
+	NUTS_PASS(nng_dial(s1, addr, NULL, 0));
+
+	NUTS_PASS(nng_socket_set_ms(s0, NNG_OPT_SENDTIMEO, 1000));
+	NUTS_PASS(nng_socket_set_ms(s0, NNG_OPT_RECVTIMEO, 1000));
+	NUTS_PASS(nng_socket_set_ms(s1, NNG_OPT_SENDTIMEO, 1000));
+	NUTS_PASS(nng_socket_set_ms(s1, NNG_OPT_RECVTIMEO, 1000));
+
+	NUTS_SEND(s0, "something");
+	NUTS_PASS(nng_recvmsg(s1, &msg, 0));
+	p = nng_msg_get_pipe(msg);
+	NUTS_ASSERT(nng_pipe_id(p) != -1);
+#if defined(NNG_PLATFORM_DARWIN) || defined(NNG_PLATFORM_LINUX)
+	NUTS_PASS(nng_pipe_get_uint64(p, NNG_OPT_PEER_PID, &id));
+	NUTS_ASSERT(id == (uint64_t) getpid());
+#endif
+#if defined(NNG_PLATFORM_DARWIN) || defined(NNG_PLATFORM_LINUX)
+	NUTS_PASS(nng_pipe_get_uint64(p, NNG_OPT_PEER_UID, &id));
+	NUTS_ASSERT(id == (uint64_t) getuid());
+#endif
+#if defined(NNG_PLATFORM_DARWIN) || defined(NNG_PLATFORM_LINUX)
+	NUTS_PASS(nng_pipe_get_uint64(p, NNG_OPT_PEER_GID, &id));
+	NUTS_ASSERT(id == (uint64_t) getgid());
+#endif
+#if defined(NNG_PLATFORM_SUNOS)
+	NUTS_PASS(nng_pipe_get_uint64(p, NNG_OPT_PEER_ZONEID, &id));
+	NUTS_ASSERT(id == (uint64_t) getzoneid());
+#else
+	NUTS_FAIL(
+	    nng_pipe_get_uint64(p, NNG_OPT_PEER_ZONEID, &id), NNG_ENOTSUP);
+#endif
+
+	nng_msg_free(msg);
+	NUTS_CLOSE(s0);
+	NUTS_CLOSE(s1);
+#endif // NNG_PLATFORM_POSIX
+}
+
 TEST_LIST = {
 	{ "ipc path too long", test_path_too_long },
 	{ "ipc dialer perms", test_ipc_dialer_perms },
@@ -391,5 +445,6 @@ TEST_LIST = {
 	{ "ipc abstract name too long", test_abstract_too_long },
 	{ "ipc abstract embedded null", test_abstract_null },
 	{ "ipc unix alias", test_unix_alias },
+	{ "ipc peer id", test_ipc_pipe_peer },
 	{ NULL, NULL },
 };

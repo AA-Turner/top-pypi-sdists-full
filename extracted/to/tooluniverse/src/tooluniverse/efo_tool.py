@@ -135,12 +135,13 @@ class OLSRESTTool(BaseTool):
                     }
                     for d in docs
                 ]
-                return {
+                result = {
                     "status": "success",
                     "url": resp.url,
                     "count": len(terms),
                     "terms": terms,
                 }
+                return {"status": "success", "data": result}
 
             if kind in {"term", "children"}:
                 if not ontology_id:
@@ -184,7 +185,8 @@ class OLSRESTTool(BaseTool):
                         "ontology_name": t.get("ontology_name"),
                         "ontology_prefix": t.get("ontology_prefix"),
                     }
-                    return {"status": "success", "url": resp.url, "term": term}
+                    result = {"status": "success", "url": resp.url, "term": term}
+                    return {"status": "success", "data": result}
 
                 # children
                 size = arguments.get("size", 20)
@@ -215,12 +217,13 @@ class OLSRESTTool(BaseTool):
                     }
                     for c in children
                 ]
-                return {
+                result = {
                     "status": "success",
                     "url": resp.url,
                     "count": len(out),
                     "children": out,
                 }
+                return {"status": "success", "data": result}
 
             if kind == "ontology":
                 if not ontology_id:
@@ -249,7 +252,8 @@ class OLSRESTTool(BaseTool):
                     "description": (o.get("config") or {}).get("description"),
                     "homepage": (o.get("config") or {}).get("homepage"),
                 }
-                return {"status": "success", "url": resp.url, "ontology": ontology}
+                result = {"status": "success", "url": resp.url, "ontology": ontology}
+                return {"status": "success", "data": result}
 
             if kind == "ontologies":
                 size = arguments.get("size", 20)
@@ -276,12 +280,13 @@ class OLSRESTTool(BaseTool):
                     }
                     for o in onts
                 ]
-                return {
+                result = {
                     "status": "success",
                     "url": resp.url,
                     "count": len(out),
                     "ontologies": out,
                 }
+                return {"status": "success", "data": result}
 
             return {
                 "status": "error",

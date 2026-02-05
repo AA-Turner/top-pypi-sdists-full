@@ -1,35 +1,38 @@
 """Mongo config getter."""
 
-from pathlib import Path
-from typing import Any, Optional, TypedDict
+from dataclasses import dataclass
+from typing import Any
 
 from pytest import FixtureRequest
 
 
-class MongoConfigDict(TypedDict):
-    """Typed Config dictionary."""
+@dataclass
+class MongoConfig:
+    """Mongo config dataclass."""
 
     exec: str
     host: str
-    port: Optional[int]
+    port: int | None
+    port_search_count: int
     params: str
-    logsdir: Path
     tz_aware: bool
 
 
-def get_config(request: FixtureRequest) -> MongoConfigDict:
-    """Return a dictionary with config options."""
+def get_config(request: FixtureRequest) -> MongoConfig:
+    """Return a MongoConfig with config options."""
 
     def get_mongo_option(option: str) -> Any:
         name = "mongo_" + option
         return request.config.getoption(name) or request.config.getini(name)
 
     port = get_mongo_option("port")
-    return MongoConfigDict(
+
+    cfg = MongoConfig(
         exec=get_mongo_option("exec"),
         host=get_mongo_option("host"),
         port=int(port) if port else None,
+        port_search_count=int(get_mongo_option("port_search_count")),
         params=get_mongo_option("params"),
-        logsdir=get_mongo_option("logsdir"),
         tz_aware=get_mongo_option("tz_aware"),
     )
+    return cfg

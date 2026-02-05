@@ -3,11 +3,13 @@
 
 import enum
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import yaml
 
+from pyrit.common import verify_and_resolve_path
 from pyrit.common.path import SCORER_SCALES_PATH
+from pyrit.identifiers import ScorerIdentifier
 from pyrit.models import MessagePiece, Score, SeedPrompt, UnvalidatedScore
 from pyrit.prompt_target import PromptChatTarget
 from pyrit.score.float_scale.float_scale_scorer import FloatScaleScorer
@@ -58,6 +60,7 @@ class SelfAskScaleScorer(FloatScaleScorer):
             validator (Optional[ScorerPromptValidator]): Custom validator for the scorer. Defaults to None.
         """
         super().__init__(validator=validator or self._default_validator)
+
         self._prompt_target = chat_target
 
         if not system_prompt_path:
@@ -66,8 +69,8 @@ class SelfAskScaleScorer(FloatScaleScorer):
         if not scale_arguments_path:
             scale_arguments_path = self.ScalePaths.TREE_OF_ATTACKS_SCALE.value
 
-        system_prompt_path = self._verify_and_resolve_path(system_prompt_path)
-        scale_arguments_path = self._verify_and_resolve_path(scale_arguments_path)
+        system_prompt_path = verify_and_resolve_path(system_prompt_path)
+        scale_arguments_path = verify_and_resolve_path(scale_arguments_path)
 
         scale_args = yaml.safe_load(scale_arguments_path.read_text(encoding="utf-8"))
 
@@ -80,6 +83,19 @@ class SelfAskScaleScorer(FloatScaleScorer):
         scoring_instructions_template = SeedPrompt.from_yaml_file(system_prompt_path)
 
         self._system_prompt = scoring_instructions_template.render_template_value(**scale_args)
+
+    def _build_identifier(self) -> ScorerIdentifier:
+        """
+        Build the scorer evaluation identifier for this scorer.
+
+        Returns:
+            ScorerIdentifier: The identifier for this scorer.
+        """
+        return self._create_identifier(
+            system_prompt_template=self._system_prompt,
+            user_prompt_template="objective: {objective}\nresponse: {response}",
+            prompt_target=self._prompt_target,
+        )
 
     async def _score_piece_async(self, message_piece: MessagePiece, *, objective: Optional[str] = None) -> list[Score]:
         """
@@ -117,8 +133,7 @@ class SelfAskScaleScorer(FloatScaleScorer):
 
         return [score]
 
-    def _validate_scale_arguments_set(self, scale_args: dict):
-
+    def _validate_scale_arguments_set(self, scale_args: dict[str, Any]) -> None:
         try:
             minimum_value = scale_args["minimum_value"]
             maximum_value = scale_args["maximum_value"]

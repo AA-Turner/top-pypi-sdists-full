@@ -1,7 +1,7 @@
 from adam.commands import extract_trailing_options
 from adam.commands.bash import bash
 from adam.commands.command import Command
-from adam.commands.devices.devices import Devices
+from adam.commands.devices.devices import device
 from adam.repl_state import ReplState, RequiredState
 from adam.utils_context import Context
 
@@ -33,7 +33,7 @@ class Bash(Command):
                     return exec(args, Context.new(cmd, background=background))
 
     def completion(self, state: ReplState):
-        return super().completion(state, {c : {'&': None} for c in ['ls', 'cat', 'head']}, pods=Devices.of(state).pods(state, '-'))
+        return super().completion(state, {c : {'&': None} for c in ['ls', 'cat', 'head']}, pods=device(state).pods(state, '-'))
 
     def help(self, state: ReplState):
         return super().help(state, 'run bash on Cassandra nodes', args='[bash-commands] [&]')

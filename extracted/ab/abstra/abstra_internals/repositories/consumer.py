@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from multiprocessing import Queue
 from queue import Empty
-from threading import Event
+from threading import Event, Thread
 from typing import Generator, Optional, Type, Union
 
 import pika
@@ -57,11 +57,18 @@ class RabbitMQConsumer(Consumer):
     Base RabbitMQ consumer that works with any queue.
     Consumes execution requests from a specified queue with configurable concurrency.
     All methods are not thread-safe unless specified otherwise.
+
+    Includes a background heartbeat thread to keep the connection alive during
+    periods when the main consume loop is not running (e.g., during graceful shutdown).
     """
 
     channel: BlockingChannel
     connection: Optional[BlockingConnection]
     conn_uri: str
+    _heartbeat_thread: Optional[Thread]
+    _heartbeat_stop_evt: Event
+
+    HEARTBEAT_INTERVAL_SECONDS = 10
 
     def __init__(
         self,
@@ -77,8 +84,11 @@ class RabbitMQConsumer(Consumer):
         self.stop_evt = Event()
         self.logger_prefix = logger_prefix
         self.connection_factory = connection_factory
+        self._heartbeat_thread = None
+        self._heartbeat_stop_evt = Event()
 
         self._connect()
+        self._start_heartbeat_thread()
 
     def _connect(self):
         """
@@ -101,6 +111,7 @@ class RabbitMQConsumer(Consumer):
         params.connection_attempts = 1  # Single attempt per retry iteration
         params.socket_timeout = RABBITMQ_CONNECTION_TIMEOUT_SECONDS
         params.blocked_connection_timeout = RABBITMQ_CONNECTION_TIMEOUT_SECONDS
+        params.heartbeat = 30  # Explicit heartbeat to ensure connection stays alive
 
         delay = RABBITMQ_RETRY_INITIAL_DELAY_SECONDS
         last_exception = None
@@ -130,6 +141,45 @@ class RabbitMQConsumer(Consumer):
                     )
 
         raise last_exception or AMQPConnectionError("Failed to connect to RabbitMQ")
+
+    def _start_heartbeat_thread(self) -> None:
+        """
+        Start a background thread that periodically processes RabbitMQ data events.
+        This keeps the connection alive during periods when the main consume loop
+        is not running (e.g., during graceful shutdown while waiting for executions).
+        """
+        if self._heartbeat_thread and self._heartbeat_thread.is_alive():
+            return
+
+        def heartbeat_loop():
+            while not self._heartbeat_stop_evt.is_set():
+                try:
+                    if self.connection and self.connection.is_open:
+                        # time_limit=0 makes it non-blocking
+                        self.connection.process_data_events(time_limit=0)
+                except Exception as e:
+                    AbstraLogger.debug(
+                        f"[{self.logger_prefix}] Heartbeat thread error: {e}"
+                    )
+                for _ in range(self.HEARTBEAT_INTERVAL_SECONDS):
+                    if self._heartbeat_stop_evt.is_set():
+                        break
+                    time.sleep(1)
+
+        self._heartbeat_thread = Thread(
+            target=heartbeat_loop,
+            daemon=True,
+            name=f"{self.logger_prefix}-Heartbeat",
+        )
+        self._heartbeat_thread.start()
+        AbstraLogger.debug(f"[{self.logger_prefix}] Heartbeat thread started")
+
+    def _stop_heartbeat_thread(self) -> None:
+        """Stop the heartbeat thread gracefully."""
+        self._heartbeat_stop_evt.set()
+        if self._heartbeat_thread and self._heartbeat_thread.is_alive():
+            self._heartbeat_thread.join(timeout=2.0)
+            AbstraLogger.debug(f"[{self.logger_prefix}] Heartbeat thread stopped")
 
     def threadsafe_ack(self, msg: Union[QueueMessage, ControlQueueMessage]):
         if not self.connection:
@@ -276,8 +326,11 @@ class RabbitMQConsumer(Consumer):
         AbstraLogger.debug(f"[{self.logger_prefix}] Exiting consumer context manager")
 
         if self.connection:
+            # Process any pending ACK/NACK callbacks while heartbeat thread keeps connection alive
             self.connection.process_data_events(time_limit=60)
             AbstraLogger.warning(f"[{self.logger_prefix}] Data events processed")
+
+            self._stop_heartbeat_thread()
 
             if self.connection.is_open:
                 AbstraLogger.warning(f"[{self.logger_prefix}] Cancelling channel")
@@ -286,6 +339,8 @@ class RabbitMQConsumer(Consumer):
                 self.channel.close()
                 AbstraLogger.warning(f"[{self.logger_prefix}] Closing connection")
                 self.connection.close()
+        else:
+            self._stop_heartbeat_thread()
 
         return False
 
@@ -363,12 +418,19 @@ class RabbitMQFanoutConsumer(Consumer):
     RabbitMQ consumer that subscribes to a fanout exchange.
     Creates an exclusive queue that is automatically deleted when the consumer disconnects.
     Used for broadcast messages like control signals that need to reach all workers.
+
+    Includes a background heartbeat thread to keep the connection alive during
+    periods when the main consume loop is not running (e.g., during graceful shutdown).
     """
 
     channel: BlockingChannel
     connection: Optional[BlockingConnection]
     conn_uri: str
     queue_name: Optional[str]  # Auto-generated exclusive queue name
+    _heartbeat_thread: Optional[Thread]
+    _heartbeat_stop_evt: Event
+
+    HEARTBEAT_INTERVAL_SECONDS = 10
 
     def __init__(
         self,
@@ -384,8 +446,11 @@ class RabbitMQFanoutConsumer(Consumer):
         self.connection_factory = connection_factory
         self.queue_name = None
         self.connection = None
+        self._heartbeat_thread = None
+        self._heartbeat_stop_evt = Event()
 
         self._connect()
+        self._start_heartbeat_thread()
 
     def _connect(self):
         """
@@ -407,6 +472,7 @@ class RabbitMQFanoutConsumer(Consumer):
         params.connection_attempts = 1
         params.socket_timeout = RABBITMQ_CONNECTION_TIMEOUT_SECONDS
         params.blocked_connection_timeout = RABBITMQ_CONNECTION_TIMEOUT_SECONDS
+        params.heartbeat = 30  # Explicit heartbeat to ensure connection stays alive
 
         delay = RABBITMQ_RETRY_INITIAL_DELAY_SECONDS
         last_exception = None
@@ -451,6 +517,44 @@ class RabbitMQFanoutConsumer(Consumer):
                     )
 
         raise last_exception or AMQPConnectionError("Failed to connect to RabbitMQ")
+
+    def _start_heartbeat_thread(self) -> None:
+        """
+        Start a background thread that periodically processes RabbitMQ data events.
+        This keeps the connection alive during periods when the main consume loop
+        is not running (e.g., during graceful shutdown while waiting for executions).
+        """
+        if self._heartbeat_thread and self._heartbeat_thread.is_alive():
+            return
+
+        def heartbeat_loop():
+            while not self._heartbeat_stop_evt.is_set():
+                try:
+                    if self.connection and self.connection.is_open:
+                        self.connection.process_data_events(time_limit=0)
+                except Exception as e:
+                    AbstraLogger.debug(
+                        f"[{self.logger_prefix}] Heartbeat thread error: {e}"
+                    )
+                for _ in range(self.HEARTBEAT_INTERVAL_SECONDS):
+                    if self._heartbeat_stop_evt.is_set():
+                        break
+                    time.sleep(1)
+
+        self._heartbeat_thread = Thread(
+            target=heartbeat_loop,
+            daemon=True,
+            name=f"{self.logger_prefix}-Heartbeat",
+        )
+        self._heartbeat_thread.start()
+        AbstraLogger.debug(f"[{self.logger_prefix}] Heartbeat thread started")
+
+    def _stop_heartbeat_thread(self) -> None:
+        """Stop the heartbeat thread gracefully."""
+        self._heartbeat_stop_evt.set()
+        if self._heartbeat_thread and self._heartbeat_thread.is_alive():
+            self._heartbeat_thread.join(timeout=2.0)
+            AbstraLogger.debug(f"[{self.logger_prefix}] Heartbeat thread stopped")
 
     def threadsafe_ack(self, msg: Union[QueueMessage, ControlQueueMessage]):
         if not self.connection:
@@ -575,12 +679,17 @@ class RabbitMQFanoutConsumer(Consumer):
         AbstraLogger.debug(f"[{self.logger_prefix}] Exiting consumer context manager")
 
         if self.connection:
+            # Process any pending ACK/NACK callbacks while heartbeat thread keeps connection alive
             self.connection.process_data_events(time_limit=60)
+
+            self._stop_heartbeat_thread()
 
             if self.connection.is_open:
                 self.channel.cancel()
                 self.channel.close()
                 self.connection.close()
+        else:
+            self._stop_heartbeat_thread()
 
         return False
 

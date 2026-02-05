@@ -5,9 +5,10 @@ import logging
 from typing import Optional
 
 from pyrit.common.net_utility import make_request_and_raise_if_error_async
+from pyrit.identifiers import TargetIdentifier
 from pyrit.models import Message, construct_response_from_request
-from pyrit.prompt_target import PromptTarget, limit_requests_per_minute
-from pyrit.prompt_target.common.utils import validate_temperature, validate_top_p
+from pyrit.prompt_target.common.prompt_target import PromptTarget
+from pyrit.prompt_target.common.utils import limit_requests_per_minute, validate_temperature, validate_top_p
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class HuggingFaceEndpointTarget(PromptTarget):
         verbose: bool = False,
     ) -> None:
         """
-        Initializes the HuggingFaceEndpointTarget with API credentials and model parameters.
+        Initialize the HuggingFaceEndpointTarget with API credentials and model parameters.
 
         Args:
             hf_token (str): The Hugging Face token for authenticating with the Hugging Face endpoint.
@@ -45,7 +46,10 @@ class HuggingFaceEndpointTarget(PromptTarget):
             verbose (bool, Optional): Flag to enable verbose logging. Defaults to False.
         """
         super().__init__(
-            max_requests_per_minute=max_requests_per_minute, verbose=verbose, endpoint=endpoint, model_name=model_id
+            max_requests_per_minute=max_requests_per_minute,
+            verbose=verbose,
+            endpoint=endpoint,
+            model_name=model_id,
         )
 
         validate_temperature(temperature)
@@ -55,13 +59,28 @@ class HuggingFaceEndpointTarget(PromptTarget):
         self.endpoint = endpoint
         self.model_id = model_id
         self.max_tokens = max_tokens
-        self.temperature = temperature
-        self.top_p = top_p
+        self._temperature = temperature
+        self._top_p = top_p
+
+    def _build_identifier(self) -> TargetIdentifier:
+        """
+        Build the identifier with HuggingFace endpoint-specific parameters.
+
+        Returns:
+            TargetIdentifier: The identifier for this target instance.
+        """
+        return self._create_identifier(
+            temperature=self._temperature,
+            top_p=self._top_p,
+            target_specific_params={
+                "max_tokens": self.max_tokens,
+            },
+        )
 
     @limit_requests_per_minute
     async def send_prompt_async(self, *, message: Message) -> list[Message]:
         """
-        Sends a normalized prompt asynchronously to a cloud-based HuggingFace model endpoint.
+        Send a normalized prompt asynchronously to a cloud-based HuggingFace model endpoint.
 
         Args:
             message (Message): The message containing the input data and associated details
@@ -81,8 +100,8 @@ class HuggingFaceEndpointTarget(PromptTarget):
             "inputs": request.converted_value,
             "parameters": {
                 "max_tokens": self.max_tokens,
-                "temperature": self.temperature,
-                "top_p": self.top_p,
+                "temperature": self._temperature,
+                "top_p": self._top_p,
             },
         }
 
@@ -120,7 +139,7 @@ class HuggingFaceEndpointTarget(PromptTarget):
 
     def _validate_request(self, *, message: Message) -> None:
         """
-        Validates the provided message.
+        Validate the provided message.
 
         Args:
             message (Message): The message to validate.
@@ -137,5 +156,10 @@ class HuggingFaceEndpointTarget(PromptTarget):
             raise ValueError(f"This target only supports text prompt input. Received: {piece_type}.")
 
     def is_json_response_supported(self) -> bool:
-        """Indicates that this target supports JSON response format."""
+        """
+        Check if the target supports JSON as a response format.
+
+        Returns:
+            bool: True if JSON response is supported, False otherwise.
+        """
         return False

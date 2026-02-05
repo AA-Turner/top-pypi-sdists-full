@@ -701,7 +701,8 @@ CompressionOptions: TypeAlias = (
 FormattersType: TypeAlias = (
     list[Callable[..., Any]]
     | tuple[Callable[..., Any], ...]
-    | Mapping[str | int, Callable[..., Any]]
+    | Mapping[str, Callable[..., Any]]
+    | Mapping[int, Callable[..., Any]]
 )
 # ColspaceType = Mapping[Hashable, Union[str, int]] not used in stubs
 FloatFormatType: TypeAlias = str | Callable[[float], str] | EngFormatter
@@ -824,7 +825,9 @@ ReindexMethod: TypeAlias = FillnaOptions | Literal["nearest"]
 TimeGrouperOrigin: TypeAlias = (
     Timestamp | Literal["epoch", "start", "start_day", "end", "end_day"]
 )
-TimeAmbiguous: TypeAlias = Literal["infer", "NaT", "raise"] | npt.NDArray[np.bool_]
+TimeAmbiguous: TypeAlias = (
+    Literal["infer", "NaT", "raise"] | bool | npt.NDArray[np.bool_]
+)
 # Note this is same as TimestampNonexistent - defined both ways in pandas
 TimeNonexistent: TypeAlias = (
     Literal["shift_forward", "shift_backward", "NaT", "raise"]
@@ -932,10 +935,7 @@ GenericT_contra = TypeVar(
     "GenericT_contra", bound=np.generic, default=Any, contravariant=True
 )
 NpNumT = TypeVar("NpNumT", bound=np_num, default=np_num)
-if sys.version_info >= (3, 11):
-    ShapeT = TypeVar("ShapeT", bound=tuple[int, ...], default=tuple[Any, ...])
-else:
-    ShapeT = TypeVar("ShapeT", bound=tuple[int, ...], default=tuple[int, ...])
+ShapeT = TypeVar("ShapeT", bound=tuple[int, ...], default=tuple[Any, ...])
 # Numpy ndarray with more ergonomic typevar
 np_ndarray: TypeAlias = np.ndarray[ShapeT, np.dtype[GenericT]]
 np_ndarray_intp: TypeAlias = np_ndarray[ShapeT, np.intp]
@@ -960,6 +960,7 @@ np_1darray_object: TypeAlias = np_1darray[np.object_]
 np_1darray_bool: TypeAlias = np_1darray[np.bool]
 np_1darray_intp: TypeAlias = np_1darray[np.intp]
 np_1darray_int8: TypeAlias = np_1darray[np.int8]
+np_1darray_int32: TypeAlias = np_1darray[np.int32]
 np_1darray_int64: TypeAlias = np_1darray[np.int64]
 np_1darray_anyint: TypeAlias = np_1darray[np.integer]
 np_1darray_float: TypeAlias = np_1darray[np.floating]
@@ -967,11 +968,7 @@ np_1darray_dt: TypeAlias = np_1darray[np.datetime64]
 np_1darray_td: TypeAlias = np_1darray[np.timedelta64]
 np_2darray: TypeAlias = np.ndarray[tuple[int, int], np.dtype[GenericT]]
 
-if sys.version_info >= (3, 11):
-    NDArrayT = TypeVar("NDArrayT", bound=np.ndarray)
-else:
-    NDArrayT = TypeVar("NDArrayT", bound=np.ndarray[Any, Any])
-
+NDArrayT = TypeVar("NDArrayT", bound=np.ndarray)
 DtypeNp = TypeVar("DtypeNp", bound=np.dtype[np.generic])
 KeysArgType: TypeAlias = Any
 ListLikeT = TypeVar("ListLikeT", bound=ListLike)

@@ -11,7 +11,7 @@ from ._shared_client import get_shared_client
 def MedlinePlus_search_topics_by_keyword(
     term: str,
     db: str,
-    rettype: str,
+    rettype: Optional[str] = "topic",
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,

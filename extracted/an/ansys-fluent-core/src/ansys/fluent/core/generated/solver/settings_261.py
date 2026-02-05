@@ -13,7 +13,7 @@ from ansys.fluent.core.solver.flobject import (
     _FlStringConstant,
 )
 
-SHASH = "53cc5a59ea9afaaec2a8cacf803c3d0e1eb68287107a998384fc5383b7f4f903"
+SHASH = "9bf2d8202a6231ae7e9ce836e8908ec4cb177b940537d4fda3baab72b268ef87"
 
 class single_precision_coordinates(Boolean):
     """
@@ -8945,6 +8945,30 @@ class gran_visc_udf(String, AllowedValuesMixin):
     fluent_name = 'gran-visc-udf'
     _python_name = 'gran_visc_udf'
 
+class gran_bulk_visc(String, AllowedValuesMixin):
+    """
+    Granular bulk viscosity.
+    """
+    _version = '261'
+    fluent_name = 'gran-bulk-visc'
+    _python_name = 'gran_bulk_visc'
+
+class gran_bulk_visc_constant(Real):
+    """
+    Granular bulk viscosity constant.
+    """
+    _version = '261'
+    fluent_name = 'gran-bulk-visc-constant'
+    _python_name = 'gran_bulk_visc_constant'
+
+class gran_bulk_visc_udf(String, AllowedValuesMixin):
+    """
+    Granular bulk viscosity UDF.
+    """
+    _version = '261'
+    fluent_name = 'gran-bulk-visc-udf'
+    _python_name = 'gran_bulk_visc_udf'
+
 class sol_press(String, AllowedValuesMixin):
     """
     Solids pressure.
@@ -8984,6 +9008,30 @@ class gran_temp_udf(String, AllowedValuesMixin):
     _version = '261'
     fluent_name = 'gran-temp-udf'
     _python_name = 'gran_temp_udf'
+
+class frictional_visc(String, AllowedValuesMixin):
+    """
+    Frictional viscosity.
+    """
+    _version = '261'
+    fluent_name = 'frictional-visc'
+    _python_name = 'frictional_visc'
+
+class frictional_visc_constant(Real):
+    """
+    Frictional viscosity constant.
+    """
+    _version = '261'
+    fluent_name = 'frictional-visc-constant'
+    _python_name = 'frictional_visc_constant'
+
+class frictional_visc_udf(String, AllowedValuesMixin):
+    """
+    Frictional viscosity UDF.
+    """
+    _version = '261'
+    fluent_name = 'frictional-visc-udf'
+    _python_name = 'frictional_visc_udf'
 
 class packing(String, AllowedValuesMixin):
     """
@@ -9048,16 +9096,22 @@ class granular_props(Group):
     _version = '261'
     fluent_name = 'granular-props'
     _python_name = 'granular_props'
-    child_names = ['gran_visc', 'gran_visc_constant', 'gran_visc_udf', 'sol_press', 'sol_press_udf', 'gran_temp', 'gran_temp_constant', 'gran_temp_udf', 'packing', 'packing_constant', 'packing_udf', 'rad_dist', 'rad_dist_udf', 'el_mod', 'el_mod_udf']
+    child_names = ['gran_visc', 'gran_visc_constant', 'gran_visc_udf', 'gran_bulk_visc', 'gran_bulk_visc_constant', 'gran_bulk_visc_udf', 'sol_press', 'sol_press_udf', 'gran_temp', 'gran_temp_constant', 'gran_temp_udf', 'frictional_visc', 'frictional_visc_constant', 'frictional_visc_udf', 'packing', 'packing_constant', 'packing_udf', 'rad_dist', 'rad_dist_udf', 'el_mod', 'el_mod_udf']
     _child_classes = dict(
         gran_visc=gran_visc,
         gran_visc_constant=gran_visc_constant,
         gran_visc_udf=gran_visc_udf,
+        gran_bulk_visc=gran_bulk_visc,
+        gran_bulk_visc_constant=gran_bulk_visc_constant,
+        gran_bulk_visc_udf=gran_bulk_visc_udf,
         sol_press=sol_press,
         sol_press_udf=sol_press_udf,
         gran_temp=gran_temp,
         gran_temp_constant=gran_temp_constant,
         gran_temp_udf=gran_temp_udf,
+        frictional_visc=frictional_visc,
+        frictional_visc_constant=frictional_visc_constant,
+        frictional_visc_udf=frictional_visc_udf,
         packing=packing,
         packing_constant=packing_constant,
         packing_udf=packing_udf,
@@ -10844,13 +10898,13 @@ class mt_evap_cond_sat_prop(Group):
         mt_evap_cond_sat_press_rgp_data_set=mt_evap_cond_sat_press_rgp_data_set,
     )
 
-class mt_evap_cond_wall_boiling(Boolean):
+class mt_evap_cond_sbm_boiling(Boolean):
     """
     Semi-mechanistic wall-boiling model for mixture model.
     """
     _version = '261'
-    fluent_name = 'mt-evap-cond-wall-boiling'
-    _python_name = 'mt_evap_cond_wall_boiling'
+    fluent_name = 'mt-evap-cond-sbm-boiling'
+    _python_name = 'mt_evap_cond_sbm_boiling'
 
 class sbm_bulk_temp(Real):
     """
@@ -11292,13 +11346,13 @@ class mt_evap_cond_group(Group):
     _version = '261'
     fluent_name = 'mt-evap-cond-group'
     _python_name = 'mt_evap_cond_group'
-    child_names = ['mt_evap_cond_model', 'mt_evap_cond_wall_evap_cond', 'mt_evap_cond_model_coeff', 'mt_evap_cond_sat_prop', 'mt_evap_cond_wall_boiling', 'mt_evap_cond_boiling_par', 'mt_evap_cond_boil_adv_settings_on', 'mt_evap_cond_sbm_boil_method', 'mt_evap_cond_sbm_power_coeff', 'mt_evap_cond_sbm_sphf_par', 'mt_evap_cond_sbm_ref_quant', 'mt_evap_cond_sbm_nuchf_par', 'mt_evap_cond_sbm_boil_model_exp_opt']
+    child_names = ['mt_evap_cond_model', 'mt_evap_cond_wall_evap_cond', 'mt_evap_cond_model_coeff', 'mt_evap_cond_sat_prop', 'mt_evap_cond_sbm_boiling', 'mt_evap_cond_boiling_par', 'mt_evap_cond_boil_adv_settings_on', 'mt_evap_cond_sbm_boil_method', 'mt_evap_cond_sbm_power_coeff', 'mt_evap_cond_sbm_sphf_par', 'mt_evap_cond_sbm_ref_quant', 'mt_evap_cond_sbm_nuchf_par', 'mt_evap_cond_sbm_boil_model_exp_opt']
     _child_classes = dict(
         mt_evap_cond_model=mt_evap_cond_model,
         mt_evap_cond_wall_evap_cond=mt_evap_cond_wall_evap_cond,
         mt_evap_cond_model_coeff=mt_evap_cond_model_coeff,
         mt_evap_cond_sat_prop=mt_evap_cond_sat_prop,
-        mt_evap_cond_wall_boiling=mt_evap_cond_wall_boiling,
+        mt_evap_cond_sbm_boiling=mt_evap_cond_sbm_boiling,
         mt_evap_cond_boiling_par=mt_evap_cond_boiling_par,
         mt_evap_cond_boil_adv_settings_on=mt_evap_cond_boil_adv_settings_on,
         mt_evap_cond_sbm_boil_method=mt_evap_cond_sbm_boil_method,
@@ -11321,13 +11375,13 @@ class mt_species_model_options(String, AllowedValuesMixin):
     EQUILIBRIUM_RATIO = _FlStringConstant('Equilibrium Ratio')
     _allowed_values = ["Raoult's Law", "Henry's Law", 'Equilibrium Ratio']
 
-class mt_species_raoul_sat_press(String, AllowedValuesMixin):
+class mt_species_raoult_sat_press(String, AllowedValuesMixin):
     """
     Raoult's Law saturation pressure.
     """
     _version = '261'
-    fluent_name = 'mt-species-raoul-sat-press'
-    _python_name = 'mt_species_raoul_sat_press'
+    fluent_name = 'mt-species-raoult-sat-press'
+    _python_name = 'mt_species_raoult_sat_press'
     CONSTANT = _FlStringConstant('constant')
     RGP_TABLE_SAT = _FlStringConstant('rgp-table-sat')
     POLYNOMIAL = _FlStringConstant('polynomial')
@@ -11336,29 +11390,29 @@ class mt_species_raoul_sat_press(String, AllowedValuesMixin):
     USER_DEFINED = _FlStringConstant('user-defined')
     _allowed_values = ['constant', 'rgp-table-sat', 'polynomial', 'piecewise-polynomial', 'piecewise-linear', 'user-defined']
 
-class mt_species_raoul_sat_press_constant(Real):
+class mt_species_raoult_sat_press_constant(Real):
     """
     Constant sat pressure species mass transfer.
     """
     _version = '261'
-    fluent_name = 'mt-species-raoul-sat-press-constant'
-    _python_name = 'mt_species_raoul_sat_press_constant'
+    fluent_name = 'mt-species-raoult-sat-press-constant'
+    _python_name = 'mt_species_raoult_sat_press_constant'
 
-class mt_species_raoul_sat_press_udf(String, AllowedValuesMixin):
+class mt_species_raoult_sat_press_udf(String, AllowedValuesMixin):
     """
     Constant sat pressure species mass transfer.
     """
     _version = '261'
-    fluent_name = 'mt-species-raoul-sat-press-udf'
-    _python_name = 'mt_species_raoul_sat_press_udf'
+    fluent_name = 'mt-species-raoult-sat-press-udf'
+    _python_name = 'mt_species_raoult_sat_press_udf'
 
-class mt_species_raoul_sat_press_polynomial(Group):
+class mt_species_raoult_sat_press_polynomial(Group):
     """
     Polynomial sat pressure species mass transfer.
     """
     _version = '261'
-    fluent_name = 'mt-species-raoul-sat-press-polynomial'
-    _python_name = 'mt_species_raoul_sat_press_polynomial'
+    fluent_name = 'mt-species-raoult-sat-press-polynomial'
+    _python_name = 'mt_species_raoult_sat_press_polynomial'
     child_names = ['function_of', 'coefficients']
     _child_classes = dict(
         function_of=function_of,
@@ -11366,13 +11420,13 @@ class mt_species_raoul_sat_press_polynomial(Group):
     )
     _has_migration_adapter = True
 
-class mt_species_raoul_sat_press_piecewise_polynomial(Group):
+class mt_species_raoult_sat_press_piecewise_polynomial(Group):
     """
     Piecewise-polynomial sat-pressure species mass transfer.
     """
     _version = '261'
-    fluent_name = 'mt-species-raoul-sat-press-piecewise-polynomial'
-    _python_name = 'mt_species_raoul_sat_press_piecewise_polynomial'
+    fluent_name = 'mt-species-raoult-sat-press-piecewise-polynomial'
+    _python_name = 'mt_species_raoult_sat_press_piecewise_polynomial'
     child_names = ['function_of', 'range']
     _child_classes = dict(
         function_of=function_of,
@@ -11380,13 +11434,13 @@ class mt_species_raoul_sat_press_piecewise_polynomial(Group):
     )
     _has_migration_adapter = True
 
-class mt_species_raoul_sat_press_piecewise_linear(Group):
+class mt_species_raoult_sat_press_piecewise_linear(Group):
     """
     Piecewise-linear sat pressure species mass transfer.
     """
     _version = '261'
-    fluent_name = 'mt-species-raoul-sat-press-piecewise-linear'
-    _python_name = 'mt_species_raoul_sat_press_piecewise_linear'
+    fluent_name = 'mt-species-raoult-sat-press-piecewise-linear'
+    _python_name = 'mt_species_raoult_sat_press_piecewise_linear'
     child_names = ['function_of', 'data_points']
     _child_classes = dict(
         function_of=function_of_1,
@@ -11394,13 +11448,13 @@ class mt_species_raoul_sat_press_piecewise_linear(Group):
     )
     _has_migration_adapter = True
 
-class mt_species_raoul_sat_press_rgp_data_set(String, AllowedValuesMixin):
+class mt_species_raoult_sat_press_rgp_data_set(String, AllowedValuesMixin):
     """
     RGP table columns.
     """
     _version = '261'
-    fluent_name = 'mt-species-raoul-sat-press-rgp-data-set'
-    _python_name = 'mt_species_raoul_sat_press_rgp_data_set'
+    fluent_name = 'mt-species-raoult-sat-press-rgp-data-set'
+    _python_name = 'mt_species_raoult_sat_press_rgp_data_set'
 
 class mt_species_henry_options(String, AllowedValuesMixin):
     """
@@ -11677,15 +11731,15 @@ class mt_species_model_parameters(Group):
     _version = '261'
     fluent_name = 'mt-species-model-parameters'
     _python_name = 'mt_species_model_parameters'
-    child_names = ['mt_species_raoul_sat_press', 'mt_species_raoul_sat_press_constant', 'mt_species_raoul_sat_press_udf', 'mt_species_raoul_sat_press_polynomial', 'mt_species_raoul_sat_press_piecewise_polynomial', 'mt_species_raoul_sat_press_piecewise_linear', 'mt_species_raoul_sat_press_rgp_data_set', 'mt_species_henry_options', 'mt_species_henry_molar_frac_corr', 'mt_species_henry_molar_frac_corr_constant', 'mt_species_henry_molar_frac_corr_udf', 'mt_species_henry_molar_frac_corr_vant_h0', 'mt_species_henry_molar_frac_corr_vant_h0_constant', 'mt_species_henry_molar_frac_corr_vant_h0_udf', 'mt_species_henry_molar_frac_corr_vant_h1', 'mt_species_henry_molar_frac_corr_vant_h1_constant', 'mt_species_henry_molar_frac_corr_vant_h1_udf', 'mt_species_henry_molar_conc_corr', 'mt_species_henry_molar_conc_corr_constant', 'mt_species_henry_molar_conc_corr_udf', 'mt_species_henry_molar_conc_corr_vant_h0', 'mt_species_henry_molar_conc_corr_vant_h0_constant', 'mt_species_henry_molar_conc_corr_vant_h0_udf', 'mt_species_henry_molar_conc_corr_vant_h1', 'mt_species_henry_molar_conc_corr_vant_h1_constant', 'mt_species_henry_molar_conc_corr_vant_h1_udf', 'mt_species_eq_ratio_options', 'mt_species_eq_ratio_molar_frac_corr', 'mt_species_eq_ratio_molar_frac_corr_constant', 'mt_species_eq_ratio_molar_frac_corr_udf', 'mt_species_eq_ratio_molar_conc_corr', 'mt_species_eq_ratio_molar_conc_corr_constant', 'mt_species_eq_ratio_molar_conc_corr_udf', 'mt_species_eq_ratio_mass_frac_corr', 'mt_species_eq_ratio_mass_frac_corr_constant', 'mt_species_eq_ratio_mass_frac_corr_udf']
+    child_names = ['mt_species_raoult_sat_press', 'mt_species_raoult_sat_press_constant', 'mt_species_raoult_sat_press_udf', 'mt_species_raoult_sat_press_polynomial', 'mt_species_raoult_sat_press_piecewise_polynomial', 'mt_species_raoult_sat_press_piecewise_linear', 'mt_species_raoult_sat_press_rgp_data_set', 'mt_species_henry_options', 'mt_species_henry_molar_frac_corr', 'mt_species_henry_molar_frac_corr_constant', 'mt_species_henry_molar_frac_corr_udf', 'mt_species_henry_molar_frac_corr_vant_h0', 'mt_species_henry_molar_frac_corr_vant_h0_constant', 'mt_species_henry_molar_frac_corr_vant_h0_udf', 'mt_species_henry_molar_frac_corr_vant_h1', 'mt_species_henry_molar_frac_corr_vant_h1_constant', 'mt_species_henry_molar_frac_corr_vant_h1_udf', 'mt_species_henry_molar_conc_corr', 'mt_species_henry_molar_conc_corr_constant', 'mt_species_henry_molar_conc_corr_udf', 'mt_species_henry_molar_conc_corr_vant_h0', 'mt_species_henry_molar_conc_corr_vant_h0_constant', 'mt_species_henry_molar_conc_corr_vant_h0_udf', 'mt_species_henry_molar_conc_corr_vant_h1', 'mt_species_henry_molar_conc_corr_vant_h1_constant', 'mt_species_henry_molar_conc_corr_vant_h1_udf', 'mt_species_eq_ratio_options', 'mt_species_eq_ratio_molar_frac_corr', 'mt_species_eq_ratio_molar_frac_corr_constant', 'mt_species_eq_ratio_molar_frac_corr_udf', 'mt_species_eq_ratio_molar_conc_corr', 'mt_species_eq_ratio_molar_conc_corr_constant', 'mt_species_eq_ratio_molar_conc_corr_udf', 'mt_species_eq_ratio_mass_frac_corr', 'mt_species_eq_ratio_mass_frac_corr_constant', 'mt_species_eq_ratio_mass_frac_corr_udf']
     _child_classes = dict(
-        mt_species_raoul_sat_press=mt_species_raoul_sat_press,
-        mt_species_raoul_sat_press_constant=mt_species_raoul_sat_press_constant,
-        mt_species_raoul_sat_press_udf=mt_species_raoul_sat_press_udf,
-        mt_species_raoul_sat_press_polynomial=mt_species_raoul_sat_press_polynomial,
-        mt_species_raoul_sat_press_piecewise_polynomial=mt_species_raoul_sat_press_piecewise_polynomial,
-        mt_species_raoul_sat_press_piecewise_linear=mt_species_raoul_sat_press_piecewise_linear,
-        mt_species_raoul_sat_press_rgp_data_set=mt_species_raoul_sat_press_rgp_data_set,
+        mt_species_raoult_sat_press=mt_species_raoult_sat_press,
+        mt_species_raoult_sat_press_constant=mt_species_raoult_sat_press_constant,
+        mt_species_raoult_sat_press_udf=mt_species_raoult_sat_press_udf,
+        mt_species_raoult_sat_press_polynomial=mt_species_raoult_sat_press_polynomial,
+        mt_species_raoult_sat_press_piecewise_polynomial=mt_species_raoult_sat_press_piecewise_polynomial,
+        mt_species_raoult_sat_press_piecewise_linear=mt_species_raoult_sat_press_piecewise_linear,
+        mt_species_raoult_sat_press_rgp_data_set=mt_species_raoult_sat_press_rgp_data_set,
         mt_species_henry_options=mt_species_henry_options,
         mt_species_henry_molar_frac_corr=mt_species_henry_molar_frac_corr,
         mt_species_henry_molar_frac_corr_constant=mt_species_henry_molar_frac_corr_constant,
@@ -19951,6 +20005,14 @@ class randomize_every_timestep(Boolean):
     fluent_name = 'randomize-every-timestep?'
     _python_name = 'randomize_every_timestep'
 
+class immediate_tracking_of_spawned_particles_enabled(Boolean):
+    """
+    Specifies whether newly spawned particles are to be tracked already in the same time step / DPM iteration that they are spawned in.
+    """
+    _version = '261'
+    fluent_name = 'immediate-tracking-of-spawned-particles-enabled?'
+    _python_name = 'immediate_tracking_of_spawned_particles_enabled'
+
 class advanced(Group):
     """
     Menu containing not frequently used (expert level) settings.
@@ -19958,13 +20020,14 @@ class advanced(Group):
     _version = '261'
     fluent_name = 'advanced'
     _python_name = 'advanced'
-    child_names = ['reference_frame', 'tracking_statistics_format', 'verbosity', 'randomize_every_iteration', 'randomize_every_timestep']
+    child_names = ['reference_frame', 'tracking_statistics_format', 'verbosity', 'randomize_every_iteration', 'randomize_every_timestep', 'immediate_tracking_of_spawned_particles_enabled']
     _child_classes = dict(
         reference_frame=reference_frame,
         tracking_statistics_format=tracking_statistics_format,
         verbosity=verbosity_2,
         randomize_every_iteration=randomize_every_iteration,
         randomize_every_timestep=randomize_every_timestep,
+        immediate_tracking_of_spawned_particles_enabled=immediate_tracking_of_spawned_particles_enabled,
     )
 
 class tracking(Group):
@@ -22300,6 +22363,14 @@ class cunningham_factor(Real, AllowedValuesMixin):
     fluent_name = 'cunningham-factor'
     _python_name = 'cunningham_factor'
 
+class brownian_motion_enabled(Boolean, AllowedValuesMixin):
+    """
+    Enable brownian motion?.
+    """
+    _version = '261'
+    fluent_name = 'brownian-motion-enabled?'
+    _python_name = 'brownian_motion_enabled'
+
 class particle_drag(Group):
     """
     Lagrangian drag model settings.
@@ -22307,11 +22378,12 @@ class particle_drag(Group):
     _version = '261'
     fluent_name = 'particle-drag'
     _python_name = 'particle_drag'
-    child_names = ['option', 'shape_factor', 'cunningham_factor']
+    child_names = ['option', 'shape_factor', 'cunningham_factor', 'brownian_motion_enabled']
     _child_classes = dict(
         option=option_33,
         shape_factor=shape_factor,
         cunningham_factor=cunningham_factor,
+        brownian_motion_enabled=brownian_motion_enabled,
     )
 
 class enabled_19(Boolean, AllowedValuesMixin):
@@ -65932,6 +66004,14 @@ class zone2(String):
     fluent_name = 'zone2'
     _python_name = 'zone2'
 
+class area_1(Real):
+    """
+    Area of this mesh interface.
+    """
+    _version = '261'
+    fluent_name = 'area'
+    _python_name = 'area'
+
 class area_percentage1(Real):
     """
     Side-1 area percentage of this mesh-interface.
@@ -65963,7 +66043,7 @@ class interface_3_child(Group):
     _version = '261'
     fluent_name = 'child-object-type'
     _python_name = 'interface_child'
-    child_names = ['name', 'zone1', 'zone2', 'zone1_list', 'zone2_list', 'mapped', 'enable_local_mapped_tolerance', 'use_local_edge_length_factor', 'local_relative_mapped_tolerance', 'local_absolute_mapped_tolerance', 'periodic', 'coupled', 'matching', 'static', 'area_percentage1', 'area_percentage2']
+    child_names = ['name', 'zone1', 'zone2', 'zone1_list', 'zone2_list', 'mapped', 'enable_local_mapped_tolerance', 'use_local_edge_length_factor', 'local_relative_mapped_tolerance', 'local_absolute_mapped_tolerance', 'periodic', 'coupled', 'matching', 'static', 'area', 'area_percentage1', 'area_percentage2']
     command_names = ['display', 'display_with_parents']
     _child_classes = dict(
         name=name_24,
@@ -65980,6 +66060,7 @@ class interface_3_child(Group):
         coupled=coupled_1,
         matching=matching,
         static=static_1,
+        area=area_1,
         area_percentage1=area_percentage1,
         area_percentage2=area_percentage2,
         display=display_5,
@@ -66685,6 +66766,114 @@ class non_conformal_interface_numerics(Group):
         change_numerics=change_numerics,
     )
 
+class pair_all(Boolean):
+    """
+    Automatic pairing of all unintersected interface zones?.
+    """
+    _version = '261'
+    fluent_name = 'pair-all?'
+    _python_name = 'pair_all'
+
+class one_to_one_pairs(Boolean):
+    """
+    Create one-to-one pairs only?.
+    """
+    _version = '261'
+    fluent_name = 'one-to-one-pairs?'
+    _python_name = 'one_to_one_pairs'
+
+class interface_zones_1(StringList, AllowedValuesMixin):
+    """
+    Unintersected interface zones for pairing.
+    """
+    _version = '261'
+    fluent_name = 'interface-zones'
+    _python_name = 'interface_zones'
+
+class create_11(Boolean):
+    """
+    Create mesh interfaces with all these pairs?.
+    """
+    _version = '261'
+    fluent_name = 'create?'
+    _python_name = 'create'
+
+class apply_mapped(Boolean):
+    """
+    Apply Mapped option at solids.
+    """
+    _version = '261'
+    fluent_name = 'apply-mapped?'
+    _python_name = 'apply_mapped'
+
+class static_interface(Boolean):
+    """
+    Static?.
+    """
+    _version = '261'
+    fluent_name = 'static-interface?'
+    _python_name = 'static_interface'
+
+class auto_create_1(Command):
+    """
+    Automatically pair and create mesh interfaces for some or all interface zones.
+    
+    Parameters
+    ----------
+        pair_all : bool
+            Automatic pairing of all unintersected interface zones?.
+        one_to_one_pairs : bool
+            Create one-to-one pairs only?.
+        interface_zones : List
+            Unintersected interface zones for pairing.
+        create : bool
+            Create mesh interfaces with all these pairs?.
+        name : str
+            The prefix for mesh interface names.
+        apply_mapped : bool
+            Apply Mapped option at solids.
+        static_interface : bool
+            Static?.
+    """
+    _version = '261'
+    fluent_name = 'auto-create'
+    _python_name = 'auto_create'
+    argument_names = ['pair_all', 'one_to_one_pairs', 'interface_zones', 'create', 'name', 'apply_mapped', 'static_interface']
+    _child_classes = dict(
+        pair_all=pair_all,
+        one_to_one_pairs=one_to_one_pairs,
+        interface_zones=interface_zones_1,
+        create=create_11,
+        name=name_24,
+        apply_mapped=apply_mapped,
+        static_interface=static_interface,
+    )
+
+class name_28(String, AllowedValuesMixin):
+    """
+    Mesh interface name to be deleted.
+    """
+    _version = '261'
+    fluent_name = 'name'
+    _python_name = 'name'
+
+class delete_2(CommandWithPositionalArgs):
+    """
+    Delete a mesh interface.
+    
+    Parameters
+    ----------
+        name : str
+            Mesh interface name to be deleted.
+    """
+    _version = '261'
+    fluent_name = 'delete'
+    _python_name = 'delete'
+    argument_names = ['name']
+    _child_classes = dict(
+        name=name_28,
+    )
+
 class si_name(String):
     """
     The name/prefix for the mesh interface.
@@ -66790,38 +66979,50 @@ class create_8(CommandWithPositionalArgs):
         ignore_area_difference=ignore_area_difference,
     )
 
-class name_28(String, AllowedValuesMixin):
+class zone_list_1(StringList, AllowedValuesMixin):
     """
-    Mesh interface name to be deleted.
+    The boundary zones belonging to the first group.
     """
     _version = '261'
-    fluent_name = 'name'
-    _python_name = 'name'
+    fluent_name = 'zone-list-1'
+    _python_name = 'zone_list_1'
 
-class delete_2(CommandWithPositionalArgs):
+class zone_list_2(StringList, AllowedValuesMixin):
     """
-    Delete a mesh interface.
+    The boundary zones belonging to the second group.
+    """
+    _version = '261'
+    fluent_name = 'zone-list-2'
+    _python_name = 'zone_list_2'
+
+class create_manually(Command):
+    """
+    Create one-to-one interfaces between two groups of boundary zones even if they do not currently overlap.
     
     Parameters
     ----------
         name : str
-            Mesh interface name to be deleted.
+            The prefix for mesh interface names.
+        zone_list_1 : List
+            The boundary zones belonging to the first group.
+        zone_list_2 : List
+            The boundary zones belonging to the second group.
+        matching : bool
+            Specifies whether mesh-interface is matching.
+        ignore_area_difference : bool
+            Check if user want to create poorly matched interface.
     """
     _version = '261'
-    fluent_name = 'delete'
-    _python_name = 'delete'
-    argument_names = ['name']
+    fluent_name = 'create-manually'
+    _python_name = 'create_manually'
+    argument_names = ['name', 'zone_list_1', 'zone_list_2', 'matching', 'ignore_area_difference']
     _child_classes = dict(
-        name=name_28,
+        name=name_24,
+        zone_list_1=zone_list_1,
+        zone_list_2=zone_list_2,
+        matching=matching,
+        ignore_area_difference=ignore_area_difference,
     )
-
-class list_2(Command):
-    """
-    List all mesh-interfaces.
-    """
-    _version = '261'
-    fluent_name = 'list'
-    _python_name = 'list'
 
 class delete_all(Command):
     """
@@ -66830,53 +67031,6 @@ class delete_all(Command):
     _version = '261'
     fluent_name = 'delete-all'
     _python_name = 'delete_all'
-
-class one_to_one_interface(Boolean):
-    """
-    Use the default one-to-one interface creation method?.
-    """
-    _version = '261'
-    fluent_name = 'one-to-one-interface'
-    _python_name = 'one_to_one_interface'
-
-class proceed(Boolean):
-    """
-    Would you like to proceed?.
-    """
-    _version = '261'
-    fluent_name = 'proceed?'
-    _python_name = 'proceed'
-
-class delete_empty(Boolean):
-    """
-    Delete empty interface interior zones from non-overlapping interfaces?.
-    """
-    _version = '261'
-    fluent_name = 'delete-empty?'
-    _python_name = 'delete_empty'
-
-class one_to_one_pairing(Command):
-    """
-    Use the default one-to-one interface creation method?.
-    
-    Parameters
-    ----------
-        one_to_one_interface : bool
-            Use the default one-to-one interface creation method?.
-        proceed : bool
-            Would you like to proceed?.
-        delete_empty : bool
-            Delete empty interface interior zones from non-overlapping interfaces?.
-    """
-    _version = '261'
-    fluent_name = 'one-to-one-pairing?'
-    _python_name = 'one_to_one_pairing'
-    argument_names = ['one_to_one_interface', 'proceed', 'delete_empty']
-    _child_classes = dict(
-        one_to_one_interface=one_to_one_interface,
-        proceed=proceed,
-        delete_empty=delete_empty,
-    )
 
 class delete_3(Boolean):
     """
@@ -66923,6 +67077,61 @@ class delete_interfaces_with_small_overlap(Command):
         delete=delete_3,
         overlapping_area_threshold=overlapping_area_threshold,
         overlapping_percentage_threshold=overlapping_percentage_threshold,
+    )
+
+class list_2(Command):
+    """
+    List all mesh-interfaces.
+    """
+    _version = '261'
+    fluent_name = 'list'
+    _python_name = 'list'
+
+class one_to_one_interface(Boolean):
+    """
+    Use the default one-to-one interface creation method?.
+    """
+    _version = '261'
+    fluent_name = 'one-to-one-interface'
+    _python_name = 'one_to_one_interface'
+
+class proceed(Boolean):
+    """
+    Would you like to proceed?.
+    """
+    _version = '261'
+    fluent_name = 'proceed?'
+    _python_name = 'proceed'
+
+class delete_empty(Boolean):
+    """
+    Delete empty interface interior zones from non-overlapping interfaces?.
+    """
+    _version = '261'
+    fluent_name = 'delete-empty?'
+    _python_name = 'delete_empty'
+
+class one_to_one_pairing(Command):
+    """
+    Use the default one-to-one interface creation method?.
+    
+    Parameters
+    ----------
+        one_to_one_interface : bool
+            Use the default one-to-one interface creation method?.
+        proceed : bool
+            Would you like to proceed?.
+        delete_empty : bool
+            Delete empty interface interior zones from non-overlapping interfaces?.
+    """
+    _version = '261'
+    fluent_name = 'one-to-one-pairing?'
+    _python_name = 'one_to_one_pairing'
+    argument_names = ['one_to_one_interface', 'proceed', 'delete_empty']
+    _child_classes = dict(
+        one_to_one_interface=one_to_one_interface,
+        proceed=proceed,
+        delete_empty=delete_empty,
     )
 
 class name_29(StringList, AllowedValuesMixin):
@@ -66984,134 +67193,6 @@ class turbo_interface_delete(Command):
     _child_classes = dict(
         delete_all_intf=delete_all_intf,
         name=name_30,
-    )
-
-class zone_list_1(StringList, AllowedValuesMixin):
-    """
-    The boundary zones belonging to the first group.
-    """
-    _version = '261'
-    fluent_name = 'zone-list-1'
-    _python_name = 'zone_list_1'
-
-class zone_list_2(StringList, AllowedValuesMixin):
-    """
-    The boundary zones belonging to the second group.
-    """
-    _version = '261'
-    fluent_name = 'zone-list-2'
-    _python_name = 'zone_list_2'
-
-class create_manually(Command):
-    """
-    Create one-to-one interfaces between two groups of boundary zones even if they do not currently overlap.
-    
-    Parameters
-    ----------
-        name : str
-            The prefix for mesh interface names.
-        zone_list_1 : List
-            The boundary zones belonging to the first group.
-        zone_list_2 : List
-            The boundary zones belonging to the second group.
-        matching : bool
-            Specifies whether mesh-interface is matching.
-        ignore_area_difference : bool
-            Check if user want to create poorly matched interface.
-    """
-    _version = '261'
-    fluent_name = 'create-manually'
-    _python_name = 'create_manually'
-    argument_names = ['name', 'zone_list_1', 'zone_list_2', 'matching', 'ignore_area_difference']
-    _child_classes = dict(
-        name=name_24,
-        zone_list_1=zone_list_1,
-        zone_list_2=zone_list_2,
-        matching=matching,
-        ignore_area_difference=ignore_area_difference,
-    )
-
-class pair_all(Boolean):
-    """
-    Automatic pairing of all unintersected interface zones?.
-    """
-    _version = '261'
-    fluent_name = 'pair-all?'
-    _python_name = 'pair_all'
-
-class one_to_one_pairs(Boolean):
-    """
-    Create one-to-one pairs only?.
-    """
-    _version = '261'
-    fluent_name = 'one-to-one-pairs?'
-    _python_name = 'one_to_one_pairs'
-
-class interface_zones_1(StringList, AllowedValuesMixin):
-    """
-    Unintersected interface zones for pairing.
-    """
-    _version = '261'
-    fluent_name = 'interface-zones'
-    _python_name = 'interface_zones'
-
-class create_11(Boolean):
-    """
-    Create mesh interfaces with all these pairs?.
-    """
-    _version = '261'
-    fluent_name = 'create?'
-    _python_name = 'create'
-
-class apply_mapped(Boolean):
-    """
-    Apply Mapped option at solids.
-    """
-    _version = '261'
-    fluent_name = 'apply-mapped?'
-    _python_name = 'apply_mapped'
-
-class static_interface(Boolean):
-    """
-    Static?.
-    """
-    _version = '261'
-    fluent_name = 'static-interface?'
-    _python_name = 'static_interface'
-
-class auto_create_1(Command):
-    """
-    Automatically pair and create mesh interfaces for some or all interface zones.
-    
-    Parameters
-    ----------
-        pair_all : bool
-            Automatic pairing of all unintersected interface zones?.
-        one_to_one_pairs : bool
-            Create one-to-one pairs only?.
-        interface_zones : List
-            Unintersected interface zones for pairing.
-        create : bool
-            Create mesh interfaces with all these pairs?.
-        name : str
-            The prefix for mesh interface names.
-        apply_mapped : bool
-            Apply Mapped option at solids.
-        static_interface : bool
-            Static?.
-    """
-    _version = '261'
-    fluent_name = 'auto-create'
-    _python_name = 'auto_create'
-    argument_names = ['pair_all', 'one_to_one_pairs', 'interface_zones', 'create', 'name', 'apply_mapped', 'static_interface']
-    _child_classes = dict(
-        pair_all=pair_all,
-        one_to_one_pairs=one_to_one_pairs,
-        interface_zones=interface_zones_1,
-        create=create_11,
-        name=name_24,
-        apply_mapped=apply_mapped,
-        static_interface=static_interface,
     )
 
 class check_mapped_interface_quality(Boolean):
@@ -67360,7 +67441,7 @@ class mesh_interfaces(Group):
     fluent_name = 'mesh-interfaces'
     _python_name = 'mesh_interfaces'
     child_names = ['interface', 'auto_options', 'turbo_interface', 'verbosity', 'enforce_continuity_after_bc', 'coupled_interfaces_inherit_bcs', 'enable_si_with_nodes', 'enforce_coupled_wall_between_solids', 'enable_visualization_of_interfaces', 'mapped_interface_options', 'non_conformal_interface_numerics']
-    command_names = ['create', 'delete', 'list', 'delete_all', 'display', 'one_to_one_pairing', 'delete_interfaces_with_small_overlap', 'turbo_interface_health_check', 'turbo_interface_delete', 'create_manually', 'auto_create', 'improve_quality', 'make_phaselag_from_boundaries', 'make_phaselag_from_periodic', 'transfer_motion_across_interfaces', 'remove_left_handed_interface_faces', 'non_overlapping_zone_name']
+    command_names = ['auto_create', 'delete', 'create', 'create_manually', 'delete_all', 'delete_interfaces_with_small_overlap', 'display', 'list', 'one_to_one_pairing', 'turbo_interface_health_check', 'turbo_interface_delete', 'improve_quality', 'make_phaselag_from_boundaries', 'make_phaselag_from_periodic', 'transfer_motion_across_interfaces', 'remove_left_handed_interface_faces', 'non_overlapping_zone_name']
     query_names = ['get_details']
     _child_classes = dict(
         interface=interface_3,
@@ -67374,17 +67455,17 @@ class mesh_interfaces(Group):
         enable_visualization_of_interfaces=enable_visualization_of_interfaces,
         mapped_interface_options=mapped_interface_options,
         non_conformal_interface_numerics=non_conformal_interface_numerics,
-        create=create_8,
+        auto_create=auto_create_1,
         delete=delete_2,
-        list=list_2,
+        create=create_8,
+        create_manually=create_manually,
         delete_all=delete_all,
-        display=display_6,
-        one_to_one_pairing=one_to_one_pairing,
         delete_interfaces_with_small_overlap=delete_interfaces_with_small_overlap,
+        display=display_6,
+        list=list_2,
+        one_to_one_pairing=one_to_one_pairing,
         turbo_interface_health_check=turbo_interface_health_check,
         turbo_interface_delete=turbo_interface_delete,
-        create_manually=create_manually,
-        auto_create=auto_create_1,
         improve_quality=improve_quality_1,
         make_phaselag_from_boundaries=make_phaselag_from_boundaries,
         make_phaselag_from_periodic=make_phaselag_from_periodic,
@@ -69611,7 +69692,7 @@ class dynamic_mesh(Group):
         mesh_motion=mesh_motion_2,
     )
 
-class area_1(Real):
+class area_2(Real):
     """
     Reference area for normalization.
     """
@@ -69802,7 +69883,7 @@ class reference_values(Group):
     child_names = ['area', 'depth', 'density', 'enthalpy', 'length', 'pressure', 'temperature', 'yplus', 'velocity', 'viscosity', 'ratio_of_specific_heats', 'zone', 'volume']
     command_names = ['compute', 'list_values']
     _child_classes = dict(
-        area=area_1,
+        area=area_2,
         depth=depth,
         density=density_9,
         enthalpy=enthalpy,
@@ -103144,7 +103225,7 @@ class current_domain(String, AllowedValuesMixin):
     fluent_name = 'current-domain'
     _python_name = 'current_domain'
 
-class area_2(Command):
+class area_3(Command):
     """
     Print total area of surfaces.
     
@@ -104494,7 +104575,7 @@ class surface_integrals(Group):
     command_names = ['area', 'area_weighted_avg', 'vector_based_flux', 'vector_flux', 'vector_weighted_average', 'facet_avg', 'facet_min', 'facet_max', 'flow_rate', 'integral', 'mass_flow_rate', 'mass_weighted_avg', 'standard_deviation', 'sum', 'uniformity_index_area_weighted', 'uniformity_index_mass_weighted', 'vertex_avg', 'vertex_min', 'vertex_max', 'volume_flow_rate']
     query_names = ['get_area', 'get_area_weighted_avg', 'get_vector_based_flux', 'get_vector_flux', 'get_vector_weighted_average', 'get_facet_avg', 'get_facet_min', 'get_facet_max', 'get_flow_rate', 'get_integral', 'get_mass_flow_rate', 'get_mass_weighted_avg', 'get_standard_deviation', 'get_sum', 'get_uniformity_index_area_weighted', 'get_uniformity_index_mass_weighted', 'get_vertex_avg', 'get_vertex_min', 'get_vertex_max', 'get_volume_flow_rate']
     _child_classes = dict(
-        area=area_2,
+        area=area_3,
         area_weighted_avg=area_weighted_avg,
         vector_based_flux=vector_based_flux,
         vector_flux=vector_flux,
@@ -105861,6 +105942,33 @@ class enabled_79(Boolean):
     fluent_name = 'enabled'
     _python_name = 'enabled'
 
+class definition_3_child(Group):
+    """
+    'child_object_type' of definition.
+    """
+    _version = '261'
+    fluent_name = 'child-object-type'
+    _python_name = 'definition_child'
+
+class definition_3(NamedObject[definition_3_child], CreatableNamedObjectMixin[definition_3_child]):
+    """
+    Old observables definitions. This has been migrated to definitions with an "s" where the various observable types are contained in different dictionaries.
+    """
+    _version = '261'
+    _deprecated_version = '26.1'
+    fluent_name = 'definition'
+    _python_name = 'definition'
+    command_names = ['create', 'delete', 'rename', 'list_1', 'list_properties_1', 'make_a_copy']
+    _child_classes = dict(
+        create=create,
+        delete=delete,
+        rename=rename,
+        list_1=list_1,
+        list_properties_1=list_properties_1,
+        make_a_copy=make_a_copy,
+    )
+    child_object_type = definition_3_child
+
 class walls(StringList, AllowedValuesMixin):
     """
     Wall zone name list.
@@ -106669,13 +106777,13 @@ class volume_integral_1(NamedObject[volume_integral_1_child], CreatableNamedObje
     )
     child_object_type = volume_integral_1_child
 
-class definition_3(Group):
+class definitions(Group):
     """
     Adjoint observables definition object.
     """
     _version = '261'
-    fluent_name = 'definition'
-    _python_name = 'definition'
+    fluent_name = 'definitions'
+    _python_name = 'definitions'
     child_names = ['force', 'moment_of_force', 'swirl', 'pressure_drop', 'ratio', 'product', 'quadratic_penalty', 'linear_combination', 'arithmetic_average', 'mean_variance', 'unary_operation', 'fixed_value', 'surface_integral', 'volume_integral']
     _child_classes = dict(
         force=force_1,
@@ -106768,10 +106876,11 @@ class observables(Group):
     _version = '261'
     fluent_name = 'observables'
     _python_name = 'observables'
-    child_names = ['named_expressions', 'definition', 'selection']
+    child_names = ['named_expressions', 'definition', 'definitions', 'selection']
     _child_classes = dict(
         named_expressions=named_expressions,
         definition=definition_3,
+        definitions=definitions,
         selection=selection,
     )
 
@@ -108133,13 +108242,13 @@ class modifiable_zones(StringList, AllowedValuesMixin):
     fluent_name = 'modifiable-zones'
     _python_name = 'modifiable_zones'
 
-class location_5(StringList, AllowedValuesMixin):
+class modifiable_location(StringList, AllowedValuesMixin):
     """
     Modifiable design zones.
     """
     _version = '261'
-    fluent_name = 'location'
-    _python_name = 'location'
+    fluent_name = 'modifiable-location'
+    _python_name = 'modifiable_location'
 
 class region_type(String, AllowedValuesMixin):
     """
@@ -108722,13 +108831,13 @@ class bounded_zones(StringList, AllowedValuesMixin):
     fluent_name = 'bounded-zones'
     _python_name = 'bounded_zones'
 
-class location_6(StringList, AllowedValuesMixin):
+class bounded_location(StringList, AllowedValuesMixin):
     """
     Zones used to determine region bounds.
     """
     _version = '261'
-    fluent_name = 'location'
-    _python_name = 'location'
+    fluent_name = 'bounded-location'
+    _python_name = 'bounded_location'
 
 class comfortable_region(Boolean):
     """
@@ -108754,7 +108863,7 @@ class get_bounds(Command):
     ----------
         bounded_zones : List
             Zones used to determine region bounds.
-        location : List
+        bounded_location : List
             Zones used to determine region bounds.
         comfortable_region : bool
             Use comfortable region than the selected zones.
@@ -108764,10 +108873,10 @@ class get_bounds(Command):
     _version = '261'
     fluent_name = 'get-bounds'
     _python_name = 'get_bounds'
-    argument_names = ['bounded_zones', 'location', 'comfortable_region', 'automatic_coordinate']
+    argument_names = ['bounded_zones', 'bounded_location', 'comfortable_region', 'automatic_coordinate']
     _child_classes = dict(
         bounded_zones=bounded_zones,
-        location=location_6,
+        bounded_location=bounded_location,
         comfortable_region=comfortable_region,
         automatic_coordinate=automatic_coordinate,
     )
@@ -108795,11 +108904,11 @@ class region(Group):
     _version = '261'
     fluent_name = 'region'
     _python_name = 'region'
-    child_names = ['modifiable_zones', 'location', 'region_type', 'show_bounding_region', 'auto_display', 'cartesian', 'cylindrical']
+    child_names = ['modifiable_zones', 'modifiable_location', 'region_type', 'show_bounding_region', 'auto_display', 'cartesian', 'cylindrical']
     command_names = ['get_bounds', 'larger_region', 'smaller_region']
     _child_classes = dict(
         modifiable_zones=modifiable_zones,
-        location=location_5,
+        modifiable_location=modifiable_location,
         region_type=region_type,
         show_bounding_region=show_bounding_region,
         auto_display=auto_display,
@@ -108810,7 +108919,34 @@ class region(Group):
         smaller_region=smaller_region,
     )
 
-class location_7(Group):
+class definition_5_child(Group):
+    """
+    'child_object_type' of definition.
+    """
+    _version = '261'
+    fluent_name = 'child-object-type'
+    _python_name = 'definition_child'
+
+class definition_5(NamedObject[definition_5_child], CreatableNamedObjectMixin[definition_5_child]):
+    """
+    Old design condition definitions. This has been migrated to definitions with an "s" where the various design condition types are contained in different dictionaries.
+    """
+    _version = '261'
+    _deprecated_version = '26.1'
+    fluent_name = 'definition'
+    _python_name = 'definition'
+    command_names = ['create', 'delete', 'rename', 'list_1', 'list_properties_1', 'make_a_copy']
+    _child_classes = dict(
+        create=create,
+        delete=delete,
+        rename=rename,
+        list_1=list_1,
+        list_properties_1=list_properties_1,
+        make_a_copy=make_a_copy,
+    )
+    child_object_type = definition_5_child
+
+class location_5(Group):
     """
     The object.
     """
@@ -108843,7 +108979,7 @@ class fixed_walls_constraint_child(Group):
     _child_classes = dict(
         name=name_5,
         surfaces=surfaces_1,
-        location=location_7,
+        location=location_5,
         display=display_16,
     )
 
@@ -108893,7 +109029,7 @@ class bounded_by_plane_child(Group):
     _child_classes = dict(
         name=name_5,
         surfaces=surfaces_1,
-        location=location_7,
+        location=location_5,
         distance=distance_1,
         normal=normal_5,
         display=display_16,
@@ -109114,7 +109250,7 @@ class bounded_by_surfaces_child(Group):
     _child_classes = dict(
         name=name_5,
         surfaces=surfaces_18,
-        location=location_7,
+        location=location_5,
         imported_surfaces=imported_surfaces,
         fit_imported_surfaces=fit_imported_surfaces,
         bounding_offset=bounding_offset,
@@ -109227,7 +109363,7 @@ class prescribed_profile_child(Group):
     _child_classes = dict(
         name=name_5,
         surfaces=surfaces_1,
-        location=location_7,
+        location=location_5,
         deformation_profile=deformation_profile,
         factor=factor_3,
         parameters=parameters_11,
@@ -109301,7 +109437,7 @@ class rotation_child(Group):
     _child_classes = dict(
         name=name_5,
         surfaces=surfaces_1,
-        location=location_7,
+        location=location_5,
         angle=angle_8,
         origin=origin_12,
         axis=axis_12,
@@ -109392,7 +109528,7 @@ class translation_1_child(Group):
     _child_classes = dict(
         name=name_5,
         surfaces=surfaces_1,
-        location=location_7,
+        location=location_5,
         displacement=displacement,
         display=display_16,
     )
@@ -109525,7 +109661,7 @@ class scaling_1_child(Group):
     _child_classes = dict(
         name=name_5,
         surfaces=surfaces_1,
-        location=location_7,
+        location=location_5,
         scaling_type=scaling_type,
         factor=factor_3,
         axis_factor=axis_factor,
@@ -109568,7 +109704,7 @@ class rigid_body_child(Group):
     _child_classes = dict(
         name=name_5,
         surfaces=surfaces_1,
-        location=location_7,
+        location=location_5,
         display=display_16,
     )
 
@@ -109648,13 +109784,13 @@ class compound(NamedObject[compound_child], CreatableNamedObjectMixin[compound_c
     )
     child_object_type = compound_child
 
-class definition_5(Group):
+class definitions_1(Group):
     """
     Design condition definitions.
     """
     _version = '261'
-    fluent_name = 'definition'
-    _python_name = 'definition'
+    fluent_name = 'definitions'
+    _python_name = 'definitions'
     child_names = ['fixed_walls_constraint', 'bounded_by_plane', 'bounded_by_surfaces', 'prescribed_profile', 'rotation', 'translation', 'scaling', 'rigid_body', 'compound']
     _child_classes = dict(
         fixed_walls_constraint=fixed_walls_constraint,
@@ -109853,9 +109989,10 @@ class design_conditions(Group):
     _version = '261'
     fluent_name = 'design-conditions'
     _python_name = 'design_conditions'
-    child_names = ['definition', 'selection', 'options']
+    child_names = ['definition', 'definitions', 'selection', 'options']
     _child_classes = dict(
         definition=definition_5,
+        definitions=definitions_1,
         selection=selection_1,
         options=options_24,
     )
@@ -113032,6 +113169,14 @@ class mode_2(String, AllowedValuesMixin):
     REMOTE = _FlStringConstant('remote')
     _allowed_values = ['local', 'remote']
 
+class remote_project_name(String):
+    """
+    Name of the Project.
+    """
+    _version = '261'
+    fluent_name = 'remote-project-name'
+    _python_name = 'remote_project_name'
+
 class number_of_concurrent_dps(Integer):
     """
     Number of Concurrent Design Points.
@@ -113163,11 +113308,12 @@ class concurrent_settings(Group):
     _version = '261'
     fluent_name = 'concurrent-settings'
     _python_name = 'concurrent_settings'
-    child_names = ['mode', 'capability', 'number_of_concurrent_dps', 'number_of_cores', 'use_gpu_solver', 'number_of_gpus_per_node', 'launch_web_server', 'web_server_token', 'maximum_execution_time', 'exclusive', 'number_of_cpus_per_node', 'mpi_type', 'interconnect_type', 'current_queue', 'current_endpoint', 'keep_all_output_files', 'keep_specific_output_files', 'list_of_output_files', 'licensing']
+    child_names = ['mode', 'capability', 'remote_project_name', 'number_of_concurrent_dps', 'number_of_cores', 'use_gpu_solver', 'number_of_gpus_per_node', 'launch_web_server', 'web_server_token', 'maximum_execution_time', 'exclusive', 'number_of_cpus_per_node', 'mpi_type', 'interconnect_type', 'current_queue', 'current_endpoint', 'keep_all_output_files', 'keep_specific_output_files', 'list_of_output_files', 'licensing']
     command_names = ['connect_to_cluster']
     _child_classes = dict(
         mode=mode_2,
         capability=capability,
+        remote_project_name=remote_project_name,
         number_of_concurrent_dps=number_of_concurrent_dps,
         number_of_cores=number_of_cores,
         use_gpu_solver=use_gpu_solver,

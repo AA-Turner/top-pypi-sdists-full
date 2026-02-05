@@ -18,6 +18,7 @@ class PlateCreationTableNotePart:
     _type: Union[Unset, PlateCreationTableNotePartType] = UNSET
     _api_id: Union[Unset, str] = UNSET
     _columns: Union[Unset, List[StructuredTableColumnInfo]] = UNSET
+    _name: Union[Unset, str] = UNSET
     _indentation: Union[Unset, int] = 0
     additional_properties: Dict[str, Any] = attr.ib(init=False, factory=dict)
 
@@ -27,6 +28,7 @@ class PlateCreationTableNotePart:
         fields.append("type={}".format(repr(self._type)))
         fields.append("api_id={}".format(repr(self._api_id)))
         fields.append("columns={}".format(repr(self._columns)))
+        fields.append("name={}".format(repr(self._name)))
         fields.append("indentation={}".format(repr(self._indentation)))
         fields.append("additional_properties={}".format(repr(self.additional_properties)))
         return "PlateCreationTableNotePart({})".format(", ".join(fields))
@@ -46,6 +48,7 @@ class PlateCreationTableNotePart:
 
                 columns.append(columns_item)
 
+        name = self._name
         indentation = self._indentation
 
         field_dict: Dict[str, Any] = {}
@@ -59,6 +62,8 @@ class PlateCreationTableNotePart:
             field_dict["apiId"] = api_id
         if columns is not UNSET:
             field_dict["columns"] = columns
+        if name is not UNSET:
+            field_dict["name"] = name
         if indentation is not UNSET:
             field_dict["indentation"] = indentation
 
@@ -125,6 +130,17 @@ class PlateCreationTableNotePart:
                 raise
             columns = cast(Union[Unset, List[StructuredTableColumnInfo]], UNSET)
 
+        def get_name() -> Union[Unset, str]:
+            name = d.pop("name")
+            return name
+
+        try:
+            name = get_name()
+        except KeyError:
+            if strict:
+                raise
+            name = cast(Union[Unset, str], UNSET)
+
         def get_indentation() -> Union[Unset, int]:
             indentation = d.pop("indentation")
             return indentation
@@ -141,6 +157,7 @@ class PlateCreationTableNotePart:
             type=type,
             api_id=api_id,
             columns=columns,
+            name=name,
             indentation=indentation,
         )
 
@@ -221,6 +238,20 @@ class PlateCreationTableNotePart:
     @columns.deleter
     def columns(self) -> None:
         self._columns = UNSET
+
+    @property
+    def name(self) -> str:
+        if isinstance(self._name, Unset):
+            raise NotPresentError(self, "name")
+        return self._name
+
+    @name.setter
+    def name(self, value: str) -> None:
+        self._name = value
+
+    @name.deleter
+    def name(self) -> None:
+        self._name = UNSET
 
     @property
     def indentation(self) -> int:

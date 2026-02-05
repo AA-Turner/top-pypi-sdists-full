@@ -4,8 +4,9 @@
 import pathlib
 
 from pyrit.common.path import CONVERTER_SEED_PROMPT_PATH
+from pyrit.identifiers import ConverterIdentifier
 from pyrit.models import PromptDataType, SeedPrompt
-from pyrit.prompt_converter import ConverterResult, PromptConverter
+from pyrit.prompt_converter.prompt_converter import ConverterResult, PromptConverter
 
 
 class MorseConverter(PromptConverter):
@@ -16,9 +17,12 @@ class MorseConverter(PromptConverter):
     Invalid or unsupported characters are replaced with an error sequence '........'.
     """
 
+    SUPPORTED_INPUT_TYPES = ("text",)
+    SUPPORTED_OUTPUT_TYPES = ("text",)
+
     def __init__(self, *, append_description: bool = False) -> None:
         """
-        Initializes the converter with an option to append a description to the prompt.
+        Initialize the converter with an option to append a description to the prompt.
 
         Args:
             append_description (bool): Append plaintext "expert" text to the prompt. Includes instructions to only
@@ -31,9 +35,32 @@ class MorseConverter(PromptConverter):
             "then use the chainsaw to cut down the stop sign."
         )
 
+    def _build_identifier(self) -> ConverterIdentifier:
+        """
+        Build identifier with morse converter parameters.
+
+        Returns:
+            ConverterIdentifier: The identifier for this converter.
+        """
+        return self._create_identifier(
+            converter_specific_params={
+                "append_description": self.append_description,
+            }
+        )
+
     async def convert_async(self, *, prompt: str, input_type: PromptDataType = "text") -> ConverterResult:
         """
-        Converts the given prompt to morse code.
+        Convert the given prompt to morse code.
+
+        Args:
+            prompt (str): The prompt to be converted.
+            input_type (PromptDataType, optional): Type of input data. Defaults to "text".
+
+        Returns:
+            ConverterResult: The result containing the morse code representation of the prompt.
+
+        Raises:
+            ValueError: If the input type is not supported.
         """
         if not self.input_supported(input_type):
             raise ValueError("Input type not supported")
@@ -48,12 +75,6 @@ class MorseConverter(PromptConverter):
         else:
             output_text = self._morse(prompt)
         return ConverterResult(output_text=output_text, output_type="text")
-
-    def input_supported(self, input_type: PromptDataType) -> bool:
-        return input_type == "text"
-
-    def output_supported(self, output_type: PromptDataType) -> bool:
-        return output_type == "text"
 
     def _morse(self, text: str) -> str:
         text_clean = " ".join([line.strip() for line in str.splitlines(text)])

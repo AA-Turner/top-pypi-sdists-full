@@ -398,15 +398,13 @@ class EDLCompiler:
             post_expected, post_properties = (
                 response_dto_compiler.handler_result_details(post_handler)
             )
-            put_expected, put_properties = (
-                response_dto_compiler.handler_result_details(put_handler)
+            put_expected, put_properties = response_dto_compiler.handler_result_details(
+                put_handler
             )
             patch_expected, patch_properties = (
                 response_dto_compiler.handler_result_details(patch_handler)
             )
-            get_expected, _ = response_dto_compiler.handler_result_details(
-                get_handler
-            )
+            get_expected, _ = response_dto_compiler.handler_result_details(get_handler)
             list_expected, _ = response_dto_compiler.handler_result_details(
                 list_handler
             )
@@ -471,32 +469,16 @@ class EDLCompiler:
         )
         compiler_result.retrieve_after_insert = post_expected == "entity_row"
         compiler_result.retrieve_after_update = put_expected == "entity_row"
-        compiler_result.retrieve_after_partial_update = (
-            patch_expected == "entity_row"
-        )
+        compiler_result.retrieve_after_partial_update = patch_expected == "entity_row"
         compiler_result.post_response_dto_class_name = compiler_result_post_class
         compiler_result.put_response_dto_class_name = compiler_result_put_class
-        compiler_result.patch_response_dto_class_name = (
-            compiler_result_patch_class
-        )
-        compiler_result.custom_json_post_response = (
-            post_expected == "custom_json"
-        )
-        compiler_result.custom_json_put_response = (
-            put_expected == "custom_json"
-        )
-        compiler_result.custom_json_patch_response = (
-            patch_expected == "custom_json"
-        )
-        compiler_result.custom_json_get_response = (
-            get_expected == "custom_json"
-        )
-        compiler_result.custom_json_list_response = (
-            list_expected == "custom_json"
-        )
-        compiler_result.custom_json_delete_response = (
-            delete_expected == "custom_json"
-        )
+        compiler_result.patch_response_dto_class_name = compiler_result_patch_class
+        compiler_result.custom_json_post_response = post_expected == "custom_json"
+        compiler_result.custom_json_put_response = put_expected == "custom_json"
+        compiler_result.custom_json_patch_response = patch_expected == "custom_json"
+        compiler_result.custom_json_get_response = get_expected == "custom_json"
+        compiler_result.custom_json_list_response = list_expected == "custom_json"
+        compiler_result.custom_json_delete_response = delete_expected == "custom_json"
 
         insert_code_compiled = insert_function_code.strip()
         update_code_compiled = update_function_code.strip()

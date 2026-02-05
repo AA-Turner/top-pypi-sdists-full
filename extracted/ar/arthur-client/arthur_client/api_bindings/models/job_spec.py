@@ -24,6 +24,7 @@ from arthur_client.api_bindings.models.connector_check_job_spec import Connector
 from arthur_client.api_bindings.models.create_model_link_task_job_spec import CreateModelLinkTaskJobSpec
 from arthur_client.api_bindings.models.create_model_task_job_spec import CreateModelTaskJobSpec
 from arthur_client.api_bindings.models.delete_model_task_job_spec import DeleteModelTaskJobSpec
+from arthur_client.api_bindings.models.discover_agents_job_spec import DiscoverAgentsJobSpec
 from arthur_client.api_bindings.models.fetch_data_job_spec import FetchDataJobSpec
 from arthur_client.api_bindings.models.fetch_model_task_job_spec import FetchModelTaskJobSpec
 from arthur_client.api_bindings.models.list_datasets_job_spec import ListDatasetsJobSpec
@@ -37,7 +38,7 @@ from typing import Union, Any, List, Set, TYPE_CHECKING, Optional, Dict
 from typing_extensions import Literal, Self
 from pydantic import Field
 
-JOBSPEC_ANY_OF_SCHEMAS = ["AlertCheckJobSpec", "ConnectorCheckJobSpec", "CreateModelLinkTaskJobSpec", "CreateModelTaskJobSpec", "DeleteModelTaskJobSpec", "FetchDataJobSpec", "FetchModelTaskJobSpec", "ListDatasetsJobSpec", "MetricsCalculationJobSpec", "RegenerateTaskValidationKeyJobSpec", "ScheduleJobsJobSpec", "SchemaInspectionJobSpec", "TestCustomAggregationJobSpec", "UpdateModelTaskRulesJobSpec"]
+JOBSPEC_ANY_OF_SCHEMAS = ["AlertCheckJobSpec", "ConnectorCheckJobSpec", "CreateModelLinkTaskJobSpec", "CreateModelTaskJobSpec", "DeleteModelTaskJobSpec", "DiscoverAgentsJobSpec", "FetchDataJobSpec", "FetchModelTaskJobSpec", "ListDatasetsJobSpec", "MetricsCalculationJobSpec", "RegenerateTaskValidationKeyJobSpec", "ScheduleJobsJobSpec", "SchemaInspectionJobSpec", "TestCustomAggregationJobSpec", "UpdateModelTaskRulesJobSpec"]
 
 class JobSpec(BaseModel):
     """
@@ -72,11 +73,13 @@ class JobSpec(BaseModel):
     anyof_schema_13_validator: Optional[CreateModelLinkTaskJobSpec] = None
     # data type: TestCustomAggregationJobSpec
     anyof_schema_14_validator: Optional[TestCustomAggregationJobSpec] = None
+    # data type: DiscoverAgentsJobSpec
+    anyof_schema_15_validator: Optional[DiscoverAgentsJobSpec] = None
     if TYPE_CHECKING:
-        actual_instance: Optional[Union[AlertCheckJobSpec, ConnectorCheckJobSpec, CreateModelLinkTaskJobSpec, CreateModelTaskJobSpec, DeleteModelTaskJobSpec, FetchDataJobSpec, FetchModelTaskJobSpec, ListDatasetsJobSpec, MetricsCalculationJobSpec, RegenerateTaskValidationKeyJobSpec, ScheduleJobsJobSpec, SchemaInspectionJobSpec, TestCustomAggregationJobSpec, UpdateModelTaskRulesJobSpec]] = None
+        actual_instance: Optional[Union[AlertCheckJobSpec, ConnectorCheckJobSpec, CreateModelLinkTaskJobSpec, CreateModelTaskJobSpec, DeleteModelTaskJobSpec, DiscoverAgentsJobSpec, FetchDataJobSpec, FetchModelTaskJobSpec, ListDatasetsJobSpec, MetricsCalculationJobSpec, RegenerateTaskValidationKeyJobSpec, ScheduleJobsJobSpec, SchemaInspectionJobSpec, TestCustomAggregationJobSpec, UpdateModelTaskRulesJobSpec]] = None
     else:
         actual_instance: Any = None
-    any_of_schemas: Set[str] = { "AlertCheckJobSpec", "ConnectorCheckJobSpec", "CreateModelLinkTaskJobSpec", "CreateModelTaskJobSpec", "DeleteModelTaskJobSpec", "FetchDataJobSpec", "FetchModelTaskJobSpec", "ListDatasetsJobSpec", "MetricsCalculationJobSpec", "RegenerateTaskValidationKeyJobSpec", "ScheduleJobsJobSpec", "SchemaInspectionJobSpec", "TestCustomAggregationJobSpec", "UpdateModelTaskRulesJobSpec" }
+    any_of_schemas: Set[str] = { "AlertCheckJobSpec", "ConnectorCheckJobSpec", "CreateModelLinkTaskJobSpec", "CreateModelTaskJobSpec", "DeleteModelTaskJobSpec", "DiscoverAgentsJobSpec", "FetchDataJobSpec", "FetchModelTaskJobSpec", "ListDatasetsJobSpec", "MetricsCalculationJobSpec", "RegenerateTaskValidationKeyJobSpec", "ScheduleJobsJobSpec", "SchemaInspectionJobSpec", "TestCustomAggregationJobSpec", "UpdateModelTaskRulesJobSpec" }
 
     model_config = {
         "validate_assignment": True,
@@ -181,9 +184,15 @@ class JobSpec(BaseModel):
         else:
             return v
 
+        # validate data type: DiscoverAgentsJobSpec
+        if not isinstance(v, DiscoverAgentsJobSpec):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `DiscoverAgentsJobSpec`")
+        else:
+            return v
+
         if error_messages:
             # no match
-            raise ValueError("No match found when setting the actual_instance in JobSpec with anyOf schemas: AlertCheckJobSpec, ConnectorCheckJobSpec, CreateModelLinkTaskJobSpec, CreateModelTaskJobSpec, DeleteModelTaskJobSpec, FetchDataJobSpec, FetchModelTaskJobSpec, ListDatasetsJobSpec, MetricsCalculationJobSpec, RegenerateTaskValidationKeyJobSpec, ScheduleJobsJobSpec, SchemaInspectionJobSpec, TestCustomAggregationJobSpec, UpdateModelTaskRulesJobSpec. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting the actual_instance in JobSpec with anyOf schemas: AlertCheckJobSpec, ConnectorCheckJobSpec, CreateModelLinkTaskJobSpec, CreateModelTaskJobSpec, DeleteModelTaskJobSpec, DiscoverAgentsJobSpec, FetchDataJobSpec, FetchModelTaskJobSpec, ListDatasetsJobSpec, MetricsCalculationJobSpec, RegenerateTaskValidationKeyJobSpec, ScheduleJobsJobSpec, SchemaInspectionJobSpec, TestCustomAggregationJobSpec, UpdateModelTaskRulesJobSpec. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -280,10 +289,16 @@ class JobSpec(BaseModel):
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
+        # anyof_schema_15_validator: Optional[DiscoverAgentsJobSpec] = None
+        try:
+            instance.actual_instance = DiscoverAgentsJobSpec.from_json(json_str)
+            return instance
+        except (ValidationError, ValueError) as e:
+             error_messages.append(str(e))
 
         if error_messages:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into JobSpec with anyOf schemas: AlertCheckJobSpec, ConnectorCheckJobSpec, CreateModelLinkTaskJobSpec, CreateModelTaskJobSpec, DeleteModelTaskJobSpec, FetchDataJobSpec, FetchModelTaskJobSpec, ListDatasetsJobSpec, MetricsCalculationJobSpec, RegenerateTaskValidationKeyJobSpec, ScheduleJobsJobSpec, SchemaInspectionJobSpec, TestCustomAggregationJobSpec, UpdateModelTaskRulesJobSpec. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into JobSpec with anyOf schemas: AlertCheckJobSpec, ConnectorCheckJobSpec, CreateModelLinkTaskJobSpec, CreateModelTaskJobSpec, DeleteModelTaskJobSpec, DiscoverAgentsJobSpec, FetchDataJobSpec, FetchModelTaskJobSpec, ListDatasetsJobSpec, MetricsCalculationJobSpec, RegenerateTaskValidationKeyJobSpec, ScheduleJobsJobSpec, SchemaInspectionJobSpec, TestCustomAggregationJobSpec, UpdateModelTaskRulesJobSpec. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -297,7 +312,7 @@ class JobSpec(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], AlertCheckJobSpec, ConnectorCheckJobSpec, CreateModelLinkTaskJobSpec, CreateModelTaskJobSpec, DeleteModelTaskJobSpec, FetchDataJobSpec, FetchModelTaskJobSpec, ListDatasetsJobSpec, MetricsCalculationJobSpec, RegenerateTaskValidationKeyJobSpec, ScheduleJobsJobSpec, SchemaInspectionJobSpec, TestCustomAggregationJobSpec, UpdateModelTaskRulesJobSpec]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], AlertCheckJobSpec, ConnectorCheckJobSpec, CreateModelLinkTaskJobSpec, CreateModelTaskJobSpec, DeleteModelTaskJobSpec, DiscoverAgentsJobSpec, FetchDataJobSpec, FetchModelTaskJobSpec, ListDatasetsJobSpec, MetricsCalculationJobSpec, RegenerateTaskValidationKeyJobSpec, ScheduleJobsJobSpec, SchemaInspectionJobSpec, TestCustomAggregationJobSpec, UpdateModelTaskRulesJobSpec]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None

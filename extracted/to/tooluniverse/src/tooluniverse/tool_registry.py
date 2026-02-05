@@ -117,7 +117,7 @@ def lazy_import_tool(tool_name):
     Lazily import a tool by name without importing all tool modules.
     Only imports the specific module containing the requested tool.
     """
-    global _tool_registry, _lazy_registry, _lazy_cache  # noqa: F824
+    global _tool_registry, _lazy_registry, _lazy_cache  # noqa: PLW0603
 
     # If tool is already in registry, return it
     if tool_name in _tool_registry:
@@ -316,7 +316,7 @@ def build_lazy_registry(package_name=None):
     Prioritizes pre-computed static registry (for bundles/frozen envs).
     Falls back to AST analysis if static registry is missing.
     """
-    global _lazy_registry  # noqa: F824
+    global _lazy_registry  # noqa: PLW0603
 
     if package_name is None:
         package_name = "tooluniverse"

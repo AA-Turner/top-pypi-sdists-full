@@ -40,6 +40,12 @@ class TestTaskResponse(unittest.TestCase):
                 created_at = 56,
                 updated_at = 56,
                 is_agentic = True,
+                agent_metadata = arthur_client.api_bindings.models.agent_metadata_response.AgentMetadataResponse(
+                    provider = 'gcp', 
+                    gcp_metadata = arthur_client.api_bindings.models.gcp_agent_metadata_response.GCPAgentMetadataResponse(
+                        project_id = '', 
+                        region = '', 
+                        resource_id = '', ), ),
                 rules = [
                     arthur_client.api_bindings.models.rule_response.RuleResponse(
                         id = '', 

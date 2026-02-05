@@ -10,7 +10,7 @@ from ._shared_client import get_shared_client
 
 def DailyMed_get_spl_by_setid(
     setid: str,
-    format: str,
+    format: Optional[str] = "xml",
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,

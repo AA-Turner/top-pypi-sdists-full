@@ -112,18 +112,22 @@ class LinuxPlatform(TestPlatform):
             custom_nodes_dir=custom_nodes_dir,
         )
 
-    def install_node(self, paths: TestPaths, node_dir: Path) -> None:
+    def install_node(self, paths: TestPaths, node_dir: Path, deps_installed: bool = False) -> None:
         """
         Install custom node into ComfyUI.
 
         1. Symlink to custom_nodes/
-        2. Install requirements.txt if present
-        3. Run install.py if present
+        2. Install requirements.txt if present - unless deps_installed
+        3. Run install.py if present - unless deps_installed
         """
         node_dir = Path(node_dir).resolve()
         node_name = node_dir.name
 
         target_dir = paths.custom_nodes_dir / node_name
+
+        if deps_installed:
+            self._log("Skipping copy, requirements.txt, and install.py (--deps-installed)")
+            return
 
         # Copy node (not symlink) for full isolation
         self._log(f"Copying {node_name} to custom_nodes/...")

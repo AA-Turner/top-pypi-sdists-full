@@ -10,8 +10,8 @@ from ._shared_client import get_shared_client
 
 def cellosaurus_get_cell_line_info(
     accession: str,
-    format: str,
-    fields: list[str],
+    format: Optional[str] = "json",
+    fields: Optional[list[str]] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,

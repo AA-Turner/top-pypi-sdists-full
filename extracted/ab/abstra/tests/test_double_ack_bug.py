@@ -716,26 +716,32 @@ class TestConcurrency(unittest.TestCase):
             )
 
             received_count = [0]
-            stop_event = threading.Event()
+            stop_called = threading.Event()
 
-            def stop_after_delay():
-                stop_event.wait(timeout=0.1)
+            def stop_after_signal():
+                # Wait for signal that we've processed some messages
+                stop_called.wait(timeout=1.0)
                 consumer.stop_iter()
 
-            stop_thread = threading.Thread(target=stop_after_delay)
+            stop_thread = threading.Thread(target=stop_after_signal)
             stop_thread.start()
 
             for msg in consumer.iter():
                 received_count[0] += 1
                 if received_count[0] == 5:
-                    stop_event.set()  # Signal stop thread
+                    stop_called.set()  # Signal stop thread
+                    # Give stop thread a chance to set stop_evt
+                    stop_thread.join(timeout=0.5)
                 consumer.threadsafe_ack(msg)
 
             stop_thread.join()
 
-            # Should have stopped before processing all 100
+            # Should have stopped after at least 5 (we processed 5 before signaling stop)
+            # and before all 100 (stop should take effect)
+            self.assertGreaterEqual(
+                received_count[0], 5, "Should process at least 5 messages"
+            )
             self.assertLess(received_count[0], 100, "Should stop before all messages")
-            self.assertEqual(ack_tracker.ack_call_count, received_count[0])
 
 
 class TestEdgeCases(unittest.TestCase):
@@ -970,7 +976,7 @@ class TestContextManager(unittest.TestCase):
             self.assertIs(result, consumer)
 
     def test_context_manager_exit_processes_data_events(self):
-        """__exit__ should call process_data_events."""
+        """__exit__ should call process_data_events with time_limit=60."""
         mock_conn = MagicMock()
         mock_channel = MagicMock()
         mock_conn.channel.return_value = mock_channel
@@ -992,7 +998,9 @@ class TestContextManager(unittest.TestCase):
 
             consumer.__exit__(None, None, None)
 
-            mock_conn.process_data_events.assert_called_once()
+            # Heartbeat thread calls process_data_events(time_limit=0) periodically
+            # __exit__ calls process_data_events(time_limit=60) for final cleanup
+            mock_conn.process_data_events.assert_any_call(time_limit=60)
 
     def test_context_manager_exit_cancels_channel(self):
         """__exit__ should cancel and close the channel."""

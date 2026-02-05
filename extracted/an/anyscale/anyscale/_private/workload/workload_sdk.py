@@ -1,11 +1,17 @@
 import copy
 from dataclasses import replace
+import os
 import pathlib
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from anyscale._private.anyscale_client import (
     AnyscaleClientInterface,
     WORKSPACE_CLUSTER_NAME_PREFIX,
+)
+from anyscale._private.models.integrations import (
+    CONNECTION_TYPE_TO_INTEGRATION_TYPE,
+    ConnectionConfig,
+    IntegrationType,
 )
 from anyscale._private.sdk.base_sdk import BaseSDK, Timer
 from anyscale.cli_logger import BlockLogger
@@ -19,8 +25,52 @@ from anyscale.image._private.image_sdk import PrivateImageSDK
 from anyscale.utils.runtime_env import is_dir_remote_uri, parse_requirements_file
 
 
+# Keep in sync with Ray's default excludes in python/ray/_private/ray_constants.py
+_RAY_RUNTIME_ENV_DEFAULT_EXCLUDES = ".git,.venv,venv,__pycache__"
+_RAY_OVERRIDE_RUNTIME_ENV_DEFAULT_EXCLUDES_ENV_VAR = (
+    "RAY_OVERRIDE_RUNTIME_ENV_DEFAULT_EXCLUDES"
+)
+_WARNED_DEFAULT_EXCLUDES: Set[str] = set()
+
+
+def _get_runtime_env_default_excludes() -> List[str]:
+    """Mirror Ray's default excludes for packaging local runtime_env directories."""
+    val = os.environ.get(
+        _RAY_OVERRIDE_RUNTIME_ENV_DEFAULT_EXCLUDES_ENV_VAR,
+        _RAY_RUNTIME_ENV_DEFAULT_EXCLUDES,
+    )
+    return [x.strip() for x in val.split(",") if x.strip()]
+
+
+def _warn_if_default_excludes_present(
+    *, target_dir: str, default_excludes: List[str], logger: BlockLogger
+) -> None:
+    # TODO(ricardo): 2026-01-07 Remove these warnings in a few releases. Added in
+    # case users rely on these directories being uploaded with their working_dir
+    # since this change would be difficult to debug.
+
+    # Only warn for local directories.
+    if is_dir_remote_uri(target_dir):
+        return
+    if not default_excludes:
+        return
+
+    base = pathlib.Path(target_dir)
+    for d in default_excludes:
+        # Skip if we've already warned about this exclude.
+        if d in _WARNED_DEFAULT_EXCLUDES:
+            continue
+        if (base / d).exists():
+            _WARNED_DEFAULT_EXCLUDES.add(d)
+            logger.warning(
+                f"Directory {d!r} is now ignored by default when packaging the working "
+                "directory. To disable this behavior, set "
+                "the `RAY_OVERRIDE_RUNTIME_ENV_DEFAULT_EXCLUDES=''` environment variable."
+            )
+
+
 class WorkloadSDK(BaseSDK):
-    """Shared parent class for job and service SDKs."""
+    """Shared parent class for job, job queue, workspace, and service SDKs."""
 
     def __init__(
         self,
@@ -135,6 +185,7 @@ class WorkloadSDK(BaseSDK):
         new_runtime_envs = copy.deepcopy(runtime_envs)
 
         local_path_to_uri: Dict[str, str] = {}
+        default_excludes = _get_runtime_env_default_excludes()
 
         def _upload_dir_memoized(target: str, *, excludes: Optional[List[str]]) -> str:
             if is_dir_remote_uri(target):
@@ -144,6 +195,9 @@ class WorkloadSDK(BaseSDK):
 
             self.logger.info(f"Uploading local dir '{target}' to cloud storage.")
             assert cloud_id is not None
+            _warn_if_default_excludes_present(
+                target_dir=target, default_excludes=default_excludes, logger=self.logger
+            )
             uri = self._client.upload_local_dir_to_cloud_storage(
                 target,
                 cloud_id=cloud_id,
@@ -159,7 +213,8 @@ class WorkloadSDK(BaseSDK):
                 existing_excludes = runtime_env.get("excludes", None) or []
                 runtime_env["excludes"] = existing_excludes + excludes_override
 
-            final_excludes = runtime_env.get("excludes", [])
+            user_excludes = runtime_env.get("excludes") or []
+            final_excludes = default_excludes + list(user_excludes)
 
             new_working_dir = None
             if working_dir_override is not None:
@@ -214,6 +269,7 @@ class WorkloadSDK(BaseSDK):
         new_runtime_envs = copy.deepcopy(runtime_envs)
 
         local_path_to_bucket_path: Dict[str, str] = {}
+        default_excludes = _get_runtime_env_default_excludes()
 
         def _upload_dir_memoized(target: str, *, excludes: Optional[List[str]]) -> str:
             if target in local_path_to_bucket_path:
@@ -223,6 +279,9 @@ class WorkloadSDK(BaseSDK):
                 f"Uploading local dir '{target}' to object storage for all {len(cloud_resource_names)} cloud resources in the compute config."
             )
             assert cloud_id is not None
+            _warn_if_default_excludes_present(
+                target_dir=target, default_excludes=default_excludes, logger=self.logger
+            )
             bucket_path = self._client.upload_local_dir_to_cloud_storage_multi_cloud_resource(
                 target,
                 cloud_id=cloud_id,
@@ -238,7 +297,8 @@ class WorkloadSDK(BaseSDK):
                 existing_excludes = runtime_env.get("excludes", None) or []
                 runtime_env["excludes"] = existing_excludes + excludes_override
 
-            final_excludes = runtime_env.get("excludes", [])
+            user_excludes = runtime_env.get("excludes") or []
+            final_excludes = default_excludes + list(user_excludes)
 
             new_working_dir = None
             if working_dir_override is not None:
@@ -458,3 +518,102 @@ class WorkloadSDK(BaseSDK):
         return self._compute_config_sdk._convert_api_model_to_compute_config_version(  # noqa: SLF001
             compute_config
         ).config
+
+    def get_integration_type_from_connection_type(
+        self, connection_type: str
+    ) -> IntegrationType:
+        """Get the integration type from the connection type."""
+        integration_type = CONNECTION_TYPE_TO_INTEGRATION_TYPE.get(connection_type)
+        if integration_type is None:
+            raise ValueError(f"Unsupported connection type: {connection_type}")
+        return integration_type
+
+    def get_connection_config_from_connection(
+        self, connection: Any
+    ) -> ConnectionConfig:
+        """Get the connection config from the connection."""
+        integration_type = self.get_integration_type_from_connection_type(
+            connection.connection_type
+        )
+        return ConnectionConfig(
+            integration_type=integration_type, connection_name=connection.name,
+        )
+
+    def resolve_connection_ids(
+        self, connections: Optional[List[ConnectionConfig]]
+    ) -> Optional[List[str]]:
+        """Resolve ConnectionConfig objects to connection IDs.
+
+        Looks up connections by name and integration type and returns their IDs.
+        Raises ValueError if a connection is not found, if an invalid integration
+        type is specified, or if duplicate integration types are specified.
+        """
+        if not connections:
+            return None
+
+        # Check for duplicate integration types (only one connection per type allowed)
+        seen_types: set = set()
+        for conn_config in connections:
+            # integration_type is guaranteed to be IntegrationType by ConnectionConfig validation
+            integration_type = conn_config.integration_type
+            if integration_type in seen_types:
+                raise ValueError(
+                    f"Duplicate integration type '{integration_type.value}' specified. "
+                    f"Only one connection per integration type is allowed."
+                )
+            seen_types.add(integration_type)
+
+        # Get connection IDs for each connection
+        connection_ids = []
+        for conn_config in connections:
+            fetched_connections = self.client.list_databricks_connections(
+                name=conn_config.connection_name
+            )
+            if len(fetched_connections) == 0:
+                raise ValueError(
+                    f"Connection '{conn_config.connection_name}' not found. Please check that the "
+                    f"connection exists in your organization settings and has the correct name."
+                )
+            connection_ids.append(fetched_connections[0].id)
+
+        return connection_ids
+
+    def resolve_connection_ids_to_configs(
+        self, connection_ids: Optional[List[str]]
+    ) -> List[ConnectionConfig]:
+        """Resolve connection IDs back to ConnectionConfig objects.
+
+        Used when fetching job/workspace status to convert stored connection IDs
+        back to user-facing ConnectionConfig objects. This makes an API call for
+        each connection ID.
+
+        Prefer using `resolve_decorated_connections_to_configs` when decorated connection
+        data is already available (e.g., from DecoratedProductionJob.connections).
+        """
+        if not connection_ids:
+            return []
+
+        connections = []
+        for connection_id in connection_ids:
+            connection = self.client.get_databricks_connection(connection_id)
+            connections.append(self.get_connection_config_from_connection(connection))
+
+        return connections
+
+    def resolve_decorated_connections_to_configs(
+        self, decorated_connections: Optional[List]
+    ) -> List[ConnectionConfig]:
+        """Convert decorated connection objects to ConnectionConfig objects.
+
+        Used when decorated connection data is already available (e.g., from
+        DecoratedProductionJob.connections), avoiding additional API calls.
+        """
+        if not decorated_connections:
+            return []
+
+        connections = []
+        for decorated_conn in decorated_connections:
+            connection = decorated_conn.connection
+            connections.append(self.get_connection_config_from_connection(connection))
+
+        return connections

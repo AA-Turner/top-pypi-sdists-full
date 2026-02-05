@@ -20,6 +20,10 @@ from langgraph_api.encryption.middleware import (
     decrypt_responses,
     encrypt_request,
 )
+from langgraph_api.encryption.shared import (
+    using_aes_encryption,
+    using_custom_encryption,
+)
 from langgraph_api.feature_flags import (
     IS_POSTGRES_OR_GRPC_BACKEND,
     USE_RUNTIME_CONTEXT_API,
@@ -189,32 +193,35 @@ async def create_assistant(request: ApiRequest) -> ApiResponse:
         except jsonschema_rs.ValidationError as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
 
-    encrypted_payload = await encrypt_request(
-        payload,
-        "assistant",
-        ASSISTANT_ENCRYPTION_FIELDS,
-    )
+    if IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption():
+        effective_payload = payload
+    else:
+        effective_payload = await encrypt_request(
+            payload,
+            "assistant",
+            ASSISTANT_ENCRYPTION_FIELDS,
+        )
 
     async with connect() as conn:
         assistant = await CrudAssistants.put(
             conn,
             assistant_id or str(uuid4()),
-            config=encrypted_payload.get("config") or {},
-            context=encrypted_payload.get("context"),  # None if not provided
+            config=effective_payload.get("config") or {},
+            context=effective_payload.get("context"),  # None if not provided
             graph_id=payload["graph_id"],
-            metadata=encrypted_payload.get("metadata") or {},
+            metadata=effective_payload.get("metadata") or {},
             if_exists=payload.get("if_exists") or "raise",
             name=payload.get("name") or "Untitled",
             description=payload.get("description"),
         )
 
-    # Decrypt metadata, config, and context in response
     assistant_data = await fetchone(assistant, not_found_code=409)
-    assistant_data = await decrypt_response(
-        assistant_data,
-        "assistant",
-        ASSISTANT_ENCRYPTION_FIELDS,
-    )
+    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
+        assistant_data = await decrypt_response(
+            assistant_data,
+            "assistant",
+            ASSISTANT_ENCRYPTION_FIELDS,
+        )
     return ApiResponse(assistant_data)
 
 
@@ -248,12 +255,14 @@ async def search_assistants(
         assistants_iter, next_offset, offset
     )
 
-    # Decrypt metadata, config, and context in all returned assistants
-    decrypted_assistants = await decrypt_responses(
-        assistants,
-        "assistant",
-        ASSISTANT_ENCRYPTION_FIELDS,
-    )
+    if IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption():
+        decrypted_assistants = assistants
+    else:
+        decrypted_assistants = await decrypt_responses(
+            assistants,
+            "assistant",
+            ASSISTANT_ENCRYPTION_FIELDS,
+        )
 
     return ApiResponse(decrypted_assistants, headers=response_headers)
 
@@ -284,13 +293,13 @@ async def get_assistant(
     async with connect() as conn:
         assistant = await CrudAssistants.get(conn, assistant_id)
 
-    # Decrypt metadata, config, and context in response
     assistant_data = await fetchone(assistant)
-    assistant_data = await decrypt_response(
-        assistant_data,
-        "assistant",
-        ASSISTANT_ENCRYPTION_FIELDS,
-    )
+    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
+        assistant_data = await decrypt_response(
+            assistant_data,
+            "assistant",
+            ASSISTANT_ENCRYPTION_FIELDS,
+        )
     return ApiResponse(assistant_data)
 
 
@@ -460,31 +469,34 @@ async def patch_assistant(
         except jsonschema_rs.ValidationError as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
 
-    encrypted_fields = await encrypt_request(
-        payload,
-        "assistant",
-        ASSISTANT_ENCRYPTION_FIELDS,
-    )
+    if IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption():
+        effective_payload = payload
+    else:
+        effective_payload = await encrypt_request(
+            payload,
+            "assistant",
+            ASSISTANT_ENCRYPTION_FIELDS,
+        )
 
     async with connect() as conn:
         assistant = await CrudAssistants.patch(
             conn,
             assistant_id,
-            config=encrypted_fields.get("config"),
-            context=encrypted_fields.get("context"),
+            config=effective_payload.get("config"),
+            context=effective_payload.get("context"),
             graph_id=payload.get("graph_id"),
-            metadata=encrypted_fields.get("metadata"),
+            metadata=effective_payload.get("metadata"),
             name=payload.get("name"),
             description=payload.get("description"),
         )
 
-    # Decrypt metadata, config, and context in response
     assistant_data = await fetchone(assistant)
-    assistant_data = await decrypt_response(
-        assistant_data,
-        "assistant",
-        ASSISTANT_ENCRYPTION_FIELDS,
-    )
+    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
+        assistant_data = await decrypt_response(
+            assistant_data,
+            "assistant",
+            ASSISTANT_ENCRYPTION_FIELDS,
+        )
     return ApiResponse(assistant_data)
 
 
@@ -529,12 +541,14 @@ async def get_assistant_versions(request: ApiRequest) -> ApiResponse:
             status_code=404, detail=f"Assistant {assistant_id} not found"
         )
 
-    # Decrypt metadata, config, and context in all assistant versions
-    decrypted_assistants = await decrypt_responses(
-        assistants,
-        "assistant",
-        ASSISTANT_ENCRYPTION_FIELDS,
-    )
+    if IS_POSTGRES_OR_GRPC_BACKEND and not using_aes_encryption():
+        decrypted_assistants = assistants
+    else:
+        decrypted_assistants = await decrypt_responses(
+            assistants,
+            "assistant",
+            ASSISTANT_ENCRYPTION_FIELDS,
+        )
 
     return ApiResponse(decrypted_assistants)
 
@@ -550,13 +564,13 @@ async def set_latest_assistant_version(request: ApiRequest) -> ApiResponse:
             conn, assistant_id, payload.get("version")
         )
 
-    # Decrypt metadata, config, and context in response
     assistant_data = await fetchone(assistant, not_found_code=404)
-    assistant_data = await decrypt_response(
-        assistant_data,
-        "assistant",
-        ASSISTANT_ENCRYPTION_FIELDS,
-    )
+    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
+        assistant_data = await decrypt_response(
+            assistant_data,
+            "assistant",
+            ASSISTANT_ENCRYPTION_FIELDS,
+        )
     return ApiResponse(assistant_data)
 
 

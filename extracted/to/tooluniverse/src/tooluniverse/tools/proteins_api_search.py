@@ -1,7 +1,7 @@
 """
 proteins_api_search
 
-Search proteins in Proteins API. Returns search results matching the query. Note: The Proteins AP...
+Search proteins in Proteins API by gene name, protein name, or accession. The search intelligentl...
 """
 
 from typing import Any, Optional, Callable
@@ -17,16 +17,16 @@ def proteins_api_search(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
-    Search proteins in Proteins API. Returns search results matching the query. Note: The Proteins AP...
+    Search proteins in Proteins API by gene name, protein name, or accession. The search intelligentl...
 
     Parameters
     ----------
     query : str
-        Search query (e.g., protein name, gene name, organism). Internally converted ...
+        Search query. Can be: gene name (e.g., 'BRCA1', 'TP53'), protein name (e.g., ...
     size : int
-        Number of results to return (default: 25)
+        Maximum number of results to return (default: 25, max: 100)
     offset : int
         Offset for pagination (default: 0)
     format : str
@@ -40,7 +40,7 @@ def proteins_api_search(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

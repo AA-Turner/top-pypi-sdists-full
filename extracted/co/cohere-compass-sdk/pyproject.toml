@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cohere-compass-sdk"
-version = "2.4.0"
+version = "2.5.0"
 authors = []
 description = "Cohere Compass SDK"
 readme = "README.md"
@@ -35,7 +35,7 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
-line-length = 88
+line-length = 120
 target-version = "py310"
 
 [tool.ruff.lint]

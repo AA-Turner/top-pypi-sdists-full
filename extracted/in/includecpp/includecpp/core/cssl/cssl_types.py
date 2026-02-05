@@ -512,28 +512,32 @@ class Byte:
         return ds
 
     def rotate_left(self, n: int = 1) -> 'Byte':
-        """Rotate bits left by n positions."""
+        """Rotate bits left by n positions. Modifies in place."""
         val = self.unsigned()
         n = n % 8
-        rotated = ((val << n) | (val >> (8 - n))) & 0xFF
-        return Byte(1, rotated)
+        self._weight = ((val << n) | (val >> (8 - n))) & 0xFF
+        self._base = 1
+        return self
 
     def rotate_right(self, n: int = 1) -> 'Byte':
-        """Rotate bits right by n positions."""
+        """Rotate bits right by n positions. Modifies in place."""
         val = self.unsigned()
         n = n % 8
-        rotated = ((val >> n) | (val << (8 - n))) & 0xFF
-        return Byte(1, rotated)
+        self._weight = ((val >> n) | (val << (8 - n))) & 0xFF
+        self._base = 1
+        return self
 
     def shift_left(self, n: int = 1) -> 'Byte':
-        """Shift bits left by n positions (fill with 0)."""
-        val = (self.unsigned() << n) & 0xFF
-        return Byte(1, val)
+        """Shift bits left by n positions (fill with 0). Modifies in place."""
+        self._weight = (self.unsigned() << n) & 0xFF
+        self._base = 1
+        return self
 
     def shift_right(self, n: int = 1) -> 'Byte':
-        """Shift bits right by n positions (fill with 0)."""
-        val = (self.unsigned() >> n) & 0xFF
-        return Byte(1, val)
+        """Shift bits right by n positions (fill with 0). Modifies in place."""
+        self._weight = (self.unsigned() >> n) & 0xFF
+        self._base = 1
+        return self
 
     def popcount(self) -> int:
         """Count the number of set bits (1s)."""
@@ -568,45 +572,51 @@ class Byte:
         return self.popcount() % 2
 
     def swap_nibbles(self) -> 'Byte':
-        """Swap high and low nibbles (4 bits each)."""
+        """Swap high and low nibbles (4 bits each). Modifies in place."""
         val = self.unsigned()
-        swapped = ((val & 0x0F) << 4) | ((val & 0xF0) >> 4)
-        return Byte(1, swapped)
+        self._weight = ((val & 0x0F) << 4) | ((val & 0xF0) >> 4)
+        self._base = 1
+        return self
 
     def mirror(self) -> 'Byte':
-        """Mirror/reverse all bits."""
+        """Mirror/reverse all bits. Modifies in place."""
         val = self.unsigned()
         result = 0
         for i in range(8):
             if (val >> i) & 1:
                 result |= (1 << (7 - i))
-        return Byte(1, result)
+        self._weight = result
+        self._base = 1
+        return self
 
-    @classmethod
-    def from_hex(cls, s: str) -> 'Byte':
-        """Create Byte from hex string (e.g., 'FF', '0x3A')."""
+    def from_hex(self, s: str) -> 'Byte':
+        """Set Byte from hex string (e.g., 'FF', '0x3A'). Modifies in place."""
         val = int(s, 16) & 0xFF
-        return cls(1, val)
+        self._base = 1
+        self._weight = val
+        return self
 
     def to_hex(self) -> str:
         """Convert to hex string."""
         return f'{self.unsigned():02X}'
 
-    @classmethod
-    def from_binary(cls, s: str) -> 'Byte':
-        """Create Byte from binary string (e.g., '10110101')."""
+    def from_binary(self, s: str) -> 'Byte':
+        """Set Byte from binary string (e.g., '10110101'). Modifies in place."""
         s = s.replace('0b', '').replace(' ', '')
         val = int(s, 2) & 0xFF
-        return cls(1, val)
+        self._base = 1
+        self._weight = val
+        return self
 
     def to_binary(self) -> str:
         """Convert to binary string (8 chars)."""
         return f'{self.unsigned():08b}'
 
-    @classmethod
-    def from_decimal(cls, n: int) -> 'Byte':
-        """Create Byte from decimal integer."""
-        return cls(1, n & 0xFF)
+    def from_decimal(self, n: int) -> 'Byte':
+        """Set Byte from decimal integer. Modifies in place."""
+        self._base = 1
+        self._weight = n & 0xFF
+        return self
 
     def clamp(self, min_val: int, max_val: int) -> 'Byte':
         """Clamp value to range [min_val, max_val]."""
@@ -705,12 +715,12 @@ class Byte:
             result |= ((b >> i) & 1) << (2 * i + 1)
         return result
 
-    def extract_nibble(self, high: bool = False) -> int:
-        """Extract high or low nibble (4 bits)."""
+    def extract_nibble(self, high: bool = False) -> 'Byte':
+        """Extract high or low nibble (4 bits) as a new Byte."""
         val = self.unsigned()
         if high:
-            return (val >> 4) & 0x0F
-        return val & 0x0F
+            return Byte(1, (val >> 4) & 0x0F)
+        return Byte(1, val & 0x0F)
 
     def set_nibble(self, value: int, high: bool = False) -> 'Byte':
         """Set high or low nibble."""

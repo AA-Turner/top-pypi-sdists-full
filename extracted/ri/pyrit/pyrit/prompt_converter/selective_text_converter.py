@@ -2,14 +2,16 @@
 # Licensed under the MIT license.
 
 
+from pyrit.identifiers import ConverterIdentifier
 from pyrit.models import PromptDataType
-from pyrit.prompt_converter import PromptConverter
-from pyrit.prompt_converter.prompt_converter import ConverterResult
+from pyrit.prompt_converter.prompt_converter import ConverterResult, PromptConverter
 from pyrit.prompt_converter.text_selection_strategy import (
+    AllWordsSelectionStrategy,
     TextSelectionStrategy,
     TokenSelectionStrategy,
     WordSelectionStrategy,
 )
+from pyrit.prompt_converter.word_level_converter import WordLevelConverter
 
 
 class SelectiveTextConverter(PromptConverter):
@@ -24,7 +26,7 @@ class SelectiveTextConverter(PromptConverter):
     Most use cases will use word-level strategies for more intuitive selection.
 
     Example:
-        >>> from pyrit.prompt_converter import Base64Converter, SelectiveTextConverter
+        >>> from pyrit.prompt_converter.prompt_converter import Base64Converter, SelectiveTextConverter
         >>> from pyrit.prompt_converter.text_selection_strategy import WordRegexSelectionStrategy
         >>>
         >>> # Convert only words matching a pattern
@@ -40,6 +42,9 @@ class SelectiveTextConverter(PromptConverter):
         >>> # Result: "The code is ⟪MTIzNDU=⟫ here"
     """
 
+    SUPPORTED_INPUT_TYPES = ("text",)
+    SUPPORTED_OUTPUT_TYPES = ("text",)
+
     def __init__(
         self,
         *,
@@ -51,7 +56,7 @@ class SelectiveTextConverter(PromptConverter):
         word_separator: str = " ",
     ) -> None:
         """
-        Initializes the selective text converter.
+        Initialize the selective text converter.
 
         Args:
             converter (PromptConverter): The converter to apply to the selected text.
@@ -67,13 +72,14 @@ class SelectiveTextConverter(PromptConverter):
 
         Raises:
             ValueError: If the wrapped converter does not support text input/output.
+            ValueError: If a word-level selection_strategy is used with a WordLevelConverter
+                that has a non-default word_selection_strategy. When SelectiveTextConverter uses
+                a WordSelectionStrategy, it passes individual words to the wrapped converter,
+                making the wrapped converter's word selection strategy meaningless.
         """
         super().__init__()
 
-        if not converter.input_supported("text"):
-            raise ValueError(f"The converter {converter.__class__.__name__} does not support text input")
-        if not converter.output_supported("text"):
-            raise ValueError(f"The converter {converter.__class__.__name__} does not support text output")
+        self._validate_converter(converter=converter, selection_strategy=selection_strategy)
 
         self._converter = converter
         self._selection_strategy = selection_strategy
@@ -84,9 +90,62 @@ class SelectiveTextConverter(PromptConverter):
         self._is_word_level = isinstance(selection_strategy, WordSelectionStrategy)
         self._is_token_based = isinstance(selection_strategy, TokenSelectionStrategy)
 
+    def _build_identifier(self) -> ConverterIdentifier:
+        """
+        Build identifier with selective text converter parameters.
+
+        Returns:
+            ConverterIdentifier: The identifier for this converter.
+        """
+        return self._create_identifier(
+            sub_converters=[self._converter],
+            converter_specific_params={
+                "selection_strategy": self._selection_strategy.__class__.__name__,
+                "preserve_tokens": self._preserve_tokens,
+                "start_token": self._start_token,
+                "end_token": self._end_token,
+            },
+        )
+
+    def _validate_converter(
+        self,
+        *,
+        converter: PromptConverter,
+        selection_strategy: TextSelectionStrategy,
+    ) -> None:
+        """
+        Validate the converter and selection strategy combination.
+
+        Args:
+            converter (PromptConverter): The converter to validate.
+            selection_strategy (TextSelectionStrategy): The selection strategy to validate against.
+
+        Raises:
+            ValueError: If the converter does not support text input/output.
+            ValueError: If a word-level selection strategy is used with a WordLevelConverter
+                that has a non-default word_selection_strategy.
+        """
+        if not converter.input_supported("text"):
+            raise ValueError(f"The converter {converter.__class__.__name__} does not support text input")
+        if not converter.output_supported("text"):
+            raise ValueError(f"The converter {converter.__class__.__name__} does not support text output")
+
+        # Check for conflicting word selection strategies
+        is_word_level_selection = isinstance(selection_strategy, WordSelectionStrategy)
+        if is_word_level_selection and isinstance(converter, WordLevelConverter):
+            has_non_default_strategy = not isinstance(converter._word_selection_strategy, AllWordsSelectionStrategy)
+            if has_non_default_strategy:
+                raise ValueError(
+                    f"Cannot use a WordSelectionStrategy with a {converter.__class__.__name__} that has a "
+                    f"non-default word_selection_strategy. When SelectiveTextConverter uses a word-level "
+                    f"strategy, it passes individual words to the wrapped converter, making the wrapped "
+                    f"converter's word selection strategy meaningless. Either use a character-level "
+                    f"selection strategy, or remove the word_selection_strategy from the wrapped converter."
+                )
+
     async def convert_async(self, *, prompt: str, input_type: PromptDataType = "text") -> ConverterResult:
         """
-        Converts selected portions of the prompt using the wrapped converter.
+        Convert selected portions of the prompt using the wrapped converter.
 
         Args:
             prompt (str): The prompt to be converted.
@@ -124,7 +183,15 @@ class SelectiveTextConverter(PromptConverter):
             return await self._convert_char_level_async(prompt=prompt)
 
     async def _convert_word_level_async(self, *, prompt: str) -> ConverterResult:
-        """Converts selected words using word-level selection strategy."""
+        """
+        Convert selected words using word-level selection strategy.
+
+        Args:
+            prompt (str): The prompt to be converted.
+
+        Returns:
+            ConverterResult: The result containing the converted output and its type.
+        """
         words = prompt.split(self._word_separator)
 
         # Get selected word indices
@@ -148,7 +215,15 @@ class SelectiveTextConverter(PromptConverter):
         return ConverterResult(output_text=final_text, output_type="text")
 
     async def _convert_char_level_async(self, *, prompt: str) -> ConverterResult:
-        """Converts a character range using character-level selection strategy."""
+        """
+        Convert a character range using character-level selection strategy.
+
+        Args:
+            prompt (str): The prompt to be converted.
+
+        Returns:
+            ConverterResult: The result containing the converted output and its type.
+        """
         start_idx, end_idx = self._selection_strategy.select_range(text=prompt)
 
         # If no region selected, return original prompt
@@ -169,27 +244,3 @@ class SelectiveTextConverter(PromptConverter):
 
         final_text = f"{before_text}{converted_text}{after_text}"
         return ConverterResult(output_text=final_text, output_type="text")
-
-    def input_supported(self, input_type: PromptDataType) -> bool:
-        """
-        Checks if the input type is supported.
-
-        Args:
-            input_type (PromptDataType): The input type to check.
-
-        Returns:
-            bool: True if the input type is "text", False otherwise.
-        """
-        return input_type == "text"
-
-    def output_supported(self, output_type: PromptDataType) -> bool:
-        """
-        Checks if the output type is supported.
-
-        Args:
-            output_type (PromptDataType): The output type to check.
-
-        Returns:
-            bool: True if the output type is "text", False otherwise.
-        """
-        return output_type == "text"

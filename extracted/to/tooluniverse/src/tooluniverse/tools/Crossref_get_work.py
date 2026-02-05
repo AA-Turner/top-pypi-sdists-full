@@ -14,7 +14,7 @@ def Crossref_get_work(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Optional[dict[str, Any]]:
     """
     Get complete metadata for a specific scholarly work by its DOI (Digital Object Identifier). Retur...
 
@@ -31,7 +31,7 @@ def Crossref_get_work(
 
     Returns
     -------
-    dict[str, Any]
+    Optional[dict[str, Any]]
     """
     # Handle mutable defaults to avoid B006 linting error
 

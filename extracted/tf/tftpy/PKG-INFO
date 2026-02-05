@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tftpy
-Version: 0.8.6
+Version: 0.8.7
 Summary: A TFTP protocol library for Python
 Author-email: Michael Soulier <msoulier@digitaltorque.ca>
 License: MIT
@@ -161,11 +161,11 @@ easy inclusion in a UI for populating progress indicators. It supports RFCs
 1350, 2347, 2348 and the tsize option from RFC 2349.
 
 ## Dependencies:
-Python 3.6+, hopefully. Let me know if it fails to work.
+Python 3.8+, hopefully. Let me know if it fails to work.
 
 ## Trifles:
-Home page: http://tftpy.sf.net/
-Project page: http://sourceforge.net/projects/tftpy/
+Home page: http://msoulier.github.io/tftpy
+Project page: http://github.com/msoulier/tftpy
 
 License is the MIT License
 

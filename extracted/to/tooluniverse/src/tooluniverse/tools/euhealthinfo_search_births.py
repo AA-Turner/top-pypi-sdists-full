@@ -20,7 +20,7 @@ def euhealthinfo_search_births(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> list[Any]:
+) -> Any:
     """
     This tool identifies and retrieves data related to fertility, birth trends, and perinatal indicat...
 
@@ -49,7 +49,7 @@ def euhealthinfo_search_births(
 
     Returns
     -------
-    list[Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

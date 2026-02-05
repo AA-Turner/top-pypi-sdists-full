@@ -1,7 +1,7 @@
 """
 ena_get_sequence_xml
 
-Get nucleotide sequence in XML format from ENA by accession number. Returns XML-formatted sequenc...
+Get metadata in XML format from ENA for Study, Sample, Run, Experiment, Analysis, or Taxon record...
 """
 
 from typing import Any, Optional, Callable
@@ -14,14 +14,14 @@ def ena_get_sequence_xml(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> str:
     """
-    Get nucleotide sequence in XML format from ENA by accession number. Returns XML-formatted sequenc...
+    Get metadata in XML format from ENA for Study, Sample, Run, Experiment, Analysis, or Taxon record...
 
     Parameters
     ----------
     accession : str
-        ENA accession number
+        ENA metadata record accession. Supported types: Study (ERP*, SRP*, PRJ*), Sam...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -31,7 +31,7 @@ def ena_get_sequence_xml(
 
     Returns
     -------
-    dict[str, Any]
+    str
     """
     # Handle mutable defaults to avoid B006 linting error
 

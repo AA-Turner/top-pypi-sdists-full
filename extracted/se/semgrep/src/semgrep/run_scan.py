@@ -46,6 +46,7 @@ from typing import Tuple
 from typing import Union
 
 from boltons.iterutils import partition
+from rich.progress import MofNCompleteColumn
 from rich.progress import Progress
 from rich.progress import SpinnerColumn
 from rich.progress import TextColumn
@@ -103,6 +104,7 @@ from semgrep.subproject import DependencyResolutionConfig
 from semgrep.subproject import get_all_source_files
 from semgrep.subproject import iter_found_dependencies
 from semgrep.subproject import make_dependencies_by_source_path
+from semgrep.symbol_analysis import count_subprojects_for_symbol_analysis
 from semgrep.symbol_analysis import dump_symbol_analysis_and_exit
 from semgrep.symbol_analysis import run_subproject_symbol_analysis
 from semgrep.symbol_analysis import SubprojectSymbolAnalysis
@@ -267,7 +269,6 @@ def add_metrics_part1(
     # We determine if SAST / SCA is enabled based on the config str
     with_code_rules = configs_obj.with_code_rules
     with_supply_chain = configs_obj.with_supply_chain
-
     if metrics.is_enabled:
         metrics.add_project_url(project_url)
         metrics.add_integration_name(environ.get("SEMGREP_INTEGRATION_NAME"))
@@ -275,13 +276,15 @@ def add_metrics_part1(
         metrics.add_engine_config(
             engine_type,
             CodeConfig() if with_code_rules else None,
-            SecretsConfig(
-                SecretsOrigin(AnySecretsOrigin())
-                if allow_untrusted_validators
-                else SecretsOrigin(SemgrepSecretsOrigin())
-            )
-            if run_secrets and not disable_secrets_validation
-            else None,
+            (
+                SecretsConfig(
+                    SecretsOrigin(AnySecretsOrigin())
+                    if allow_untrusted_validators
+                    else SecretsOrigin(SemgrepSecretsOrigin())
+                )
+                if run_secrets and not disable_secrets_validation
+                else None
+            ),
             SupplyChainConfig() if with_supply_chain else None,
         )
         metrics.add_is_diff_scan(baseline_commit is not None)
@@ -1043,12 +1046,33 @@ def run_rules(
 
         if run_symbol_analysis:
             try:
-                sca_symbol_analysis = list(
-                    run_subproject_symbol_analysis(
-                        target_manager=target_manager,
-                        subprojects_by_ecosystem=resolved_subprojects,
-                    )
+                total_subprojects = count_subprojects_for_symbol_analysis(
+                    resolved_subprojects
                 )
+                logger.debug(
+                    f"Running subproject symbol analysis for {total_subprojects} subprojects..."
+                )
+
+                with Progress(
+                    SpinnerColumn(style="green"),
+                    TextColumn("{task.description}"),
+                    MofNCompleteColumn(),
+                    console=console,
+                    disable=(not sys.stderr.isatty() or total_subprojects == 0),
+                ) as progress:
+                    task_id = progress.add_task(
+                        "Calculating symbol analysis",
+                        total=total_subprojects,
+                    )
+                    sca_symbol_analysis = list(
+                        run_subproject_symbol_analysis(
+                            target_manager=target_manager,
+                            subprojects_by_ecosystem=resolved_subprojects,
+                            progress=progress,
+                            task_id=task_id,
+                        )
+                    )
+                logger.debug("Subproject symbol analysis completed")
             except Exception as e:
                 logger.error(f"Error running subproject symbol analysis: {e}")
         else:

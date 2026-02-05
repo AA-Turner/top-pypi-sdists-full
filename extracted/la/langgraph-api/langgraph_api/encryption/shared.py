@@ -61,3 +61,36 @@ def get_encryption() -> JsonEncryptionWrapper | AesEncryptionInstance | None:
         # Wrap custom encryption with AES migration support (can decrypt old AES data)
         return JsonEncryptionWrapper(custom_instance, aes)
     return aes
+
+
+@functools.lru_cache(maxsize=1)
+def using_custom_encryption() -> bool:
+    """Check if custom encryption is configured.
+    This is *not* mutually exclusive with AES encryption.
+
+    Returns:
+        True if custom encryption is configured, False otherwise.
+    """
+    from langgraph_api.encryption.custom import JsonEncryptionWrapper
+
+    return (
+        isinstance(get_encryption(), JsonEncryptionWrapper)
+        and get_encryption().has_custom
+    )
+
+
+@functools.lru_cache(maxsize=1)
+def using_aes_encryption() -> bool:
+    """Check if AES encryption is configured.
+    This is *not* mutually exclusive with custom encryption.
+
+    Returns:
+        True if AES encryption is configured, False otherwise.
+    """
+    from langgraph_api.encryption.aes_json import AesEncryptionInstance
+    from langgraph_api.encryption.custom import JsonEncryptionWrapper
+
+    enc = get_encryption()
+    return isinstance(enc, AesEncryptionInstance) or (
+        isinstance(enc, JsonEncryptionWrapper) and enc.has_aes
+    )

@@ -15,12 +15,14 @@ class StructuredTableApiIdentifiers:
 
     _api_id: Union[Unset, str] = UNSET
     _columns: Union[Unset, List[StructuredTableColumnInfo]] = UNSET
+    _name: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = attr.ib(init=False, factory=dict)
 
     def __repr__(self):
         fields = []
         fields.append("api_id={}".format(repr(self._api_id)))
         fields.append("columns={}".format(repr(self._columns)))
+        fields.append("name={}".format(repr(self._name)))
         fields.append("additional_properties={}".format(repr(self.additional_properties)))
         return "StructuredTableApiIdentifiers({})".format(", ".join(fields))
 
@@ -34,6 +36,8 @@ class StructuredTableApiIdentifiers:
 
                 columns.append(columns_item)
 
+        name = self._name
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         # Allow the model to serialize even if it was created outside of the constructor, circumventing validation
@@ -41,6 +45,8 @@ class StructuredTableApiIdentifiers:
             field_dict["apiId"] = api_id
         if columns is not UNSET:
             field_dict["columns"] = columns
+        if name is not UNSET:
+            field_dict["name"] = name
 
         return field_dict
 
@@ -76,9 +82,21 @@ class StructuredTableApiIdentifiers:
                 raise
             columns = cast(Union[Unset, List[StructuredTableColumnInfo]], UNSET)
 
+        def get_name() -> Union[Unset, str]:
+            name = d.pop("name")
+            return name
+
+        try:
+            name = get_name()
+        except KeyError:
+            if strict:
+                raise
+            name = cast(Union[Unset, str], UNSET)
+
         structured_table_api_identifiers = cls(
             api_id=api_id,
             columns=columns,
+            name=name,
         )
 
         structured_table_api_identifiers.additional_properties = d
@@ -130,3 +148,17 @@ class StructuredTableApiIdentifiers:
     @columns.deleter
     def columns(self) -> None:
         self._columns = UNSET
+
+    @property
+    def name(self) -> str:
+        if isinstance(self._name, Unset):
+            raise NotPresentError(self, "name")
+        return self._name
+
+    @name.setter
+    def name(self, value: str) -> None:
+        self._name = value
+
+    @name.deleter
+    def name(self) -> None:
+        self._name = UNSET

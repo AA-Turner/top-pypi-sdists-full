@@ -4,6 +4,7 @@
 from typing import Optional
 
 from pyrit.analytics.text_matching import ExactTextMatching, TextMatching
+from pyrit.identifiers import ScorerIdentifier
 from pyrit.memory.central_memory import CentralMemory
 from pyrit.models import MessagePiece, Score
 from pyrit.score.scorer_prompt_validator import ScorerPromptValidator
@@ -46,9 +47,24 @@ class DecodingScorer(TrueFalseScorer):
                 Defaults to TrueFalseScoreAggregator.OR.
             validator (Optional[ScorerPromptValidator]): Custom validator. Defaults to None.
         """
-        super().__init__(score_aggregator=aggregator, validator=validator or self._default_validator)
         self._text_matcher = text_matcher if text_matcher else ExactTextMatching(case_sensitive=False)
         self._score_categories = categories if categories else []
+
+        super().__init__(score_aggregator=aggregator, validator=validator or self._default_validator)
+
+    def _build_identifier(self) -> ScorerIdentifier:
+        """
+        Build the scorer evaluation identifier for this scorer.
+
+        Returns:
+            ScorerIdentifier: The identifier for this scorer.
+        """
+        return self._create_identifier(
+            score_aggregator=self._score_aggregator.__name__,
+            scorer_specific_params={
+                "text_matcher": self._text_matcher.__class__.__name__,
+            },
+        )
 
     async def _score_piece_async(self, message_piece: MessagePiece, *, objective: Optional[str] = None) -> list[Score]:
         """

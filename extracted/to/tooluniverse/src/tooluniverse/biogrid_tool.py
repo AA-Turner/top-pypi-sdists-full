@@ -108,11 +108,33 @@ class BioGRIDRESTTool(BaseTool):
         # Validate required parameters
         for param in self.required:
             if param not in arguments:
-                return {"error": f"Missing required parameter: {param}"}
+                error_msg = f"Missing required parameter: {param}"
+                return {
+                    "status": "error",
+                    "data": {"error": error_msg},
+                    "error": error_msg,
+                }
 
         url = self._build_url(arguments)
         if isinstance(url, dict) and "error" in url:
-            return url
+            return {"status": "error", "data": url, "error": url.get("error")}
 
-        params = self._build_params(arguments)
-        return self._make_request(url, params)
+        try:
+            params = self._build_params(arguments)
+        except ValueError as e:
+            # API key missing
+            error_msg = f"Authentication failed: {str(e)}"
+            return {"status": "error", "data": {"error": error_msg}, "error": error_msg}
+
+        api_response = self._make_request(url, params)
+
+        # Check if API returned an error
+        if "error" in api_response:
+            return {
+                "status": "error",
+                "data": api_response,
+                "error": api_response.get("error"),
+            }
+
+        # Success - wrap the response
+        return {"status": "success", "data": api_response}

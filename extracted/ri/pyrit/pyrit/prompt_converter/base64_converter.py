@@ -5,8 +5,9 @@ import base64
 import binascii
 from typing import Literal
 
+from pyrit.identifiers import ConverterIdentifier
 from pyrit.models import PromptDataType
-from pyrit.prompt_converter import ConverterResult, PromptConverter
+from pyrit.prompt_converter.prompt_converter import ConverterResult, PromptConverter
 
 
 class Base64Converter(PromptConverter):
@@ -17,6 +18,12 @@ class Base64Converter(PromptConverter):
     which can be useful for obfuscating text or testing how systems
     handle encoded content.
     """
+
+    SUPPORTED_INPUT_TYPES = ("text",)
+    SUPPORTED_OUTPUT_TYPES = ("text",)
+
+    SUPPORTED_INPUT_TYPES = ("text",)
+    SUPPORTED_OUTPUT_TYPES = ("text",)
 
     EncodingFunc = Literal[
         "b64encode",
@@ -38,9 +45,22 @@ class Base64Converter(PromptConverter):
         """
         self._encoding_func = encoding_func
 
+    def _build_identifier(self) -> ConverterIdentifier:
+        """
+        Build the converter identifier with encoding function.
+
+        Returns:
+            ConverterIdentifier: The identifier for this converter.
+        """
+        return self._create_identifier(
+            converter_specific_params={
+                "encoding_func": self._encoding_func,
+            },
+        )
+
     async def convert_async(self, *, prompt: str, input_type: PromptDataType = "text") -> ConverterResult:
         """
-        Converts the given prompt to base64 encoding.
+        Convert the given prompt to base64 encoding.
 
         Args:
             prompt: The prompt to be converted.
@@ -76,9 +96,3 @@ class Base64Converter(PromptConverter):
             raise ValueError("Unsupported encoding function")
 
         return ConverterResult(output_text=encoded_bytes.decode("utf-8"), output_type="text")
-
-    def input_supported(self, input_type: PromptDataType) -> bool:
-        return input_type == "text"
-
-    def output_supported(self, output_type: PromptDataType) -> bool:
-        return output_type == "text"

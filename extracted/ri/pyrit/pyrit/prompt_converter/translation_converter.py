@@ -16,13 +16,14 @@ from tenacity import (
 
 from pyrit.common.apply_defaults import REQUIRED_VALUE, apply_defaults
 from pyrit.common.path import CONVERTER_SEED_PROMPT_PATH
+from pyrit.identifiers import ConverterIdentifier
 from pyrit.models import (
     Message,
     MessagePiece,
     PromptDataType,
     SeedPrompt,
 )
-from pyrit.prompt_converter import ConverterResult, PromptConverter
+from pyrit.prompt_converter.prompt_converter import ConverterResult, PromptConverter
 from pyrit.prompt_target import PromptChatTarget
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,9 @@ class TranslationConverter(PromptConverter):
     """
     Translates prompts into different languages using an LLM.
     """
+
+    SUPPORTED_INPUT_TYPES = ("text",)
+    SUPPORTED_OUTPUT_TYPES = ("text",)
 
     @apply_defaults
     def __init__(
@@ -44,7 +48,7 @@ class TranslationConverter(PromptConverter):
         max_wait_time_in_seconds: int = 60,
     ):
         """
-        Initializes the converter with the target chat support, language, and optional prompt template.
+        Initialize the converter with the target chat support, language, and optional prompt template.
 
         Args:
             converter_target (PromptChatTarget): The target chat support for the conversion which will translate.
@@ -78,12 +82,27 @@ class TranslationConverter(PromptConverter):
 
         self.system_prompt = prompt_template.render_template_value(languages=language)
 
+    def _build_identifier(self) -> ConverterIdentifier:
+        """
+        Build the converter identifier with translation parameters.
+
+        Returns:
+            ConverterIdentifier: The identifier for this converter.
+        """
+        return self._create_identifier(
+            converter_target=self.converter_target,
+            converter_specific_params={
+                "language": self.language,
+            },
+        )
+
     async def convert_async(self, *, prompt: str, input_type: PromptDataType = "text") -> ConverterResult:
         """
-        Converts the given prompt by translating it using the converter target.
+        Convert the given prompt by translating it using the converter target.
 
         Args:
             prompt (str): The prompt to be converted.
+            input_type (PromptDataType): The type of input data.
 
         Returns:
             ConverterResult: The result containing the generated version of the prompt.
@@ -126,7 +145,7 @@ class TranslationConverter(PromptConverter):
         translation = await self._send_translation_prompt_async(request)
         return ConverterResult(output_text=translation, output_type="text")
 
-    async def _send_translation_prompt_async(self, request) -> str:
+    async def _send_translation_prompt_async(self, request: Message) -> str:
         async for attempt in AsyncRetrying(
             stop=stop_after_attempt(self._max_retries),
             wait=wait_exponential(multiplier=1, min=1, max=self._max_wait_time_in_seconds),
@@ -140,9 +159,3 @@ class TranslationConverter(PromptConverter):
 
         # when we exhaust all retries without success, raise an exception
         raise Exception(f"Failed to translate after {self._max_retries} attempts")
-
-    def input_supported(self, input_type: PromptDataType) -> bool:
-        return input_type == "text"
-
-    def output_supported(self, output_type: PromptDataType) -> bool:
-        return output_type == "text"

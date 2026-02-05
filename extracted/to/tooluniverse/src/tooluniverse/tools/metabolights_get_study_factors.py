@@ -14,7 +14,7 @@ def metabolights_get_study_factors(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
     Get experimental factors (variables) for a MetaboLights study. Returns factor definitions such as...
 
@@ -31,7 +31,7 @@ def metabolights_get_study_factors(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

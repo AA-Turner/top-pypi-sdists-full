@@ -9,7 +9,8 @@ from typing import List, Optional
 from pyrit.common.apply_defaults import REQUIRED_VALUE, apply_defaults
 from pyrit.common.path import CONVERTER_SEED_PROMPT_PATH, DATASETS_PATH
 from pyrit.models import PromptDataType, SeedDataset, SeedPrompt
-from pyrit.prompt_converter import ConverterResult, LLMGenericTextConverter
+from pyrit.prompt_converter.llm_generic_text_converter import LLMGenericTextConverter
+from pyrit.prompt_converter.prompt_converter import ConverterResult
 from pyrit.prompt_converter.text_selection_strategy import WordSelectionStrategy
 from pyrit.prompt_converter.word_level_converter import WordLevelConverter
 from pyrit.prompt_target import PromptChatTarget
@@ -24,6 +25,9 @@ class RandomTranslationConverter(LLMGenericTextConverter, WordLevelConverter):
     An existing ``PromptChatTarget`` is used to perform the translation (like Azure OpenAI).
     """
 
+    SUPPORTED_INPUT_TYPES = ("text",)
+    SUPPORTED_OUTPUT_TYPES = ("text",)
+
     # Default language list
     _DEFAULT_LANGUAGES_SEED_PROMPT_PATH = Path(DATASETS_PATH) / "lexicons" / "languages_most_spoken.yaml"
 
@@ -37,7 +41,7 @@ class RandomTranslationConverter(LLMGenericTextConverter, WordLevelConverter):
         word_selection_strategy: Optional[WordSelectionStrategy] = None,
     ):
         """
-        Initializes the converter with a target, an optional system prompt template, and language options.
+        Initialize the converter with a target, an optional system prompt template, and language options.
 
         Args:
             converter_target (PromptChatTarget): The target for the prompt conversion.
@@ -82,7 +86,7 @@ class RandomTranslationConverter(LLMGenericTextConverter, WordLevelConverter):
 
     async def convert_async(self, *, prompt: str, input_type: PromptDataType = "text") -> ConverterResult:
         """
-        Converts the given prompt into the target format supported by the converter.
+        Convert the given prompt into the target format supported by the converter.
 
         Args:
             prompt (str): The prompt to be converted.
@@ -108,7 +112,7 @@ class RandomTranslationConverter(LLMGenericTextConverter, WordLevelConverter):
 
     async def convert_word_async(self, word: str) -> str:
         """
-        Converts a single word into the target format supported by the converter.
+        Convert a single word into the target format supported by the converter.
 
         Args:
             word (str): The word to be converted.

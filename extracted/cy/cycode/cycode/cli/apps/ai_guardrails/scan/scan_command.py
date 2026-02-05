@@ -16,6 +16,7 @@ from typing import Annotated
 import click
 import typer
 
+from cycode.cli.apps.ai_guardrails.consts import AIIDEType
 from cycode.cli.apps.ai_guardrails.scan.handlers import get_handler_for_event
 from cycode.cli.apps.ai_guardrails.scan.payload import AIHookPayload
 from cycode.cli.apps.ai_guardrails.scan.policy import load_policy
@@ -24,7 +25,6 @@ from cycode.cli.apps.ai_guardrails.scan.types import AiHookEventType
 from cycode.cli.apps.ai_guardrails.scan.utils import output_json, safe_json_parse
 from cycode.cli.exceptions.custom_exceptions import HttpUnauthorizedError
 from cycode.cli.utils.get_api_client import get_ai_security_manager_client, get_scan_cycode_client
-from cycode.cli.utils.sentry import add_breadcrumb
 from cycode.logger import get_logger
 
 logger = get_logger('AI Guardrails')
@@ -69,7 +69,7 @@ def scan_command(
             help='IDE that sent the payload (e.g., "cursor"). Defaults to cursor.',
             hidden=True,
         ),
-    ] = 'cursor',
+    ] = AIIDEType.CURSOR.value,
 ) -> None:
     """Scan content from AI IDE hooks for secrets.
 
@@ -83,8 +83,6 @@ def scan_command(
     Example usage (from IDE hooks configuration):
         { "command": "cycode ai-guardrails scan" }
     """
-    add_breadcrumb('ai-guardrails-scan')
-
     stdin_data = sys.stdin.read().strip()
     payload = safe_json_parse(stdin_data)
 
@@ -93,6 +91,16 @@ def scan_command(
 
     if not payload:
         logger.debug('Empty or invalid JSON payload received')
+        output_json(response_builder.allow_prompt())
+        return
+
+    # Check if the payload matches the expected IDE - prevents double-processing
+    # when Cursor reads Claude Code hooks from ~/.claude/settings.json
+    if not AIHookPayload.is_payload_for_ide(payload, tool):
+        logger.debug(
+            'Payload event does not match expected IDE, skipping',
+            extra={'hook_event_name': payload.get('hook_event_name'), 'expected_ide': tool},
+        )
         output_json(response_builder.allow_prompt())
         return
 

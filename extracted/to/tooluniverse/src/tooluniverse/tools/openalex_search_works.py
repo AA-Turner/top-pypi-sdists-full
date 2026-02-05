@@ -19,7 +19,7 @@ def openalex_search_works(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Optional[dict[str, Any]]:
     """
     Search OpenAlex works (papers) via the /works endpoint. Use this to discover OpenAlex Work IDs (W...
 
@@ -46,7 +46,7 @@ def openalex_search_works(
 
     Returns
     -------
-    dict[str, Any]
+    Optional[dict[str, Any]]
     """
     # Handle mutable defaults to avoid B006 linting error
 

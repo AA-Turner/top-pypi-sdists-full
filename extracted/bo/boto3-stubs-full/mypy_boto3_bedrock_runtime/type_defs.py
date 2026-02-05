@@ -206,6 +206,7 @@ __all__ = (
     "InvokeModelWithBidirectionalStreamResponseTypeDef",
     "InvokeModelWithResponseStreamRequestTypeDef",
     "InvokeModelWithResponseStreamResponseTypeDef",
+    "JsonSchemaDefinitionTypeDef",
     "ListAsyncInvokesRequestPaginateTypeDef",
     "ListAsyncInvokesRequestTypeDef",
     "ListAsyncInvokesResponseTypeDef",
@@ -216,6 +217,9 @@ __all__ = (
     "MessageUnionTypeDef",
     "ModelStreamErrorExceptionTypeDef",
     "ModelTimeoutExceptionTypeDef",
+    "OutputConfigTypeDef",
+    "OutputFormatStructureTypeDef",
+    "OutputFormatTypeDef",
     "PaginatorConfigTypeDef",
     "PayloadPartTypeDef",
     "PerformanceConfigurationTypeDef",
@@ -648,6 +652,12 @@ class ModelTimeoutExceptionTypeDef(TypedDict):
     message: NotRequired[str]
 
 
+class JsonSchemaDefinitionTypeDef(TypedDict):
+    schema: str
+    name: NotRequired[str]
+    description: NotRequired[str]
+
+
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
@@ -926,6 +936,10 @@ class InvokeModelWithBidirectionalStreamOutputTypeDef(TypedDict):
     serviceUnavailableException: NotRequired[ServiceUnavailableExceptionTypeDef]
 
 
+class OutputFormatStructureTypeDef(TypedDict):
+    jsonSchema: NotRequired[JsonSchemaDefinitionTypeDef]
+
+
 class ListAsyncInvokesRequestPaginateTypeDef(TypedDict):
     submitTimeAfter: NotRequired[TimestampTypeDef]
     submitTimeBefore: NotRequired[TimestampTypeDef]
@@ -993,6 +1007,7 @@ class ToolSpecificationTypeDef(TypedDict):
     name: str
     inputSchema: ToolInputSchemaTypeDef
     description: NotRequired[str]
+    strict: NotRequired[bool]
 
 
 ToolUseBlockUnionTypeDef = Union[ToolUseBlockTypeDef, ToolUseBlockOutputTypeDef]
@@ -1167,6 +1182,15 @@ class InvokeModelWithBidirectionalStreamResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+OutputFormatTypeDef = TypedDict(
+    "OutputFormatTypeDef",
+    {
+        "type": Literal["json_schema"],
+        "structure": OutputFormatStructureTypeDef,
+    },
+)
+
+
 class InvokeModelWithResponseStreamResponseTypeDef(TypedDict):
     body: EventStream[ResponseStreamTypeDef]
     contentType: str
@@ -1280,6 +1304,10 @@ DocumentBlockTypeDef = TypedDict(
 class GuardrailAutomatedReasoningTranslationAmbiguousFindingTypeDef(TypedDict):
     options: NotRequired[list[GuardrailAutomatedReasoningTranslationOptionTypeDef]]
     differenceScenarios: NotRequired[list[GuardrailAutomatedReasoningScenarioTypeDef]]
+
+
+class OutputConfigTypeDef(TypedDict):
+    textFormat: NotRequired[OutputFormatTypeDef]
 
 
 class ToolConfigurationTypeDef(TypedDict):
@@ -1530,6 +1558,7 @@ class ConverseRequestTypeDef(TypedDict):
     requestMetadata: NotRequired[Mapping[str, str]]
     performanceConfig: NotRequired[PerformanceConfigurationTypeDef]
     serviceTier: NotRequired[ServiceTierTypeDef]
+    outputConfig: NotRequired[OutputConfigTypeDef]
 
 
 class ConverseStreamRequestTypeDef(TypedDict):
@@ -1545,6 +1574,7 @@ class ConverseStreamRequestTypeDef(TypedDict):
     requestMetadata: NotRequired[Mapping[str, str]]
     performanceConfig: NotRequired[PerformanceConfigurationTypeDef]
     serviceTier: NotRequired[ServiceTierTypeDef]
+    outputConfig: NotRequired[OutputConfigTypeDef]
 
 
 class ConverseTokensRequestTypeDef(TypedDict):

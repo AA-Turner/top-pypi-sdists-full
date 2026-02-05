@@ -9,6 +9,7 @@ import requests
 from openai import BadRequestError
 
 from pyrit.exceptions import PyritException, pyrit_target_retry
+from pyrit.identifiers import ScorerIdentifier
 from pyrit.models import Message, MessagePiece, Score
 from pyrit.prompt_target import GandalfLevel, PromptChatTarget
 from pyrit.score.scorer_prompt_validator import ScorerPromptValidator
@@ -49,9 +50,22 @@ class GandalfScorer(TrueFalseScorer):
                 TrueFalseScoreAggregator.OR.
         """
         super().__init__(validator=validator or self._default_validator, score_aggregator=score_aggregator)
+
         self._prompt_target = chat_target
         self._defender = level.value
         self._endpoint = "https://gandalf-api.lakera.ai/api/guess-password"
+
+    def _build_identifier(self) -> ScorerIdentifier:
+        """
+        Build the scorer evaluation identifier for this scorer.
+
+        Returns:
+            ScorerIdentifier: The identifier for this scorer.
+        """
+        return self._create_identifier(
+            prompt_target=self._prompt_target,
+            score_aggregator=self._score_aggregator.__name__,
+        )
 
     @pyrit_target_retry
     async def _check_for_password_in_conversation(self, conversation_id: str) -> str:
@@ -92,7 +106,7 @@ class GandalfScorer(TrueFalseScorer):
 
         conversation_as_text = ""
         for message in conversation:
-            conversation_as_text += "Gandalf" if message.message_pieces[0].role == "assistant" else "user"
+            conversation_as_text += "Gandalf" if message.message_pieces[0].api_role == "assistant" else "user"
             conversation_as_text += ": "
             conversation_as_text += message.get_value()
             conversation_as_text += "\n"

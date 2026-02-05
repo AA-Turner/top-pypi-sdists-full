@@ -5,6 +5,7 @@ import datetime
 import typing
 import warnings
 
+import Microsoft.Win32.SafeHandles
 import System
 import System.Buffers
 import System.Collections
@@ -18064,6 +18065,10 @@ class Console(System.Object):
         ...
 
     @staticmethod
+    def open_standard_error_handle() -> Microsoft.Win32.SafeHandles.SafeFileHandle:
+        ...
+
+    @staticmethod
     @overload
     def open_standard_input() -> System.IO.Stream:
         ...
@@ -18074,6 +18079,10 @@ class Console(System.Object):
         ...
 
     @staticmethod
+    def open_standard_input_handle() -> Microsoft.Win32.SafeHandles.SafeFileHandle:
+        ...
+
+    @staticmethod
     @overload
     def open_standard_output() -> System.IO.Stream:
         ...
@@ -18081,6 +18090,10 @@ class Console(System.Object):
     @staticmethod
     @overload
     def open_standard_output(buffer_size: int) -> System.IO.Stream:
+        ...
+
+    @staticmethod
+    def open_standard_output_handle() -> Microsoft.Win32.SafeHandles.SafeFileHandle:
         ...
 
     @staticmethod

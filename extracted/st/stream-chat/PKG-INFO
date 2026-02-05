@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: stream-chat
-Version: 4.29.0
+Version: 4.30.0
 Summary: Client for Stream Chat.
 Home-page: https://github.com/GetStream/stream-chat-python
 Author: Tommaso Barbugli
 Author-email: support@getstream.io
 Project-URL: Bug Tracker, https://github.com/GetStream/stream-chat-python/issues
 Project-URL: Documentation, https://getstream.io/activity-feeds/docs/python/?language=python
-Project-URL: Release Notes, https://github.com/GetStream/stream-chat-python/releases/tag/v4.29.0
+Project-URL: Release Notes, https://github.com/GetStream/stream-chat-python/releases/tag/v4.30.0
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Operating System :: OS Independent

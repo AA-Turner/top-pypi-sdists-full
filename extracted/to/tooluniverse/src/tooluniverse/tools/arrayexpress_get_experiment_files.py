@@ -14,7 +14,7 @@ def arrayexpress_get_experiment_files(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
     Get list of files associated with an ArrayExpress experiment. Returns file metadata including fil...
 
@@ -31,7 +31,7 @@ def arrayexpress_get_experiment_files(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyalex
-Version: 0.19
+Version: 0.20
 Summary: Python interface to the OpenAlex database
 Author-email: Jonathan de Bruin <jonathandebruinos@gmail.com>
 License: MIT
@@ -39,7 +39,18 @@ institutions, and more. OpenAlex offers a robust, open, and free [REST API](http
 PyAlex is a lightweight and thin Python interface to this API. PyAlex tries to
 stay as close as possible to the design of the original service.
 
-The following features of OpenAlex are currently supported by PyAlex:
+The following entities of OpenAlex are currently supported by PyAlex:
+
+- [x] Work
+- [x] Author
+- [x] Source
+- [x] Institution
+- [x] Concept
+- [x] Topic
+- [x] Publisher
+- [x] Funder
+
+Including the following functionality:
 
 - [x] Get single entities
 - [x] Filter entities
@@ -50,7 +61,7 @@ The following features of OpenAlex are currently supported by PyAlex:
 - [x] Sample
 - [x] Pagination
 - [x] Autocomplete endpoint
-- [x] N-grams
+- [x] N-grams [Deprecated by OpenAlex]
 - [x] Authentication
 
 We aim to cover the entire API, and we are looking for help. We are welcoming Pull Requests.
@@ -59,6 +70,7 @@ We aim to cover the entire API, and we are looking for help. We are welcoming Pu
 
 - **Pipe operations** - PyAlex can handle multiple operations in a sequence. This allows the developer to write understandable queries. For examples, see [code snippets](#code-snippets).
 - **Plaintext abstracts** - OpenAlex [doesn't include plaintext abstracts](https://docs.openalex.org/api-entities/works/work-object#abstract_inverted_index) due to legal constraints. PyAlex can convert the inverted abstracts into [plaintext abstracts on the fly](#get-abstract).
+- **Fetch content in PDF and TEI format** - Retrieve full-text content from OpenAlex in PDF or TEI XML formats. See [fetching content](#fetch-content-in-pdf-and-tei-format).
 - **Permissive license** - OpenAlex data is CC0 licensed :raised_hands:. PyAlex is published under the MIT license.
 
 ## Installation
@@ -74,40 +86,51 @@ pip install pyalex
 PyAlex offers support for all [Entity Objects](https://docs.openalex.org/api-entities/entities-overview): [Works](https://docs.openalex.org/api-entities/works), [Authors](https://docs.openalex.org/api-entities/authors), [Sources](https://docs.openalex.org/api-entities/sourcese), [Institutions](https://docs.openalex.org/api-entities/institutions), [Topics](https://docs.openalex.org/api-entities/topics), [Publishers](https://docs.openalex.org/api-entities/publishers), and [Funders](https://docs.openalex.org/api-entities/funders).
 
 ```python
-from pyalex import Works, Authors, Sources, Institutions, Topics, Publishers, Funders
+from pyalex import (
+  Works,
+  Authors,
+  Sources,
+  Institutions,
+  Topics,
+  Keywords,
+  Publishers,
+  Funders,
+  Awards,
+  Concepts,
+)
 ```
 
-### The polite pool
+### Rate limits and authentication [Changed!]
 
-[The polite pool](https://docs.openalex.org/how-to-use-the-api/rate-limits-and-authentication#the-polite-pool) has much
-faster and more consistent response times. To get into the polite pool, you
-set your email:
+**⚠️ API Key Required**: Starting February 13, 2026, an API key is **required** to use the OpenAlex API. API keys are free!
+
+The OpenAlex API uses a credit-based rate limiting system. Different endpoint types consume different amounts of credits per request:
+
+- **Without API key**: 100 credits per day (testing/demos only)
+- **With free API key**: 100,000 credits per day
+- **Singleton requests** (e.g., `/works/W123`): Free (0 credits)
+- **List requests** (e.g., `/works?filter=...`): 1 credit each
+
+All users are limited to a maximum of 100 requests per second.
+
+#### Get an API Key
+
+1. Create a free account at [openalex.org](https://openalex.org/)
+2. Go to [openalex.org/settings/api](https://openalex.org/settings/api) to get your API key
+3. Configure PyAlex with your key:
 
 ```python
 import pyalex
 
-pyalex.config.email = "mail@example.com"
+pyalex.config.api_key = "<YOUR_API_KEY>"
 ```
 
-### Max retries
+For more information, see the [OpenAlex Rate limits and authentication documentation](https://docs.openalex.org/how-to-use-the-api/rate-limits-and-authentication).
 
-By default, PyAlex will raise an error at the first failure when querying the OpenAlex API. You can set `max_retries` to a number higher than 0 to allow PyAlex to retry when an error occurs. `retry_backoff_factor` is related to the delay between two retry, and `retry_http_codes` are the HTTP error codes that should trigger a retry.
-
-```python
-from pyalex import config
-
-config.max_retries = 0
-config.retry_backoff_factor = 0.1
-config.retry_http_codes = [429, 500, 503]
-```
-
-### Standards
-
-OpenAlex uses standard [ISO_3166-1_alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2) country codes.
 
 ### Get single entity
 
-Get a single Work, Author, Source, Institution, Concept, Topic, Publisher or Funder from OpenAlex by the
+Get a single Work, Author, Source, Institution, Concept, Topic, Publisher, Funders or Awards from OpenAlex by the
 OpenAlex ID, or by DOI or ROR.
 
 ```python
@@ -171,6 +194,55 @@ w["abstract"]
 ```
 
 Please respect the legal constraints when using this feature.
+
+#### Fetch content in PDF and TEI format
+
+OpenAlex reference: [Get content](https://docs.openalex.org/how-to-use-the-api/get-content)
+
+Only for Works. Retrieve the full-text content of a work in PDF or TEI (Text Encoding Initiative) XML format, if available.
+
+```python
+from pyalex import Works
+
+# Get a work
+w = Works()["W4412002745"]
+
+# Access the PDF content
+pdf_content = w.pdf.get()
+
+# Or access the TEI content
+tei_content = w.tei.get()
+```
+
+You can also download the content directly to a file:
+
+```python
+from pyalex import Works
+
+w = Works()["W4412002745"]
+
+# Download PDF to a file
+w.pdf.download("document.pdf")
+
+# Download TEI to a file
+w.tei.download("document.xml")
+```
+
+You can also get the URL of the content without downloading it:
+
+```python
+from pyalex import Works
+
+w = Works()["W4412002745"]
+
+# Get the URL of the PDF
+pdf_url = w.pdf.url
+
+# Get the URL of the TEI
+tei_url = w.tei.url
+```
+
+Note: Content availability depends on the publisher's open access policies and licensing agreements.
 
 ### Get lists of entities
 
@@ -420,6 +492,10 @@ with open(Path("works.json")) as f:
     works = [Work(w) for w in json.load(f)]
 ```
 
+## Standards
+
+OpenAlex uses standard [ISO_3166-1_alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2) country codes.
+
 ## Code snippets
 
 A list of awesome use cases of the OpenAlex dataset.
@@ -498,19 +574,20 @@ Works() \
 
 ```
 
-## Experimental
 
-### Authentication
+## Troubleshooting
 
-OpenAlex experiments with authenticated requests at the moment. Authenticate your requests with
+### Max retries
+
+By default, PyAlex will raise an error at the first failure when querying the OpenAlex API. You can set `max_retries` to a number higher than 0 to allow PyAlex to retry when an error occurs. `retry_backoff_factor` is related to the delay between two retry, and `retry_http_codes` are the HTTP error codes that should trigger a retry.
 
 ```python
-import pyalex
+from pyalex import config
 
-pyalex.config.api_key = "<MY_KEY>"
+config.max_retries = 0
+config.retry_backoff_factor = 0.1
+config.retry_http_codes = [429, 500, 503]
 ```
-
-If you configure an invalid API key all requests to OpenAlex will fail.
 
 ## Alternatives
 

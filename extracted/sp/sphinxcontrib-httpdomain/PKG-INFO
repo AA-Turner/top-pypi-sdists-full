@@ -1,49 +1,70 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sphinxcontrib-httpdomain
-Version: 1.8.1
-Summary: Sphinx domain for documenting HTTP APIs
-Home-page: https://github.com/sphinx-contrib/httpdomain
-Download-URL: https://pypi.org/project/sphinxcontrib-httpdomain/
+Version: 2.0.0
+Summary: Sphinx extension that provides a domain for documenting HTTP APIs.
+Keywords: Sphinx,extension,documentation,contrib,HTTP,API,domain
 Author: Hong Minhee, Ash Berlin-Taylor
-Author-email: Hong Minhee <hong.minhee@gmail.com>, Ash Berlin-Taylor <ash_github@firemirror.com>
-License: BSD
-Platform: any
+Author-email: Hong Minhee <Hong Minhee <\x68\x6f\x6e\x67.minhee@\x67\x6d\x61\x69\x6c.com>>, Ash Berlin-Taylor <Ash Berlin-Taylor <ash_github@firemirror.com>>
+License-Expression: BSD-2-Clause
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: Web Environment
+Classifier: Framework :: Sphinx :: Domain
+Classifier: Framework :: Sphinx :: Extension
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Documentation
 Classifier: Topic :: Utilities
-Requires-Python: >=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*
-License-File: LICENSE
+Requires-Dist: sphinx>=6.0
+Maintainer: Steve Piercy, Adam Turner
+Maintainer-email: Steve Piercy <spiercy@plone.org>
+Requires-Python: >=3.10
+Project-URL: Changelog, https://github.com/me/spam/blob/master/CHANGELOG.md
+Project-URL: Documentation, https://sphinxcontrib-httpdomain.readthedocs.io/en/stable/
+Project-URL: Download, https://pypi.org/project/sphinxcontrib-httpdomain/
+Project-URL: Funding, https://github.com/sponsors/stevepiercy
+Project-URL: Homepage, https://github.com/sphinx-contrib/httpdomain
+Project-URL: Issues, https://github.com/sphinx-contrib/httpdomain/issues
+Project-URL: Repository, https://github.com/sphinx-contrib/httpdomain
+Description-Content-Type: text/x-rst
 
 ``sphinxcontrib.httpdomain``
 ============================
 
-.. image:: https://badge.fury.io/py/sphinxcontrib-httpdomain.svg
-   :target: https://pypi.org/project/sphinxcontrib-httpdomain/
-   :alt: Latest PyPI version
+.. image:: https://img.shields.io/pypi/v/sphinxcontrib-httpdomain
+    :target: https://pypi.org/project/sphinxcontrib-httpdomain/
+    :alt: Latest PyPI version
 
-.. image:: https://readthedocs.org/projects/sphinxcontrib-httpdomain/badge/
-   :target: https://sphinxcontrib-httpdomain.readthedocs.io/
-   :alt: Documentation Status
+.. image:: https://img.shields.io/pypi/pyversions/sphinxcontrib-httpdomain
+    :target: https://pypi.org/project/sphinxcontrib-httpdomain/
+    :alt: Supported Python versions
 
-.. image:: https://travis-ci.org/sphinx-contrib/httpdomain.svg?branch=main
-   :alt: Build Status
-   :target: https://travis-ci.org/sphinx-contrib/httpdomain
+.. image:: https://app.readthedocs.org/projects/sphinxcontrib-httpdomain/badge/
+    :target: https://sphinxcontrib-httpdomain.readthedocs.io/en/stable/
+    :alt: Documentation status
+
+.. image:: https://github.com/sphinx-contrib/httpdomain/actions/workflows/tests.yml/badge.svg?branch=main
+    :alt: Build status
+    :target: https://github.com/sphinx-contrib/httpdomain/actions/workflows/tests.yml
+
+.. image:: https://img.shields.io/pypi/dm/sphinxcontrib-httpdomain
+    :alt: PyPI monthly downloads
+
+.. image:: https://img.shields.io/github/sponsors/stevepiercy
+    :target: https://github.com/sponsors/stevepiercy
+    :alt: GitHub Sponsors
 
 This contrib extension, ``sphinxcontrib.httpdomain``, provides a Sphinx
 domain for describing HTTP APIs.
 
-You can find the documentation from the following URL:
+You can find the documentation at the following URL:
 
-https://sphinxcontrib-httpdomain.readthedocs.io/
+https://sphinxcontrib-httpdomain.readthedocs.io/en/stable/

@@ -283,7 +283,10 @@ class UniProtRESTTool(BaseTool):
             job_id = job_data.get("jobId")
 
             if not job_id:
-                return {"error": "Failed to get job ID from UniProt ID mapping"}
+                return {
+                    "status": "error",
+                    "data": {"error": "Failed to get job ID from UniProt ID mapping"},
+                }
 
             # Step 2: Poll for job completion
             status_url = f"https://rest.uniprot.org/idmapping/status/{job_id}"
@@ -332,17 +335,21 @@ class UniProtRESTTool(BaseTool):
                         else:
                             failed.append(from_value)
 
-                    return {
+                    result_data = {
                         "mapped_count": len(formatted_results),
                         "results": formatted_results,
                         "failed": list(set(failed)) if failed else [],
                     }
+                    return {"status": "success", "data": result_data}
                 elif status_data.get("status") == "FAILED":
-                    return {"error": "ID mapping job failed"}
+                    return {
+                        "status": "error",
+                        "data": {"error": "ID mapping job failed"},
+                    }
 
                 time.sleep(1)  # Wait 1 second before next poll
 
-            return {
+            result_data = {
                 "status": "running",
                 "job_id": job_id,
                 "status_url": status_url,
@@ -353,13 +360,23 @@ class UniProtRESTTool(BaseTool):
                 ),
                 "max_wait_time": max_wait_time,
             }
+            return {"status": "success", "data": result_data}
 
         except requests.exceptions.Timeout:
-            return {"error": "Request to UniProt API timed out"}
+            return {
+                "status": "error",
+                "data": {"error": "Request to UniProt API timed out"},
+            }
         except requests.exceptions.RequestException as e:
-            return {"error": f"Request to UniProt API failed: {e}"}
+            return {
+                "status": "error",
+                "data": {"error": f"Request to UniProt API failed: {e}"},
+            }
         except ValueError as e:
-            return {"error": f"Failed to parse JSON response: {e}"}
+            return {
+                "status": "error",
+                "data": {"error": f"Failed to parse JSON response: {e}"},
+            }
 
     def _handle_uniref_search(self, arguments: Dict[str, Any]) -> Any:
         """Handle UniRef search queries"""

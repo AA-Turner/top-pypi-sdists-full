@@ -46,7 +46,7 @@ class ScenarioStrategy(Enum):
 
     _tags: set[str]
 
-    def __new__(cls, value: str, tags: set[str] | None = None):
+    def __new__(cls, value: str, tags: set[str] | None = None) -> "ScenarioStrategy":
         """
         Create a new ScenarioStrategy with value and tags.
 
@@ -59,7 +59,7 @@ class ScenarioStrategy(Enum):
         """
         obj = object.__new__(cls)
         obj._value_ = value
-        obj._tags = tags or set()  # type: ignore[misc]
+        obj._tags = tags or set()
         return obj
 
     @property
@@ -213,12 +213,14 @@ class ScenarioStrategy(Enum):
             strategies (Sequence[T | ScenarioCompositeStrategy] | None): The strategies to prepare.
                 Can be a mix of bare strategy enums and composite strategies.
                 If None, uses default_aggregate to determine defaults.
+                If an empty sequence, returns an empty list (useful for baseline-only execution).
             default_aggregate (T | None): The aggregate strategy to use when strategies is None.
                 Common values: MyStrategy.ALL, MyStrategy.EASY. If None when strategies is None,
                 raises ValueError.
 
         Returns:
             List[ScenarioCompositeStrategy]: Normalized list of composite strategies ready for use.
+                May be empty if an empty sequence was explicitly provided.
 
         Raises:
             ValueError: If strategies is None and default_aggregate is None, or if compositions
@@ -251,7 +253,10 @@ class ScenarioStrategy(Enum):
                     # For now, skip to allow flexibility
                     pass
 
+        # Allow empty list if explicitly provided (for baseline-only execution)
         if not composite_strategies:
+            if strategies is not None and len(strategies) == 0:
+                return []
             raise ValueError(
                 f"No valid {cls.__name__} strategies provided. "
                 f"Provide at least one {cls.__name__} enum or ScenarioCompositeStrategy."
@@ -329,10 +334,6 @@ class ScenarioCompositeStrategy:
     The name is automatically derived from the strategies:
     - Single strategy: Uses the strategy's value (e.g., "base64")
     - Multiple strategies: Generates "ComposedStrategy(base64, rot13)"
-
-    Attributes:
-        name (str): The auto-generated name of the composite strategy.
-        strategies (List[ScenarioStrategy]): The list of strategies in this composition.
 
     Example:
         >>> # Single strategy composition
@@ -467,7 +468,7 @@ class ScenarioCompositeStrategy:
             raise ValueError("Cannot generate name for empty strategy list")
 
         if len(strategies) == 1:
-            return strategies[0].value
+            return str(strategies[0].value)
 
         strategy_names = ", ".join(s.value for s in strategies)
         return f"ComposedStrategy({strategy_names})"
@@ -494,10 +495,11 @@ class ScenarioCompositeStrategy:
 
         Raises:
             ValueError: If compositions is empty, contains empty compositions,
-                       mixes aggregates with concrete strategies in the same composition,
-                       has multiple aggregates in one composition, or violates validate_composition() rules.
+                mixes aggregates with concrete strategies in the same composition,
+                has multiple aggregates in one composition, or violates validate_composition() rules.
 
-        Examples:
+        Example::
+
             # Aggregate expands to individual strategies
             [ScenarioCompositeStrategy(strategies=[EASY])]
             -> [ScenarioCompositeStrategy(strategies=[Base64]),

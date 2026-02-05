@@ -28,7 +28,10 @@ class CreationSource(BaseModel):
     """ # noqa: E501
     task_id: Optional[StrictStr] = None
     top_level_span_name: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["task_id", "top_level_span_name"]
+    gcp_project_id: Optional[StrictStr] = None
+    gcp_region: Optional[StrictStr] = None
+    gcp_reasoning_engine_id: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["task_id", "top_level_span_name", "gcp_project_id", "gcp_region", "gcp_reasoning_engine_id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -79,6 +82,21 @@ class CreationSource(BaseModel):
         if self.top_level_span_name is None and "top_level_span_name" in self.model_fields_set:
             _dict['top_level_span_name'] = None
 
+        # set to None if gcp_project_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.gcp_project_id is None and "gcp_project_id" in self.model_fields_set:
+            _dict['gcp_project_id'] = None
+
+        # set to None if gcp_region (nullable) is None
+        # and model_fields_set contains the field
+        if self.gcp_region is None and "gcp_region" in self.model_fields_set:
+            _dict['gcp_region'] = None
+
+        # set to None if gcp_reasoning_engine_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.gcp_reasoning_engine_id is None and "gcp_reasoning_engine_id" in self.model_fields_set:
+            _dict['gcp_reasoning_engine_id'] = None
+
         return _dict
 
     @classmethod
@@ -92,7 +110,10 @@ class CreationSource(BaseModel):
 
         _obj = cls.model_validate({
             "task_id": obj.get("task_id"),
-            "top_level_span_name": obj.get("top_level_span_name")
+            "top_level_span_name": obj.get("top_level_span_name"),
+            "gcp_project_id": obj.get("gcp_project_id"),
+            "gcp_region": obj.get("gcp_region"),
+            "gcp_reasoning_engine_id": obj.get("gcp_reasoning_engine_id")
         })
         return _obj
 

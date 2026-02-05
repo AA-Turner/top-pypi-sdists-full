@@ -7,10 +7,11 @@ import pathlib
 from typing import Optional
 
 from pyrit.common.path import SCORER_SEED_PROMPT_PATH
+from pyrit.common.utils import verify_and_resolve_path
 from pyrit.models import MessagePiece, Score, UnvalidatedScore
 from pyrit.prompt_target import PromptChatTarget
-from pyrit.score import SelfAskTrueFalseScorer
 from pyrit.score.scorer_prompt_validator import ScorerPromptValidator
+from pyrit.score.true_false.self_ask_true_false_scorer import SelfAskTrueFalseScorer
 from pyrit.score.true_false.true_false_score_aggregator import (
     TrueFalseAggregatorFunc,
     TrueFalseScoreAggregator,
@@ -49,11 +50,11 @@ class SelfAskQuestionAnswerScorer(SelfAskTrueFalseScorer):
             score_aggregator (TrueFalseAggregatorFunc): The aggregator function to use.
                 Defaults to TrueFalseScoreAggregator.OR.
         """
-        true_false_question_path = self._verify_and_resolve_path(
-            true_false_question_path
-            if true_false_question_path
-            else SCORER_SEED_PROMPT_PATH / "true_false_question" / "question_answering.yaml"
-        )
+        if not true_false_question_path:
+            true_false_question_path = SCORER_SEED_PROMPT_PATH / "true_false_question" / "question_answering.yaml"
+
+        true_false_question_path = verify_and_resolve_path(true_false_question_path)
+
         super().__init__(
             chat_target=chat_target,
             true_false_question_path=true_false_question_path,

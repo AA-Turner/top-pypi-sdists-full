@@ -705,6 +705,44 @@ class OTSProtoBufferEncoder(object):
                     )
             proto.allow_update = table_options.allow_update
 
+    def _make_sse_spec(self, proto, sse_spec):
+        if not isinstance(sse_spec, SSESpecification):
+            raise OTSClientError(
+                "sse_spec should be an instance of SSESpecification, not %s"
+                % sse_spec.__class__.__name__
+            )
+        if sse_spec.enable is not None:
+            if not isinstance(sse_spec.enable, bool):
+                raise OTSClientError(
+                    "enable should be an instance of bool, not %s"
+                    % sse_spec.enable.__class__.__name__
+                    )
+            proto.enable = sse_spec.enable
+
+        if sse_spec.key_type is not None:
+            if not isinstance(sse_spec.key_type, int):
+                raise OTSClientError(
+                    "key_type should be an instance of int, not %s"
+                    % sse_spec.key_type.__class__.__name__
+                    )
+            proto.key_type = sse_spec.key_type
+
+        if sse_spec.key_id is not None:
+            if not isinstance(sse_spec.key_id, str):
+                raise OTSClientError(
+                    "key_id should be an instance of str, not %s"
+                    % sse_spec.key_id.__class__.__name__
+                    )
+            proto.key_id = sse_spec.key_id
+
+        if sse_spec.role_arn is not None:
+            if not isinstance(sse_spec.role_arn, str):
+                raise OTSClientError(
+                    "role_arn should be an instance of str, not %s"
+                    % sse_spec.role_arn.__class__.__name__
+                    )
+            proto.role_arn = sse_spec.role_arn
+
     def _make_capacity_unit(self, proto, capacity_unit):
 
         if not isinstance(capacity_unit, CapacityUnit):
@@ -868,12 +906,13 @@ class OTSProtoBufferEncoder(object):
             proto.index_type = pb2.IT_LOCAL_INDEX
             proto.index_update_mode = pb2.IUM_SYNC_INDEX
 
-    def _encode_create_table(self, table_meta, table_options, reserved_throughput, secondary_indexes):
+    def _encode_create_table(self, table_meta, table_options, reserved_throughput, sse_spec, secondary_indexes):
         proto = pb2.CreateTableRequest()
         self._make_table_meta(proto.table_meta, table_meta)
         self._make_reserved_throughput(proto.reserved_throughput, reserved_throughput)
         self._make_table_options(proto.table_options, table_options)
-
+        if sse_spec is not None:
+            self._make_sse_spec(proto.sse_spec, sse_spec)
         for secondary_index in secondary_indexes:
             self._make_secondary_index(proto.index_metas.add(), secondary_index)
         return proto

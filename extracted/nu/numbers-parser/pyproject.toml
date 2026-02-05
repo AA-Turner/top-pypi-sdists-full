@@ -22,7 +22,7 @@ classifiers = [
 description = "Read and write Apple Numbers spreadsheets"
 name = "numbers-parser"
 readme = "README.md"
-version = "4.18.0"
+version = "4.18.1"
 
 [project.urls]
 repository = "https://github.com/masaccio/numbers-parser"
@@ -197,5 +197,5 @@ ban-relative-imports = "all"
 "src/build/**" = ["PLR2004", "INP001", "PTH"]
 "src/build/protodump.py" = ["PLR2004", "INP001", "PTH", "S110", "N806"]
 "src/debug/**" = ["INP001"]
-"tests/**" = ["PLR2004", "S101", "D103", "ANN201", "ANN001"]
+"tests/**" = ["PLR2004", "S101", "D103", "ANN201", "ANN001", "DTZ001"]
 

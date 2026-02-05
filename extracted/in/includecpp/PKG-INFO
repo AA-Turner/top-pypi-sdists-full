@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: IncludeCPP
-Version: 4.9.9
+Version: 4.9.11
 Summary: Professional C++ Python bindings with type-generic templates, pystubs and native threading
 Home-page: https://github.com/liliassg/IncludeCPP
 Author: Lilias Hatterscheidt

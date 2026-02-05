@@ -1,7 +1,7 @@
 import copy
 
 from adam.commands.command import Command
-from adam.commands.devices.devices import Devices
+from adam.commands.devices.devices import device
 from adam.repl_state import ReplState
 
 class Ls(Command):
@@ -30,12 +30,12 @@ class Ls(Command):
                     state = copy.copy(state)
                     state.device = arg.replace(':', '')
 
-            Devices.of(state).ls(cmd, state)
+            device(state).ls(cmd, state, ctx=self.context())
 
             return state
 
     def completion(self, state: ReplState):
-        return super().completion(state, {'&': None}, pods=Devices.of(state).pods(state, '-'))
+        return super().completion(state, {'&': None}, pods=device(state).pods(state, '-'))
 
     def help(self, state: ReplState):
         return super().help(state, 'list apps, envs, clusters, nodes, pg hosts/databases or export databases', args='[device:]')

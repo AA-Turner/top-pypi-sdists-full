@@ -15,7 +15,7 @@ def metabolights_list_studies(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
     List all MetaboLights studies with pagination. Returns a list of study IDs (e.g., 'MTBLS1', 'MTBL...
 
@@ -34,7 +34,7 @@ def metabolights_list_studies(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

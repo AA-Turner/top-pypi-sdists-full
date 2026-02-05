@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dateparser
-Version: 1.2.2
+Version: 1.3.0
 Summary: Date parsing library designed to parse dates from HTML pages
 Home-page: https://github.com/scrapinghub/dateparser
 Author: Scrapinghub
@@ -13,13 +13,13 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 License-File: LICENSE
 License-File: AUTHORS.rst
 Requires-Dist: python-dateutil>=2.7.0
@@ -31,7 +31,7 @@ Requires-Dist: convertdate>=2.2.1; extra == "calendars"
 Requires-Dist: hijridate; extra == "calendars"
 Provides-Extra: fasttext
 Requires-Dist: fasttext>=0.9.1; extra == "fasttext"
-Requires-Dist: numpy<2,>=1.19.3; extra == "fasttext"
+Requires-Dist: numpy<2,>=1.22.0; extra == "fasttext"
 Provides-Extra: langdetect
 Requires-Dist: langdetect>=1.0.0; extra == "langdetect"
 Dynamic: author
@@ -261,6 +261,17 @@ You can extract dates from longer strings of text. They are returned as list of 
    
    :noindex:
 
+Time Span Detection
+-------------------
+
+The `search_dates` function can detect time spans from expressions like "past month", "last week", etc. When `RETURN_TIME_SPAN` is enabled, it returns start and end dates for the detected period.
+
+.. code-block:: python
+
+    >>> search_dates("Messages from the past month", settings={'RETURN_TIME_SPAN': True})
+    [('past month (start)', datetime.datetime(2024, 11, 7, 0, 0)), 
+     ('past month (end)', datetime.datetime(2024, 12, 7, 23, 59, 59, 999999))]
+
 Advanced Usage
 ==============
 If you need more control over what is being parser check the `settings` section as well as the `using-datedataparser` section.
@@ -318,6 +329,31 @@ To be able to use them you need to install the `calendar` extra by typing:
 
 History
 =======
+
+1.3.0 (2026-02-04)
+------------------
+
+Dropped Python 3.9 support. (#1296)
+
+New features:
+
+- ``search_dates()`` can now detect time spans from expressions like “past
+  month”, “last week”, etc. For details, see the “Time Span Detection” section
+  and the ``RETURN_TIME_SPAN``, ``DEFAULT_START_OF_WEEK`` and
+  ``DEFAULT_DAYS_IN_MONTH`` settings in the documentation. (#1284)
+
+Fixes:
+
+- Assume the current year if not specified (#1288)
+- Support expressions like “yesterday +1h” (#1303)
+- English: Support most 2-letter day-of-the-week names (#1214)
+- English: Support “in N weeks' time” (#1283)
+- Finnish: Support dates with “klo” (#1301)
+- Russian: Support compound ordinals (#1280)
+
+Cleanups and internal improvements:
+
+- Fixed year expectation issues in tests. (#1294)
 
 1.2.2 (2025-06-26)
 ------------------

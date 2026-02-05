@@ -59,7 +59,8 @@ class CreateBYODAppConfigConfigurationSchema(object):
         self.discriminator = None
 
         self.docker_image = docker_image
-        self.ray_version = ray_version
+        if ray_version is not None:
+            self.ray_version = ray_version
         if env_vars is not None:
             self.env_vars = env_vars
         if registry_login_secret is not None:
@@ -108,8 +109,6 @@ class CreateBYODAppConfigConfigurationSchema(object):
         :param ray_version: The ray_version of this CreateBYODAppConfigConfigurationSchema.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and ray_version is None:  # noqa: E501
-            raise ValueError("Invalid value for `ray_version`, must not be `None`")  # noqa: E501
 
         self._ray_version = ray_version
 

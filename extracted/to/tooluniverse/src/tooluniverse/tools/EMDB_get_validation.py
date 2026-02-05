@@ -14,7 +14,7 @@ def EMDB_get_validation(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Optional[dict[str, Any]]:
     """
     Get validation analysis results for an EMDB entry including FSC curves, resolution estimates, map...
 
@@ -31,7 +31,7 @@ def EMDB_get_validation(
 
     Returns
     -------
-    dict[str, Any]
+    Optional[dict[str, Any]]
     """
     # Handle mutable defaults to avoid B006 linting error
 

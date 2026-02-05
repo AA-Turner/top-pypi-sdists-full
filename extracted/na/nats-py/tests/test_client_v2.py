@@ -1,24 +1,19 @@
 import unittest
 
-import nats
 from nats.aio.errors import *
+
+import nats
 from tests.utils import *
 
 
 class HeadersTest(SingleServerTestCase):
-
     @async_test
     async def test_simple_headers(self):
         nc = await nats.connect()
 
         sub = await nc.subscribe("foo")
         await nc.flush()
-        await nc.publish(
-            "foo", b"hello world", headers={
-                "foo": "bar",
-                "hello": "world-1"
-            }
-        )
+        await nc.publish("foo", b"hello world", headers={"foo": "bar", "hello": "world-1"})
 
         msg = await sub.next_msg()
         self.assertTrue(msg.headers != None)
@@ -40,12 +35,7 @@ class HeadersTest(SingleServerTestCase):
 
         await nc.subscribe("foo", cb=service)
         await nc.flush()
-        msg = await nc.request(
-            "foo", b"hello world", headers={
-                "foo": "bar",
-                "hello": "world"
-            }
-        )
+        msg = await nc.request("foo", b"hello world", headers={"foo": "bar", "hello": "world"})
 
         self.assertTrue(msg.headers != None)
         self.assertEqual(len(msg.headers), 3)
@@ -73,9 +63,7 @@ class HeadersTest(SingleServerTestCase):
         self.assertTrue(msg.headers == None)
 
         # Empty long key
-        await nc.publish(
-            "foo", b"hello world", headers={"": "                  "}
-        )
+        await nc.publish("foo", b"hello world", headers={"": "                  "})
         msg = await sub.next_msg()
         self.assertTrue(msg.headers == None)
 

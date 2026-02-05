@@ -9,6 +9,8 @@ from anyscale.job_queue._private.job_queue_sdk import PrivateJobQueueSDK
 from anyscale.job_queue.commands import (
     _ARCHIVE_ARG_DOCSTRINGS,
     _ARCHIVE_EXAMPLE,
+    _DELETE_ARG_DOCSTRINGS,
+    _DELETE_EXAMPLE,
     _JOB_QUEUE_SDK_SINGLETON_KEY as _JOB_QUEUE_SDK_SINGLETON_KEY,
     _LIST_ARG_DOCSTRINGS,
     _LIST_EXAMPLE,
@@ -26,6 +28,7 @@ from anyscale.job_queue.commands import (
     _UPDATE_EXAMPLE,
     add_tags as add_tags,
     archive as archive,
+    delete as delete,
     list as list,  # noqa: A004 - claude_comment("claude-opus-4-5", "SDK public API re-export")
     list_tags as list_tags,
     remove_tags as remove_tags,
@@ -70,6 +73,7 @@ class JobQueueSDK:
         page_size: Optional[int] = None,
         max_items: Optional[int] = None,
         sorting_directives: Optional[List[JobQueueSortDirective]] = None,
+        include_archived: bool = False,
     ) -> ResultIterator[JobQueueStatus]:
         """List job queues or fetch a single job queue by ID."""
         return self._private_sdk.list(
@@ -83,14 +87,27 @@ class JobQueueSDK:
             page_size=page_size,
             max_items=max_items,
             sorting_directives=sorting_directives,
+            include_archived=include_archived,
         )
 
     @sdk_docs(doc_py_example=_STATUS_EXAMPLE, arg_docstrings=_STATUS_ARG_DOCSTRINGS)
     def status(  # noqa: F811
-        self, job_queue_id: Optional[str] = None, *, name: Optional[str] = None,
+        self,
+        job_queue_id: Optional[str] = None,
+        *,
+        name: Optional[str] = None,
+        project: Optional[str] = None,
+        cloud: Optional[str] = None,
+        include_archived: bool = False,
     ) -> JobQueueStatus:
         """Get the status and details for a specific job queue."""
-        return self._private_sdk.status(job_queue_id=job_queue_id, name=name)
+        return self._private_sdk.status(
+            job_queue_id=job_queue_id,
+            name=name,
+            project=project,
+            cloud=cloud,
+            include_archived=include_archived,
+        )
 
     @sdk_docs(doc_py_example=_UPDATE_EXAMPLE, arg_docstrings=_UPDATE_ARG_DOCSTRINGS)
     def update(  # noqa: F811
@@ -98,6 +115,8 @@ class JobQueueSDK:
         *,
         job_queue_id: Optional[str] = None,
         job_queue_name: Optional[str] = None,
+        project: Optional[str] = None,
+        cloud: Optional[str] = None,
         max_concurrency: Optional[int] = None,
         idle_timeout_s: Optional[int] = None,
     ) -> JobQueueStatus:
@@ -105,6 +124,8 @@ class JobQueueSDK:
         return self._private_sdk.update(
             job_queue_id=job_queue_id,
             job_queue_name=job_queue_name,
+            project=project,
+            cloud=cloud,
             max_concurrency=max_concurrency,
             idle_timeout_s=idle_timeout_s,
         )
@@ -170,8 +191,36 @@ class JobQueueSDK:
         name: Optional[str] = None,
         project: Optional[str] = None,
         cloud: Optional[str] = None,
+        include_archived: bool = False,
     ) -> str:
         """Terminate a job queue and all its pending/running jobs."""
         return self._private_sdk.terminate(
-            job_queue_id=job_queue_id, name=name, project=project, cloud=cloud
+            job_queue_id=job_queue_id,
+            name=name,
+            project=project,
+            cloud=cloud,
+            include_archived=include_archived,
+        )
+
+    @sdk_docs(doc_py_example=_DELETE_EXAMPLE, arg_docstrings=_DELETE_ARG_DOCSTRINGS)
+    def delete(  # noqa: F811
+        self,
+        *,
+        job_queue_id: Optional[str] = None,
+        name: Optional[str] = None,
+        project: Optional[str] = None,
+        cloud: Optional[str] = None,
+        include_archived: bool = False,
+    ) -> str:
+        """Delete a job queue. Jobs previously submitted remain accessible.
+
+        The job queue must have all jobs in terminal state and no running clusters.
+        This action cannot be undone.
+        """
+        return self._private_sdk.delete(
+            job_queue_id=job_queue_id,
+            name=name,
+            project=project,
+            cloud=cloud,
+            include_archived=include_archived,
         )

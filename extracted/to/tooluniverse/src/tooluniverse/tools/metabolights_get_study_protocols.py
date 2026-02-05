@@ -14,7 +14,7 @@ def metabolights_get_study_protocols(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
     Get experimental protocols used in a MetaboLights study. Returns detailed protocol information in...
 
@@ -31,7 +31,7 @@ def metabolights_get_study_protocols(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

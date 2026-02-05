@@ -1,5 +1,5 @@
 //
-// Copyright 2021 Staysail Systems, Inc. <info@staysail.tech>
+// Copyright 2024 Staysail Systems, Inc. <info@staysail.tech>
 // Copyright 2018 Capitar IT Group BV <info@capitar.com>
 // Copyright 2019 Devolutions <info@devolutions.net>
 //
@@ -25,14 +25,13 @@ typedef struct ipc_ep   ipc_ep;
 
 // ipc_pipe is one end of an IPC connection.
 struct ipc_pipe {
-	nng_stream *    conn;
+	nng_stream     *conn;
 	uint16_t        peer;
 	uint16_t        proto;
 	size_t          rcv_max;
 	bool            closed;
-	nni_sockaddr    sa;
-	ipc_ep *        ep;
-	nni_pipe *      pipe;
+	ipc_ep         *ep;
+	nni_pipe       *pipe;
 	nni_list_node   node;
 	nni_atomic_flag reaped;
 	nni_reap_node   reap;
@@ -47,27 +46,26 @@ struct ipc_pipe {
 	nni_aio         tx_aio;
 	nni_aio         rx_aio;
 	nni_aio         neg_aio;
-	nni_msg *       rx_msg;
+	nni_msg        *rx_msg;
 	nni_mtx         mtx;
 };
 
 struct ipc_ep {
 	nni_mtx              mtx;
-	nni_sockaddr         sa;
 	size_t               rcv_max;
 	uint16_t             proto;
 	bool                 started;
 	bool                 closed;
 	bool                 fini;
 	int                  ref_cnt;
-	nng_stream_dialer *  dialer;
+	nng_stream_dialer   *dialer;
 	nng_stream_listener *listener;
-	nni_aio *            user_aio;
-	nni_aio *            conn_aio;
-	nni_aio *            time_aio;
+	nni_aio             *user_aio;
+	nni_aio             *conn_aio;
+	nni_aio             *time_aio;
 	nni_list             busy_pipes; // busy pipes -- ones passed to socket
 	nni_list             wait_pipes; // pipes waiting to match to socket
-	nni_list             neg_pipes;  // pipes busy negotiating
+	nni_list             nego_pipes; // pipes busy negotiating
 	nni_reap_node        reap;
 #ifdef NNG_ENABLE_STATS
 	nni_stat_item st_rcv_max;
@@ -78,7 +76,7 @@ static void ipc_pipe_send_start(ipc_pipe *p);
 static void ipc_pipe_recv_start(ipc_pipe *p);
 static void ipc_pipe_send_cb(void *);
 static void ipc_pipe_recv_cb(void *);
-static void ipc_pipe_neg_cb(void *);
+static void ipc_pipe_nego_cb(void *);
 static void ipc_pipe_fini(void *);
 static void ipc_ep_fini(void *);
 
@@ -140,7 +138,7 @@ static void
 ipc_pipe_fini(void *arg)
 {
 	ipc_pipe *p = arg;
-	ipc_ep *  ep;
+	ipc_ep   *ep;
 
 	ipc_pipe_stop(p);
 	if ((ep = p->ep) != NULL) {
@@ -152,10 +150,10 @@ ipc_pipe_fini(void *arg)
 		}
 		nni_mtx_unlock(&ep->mtx);
 	}
+	nng_stream_free(p->conn);
 	nni_aio_fini(&p->rx_aio);
 	nni_aio_fini(&p->tx_aio);
 	nni_aio_fini(&p->neg_aio);
-	nng_stream_free(p->conn);
 	if (p->rx_msg) {
 		nni_msg_free(p->rx_msg);
 	}
@@ -167,9 +165,6 @@ static void
 ipc_pipe_reap(ipc_pipe *p)
 {
 	if (!nni_atomic_flag_test_and_set(&p->reaped)) {
-		if (p->conn != NULL) {
-			nng_stream_close(p->conn);
-		}
 		nni_reap(&ipc_pipe_reap_list, p);
 	}
 }
@@ -185,7 +180,7 @@ ipc_pipe_alloc(ipc_pipe **pipe_p)
 	nni_mtx_init(&p->mtx);
 	nni_aio_init(&p->tx_aio, ipc_pipe_send_cb, p);
 	nni_aio_init(&p->rx_aio, ipc_pipe_recv_cb, p);
-	nni_aio_init(&p->neg_aio, ipc_pipe_neg_cb, p);
+	nni_aio_init(&p->neg_aio, ipc_pipe_nego_cb, p);
 	nni_aio_list_init(&p->send_q);
 	nni_aio_list_init(&p->recv_q);
 	nni_atomic_flag_reset(&p->reaped);
@@ -196,7 +191,7 @@ ipc_pipe_alloc(ipc_pipe **pipe_p)
 static void
 ipc_ep_match(ipc_ep *ep)
 {
-	nni_aio * aio;
+	nni_aio  *aio;
 	ipc_pipe *p;
 
 	if (((aio = ep->user_aio) == NULL) ||
@@ -212,12 +207,12 @@ ipc_ep_match(ipc_ep *ep)
 }
 
 static void
-ipc_pipe_neg_cb(void *arg)
+ipc_pipe_nego_cb(void *arg)
 {
 	ipc_pipe *p   = arg;
-	ipc_ep *  ep  = p->ep;
-	nni_aio * aio = &p->neg_aio;
-	nni_aio * user_aio;
+	ipc_ep   *ep  = p->ep;
+	nni_aio  *aio = &p->neg_aio;
+	nni_aio  *user_aio;
 	int       rv;
 
 	nni_mtx_lock(&ep->mtx);
@@ -263,7 +258,7 @@ ipc_pipe_neg_cb(void *arg)
 
 	// We are ready now.  We put this in the wait list, and
 	// then try to run the matcher.
-	nni_list_remove(&ep->neg_pipes, p);
+	nni_list_remove(&ep->nego_pipes, p);
 	nni_list_append(&ep->wait_pipes, p);
 
 	ipc_ep_match(ep);
@@ -278,6 +273,7 @@ error:
 	if (rv == NNG_ECLOSED) {
 		rv = NNG_ECONNSHUT;
 	}
+	nni_list_remove(&ep->nego_pipes, p);
 	nng_stream_close(p->conn);
 	// If we are waiting to negotiate on a client side, then a failure
 	// here has to be passed to the user app.
@@ -294,10 +290,10 @@ ipc_pipe_send_cb(void *arg)
 {
 	ipc_pipe *p = arg;
 	int       rv;
-	nni_aio * aio;
+	nni_aio  *aio;
 	size_t    n;
-	nni_msg * msg;
-	nni_aio * tx_aio = &p->tx_aio;
+	nni_msg  *msg;
+	nni_aio  *tx_aio = &p->tx_aio;
 
 	nni_mtx_lock(&p->mtx);
 	if ((rv = nni_aio_result(tx_aio)) != 0) {
@@ -342,11 +338,11 @@ static void
 ipc_pipe_recv_cb(void *arg)
 {
 	ipc_pipe *p = arg;
-	nni_aio * aio;
+	nni_aio  *aio;
 	int       rv;
 	size_t    n;
-	nni_msg * msg;
-	nni_aio * rx_aio = &p->rx_aio;
+	nni_msg  *msg;
+	nni_aio  *rx_aio = &p->rx_aio;
 
 	nni_mtx_lock(&p->mtx);
 
@@ -384,6 +380,19 @@ ipc_pipe_recv_cb(void *arg)
 		// Make sure the message payload is not too big.  If it is
 		// the caller will shut down the pipe.
 		if ((len > p->rcv_max) && (p->rcv_max > 0)) {
+			uint64_t pid;
+			char     peer[64] = "";
+			if (nng_stream_get_uint64(
+			        p->conn, NNG_OPT_PEER_PID, &pid) == 0) {
+				snprintf(peer, sizeof(peer), " from PID %lu",
+				    (unsigned long) pid);
+			}
+			nng_log_warn("NNG-RCVMAX",
+			    "Oversize message of %lu bytes (> %lu) "
+			    "on socket<%u> pipe<%u> from IPC%s",
+			    (unsigned long) len, (unsigned long) p->rcv_max,
+			    nni_pipe_sock_id(p->pipe), nni_pipe_id(p->pipe),
+			    peer);
 			rv = NNG_EMSGSIZE;
 			goto error;
 		}
@@ -647,7 +656,7 @@ ipc_pipe_start(ipc_pipe *p, nng_stream *conn, ipc_ep *ep)
 	iov.iov_len     = 8;
 	iov.iov_buf     = &p->tx_head[0];
 	nni_aio_set_iov(&p->neg_aio, 1, &iov);
-	nni_list_append(&ep->neg_pipes, p);
+	nni_list_append(&ep->nego_pipes, p);
 
 	nni_aio_set_timeout(&p->neg_aio, 10000); // 10 sec timeout to negotiate
 	nng_stream_send(p->conn, &p->neg_aio);
@@ -656,7 +665,7 @@ ipc_pipe_start(ipc_pipe *p, nng_stream *conn, ipc_ep *ep)
 static void
 ipc_ep_close(void *arg)
 {
-	ipc_ep *  ep = arg;
+	ipc_ep   *ep = arg;
 	ipc_pipe *p;
 
 	nni_mtx_lock(&ep->mtx);
@@ -668,7 +677,7 @@ ipc_ep_close(void *arg)
 	if (ep->listener != NULL) {
 		nng_stream_listener_close(ep->listener);
 	}
-	NNI_LIST_FOREACH (&ep->neg_pipes, p) {
+	NNI_LIST_FOREACH (&ep->nego_pipes, p) {
 		ipc_pipe_close(p);
 	}
 	NNI_LIST_FOREACH (&ep->wait_pipes, p) {
@@ -720,9 +729,9 @@ ipc_ep_timer_cb(void *arg)
 static void
 ipc_ep_accept_cb(void *arg)
 {
-	ipc_ep *    ep  = arg;
-	nni_aio *   aio = ep->conn_aio;
-	ipc_pipe *  p;
+	ipc_ep     *ep  = arg;
+	nni_aio    *aio = ep->conn_aio;
+	ipc_pipe   *p;
 	int         rv;
 	nng_stream *conn;
 
@@ -774,9 +783,9 @@ error:
 static void
 ipc_ep_dial_cb(void *arg)
 {
-	ipc_ep *    ep  = arg;
-	nni_aio *   aio = ep->conn_aio;
-	ipc_pipe *  p;
+	ipc_ep     *ep  = arg;
+	nni_aio    *aio = ep->conn_aio;
+	ipc_pipe   *p;
 	int         rv;
 	nng_stream *conn;
 
@@ -824,7 +833,7 @@ ipc_ep_init(ipc_ep **epp, nni_sock *sock)
 	nni_mtx_init(&ep->mtx);
 	NNI_LIST_INIT(&ep->busy_pipes, ipc_pipe, node);
 	NNI_LIST_INIT(&ep->wait_pipes, ipc_pipe, node);
-	NNI_LIST_INIT(&ep->neg_pipes, ipc_pipe, node);
+	NNI_LIST_INIT(&ep->nego_pipes, ipc_pipe, node);
 
 	ep->proto = nni_sock_proto_id(sock);
 
@@ -846,7 +855,7 @@ ipc_ep_init(ipc_ep **epp, nni_sock *sock)
 static int
 ipc_ep_init_dialer(void **dp, nni_url *url, nni_dialer *dialer)
 {
-	ipc_ep *  ep;
+	ipc_ep   *ep;
 	int       rv;
 	nni_sock *sock = nni_dialer_sock(dialer);
 
@@ -869,7 +878,7 @@ ipc_ep_init_dialer(void **dp, nni_url *url, nni_dialer *dialer)
 static int
 ipc_ep_init_listener(void **dp, nni_url *url, nni_listener *listener)
 {
-	ipc_ep *  ep;
+	ipc_ep   *ep;
 	int       rv;
 	nni_sock *sock = nni_listener_sock(listener);
 
@@ -953,18 +962,8 @@ ipc_ep_set_recv_max_sz(void *arg, const void *v, size_t sz, nni_type t)
 	int     rv;
 	if ((rv = nni_copyin_size(&val, v, sz, 0, NNI_MAXSZ, t)) == 0) {
 
-		ipc_pipe *p;
 		nni_mtx_lock(&ep->mtx);
 		ep->rcv_max = val;
-		NNI_LIST_FOREACH (&ep->wait_pipes, p) {
-			p->rcv_max = val;
-		}
-		NNI_LIST_FOREACH (&ep->neg_pipes, p) {
-			p->rcv_max = val;
-		}
-		NNI_LIST_FOREACH (&ep->busy_pipes, p) {
-			p->rcv_max = val;
-		}
 		nni_mtx_unlock(&ep->mtx);
 #ifdef NNG_ENABLE_STATS
 		nni_stat_set_value(&ep->st_rcv_max, val);
@@ -1156,7 +1155,6 @@ static nni_sp_tran ipc_tran_abstract = {
 	.tran_fini     = ipc_tran_fini,
 };
 #endif
-
 
 #ifndef NNG_ELIDE_DEPRECATED
 int

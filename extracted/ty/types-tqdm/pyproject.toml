@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-tqdm"
-version = "4.67.2.20260202"
+version = "4.67.3.20260205"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for tqdm"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`tqdm`](https://github.com/tqdm/tqdm) package. It can be used by type checkers
 to check code that uses `tqdm`. This version of
 `types-tqdm` aims to provide accurate annotations for
-`tqdm==4.67.2`.
+`tqdm==4.67.3`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -29,7 +29,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`c01356380fd56b42aa49a0aac8a320437fc7f7b9`](https://github.com/python/typeshed/commit/c01356380fd56b42aa49a0aac8a320437fc7f7b9).
+[`e56ab929fdaa7c663a61eab843419e6ede2251d1`](https://github.com/python/typeshed/commit/e56ab929fdaa7c663a61eab843419e6ede2251d1).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

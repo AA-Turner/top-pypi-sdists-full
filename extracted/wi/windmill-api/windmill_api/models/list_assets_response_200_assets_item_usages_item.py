@@ -12,6 +12,9 @@ from ..models.list_assets_response_200_assets_item_usages_item_kind import ListA
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.list_assets_response_200_assets_item_usages_item_columns import (
+        ListAssetsResponse200AssetsItemUsagesItemColumns,
+    )
     from ..models.list_assets_response_200_assets_item_usages_item_metadata import (
         ListAssetsResponse200AssetsItemUsagesItemMetadata,
     )
@@ -27,6 +30,7 @@ class ListAssetsResponse200AssetsItemUsagesItem:
         path (str):
         kind (ListAssetsResponse200AssetsItemUsagesItemKind):
         access_type (Union[Unset, ListAssetsResponse200AssetsItemUsagesItemAccessType]):
+        columns (Union[Unset, ListAssetsResponse200AssetsItemUsagesItemColumns]): The columns used (for tables)
         created_at (Union[Unset, datetime.datetime]): When the asset was detected
         metadata (Union[Unset, ListAssetsResponse200AssetsItemUsagesItemMetadata]):
     """
@@ -34,6 +38,7 @@ class ListAssetsResponse200AssetsItemUsagesItem:
     path: str
     kind: ListAssetsResponse200AssetsItemUsagesItemKind
     access_type: Union[Unset, ListAssetsResponse200AssetsItemUsagesItemAccessType] = UNSET
+    columns: Union[Unset, "ListAssetsResponse200AssetsItemUsagesItemColumns"] = UNSET
     created_at: Union[Unset, datetime.datetime] = UNSET
     metadata: Union[Unset, "ListAssetsResponse200AssetsItemUsagesItemMetadata"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -45,6 +50,10 @@ class ListAssetsResponse200AssetsItemUsagesItem:
         access_type: Union[Unset, str] = UNSET
         if not isinstance(self.access_type, Unset):
             access_type = self.access_type.value
+
+        columns: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.columns, Unset):
+            columns = self.columns.to_dict()
 
         created_at: Union[Unset, str] = UNSET
         if not isinstance(self.created_at, Unset):
@@ -64,6 +73,8 @@ class ListAssetsResponse200AssetsItemUsagesItem:
         )
         if access_type is not UNSET:
             field_dict["access_type"] = access_type
+        if columns is not UNSET:
+            field_dict["columns"] = columns
         if created_at is not UNSET:
             field_dict["created_at"] = created_at
         if metadata is not UNSET:
@@ -73,6 +84,9 @@ class ListAssetsResponse200AssetsItemUsagesItem:
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.list_assets_response_200_assets_item_usages_item_columns import (
+            ListAssetsResponse200AssetsItemUsagesItemColumns,
+        )
         from ..models.list_assets_response_200_assets_item_usages_item_metadata import (
             ListAssetsResponse200AssetsItemUsagesItemMetadata,
         )
@@ -88,6 +102,13 @@ class ListAssetsResponse200AssetsItemUsagesItem:
             access_type = UNSET
         else:
             access_type = ListAssetsResponse200AssetsItemUsagesItemAccessType(_access_type)
+
+        _columns = d.pop("columns", UNSET)
+        columns: Union[Unset, ListAssetsResponse200AssetsItemUsagesItemColumns]
+        if isinstance(_columns, Unset):
+            columns = UNSET
+        else:
+            columns = ListAssetsResponse200AssetsItemUsagesItemColumns.from_dict(_columns)
 
         _created_at = d.pop("created_at", UNSET)
         created_at: Union[Unset, datetime.datetime]
@@ -107,6 +128,7 @@ class ListAssetsResponse200AssetsItemUsagesItem:
             path=path,
             kind=kind,
             access_type=access_type,
+            columns=columns,
             created_at=created_at,
             metadata=metadata,
         )

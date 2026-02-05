@@ -14,7 +14,7 @@ def metabolights_get_study_samples(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
     Get all samples associated with a MetaboLights study. Returns sample metadata including sample na...
 
@@ -31,7 +31,7 @@ def metabolights_get_study_samples(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

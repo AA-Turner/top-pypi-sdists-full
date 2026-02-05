@@ -15,7 +15,7 @@ def intact_get_interactor(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Any:
     """
     Get detailed information about a specific interactor from IntAct database by IntAct identifier (e...
 
@@ -34,7 +34,7 @@ def intact_get_interactor(
 
     Returns
     -------
-    dict[str, Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

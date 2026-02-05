@@ -20,7 +20,7 @@ def euhealthinfo_search_mental_health(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> list[Any]:
+) -> Any:
     """
     This tool identifies publicly accessible datasets pertaining to mental health topics. It retrieve...
 
@@ -49,7 +49,7 @@ def euhealthinfo_search_mental_health(
 
     Returns
     -------
-    list[Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

@@ -1,5 +1,6 @@
 import json
 import math
+import os
 import sys
 import warnings
 from typing import Any, Optional, Sequence
@@ -7,10 +8,16 @@ from typing import Any, Optional, Sequence
 from .typing import DataFrameOrSeries, get_dataframe_module_name
 
 
-def _format_pandas_series(x, escape_html: bool) -> Sequence[Any]:
+def _format_pandas_series(
+    x, escape_html: bool, format_floats_in_python: bool
+) -> Sequence[Any]:
     dtype_kind = x.dtype.kind
     if dtype_kind in ["b", "i"]:
         return x
+
+    if dtype_kind == "f" and not format_floats_in_python:
+        # Return floats as-is
+        return [escape_non_finite_float(v) for v in x._values]
 
     if dtype_kind == "s":
         if escape_html:
@@ -20,29 +27,31 @@ def _format_pandas_series(x, escape_html: bool) -> Sequence[Any]:
     import pandas.io.formats.format as fmt
 
     try:
-        x = fmt.format_array(x._values, None, justify="all", leading_space=False)  # type: ignore
+        formatted = fmt.format_array(x._values, None, justify="all", leading_space=False)  # type: ignore
     except TypeError:
         # Older versions of Pandas don't have 'leading_space'
-        x = fmt.format_array(x._values, None, justify="all")  # type: ignore
-
-    y: Sequence[Any] = x
-    if dtype_kind == "f":
-        np = sys.modules["numpy"]
-        try:
-            z = np.array(x).astype(float)
-        except ValueError:
-            z = x
-            pass
-
-        y = [escape_non_finite_float(f) for f in z]
+        formatted = fmt.format_array(x._values, None, justify="all")  # type: ignore
 
     if escape_html:
-        return [escape_html_chars(i) for i in y]
+        formatted = [escape_html_chars(i) for i in formatted]
 
-    return y
+    if dtype_kind == "f":
+        return [
+            [formatted_value, rank]
+            for formatted_value, rank in zip(
+                formatted, x.rank(method="dense", na_option="bottom").astype(int)
+            )
+        ]
+
+    return formatted
 
 
-def _format_polars_series(x, escape_html: bool) -> Sequence[Any]:
+def _format_polars_series(
+    x,
+    escape_html: bool,
+    format_floats_in_python: bool,
+    warn_on_polars_get_fmt_not_found: bool,
+) -> Sequence[Any]:
     """Format a Polars Series for DataTables display"""
     pl = sys.modules["polars"]
     dtype = x.dtype
@@ -61,28 +70,42 @@ def _format_polars_series(x, escape_html: bool) -> Sequence[Any]:
     ):
         return x.to_list()
 
-    # Float types - format and handle non-finite values
-    if dtype in (pl.Float32, pl.Float64):
-        # Round floats according to Polars config
-        precision = pl.Config.state().get("set_float_precision")
-        if precision is None:
-            values = x.to_list()
-        else:
-            values = x.round(precision).to_list()
-        return [escape_non_finite_float(v) for v in values]
+    if dtype.is_float() and not format_floats_in_python:
+        return [escape_non_finite_float(v) for v in x.to_list()]
 
-    # Any other type: convert to string
-    try:
-        formatted = x.cast(str).to_list()
-    except pl.exceptions.InvalidOperationError:
-        formatted = [str(i) if i is not None else None for i in x.to_list()]
+    if dtype == pl.String:
+        formatted = x.to_list()
+    elif dtype == pl.Enum or dtype == pl.Categorical:
+        formatted = x.cast(pl.String).to_list()
+    else:
+        # Other types - use Polars' native formatting
+        str_len_limit = int(os.environ.get("POLARS_FMT_STR_LEN", default=30))
+        try:
+            formatted = [x._s.get_fmt(i, str_len_limit) for i in range(len(x))]
+        except AttributeError:
+            if warn_on_polars_get_fmt_not_found:
+                warnings.warn(
+                    "Polars private formatting method '_s.get_fmt' not found. We will use str() instead. "
+                    "Please report this warning at https://github.com/mwouts/itables/issues/484. "
+                    "To silence this warning, please set warn_on_polars_get_fmt_not_found to False.\n"
+                )
+            formatted = [str(v) for v in x]
 
     if escape_html:
-        return [escape_html_chars(i) for i in formatted]
+        formatted = [escape_html_chars(i) for i in formatted]
+
+    if dtype.is_float():
+        return [
+            ([None, 0] if rank is None else [formatted_value, rank])
+            for formatted_value, rank in zip(formatted, x.rank(method="dense"))
+        ]
+
     return formatted
 
 
-def _format_narwhals_series(x, escape_html: bool) -> Sequence[Any]:
+def _format_narwhals_series(
+    x, escape_html: bool, format_floats_in_python: bool
+) -> Sequence[Any]:
     """Format a Narwhals Series for DataTables display"""
     nw = sys.modules["narwhals"]
     dtype = x.dtype
@@ -102,12 +125,19 @@ def _format_narwhals_series(x, escape_html: bool) -> Sequence[Any]:
         return [v for v in x]
 
     # Float types - format and handle non-finite values
-    if dtype in (nw.Float32, nw.Float64):
+    if dtype.is_float() and not format_floats_in_python:
         return [escape_non_finite_float(v) for v in x]
 
     formatted = [str(v) for v in x]
     if escape_html:
-        return [escape_html_chars(i) for i in formatted]
+        formatted = [escape_html_chars(i) for i in formatted]
+
+    if dtype.is_float():
+        return [
+            ([None, 0] if rank is None else [formatted_value, int(rank)])
+            for formatted_value, rank in zip(formatted, x.rank(method="dense"))
+        ]
+
     return formatted
 
 
@@ -167,9 +197,12 @@ def generate_encoder(warn_on_unexpected_types: bool = True) -> Any:
 
 def datatables_rows(
     df: DataFrameOrSeries,
+    *,
     column_count: Optional[int] = None,
-    warn_on_unexpected_types: bool = False,
     escape_html: bool = True,
+    float_columns_to_be_formatted_in_python: Optional[set[int]] = None,
+    warn_on_unexpected_types: bool = False,
+    warn_on_polars_get_fmt_not_found: bool = True,
 ) -> str:
     """Format the values in the table and return the data, row by row, as requested by DataTables"""
     # We iterate over columns using an index rather than the column name
@@ -183,13 +216,24 @@ def datatables_rows(
         empty_columns = [[None] * len(df)] * missing_columns
 
     df_module = get_dataframe_module_name(df)
+    if float_columns_to_be_formatted_in_python is None:
+        float_columns_to_be_formatted_in_python = set()
     if df_module == "pandas":
         formatted_columns = [
-            _format_pandas_series(x, escape_html) for _, x in df.items()
+            _format_pandas_series(
+                x, escape_html, i in float_columns_to_be_formatted_in_python
+            )
+            for i, (_, x) in enumerate(df.items())
         ]
     elif df_module == "polars":
         formatted_columns = [
-            _format_polars_series(df[col], escape_html) for col in df.columns
+            _format_polars_series(
+                df[col],
+                escape_html,
+                i in float_columns_to_be_formatted_in_python,
+                warn_on_polars_get_fmt_not_found,
+            )
+            for i, col in enumerate(df.columns)
         ]
     else:
         # Other DataFrame types are handled via Narwhals, and are expected
@@ -199,7 +243,10 @@ def datatables_rows(
         df = nw.from_native(df, eager_only=True, allow_series=True)
 
         formatted_columns = [
-            _format_narwhals_series(df[col], escape_html) for col in df.columns
+            _format_narwhals_series(
+                df[col], escape_html, i in float_columns_to_be_formatted_in_python
+            )
+            for i, col in enumerate(df.columns)
         ]
 
     data = list(zip(*(empty_columns + formatted_columns)))

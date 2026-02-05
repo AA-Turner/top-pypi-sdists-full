@@ -7,6 +7,8 @@ class SetCompleter(Completer):
     def __init__(self, words: list[str], options: dict = None, sub_completer = False, ignore_case = False) -> None:
         self.words = words
         self.sub_completer = sub_completer
+        self.options = None
+
         if options:
             opts = NestedCompleter.from_nested_dict(options)
             self.options = opts.options
@@ -30,8 +32,8 @@ class SetCompleter(Completer):
             if words and first_term in words:
                 words.remove(first_term)
 
-            # already moved to nested completion part
-            if first_term not in self.options:
+            # still in the set
+            if not self.options or first_term not in self.options:
                 completer = SetCompleter(words, self.options, sub_completer=True)
 
                 # If we have a sub completer, use this for the completions.
@@ -47,7 +49,7 @@ class SetCompleter(Completer):
                     for c in completer.get_completions(new_document, complete_event):
                         yield c
 
-            if self.sub_completer:
+            if self.sub_completer and self.options:
                 completer = self.options.get(first_term)
 
                 # If we have a sub completer, use this for the completions.
@@ -71,7 +73,7 @@ class SetCompleter(Completer):
             for c in completer.get_completions(document, complete_event):
                 yield c
 
-            if self.sub_completer:
+            if self.sub_completer and self.options:
                 completer = WordCompleter(
                     list(self.options.keys()), ignore_case=self.ignore_case
                 )

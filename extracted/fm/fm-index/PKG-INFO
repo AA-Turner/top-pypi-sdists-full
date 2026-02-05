@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fm-index
-Version: 2.3.0
+Version: 2.3.1
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Information Technology
@@ -28,7 +28,7 @@ Provides-Extra: test
 License-File: LICENSE
 Summary: High-performance FM-index powered by Rust, enabling fast substring search and count/locate queries.
 Keywords: fm-index,full-text index,compressed index,substring search,pattern matching,succinct,information retrieval
-Author: Koki Watanabe
+Author-email: Koki Watanabe <koki.watanabe.56@gmail.com>
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: documentation, https://math-hiyoko.github.io/fm-index
@@ -263,9 +263,8 @@ ruff format
 pdoc fm_index \
       --output-directory docs \
       --no-search \
-      --no-show-source \
       --docformat markdown \
-      --footer-text "© 2026 Koki Watanabe"
+      --template-directory pdoc_templates
 ```
 
 ## References

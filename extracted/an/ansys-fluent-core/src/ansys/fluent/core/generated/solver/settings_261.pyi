@@ -3832,6 +3832,21 @@ class gran_visc_udf(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
+class gran_bulk_visc(String, AllowedValuesMixin):
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class gran_bulk_visc_constant(Real):
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class gran_bulk_visc_udf(String, AllowedValuesMixin):
+    _version: str
+    fluent_name: str
+    _python_name: str
+
 class sol_press(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
@@ -3853,6 +3868,21 @@ class gran_temp_constant(Real):
     _python_name: str
 
 class gran_temp_udf(String, AllowedValuesMixin):
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class frictional_visc(String, AllowedValuesMixin):
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class frictional_visc_constant(Real):
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class frictional_visc_udf(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -3900,11 +3930,17 @@ class granular_props(Group):
     gran_visc: gran_visc
     gran_visc_constant: gran_visc_constant
     gran_visc_udf: gran_visc_udf
+    gran_bulk_visc: gran_bulk_visc
+    gran_bulk_visc_constant: gran_bulk_visc_constant
+    gran_bulk_visc_udf: gran_bulk_visc_udf
     sol_press: sol_press
     sol_press_udf: sol_press_udf
     gran_temp: gran_temp
     gran_temp_constant: gran_temp_constant
     gran_temp_udf: gran_temp_udf
+    frictional_visc: frictional_visc
+    frictional_visc_constant: frictional_visc_constant
+    frictional_visc_udf: frictional_visc_udf
     packing: packing
     packing_constant: packing_constant
     packing_udf: packing_udf
@@ -5314,7 +5350,7 @@ class mt_evap_cond_sat_prop(Group):
     mt_evap_cond_sat_press_ptl_tabular_lat_heat: mt_evap_cond_sat_press_ptl_tabular_lat_heat
     mt_evap_cond_sat_press_rgp_data_set: mt_evap_cond_sat_press_rgp_data_set
 
-class mt_evap_cond_wall_boiling(Boolean):
+class mt_evap_cond_sbm_boiling(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
@@ -5610,7 +5646,7 @@ class mt_evap_cond_group(Group):
     mt_evap_cond_wall_evap_cond: mt_evap_cond_wall_evap_cond
     mt_evap_cond_model_coeff: mt_evap_cond_model_coeff
     mt_evap_cond_sat_prop: mt_evap_cond_sat_prop
-    mt_evap_cond_wall_boiling: mt_evap_cond_wall_boiling
+    mt_evap_cond_sbm_boiling: mt_evap_cond_sbm_boiling
     mt_evap_cond_boiling_par: mt_evap_cond_boiling_par
     mt_evap_cond_boil_adv_settings_on: mt_evap_cond_boil_adv_settings_on
     mt_evap_cond_sbm_boil_method: mt_evap_cond_sbm_boil_method
@@ -5629,7 +5665,7 @@ class mt_species_model_options(String, AllowedValuesMixin):
     EQUILIBRIUM_RATIO: Final[str] = 'Equilibrium Ratio'
     _allowed_values: list[str]
 
-class mt_species_raoul_sat_press(String, AllowedValuesMixin):
+class mt_species_raoult_sat_press(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -5641,17 +5677,17 @@ class mt_species_raoul_sat_press(String, AllowedValuesMixin):
     USER_DEFINED: Final[str] = 'user-defined'
     _allowed_values: list[str]
 
-class mt_species_raoul_sat_press_constant(Real):
+class mt_species_raoult_sat_press_constant(Real):
     _version: str
     fluent_name: str
     _python_name: str
 
-class mt_species_raoul_sat_press_udf(String, AllowedValuesMixin):
+class mt_species_raoult_sat_press_udf(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
 
-class mt_species_raoul_sat_press_polynomial(Group):
+class mt_species_raoult_sat_press_polynomial(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -5660,7 +5696,7 @@ class mt_species_raoul_sat_press_polynomial(Group):
     coefficients: coefficients
     _has_migration_adapter: bool
 
-class mt_species_raoul_sat_press_piecewise_polynomial(Group):
+class mt_species_raoult_sat_press_piecewise_polynomial(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -5669,7 +5705,7 @@ class mt_species_raoul_sat_press_piecewise_polynomial(Group):
     range: range
     _has_migration_adapter: bool
 
-class mt_species_raoul_sat_press_piecewise_linear(Group):
+class mt_species_raoult_sat_press_piecewise_linear(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -5678,7 +5714,7 @@ class mt_species_raoul_sat_press_piecewise_linear(Group):
     data_points: data_points
     _has_migration_adapter: bool
 
-class mt_species_raoul_sat_press_rgp_data_set(String, AllowedValuesMixin):
+class mt_species_raoult_sat_press_rgp_data_set(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -5869,13 +5905,13 @@ class mt_species_model_parameters(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    mt_species_raoul_sat_press: mt_species_raoul_sat_press
-    mt_species_raoul_sat_press_constant: mt_species_raoul_sat_press_constant
-    mt_species_raoul_sat_press_udf: mt_species_raoul_sat_press_udf
-    mt_species_raoul_sat_press_polynomial: mt_species_raoul_sat_press_polynomial
-    mt_species_raoul_sat_press_piecewise_polynomial: mt_species_raoul_sat_press_piecewise_polynomial
-    mt_species_raoul_sat_press_piecewise_linear: mt_species_raoul_sat_press_piecewise_linear
-    mt_species_raoul_sat_press_rgp_data_set: mt_species_raoul_sat_press_rgp_data_set
+    mt_species_raoult_sat_press: mt_species_raoult_sat_press
+    mt_species_raoult_sat_press_constant: mt_species_raoult_sat_press_constant
+    mt_species_raoult_sat_press_udf: mt_species_raoult_sat_press_udf
+    mt_species_raoult_sat_press_polynomial: mt_species_raoult_sat_press_polynomial
+    mt_species_raoult_sat_press_piecewise_polynomial: mt_species_raoult_sat_press_piecewise_polynomial
+    mt_species_raoult_sat_press_piecewise_linear: mt_species_raoult_sat_press_piecewise_linear
+    mt_species_raoult_sat_press_rgp_data_set: mt_species_raoult_sat_press_rgp_data_set
     mt_species_henry_options: mt_species_henry_options
     mt_species_henry_molar_frac_corr: mt_species_henry_molar_frac_corr
     mt_species_henry_molar_frac_corr_constant: mt_species_henry_molar_frac_corr_constant
@@ -11552,6 +11588,11 @@ class randomize_every_timestep(Boolean):
     fluent_name: str
     _python_name: str
 
+class immediate_tracking_of_spawned_particles_enabled(Boolean):
+    _version: str
+    fluent_name: str
+    _python_name: str
+
 class advanced(Group):
     _version: str
     fluent_name: str
@@ -11562,6 +11603,7 @@ class advanced(Group):
     verbosity: verbosity_2
     randomize_every_iteration: randomize_every_iteration
     randomize_every_timestep: randomize_every_timestep
+    immediate_tracking_of_spawned_particles_enabled: immediate_tracking_of_spawned_particles_enabled
 
 class tracking(Group):
     _version: str
@@ -13105,6 +13147,11 @@ class cunningham_factor(Real, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
+class brownian_motion_enabled(Boolean, AllowedValuesMixin):
+    _version: str
+    fluent_name: str
+    _python_name: str
+
 class particle_drag(Group):
     _version: str
     fluent_name: str
@@ -13113,6 +13160,7 @@ class particle_drag(Group):
     option: option_33
     shape_factor: shape_factor
     cunningham_factor: cunningham_factor
+    brownian_motion_enabled: brownian_motion_enabled
 
 class enabled_19(Boolean, AllowedValuesMixin):
     _version: str
@@ -51423,6 +51471,11 @@ class zone2(String):
     fluent_name: str
     _python_name: str
 
+class area_1(Real):
+    _version: str
+    fluent_name: str
+    _python_name: str
+
 class area_percentage1(Real):
     _version: str
     fluent_name: str
@@ -51453,6 +51506,7 @@ class interface_3_child(Group):
     coupled: coupled_1
     matching: matching
     static: static_1
+    area: area_1
     area_percentage1: area_percentage1
     area_percentage2: area_percentage2
     def display(self):
@@ -51924,6 +51978,36 @@ class mesh_interfaces(Group):
     enable_visualization_of_interfaces: enable_visualization_of_interfaces
     mapped_interface_options: mapped_interface_options
     non_conformal_interface_numerics: non_conformal_interface_numerics
+    def auto_create(self, pair_all: bool, one_to_one_pairs: bool, interface_zones: list[str], create: bool, name: str, apply_mapped: bool, static_interface: bool):
+        """
+        Automatically pair and create mesh interfaces for some or all interface zones.
+        
+        Parameters
+        ----------
+            pair_all : bool
+                Automatic pairing of all unintersected interface zones?.
+            one_to_one_pairs : bool
+                Create one-to-one pairs only?.
+            interface_zones : List
+                Unintersected interface zones for pairing.
+            create : bool
+                Create mesh interfaces with all these pairs?.
+            name : str
+                The prefix for mesh interface names.
+            apply_mapped : bool
+                Apply Mapped option at solids.
+            static_interface : bool
+                Static?.
+        """
+    def delete(self, name: str):
+        """
+        Delete a mesh interface.
+        
+        Parameters
+        ----------
+            name : str
+                Mesh interface name to be deleted.
+        """
     def create(self, si_name: str, all_bnd: bool, zone_ids: list[str], exclude_pair: bool, exclude_zone_ids: list[str], zone1_list: list[str], zone2_list: list[str], mapped: bool, enable_local_mapped_tolerance: bool, use_local_edge_length_factor: bool, local_relative_mapped_tolerance: float | str, local_absolute_mapped_tolerance: float | str, periodic: bool, coupled: bool, matching: bool, static: bool, ignore_area_difference: bool):
         """
         Create a mesh interface.
@@ -51965,44 +52049,26 @@ class mesh_interfaces(Group):
             ignore_area_difference : bool
                 Check if user want to create poorly matched interface.
         """
-    def delete(self, name: str):
+    def create_manually(self, name: str, zone_list_1: list[str], zone_list_2: list[str], matching: bool, ignore_area_difference: bool):
         """
-        Delete a mesh interface.
+        Create one-to-one interfaces between two groups of boundary zones even if they do not currently overlap.
         
         Parameters
         ----------
             name : str
-                Mesh interface name to be deleted.
-        """
-    def list(self):
-        """
-        List all mesh-interfaces.
+                The prefix for mesh interface names.
+            zone_list_1 : List
+                The boundary zones belonging to the first group.
+            zone_list_2 : List
+                The boundary zones belonging to the second group.
+            matching : bool
+                Specifies whether mesh-interface is matching.
+            ignore_area_difference : bool
+                Check if user want to create poorly matched interface.
         """
     def delete_all(self):
         """
         Delete all mesh interfaces.
-        """
-    def display(self, zones: list[str]):
-        """
-        Display specified mesh interface zone.
-        
-        Parameters
-        ----------
-            zones : List
-                Zone-name to be displayed.
-        """
-    def one_to_one_pairing(self, one_to_one_interface: bool, proceed: bool, delete_empty: bool):
-        """
-        Use the default one-to-one interface creation method?.
-        
-        Parameters
-        ----------
-            one_to_one_interface : bool
-                Use the default one-to-one interface creation method?.
-            proceed : bool
-                Would you like to proceed?.
-            delete_empty : bool
-                Delete empty interface interior zones from non-overlapping interfaces?.
         """
     def delete_interfaces_with_small_overlap(self, delete: bool, overlapping_area_threshold: float | str, overlapping_percentage_threshold: float | str):
         """
@@ -52016,6 +52082,32 @@ class mesh_interfaces(Group):
                 The area used for deletion [m^2].
             overlapping_percentage_threshold : real
                 The area percentage used for deletion (%).
+        """
+    def display(self, zones: list[str]):
+        """
+        Display specified mesh interface zone.
+        
+        Parameters
+        ----------
+            zones : List
+                Zone-name to be displayed.
+        """
+    def list(self):
+        """
+        List all mesh-interfaces.
+        """
+    def one_to_one_pairing(self, one_to_one_interface: bool, proceed: bool, delete_empty: bool):
+        """
+        Use the default one-to-one interface creation method?.
+        
+        Parameters
+        ----------
+            one_to_one_interface : bool
+                Use the default one-to-one interface creation method?.
+            proceed : bool
+                Would you like to proceed?.
+            delete_empty : bool
+                Delete empty interface interior zones from non-overlapping interfaces?.
         """
     def turbo_interface_health_check(self, name: list[str]):
         """
@@ -52036,44 +52128,6 @@ class mesh_interfaces(Group):
                 Delete all mesh interfaces.
             name : List
                 Mesh interface names to be deleted.
-        """
-    def create_manually(self, name: str, zone_list_1: list[str], zone_list_2: list[str], matching: bool, ignore_area_difference: bool):
-        """
-        Create one-to-one interfaces between two groups of boundary zones even if they do not currently overlap.
-        
-        Parameters
-        ----------
-            name : str
-                The prefix for mesh interface names.
-            zone_list_1 : List
-                The boundary zones belonging to the first group.
-            zone_list_2 : List
-                The boundary zones belonging to the second group.
-            matching : bool
-                Specifies whether mesh-interface is matching.
-            ignore_area_difference : bool
-                Check if user want to create poorly matched interface.
-        """
-    def auto_create(self, pair_all: bool, one_to_one_pairs: bool, interface_zones: list[str], create: bool, name: str, apply_mapped: bool, static_interface: bool):
-        """
-        Automatically pair and create mesh interfaces for some or all interface zones.
-        
-        Parameters
-        ----------
-            pair_all : bool
-                Automatic pairing of all unintersected interface zones?.
-            one_to_one_pairs : bool
-                Create one-to-one pairs only?.
-            interface_zones : List
-                Unintersected interface zones for pairing.
-            create : bool
-                Create mesh interfaces with all these pairs?.
-            name : str
-                The prefix for mesh interface names.
-            apply_mapped : bool
-                Apply Mapped option at solids.
-            static_interface : bool
-                Static?.
         """
     def improve_quality(self, check_mapped_interface_quality: bool, proceed: bool, tol_percentage_increment: float | str):
         """
@@ -53648,7 +53702,7 @@ class dynamic_mesh(Group):
                 Update the Mesh?.
         """
 
-class area_1(Real):
+class area_2(Real):
     _version: str
     fluent_name: str
     _python_name: str
@@ -53719,7 +53773,7 @@ class reference_values(Group):
     _python_name: str
     child_names: list[str]
     command_names: list[str]
-    area: area_1
+    area: area_2
     depth: depth
     density: density_9
     enthalpy: enthalpy
@@ -79172,6 +79226,72 @@ class enabled_79(Boolean):
     fluent_name: str
     _python_name: str
 
+class definition_3_child(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class definition_3(NamedObject[definition_3_child]):
+    _deprecated_version: str
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def create(self, name: str):
+        """
+        Create a new instance of the current object type.
+        
+        Parameters
+        ----------
+            name : str
+                Object name.
+        """
+    def delete(self, name_list: list[str]):
+        """
+        Delete selected objects.
+        
+        Parameters
+        ----------
+            name_list : List
+                Objects to be deleted.
+        """
+    def rename(self, old: str, new: str):
+        """
+        Rename the object.
+        
+        Parameters
+        ----------
+            old : str
+                Object to rename.
+            new : str
+                New name for the object.
+        """
+    def list_1(self):
+        """
+        List the names of the objects.
+        """
+    def list_properties_1(self, object_name: str):
+        """
+        List active properties of the object.
+        
+        Parameters
+        ----------
+            object_name : str
+                Object for which properties are to be listed.
+        """
+    def make_a_copy(self, from_: str, to: str):
+        """
+        Create a copy of the object.
+        
+        Parameters
+        ----------
+            from_ : str
+                The object to duplicate.
+            to : str
+                The name of the new object.
+        """
+    child_object_type: definition_3_child
+
 class walls(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
@@ -80394,7 +80514,7 @@ class volume_integral_1(NamedObject[volume_integral_1_child]):
         """
     child_object_type: volume_integral_1_child
 
-class definition_3(Group):
+class definitions(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -80449,6 +80569,7 @@ class observables(Group):
     child_names: list[str]
     named_expressions: named_expressions
     definition: definition_3
+    definitions: definitions
     selection: selection
 
 class flow_solver(String, AllowedValuesMixin):
@@ -81591,7 +81712,7 @@ class modifiable_zones(StringList, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class location_5(StringList, AllowedValuesMixin):
+class modifiable_location(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -82046,13 +82167,13 @@ class region(Group):
     child_names: list[str]
     command_names: list[str]
     modifiable_zones: modifiable_zones
-    location: location_5
+    modifiable_location: modifiable_location
     region_type: region_type
     show_bounding_region: show_bounding_region
     auto_display: auto_display
     cartesian: cartesian
     cylindrical: cylindrical
-    def get_bounds(self, bounded_zones: list[str], location: list[str], comfortable_region: bool, automatic_coordinate: bool):
+    def get_bounds(self, bounded_zones: list[str], bounded_location: list[str], comfortable_region: bool, automatic_coordinate: bool):
         """
         Get bounds based on selects zones.
         
@@ -82060,7 +82181,7 @@ class region(Group):
         ----------
             bounded_zones : List
                 Zones used to determine region bounds.
-            location : List
+            bounded_location : List
                 Zones used to determine region bounds.
             comfortable_region : bool
                 Use comfortable region than the selected zones.
@@ -82076,7 +82197,73 @@ class region(Group):
         Shrink current region extent.
         """
 
-class location_7(Group):
+class definition_5_child(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class definition_5(NamedObject[definition_5_child]):
+    _deprecated_version: str
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def create(self, name: str):
+        """
+        Create a new instance of the current object type.
+        
+        Parameters
+        ----------
+            name : str
+                Object name.
+        """
+    def delete(self, name_list: list[str]):
+        """
+        Delete selected objects.
+        
+        Parameters
+        ----------
+            name_list : List
+                Objects to be deleted.
+        """
+    def rename(self, old: str, new: str):
+        """
+        Rename the object.
+        
+        Parameters
+        ----------
+            old : str
+                Object to rename.
+            new : str
+                New name for the object.
+        """
+    def list_1(self):
+        """
+        List the names of the objects.
+        """
+    def list_properties_1(self, object_name: str):
+        """
+        List active properties of the object.
+        
+        Parameters
+        ----------
+            object_name : str
+                Object for which properties are to be listed.
+        """
+    def make_a_copy(self, from_: str, to: str):
+        """
+        Create a copy of the object.
+        
+        Parameters
+        ----------
+            from_ : str
+                The object to duplicate.
+            to : str
+                The name of the new object.
+        """
+    child_object_type: definition_5_child
+
+class location_5(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -82092,7 +82279,7 @@ class fixed_walls_constraint_child(Group):
     command_names: list[str]
     name: name_5
     surfaces: surfaces_1
-    location: location_7
+    location: location_5
     def display(self):
         """
         Display design condition.
@@ -82176,7 +82363,7 @@ class bounded_by_plane_child(Group):
     command_names: list[str]
     name: name_5
     surfaces: surfaces_1
-    location: location_7
+    location: location_5
     distance: distance_1
     normal: normal_5
     def display(self):
@@ -82305,7 +82492,7 @@ class bounded_by_surfaces_child(Group):
     command_names: list[str]
     name: name_5
     surfaces: surfaces_18
-    location: location_7
+    location: location_5
     imported_surfaces: imported_surfaces
     fit_imported_surfaces: fit_imported_surfaces
     bounding_offset: bounding_offset
@@ -82507,7 +82694,7 @@ class prescribed_profile_child(Group):
     command_names: list[str]
     name: name_5
     surfaces: surfaces_1
-    location: location_7
+    location: location_5
     deformation_profile: deformation_profile
     factor: factor_3
     parameters: parameters_11
@@ -82602,7 +82789,7 @@ class rotation_child(Group):
     command_names: list[str]
     name: name_5
     surfaces: surfaces_1
-    location: location_7
+    location: location_5
     angle: angle_8
     origin: origin_12
     axis: axis_12
@@ -82716,7 +82903,7 @@ class translation_1_child(Group):
     command_names: list[str]
     name: name_5
     surfaces: surfaces_1
-    location: location_7
+    location: location_5
     displacement: displacement
     def display(self):
         """
@@ -82854,7 +83041,7 @@ class scaling_1_child(Group):
     command_names: list[str]
     name: name_5
     surfaces: surfaces_1
-    location: location_7
+    location: location_5
     scaling_type: scaling_type
     factor: factor_3
     axis_factor: axis_factor
@@ -82940,7 +83127,7 @@ class rigid_body_child(Group):
     command_names: list[str]
     name: name_5
     surfaces: surfaces_1
-    location: location_7
+    location: location_5
     def display(self):
         """
         Display design condition.
@@ -83098,7 +83285,7 @@ class compound(NamedObject[compound_child]):
         """
     child_object_type: compound_child
 
-class definition_5(Group):
+class definitions_1(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -83227,6 +83414,7 @@ class design_conditions(Group):
     _python_name: str
     child_names: list[str]
     definition: definition_5
+    definitions: definitions_1
     selection: selection_1
     options: options_24
 
@@ -85286,6 +85474,11 @@ class mode_2(String, AllowedValuesMixin):
     REMOTE: Final[str] = 'remote'
     _allowed_values: list[str]
 
+class remote_project_name(String):
+    _version: str
+    fluent_name: str
+    _python_name: str
+
 class number_of_concurrent_dps(Integer):
     _version: str
     fluent_name: str
@@ -85345,6 +85538,7 @@ class concurrent_settings(Group):
     command_names: list[str]
     mode: mode_2
     capability: capability
+    remote_project_name: remote_project_name
     number_of_concurrent_dps: number_of_concurrent_dps
     number_of_cores: number_of_cores
     use_gpu_solver: use_gpu_solver

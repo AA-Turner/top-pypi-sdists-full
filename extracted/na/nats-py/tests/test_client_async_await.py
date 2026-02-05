@@ -2,11 +2,11 @@ import asyncio
 
 from nats.aio.client import Client as NATS
 from nats.errors import SlowConsumerError, TimeoutError
+
 from tests.utils import SingleServerTestCase, async_test
 
 
 class ClientAsyncAwaitTest(SingleServerTestCase):
-
     @async_test
     async def test_async_await_subscribe_async(self):
         nc = NATS()

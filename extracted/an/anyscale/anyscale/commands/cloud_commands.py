@@ -1,8 +1,10 @@
 from io import StringIO
 import pathlib
 import re
+import secrets
 from typing import Any, Dict, List, Optional
 
+import boto3
 import click
 from rich.console import Console
 from rich.table import Table
@@ -25,6 +27,7 @@ from anyscale.client.openapi_client.models import (
 )
 from anyscale.client.openapi_client.models.compute_stack import ComputeStack
 from anyscale.cloud.models import CreateCloudCollaborator, CreateCloudCollaborators
+from anyscale.cloud_utils import get_cloud_id_and_name, get_organization_id
 from anyscale.commands import command_examples
 from anyscale.commands.list_util import (
     display_list,
@@ -44,9 +47,165 @@ from anyscale.util import (
     SharedStorageType,
     validate_non_negative_arg,
 )
+from anyscale.utils.cloud_utils import validate_aws_credentials
+from anyscale.utils.imports.gcp import (
+    try_import_gcp_managed_setup_utils,
+    try_import_gcp_utils,
+)
 
 
 log = BlockLogger()  # CLI Logger
+
+
+def setup_vm_cloud_resource(  # noqa: PLR0912, PLR0913
+    provider: str,
+    region: str,
+    cloud_name: Optional[str],
+    cloud_id: Optional[str],
+    project_id: Optional[str],
+    enable_head_node_fault_tolerance: bool,
+    shared_storage: SharedStorageType,
+    controller: Optional[CloudController] = None,
+    boto3_session: Optional[Any] = None,
+    anyscale_iam_role_name: Optional[str] = None,
+    cluster_node_iam_role_name: Optional[str] = None,
+    anyscale_access_service_account: Optional[str] = None,
+    pool_name: Optional[str] = None,
+) -> None:
+    """Set up VM cloud resources for an existing Anyscale cloud."""
+    if not cloud_name and not cloud_id:
+        raise click.ClickException("Either --cloud or --cloud-id is required.")
+
+    if controller is None:
+        controller = CloudController()
+
+    resolved_cloud_id, resolved_cloud_name = get_cloud_id_and_name(
+        api_client=controller.api_client, cloud_id=cloud_id, cloud_name=cloud_name,
+    )
+
+    controller.log.info(
+        f"Adding VM resources to cloud '{resolved_cloud_name}' ({resolved_cloud_id})"
+    )
+
+    if provider == "aws":
+        if boto3_session is None:
+            boto3_session = boto3.Session(region_name=region)
+        if not validate_aws_credentials(controller.log, boto3_session):
+            raise click.ClickException(
+                "Cloud setup requires valid AWS credentials to be set locally. "
+                "Learn more: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html"
+            )
+
+        resource_id = f"vm-{region}-{secrets.token_hex(4)}"
+        if anyscale_iam_role_name is None:
+            anyscale_iam_role_name = f"anyscale-iam-role-{secrets.token_hex(4)}"
+        if cluster_node_iam_role_name is None:
+            cluster_node_iam_role_name = f"{resource_id}-cluster_node_role"
+
+        try:
+            anyscale_aws_account = (
+                controller.api_client.get_anyscale_aws_account_api_v2_clouds_anyscale_aws_account_get().result.anyscale_aws_account
+            )
+            cfn_stack = controller.run_cloudformation(
+                region=region,
+                cloud_id=resolved_cloud_id,
+                anyscale_iam_role_name=anyscale_iam_role_name,
+                cluster_node_iam_role_name=cluster_node_iam_role_name,
+                enable_head_node_fault_tolerance=enable_head_node_fault_tolerance,
+                anyscale_aws_account=anyscale_aws_account,
+                boto3_session=boto3_session,
+                shared_storage=shared_storage,
+                resource_id=resource_id,
+            )
+            controller.update_cloud_with_resources(
+                cfn_stack, resolved_cloud_id, region, enable_head_node_fault_tolerance
+            )
+            controller.wait_for_cloud_to_be_active(
+                resolved_cloud_id, CloudProviders.AWS
+            )
+
+            controller.log.info(
+                f"Successfully added VM resources to cloud '{resolved_cloud_name}'."
+            )
+
+        except Exception as e:  # noqa: BLE001
+            controller.log.error(str(e))
+            raise click.ClickException(f"Failed to add VM resources: {e}")
+
+    elif provider == "gcp":
+        if not project_id:
+            raise click.ClickException("--project-id is required for GCP clouds.")
+
+        gcp_utils = try_import_gcp_utils()
+        setup_utils = try_import_gcp_managed_setup_utils()
+        factory = gcp_utils.get_google_cloud_client_factory(controller.log, project_id)
+
+        try:
+            organization_id = get_organization_id(controller.api_client)
+            anyscale_aws_account = (
+                controller.api_client.get_anyscale_aws_account_api_v2_clouds_anyscale_aws_account_get().result.anyscale_aws_account
+            )
+
+            setup_utils.enable_project_apis(
+                factory, project_id, controller.log, enable_head_node_fault_tolerance
+            )
+
+            token = secrets.token_hex(4)
+            if anyscale_access_service_account is None:
+                anyscale_access_service_account = (
+                    f"anyscale-access-{token}@{project_id}.iam.gserviceaccount.com"
+                )
+            pool_id = f"anyscale-provider-pool-{token}"
+            if pool_name is None:
+                pool_name = f"projects/{project_id}/locations/global/workloadIdentityPools/{pool_id}"
+            deployment_name = f"{resolved_cloud_id}-{token}".replace("_", "-").lower()
+
+            setup_utils.create_workload_identity_pool(
+                factory, project_id, pool_id, controller.log
+            )
+            controller.create_workload_identity_federation_provider(
+                factory, project_id, pool_id, anyscale_access_service_account
+            )
+
+            controller.run_deployment_manager(
+                factory,
+                deployment_name,
+                resolved_cloud_id,
+                project_id,
+                region,
+                anyscale_access_service_account,
+                pool_name,
+                anyscale_aws_account,
+                organization_id,
+                enable_head_node_fault_tolerance,
+                shared_storage=shared_storage,
+            )
+            with controller.log.spinner(
+                "Updating Anyscale cloud with cloud resources..."
+            ):
+                controller.update_cloud_with_resources_gcp(
+                    factory,
+                    deployment_name,
+                    resolved_cloud_id,
+                    region,
+                    project_id,
+                    anyscale_access_service_account,
+                    provider_name=f"{pool_name}/providers/anyscale-access",
+                )
+            controller.wait_for_cloud_to_be_active(
+                resolved_cloud_id, CloudProviders.GCP
+            )
+
+            controller.log.info(
+                f"Successfully added VM resources to cloud '{resolved_cloud_name}'."
+            )
+
+        except Exception as e:  # noqa: BLE001
+            controller.log.error(str(e))
+            raise click.ClickException(f"Failed to add VM resources: {e}")
+
+    else:
+        raise click.ClickException(f"Unsupported provider: {provider}")
 
 
 @click.group(
@@ -149,16 +308,14 @@ def default_region(provider: str) -> str:
 @click.option(
     "--provider",
     help="The cloud provider type.",
-    required=True,
-    prompt="Provider",
+    required=False,
     type=click.Choice(["aws", "gcp", "azure"], case_sensitive=False),
 )
 @click.option(
     "--region",
     cls=OptionPromptNull,
     help="Region to set up the credentials in.",
-    required=True,
-    prompt="Region",
+    required=False,
     default_option="provider",
     default=default_region,
     show_default=True,
@@ -250,6 +407,15 @@ def default_region(provider: str) -> str:
     type=str,
     hidden=True,
 )
+@click.option(
+    "--skip-resources",
+    is_flag=True,
+    default=False,
+    help=(
+        "Create an empty cloud without provisioning resources. "
+        "Use this to create a cloud record first and add resources later."
+    ),
+)
 def setup_cloud(  # noqa: PLR0913
     provider: str,
     region: str,
@@ -268,8 +434,22 @@ def setup_cloud(  # noqa: PLR0913
     values_file: Optional[str],
     debug: bool,
     operator_chart: Optional[str],
+    skip_resources: bool,
 ) -> None:
     # TODO (congding): remove `anyscale_managed` in the future, now keeping it for compatibility
+
+    # Handle --skip-resources flag: create an empty cloud without provisioning resources
+    if skip_resources:
+        CloudController().create_empty_cloud(name=name)
+        return
+
+    # For normal setup, provider and region are required - prompt if not provided
+    if not provider:
+        provider = click.prompt(
+            "Provider", type=click.Choice(["aws", "gcp", "azure"], case_sensitive=False)
+        )
+    if not region:
+        region = click.prompt("Region", default=default_region(provider))
 
     # Handle Kubernetes stack
     if stack == "k8s":
@@ -510,7 +690,7 @@ def cloud_resource_create(
 
 @cloud_resource_group.command(
     name="setup",
-    help="Set up cloud resources for an existing cloud on a Kubernetes cluster.",
+    help="Set up cloud resources for an existing cloud.",
     cls=AnyscaleCommand,
     is_alpha=True,
 )
@@ -525,9 +705,9 @@ def cloud_resource_create(
 )
 @click.option(
     "--stack",
-    help="The compute stack to use (only k8s is supported for this command).",
+    help="The compute stack to use",
     required=False,
-    type=click.Choice(["k8s"], case_sensitive=False),
+    type=click.Choice(["vm", "k8s"], case_sensitive=False),
     default="k8s",
     show_default=True,
 )
@@ -544,11 +724,11 @@ def cloud_resource_create(
     required=False,
 )
 @click.option(
-    "--cluster-name", help="Kubernetes cluster name.", required=True, type=str,
+    "--cluster-name", help="Kubernetes cluster name. (K8s)", required=False, type=str,
 )
 @click.option(
     "--namespace",
-    help="Kubernetes namespace for Anyscale operator.",
+    help="Kubernetes namespace for Anyscale operator. (K8s)",
     required=False,
     type=str,
     default="anyscale-operator",
@@ -571,7 +751,7 @@ def cloud_resource_create(
 )
 @click.option(
     "--values-file",
-    help="Path to save the generated Helm values file (default: auto-generated with timestamp).",
+    help="Path to save the generated Helm values file (K8s: default - auto-generated with timestamp). (K8s)",
     required=False,
     type=str,
 )
@@ -580,7 +760,7 @@ def cloud_resource_create(
 )
 @click.option(
     "--operator-chart",
-    help="Path to operator chart (skips helm repo add/update).",
+    help="Path to operator chart (skips helm repo add/update). (K8s)",
     required=False,
     type=str,
     hidden=True,
@@ -592,13 +772,27 @@ def cloud_resource_create(
     type=str,
     default=None,
 )
+@click.option(
+    "--enable-head-node-fault-tolerance",
+    is_flag=True,
+    default=False,
+    help="Whether to enable head node fault tolerance for services. (VM)",
+)
+@click.option(
+    "--shared-storage",
+    required=False,
+    type=click.Choice([e.value for e in SharedStorageType], case_sensitive=False),
+    default=SharedStorageType.OBJECT_STORAGE.value,
+    show_default=True,
+    help="The type of shared storage to use. Use 'object-storage' for cloud bucket-based storage (e.g., S3, GCS), or 'nfs' for network file systems. (VM)",
+)
 def cloud_resource_setup(  # noqa: PLR0913
     provider: str,
     region: str,
     stack: str,
     cloud: Optional[str],
     cloud_id: Optional[str],
-    cluster_name: str,
+    cluster_name: Optional[str],
     namespace: str,
     project_id: Optional[str],
     functional_verify: Optional[str],
@@ -607,33 +801,50 @@ def cloud_resource_setup(  # noqa: PLR0913
     debug: bool,
     operator_chart: Optional[str],
     resource_name: Optional[str],
+    enable_head_node_fault_tolerance: bool,
+    shared_storage: str,
 ) -> None:
     """
-    Set up cloud resources for an existing Anyscale cloud on a Kubernetes cluster.
+    Set up cloud resources for an existing Anyscale cloud.
 
-    This command sets up infrastructure (S3/GCS buckets, IAM roles, etc.) and installs
-    the Anyscale operator on your Kubernetes cluster, then creates a cloud resource in
-    an existing cloud instead of registering a new cloud.
+    This command sets up infrastructure (S3/GCS buckets, IAM roles, etc.) and creates
+    a cloud resource in an existing cloud instead of registering a new cloud.
+
+    For K8s stack: Also installs the Anyscale operator on your Kubernetes cluster.
+    For VM stack: Creates CloudFormation (AWS) or Deployment Manager (GCP) resources.
     """
-    # Validate stack
-    if stack != "k8s":
-        raise click.ClickException("Only --stack=k8s is supported for this command.")
-
-    setup_kubernetes_cloud_resource(
-        provider=provider,
-        region=region,
-        cloud_name=cloud,
-        cloud_id=cloud_id,
-        cluster_name=cluster_name,
-        namespace=namespace,
-        project_id=project_id,
-        functional_verify=bool(functional_verify),
-        yes=yes,
-        values_file=values_file,
-        debug=debug,
-        operator_chart=operator_chart,
-        resource_name=resource_name,
-    )
+    if stack == "k8s":
+        if not cluster_name:
+            raise click.ClickException(
+                "--cluster-name is required when using --stack=k8s"
+            )
+        setup_kubernetes_cloud_resource(
+            provider=provider,
+            region=region,
+            cloud_name=cloud,
+            cloud_id=cloud_id,
+            cluster_name=cluster_name,
+            namespace=namespace,
+            project_id=project_id,
+            functional_verify=bool(functional_verify),
+            yes=yes,
+            values_file=values_file,
+            debug=debug,
+            operator_chart=operator_chart,
+            resource_name=resource_name,
+        )
+    elif stack == "vm":
+        setup_vm_cloud_resource(
+            provider=provider,
+            region=region,
+            cloud_name=cloud,
+            cloud_id=cloud_id,
+            project_id=project_id,
+            enable_head_node_fault_tolerance=enable_head_node_fault_tolerance,
+            shared_storage=SharedStorageType(shared_storage),
+        )
+    else:
+        raise click.ClickException(f"Unsupported stack: {stack}")
 
 
 @cloud_resource_group.command(
@@ -739,6 +950,60 @@ def cloud_update(  # noqa: PLR0913
         functional_verify=functional_verify,
         yes=yes,
         skip_verification=skip_verification,
+    )
+
+
+@cloud_cli.command(
+    name="update-storage-cors",
+    help="Update CORS configuration on cloud storage to support Anyscale UI features. Works with both managed and customer-managed clouds. When a cloud resource is not specified, updates CORS for all cloud resources under the cloud.",
+)
+@click.argument("cloud-name", required=False)
+@click.option(
+    "--cloud-id",
+    "--id",
+    help="Cloud id to update. Alternative to cloud name.",
+    required=False,
+)
+@click.option("--name", "-n", help="Update storage CORS for cloud by name.", type=str)
+@click.option(
+    "--resource",
+    help="Name of the cloud resource to update. If not provided, updates all cloud resources under the cloud.",
+    type=str,
+    required=False,
+)
+@click.option(
+    "--resource-id",
+    "cloud_resource_id",
+    help="Cloud resource ID to update. Alternative to cloud resource name.",
+    type=str,
+    required=False,
+)
+@click.option(
+    "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
+)
+def cloud_update_storage_cors(
+    cloud_name: Optional[str],
+    name: Optional[str],
+    cloud_id: Optional[str],
+    resource: Optional[str],
+    cloud_resource_id: Optional[str],
+    yes: bool,
+) -> None:
+    if cloud_name and name and cloud_name != name:
+        raise click.ClickException(
+            "The positional argument CLOUD_NAME and the keyword argument --name "
+            "were both provided. Please only provide one of these two arguments."
+        )
+    if resource and cloud_resource_id:
+        raise click.ClickException(
+            "Cannot specify both --resource and --resource-id. Please provide only one."
+        )
+    CloudController().update_cors(
+        cloud_name=cloud_name or name,
+        cloud_id=cloud_id,
+        resource=resource,
+        cloud_resource_id=cloud_resource_id,
+        yes=yes,
     )
 
 

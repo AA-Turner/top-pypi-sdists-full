@@ -121,13 +121,13 @@ features = [
     # If you have a repository configured and turn on this feature, Zensical
     # will generate an edit button for the page. This works for common
     # repository hosting services.
-    # https://zensical.org/docs/setup/repository/#code-actions
+    # https://zensical.org/docs/setup/repository/#content-actions
     #"content.action.edit",
 
     # If you have a repository configured and turn on this feature, Zensical
     # will generate a button that allows the user to view the Markdown
     # code for the current page.
-    # https://zensical.org/docs/setup/repository/#code-actions
+    # https://zensical.org/docs/setup/repository/#content-actions
     #"content.action.view",
 
     # Code annotations allow you to add an icon with a tooltip to your
@@ -156,7 +156,8 @@ features = [
     # https://zensical.org/docs/authoring/content-tabs/#linked-content-tabs
     "content.tabs.link",
 
-    # TODO: not sure I understand this one? Is there a demo of this in the docs?
+    # With this feature enabled users can add tooltips to links that will be
+    # displayed when the mouse pointer hovers the link.
     # https://zensical.org/docs/authoring/tooltips/#improved-tooltips
     "content.tooltips",
 

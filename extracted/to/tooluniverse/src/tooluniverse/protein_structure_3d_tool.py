@@ -131,7 +131,7 @@ class ProteinStructure3DTool(VisualizationTool):
                 "show_surface": show_surface,
             }
 
-            return self.create_visualization_response(
+            viz_response = self.create_visualization_response(
                 html_content=html_content,
                 viz_type="protein_structure_3d",
                 data={
@@ -141,16 +141,20 @@ class ProteinStructure3DTool(VisualizationTool):
                 },
                 metadata=metadata,
             )
+            # Wrap in data field for test compatibility
+            return {"status": "success", "data": viz_response}
 
         except ImportError:
-            return self.create_error_response(
+            error_response = self.create_error_response(
                 "py3Dmol is not installed. Please install it with: pip install py3Dmol",
                 "MissingDependency",
             )
+            return {"status": "error", "data": error_response}
         except Exception as e:
-            return self.create_error_response(
+            error_response = self.create_error_response(
                 f"Failed to create protein visualization: {str(e)}"
             )
+            return {"status": "error", "data": error_response}
 
     def _fetch_pdb_content(self, pdb_id: str) -> str:
         """Fetch PDB content from RCSB PDB database."""

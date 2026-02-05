@@ -1,4 +1,4 @@
-# Copyright (C) 2021-2025, Mindee | Felix Dittrich.
+# Copyright (C) 2021-2026, Mindee | Felix Dittrich.
 
 # This program is licensed under the Apache License 2.0.
 # See LICENSE or go to <https://opensource.org/licenses/Apache-2.0> for full license details.
@@ -9,7 +9,7 @@ from pathlib import Path
 from setuptools import setup
 
 PKG_NAME = "onnxtr"
-VERSION = os.getenv("BUILD_VERSION", "0.8.0a0")
+VERSION = os.getenv("BUILD_VERSION", "0.8.1a0")
 
 
 if __name__ == "__main__":

@@ -39,11 +39,15 @@ default_tool_files = {
     "HumanBase": os.path.join(current_dir, "data", "humanbase_tools.json"),
     "OpenAlex": os.path.join(current_dir, "data", "openalex_tools.json"),
     # Literature search tools
+    "literature_search": os.path.join(
+        current_dir, "data", "literature_search_tools.json"
+    ),
     "arxiv": os.path.join(current_dir, "data", "arxiv_tools.json"),
     "crossref": os.path.join(current_dir, "data", "crossref_tools.json"),
     "simbad": os.path.join(current_dir, "data", "simbad_tools.json"),
     "dblp": os.path.join(current_dir, "data", "dblp_tools.json"),
     "pubmed": os.path.join(current_dir, "data", "pubmed_tools.json"),
+    "ncbi_nucleotide": os.path.join(current_dir, "data", "ncbi_nucleotide_tools.json"),
     "doaj": os.path.join(current_dir, "data", "doaj_tools.json"),
     "unpaywall": os.path.join(current_dir, "data", "unpaywall_tools.json"),
     "biorxiv": os.path.join(current_dir, "data", "biorxiv_tools.json"),
@@ -84,6 +88,11 @@ default_tool_files = {
     ),
     "adverse_event": os.path.join(current_dir, "data", "adverse_event_tools.json"),
     "dailymed": os.path.join(current_dir, "data", "dailymed_tools.json"),
+    "cdc": os.path.join(current_dir, "data", "cdc_tools.json"),
+    "nhanes": os.path.join(current_dir, "data", "nhanes_tools.json"),
+    "health_disparities": os.path.join(
+        current_dir, "data", "health_disparities_tools.json"
+    ),
     "hpa": os.path.join(current_dir, "data", "hpa_tools.json"),
     "reactome": os.path.join(current_dir, "data", "reactome_tools.json"),
     "pubchem": os.path.join(current_dir, "data", "pubchem_tools.json"),
@@ -128,6 +137,7 @@ default_tool_files = {
     "metabolights": os.path.join(current_dir, "data", "metabolights_tools.json"),
     "proteins_api": os.path.join(current_dir, "data", "proteins_api_tools.json"),
     "arrayexpress": os.path.join(current_dir, "data", "arrayexpress_tools.json"),
+    "biostudies": os.path.join(current_dir, "data", "biostudies_tools.json"),
     "dbfetch": os.path.join(current_dir, "data", "dbfetch_tools.json"),
     "pdbe_api": os.path.join(current_dir, "data", "pdbe_api_tools.json"),
     "ena_browser": os.path.join(current_dir, "data", "ena_browser_tools.json"),
@@ -249,6 +259,24 @@ default_tool_files = {
     "stitch": os.path.join(current_dir, "data", "stitch_tools.json"),
     # CIViC - Clinical Interpretation of Variants in Cancer
     "civic": os.path.join(current_dir, "data", "civic_tools.json"),
+    # Single-cell RNA-seq data
+    "cellxgene_census": os.path.join(
+        current_dir, "data", "cellxgene_census_tools.json"
+    ),
+    # Chromatin and epigenetics data
+    "chipatlas": os.path.join(current_dir, "data", "chipatlas_tools.json"),
+    # 4DN Data Portal - 3D genome organization
+    "fourdn": os.path.join(current_dir, "data", "fourdn_tools.json"),
+    # GTEx Portal API V2 - Tissue-specific gene expression and eQTLs
+    "gtex_v2": os.path.join(current_dir, "data", "gtex_v2_tools.json"),
+    # Rfam Database API - RNA families (v15.1, January 2026)
+    "rfam": os.path.join(current_dir, "data", "rfam_tools.json"),
+    # BiGG Models API - Genome-scale metabolic models
+    "bigg_models": os.path.join(current_dir, "data", "bigg_models_tools.json"),
+    # Protein-Protein Interaction (PPI) tools - STRING and BioGRID
+    "ppi": os.path.join(current_dir, "data", "ppi_tools.json"),
+    # NVIDIA NIM Healthcare APIs - Structure prediction, molecular docking, genomics
+    "nvidia_nim": os.path.join(current_dir, "data", "nvidia_nim_tools.json"),
 }
 
 # Auto-load any user-provided tools from ~/.tooluniverse/user_tools/

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.aws-support-mcp-server
-Version: 0.1.16
+Version: 0.1.17
 Summary: An Model Context Protocol (MCP) server for AWS SupportAPI.
 Author: Amazon Web Services
 Author-email: John de Villiers <jackdevilliers.work@gmail.com>

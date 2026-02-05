@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: itables
-Version: 2.6.2
+Version: 2.7.0
 Summary: Python DataFrames as interactive DataTables
 Project-URL: Homepage, https://mwouts.github.io/itables/
 Project-URL: Documentation, https://mwouts.github.io/itables
@@ -11,7 +11,7 @@ Author-email: Marc Wouts <marc.wouts@gmail.com>
 Maintainer-email: Marc Wouts <marc.wouts@gmail.com>
 License: MIT License
         
-        Copyright (c) 2019-2025 Marc Wouts
+        Copyright (c) 2019-2026 Marc Wouts
         
         Permission is hereby granted, free of charge, to any person obtaining a copy
         of this software and associated documentation files (the "Software"), to deal

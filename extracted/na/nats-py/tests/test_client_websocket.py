@@ -1,20 +1,21 @@
 import asyncio
 import unittest
 
-import nats
 import pytest
 from nats.aio.errors import *
+
+import nats
 from tests.utils import *
 
 try:
     import aiohttp
+
     aiohttp_installed = True
 except ModuleNotFoundError:
     aiohttp_installed = False
 
 
 class WebSocketTest(SingleWebSocketServerTestCase):
-
     @async_test
     async def test_simple_headers(self):
         if not aiohttp_installed:
@@ -24,12 +25,7 @@ class WebSocketTest(SingleWebSocketServerTestCase):
 
         sub = await nc.subscribe("foo")
         await nc.flush()
-        await nc.publish(
-            "foo", b"hello world", headers={
-                "foo": "bar",
-                "hello": "world-1"
-            }
-        )
+        await nc.publish("foo", b"hello world", headers={"foo": "bar", "hello": "world-1"})
 
         msg = await sub.next_msg()
         self.assertTrue(msg.headers != None)
@@ -54,12 +50,7 @@ class WebSocketTest(SingleWebSocketServerTestCase):
 
         await nc.subscribe("foo", cb=service)
         await nc.flush()
-        msg = await nc.request(
-            "foo", b"hello world", headers={
-                "foo": "bar",
-                "hello": "world"
-            }
-        )
+        msg = await nc.request("foo", b"hello world", headers={"foo": "bar", "hello": "world"})
 
         self.assertTrue(msg.headers != None)
         self.assertEqual(len(msg.headers), 3)
@@ -90,9 +81,7 @@ class WebSocketTest(SingleWebSocketServerTestCase):
         self.assertTrue(msg.headers == None)
 
         # Empty long key
-        await nc.publish(
-            "foo", b"hello world", headers={"": "                  "}
-        )
+        await nc.publish("foo", b"hello world", headers={"": "                  "})
         msg = await sub.next_msg()
         self.assertTrue(msg.headers == None)
 
@@ -140,13 +129,9 @@ class WebSocketTest(SingleWebSocketServerTestCase):
         self.assertEqual(rmsg.data, b"OK!")
 
         # Restart the server and wait for reconnect.
-        await asyncio.get_running_loop().run_in_executor(
-            None, self.server_pool[0].stop
-        )
+        await asyncio.get_running_loop().run_in_executor(None, self.server_pool[0].stop)
         await asyncio.sleep(1)
-        await asyncio.get_running_loop().run_in_executor(
-            None, self.server_pool[0].start
-        )
+        await asyncio.get_running_loop().run_in_executor(None, self.server_pool[0].start)
         await asyncio.wait_for(reconnected, 2)
 
         # Get another message.
@@ -190,9 +175,7 @@ class WebSocketTest(SingleWebSocketServerTestCase):
         self.assertEqual(rmsg.data, b"OK!")
 
         # Restart the server and wait for reconnect.
-        await asyncio.get_running_loop().run_in_executor(
-            None, self.server_pool[0].stop
-        )
+        await asyncio.get_running_loop().run_in_executor(None, self.server_pool[0].stop)
         await asyncio.sleep(1)
 
         # Should not fail closing while disconnected.
@@ -207,16 +190,12 @@ class WebSocketTest(SingleWebSocketServerTestCase):
             "Authorization": ["Bearer RandomToken"],
             "X-Client-ID": ["test-client-123"],
             "X-Custom-Header": ["custom-value"],
-            "Accept": [
-                "application/json", "text/plain", "application/msgpack"
-            ],
+            "Accept": ["application/json", "text/plain", "application/msgpack"],
             "X-Feature-Flags": ["feature-a", "feature-b", "feature-c"],
-            "X-Capabilities": ["streaming", "compression", "batching"]
+            "X-Capabilities": ["streaming", "compression", "batching"],
         }
 
-        nc = await nats.connect(
-            "ws://localhost:8080", ws_connection_headers=custom_headers
-        )
+        nc = await nats.connect("ws://localhost:8080", ws_connection_headers=custom_headers)
 
         # Test basic pub/sub functionality to ensure connection works
         sub = await nc.subscribe("foo")
@@ -225,20 +204,19 @@ class WebSocketTest(SingleWebSocketServerTestCase):
         # Create test messages
         msgs = []
         for i in range(10):
-            msg = b'A' * 100  # 100 bytes of 'A'
+            msg = b"A" * 100  # 100 bytes of 'A'
             msgs.append(msg)
 
         # Publish messages
         for i, msg in enumerate(msgs):
             await nc.publish("foo", msg)
             # Ensure message content is not modified
-            assert msg == msgs[i], f"User content was changed during publish"
+            assert msg == msgs[i], "User content was changed during publish"
 
         # Receive and verify messages
         for i in range(len(msgs)):
             msg = await sub.next_msg(timeout=1.0)
-            assert msg.data == msgs[
-                i], f"Expected message {i}: {msgs[i]}, got {msg.data}"
+            assert msg.data == msgs[i], f"Expected message {i}: {msgs[i]}, got {msg.data}"
 
         await nc.close()
 
@@ -258,16 +236,13 @@ class WebSocketTest(SingleWebSocketServerTestCase):
                 reconnected.set_result(True)
 
         # Connect with custom headers
-        custom_headers = {
-            "X-Persistent-Session": ["session-12345"],
-            "Authorization": ["Bearer ReconnectToken"]
-        }
+        custom_headers = {"X-Persistent-Session": ["session-12345"], "Authorization": ["Bearer ReconnectToken"]}
 
         nc = await nats.connect(
             "ws://localhost:8080",
             ws_connection_headers=custom_headers,
             reconnected_cb=reconnected_cb,
-            max_reconnect_attempts=5
+            max_reconnect_attempts=5,
         )
 
         # Create subscription
@@ -283,13 +258,9 @@ class WebSocketTest(SingleWebSocketServerTestCase):
         await nc.flush()
 
         # Simulate server restart
-        await asyncio.get_running_loop().run_in_executor(
-            None, self.server_pool[0].stop
-        )
+        await asyncio.get_running_loop().run_in_executor(None, self.server_pool[0].stop)
         await asyncio.sleep(1)
-        await asyncio.get_running_loop().run_in_executor(
-            None, self.server_pool[0].start
-        )
+        await asyncio.get_running_loop().run_in_executor(None, self.server_pool[0].start)
 
         # Wait for reconnection
         await asyncio.wait_for(reconnected, timeout=5.0)
@@ -310,7 +281,6 @@ class WebSocketTest(SingleWebSocketServerTestCase):
 
 
 class WebSocketTLSTest(SingleWebSocketTLSServerTestCase):
-
     @async_test
     async def test_pub_sub(self):
         if not aiohttp_installed:
@@ -341,11 +311,7 @@ class WebSocketTLSTest(SingleWebSocketTLSServerTestCase):
             if not reconnected.done():
                 reconnected.set_result(True)
 
-        nc = await nats.connect(
-            "wss://localhost:8081",
-            reconnected_cb=reconnected_cb,
-            tls=self.ssl_ctx
-        )
+        nc = await nats.connect("wss://localhost:8081", reconnected_cb=reconnected_cb, tls=self.ssl_ctx)
 
         sub = await nc.subscribe("foo")
 
@@ -362,13 +328,9 @@ class WebSocketTLSTest(SingleWebSocketTLSServerTestCase):
         self.assertEqual(rmsg.data, b"OK!")
 
         # Restart the server and wait for reconnect.
-        await asyncio.get_running_loop().run_in_executor(
-            None, self.server_pool[0].stop
-        )
+        await asyncio.get_running_loop().run_in_executor(None, self.server_pool[0].stop)
         await asyncio.sleep(1)
-        await asyncio.get_running_loop().run_in_executor(
-            None, self.server_pool[0].start
-        )
+        await asyncio.get_running_loop().run_in_executor(None, self.server_pool[0].start)
         await asyncio.wait_for(reconnected, 2)
 
         # Get another message.
@@ -413,9 +375,7 @@ class WebSocketTLSTest(SingleWebSocketTLSServerTestCase):
         self.assertEqual(rmsg.data, b"OK!")
 
         # Restart the server and wait for reconnect.
-        await asyncio.get_running_loop().run_in_executor(
-            None, self.server_pool[0].stop
-        )
+        await asyncio.get_running_loop().run_in_executor(None, self.server_pool[0].stop)
         await asyncio.sleep(1)
 
         # Should not fail closing while disconnected.
@@ -429,16 +389,9 @@ class WebSocketTLSTest(SingleWebSocketTLSServerTestCase):
 
         # Note: This would require a TLS-enabled test server
         # Keeping structure similar to the non-TLS test
-        custom_headers = {
-            "Authorization": ["Bearer SecureToken"],
-            "X-TLS-Client": ["secure-client-v1"]
-        }
+        custom_headers = {"Authorization": ["Bearer SecureToken"], "X-TLS-Client": ["secure-client-v1"]}
 
-        nc = await nats.connect(
-            "wss://localhost:8081",
-            ws_connection_headers=custom_headers,
-            tls=self.ssl_ctx
-        )
+        nc = await nats.connect("wss://localhost:8081", ws_connection_headers=custom_headers, tls=self.ssl_ctx)
 
         # Basic functionality test
         sub = await nc.subscribe("tls.test")

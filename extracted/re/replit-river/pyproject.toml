@@ -1,6 +1,6 @@
 [project]
 name="replit-river"
-version="0.17.13"
+version="0.17.14"
 description="Replit river toolkit for Python"
 authors = [{ name = "Replit", email = "eng@replit.com" }]
 license = { file = "LICENSE" }

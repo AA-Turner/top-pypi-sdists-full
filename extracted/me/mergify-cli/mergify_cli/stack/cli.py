@@ -6,7 +6,6 @@ from typing import Any
 from urllib import parse
 
 import click
-import click_default_group
 
 from mergify_cli import console
 from mergify_cli import utils
@@ -16,6 +15,7 @@ from mergify_cli.stack import (
     github_action_auto_rebase as stack_github_action_auto_rebase_mod,
 )
 from mergify_cli.stack import list as stack_list_mod
+from mergify_cli.stack import new as stack_new_mod
 from mergify_cli.stack import push as stack_push_mod
 from mergify_cli.stack import session as stack_session_mod
 from mergify_cli.stack import setup as stack_setup_mod
@@ -24,8 +24,10 @@ from mergify_cli.stack import setup as stack_setup_mod
 def trunk_type(
     _ctx: click.Context,
     _param: click.Parameter,
-    value: str,
-) -> tuple[str, str]:
+    value: str | None,
+) -> tuple[str, str] | None:
+    if value is None:
+        return None
     result = value.split("/", maxsplit=1)
     if len(result) != 2:
         msg = "Trunk is invalid. It must be origin/branch-name [/]"
@@ -76,26 +78,26 @@ def github_server_to_context(
     ctx.obj["github_server"] = value
 
 
-stack = click_default_group.DefaultGroup(
-    "stack",
-    default="push",
-    default_if_no_args=True,
+@click.group(
+    invoke_without_command=True,
     help="Manage pull requests stack",
-    params=[
-        click.Option(
-            param_decls=["--token"],
-            default=lambda: asyncio.run(get_default_token()),
-            help="GitHub personal access token",
-            callback=token_to_context,
-        ),
-        click.Option(
-            param_decls=["--github-server"],
-            default=lambda: asyncio.run(get_default_github_server()),
-            help="GitHub API server",
-            callback=github_server_to_context,
-        ),
-    ],
 )
+@click.option(
+    "--token",
+    default=lambda: asyncio.run(get_default_token()),
+    help="GitHub personal access token",
+    callback=token_to_context,
+)
+@click.option(
+    "--github-server",
+    default=lambda: asyncio.run(get_default_github_server()),
+    help="GitHub API server",
+    callback=github_server_to_context,
+)
+@click.pass_context
+def stack(ctx: click.Context, **_kwargs: object) -> None:
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
 
 
 def _print_hooks_status(status: dict[str, Any]) -> None:
@@ -178,7 +180,7 @@ def _print_hooks_status(status: dict[str, Any]) -> None:
         console.print("[green]All hooks are up to date.[/]")
 
 
-@stack.command(help="Show git hooks status and manage installation")  # type: ignore[untyped-decorator]
+@stack.command(help="Show git hooks status and manage installation")
 @click.option(
     "--setup",
     "do_setup",
@@ -200,7 +202,7 @@ async def hooks(*, do_setup: bool, force: bool) -> None:
         _print_hooks_status(status)
 
 
-@stack.command(help="Configure git hooks (alias for 'stack hooks --setup')")  # type: ignore[untyped-decorator]
+@stack.command(help="Configure git hooks (alias for 'stack hooks --setup')")
 @click.option(
     "--force",
     "-f",
@@ -221,13 +223,43 @@ async def setup(*, force: bool, check: bool) -> None:
         await stack_setup_mod.stack_setup(force=force)
 
 
-@stack.command(help="Edit the stack history")  # type: ignore[untyped-decorator]
+@stack.command(help="Edit the stack history")
 @utils.run_with_asyncio
 async def edit() -> None:
     await stack_edit_mod.stack_edit()
 
 
-@stack.command(help="Push/sync the pull requests stack")  # type: ignore[untyped-decorator]
+@stack.command(help="Create a new stack branch")
+@click.argument("name")
+@click.option(
+    "--base",
+    "-b",
+    type=click.UNPROCESSED,
+    metavar="REMOTE/BRANCH",
+    default=None,
+    callback=trunk_type,
+    help="Base branch to create from (default: current trunk)",
+)
+@click.option(
+    "--checkout/--no-checkout",
+    default=True,
+    help="Whether to checkout the new branch after creation (default: checkout)",
+)
+@utils.run_with_asyncio
+async def new(
+    *,
+    name: str,
+    base: tuple[str, str] | None,
+    checkout: bool,
+) -> None:
+    await stack_new_mod.stack_new(
+        name=name,
+        base=base,
+        checkout=checkout,
+    )
+
+
+@stack.command(help="Push/sync the pull requests stack")
 @click.pass_context
 @click.option(
     "--setup",
@@ -336,7 +368,7 @@ async def push(
     )
 
 
-@stack.command(help="Checkout the pull requests stack")  # type: ignore[untyped-decorator]
+@stack.command(help="Checkout the pull requests stack")
 @click.pass_context
 @click.option(
     "--author",
@@ -396,7 +428,7 @@ async def checkout(
     )
 
 
-@stack.command(help="Autorebase a pull requests stack")  # type: ignore[untyped-decorator]
+@stack.command(help="Autorebase a pull requests stack")
 @click.pass_context
 @utils.run_with_asyncio
 async def github_action_auto_rebase(ctx: click.Context) -> None:
@@ -406,7 +438,7 @@ async def github_action_auto_rebase(ctx: click.Context) -> None:
     )
 
 
-@stack.command(help="Get Claude session ID from a commit")  # type: ignore[untyped-decorator]
+@stack.command(help="Get Claude session ID from a commit")
 @click.option(
     "--commit",
     "-c",
@@ -433,7 +465,7 @@ async def session(*, commit: str, launch: bool) -> None:
         stack_session_mod.launch_claude_session(session_id)
 
 
-@stack.command(name="list", help="List the stack's commits and their associated PRs")  # type: ignore[untyped-decorator]
+@stack.command(name="list", help="List the stack's commits and their associated PRs")
 @click.pass_context
 @click.option(
     "--trunk",

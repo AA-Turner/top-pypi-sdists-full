@@ -77,27 +77,43 @@ class DecimalField(NumberFieldMixin, WBCoreSerializerFieldMixin, serializers.Dec
 
         return field_name, representation
 
+    def _is_inf(self, data) -> bool:
+        return isinstance(data, str) and data.lower().replace("-", "") == "infinity"
+
+    def validate_empty_values(self, data):
+        if self._is_inf(data):
+            data = None
+        return super().validate_empty_values(data)
+
+    def to_internal_value(self, data):
+        if self._is_inf(data):
+            return None
+        return super().to_internal_value(data)
+
 
 class FloatField(NumberFieldMixin, WBCoreSerializerFieldMixin, serializers.FloatField):
     field_type = WBCoreType.NUMBER.value
 
 
-class DecimalRangeField(RangeMixin, WBCoreSerializerFieldMixin, serializers.DecimalField):
+class DecimalRangeField(RangeMixin, DecimalField):
     field_type = WBCoreType.NUMBERRANGE.value
     internal_field = NumericRange
 
     def to_representation(self, instance):
         res = list(super().to_representation(instance))
         # ensure empty value shows as None
-        if res[0] is None:
+        if not res[0]:
             res[0] = "-Infinity"
-        if res[1] is None:
+        if not res[1]:
             res[1] = "Infinity"
         return tuple(res)
 
     def __init__(self, max_digits=None, decimal_places=None, **kwargs):
         if not max_digits:
-            max_digits = 3
+            max_digits = 12
         if not decimal_places:
-            decimal_places = 2
+            decimal_places = 1
+        if "coerce_to_string" not in kwargs:
+            kwargs["coerce_to_string"] = True
+        kwargs["allow_null"] = True
         super().__init__(max_digits, decimal_places, **kwargs)

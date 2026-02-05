@@ -15,7 +15,7 @@ def WoRMS_search_species(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
     Search marine species in World Register of Marine Species
 
@@ -34,7 +34,7 @@ def WoRMS_search_species(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

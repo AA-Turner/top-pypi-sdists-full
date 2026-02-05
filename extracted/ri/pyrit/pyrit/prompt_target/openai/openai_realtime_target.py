@@ -15,16 +15,21 @@ from pyrit.exceptions import (
     pyrit_target_retry,
 )
 from pyrit.exceptions.exception_classes import ServerErrorException
+from pyrit.identifiers import TargetIdentifier
 from pyrit.models import (
     Message,
     construct_response_from_request,
     data_serializer_factory,
 )
-from pyrit.prompt_target import OpenAITarget, limit_requests_per_minute
+from pyrit.prompt_target.common.utils import limit_requests_per_minute
+from pyrit.prompt_target.openai.openai_target import OpenAITarget
 
 logger = logging.getLogger(__name__)
 
-RealTimeVoice = Literal["alloy", "echo", "shimmer"]
+# Voices supported by the OpenAI Realtime API.
+# See: https://platform.openai.com/docs/guides/realtime-conversations#voice-options
+# For best quality, OpenAI recommends using "marin" or "cedar".
+RealTimeVoice = Literal["alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse", "marin", "cedar"]
 
 
 @dataclass
@@ -51,22 +56,28 @@ class RealtimeTargetResult:
 
 
 class RealtimeTarget(OpenAITarget):
+    """
+    A prompt target for Azure OpenAI Realtime API.
+
+    This class enables real-time audio communication with OpenAI models, supporting
+    voice input and output with configurable voice options.
+
+    Read more at https://learn.microsoft.com/en-us/azure/ai-services/openai/realtime-audio-reference
+    and https://platform.openai.com/docs/guides/realtime-websocket
+    """
 
     def __init__(
         self,
         *,
         voice: Optional[RealTimeVoice] = None,
-        existing_convo: Optional[dict] = None,
-        **kwargs,
+        existing_convo: Optional[dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> None:
         """
-        RealtimeTarget class for Azure OpenAI Realtime API.
-
-        Read more at https://learn.microsoft.com/en-us/azure/ai-services/openai/realtime-audio-reference
-        and https://platform.openai.com/docs/guides/realtime-websocket
+        Initialize the Realtime target with specified parameters.
 
         Args:
-            model_name (str, Optional): The name of the model.
+            model_name (str, Optional): The name of the model (or deployment name in Azure).
                 If no value is provided, the OPENAI_REALTIME_MODEL environment variable will be used.
             endpoint (str, Optional): The target URL for the OpenAI service.
                 Defaults to the `OPENAI_REALTIME_ENDPOINT` environment variable.
@@ -81,20 +92,21 @@ class RealtimeTarget(OpenAITarget):
             voice (literal str, Optional): The voice to use. Defaults to None.
                 the only supported voices by the AzureOpenAI Realtime API are "alloy", "echo", and "shimmer".
             existing_convo (dict[str, websockets.WebSocketClientProtocol], Optional): Existing conversations.
-            httpx_client_kwargs (dict, Optional): Additional kwargs to be passed to the
-                httpx.AsyncClient() constructor.
-                For example, to specify a 3 minutes timeout: httpx_client_kwargs={"timeout": 180}
+            **kwargs: Additional keyword arguments passed to the parent OpenAITarget class.
+            httpx_client_kwargs (dict, Optional): Additional kwargs to be passed to the ``httpx.AsyncClient()``
+                constructor. For example, to specify a 3 minute timeout: ``httpx_client_kwargs={"timeout": 180}``
         """
         super().__init__(**kwargs)
 
         self.voice = voice
         self._existing_conversation = existing_convo if existing_convo is not None else {}
-        self._realtime_client = None
+        self._realtime_client: Optional[AsyncOpenAI] = None
 
-    def _set_openai_env_configuration_vars(self):
+    def _set_openai_env_configuration_vars(self) -> None:
         self.model_name_environment_variable = "OPENAI_REALTIME_MODEL"
         self.endpoint_environment_variable = "OPENAI_REALTIME_ENDPOINT"
         self.api_key_environment_variable = "OPENAI_REALTIME_API_KEY"
+        self.underlying_model_environment_variable = "OPENAI_REALTIME_UNDERLYING_MODEL"
 
     def _get_target_api_paths(self) -> list[str]:
         """Return API paths that should not be in the URL."""
@@ -106,6 +118,19 @@ class RealtimeTarget(OpenAITarget):
             ".openai.azure.com": "wss://{resource}.openai.azure.com/openai/v1",
             "api.openai.com": "wss://api.openai.com/v1",
         }
+
+    def _build_identifier(self) -> TargetIdentifier:
+        """
+        Build the identifier with Realtime API-specific parameters.
+
+        Returns:
+            TargetIdentifier: The identifier for this target instance.
+        """
+        return self._create_identifier(
+            target_specific_params={
+                "voice": self.voice,
+            },
+        )
 
     def _validate_url_for_target(self, endpoint_url: str) -> None:
         """
@@ -128,7 +153,7 @@ class RealtimeTarget(OpenAITarget):
         # Call parent validation with the wss URL
         super()._validate_url_for_target(check_url)
 
-    def _warn_if_irregular_endpoint(self, endpoint: str) -> None:
+    def _warn_if_irregular_realtime_endpoint(self, endpoint: str) -> None:
         """
         Warns if the endpoint URL does not match expected patterns.
 
@@ -164,10 +189,13 @@ class RealtimeTarget(OpenAITarget):
                 "Expected formats: 'wss://resource.openai.azure.com/openai/v1' or 'wss://api.openai.com/v1'"
             )
 
-    def _get_openai_client(self):
+    def _get_openai_client(self) -> AsyncOpenAI:
         """
-        Creates or returns the AsyncOpenAI client configured for Realtime API.
+        Create or return the AsyncOpenAI client configured for Realtime API.
         Uses the Azure GA approach with websocket_base_url.
+
+        Returns:
+            AsyncOpenAI: Configured AsyncOpenAI client for Realtime API.
         """
         if self._realtime_client is None:
             # Convert https:// to wss:// for websocket connections if needed
@@ -186,10 +214,12 @@ class RealtimeTarget(OpenAITarget):
 
         return self._realtime_client
 
-    async def connect(self, conversation_id: str):
+    async def connect(self, conversation_id: str) -> Any:
         """
-        Connects to Realtime API using AsyncOpenAI client.
-        Returns the realtime connection.
+        Connect to Realtime API using AsyncOpenAI client and return the realtime connection.
+
+        Returns:
+            The Realtime API connection.
         """
         logger.info(f"Connecting to Realtime API: {self._endpoint}")
 
@@ -199,10 +229,16 @@ class RealtimeTarget(OpenAITarget):
         logger.info("Successfully connected to AzureOpenAI Realtime API")
         return connection
 
-    def _set_system_prompt_and_config_vars(self, system_prompt: str):
+    def _set_system_prompt_and_config_vars(self, system_prompt: str) -> dict[str, Any]:
         """
-        Creates session configuration for OpenAI client.
+        Create session configuration for OpenAI client.
         Uses the Azure GA format with nested audio config.
+
+        Args:
+            system_prompt: The system prompt to use in the session configuration.
+
+        Returns:
+            dict: Session configuration dictionary.
         """
         session_config = {
             "type": "realtime",
@@ -232,9 +268,9 @@ class RealtimeTarget(OpenAITarget):
 
         return session_config
 
-    async def send_config(self, conversation_id: str):
+    async def send_config(self, conversation_id: str) -> None:
         """
-        Sends the session configuration using OpenAI client.
+        Send the session configuration using OpenAI client.
 
         Args:
             conversation_id (str): Conversation ID
@@ -249,7 +285,7 @@ class RealtimeTarget(OpenAITarget):
 
     def _get_system_prompt_from_conversation(self, *, conversation_id: str) -> str:
         """
-        Retrieves the system prompt from conversation history.
+        Retrieve the system prompt from conversation history.
 
         Args:
             conversation_id (str): The conversation ID
@@ -262,7 +298,7 @@ class RealtimeTarget(OpenAITarget):
         # Look for a system message at the beginning of the conversation
         if conversation and len(conversation) > 0:
             first_message = conversation[0]
-            if first_message.message_pieces and first_message.message_pieces[0].role == "system":
+            if first_message.message_pieces and first_message.message_pieces[0].api_role == "system":
                 return first_message.message_pieces[0].converted_value
 
         # Return default system prompt if none found in conversation
@@ -271,7 +307,18 @@ class RealtimeTarget(OpenAITarget):
     @limit_requests_per_minute
     @pyrit_target_retry
     async def send_prompt_async(self, *, message: Message) -> list[Message]:
+        """
+        Asynchronously send a message to the OpenAI realtime target.
 
+        Args:
+            message (Message): The message object containing the prompt to send.
+
+        Returns:
+            list[Message]: A list containing the response from the prompt target.
+
+        Raises:
+            ValueError: If the message piece type is unsupported.
+        """
         conversation_id = message.message_pieces[0].conversation_id
         if conversation_id not in self._existing_conversation:
             connection = await self.connect(conversation_id=conversation_id)
@@ -320,7 +367,7 @@ class RealtimeTarget(OpenAITarget):
         output_filename: Optional[str] = None,
     ) -> str:
         """
-        Saves audio bytes to a WAV file.
+        Save audio bytes to a WAV file.
 
         Args:
             audio_bytes (bytes): Audio bytes to save.
@@ -344,7 +391,7 @@ class RealtimeTarget(OpenAITarget):
 
         return data.value
 
-    async def cleanup_target(self):
+    async def cleanup_target(self) -> None:
         """
         Disconnects from the Realtime API connections.
         """
@@ -364,7 +411,7 @@ class RealtimeTarget(OpenAITarget):
                 logger.warning(f"Error closing realtime client: {e}")
             self._realtime_client = None
 
-    async def cleanup_conversation(self, conversation_id: str):
+    async def cleanup_conversation(self, conversation_id: str) -> None:
         """
         Disconnects from the Realtime API for a specific conversation.
 
@@ -381,9 +428,9 @@ class RealtimeTarget(OpenAITarget):
                 logger.warning(f"Error closing connection for {conversation_id}: {e}")
             del self._existing_conversation[conversation_id]
 
-    async def send_response_create(self, conversation_id: str):
+    async def send_response_create(self, conversation_id: str) -> None:
         """
-        Sends response.create using OpenAI client.
+        Send response.create using OpenAI client.
 
         Args:
             conversation_id (str): Conversation ID
@@ -406,6 +453,7 @@ class RealtimeTarget(OpenAITarget):
             RealtimeTargetResult with audio data and transcripts
 
         Raises:
+            asyncio.TimeoutError: If waiting for events times out.
             ConnectionError: If connection is not valid
             RuntimeError: If server returns an error
         """
@@ -521,7 +569,7 @@ class RealtimeTarget(OpenAITarget):
         )
         return result
 
-    def _get_connection(self, *, conversation_id: str):
+    def _get_connection(self, *, conversation_id: str) -> Any:
         """
         Get and validate the Realtime API connection for a conversation.
 
@@ -593,11 +641,17 @@ class RealtimeTarget(OpenAITarget):
 
     async def send_text_async(self, text: str, conversation_id: str) -> Tuple[str, RealtimeTargetResult]:
         """
-        Sends text prompt using OpenAI Realtime API client.
+        Send text prompt using OpenAI Realtime API client.
 
         Args:
             text: prompt to send.
             conversation_id: conversation ID
+
+        Returns:
+            Tuple[str, RealtimeTargetResult]: Path to saved audio file and the RealtimeTargetResult
+
+        Raises:
+            RuntimeError: If no audio is received from the server.
         """
         connection = self._get_connection(conversation_id=conversation_id)
 
@@ -646,6 +700,13 @@ class RealtimeTarget(OpenAITarget):
         Args:
             filename (str): The path to the audio file.
             conversation_id (str): Conversation ID
+
+        Returns:
+            Tuple[str, RealtimeTargetResult]: Path to saved audio file and the RealtimeTargetResult
+
+        Raises:
+            Exception: If sending audio fails.
+            RuntimeError: If no audio is received from the server.
         """
         connection = self._get_connection(conversation_id=conversation_id)
 
@@ -709,7 +770,7 @@ class RealtimeTarget(OpenAITarget):
 
     def _validate_request(self, *, message: Message) -> None:
         """
-        Validates the structure and content of a message for compatibility of this target.
+        Validate the structure and content of a message for compatibility of this target.
 
         Args:
             message (Message): The message object.
@@ -728,5 +789,10 @@ class RealtimeTarget(OpenAITarget):
             raise ValueError(f"This target only supports text and audio_path prompt input. Received: {piece_type}.")
 
     def is_json_response_supported(self) -> bool:
-        """Indicates that this target supports JSON response format."""
+        """
+        Check if the target supports JSON as a response format.
+
+        Returns:
+            bool: True if JSON response is supported, False otherwise.
+        """
         return False

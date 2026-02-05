@@ -1,5 +1,5 @@
 //
-// Copyright 2023 Staysail Systems, Inc. <info@staysail.tech>
+// Copyright 2024 Staysail Systems, Inc. <info@staysail.tech>
 // Copyright 2018 Capitar IT Group BV <info@capitar.com>
 // Copyright 2018 Devolutions <info@devolutions.net>
 //
@@ -10,6 +10,7 @@
 //
 
 #include "core/nng_impl.h"
+#include "nng/nng.h"
 #include "sockimpl.h"
 
 #include <stdio.h>
@@ -259,7 +260,7 @@ pipe_create(nni_pipe **pp, nni_sock *sock, nni_sp_tran *tran, void *tran_data)
 	nni_cv_init(&p->p_cv, &pipes_lk);
 
 	nni_mtx_lock(&pipes_lk);
-	rv = nni_id_alloc(&pipes, &p->p_id, p);
+	rv = nni_id_alloc32(&pipes, &p->p_id, p);
 	nni_mtx_unlock(&pipes_lk);
 
 #ifdef NNG_ENABLE_STATS
@@ -405,7 +406,18 @@ nni_pipe_bump_error(nni_pipe *p, int err)
 {
 	if (p->p_dialer != NULL) {
 		nni_dialer_bump_error(p->p_dialer, err);
-	} else {
+	} else if (p->p_listener != NULL) {
 		nni_listener_bump_error(p->p_listener, err);
 	}
+}
+
+char *
+nni_pipe_peer_addr(nni_pipe *p, char buf[NNG_MAXADDRSTRLEN])
+{
+	nng_sockaddr sa;
+	size_t       sz = sizeof(sa);
+	sa.s_family     = AF_UNSPEC;
+	nni_pipe_getopt(p, NNG_OPT_REMADDR, &sa, &sz, NNI_TYPE_SOCKADDR);
+	nng_str_sockaddr(&sa, buf, NNG_MAXADDRSTRLEN);
+	return (buf);
 }

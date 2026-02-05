@@ -1,4 +1,4 @@
-# Copyright (C) 2021-2025, Mindee | Felix Dittrich.
+# Copyright (C) 2021-2026, Mindee | Felix Dittrich.
 
 # This program is licensed under the Apache License 2.0.
 # See LICENSE or go to <https://opensource.org/licenses/Apache-2.0> for full license details.
@@ -65,6 +65,8 @@ class EngineConfig:
                     },
                 ),
             )
+        elif "CoreMLExecutionProvider" in available_providers:  # pragma: no cover
+            providers.insert(0, ("CoreMLExecutionProvider", {}))
         return providers
 
     def _init_sess_opts(self) -> SessionOptions:

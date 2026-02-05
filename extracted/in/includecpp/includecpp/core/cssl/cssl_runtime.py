@@ -8524,6 +8524,70 @@ class CSSLRuntime:
         if parent_class:
             new_scope.set('super', SuperProxy(instance, parent_class, self))
 
+        # v4.9.10: Handle 'copies memory(FuncName)' for class methods
+        copies_memory = func_info.get('copies_memory')
+        old_copies_allowed = None
+        if copies_memory:
+            old_copies_allowed = self._copies_memory_allowed.copy()
+            self._copies_memory_allowed.add(copies_memory)
+            if copies_memory in self._function_scopes:
+                self._copied_memory[copies_memory] = dict(self._function_scopes[copies_memory])
+            else:
+                target_func = self.scope.get(copies_memory) or self.global_scope.get(copies_memory)
+                if target_func is None:
+                    target_func = self.builtins.get(copies_memory)
+                if target_func and isinstance(target_func, ASTNode) and target_func.type == 'function':
+                    old_scope_cm = self.scope
+                    temp_scope_cm = Scope(parent=self.scope)
+                    self.scope = temp_scope_cm
+                    try:
+                        for child in target_func.children:
+                            if not self._running:
+                                break
+                            self._execute_node(child)
+                    except CSSLReturn:
+                        pass
+                    except Exception:
+                        pass
+                    finally:
+                        self._copied_memory[copies_memory] = dict(temp_scope_cm.variables)
+                        self._function_scopes[copies_memory] = dict(temp_scope_cm.variables)
+                        self.scope = old_scope_cm
+
+        # v4.9.10: Handle 'overwrites memory(FuncName)' for class methods
+        overwrites_memory = func_info.get('overwrites_memory')
+        old_overwrites_allowed = None
+        if overwrites_memory:
+            old_overwrites_allowed = self._overwrites_memory_allowed.copy()
+            self._overwrites_memory_allowed.add(overwrites_memory)
+            if old_copies_allowed is None:
+                old_copies_allowed = self._copies_memory_allowed.copy()
+            self._copies_memory_allowed.add(overwrites_memory)
+            if overwrites_memory not in self._copied_memory:
+                if overwrites_memory in self._function_scopes:
+                    self._copied_memory[overwrites_memory] = dict(self._function_scopes[overwrites_memory])
+                else:
+                    target_func = self.scope.get(overwrites_memory) or self.global_scope.get(overwrites_memory)
+                    if target_func is None:
+                        target_func = self.builtins.get(overwrites_memory)
+                    if target_func and isinstance(target_func, ASTNode) and target_func.type == 'function':
+                        old_scope_om = self.scope
+                        temp_scope_om = Scope(parent=self.scope)
+                        self.scope = temp_scope_om
+                        try:
+                            for child in target_func.children:
+                                if not self._running:
+                                    break
+                                self._execute_node(child)
+                        except CSSLReturn:
+                            pass
+                        except Exception:
+                            pass
+                        finally:
+                            self._copied_memory[overwrites_memory] = dict(temp_scope_om.variables)
+                            self._function_scopes[overwrites_memory] = dict(temp_scope_om.variables)
+                            self.scope = old_scope_om
+
         original_return = None
         try:
             # Handle append mode via _append_to_target (stored original)
@@ -8553,6 +8617,18 @@ class CSSLRuntime:
                 return None
             raise
         finally:
+            # v4.9.10: Save method scope for copies memory access
+            method_name = func_info.get('name', '')
+            if method_name:
+                self._function_scopes[method_name] = dict(new_scope.variables)
+            # v4.9.10: Propagate overwrites memory changes
+            if overwrites_memory and overwrites_memory in self._copied_memory:
+                self._function_scopes[overwrites_memory] = dict(self._copied_memory[overwrites_memory])
+            # v4.9.10: Restore copies/overwrites memory permissions
+            if old_copies_allowed is not None:
+                self._copies_memory_allowed = old_copies_allowed
+            if old_overwrites_allowed is not None:
+                self._overwrites_memory_allowed = old_overwrites_allowed
             # Restore previous state
             self.scope = old_scope
             self._current_instance = old_instance

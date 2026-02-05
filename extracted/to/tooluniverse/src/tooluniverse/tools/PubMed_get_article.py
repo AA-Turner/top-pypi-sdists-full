@@ -15,7 +15,7 @@ def PubMed_get_article(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Any:
     """
     Get complete metadata for a specific PubMed article by its PMID (PubMed ID) using efetch. Returns...
 
@@ -34,7 +34,7 @@ def PubMed_get_article(
 
     Returns
     -------
-    dict[str, Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

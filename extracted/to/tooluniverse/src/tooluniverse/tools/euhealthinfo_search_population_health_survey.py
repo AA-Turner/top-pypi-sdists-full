@@ -20,7 +20,7 @@ def euhealthinfo_search_population_health_survey(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> list[Any]:
+) -> Any:
     """
     This tool allows users to identify and retrieve datasets from population health surveys conducted...
 
@@ -49,7 +49,7 @@ def euhealthinfo_search_population_health_survey(
 
     Returns
     -------
-    list[Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

@@ -43,6 +43,11 @@ def _configure_libsz_environment():
 _configure_libsz_environment()
 
 # --- Imports normaux ---
+# MEDIUM
+from .AOT_Medium._mainMedium import *
+from .AOT_Medium.HomogeneousMedium import *
+from .AOT_Medium.PVAMedium import *
+from .AOT_Medium.MediumEnums import *
 # ACOUSTIC
 from .AOT_Acoustic._mainAcoustic import *
 from .AOT_Acoustic.AcousticEnums import *
@@ -85,7 +90,7 @@ from .AOT_Recon.AOT_PotentialFunctions.RelativeDifferences import *
 from .Config import config
 from .Settings import *
 
-__version__ = '2.9.398'
+__version__ = '2.9.429'
 __process__ = config.get_process()
 
 def initialize(process=None):
@@ -115,6 +120,37 @@ def initialize(process=None):
             __process__ = 'cpu'
 
     return __process__
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

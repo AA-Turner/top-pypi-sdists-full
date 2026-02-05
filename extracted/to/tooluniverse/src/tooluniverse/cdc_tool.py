@@ -69,7 +69,7 @@ class CDCRESTTool(BaseTool):
         try:
             url = self._build_url(arguments)
         except ValueError as e:
-            return {"error": str(e)}
+            return {"status": "error", "data": {"error": str(e)}}
 
         try:
             resp = requests.get(url, timeout=30)
@@ -77,6 +77,7 @@ class CDCRESTTool(BaseTool):
             data = resp.json()
 
             return {
+                "status": "success",
                 "data": data,
                 "metadata": {
                     "source": "CDC Data.CDC.gov",
@@ -85,15 +86,18 @@ class CDCRESTTool(BaseTool):
                 },
             }
         except requests.exceptions.RequestException as e:
-            return {"error": f"Request failed: {str(e)}"}
+            return {"status": "error", "data": {"error": f"Request failed: {str(e)}"}}
         except ValueError as e:
-            return {"error": f"Failed to parse JSON: {str(e)}"}
+            return {
+                "status": "error",
+                "data": {"error": f"Failed to parse JSON: {str(e)}"},
+            }
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the CDC Data tool."""
         # Validate required parameters
         if "{dataset_id}" in self.endpoint_template:
             if "dataset_id" not in arguments:
-                return {"error": "dataset_id is required"}
+                return {"status": "error", "data": {"error": "dataset_id is required"}}
 
         return self._make_request(arguments)

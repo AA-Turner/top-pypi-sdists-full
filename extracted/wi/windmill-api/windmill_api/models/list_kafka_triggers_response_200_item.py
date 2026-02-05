@@ -13,6 +13,7 @@ if TYPE_CHECKING:
         ListKafkaTriggersResponse200ItemErrorHandlerArgs,
     )
     from ..models.list_kafka_triggers_response_200_item_extra_perms import ListKafkaTriggersResponse200ItemExtraPerms
+    from ..models.list_kafka_triggers_response_200_item_filters_item import ListKafkaTriggersResponse200ItemFiltersItem
     from ..models.list_kafka_triggers_response_200_item_retry import ListKafkaTriggersResponse200ItemRetry
 
 
@@ -26,6 +27,7 @@ class ListKafkaTriggersResponse200Item:
         kafka_resource_path (str):
         group_id (str):
         topics (List[str]):
+        filters (List['ListKafkaTriggersResponse200ItemFiltersItem']):
         path (str):
         script_path (str):
         email (str):
@@ -47,6 +49,7 @@ class ListKafkaTriggersResponse200Item:
     kafka_resource_path: str
     group_id: str
     topics: List[str]
+    filters: List["ListKafkaTriggersResponse200ItemFiltersItem"]
     path: str
     script_path: str
     email: str
@@ -68,6 +71,12 @@ class ListKafkaTriggersResponse200Item:
         kafka_resource_path = self.kafka_resource_path
         group_id = self.group_id
         topics = self.topics
+
+        filters = []
+        for filters_item_data in self.filters:
+            filters_item = filters_item_data.to_dict()
+
+            filters.append(filters_item)
 
         path = self.path
         script_path = self.script_path
@@ -103,6 +112,7 @@ class ListKafkaTriggersResponse200Item:
                 "kafka_resource_path": kafka_resource_path,
                 "group_id": group_id,
                 "topics": topics,
+                "filters": filters,
                 "path": path,
                 "script_path": script_path,
                 "email": email,
@@ -137,6 +147,9 @@ class ListKafkaTriggersResponse200Item:
         from ..models.list_kafka_triggers_response_200_item_extra_perms import (
             ListKafkaTriggersResponse200ItemExtraPerms,
         )
+        from ..models.list_kafka_triggers_response_200_item_filters_item import (
+            ListKafkaTriggersResponse200ItemFiltersItem,
+        )
         from ..models.list_kafka_triggers_response_200_item_retry import ListKafkaTriggersResponse200ItemRetry
 
         d = src_dict.copy()
@@ -145,6 +158,13 @@ class ListKafkaTriggersResponse200Item:
         group_id = d.pop("group_id")
 
         topics = cast(List[str], d.pop("topics"))
+
+        filters = []
+        _filters = d.pop("filters")
+        for filters_item_data in _filters:
+            filters_item = ListKafkaTriggersResponse200ItemFiltersItem.from_dict(filters_item_data)
+
+            filters.append(filters_item)
 
         path = d.pop("path")
 
@@ -195,6 +215,7 @@ class ListKafkaTriggersResponse200Item:
             kafka_resource_path=kafka_resource_path,
             group_id=group_id,
             topics=topics,
+            filters=filters,
             path=path,
             script_path=script_path,
             email=email,

@@ -4,9 +4,9 @@
 import abc
 from typing import Optional
 
+from pyrit.identifiers import ConverterIdentifier
 from pyrit.models import PromptDataType
-from pyrit.prompt_converter import PromptConverter
-from pyrit.prompt_converter.prompt_converter import ConverterResult
+from pyrit.prompt_converter.prompt_converter import ConverterResult, PromptConverter
 from pyrit.prompt_converter.text_selection_strategy import (
     AllWordsSelectionStrategy,
     WordSelectionStrategy,
@@ -25,6 +25,9 @@ class WordLevelConverter(PromptConverter):
         It defines the conversion logic for each word.
     """
 
+    SUPPORTED_INPUT_TYPES = ("text",)
+    SUPPORTED_OUTPUT_TYPES = ("text",)
+
     def __init__(
         self,
         *,
@@ -32,7 +35,7 @@ class WordLevelConverter(PromptConverter):
         word_split_separator: Optional[str] = " ",
     ):
         """
-        Initializes the converter with the specified selection strategy.
+        Initialize the converter with the specified selection strategy.
 
         Args:
             word_selection_strategy (Optional[WordSelectionStrategy]): The strategy for selecting which
@@ -44,10 +47,24 @@ class WordLevelConverter(PromptConverter):
         self._word_selection_strategy = word_selection_strategy or AllWordsSelectionStrategy()
         self._word_split_separator = word_split_separator
 
+    def _build_identifier(self) -> ConverterIdentifier:
+        """
+        Build identifier with word-level converter parameters.
+
+        Returns:
+            ConverterIdentifier: The identifier for this converter.
+        """
+        return self._create_identifier(
+            converter_specific_params={
+                "word_selection_strategy": self._word_selection_strategy.__class__.__name__,
+                "word_split_separator": self._word_split_separator,
+            }
+        )
+
     @abc.abstractmethod
     async def convert_word_async(self, word: str) -> str:
         """
-        Converts a single word into the target format supported by the converter.
+        Convert a single word into the target format supported by the converter.
 
         Args:
             word (str): The word to be converted.
@@ -58,16 +75,24 @@ class WordLevelConverter(PromptConverter):
         pass
 
     def validate_input(self, prompt: str) -> None:
-        """Validates the input before processing (can be overridden by subclasses)."""
+        """Validate the input before processing (can be overridden by subclasses)."""
         pass
 
     def join_words(self, words: list[str]) -> str:
-        """Provides a way for subclasses to override the default behavior of joining words."""
+        """
+        Provide a way for subclasses to override the default behavior of joining words.
+
+        Args:
+            words (list[str]): List of words to join.
+
+        Returns:
+            str: The joined string.
+        """
         return " ".join(words)
 
     async def convert_async(self, *, prompt: str, input_type: PromptDataType = "text") -> ConverterResult:
         """
-        Converts the given prompt into the target format supported by the converter.
+        Convert the given prompt into the target format supported by the converter.
 
         Args:
             prompt (str): The prompt to be converted.
@@ -100,9 +125,3 @@ class WordLevelConverter(PromptConverter):
             words[idx] = await self.convert_word_async(words[idx])
 
         return ConverterResult(output_text=self.join_words(words), output_type="text")
-
-    def input_supported(self, input_type: PromptDataType) -> bool:
-        return input_type == "text"
-
-    def output_supported(self, output_type: PromptDataType) -> bool:
-        return output_type == "text"

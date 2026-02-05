@@ -653,7 +653,7 @@ pub fn process_file_with_formatter(
     }
 
     // In fix mode with no warnings to fix, check if there are embedded markdown blocks to format
-    // If not, return early to avoid the re-lint which doesn't apply per-file-ignores or inline config
+    // or code block tools to run. If not, return early.
     if total_warnings == 0 && fix_mode != crate::FixMode::Check && !diff {
         // Check if there's any embedded markdown to format
         let has_embedded = has_fenced_code_blocks(&content)
@@ -661,7 +661,10 @@ pub fn process_file_with_formatter(
                 .iter()
                 .any(|b| !content[b.content_start..b.content_end].trim().is_empty());
 
-        if !has_embedded {
+        // Check if code block tools are enabled
+        let has_code_block_tools = config.code_block_tools.enabled;
+
+        if !has_embedded && !has_code_block_tools {
             return (false, 0, 0, 0, Vec::new(), file_index);
         }
     }
@@ -723,6 +726,24 @@ pub fn process_file_with_formatter(
         let embedded_formatted = format_embedded_markdown_blocks(&mut content, &filtered_rules, config);
         warnings_fixed += embedded_formatted;
 
+        // Format code blocks using external tools if enabled
+        if config.code_block_tools.enabled {
+            let processor = rumdl_lib::code_block_tools::CodeBlockToolProcessor::new(&config.code_block_tools);
+            match processor.format(&content) {
+                Ok(formatted) => {
+                    if formatted != content {
+                        content = formatted;
+                        warnings_fixed += 1;
+                    }
+                }
+                Err(e) => {
+                    if !silent {
+                        eprintln!("Warning: Code block tool formatting failed: {e}");
+                    }
+                }
+            }
+        }
+
         if warnings_fixed > 0 {
             let diff_output = formatter::generate_diff(&original_content, &content, &display_path);
             output_writer.writeln(&diff_output).unwrap_or_else(|e| {
@@ -755,6 +776,24 @@ pub fn process_file_with_formatter(
         // Use filtered_rules to respect per-file-ignores for embedded content
         let embedded_formatted = format_embedded_markdown_blocks(&mut content, &filtered_rules, config);
         warnings_fixed += embedded_formatted;
+
+        // Format code blocks using external tools if enabled
+        if config.code_block_tools.enabled {
+            let processor = rumdl_lib::code_block_tools::CodeBlockToolProcessor::new(&config.code_block_tools);
+            match processor.format(&content) {
+                Ok(formatted) => {
+                    if formatted != content {
+                        content = formatted;
+                        warnings_fixed += 1;
+                    }
+                }
+                Err(e) => {
+                    if !silent {
+                        eprintln!("Warning: Code block tool formatting failed: {e}");
+                    }
+                }
+            }
+        }
 
         // Write fixed content back to file
         if warnings_fixed > 0 {
@@ -1087,6 +1126,22 @@ pub fn process_file_with_index(
     // Check embedded markdown blocks and add their warnings
     let embedded_warnings = check_embedded_markdown_blocks(&content, &filtered_rules, config);
     all_warnings.extend(embedded_warnings);
+
+    // Run code block tools linting if enabled
+    if config.code_block_tools.enabled {
+        let processor = rumdl_lib::code_block_tools::CodeBlockToolProcessor::new(&config.code_block_tools);
+        match processor.lint(&content) {
+            Ok(diagnostics) => {
+                let tool_warnings: Vec<_> = diagnostics.iter().map(|d| d.to_lint_warning()).collect();
+                all_warnings.extend(tool_warnings);
+            }
+            Err(e) => {
+                if !silent {
+                    eprintln!("Warning: Code block tool linting failed: {e}");
+                }
+            }
+        }
+    }
 
     // Sort warnings by line number, then column
     all_warnings.sort_by(|a, b| {

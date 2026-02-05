@@ -23,7 +23,10 @@ from langgraph_api.encryption.middleware import (
     extract_blob_encryption_context,
 )
 from langgraph_api.errors import UserInterrupt, UserRollback, UserTimeout
-from langgraph_api.feature_flags import FF_USE_CORE_API
+from langgraph_api.feature_flags import (
+    FF_USE_CORE_API,
+    IS_POSTGRES_OR_GRPC_BACKEND,
+)
 from langgraph_api.grpc.ops import Runs as GrpcRuns
 from langgraph_api.grpc.ops import Threads as GrpcThreads
 from langgraph_api.js.errors import RemoteException
@@ -34,11 +37,17 @@ from langgraph_api.state import state_snapshot_to_thread_state
 from langgraph_api.stream import AnyStream, astream_state, consume
 from langgraph_api.utils import with_user
 from langgraph_runtime.database import connect
-from langgraph_runtime.ops import Runs, Threads
+from langgraph_runtime.ops import Runs
 from langgraph_runtime.retry import RETRIABLE_EXCEPTIONS
 
 CrudRuns = GrpcRuns if FF_USE_CORE_API else Runs
-CrudThreads = GrpcThreads if FF_USE_CORE_API else Threads
+
+if IS_POSTGRES_OR_GRPC_BACKEND:
+    CrudThreads = GrpcThreads
+else:
+    from langgraph_runtime.ops import Threads
+
+    CrudThreads = Threads
 
 logger = structlog.stdlib.get_logger(__name__)
 

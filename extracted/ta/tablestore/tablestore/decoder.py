@@ -170,6 +170,19 @@ class OTSProtoBufferDecoder(object):
             allow_update = proto.allow_update
         return TableOptions(time_to_live, max_versions, max_deviation_time, allow_update)
 
+    def _parse_sse_details(self, proto):
+        enable = proto.enable
+        key_type = None
+        if proto.HasField('key_type'):
+            key_type = proto.key_type
+        key_id = None
+        if proto.HasField('key_id'):
+            key_id = proto.key_id
+        role_arn = None
+        if proto.HasField('role_arn'):
+            role_arn = proto.role_arn
+        return SSEDetails(enable, key_type, key_id, role_arn)
+
     def _parse_get_row_item(self, proto, table_name):
         row_list = []
         for row_item in proto:
@@ -318,9 +331,10 @@ class OTSProtoBufferDecoder(object):
 
         reserved_throughput_details = self._parse_reserved_throughput_details(proto.reserved_throughput_details)
         table_options = self._parse_table_options(proto.table_options)
+        sse_details = self._parse_sse_details(proto.sse_details)
         secondary_indexes = self._parse_secondary_indexes(proto.index_metas)
         describe_table_response = DescribeTableResponse(table_meta, table_options, reserved_throughput_details,
-                                                        secondary_indexes)
+                                                        sse_details, secondary_indexes)
         describe_table_response.set_request_id(request_id)
         return describe_table_response, proto
 

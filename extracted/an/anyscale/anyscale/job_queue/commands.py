@@ -28,6 +28,7 @@ _LIST_ARG_DOCSTRINGS = {
     "page_size": "Number of items per API request page.",
     "max_items": "Maximum total number of items to return.",
     "sorting_directives": "List of directives to sort the results.",
+    "include_archived": "If True, include archived job queues in the search. Ignored when using job_queue_id.",
 }
 
 _STATUS_EXAMPLE = """
@@ -45,6 +46,9 @@ print(status)
 _STATUS_ARG_DOCSTRINGS = {
     "job_queue_id": "The unique ID of the job queue.",
     "name": "The name of the job queue (alternative to job_queue_id).",
+    "project": "The project name to filter by when using name.",
+    "cloud": "The cloud name to filter by when using name.",
+    "include_archived": "If True, include archived job queues when searching by name. Ignored when using job_queue_id.",
 }
 
 _UPDATE_EXAMPLE = """
@@ -57,6 +61,8 @@ print(updated_jq)
 _UPDATE_ARG_DOCSTRINGS = {
     "job_queue_id": "ID of the job queue to update.",
     "job_queue_name": "Name of the job queue to update (alternative to ID).",
+    "project": "Project name (required when using job_queue_name).",
+    "cloud": "Cloud name (required when using job_queue_name).",
     "max_concurrency": "New maximum concurrency value.",
     "idle_timeout_s": "New idle timeout in seconds.",
 }
@@ -104,6 +110,7 @@ def list(  # noqa: A001, PLR0913
     page_size: Optional[int] = None,
     max_items: Optional[int] = None,
     sorting_directives: Optional[List[str]] = None,
+    include_archived: bool = False,
     _private_sdk: Optional[PrivateJobQueueSDK] = None,
 ) -> ResultIterator[JobQueueStatus]:
     """List job queues or fetch a single job queue by ID."""
@@ -118,6 +125,7 @@ def list(  # noqa: A001, PLR0913
         page_size=page_size,
         max_items=max_items,
         sorting_directives=sorting_directives,
+        include_archived=include_archived,
     )
 
 
@@ -131,11 +139,18 @@ def status(
     job_queue_id: Optional[str] = None,
     *,
     name: Optional[str] = None,
+    project: Optional[str] = None,
+    cloud: Optional[str] = None,
+    include_archived: bool = False,
     _private_sdk: Optional[PrivateJobQueueSDK] = None,
 ) -> JobQueueStatus:
     """Get the status and details for a specific job queue."""
     return _private_sdk.status(  # type: ignore
-        job_queue_id=job_queue_id, name=name
+        job_queue_id=job_queue_id,
+        name=name,
+        project=project,
+        cloud=cloud,
+        include_archived=include_archived,
     )
 
 
@@ -149,6 +164,8 @@ def update(
     *,
     job_queue_id: Optional[str] = None,
     job_queue_name: Optional[str] = None,
+    project: Optional[str] = None,
+    cloud: Optional[str] = None,
     max_concurrency: Optional[int] = None,
     idle_timeout_s: Optional[int] = None,
     _private_sdk: Optional[PrivateJobQueueSDK] = None,
@@ -157,6 +174,8 @@ def update(
     return _private_sdk.update(  # type: ignore
         job_queue_id=job_queue_id,
         job_queue_name=job_queue_name,
+        project=project,
+        cloud=cloud,
         max_concurrency=max_concurrency,
         idle_timeout_s=idle_timeout_s,
     )
@@ -256,6 +275,7 @@ _TERMINATE_ARG_DOCSTRINGS = {
     "name": "Name of the job queue to terminate (alternative to ID).",
     "project": "Project name (required when using name).",
     "cloud": "Cloud name (required when using name).",
+    "include_archived": "If True, include archived job queues when searching by name. Ignored when using job_queue_id.",
 }
 
 
@@ -289,7 +309,51 @@ def terminate(
     name: Optional[str] = None,
     project: Optional[str] = None,
     cloud: Optional[str] = None,
+    include_archived: bool = False,
     _private_sdk: Optional[PrivateJobQueueSDK] = None,
 ) -> str:
     """Terminate a job queue and all its pending/running jobs."""
-    return _private_sdk.terminate(job_queue_id=job_queue_id, name=name, project=project, cloud=cloud)  # type: ignore
+    return _private_sdk.terminate(job_queue_id=job_queue_id, name=name, project=project, cloud=cloud, include_archived=include_archived)  # type: ignore
+
+
+_DELETE_EXAMPLE = """
+import anyscale
+
+# Delete by ID
+anyscale.job_queue.delete(job_queue_id="jq_abc123")
+
+# Delete by name (requires project and cloud)
+anyscale.job_queue.delete(name="my-queue", project="my-project", cloud="my-cloud")
+"""
+
+_DELETE_ARG_DOCSTRINGS = {
+    "job_queue_id": "ID of the job queue to delete (alternative to name).",
+    "name": "Name of the job queue to delete (alternative to ID).",
+    "project": "Project name (required when using name).",
+    "cloud": "Cloud name (required when using name).",
+    "include_archived": "If True, include archived job queues when searching by name. Ignored when using job_queue_id.",
+}
+
+
+@sdk_command(
+    _JOB_QUEUE_SDK_SINGLETON_KEY,
+    PrivateJobQueueSDK,
+    doc_py_example=_DELETE_EXAMPLE,
+    arg_docstrings=_DELETE_ARG_DOCSTRINGS,
+)
+def delete(
+    *,
+    job_queue_id: Optional[str] = None,
+    name: Optional[str] = None,
+    project: Optional[str] = None,
+    cloud: Optional[str] = None,
+    include_archived: bool = False,
+    _private_sdk: Optional[PrivateJobQueueSDK] = None,
+) -> str:
+    """Delete a job queue.
+
+    Jobs previously submitted to the queue remain accessible.
+    The job queue must have all jobs in terminal state and no running clusters.
+    This action cannot be undone.
+    """
+    return _private_sdk.delete(job_queue_id=job_queue_id, name=name, project=project, cloud=cloud, include_archived=include_archived)  # type: ignore

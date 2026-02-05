@@ -1,7 +1,7 @@
 """
 dbfetch_list_formats
 
-List available output formats for a specific database. Returns supported formats for the database.
+List available output formats for a specific database. Note: This returns common format names as ...
 """
 
 from typing import Any, Optional, Callable
@@ -14,9 +14,9 @@ def dbfetch_list_formats(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> str:
     """
-    List available output formats for a specific database. Returns supported formats for the database.
+    List available output formats for a specific database. Note: This returns common format names as ...
 
     Parameters
     ----------
@@ -31,7 +31,7 @@ def dbfetch_list_formats(
 
     Returns
     -------
-    dict[str, Any]
+    str
     """
     # Handle mutable defaults to avoid B006 linting error
 

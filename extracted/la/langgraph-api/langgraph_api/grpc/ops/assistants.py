@@ -13,6 +13,7 @@ from langgraph_api.grpc.client import get_shared_client
 from langgraph_api.grpc.ops import (
     Authenticated,
     _map_sort_order,
+    build_encryption_context,
     consolidate_config_and_context,
     grpc_error_guard,
     map_if_exists,
@@ -175,6 +176,7 @@ class Assistants(Authenticated):
         name: str,
         description: str | None = None,
         ctx: Any = None,
+        system: bool = False,
     ) -> AsyncIterator[Assistant]:  # type: ignore[return-value]
         """Create/update assistant via gRPC."""
         context = context or {}
@@ -197,7 +199,9 @@ class Assistants(Authenticated):
 
         on_conflict = map_if_exists(if_exists)
 
-        # Build the gRPC request
+        # Don't encrypt system-owned assistants (generally created on startup).
+        encryption_context = None if system else build_encryption_context("assistant")
+
         request = pb.CreateAssistantRequest(
             assistant_id=str(assistant_id),
             graph_id=graph_id,
@@ -208,6 +212,7 @@ class Assistants(Authenticated):
             metadata_json=json_dumpb_optional(metadata),
             name=name,
             description=description,
+            encryption_context=encryption_context,
         )
 
         client = await get_shared_client()
@@ -263,6 +268,7 @@ class Assistants(Authenticated):
             metadata_json=json_dumpb_optional(metadata),
             name=name,
             description=description,
+            encryption_context=build_encryption_context("assistant"),
         )
 
         # Add optional config if provided

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2025, Saransh Chopra, Henry Schreiner, Eduardo Rodrigues, Jonas Eschle, and Jim Pivarski.
+# Copyright (c) 2019, Saransh Chopra, Henry Schreiner, Eduardo Rodrigues, Jonas Eschle, and Jim Pivarski.
 #
 # Distributed under the 3-clause BSD license, see accompanying file LICENSE
 # or https://github.com/scikit-hep/vector for details.
@@ -49,36 +49,6 @@ from vector.backends.object import (
     VectorObject4D,
     _coord_object_type,
 )
-
-
-@numba.extending.overload(numpy.nan_to_num)  # FIXME: This needs to go into Numba!
-def nan_to_num(x, copy=True, nan=0.0, posinf=None, neginf=None):
-    if isinstance(x, numba.types.Array):
-
-        def nan_to_num_impl(x, copy=True, nan=0.0, posinf=None, neginf=None):
-            out = numpy.copy(x).reshape(-1) if copy else x.reshape(-1)
-            for i in range(len(out)):
-                if numpy.isnan(out[i]):
-                    out[i] = nan
-                if posinf is not None and numpy.isinf(out[i]) and out[i] > 0:
-                    out[i] = posinf
-                if neginf is not None and numpy.isinf(out[i]) and out[i] < 0:
-                    out[i] = neginf
-            return out.reshape(x.shape)
-
-    else:
-
-        def nan_to_num_impl(x, copy=True, nan=0.0, posinf=None, neginf=None):
-            if numpy.isnan(x):
-                return nan
-            if posinf is not None and numpy.isinf(x) and x > 0:
-                return posinf
-            if neginf is not None and numpy.isinf(x) and x < 0:
-                return neginf
-            return x
-
-    return nan_to_num_impl
-
 
 # Since CoordinateObjects are NamedTuples, we get their types wrapped for free.
 

@@ -33684,6 +33684,8 @@ components:
           items:
             $ref: '#/components/schemas/StructuredTableColumnInfo'
           type: array
+        name:
+          type: string
       type: object
     StructuredTableColumnInfo:
       properties:

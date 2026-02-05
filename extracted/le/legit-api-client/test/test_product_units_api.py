@@ -89,6 +89,13 @@ class TestProductUnitsApi(unittest.TestCase):
         """
         pass
 
+    def test_api_v10_products_ticket_template_post(self) -> None:
+        """Test case for api_v10_products_ticket_template_post
+
+        Set ticket template for a product unit
+        """
+        pass
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -56,7 +56,13 @@ class TestCreateModelTaskJobSpec(unittest.TestCase):
                         config = arthur_client.api_bindings.models.relevance_metric_config.RelevanceMetricConfig(
                             relevance_threshold = 1.337, 
                             use_llm_judge = True, ), )
-                    ]
+                    ],
+                agent_metadata = arthur_client.api_bindings.models.agent_metadata.AgentMetadata(
+                    provider = 'gcp', 
+                    gcp_metadata = arthur_client.api_bindings.models.gcp_agent_metadata.GCPAgentMetadata(
+                        project_id = '', 
+                        region = '', 
+                        resource_id = '', ), )
             )
         else:
             return CreateModelTaskJobSpec(

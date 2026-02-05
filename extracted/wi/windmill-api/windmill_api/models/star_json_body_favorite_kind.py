@@ -3,6 +3,7 @@ from enum import Enum
 
 class StarJsonBodyFavoriteKind(str, Enum):
     APP = "app"
+    ASSET = "asset"
     FLOW = "flow"
     RAW_APP = "raw_app"
     SCRIPT = "script"

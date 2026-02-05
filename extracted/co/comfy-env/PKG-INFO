@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: comfy-env
-Version: 0.1.33
+Version: 0.1.40
 Summary: Environment management for ComfyUI custom nodes - CUDA wheel resolution and process isolation
 Project-URL: Homepage, https://github.com/PozzettiAndrea/comfy-env
 Project-URL: Repository, https://github.com/PozzettiAndrea/comfy-env
@@ -95,7 +95,7 @@ KMP_DUPLICATE_LIB_OK = "TRUE"
 ComfyUI_essentials = "cubiq/ComfyUI_essentials"
 ```
 
-PyPI deps → `requirements.txt`
+PyPI deps -> `requirements.txt`
 
 ### comfy-env.toml (isolated folder)
 
@@ -116,13 +116,13 @@ SOME_VAR = "value"
 
 | Section | Root | Isolated |
 |---------|------|----------|
-| `[cuda]` | ✓ | ✓ |
-| `[apt]` | ✓ | ✓ |
-| `[dependencies]` | ✓ | ✓ |
-| `[env_vars]` | ✓ | ✓ |
-| `[node_reqs]` | ✓ | ✗ |
-| `python = "X.Y"` | ✗ | ✓ |
-| `[pypi-dependencies]` | ✗ | ✓ |
+| `[cuda]` | [x] | [x] |
+| `[apt]` | [x] | [x] |
+| `[dependencies]` | [x] | [x] |
+| `[env_vars]` | [x] | [x] |
+| `[node_reqs]` | [x] | [ ] |
+| `python = "X.Y"` | [ ] | [x] |
+| `[pypi-dependencies]` | [ ] | [x] |
 
 ---
 
@@ -216,8 +216,8 @@ See [ComfyUI-GeometryPack](https://github.com/PozzettiAndrea/ComfyUI-GeometryPac
 
 **How envs work:**
 - Central cache: `~/.comfy-env/envs/`
-- Marker files link nodes → cached envs
-- Config hash in name → changes create new envs
+- Marker files link nodes -> cached envs
+- Config hash in name -> changes create new envs
 
 ---
 

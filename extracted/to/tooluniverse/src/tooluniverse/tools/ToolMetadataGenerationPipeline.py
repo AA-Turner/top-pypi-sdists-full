@@ -10,14 +10,14 @@ from ._shared_client import get_shared_client
 
 def ToolMetadataGenerationPipeline(
     tool_configs: list[Any],
-    tool_type_mappings: dict[str, Any],
-    add_existing_tooluniverse_labels: bool,
-    max_new_tooluniverse_labels: int,
+    tool_type_mappings: Optional[dict[str, Any]] = None,
+    add_existing_tooluniverse_labels: Optional[bool] = True,
+    max_new_tooluniverse_labels: Optional[int] = 0,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Any:
     """
     Generates standardized metadata for a batch of ToolUniverse tool configurations by calling ToolMe...
 
@@ -40,10 +40,11 @@ def ToolMetadataGenerationPipeline(
 
     Returns
     -------
-    dict[str, Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
-
+    if tool_type_mappings is None:
+        tool_type_mappings = {}
     return get_shared_client().run_one_function(
         {
             "name": "ToolMetadataGenerationPipeline",

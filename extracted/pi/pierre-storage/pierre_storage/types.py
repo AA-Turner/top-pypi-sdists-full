@@ -429,6 +429,18 @@ class Repo(Protocol):
         """Get a file as a stream."""
         ...
 
+    async def get_archive_stream(
+        self,
+        *,
+        ref: Optional[str] = None,
+        include_globs: Optional[list[str]] = None,
+        exclude_globs: Optional[list[str]] = None,
+        archive_prefix: Optional[str] = None,
+        ttl: Optional[int] = None,
+    ) -> Any:  # httpx.Response
+        """Get a repository archive as a stream."""
+        ...
+
     async def list_files(
         self,
         *,
@@ -555,6 +567,7 @@ class Repo(Protocol):
         *,
         pattern: str,
         ref: Optional[str] = None,
+        rev: Optional[str] = None,
         paths: Optional[list[str]] = None,
         case_sensitive: Optional[bool] = None,
         file_filters: Optional[Dict[str, Any]] = None,
@@ -563,7 +576,13 @@ class Repo(Protocol):
         pagination: Optional[Dict[str, Any]] = None,
         ttl: Optional[int] = None,
     ) -> "GrepResult":
-        """Run grep against the repository."""
+        """Run grep against the repository.
+
+        Args:
+            pattern: Regex pattern to search for.
+            ref: Git ref to search (defaults to server-side default branch).
+            rev: Deprecated alias for ref.
+        """
         ...
 
     async def pull_upstream(

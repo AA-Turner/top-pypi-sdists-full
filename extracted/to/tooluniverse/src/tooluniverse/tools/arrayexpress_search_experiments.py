@@ -1,7 +1,7 @@
 """
 arrayexpress_search_experiments
 
-Search ArrayExpress experiments by keywords, species, or array platform. Note: ArrayExpress has b...
+Search ArrayExpress experiments - the original functional genomics database from EMBL-EBI. Search...
 """
 
 from typing import Any, Optional, Callable
@@ -20,7 +20,7 @@ def arrayexpress_search_experiments(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Search ArrayExpress experiments by keywords, species, or array platform. Note: ArrayExpress has b...
+    Search ArrayExpress experiments - the original functional genomics database from EMBL-EBI. Search...
 
     Parameters
     ----------

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.amazon-kendra-index-mcp-server
-Version: 1.0.12
+Version: 1.0.13
 Summary: An AWS Labs Model Context Protocol (MCP) server for amazon-kendra-index-mcp-server
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/amazon-kendra-index-mcp-server/

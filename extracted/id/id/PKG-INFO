@@ -1,31 +1,31 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: id
-Version: 1.5.0
+Version: 1.6.1
 Summary: A tool for generating OIDC identities
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Security
 Classifier: Topic :: Security :: Cryptography
-Requires-Dist: requests
+License-File: LICENSE
+Requires-Dist: urllib3 >= 2, < 3
 Requires-Dist: build ; extra == "dev"
 Requires-Dist: bump >= 1.3.2 ; extra == "dev"
 Requires-Dist: id[test, lint] ; extra == "dev"
 Requires-Dist: bandit ; extra == "lint"
 Requires-Dist: interrogate ; extra == "lint"
 Requires-Dist: mypy ; extra == "lint"
-Requires-Dist: ruff < 0.8.2 ; extra == "lint"
-Requires-Dist: types-requests ; extra == "lint"
+Requires-Dist: ruff < 0.14.15 ; extra == "lint"
 Requires-Dist: pytest ; extra == "test"
 Requires-Dist: pytest-cov ; extra == "test"
 Requires-Dist: pretend ; extra == "test"

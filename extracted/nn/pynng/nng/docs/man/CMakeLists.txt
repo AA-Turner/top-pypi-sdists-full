@@ -1,5 +1,5 @@
 #
-# Copyright 2020 Staysail Systems, Inc. <info@staysail.tech>
+# Copyright 2024 Staysail Systems, Inc. <info@staysail.tech>
 # Copyright 2018 Capitar IT Group BV <info@capitar.com>
 # Copyright 2019 Devolutions <info@devolutions.net>
 #
@@ -115,6 +115,11 @@ if (NNG_ENABLE_DOC)
             nng_listener_set
             nng_listener_setopt
             nng_listener_start
+            nng_log
+            nng_log_get_level
+            nng_log_set_facility
+            nng_log_set_level
+            nng_log_set_logger
             nng_msg_alloc
             nng_msg_append
             nng_msg_body
@@ -160,6 +165,9 @@ if (NNG_ENABLE_DOC)
             nng_sleep_aio
             nng_socket_id
             nng_socket_get
+            nng_socket_proto_id
+            nng_socket_proto_name
+            nng_socket_raw
             nng_socket_set
             nng_stats_free
             nng_stats_get
@@ -177,6 +185,7 @@ if (NNG_ENABLE_DOC)
             nng_stat_type
             nng_stat_unit
             nng_stat_value
+            nng_str_sockaddr
             nng_strdup
             nng_strerror
             nng_strfree
@@ -295,6 +304,7 @@ if (NNG_ENABLE_DOC)
             nng_cv_wait
             nng_cv_wake
             nng_cv_wake1
+            nng_id_map
             nng_msleep
             nng_mtx_alloc
             nng_mtx_free
@@ -302,6 +312,7 @@ if (NNG_ENABLE_DOC)
             nng_mtx_unlock
             nng_opts_parse
             nng_random
+            nng_socket_pair
             nng_thread_create
             nng_thread_destroy
             nng_thread_set_name
@@ -338,6 +349,7 @@ if (NNG_ENABLE_DOC)
             nng_tls_config_free
             nng_tls_config_hold
             nng_tls_config_own_cert
+            nng_tls_config_psk
             nng_tls_config_server_name
             nng_tls_engine_description
             nng_tls_engine_fips_mode
@@ -388,6 +400,7 @@ if (NNG_ENABLE_DOC)
             nng_rep
             nng_req
             nng_respondent
+            nng_socket
             nng_sub
             nng_surveyor
             nng_tcp

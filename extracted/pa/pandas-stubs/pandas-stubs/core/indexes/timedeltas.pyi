@@ -8,6 +8,8 @@ from datetime import (
 )
 from typing import (
     Literal,
+    Never,
+    Self,
     TypeAlias,
     final,
     overload,
@@ -20,10 +22,6 @@ from pandas.core.indexes.datetimelike import DatetimeTimedeltaMixin
 from pandas.core.indexes.datetimes import DatetimeIndex
 from pandas.core.indexes.period import PeriodIndex
 from pandas.core.series import Series
-from typing_extensions import (
-    Never,
-    Self,
-)
 
 from pandas._libs import Timedelta
 from pandas._libs.lib import NoDefaultDoNotUse
@@ -104,15 +102,11 @@ class TimedeltaIndex(
     @overload  # type: ignore[override]
     def __mul__(self, other: np_ndarray_bool | np_ndarray_complex) -> Never: ...
     @overload
-    def __mul__(
-        self, other: _NUM_FACTOR_SEQ
-    ) -> Self: ...  # ty: ignore[invalid-method-override]
+    def __mul__(self, other: _NUM_FACTOR_SEQ) -> Self: ...
     @overload  # type: ignore[override]
     def __rmul__(self, other: np_ndarray_bool | np_ndarray_complex) -> Never: ...
     @overload
-    def __rmul__(
-        self, other: _NUM_FACTOR_SEQ
-    ) -> Self: ...  # ty: ignore[invalid-method-override]
+    def __rmul__(self, other: _NUM_FACTOR_SEQ) -> Self: ...
     @overload  # type: ignore[override]
     def __truediv__(  # type: ignore[overload-overlap] # pyrefly: ignore[bad-override]
         self, other: Index[Never]

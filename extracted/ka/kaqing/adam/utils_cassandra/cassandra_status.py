@@ -1,8 +1,8 @@
 import sys
 
-from adam.commands.cql.utils_cql import cassandra
 from adam.commands.nodetool.utils_nodetools import NodeTools
 from adam.config import Config
+from adam.utils_cassandra.pod_service import cassandra
 from adam.utils_context import Context
 from adam.repl_state import ReplState
 from adam.utils_k8s.statefulsets import StatefulSets

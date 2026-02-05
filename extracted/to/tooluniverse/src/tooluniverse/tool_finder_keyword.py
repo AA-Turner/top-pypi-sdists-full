@@ -607,6 +607,7 @@ class ToolFinderKeyword(BaseTool):
 
                 # Only include tools with positive relevance
                 if total_score > 0:
+                    # tool_name is already shortened (primary identifier)
                     tool_info = {
                         "name": tool_name,
                         "description": tool.get("description", ""),

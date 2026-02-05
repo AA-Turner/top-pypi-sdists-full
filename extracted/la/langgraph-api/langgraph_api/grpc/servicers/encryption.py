@@ -6,6 +6,7 @@ custom encryption implementation to the Go server.
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, Any
 
 import grpc
@@ -19,6 +20,7 @@ from langgraph_grpc_common.proto.encryption_pb2_grpc import EncryptionServicer
 from langgraph_sdk import EncryptionContext
 
 from langgraph_api.encryption.shared import get_encryption
+from langgraph_api.schema import NESTED_ENCRYPTED_SUBFIELDS
 
 if TYPE_CHECKING:
     from grpc import aio as grpc_aio  # type: ignore[import]
@@ -26,6 +28,8 @@ if TYPE_CHECKING:
     from langgraph_api.encryption.custom import ModelType
 
 logger = structlog.stdlib.get_logger(__name__)
+
+ENCRYPTION_CONTEXT_KEY = "__encryption_context__"
 
 
 def _parse_metadata(metadata: dict[str, bytes]) -> dict[str, Any]:
@@ -89,6 +93,109 @@ class EncryptionServicerImpl(EncryptionServicer):
     - Migration routing between AES and custom encryption
     """
 
+    async def _encrypt_field_recursive(
+        self,
+        data: dict[str, Any],
+        model_type: str | None,
+        field_name: str,
+        metadata: dict[str, bytes],
+        encryptor,
+    ) -> dict[str, Any]:
+        """Encrypt a field, handling nested subfields defined in NESTED_ENCRYPTED_SUBFIELDS.
+
+        This mirrors the middleware's _encrypt_field behavior:
+        1. Extract subfields that need separate encryption
+        2. Encrypt the parent field (without subfields)
+        3. Recursively encrypt each subfield
+        4. Add encrypted subfields back to the result
+        """
+        subfields_to_extract: dict[str, Any] = {}
+
+        # Check if this field has nested subfields that need separate encryption
+        # Only look up in NESTED_ENCRYPTED_SUBFIELDS when model_type is defined
+        if model_type is not None:
+            nested_key = (model_type, field_name)
+            for subfield in NESTED_ENCRYPTED_SUBFIELDS.get(nested_key, []):
+                subfield_value = data.get(subfield)
+                if subfield_value is not None and isinstance(subfield_value, dict):
+                    subfields_to_extract[subfield] = subfield_value
+
+        # Create data without subfields for the parent encryption
+        if subfields_to_extract:
+            data_without_subfields = {
+                k: v for k, v in data.items() if k not in subfields_to_extract
+            }
+        else:
+            data_without_subfields = data
+
+        # Encrypt the parent field (without subfields)
+        ctx = _build_encryption_context(model_type, field_name, metadata)
+        encrypted = await encryptor(ctx, data_without_subfields)
+
+        # Recursively encrypt subfields and add them back
+        if subfields_to_extract and isinstance(encrypted, dict):
+            subfield_tasks = [
+                self._encrypt_field_recursive(
+                    sf_value, model_type, sf_name, metadata, encryptor
+                )
+                for sf_name, sf_value in subfields_to_extract.items()
+            ]
+            subfield_results = await asyncio.gather(*subfield_tasks)
+            for (sf_name, _), sf_encrypted in zip(
+                subfields_to_extract.items(),
+                subfield_results,
+                strict=True,
+            ):
+                encrypted[sf_name] = sf_encrypted
+
+        return encrypted
+
+    async def _decrypt_field_recursive(
+        self,
+        data: dict[str, Any],
+        model_type: str | None,
+        field_name: str,
+        decryptor,
+    ) -> dict[str, Any]:
+        """Decrypt a field, handling nested subfields defined in NESTED_ENCRYPTED_SUBFIELDS.
+
+        This mirrors the Python middleware's _decrypt_field behavior:
+        1. Decrypt the parent field
+        2. Recursively decrypt any nested subfields
+        """
+        # First decrypt the parent field
+        ctx = EncryptionContext(model=model_type, field=field_name, metadata={})
+        decrypted = await decryptor(ctx, data)
+
+        # Check for nested subfields that need recursive decryption
+        # Only look up in NESTED_ENCRYPTED_SUBFIELDS when model_type is defined
+        if model_type is not None and isinstance(decrypted, dict):
+            nested_key = (model_type, field_name)
+            subfield_tasks = []
+            subfield_names = []
+            for sf_name in NESTED_ENCRYPTED_SUBFIELDS.get(nested_key, []):
+                sf_value = decrypted.get(sf_name)
+                if (
+                    sf_value is not None
+                    and isinstance(sf_value, dict)
+                    and ENCRYPTION_CONTEXT_KEY in sf_value
+                ):
+                    subfield_names.append(sf_name)
+                    subfield_tasks.append(
+                        self._decrypt_field_recursive(
+                            sf_value, model_type, sf_name, decryptor
+                        )
+                    )
+
+            if subfield_tasks:
+                subfield_results = await asyncio.gather(*subfield_tasks)
+                for sf_name, sf_decrypted in zip(
+                    subfield_names, subfield_results, strict=True
+                ):
+                    decrypted[sf_name] = sf_decrypted
+
+        return decrypted
+
     async def EncryptJSON(
         self,
         request,
@@ -97,6 +204,7 @@ class EncryptionServicerImpl(EncryptionServicer):
         """Encrypt JSON data using the configured encryption.
 
         Uses the JsonEncryptionWrapper for proper key validation and context storage.
+        Handles nested subfields defined in NESTED_ENCRYPTED_SUBFIELDS recursively.
         """
         try:
             encryption_instance = get_encryption()
@@ -109,9 +217,6 @@ class EncryptionServicerImpl(EncryptionServicer):
 
             model_type: ModelType | None = request.context.model or None
             field = request.context.field or None
-            ctx = _build_encryption_context(
-                model_type, field, dict(request.context.metadata)
-            )
 
             encryptor = encryption_instance.get_json_encryptor(model_type)
             if encryptor is None:
@@ -120,7 +225,14 @@ class EncryptionServicerImpl(EncryptionServicer):
                 context.set_details(model_err)
                 raise RuntimeError(model_err)
 
-            encrypted = await encryptor(ctx, data)
+            # Use recursive encryption that handles NESTED_ENCRYPTED_SUBFIELDS
+            encrypted = await self._encrypt_field_recursive(
+                data,
+                model_type,
+                field or "",
+                dict(request.context.metadata),
+                encryptor,
+            )
             encrypted_bytes = orjson.dumps(encrypted)
 
             return EncryptResponse(data=encrypted_bytes)
@@ -141,8 +253,7 @@ class EncryptionServicerImpl(EncryptionServicer):
 
         Uses the JsonEncryptionWrapper which routes to the appropriate decryptor
         based on the encryption context marker (handles AES migration).
-        The encryption context is extracted from __encryption_context__ in the data
-        itself. The optional model and field parameters are used for routing.
+        Handles nested subfields defined in NESTED_ENCRYPTED_SUBFIELDS recursively.
         """
         try:
             encryption_instance = get_encryption()
@@ -166,8 +277,10 @@ class EncryptionServicerImpl(EncryptionServicer):
                 context.set_details(model_err)
                 raise RuntimeError(model_err)
 
-            ctx = EncryptionContext(model=model_type, field=field, metadata={})
-            decrypted = await decryptor(ctx, data)
+            # Use recursive decryption that handles NESTED_ENCRYPTED_SUBFIELDS
+            decrypted = await self._decrypt_field_recursive(
+                data, model_type, field or "", decryptor
+            )
             decrypted_bytes = orjson.dumps(decrypted)
 
             return DecryptResponse(data=decrypted_bytes)

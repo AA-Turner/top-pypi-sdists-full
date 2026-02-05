@@ -1,7 +1,7 @@
 """
 ena_get_entry
 
-Get entry information from ENA by accession number. Currently extracts metadata from FASTA header...
+Get entry information from ENA by accession number. Supports EMBL/GenBank accessions only (e.g., ...
 """
 
 from typing import Any, Optional, Callable
@@ -17,12 +17,12 @@ def ena_get_entry(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Get entry information from ENA by accession number. Currently extracts metadata from FASTA header...
+    Get entry information from ENA by accession number. Supports EMBL/GenBank accessions only (e.g., ...
 
     Parameters
     ----------
     accession : str
-        ENA accession number
+        EMBL/GenBank accession number. NOT RefSeq (NC_*, NM_*, NP_*). Examples: 'U000...
     expanded : bool
         Return expanded metadata (default: false)
     stream_callback : Callable, optional

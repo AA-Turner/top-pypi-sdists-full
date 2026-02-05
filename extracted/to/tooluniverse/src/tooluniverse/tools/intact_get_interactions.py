@@ -15,7 +15,7 @@ def intact_get_interactions(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> list[Any]:
     """
     Get all interactions involving a specific interactor (protein or gene) by identifier. Uses EBI Se...
 
@@ -34,7 +34,7 @@ def intact_get_interactions(
 
     Returns
     -------
-    dict[str, Any]
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 

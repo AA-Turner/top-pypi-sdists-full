@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 from django.contrib import admin
 
-from wbcore.contrib.notifications.tasks import send_notification_task
+from wbcore.contrib.notifications.models.notifications import send_notification_as_task
 
 from .models import (
     Notification,
@@ -16,19 +16,12 @@ from .models import (
 class NotificationModelAdmin(admin.ModelAdmin):
     search_fields = ["title", "body"]
 
-    list_display = [
-        "title",
-        "user",
-        "notification_type",
-        "endpoint",
-        "sent",
-        "read",
-    ]
+    list_display = ["title", "user", "notification_type", "endpoint", "sent", "read", "created"]
 
     @admin.action(description="Send Notification")
     def send_notification(self, request, queryset):
         for notification in queryset:
-            send_notification_task.delay(notification.id)
+            send_notification_as_task.delay(notification.id)
 
     actions = [send_notification]
 

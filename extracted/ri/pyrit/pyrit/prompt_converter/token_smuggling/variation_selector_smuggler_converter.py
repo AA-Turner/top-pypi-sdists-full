@@ -4,6 +4,7 @@
 import logging
 from typing import Literal, Optional, Tuple
 
+from pyrit.identifiers import ConverterIdentifier
 from pyrit.prompt_converter.token_smuggling.base import SmugglerConverter
 
 logger = logging.getLogger(__name__)
@@ -35,7 +36,7 @@ class VariationSelectorSmugglerConverter(SmugglerConverter):
         embed_in_base: bool = True,
     ):
         """
-        Initializes the converter with options for encoding/decoding.
+        Initialize the converter with options for encoding/decoding.
 
         Args:
             action (Literal["encode", "decode"]): The action to perform.
@@ -51,9 +52,21 @@ class VariationSelectorSmugglerConverter(SmugglerConverter):
         self.utf8_base_char = base_char_utf8 if base_char_utf8 is not None else "😊"
         self.embed_in_base = embed_in_base
 
+    def _build_identifier(self) -> ConverterIdentifier:
+        """
+        Build identifier with variation selector parameters.
+
+        Returns:
+            ConverterIdentifier: The identifier for this converter.
+        """
+        base_params = super()._build_identifier().converter_specific_params or {}
+        base_params["base_char"] = self.utf8_base_char
+        base_params["embed_in_base"] = self.embed_in_base
+        return self._create_identifier(converter_specific_params=base_params)
+
     def encode_message(self, message: str) -> Tuple[str, str]:
         """
-        Encodes the message using Unicode variation selectors.
+        Encode the message using Unicode variation selectors.
 
         The message is converted to UTF-8 bytes, and each byte is mapped to a variation selector:
             - 0x00-0x0F => U+FE00 to U+FE0F.
@@ -61,6 +74,12 @@ class VariationSelectorSmugglerConverter(SmugglerConverter):
 
         If ``embed_in_base`` is True, the payload is embedded directly into the base character;
         otherwise, a visible separator (a space) is inserted between the base and payload.
+
+        Args:
+            message (str): The message to encode.
+
+        Returns:
+            Tuple[str, str]: A tuple containing a summary of the code points and the encoded string.
         """
         payload = ""
         data = message.encode("utf-8")
@@ -86,8 +105,14 @@ class VariationSelectorSmugglerConverter(SmugglerConverter):
 
     def decode_message(self, message: str) -> str:
         """
-        Decodes a message encoded using Unicode variation selectors.
+        Decode a message encoded using Unicode variation selectors.
         The decoder scans the string for variation selectors, ignoring any visible separator.
+
+        Args:
+            message (str): The encoded message.
+
+        Returns:
+            str: The decoded message.
         """
         bytes_out = bytearray()
         started = False
@@ -118,7 +143,7 @@ class VariationSelectorSmugglerConverter(SmugglerConverter):
     # Extension of Paul Butler's method
     def encode_visible_hidden(self, visible: str, hidden: str) -> Tuple[str, str]:
         """
-        Combines visible text with hidden text by encoding the hidden text using ``variation_selector_smuggler`` mode.
+        Combine visible text with hidden text by encoding the hidden text using ``variation_selector_smuggler`` mode.
 
         The hidden payload is generated as a composite using the current embedding setting and then appended
         to the visible text.
@@ -137,7 +162,7 @@ class VariationSelectorSmugglerConverter(SmugglerConverter):
     # Extension of Paul Butler's method
     def decode_visible_hidden(self, combined: str) -> Tuple[str, str]:
         """
-        Extracts the visible text and decodes the hidden text from a combined string.
+        Extract the visible text and decodes the hidden text from a combined string.
 
         It searches for the first occurrence of the base character (``self.utf8_base_char``) and treats everything
         from that point on as the hidden payload.

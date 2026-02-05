@@ -112,8 +112,13 @@ class WebSearchTool(BaseTool):
             if not query:
                 return {
                     "status": "error",
-                    "error": "Query parameter is required",
-                    "results": [],
+                    "data": {
+                        "status": "error",
+                        "error": "Query parameter is required",
+                        "query": "",
+                        "total_results": 0,
+                        "results": [],
+                    },
                 }
 
             # Validate max_results
@@ -139,7 +144,7 @@ class WebSearchTool(BaseTool):
             # Add rate limiting to be respectful
             time.sleep(0.5)
 
-            return {
+            result_data = {
                 "status": "success",
                 "query": query,
                 "search_type": search_type,
@@ -147,8 +152,19 @@ class WebSearchTool(BaseTool):
                 "results": results,
             }
 
+            return {"status": "success", "data": result_data}
+
         except Exception as e:
-            return {"status": "error", "error": str(e), "results": []}
+            return {
+                "status": "error",
+                "data": {
+                    "status": "error",
+                    "error": str(e),
+                    "query": arguments.get("query", ""),
+                    "total_results": 0,
+                    "results": [],
+                },
+            }
 
 
 @register_tool("WebAPIDocumentationSearchTool")
@@ -182,8 +198,13 @@ class WebAPIDocumentationSearchTool(WebSearchTool):
             if not query:
                 return {
                     "status": "error",
-                    "error": "Query parameter is required",
-                    "results": [],
+                    "data": {
+                        "status": "error",
+                        "error": "Query parameter is required",
+                        "query": "",
+                        "total_results": 0,
+                        "results": [],
+                    },
                 }
 
             # Modify query based on focus
@@ -203,27 +224,44 @@ class WebAPIDocumentationSearchTool(WebSearchTool):
 
             result = super().run(arguments)
 
-            # Add focus-specific metadata
-            if result["status"] == "success":
-                result["focus"] = focus
-                result["enhanced_query"] = enhanced_query
+            # Extract data from parent result and add focus-specific metadata
+            if result["status"] == "success" and "data" in result:
+                result_data = result["data"]
+                result_data["focus"] = focus
+                result_data["enhanced_query"] = enhanced_query
 
                 # Filter results for better relevance
                 if focus == "python_packages":
-                    result["results"] = [
+                    result_data["results"] = [
                         r
-                        for r in result["results"]
+                        for r in result_data["results"]
                         if (
                             "pypi.org" in r.get("url", "")
                             or "python" in r.get("title", "").lower()
                         )
                     ]
                 elif focus == "github_repos":
-                    result["results"] = [
-                        r for r in result["results"] if "github.com" in r.get("url", "")
+                    result_data["results"] = [
+                        r
+                        for r in result_data["results"]
+                        if "github.com" in r.get("url", "")
                     ]
+
+                # Update total_results after filtering
+                result_data["total_results"] = len(result_data["results"])
+
+                return {"status": "success", "data": result_data}
 
             return result
 
         except Exception as e:
-            return {"status": "error", "error": str(e), "results": []}
+            return {
+                "status": "error",
+                "data": {
+                    "status": "error",
+                    "error": str(e),
+                    "query": arguments.get("query", ""),
+                    "total_results": 0,
+                    "results": [],
+                },
+            }

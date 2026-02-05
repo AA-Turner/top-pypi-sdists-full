@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.terraform-mcp-server
-Version: 1.0.14
+Version: 1.0.15
 Summary: An AWS Labs Model Context Protocol (MCP) server for terraform
 Requires-Python: >=3.10
 Requires-Dist: asteval>=1.0.6

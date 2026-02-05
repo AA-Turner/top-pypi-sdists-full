@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: Unified-python-sdk
-Version: 0.56.26
+Version: 0.57.0
 Summary: Python Client SDK for Unified.to
 License-File: LICENSE.md
 Author: Unified API Inc.
-Requires-Python: >=3.9.2
+Requires-Python: >=3.10
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -96,7 +96,7 @@ It's also possible to write a standalone Python script without needing to set up
 ```python
 #!/usr/bin/env -S uv run --script
 # /// script
-# requires-python = ">=3.9"
+# requires-python = ">=3.10"
 # dependencies = [
 #     "Unified-python-sdk",
 # ]

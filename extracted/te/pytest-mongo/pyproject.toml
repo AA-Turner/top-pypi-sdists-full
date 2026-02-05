@@ -1,6 +1,6 @@
 [project]
 name = "pytest-mongo"
-version = "3.2.1"
+version = "4.0.0"
 description = "MongoDB process and client fixtures plugin for Pytest."
 readme = "README.rst"
 keywords = ["tests", "pytest", "fixture", "mongodb", "mongo"]
@@ -17,28 +17,28 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Testing",
     "Framework :: Pytest",
 ]
 dependencies = [
-    "pytest >= 6.2",
-    "port-for >= 0.6.0",
-    "mirakuru",
-    "pymongo",
+    "pytest >= 8.4",
+    "port-for >= 0.7.3",
+    "mirakuru >= 2.6.0",
+    "pymongo >= 4.10.0",
 ]
-requires-python = ">= 3.9"
+requires-python = ">= 3.10"
 
 [project.urls]
 "Source" = "https://github.com/dbfixtures/pytest-mongo"
 "Bug Tracker" = "https://github.com/dbfixtures/pytest-mongo/issues"
-"Changelog" = "https://github.com/dbfixtures/pytest-mongo/blob/v3.2.1/CHANGES.rst"
+"Changelog" = "https://github.com/dbfixtures/pytest-mongo/blob/v4.0.0/CHANGES.rst"
 
 [project.entry-points."pytest11"]
 pytest_mongo = "pytest_mongo.plugin"
@@ -55,18 +55,16 @@ include = ["pytest_mongo*"]
 exclude = ["tests*"]
 namespaces = false
 
-[tool.pytest.ini_options]
-xfail_strict=true
-addopts = "--max-worker-restart=0 --showlocals --verbose --cov"
-testpaths = "tests"
-
-[tool.black]
-line-length = 80
-target-version = ['py39']
-include = '.*\.pyi?$'
+[tool.pytest]
+strict_xfail=true
+addopts = ["--showlocals", "--verbose", "--cov"]
+testpaths = ["tests"]
 
 [tool.ruff]
-line-length = 80
+line-length = 100
+target-version = 'py310'
+
+[tool.ruff.lint]
 select = [
     "E",   # pycodestyle
     "F",   # pyflakes
@@ -98,10 +96,10 @@ showcontent = true
 
 [tool.towncrier.fragment.misc]
 name = "Miscellaneus"
-showcontent = false
+showcontent = true
 
 [tool.tbump.version]
-current = "3.2.1"
+current = "4.0.0"
 
 # Example of a semver regexp.
 # Make sure this matches current_version before

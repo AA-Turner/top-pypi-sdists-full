@@ -5,8 +5,9 @@ import random
 import re
 from typing import Dict, List, Optional
 
+from pyrit.identifiers import ConverterIdentifier
 from pyrit.models import PromptDataType
-from pyrit.prompt_converter import ConverterResult, PromptConverter
+from pyrit.prompt_converter.prompt_converter import ConverterResult, PromptConverter
 
 
 class ColloquialWordswapConverter(PromptConverter):
@@ -14,11 +15,14 @@ class ColloquialWordswapConverter(PromptConverter):
     Converts text into colloquial Singaporean context.
     """
 
+    SUPPORTED_INPUT_TYPES = ("text",)
+    SUPPORTED_OUTPUT_TYPES = ("text",)
+
     def __init__(
         self, deterministic: bool = False, custom_substitutions: Optional[Dict[str, List[str]]] = None
     ) -> None:
         """
-        Initializes the converter with optional deterministic mode and custom substitutions.
+        Initialize the converter with optional deterministic mode and custom substitutions.
 
         Args:
             deterministic (bool): If True, use the first substitution for each wordswap.
@@ -48,8 +52,34 @@ class ColloquialWordswapConverter(PromptConverter):
         self._colloquial_substitutions = custom_substitutions if custom_substitutions else default_substitutions
         self._deterministic = deterministic
 
+    def _build_identifier(self) -> ConverterIdentifier:
+        """
+        Build identifier with colloquial wordswap parameters.
+
+        Returns:
+            ConverterIdentifier: The identifier for this converter.
+        """
+        return self._create_identifier(
+            converter_specific_params={
+                "deterministic": self._deterministic,
+                "substitution_keys": sorted(self._colloquial_substitutions.keys()),
+            }
+        )
+
     async def convert_async(self, *, prompt: str, input_type: PromptDataType = "text") -> ConverterResult:
-        """Converts the given prompt by replacing words with colloquial Singaporean terms."""
+        """
+        Convert the given prompt by replacing words with colloquial Singaporean terms.
+
+        Args:
+            prompt (str): The input text prompt to be converted.
+            input_type (PromptDataType): The type of the input prompt. Defaults to "text".
+
+        Returns:
+            ConverterResult: The result containing the converted prompt.
+
+        Raises:
+            ValueError: If the input type is not supported.
+        """
         if not self.input_supported(input_type):
             raise ValueError("Input type not supported")
 
@@ -78,9 +108,3 @@ class ColloquialWordswapConverter(PromptConverter):
         final_prompt = final_prompt.strip()
 
         return ConverterResult(output_text=final_prompt, output_type="text")
-
-    def input_supported(self, input_type: PromptDataType) -> bool:
-        return input_type == "text"
-
-    def output_supported(self, output_type: PromptDataType) -> bool:
-        return output_type == "text"

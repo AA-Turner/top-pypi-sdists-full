@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tooluniverse"
-version = "1.0.16"
+version = "1.0.17.2"
 description = "A comprehensive collection of scientific tools for Agentic AI, offering integration with the ToolUniverse SDK and MCP Server to support advanced scientific workflows."
 authors = [
     { name = "Shanghua Gao", email = "shanghuagao@gmail.com" }
@@ -15,7 +15,7 @@ dependencies = [
     "sympy>=1.12.0", # Symbolic mathematics for Python executor
     "graphql-core>=3.2.0",
     "fastapi>=0.116.0",
-    "uvicorn>=0.35.0",
+    "uvicorn>=0.36.0",
     "pydantic>=2.11.0",
     "epam.indigo>=1.34.0",
     "networkx>=3.4.0",
@@ -50,9 +50,18 @@ requires-python = ">=3.10"
 readme = "README.md"
 
 [project.optional-dependencies]
+client = [
+    "requests>=2.32.0",
+    "pydantic>=2.11.0",
+]
 smolagents = [
     "smolagents>=1.22.0",
     "gradio>=4.0.0",  # Required for GradioUI web interface
+]
+# Single-cell and spatial transcriptomics tools
+singlecell = [
+    "cellxgene-census>=1.10.0",  # CELLxGENE Census API
+    "tiledbsoma>=1.15.3",  # Required for spatial data
 ]
 dev = [
     "pytest>=7.0",
@@ -116,8 +125,11 @@ space = [
     "pyyaml>=6.0.0",
     "requests>=2.32.0",
 ]
+bioinformatics = [
+    "biopython>=1.80",
+]
 all = [
-    "tooluniverse[dev,docs,graph,visualization,space,embedding,ml]",
+    "tooluniverse[dev,docs,graph,visualization,space,embedding,ml,bioinformatics]",
 ]
 build = [
     "pyinstaller>=6.0.0",
@@ -128,10 +140,11 @@ Homepage = "https://github.com/mims-harvard/ToolUniverse"
 
 [project.scripts]
 tooluniverse-mcp = "tooluniverse.smcp_server:run_http_server"
-tooluniverse-mcp-claude = "tooluniverse.smcp_server:run_stdio_server"
 tooluniverse-smcp = "tooluniverse.smcp_server:run_smcp_server"
 tooluniverse-smcp-server = "tooluniverse.smcp_server:run_http_server"
 tooluniverse-smcp-stdio = "tooluniverse.smcp_server:run_stdio_server"
+# HTTP API Server for ToolUniverse class methods
+tooluniverse-http-api = "tooluniverse.http_api_server_cli:run_http_api_server"
 generate-mcp-tools = "tooluniverse.generate_mcp_tools:run_generate"
 # Human Expert Feedback System
 tooluniverse-expert-feedback = "tooluniverse.remote.expert_feedback.human_expert_mcp_tools:main"

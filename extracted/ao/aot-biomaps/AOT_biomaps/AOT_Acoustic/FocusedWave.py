@@ -19,7 +19,7 @@ class FocusedWave(AcousticField):
         """
         super().__init__(**kwargs)
         self.waveType = WaveType.FocusedWave
-        self.kgrid.setTime(int(self.kgrid.Nt*2),self.kgrid.dt) # Extend the time grid to allow for delays
+        self.medium.kgrid.setTime(int(self.medium.kgrid.Nt*2),self.medium.kgrid.dt) # Extend the time grid to allow for delays
         self.focal_line = focal_line
         self.delayedSignal = self._apply_delay()
 
@@ -71,7 +71,7 @@ class FocusedWave(AcousticField):
             delays -= tau_edge
 
             # 6. Convert delays to samples
-            delay_samples = np.round(delays / self.kgrid.dt).astype(int)
+            delay_samples = np.round(delays / self.medium.kgrid.dt).astype(int)
             max_delay_samples = np.max(delay_samples)
             print(f"Max delay (samples): {max_delay_samples}")
 

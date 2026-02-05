@@ -4,6 +4,7 @@
 import binascii
 from typing import Literal, Optional
 
+from pyrit.identifiers import ConverterIdentifier
 from pyrit.prompt_converter.text_selection_strategy import (
     AllWordsSelectionStrategy,
     WordSelectionStrategy,
@@ -41,6 +42,9 @@ class BinAsciiConverter(WordLevelConverter):
                 If None, all words will be converted.
             word_split_separator (Optional[str]): Separator used to split words in the input text.
                 Defaults to " ".
+
+        Raises:
+            ValueError: If an invalid ``encoding_func`` is provided.
         """
         super().__init__(
             word_selection_strategy=word_selection_strategy,
@@ -49,10 +53,21 @@ class BinAsciiConverter(WordLevelConverter):
 
         if encoding_func not in ["hex", "quoted-printable", "UUencode"]:
             raise ValueError(
-                f"Invalid encoding_func '{encoding_func}'. " "Must be one of: 'hex', 'quoted-printable', 'UUencode'"
+                f"Invalid encoding_func '{encoding_func}'. Must be one of: 'hex', 'quoted-printable', 'UUencode'"
             )
 
         self._encoding_func = encoding_func
+
+    def _build_identifier(self) -> ConverterIdentifier:
+        """
+        Build identifier with BinAscii converter parameters.
+
+        Returns:
+            ConverterIdentifier: The identifier for this converter.
+        """
+        base_params = super()._build_identifier().converter_specific_params or {}
+        base_params["encoding_func"] = self._encoding_func
+        return self._create_identifier(converter_specific_params=base_params)
 
     async def convert_word_async(self, word: str) -> str:
         """
@@ -63,6 +78,9 @@ class BinAsciiConverter(WordLevelConverter):
 
         Returns:
             str: The encoded word.
+
+        Raises:
+            ValueError: If an unsupported encoding function is encountered.
         """
         if self._encoding_func == "hex":
             return word.encode("utf-8").hex().upper()

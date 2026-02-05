@@ -73,7 +73,7 @@ def set_policy(
 
     \b
       Cloud:        collaborator, readonly
-      Project:      collaborator, readonly
+      Project:      owner, collaborator, readonly
       Organization: owner, collaborator
     """
     # Validate resource_id based on resource_type

@@ -13,7 +13,6 @@ from anyscale.commands.anyscale_api.api_commands import anyscale_api
 from anyscale.commands.auth_commands import auth_cli
 from anyscale.commands.cloud_commands import cloud_cli
 from anyscale.commands.cluster_commands import cluster_cli
-from anyscale.commands.cluster_env_commands import cluster_env_cli
 from anyscale.commands.compute_config_commands import compute_config_cli
 from anyscale.commands.config_commands import config_cli
 from anyscale.commands.experimental_integrations_commands import (
@@ -118,7 +117,6 @@ cli.add_command(config_cli)
 cli.add_command(migrate_cli)
 cli.add_command(project_cli)
 cli.add_command(version_cli)
-cli.add_command(cluster_env_cli)
 cli.add_command(job_cli)
 cli.add_command(job_queue_cli)
 cli.add_command(schedule_cli)

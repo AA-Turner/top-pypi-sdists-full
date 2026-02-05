@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cql2
-Version: 0.5.2
+Version: 0.5.3
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

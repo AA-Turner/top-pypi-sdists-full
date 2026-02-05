@@ -96,6 +96,9 @@ from anyscale.client.openapi_client.models import (
     WriteProject,
 )
 from anyscale.client.openapi_client.models.create_schedule import CreateSchedule
+from anyscale.client.openapi_client.models.databricks_connection_info import (
+    DatabricksConnectionInfo,
+)
 from anyscale.client.openapi_client.models.decorated_application_template import (
     DecoratedApplicationTemplate,
 )
@@ -1249,8 +1252,10 @@ class AnyscaleClient(AnyscaleClientInterface):
         job_id: Optional[str],
         cloud: Optional[str],
         project: Optional[str],
+        include_archived: bool = False,
     ) -> Optional[ProductionJob]:
         if job_id is not None:
+            # God mode: job_id lookup always finds job regardless of archive status
             try:
                 return self._external_api_client.get_production_job(job_id).result
             except ExternalApiException as e:
@@ -1258,14 +1263,19 @@ class AnyscaleClient(AnyscaleClientInterface):
                     return None
                 raise e from None
         else:
+            # Name-based lookup: respect archive filtering using internal API
             paging_token = None
             cloud_id = self.get_cloud_id(cloud_name=cloud)
             project_id = self.get_project_id(parent_cloud_id=cloud_id, name=project)
+            archive_status = (
+                ArchiveStatus.ALL if include_archived else ArchiveStatus.NOT_ARCHIVED
+            )
             result: Optional[ProductionJob] = None
             while True:
-                resp = self._external_api_client.list_production_jobs(
-                    project_id=project_id,
+                resp = self.list_jobs(
                     name=name,
+                    project_id=project_id,
+                    archive_status=archive_status,
                     count=self.LIST_ENDPOINT_COUNT,
                     paging_token=paging_token,
                 )
@@ -1344,6 +1354,13 @@ class AnyscaleClient(AnyscaleClientInterface):
         )
 
     @handle_api_exceptions
+    def delete_job_queue(self, job_queue_id: str) -> None:
+        """Delete a job queue. Jobs previously submitted remain accessible."""
+        self._internal_api_client.delete_job_queue_api_v2_job_queues_job_queue_id_delete(
+            job_queue_id=job_queue_id
+        )
+
+    @handle_api_exceptions
     def list_job_queues(  # noqa: PLR0913
         self,
         *,
@@ -1356,12 +1373,16 @@ class AnyscaleClient(AnyscaleClientInterface):
         count: Optional[int] = None,
         paging_token: Optional[str] = None,
         sorting_directives: Optional[List[JobQueueSortDirective]] = None,
+        include_archived: bool = False,
     ) -> DecoratedjobqueueListResponse:
         cloud_id = self.get_cloud_id(cloud_name=cloud) if cloud else None
         project_id = (
             self.get_project_id(parent_cloud_id=cloud_id, name=project)
             if project
             else None
+        )
+        archive_status = (
+            ArchiveStatus.ALL if include_archived else ArchiveStatus.NOT_ARCHIVED
         )
 
         return self._internal_api_client.list_job_queues_api_v2_job_queues_post(
@@ -1371,6 +1392,7 @@ class AnyscaleClient(AnyscaleClientInterface):
                 cluster_status=cluster_status,
                 project_id=project_id,
                 cloud_id=cloud_id,
+                archive_status=archive_status,
                 tags_filter=tags_filter,
                 paging=PageQuery(count=count, paging_token=paging_token),
                 sorting_directives=sorting_directives,
@@ -1478,6 +1500,12 @@ class AnyscaleClient(AnyscaleClientInterface):
     @handle_api_exceptions
     def archive_job(self, job_id: str):
         self._internal_api_client.archive_job_api_v2_decorated_ha_jobs_production_job_id_archive_post(
+            job_id
+        )
+
+    @handle_api_exceptions
+    def delete_job(self, job_id: str) -> None:
+        self._internal_api_client.delete_job_api_v2_decorated_ha_jobs_production_job_id_delete(
             job_id
         )
 
@@ -1955,6 +1983,20 @@ class AnyscaleClient(AnyscaleClientInterface):
             kwargs["count"] = count
         return self._internal_api_client.list_cron_jobs_api_v2_experimental_cron_jobs_get(
             **kwargs
+        )
+
+    @handle_api_exceptions
+    def delete_schedule(self, schedule_id: str) -> None:
+        """Delete a schedule.
+
+        If the schedule is active, it will be automatically paused before deletion.
+        The schedule must have no active triggered jobs.
+
+        Args:
+            schedule_id: ID of the schedule to delete
+        """
+        self._internal_api_client.delete_cron_job_api_v2_experimental_cron_jobs_cron_job_id_delete(
+            cron_job_id=schedule_id
         )
 
     @handle_api_exceptions
@@ -2512,6 +2554,24 @@ class AnyscaleClient(AnyscaleClientInterface):
             _return_http_data_only=True,
         )
         return response
+
+    @handle_api_exceptions
+    def list_databricks_connections(
+        self, *, name: Optional[str] = None
+    ) -> List[DatabricksConnectionInfo]:
+        """List Databricks connections."""
+        response = self._internal_api_client.list_databricks_connections_api_v2_integrations_connections_databricks_get(
+            name=name
+        )
+        return response.connections
+
+    @handle_api_exceptions
+    def get_databricks_connection(self, connection_id: str) -> DatabricksConnectionInfo:
+        """Get a Databricks connection by ID."""
+        response = self._internal_api_client.get_databricks_connection_api_v2_integrations_connections_databricks_connection_id_get(
+            connection_id=connection_id
+        )
+        return response.result
 
     @handle_api_exceptions
     def get_user_info(self) -> UserInfo:

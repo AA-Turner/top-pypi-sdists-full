@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2016 by Clearcode <http://clearcode.cc>
-# and associates (see AUTHORS).
+# Copyright (C) 2013-2026 by associates authors (see git log).
 
 # This file is part of pytest-mongo.
 
@@ -18,4 +17,4 @@
 # along with pytest-mongo.  If not, see <http://www.gnu.org/licenses/>.
 """pytest-mongo's main module."""
 
-__version__ = "3.2.1"
+__version__ = "4.0.0"

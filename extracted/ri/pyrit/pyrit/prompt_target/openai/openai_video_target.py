@@ -7,14 +7,16 @@ from typing import Any
 from pyrit.exceptions import (
     pyrit_target_retry,
 )
+from pyrit.identifiers import TargetIdentifier
 from pyrit.models import (
     Message,
     MessagePiece,
     construct_response_from_request,
     data_serializer_factory,
 )
-from pyrit.prompt_target import OpenAITarget, limit_requests_per_minute
+from pyrit.prompt_target.common.utils import limit_requests_per_minute
 from pyrit.prompt_target.openai.openai_error_handling import _is_content_filter_error
+from pyrit.prompt_target.openai.openai_target import OpenAITarget
 
 logger = logging.getLogger(__name__)
 
@@ -42,14 +44,15 @@ class OpenAIVideoTarget(OpenAITarget):
         *,
         resolution_dimensions: str = "1280x720",
         n_seconds: int = 4,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         """
         Initialize the OpenAI Video Target.
 
         Args:
-            model_name (str, Optional): The video model to use (e.g., "sora-2", "sora-2-pro").
-                If no value is provided, the OPENAI_VIDEO_MODEL environment variable will be used.
+            model_name (str, Optional): The video model to use (e.g., "sora-2", "sora-2-pro")
+                (or deployment name in Azure). If no value is provided, the OPENAI_VIDEO_MODEL
+                environment variable will be used.
             endpoint (str, Optional): The target URL for the OpenAI service.
             api_key (str | Callable[[], str], Optional): The API key for accessing the OpenAI service,
                 or a callable that returns an access token. For Azure endpoints with Entra authentication,
@@ -65,6 +68,9 @@ class OpenAIVideoTarget(OpenAITarget):
                 - Sora-2-Pro: "720x1280", "1280x720", "1024x1792", "1792x1024"
             n_seconds (int, Optional): The duration of the generated video (in seconds).
                 Defaults to 4. Supported values: 4, 8, or 12 seconds.
+            **kwargs: Additional keyword arguments passed to the parent OpenAITarget class.
+            httpx_client_kwargs (dict, Optional): Additional kwargs to be passed to the ``httpx.AsyncClient()``
+                constructor. For example, to specify a 3 minute timeout: ``httpx_client_kwargs={"timeout": 180}``
         """
         super().__init__(**kwargs)
 
@@ -77,6 +83,7 @@ class OpenAIVideoTarget(OpenAITarget):
         self.model_name_environment_variable = "OPENAI_VIDEO_MODEL"
         self.endpoint_environment_variable = "OPENAI_VIDEO_ENDPOINT"
         self.api_key_environment_variable = "OPENAI_VIDEO_KEY"
+        self.underlying_model_environment_variable = "OPENAI_VIDEO_UNDERLYING_MODEL"
 
     def _get_target_api_paths(self) -> list[str]:
         """Return API paths that should not be in the URL."""
@@ -88,6 +95,20 @@ class OpenAIVideoTarget(OpenAITarget):
             ".openai.azure.com": "https://{resource}.openai.azure.com/openai/v1",
             "api.openai.com": "https://api.openai.com/v1",
         }
+
+    def _build_identifier(self) -> TargetIdentifier:
+        """
+        Build the identifier with video generation-specific parameters.
+
+        Returns:
+            TargetIdentifier: The identifier for this target instance.
+        """
+        return self._create_identifier(
+            target_specific_params={
+                "resolution": self._size,
+                "n_seconds": self._n_seconds,
+            },
+        )
 
     def _validate_resolution(self, *, resolution_dimensions: str) -> str:
         """
@@ -147,7 +168,7 @@ class OpenAIVideoTarget(OpenAITarget):
         # Use unified error handler - automatically detects Video and validates
         response = await self._handle_openai_request(
             api_call=lambda: self._async_client.videos.create_and_poll(
-                model=self._model_name,  # type: ignore[arg-type]
+                model=self._model_name,
                 prompt=prompt,
                 size=self._size,  # type: ignore[arg-type]
                 seconds=str(self._n_seconds),  # type: ignore[arg-type]

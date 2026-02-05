@@ -523,6 +523,7 @@ class PortalTypeDef(TypedDict):
     additionalEncryptionContext: NotRequired[dict[str, str]]
     instanceType: NotRequired[InstanceTypeType]
     maxConcurrentSessions: NotRequired[int]
+    portalCustomDomain: NotRequired[str]
 
 
 class GetPortalServiceProviderMetadataRequestTypeDef(TypedDict):
@@ -655,6 +656,7 @@ class PortalSummaryTypeDef(TypedDict):
     ipAccessSettingsArn: NotRequired[str]
     instanceType: NotRequired[InstanceTypeType]
     maxConcurrentSessions: NotRequired[int]
+    portalCustomDomain: NotRequired[str]
 
 
 class ListSessionLoggersRequestTypeDef(TypedDict):
@@ -764,6 +766,7 @@ class UpdatePortalRequestTypeDef(TypedDict):
     authenticationType: NotRequired[AuthenticationTypeType]
     instanceType: NotRequired[InstanceTypeType]
     maxConcurrentSessions: NotRequired[int]
+    portalCustomDomain: NotRequired[str]
 
 
 class UpdateUserAccessLoggingSettingsRequestTypeDef(TypedDict):
@@ -978,6 +981,7 @@ class CreatePortalRequestTypeDef(TypedDict):
     authenticationType: NotRequired[AuthenticationTypeType]
     instanceType: NotRequired[InstanceTypeType]
     maxConcurrentSessions: NotRequired[int]
+    portalCustomDomain: NotRequired[str]
 
 
 class CreateTrustStoreRequestTypeDef(TypedDict):

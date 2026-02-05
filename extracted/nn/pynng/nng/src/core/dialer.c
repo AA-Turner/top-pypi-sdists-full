@@ -1,5 +1,5 @@
 //
-// Copyright 2023 Staysail Systems, Inc. <info@staysail.tech>
+// Copyright 2024 Staysail Systems, Inc. <info@staysail.tech>
 // Copyright 2018 Capitar IT Group BV <info@capitar.com>
 // Copyright 2018 Devolutions <info@devolutions.net>
 //
@@ -259,7 +259,7 @@ nni_dialer_create(nni_dialer **dp, nni_sock *s, const char *url_str)
 	nni_aio_init(&d->d_tmo_aio, dialer_timer_cb, d);
 
 	nni_mtx_lock(&dialers_lk);
-	rv = nni_id_alloc(&dialers, &d->d_id, d);
+	rv = nni_id_alloc32(&dialers, &d->d_id, d);
 	nni_mtx_unlock(&dialers_lk);
 
 #ifdef NNG_ENABLE_STATS
@@ -388,6 +388,11 @@ dialer_connect_cb(void *arg)
 	case NNG_ECONNREFUSED:
 	case NNG_ETIMEDOUT:
 	default:
+		nng_log_warn("NNG-CONN-FAIL",
+		    "Failed connecting socket<%u> to %s: %s",
+		    nni_sock_id(d->d_sock), d->d_url->u_rawurl,
+		    nng_strerror(rv));
+
 		nni_dialer_bump_error(d, rv);
 		if (user_aio == NULL) {
 			nni_dialer_timer_start(d);
@@ -410,8 +415,8 @@ dialer_connect_start(nni_dialer *d)
 int
 nni_dialer_start(nni_dialer *d, unsigned flags)
 {
-	int      rv = 0;
-	nni_aio *aio;
+	int      rv  = 0;
+	nni_aio *aio = NULL;
 
 	if (nni_atomic_flag_test_and_set(&d->d_started)) {
 		return (NNG_ESTATE);
@@ -437,6 +442,9 @@ nni_dialer_start(nni_dialer *d, unsigned flags)
 		rv = nni_aio_result(aio);
 		nni_aio_free(aio);
 	}
+
+	nng_log_info("NNG-DIAL", "Starting dialer for socket<%u> on %s",
+	    nni_sock_id(d->d_sock), d->d_url->u_rawurl);
 
 	return (rv);
 }
@@ -548,6 +556,12 @@ nni_dialer_getopt(
 	}
 
 	return (nni_sock_getopt(d->d_sock, name, valp, szp, t));
+}
+
+const nng_url *
+nni_dialer_url(nni_dialer *d)
+{
+	return (d->d_url);
 }
 
 void

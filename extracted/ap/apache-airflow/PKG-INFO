@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow
-Version: 3.1.6
+Version: 3.1.7
 Summary: Programmatically author, schedule and monitor data pipelines
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
 Project-URL: Documentation, https://airflow.apache.org/docs/
@@ -31,8 +31,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: System :: Monitoring
 Requires-Python: <3.14,>=3.10
-Requires-Dist: apache-airflow-core==3.1.6
-Requires-Dist: apache-airflow-task-sdk==1.1.6
+Requires-Dist: apache-airflow-core==3.1.7
+Requires-Dist: apache-airflow-task-sdk==1.1.7
 Provides-Extra: aiobotocore
 Requires-Dist: apache-airflow-providers-amazon[aiobotocore]>=9.6.0; extra == 'aiobotocore'
 Provides-Extra: airbyte
@@ -155,7 +155,7 @@ Requires-Dist: atlasclient>=0.1.2; extra == 'all'
 Requires-Dist: authlib>=1.0.0; extra == 'all'
 Requires-Dist: cloudpickle>=2.2.1; extra == 'all'
 Requires-Dist: python-ldap>=3.4.4; extra == 'all'
-Requires-Dist: uv>=0.9.22; extra == 'all'
+Requires-Dist: uv>=0.9.26; extra == 'all'
 Provides-Extra: all-core
 Requires-Dist: apache-airflow-core[all]; extra == 'all-core'
 Provides-Extra: amazon
@@ -375,7 +375,7 @@ Requires-Dist: apache-airflow-providers-teradata>=2.6.1; extra == 'teradata'
 Provides-Extra: trino
 Requires-Dist: apache-airflow-providers-trino>=5.8.1; extra == 'trino'
 Provides-Extra: uv
-Requires-Dist: uv>=0.9.22; extra == 'uv'
+Requires-Dist: uv>=0.9.26; extra == 'uv'
 Provides-Extra: vertica
 Requires-Dist: apache-airflow-providers-vertica>=3.9.1; extra == 'vertica'
 Provides-Extra: weaviate
@@ -446,7 +446,7 @@ Use Airflow to author workflows (Dags) that orchestrate tasks. The Airflow sched
 
 Apache Airflow is tested with:
 
-|            | Main version (dev)           | Stable version (3.1.6) |
+|            | Main version (dev)           | Stable version (3.1.7) |
 |------------|------------------------------|------------------------|
 | Python     | 3.10, 3.11, 3.12, 3.13       | 3.10, 3.11, 3.12, 3.13 |
 | Platform   | AMD64/ARM64(\*)              | AMD64/ARM64(\*)        |
@@ -520,15 +520,15 @@ them to the appropriate format and workflow that your tool requires.
 
 
 ```bash
-pip install 'apache-airflow==3.1.6' \
- --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.1.6/constraints-3.10.txt"
+pip install 'apache-airflow==3.1.7' \
+ --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.1.7/constraints-3.10.txt"
 ```
 
 2. Installing with extras (i.e., postgres, google)
 
 ```bash
-pip install 'apache-airflow[postgres,google]==3.1.6' \
- --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.1.6/constraints-3.10.txt"
+pip install 'apache-airflow[postgres,google]==3.1.7' \
+ --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.1.7/constraints-3.10.txt"
 ```
 
 For information on installing provider distributions, check

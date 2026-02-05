@@ -17,7 +17,7 @@ from .base_tool import BaseTool
 from .tool_registry import register_tool
 
 OLS_BASE_URL = "https://www.ebi.ac.uk/ols4"
-REQUEST_TIMEOUT = 30.0
+REQUEST_TIMEOUT = 30.0  # 30 second timeout to prevent hanging on slow API responses
 
 
 def url_encode_iri(iri: str) -> str:
@@ -209,7 +209,9 @@ class OLSTool(BaseTool):
 
         data = self._get_json(f"/api/v2/ontologies/{ontology_id}")
         ontology = OntologyInfo.model_validate(data)
-        return ontology.model_dump(by_alias=True)
+        # Convert HttpUrl objects to strings for JSON compatibility
+        result = ontology.model_dump(by_alias=True, mode="json")
+        return result
 
     def _handle_search_ontologies(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         search = arguments.get("search")
@@ -228,12 +230,18 @@ class OLSTool(BaseTool):
         for item in ontologies:
             try:
                 validated.append(
-                    OntologyInfo.model_validate(item).model_dump(by_alias=True)
+                    OntologyInfo.model_validate(item).model_dump(
+                        by_alias=True, mode="json"
+                    )
                 )
             except ValidationError:
                 continue
 
         page_info = data.get("page", {})
+        # page_info might be an integer or a dict depending on API response
+        if not isinstance(page_info, dict):
+            page_info = {}
+
         return {
             "results": validated or ontologies,
             "pagination": {
@@ -262,7 +270,8 @@ class OLSTool(BaseTool):
             term_data["ontologyName"] = term_data["ontologyId"]
 
         term = DetailedTermInfo.model_validate(term_data)
-        return term.model_dump(by_alias=True)
+        # Convert HttpUrl objects to strings for JSON compatibility
+        return term.model_dump(by_alias=True, mode="json")
 
     def _handle_get_term_children(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         term_iri = arguments.get("term_iri")
@@ -342,10 +351,33 @@ class OLSTool(BaseTool):
     def _get_json(
         self, path: str, params: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
+        """Make a GET request to the OLS API and return JSON response.
+
+        Args:
+            path: API endpoint path
+            params: Optional query parameters
+
+        Returns:
+            JSON response as dictionary
+
+        Raises:
+            requests.RequestException: On network errors or timeouts
+            requests.HTTPError: On HTTP errors (4xx, 5xx)
+        """
         url = f"{self.base_url}{path}"
-        response = self.session.get(url, params=params, timeout=self.timeout)
-        response.raise_for_status()
-        return response.json()
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            response.raise_for_status()
+            return response.json()
+        except requests.Timeout as e:
+            raise requests.RequestException(
+                f"OLS API request timed out after {self.timeout}s: {url}"
+            ) from e
+        except requests.RequestException as e:
+            # Re-raise with more context
+            raise requests.RequestException(
+                f"OLS API request failed for {url}: {str(e)}"
+            ) from e
 
     def _format_term_collection(
         self, data: Dict[str, Any], size: int
@@ -387,7 +419,9 @@ class OLSTool(BaseTool):
         )
 
         result: Dict[str, Any] = {
-            "terms": [model.model_dump(by_alias=True) for model in term_models],
+            "terms": [
+                model.model_dump(by_alias=True, mode="json") for model in term_models
+            ],
             "total_items": total,
             "showing": len(term_models),
         }

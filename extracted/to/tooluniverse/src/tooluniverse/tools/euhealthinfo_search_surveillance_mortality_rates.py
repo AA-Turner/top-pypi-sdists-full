@@ -20,7 +20,7 @@ def euhealthinfo_search_surveillance_mortality_rates(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> list[Any]:
+) -> Any:
     """
     The tool identifies and retrieves publicly available sources and systems related to mortality tre...
 
@@ -49,7 +49,7 @@ def euhealthinfo_search_surveillance_mortality_rates(
 
     Returns
     -------
-    list[Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

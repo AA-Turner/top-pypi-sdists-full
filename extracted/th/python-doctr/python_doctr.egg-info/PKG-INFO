@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-doctr
-Version: 1.0.0
+Version: 1.0.1
 Summary: Document Text Recognition (docTR): deep Learning for high-performance OCR on documents.
 Author-email: Mindee <contact@mindee.com>
 Maintainer: François-Guillaume Fernandez, Charles Gaillard, Olivier Dulcy, Felix Dittrich
@@ -233,12 +233,12 @@ Requires-Dist: numpy<3.0.0,>=1.16.0
 Requires-Dist: scipy<2.0.0,>=1.4.0
 Requires-Dist: h5py<4.0.0,>=3.1.0
 Requires-Dist: opencv-python<5.0.0,>=4.5.0
-Requires-Dist: pypdfium2<5.0.0,>=4.11.0
+Requires-Dist: pypdfium2<6.0.0,>=4.11.0
 Requires-Dist: pyclipper<2.0.0,>=1.2.0
 Requires-Dist: shapely<3.0.0,>=1.6.0
 Requires-Dist: langdetect<2.0.0,>=1.0.9
 Requires-Dist: rapidfuzz<4.0.0,>=3.0.0
-Requires-Dist: huggingface-hub<1.0.0,>=0.20.0
+Requires-Dist: huggingface-hub<2.0.0,>=0.20.0
 Requires-Dist: Pillow>=9.2.0
 Requires-Dist: defusedxml>=0.7.0
 Requires-Dist: anyascii>=0.3.2
@@ -265,7 +265,7 @@ Provides-Extra: docs
 Requires-Dist: sphinx!=3.5.0,>=3.0.0; extra == "docs"
 Requires-Dist: sphinxemoji>=0.1.8; extra == "docs"
 Requires-Dist: sphinx-copybutton>=0.3.1; extra == "docs"
-Requires-Dist: docutils<0.22; extra == "docs"
+Requires-Dist: docutils<0.23; extra == "docs"
 Requires-Dist: recommonmark>=0.7.1; extra == "docs"
 Requires-Dist: sphinx-markdown-tables>=0.0.15; extra == "docs"
 Requires-Dist: sphinx-tabs>=3.3.0; extra == "docs"
@@ -288,7 +288,7 @@ Requires-Dist: pre-commit>=3.0.0; extra == "dev"
 Requires-Dist: sphinx!=3.5.0,>=3.0.0; extra == "dev"
 Requires-Dist: sphinxemoji>=0.1.8; extra == "dev"
 Requires-Dist: sphinx-copybutton>=0.3.1; extra == "dev"
-Requires-Dist: docutils<0.22; extra == "dev"
+Requires-Dist: docutils<0.23; extra == "dev"
 Requires-Dist: recommonmark>=0.7.1; extra == "dev"
 Requires-Dist: sphinx-markdown-tables>=0.0.15; extra == "dev"
 Requires-Dist: sphinx-tabs>=3.3.0; extra == "dev"
@@ -361,7 +361,7 @@ Should you use docTR on documents that include rotated pages, or pages with mult
 you have multiple options to handle it:
 
 - If you only use straight document pages with straight words (horizontal, same reading direction),
-consider passing `assume_straight_boxes=True` to the ocr_predictor. It will directly fit straight boxes
+consider passing `assume_straight_pages=True` to the ocr_predictor. It will directly fit straight boxes
 on your page and return straight boxes, which makes it the fastest option.
 
 - If you want the predictor to output straight boxes (no matter the orientation of your pages, the final localizations
@@ -620,6 +620,13 @@ print(requests.post("http://localhost:8080/ocr", params=params, files=files).jso
 ### Example notebooks
 
 Looking for more illustrations of docTR features? You might want to check the [Jupyter notebooks](https://github.com/mindee/doctr/tree/main/notebooks) designed to give you a broader overview.
+
+## Supported By
+
+This project is supported by [t2k GmbH](https://www.text2knowledge.de/de),
+<p align="center">
+  <img src="https://github.com/mindee/doctr/raw/main/docs/images/t2k_logo.png" width="40%">
+</p>
 
 ## Citation
 

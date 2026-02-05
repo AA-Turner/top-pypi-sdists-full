@@ -1,3 +1,4 @@
+from functools import partial
 from typing import get_args
 from uuid import uuid4
 
@@ -10,10 +11,11 @@ from langgraph_api.encryption.middleware import (
     decrypt_responses,
     encrypt_request,
 )
-from langgraph_api.feature_flags import (
-    FF_USE_CORE_API,
-    IS_POSTGRES_OR_GRPC_BACKEND,
+from langgraph_api.encryption.shared import (
+    using_aes_encryption,
+    using_custom_encryption,
 )
+from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.grpc.ops import Threads as GrpcThreads
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
 from langgraph_api.schema import (
@@ -42,11 +44,16 @@ from langgraph_api.validation import (
     ThreadStateUpdate,
 )
 from langgraph_runtime.database import connect
-from langgraph_runtime.ops import Threads
 from langgraph_runtime.retry import retry_db
 
-CrudThreads = GrpcThreads if FF_USE_CORE_API else Threads
-ThreadsStream = GrpcThreads.Stream if IS_POSTGRES_OR_GRPC_BACKEND else Threads.Stream
+if IS_POSTGRES_OR_GRPC_BACKEND:
+    CrudThreads = GrpcThreads
+else:
+    from langgraph_runtime.ops import Threads
+
+    CrudThreads = Threads
+
+grpc_connect = partial(connect, supports_core_api=IS_POSTGRES_OR_GRPC_BACKEND)
 
 
 @retry_db
@@ -58,27 +65,21 @@ async def create_thread(
     if thread_id := payload.get("thread_id"):
         validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
 
-    # Validate keep_latest TTL requires core API
-    ttl = payload.get("ttl")
-    if ttl and ttl.get("strategy") == "keep_latest" and not FF_USE_CORE_API:
-        raise HTTPException(
-            status_code=422,
-            detail="keep_latest TTL strategy requires FF_USE_CORE_API=true",
+    if IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption():
+        effective_payload = payload
+    else:
+        effective_payload = await encrypt_request(
+            payload,
+            "thread",
+            ["metadata"],
         )
-
-    # Encrypt metadata before storing
-    encrypted_payload = await encrypt_request(
-        payload,
-        "thread",
-        ["metadata"],
-    )
 
     async with connect() as conn:
         thread_id = thread_id or str(uuid4())
         iter = await CrudThreads.put(
             conn,
             thread_id,
-            metadata=encrypted_payload.get("metadata") or {},
+            metadata=effective_payload.get("metadata") or {},
             if_exists=payload.get("if_exists") or "raise",
             ttl=payload.get("ttl"),
         )
@@ -90,7 +91,7 @@ async def create_thread(
         }
         if supersteps := payload.get("supersteps"):
             try:
-                await Threads.State.bulk(
+                await CrudThreads.State.bulk(
                     conn,
                     config=config,
                     supersteps=supersteps,
@@ -99,13 +100,13 @@ async def create_thread(
                 detail = f"Thread {thread_id} was created, but there were problems updating the state: {e.detail}"
                 raise HTTPException(status_code=201, detail=detail) from e
 
-    # Decrypt thread fields in response
     thread = await fetchone(iter, not_found_code=409)
-    thread = await decrypt_response(
-        thread,
-        "thread",
-        THREAD_ENCRYPTION_FIELDS,
-    )
+    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
+        thread = await decrypt_response(
+            thread,
+            "thread",
+            THREAD_ENCRYPTION_FIELDS,
+        )
     return ApiResponse(thread)
 
 
@@ -119,7 +120,7 @@ async def search_threads(
     limit = int(payload.get("limit") or 10)
     offset = int(payload.get("offset") or 0)
 
-    async with connect() as conn:
+    async with grpc_connect() as conn:
         threads_iter, next_offset = await CrudThreads.search(
             conn,
             status=payload.get("status"),
@@ -136,12 +137,14 @@ async def search_threads(
         threads_iter, next_offset, offset
     )
 
-    # Decrypt metadata, values, interrupts, and error in all returned threads
-    decrypted_threads = await decrypt_responses(
-        threads,
-        "thread",
-        THREAD_ENCRYPTION_FIELDS,
-    )
+    if IS_POSTGRES_OR_GRPC_BACKEND and not using_aes_encryption():
+        decrypted_threads = threads
+    else:
+        decrypted_threads = await decrypt_responses(
+            threads,
+            "thread",
+            THREAD_ENCRYPTION_FIELDS,
+        )
 
     return ApiResponse(decrypted_threads, headers=response_headers)
 
@@ -152,7 +155,7 @@ async def count_threads(
 ):
     """Count threads."""
     payload = await request.json(ThreadCountRequest)
-    async with connect() as conn:
+    async with grpc_connect() as conn:
         count = await CrudThreads.count(
             conn,
             status=payload.get("status"),
@@ -178,7 +181,7 @@ async def get_thread_state(
             }
         }
         state = state_snapshot_to_thread_state(
-            await Threads.State.get(conn, config=config, subgraphs=subgraphs)
+            await CrudThreads.State.get(conn, config=config, subgraphs=subgraphs)
         )
     return ApiResponse(state)
 
@@ -200,7 +203,7 @@ async def get_thread_state_at_checkpoint(
             }
         }
         state = state_snapshot_to_thread_state(
-            await Threads.State.get(
+            await CrudThreads.State.get(
                 conn,
                 config=config,
                 subgraphs=request.query_params.get("subgraphs") in ("true", "True"),
@@ -226,7 +229,7 @@ async def get_thread_state_at_checkpoint_post(
             }
         }
         state = state_snapshot_to_thread_state(
-            await Threads.State.get(
+            await CrudThreads.State.get(
                 conn,
                 config=config,
                 subgraphs=payload.get("subgraphs", False),
@@ -255,7 +258,7 @@ async def update_thread_state(
         pass
     config["configurable"].update(get_configurable_headers(request.headers))
     async with connect() as conn:
-        inserted = await Threads.State.post(
+        inserted = await CrudThreads.State.post(
             conn,
             config,
             payload.get("values"),
@@ -287,7 +290,7 @@ async def get_thread_history(
     async with connect() as conn:
         states = [
             state_snapshot_to_thread_state(c)
-            for c in await Threads.State.list(
+            for c in await CrudThreads.State.list(
                 conn, config=config, limit=limit, before=before
             )
         ]
@@ -308,7 +311,7 @@ async def get_thread_history_post(
     async with connect() as conn:
         states = [
             state_snapshot_to_thread_state(c)
-            for c in await Threads.State.list(
+            for c in await CrudThreads.State.list(
                 conn,
                 config=config,
                 limit=int(payload.get("limit") or 1),
@@ -332,16 +335,16 @@ async def get_thread(
     include_fields = [f.strip() for f in include_param.split(",") if f.strip()]
     include_ttl = "ttl" in include_fields
 
-    async with connect() as conn:
+    async with grpc_connect() as conn:
         thread = await CrudThreads.get(conn, thread_id, include_ttl=include_ttl)
 
-    # Decrypt metadata, values, interrupts, and error in response
     thread_data = await fetchone(thread)
-    thread_data = await decrypt_response(
-        thread_data,
-        "thread",
-        THREAD_ENCRYPTION_FIELDS,
-    )
+    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
+        thread_data = await decrypt_response(
+            thread_data,
+            "thread",
+            THREAD_ENCRYPTION_FIELDS,
+        )
     return ApiResponse(thread_data)
 
 
@@ -354,35 +357,30 @@ async def patch_thread(
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     payload = await request.json(ThreadPatch)
 
-    # Validate keep_latest TTL requires core API
-    ttl = payload.get("ttl")
-    if ttl and ttl.get("strategy") == "keep_latest" and not FF_USE_CORE_API:
-        raise HTTPException(
-            status_code=422,
-            detail="keep_latest TTL strategy requires FF_USE_CORE_API=true",
+    if IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption():
+        effective_payload = payload
+    else:
+        effective_payload = await encrypt_request(
+            payload,
+            "thread",
+            ["metadata"],
         )
 
-    # Encrypt metadata before storing
-    encrypted_payload = await encrypt_request(
-        payload,
-        "thread",
-        ["metadata"],
-    )
-
-    async with connect() as conn:
+    async with grpc_connect() as conn:
         thread = await CrudThreads.patch(
             conn,
             thread_id,
-            metadata=encrypted_payload.get("metadata") or {},
+            metadata=effective_payload.get("metadata") or {},
             ttl=payload.get("ttl"),
         )
+
     thread_data = await fetchone(thread)
-    # Decrypt metadata, values, interrupts, and error in response
-    thread_data = await decrypt_response(
-        thread_data,
-        "thread",
-        THREAD_ENCRYPTION_FIELDS,
-    )
+    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
+        thread_data = await decrypt_response(
+            thread_data,
+            "thread",
+            THREAD_ENCRYPTION_FIELDS,
+        )
     return ApiResponse(thread_data)
 
 
@@ -391,7 +389,7 @@ async def delete_thread(request: ApiRequest):
     """Delete a thread by ID."""
     thread_id = request.path_params["thread_id"]
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
-    async with connect() as conn:
+    async with grpc_connect() as conn:
         tid = await CrudThreads.delete(conn, thread_id)
     await fetchone(tid)
     return Response(status_code=204)
@@ -419,12 +417,6 @@ async def prune_threads(request: ApiRequest):
     if not thread_ids:
         return ApiResponse({"pruned_count": 0})
 
-    if not FF_USE_CORE_API:
-        raise HTTPException(
-            status_code=422,
-            detail="Thread prune requires FF_USE_CORE_API=true",
-        )
-
     pruned_count = await CrudThreads.prune(
         thread_ids=thread_ids,
         strategy=strategy,
@@ -436,15 +428,16 @@ async def prune_threads(request: ApiRequest):
 @retry_db
 async def copy_thread(request: ApiRequest):
     thread_id = request.path_params["thread_id"]
-    async with connect() as conn:
+    async with grpc_connect() as conn:
         iter = await CrudThreads.copy(conn, thread_id)
+
     thread_data = await fetchone(iter, not_found_code=409)
-    # Decrypt metadata, values, interrupts, and error in response
-    thread_data = await decrypt_response(
-        thread_data,
-        "thread",
-        THREAD_ENCRYPTION_FIELDS,
-    )
+    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
+        thread_data = await decrypt_response(
+            thread_data,
+            "thread",
+            THREAD_ENCRYPTION_FIELDS,
+        )
     return ApiResponse(thread_data)
 
 
@@ -478,7 +471,7 @@ async def join_thread_stream(request: ApiRequest):
         stream_modes = ["run_modes"]
 
     return EventSourceResponse(
-        ThreadsStream.join(
+        CrudThreads.Stream.join(
             thread_id,
             last_event_id=last_event_id,
             stream_modes=stream_modes,

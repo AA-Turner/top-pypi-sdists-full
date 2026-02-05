@@ -11,9 +11,6 @@ from wbcore.contrib.notifications.backends.abstract_backend import (
     AbstractNotificationBackend,
 )
 from wbcore.contrib.notifications.models import Notification, NotificationUserToken
-from wbcore.contrib.notifications.models.notification_types import (
-    NotificationTypeSetting,
-)
 
 
 class NotificationBackend(AbstractNotificationBackend):
@@ -34,11 +31,8 @@ class NotificationBackend(AbstractNotificationBackend):
     @classmethod
     def send_notification(cls, notification: Notification):
         app = cls.get_firebase_app(cls.get_firebase_credentials())
-        notification_user_settings = NotificationTypeSetting.objects.get(
-            notification_type=notification.notification_type,
-            user=notification.user,
-        )
-        tokens = NotificationUserToken.objects.filter_for_user_settings(notification_user_settings)
+        notification_user_setting = notification.notification_type.get_setting_for_user(notification.user)
+        tokens = NotificationUserToken.objects.filter_for_user_settings(notification_user_setting)
         endpoint_data = {}  # Firebase can't accept non-string value
         if full_endpoint := notification.get_full_endpoint():
             endpoint_data["endpoint"] = full_endpoint

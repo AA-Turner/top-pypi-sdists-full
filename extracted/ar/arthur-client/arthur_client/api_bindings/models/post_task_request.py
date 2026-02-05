@@ -20,6 +20,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
+from arthur_client.api_bindings.models.agent_metadata import AgentMetadata
 from arthur_client.api_bindings.models.new_rule_request import NewRuleRequest
 from typing import Optional, Set
 from typing_extensions import Self
@@ -33,7 +34,8 @@ class PostTaskRequest(BaseModel):
     onboarding_identifier: Optional[StrictStr] = None
     rules_to_add: Optional[List[NewRuleRequest]] = Field(default=None, description="List of rules to add to the task.")
     is_agentic: Optional[StrictBool] = Field(default=False, description="Whether this task should be created as an agentic trace task. If True, no rules will be applied to the task.")
-    __properties: ClassVar[List[str]] = ["name", "connector_id", "onboarding_identifier", "rules_to_add", "is_agentic"]
+    agent_metadata: Optional[AgentMetadata] = None
+    __properties: ClassVar[List[str]] = ["name", "connector_id", "onboarding_identifier", "rules_to_add", "is_agentic", "agent_metadata"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -81,10 +83,18 @@ class PostTaskRequest(BaseModel):
                 if _item_rules_to_add:
                     _items.append(_item_rules_to_add.to_dict())
             _dict['rules_to_add'] = _items
+        # override the default output from pydantic by calling `to_dict()` of agent_metadata
+        if self.agent_metadata:
+            _dict['agent_metadata'] = self.agent_metadata.to_dict()
         # set to None if onboarding_identifier (nullable) is None
         # and model_fields_set contains the field
         if self.onboarding_identifier is None and "onboarding_identifier" in self.model_fields_set:
             _dict['onboarding_identifier'] = None
+
+        # set to None if agent_metadata (nullable) is None
+        # and model_fields_set contains the field
+        if self.agent_metadata is None and "agent_metadata" in self.model_fields_set:
+            _dict['agent_metadata'] = None
 
         return _dict
 
@@ -102,7 +112,8 @@ class PostTaskRequest(BaseModel):
             "connector_id": obj.get("connector_id"),
             "onboarding_identifier": obj.get("onboarding_identifier"),
             "rules_to_add": [NewRuleRequest.from_dict(_item) for _item in obj["rules_to_add"]] if obj.get("rules_to_add") is not None else None,
-            "is_agentic": obj.get("is_agentic") if obj.get("is_agentic") is not None else False
+            "is_agentic": obj.get("is_agentic") if obj.get("is_agentic") is not None else False,
+            "agent_metadata": AgentMetadata.from_dict(obj["agent_metadata"]) if obj.get("agent_metadata") is not None else None
         })
         return _obj
 

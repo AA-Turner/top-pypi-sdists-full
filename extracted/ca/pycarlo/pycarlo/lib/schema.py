@@ -11677,6 +11677,7 @@ class IMonitor(sgqlc.types.Interface):
         "domain_uuids",
         "is_ootb_replacement",
         "timeout",
+        "is_agent_trace_aggregation",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Unique identifier for monitors"""
@@ -11894,6 +11895,9 @@ class IMonitor(sgqlc.types.Interface):
 
     timeout = sgqlc.types.Field(Int, graphql_name="timeout")
     """Timeout for the SQL query"""
+
+    is_agent_trace_aggregation = sgqlc.types.Field(Boolean, graphql_name="isAgentTraceAggregation")
+    """If True, aggregate spans by trace_id for agent metric monitors."""
 
 
 class IMonitorStatus(sgqlc.types.Interface):
@@ -19041,6 +19045,26 @@ class CustomSQLOutputSample(sgqlc.types.Type):
     """Total number of samples retrieved."""
 
 
+class CustomSQLOutputSampleWithExceptions(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("data", "metadata", "exception_primary_key_column", "sampling_disabled")
+    data = sgqlc.types.Field("SampleDataSection", graphql_name="data")
+    """Read-only sample data from the custom SQL execution"""
+
+    metadata = sgqlc.types.Field("ExceptionMetadataSection", graphql_name="metadata")
+    """Updatable exception metadata for each row"""
+
+    exception_primary_key_column = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="exceptionPrimaryKeyColumn"
+    )
+    """The primary key column name used to identify exceptions"""
+
+    sampling_disabled = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="samplingDisabled"
+    )
+    """Whether sampling is disabled for this job execution"""
+
+
 class CustomSQLTemplateConnection(sgqlc.types.relay.Connection):
     __schema__ = schema
     __field_names__ = ("page_info", "edges", "total_count", "edge_count")
@@ -20410,6 +20434,18 @@ class DatasetEntity(sgqlc.types.Type):
     __field_names__ = ("dataset_id",)
     dataset_id = sgqlc.types.Field(String, graphql_name="datasetId")
     """Dataset ID"""
+
+
+class DateTimeAttribute(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("is_updatable", "date_time_value")
+    is_updatable = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isUpdatable")
+    """Whether this attribute can be updated by users"""
+
+    date_time_value = sgqlc.types.Field(
+        sgqlc.types.non_null(DateTime), graphql_name="dateTimeValue"
+    )
+    """DateTime value"""
 
 
 class DbtConnectionDetails(sgqlc.types.Type):
@@ -22835,6 +22871,22 @@ class EventTypeSummary(sgqlc.types.Type):
     comparison_rule_anom = sgqlc.types.Field(Int, graphql_name="comparisonRuleAnom")
 
 
+class ExceptionMetadataSection(sgqlc.types.Type):
+    """Data associated to each sampled row. Columns and rows can be
+    matched to SampleDataSection by index.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("columns", "rows")
+    columns = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="columns")
+    """Metadata column names"""
+
+    rows = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.list_of("ExceptionMetadataRowValue")), graphql_name="rows"
+    )
+    """Exception metadata rows, matching the order of data rows."""
+
+
 class ExecDashboardDataColumn(sgqlc.types.Type):
     """A column for a table."""
 
@@ -24763,6 +24815,16 @@ class Insight(sgqlc.types.Type):
 
     available = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="available")
     """True if this insight is currently available"""
+
+
+class IntegerAttribute(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("is_updatable", "integer_value")
+    is_updatable = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isUpdatable")
+    """Whether this attribute can be updated by users"""
+
+    integer_value = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="integerValue")
+    """Integer value"""
 
 
 class IntegrationKey(sgqlc.types.Type):
@@ -27099,7 +27161,6 @@ class MonitorDataSource(sgqlc.types.Type):
         "uuid",
         "connection_uuid",
         "custom_sql",
-        "is_agent_trace_aggregation",
         "type",
         "schema",
         "tables",
@@ -27111,9 +27172,6 @@ class MonitorDataSource(sgqlc.types.Type):
     """The connection uuid"""
 
     custom_sql = sgqlc.types.Field(String, graphql_name="customSql")
-
-    is_agent_trace_aggregation = sgqlc.types.Field(Boolean, graphql_name="isAgentTraceAggregation")
-    """If True, aggregate spans by trace_id for agent monitors"""
 
     type = sgqlc.types.Field(sgqlc.types.non_null(DataSourceType), graphql_name="type")
 
@@ -48448,6 +48506,7 @@ class Query(sgqlc.types.Type):
         "get_platform_migration_test_status",
         "get_platform_migration_status",
         "get_caas_collection_node_parameters",
+        "get_monitor_exceptions",
         "evaluate_data_source",
         "evaluate_sql_blocks",
         "generate_mc_sql",
@@ -48839,6 +48898,7 @@ class Query(sgqlc.types.Type):
         "get_common_fields",
         "get_common_fields_v2",
         "get_tsa_availability",
+        "is_tsa_available_for_alert",
         "get_user_settings",
         "get_shared_query",
         "favorite_assets",
@@ -49703,6 +49763,28 @@ class Query(sgqlc.types.Type):
 
     * `service_uuid` (`UUID`): Platform Service UUID. To disambiguate
       accounts with multiple services
+    """
+
+    get_monitor_exceptions = sgqlc.types.Field(
+        CustomSQLOutputSampleWithExceptions,
+        graphql_name="getMonitorExceptions",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "job_execution_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="jobExecutionUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Retrieves monitor exception records
+
+    Arguments:
+
+    * `job_execution_uuid` (`UUID!`): JobExecution to fetch the output
+      sample for
     """
 
     evaluate_data_source = sgqlc.types.Field(
@@ -64195,6 +64277,37 @@ class Query(sgqlc.types.Type):
     get_tsa_availability = sgqlc.types.Field("TSAAvailability", graphql_name="getTsaAvailability")
     """(experimental) Get Troubleshooting Agent availability"""
 
+    is_tsa_available_for_alert = sgqlc.types.Field(
+        Boolean,
+        graphql_name="isTsaAvailableForAlert",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "alert_type",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(AlertType), graphql_name="alertType", default=None
+                    ),
+                ),
+                (
+                    "alert_sub_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(AlertSubType)),
+                        graphql_name="alertSubTypes",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Check if TSA is available for a specific alert type
+    and subtypes
+
+    Arguments:
+
+    * `alert_type` (`AlertType!`)None
+    * `alert_sub_types` (`[AlertSubType]!`)None
+    """
+
     get_user_settings = sgqlc.types.Field(
         sgqlc.types.list_of("UserSettings"),
         graphql_name="getUserSettings",
@@ -68374,6 +68487,18 @@ class SamlIdentityProvider(sgqlc.types.Type):
     """The metadata in XML format"""
 
 
+class SampleDataSection(sgqlc.types.Type):
+    """Sampled monitor breach data"""
+
+    __schema__ = schema
+    __field_names__ = ("columns", "rows")
+    columns = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="columns")
+    """Column names from the sample data"""
+
+    rows = sgqlc.types.Field(sgqlc.types.list_of(sgqlc.types.list_of(String)), graphql_name="rows")
+    """Sample data rows"""
+
+
 class SaveEventOnboardingData(sgqlc.types.Type):
     """Save event onboarding configuration"""
 
@@ -70119,6 +70244,16 @@ class StreamingSystemWithClusters(sgqlc.types.Type):
     cluster_connections = sgqlc.types.Field(
         sgqlc.types.list_of(Connection), graphql_name="clusterConnections"
     )
+
+
+class StringAttribute(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("is_updatable", "string_value")
+    is_updatable = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isUpdatable")
+    """Whether this attribute can be updated by users"""
+
+    string_value = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="stringValue")
+    """String value"""
 
 
 class SupportedTableValidationsResponse(sgqlc.types.Type):
@@ -74361,6 +74496,25 @@ class UsageAlertConfigOutput(sgqlc.types.Type):
 
     disabled = sgqlc.types.Field(Boolean, graphql_name="disabled")
     """Disable the alert (optional)"""
+
+
+class UserAttribute(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("user_email", "user_id", "first_name", "last_name", "is_updatable")
+    user_email = sgqlc.types.Field(String, graphql_name="userEmail")
+    """Email of the user."""
+
+    user_id = sgqlc.types.Field(String, graphql_name="userId")
+    """UUID of the user."""
+
+    first_name = sgqlc.types.Field(String, graphql_name="firstName")
+    """First name of the user."""
+
+    last_name = sgqlc.types.Field(String, graphql_name="lastName")
+    """Last name of the user."""
+
+    is_updatable = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isUpdatable")
+    """Whether this attribute can be updated by users"""
 
 
 class UserAuthorizationOutput(sgqlc.types.Type):
@@ -82385,6 +82539,7 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "connection_id",
         "timeout",
         "domain_uuids",
+        "is_agent_trace_aggregation",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
 
@@ -82622,6 +82777,9 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         sgqlc.types.list_of(sgqlc.types.non_null(UUID)), graphql_name="domainUuids"
     )
     """Domain UUIDs assigned to the monitor."""
+
+    is_agent_trace_aggregation = sgqlc.types.Field(Boolean, graphql_name="isAgentTraceAggregation")
+    """If True, aggregate spans by trace_id for agent metric monitors."""
 
 
 class Monitor(
@@ -86402,6 +86560,11 @@ class ETLJobUnionType(sgqlc.types.Union):
 class ETLTaskUnionType(sgqlc.types.Union):
     __schema__ = schema
     __types__ = (AirflowTask, DatabricksTask, AdfTask)
+
+
+class ExceptionMetadataRowValue(sgqlc.types.Union):
+    __schema__ = schema
+    __types__ = (IntegerAttribute, DateTimeAttribute, UserAttribute, StringAttribute)
 
 
 class ExtendedRca(sgqlc.types.Union):

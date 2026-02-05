@@ -29036,7 +29036,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_50sandwich_categorical_comp
  * 
  * 
  * def multiply_complex(             # <<<<<<<<<<<<<<
- *     int[:] indices,
+ *     const int[:] indices,
  *     win_numeric[:] d,
 */
 
@@ -29367,7 +29367,7 @@ static PyObject *__pyx_fuse_0__pyx_pw_6tabmat_3ext_11categorical_55multiply_comp
       values[4] = __Pyx_ArgRef_VARARGS(__pyx_args, 4);
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 221, __pyx_L3_error)
     }
-    __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 222, __pyx_L3_error)
+    __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 222, __pyx_L3_error)
     __pyx_v_d = __Pyx_PyObject_to_MemoryviewSlice_ds_short(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_d.memview)) __PYX_ERR(0, 223, __pyx_L3_error)
     __pyx_v_ncols = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_ncols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 224, __pyx_L3_error)
     __pyx_v_dtype = values[3];
@@ -29661,7 +29661,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_54multiply_complex(CYTHON_U
  *             vnew_indices[nonref_cnt] = indices[i] - drop_first
 */
     __pyx_t_13 = __pyx_v_i;
-    __pyx_t_14 = ((*((int *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) >= __pyx_v_drop_first);
+    __pyx_t_14 = ((*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) >= __pyx_v_drop_first);
     if (__pyx_t_14) {
 
       /* "tabmat/ext/categorical.pyx":265
@@ -29684,7 +29684,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_54multiply_complex(CYTHON_U
 */
       __pyx_t_13 = __pyx_v_i;
       __pyx_t_15 = __pyx_v_nonref_cnt;
-      *((int *) ( /* dim=0 */ (__pyx_v_vnew_indices.data + __pyx_t_15 * __pyx_v_vnew_indices.strides[0]) )) = ((*((int *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) - __pyx_v_drop_first);
+      *((int *) ( /* dim=0 */ (__pyx_v_vnew_indices.data + __pyx_t_15 * __pyx_v_vnew_indices.strides[0]) )) = ((*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) - __pyx_v_drop_first);
 
       /* "tabmat/ext/categorical.pyx":267
  *             vnew_data[nonref_cnt] = d[i]
@@ -29746,7 +29746,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_54multiply_complex(CYTHON_U
  * 
  * 
  * def multiply_complex(             # <<<<<<<<<<<<<<
- *     int[:] indices,
+ *     const int[:] indices,
  *     win_numeric[:] d,
 */
 
@@ -29846,7 +29846,7 @@ static PyObject *__pyx_fuse_1__pyx_pw_6tabmat_3ext_11categorical_57multiply_comp
       values[4] = __Pyx_ArgRef_VARARGS(__pyx_args, 4);
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 221, __pyx_L3_error)
     }
-    __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 222, __pyx_L3_error)
+    __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 222, __pyx_L3_error)
     __pyx_v_d = __Pyx_PyObject_to_MemoryviewSlice_ds_int(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_d.memview)) __PYX_ERR(0, 223, __pyx_L3_error)
     __pyx_v_ncols = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_ncols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 224, __pyx_L3_error)
     __pyx_v_dtype = values[3];
@@ -30139,7 +30139,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_56multiply_complex(CYTHON_U
  *             vnew_indices[nonref_cnt] = indices[i] - drop_first
 */
     __pyx_t_12 = __pyx_v_i;
-    __pyx_t_13 = ((*((int *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_12 * __pyx_v_indices.strides[0]) ))) >= __pyx_v_drop_first);
+    __pyx_t_13 = ((*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_12 * __pyx_v_indices.strides[0]) ))) >= __pyx_v_drop_first);
     if (__pyx_t_13) {
 
       /* "tabmat/ext/categorical.pyx":265
@@ -30162,7 +30162,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_56multiply_complex(CYTHON_U
 */
       __pyx_t_12 = __pyx_v_i;
       __pyx_t_14 = __pyx_v_nonref_cnt;
-      *((int *) ( /* dim=0 */ (__pyx_v_vnew_indices.data + __pyx_t_14 * __pyx_v_vnew_indices.strides[0]) )) = ((*((int *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_12 * __pyx_v_indices.strides[0]) ))) - __pyx_v_drop_first);
+      *((int *) ( /* dim=0 */ (__pyx_v_vnew_indices.data + __pyx_t_14 * __pyx_v_vnew_indices.strides[0]) )) = ((*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_12 * __pyx_v_indices.strides[0]) ))) - __pyx_v_drop_first);
 
       /* "tabmat/ext/categorical.pyx":267
  *             vnew_data[nonref_cnt] = d[i]
@@ -30224,7 +30224,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_56multiply_complex(CYTHON_U
  * 
  * 
  * def multiply_complex(             # <<<<<<<<<<<<<<
- *     int[:] indices,
+ *     const int[:] indices,
  *     win_numeric[:] d,
 */
 
@@ -30323,7 +30323,7 @@ static PyObject *__pyx_fuse_2__pyx_pw_6tabmat_3ext_11categorical_59multiply_comp
       values[4] = __Pyx_ArgRef_VARARGS(__pyx_args, 4);
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 221, __pyx_L3_error)
     }
-    __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 222, __pyx_L3_error)
+    __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 222, __pyx_L3_error)
     __pyx_v_d = __Pyx_PyObject_to_MemoryviewSlice_ds_long(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_d.memview)) __PYX_ERR(0, 223, __pyx_L3_error)
     __pyx_v_ncols = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_ncols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 224, __pyx_L3_error)
     __pyx_v_dtype = values[3];
@@ -30617,7 +30617,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_58multiply_complex(CYTHON_U
  *             vnew_indices[nonref_cnt] = indices[i] - drop_first
 */
     __pyx_t_13 = __pyx_v_i;
-    __pyx_t_14 = ((*((int *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) >= __pyx_v_drop_first);
+    __pyx_t_14 = ((*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) >= __pyx_v_drop_first);
     if (__pyx_t_14) {
 
       /* "tabmat/ext/categorical.pyx":265
@@ -30640,7 +30640,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_58multiply_complex(CYTHON_U
 */
       __pyx_t_13 = __pyx_v_i;
       __pyx_t_15 = __pyx_v_nonref_cnt;
-      *((int *) ( /* dim=0 */ (__pyx_v_vnew_indices.data + __pyx_t_15 * __pyx_v_vnew_indices.strides[0]) )) = ((*((int *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) - __pyx_v_drop_first);
+      *((int *) ( /* dim=0 */ (__pyx_v_vnew_indices.data + __pyx_t_15 * __pyx_v_vnew_indices.strides[0]) )) = ((*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) - __pyx_v_drop_first);
 
       /* "tabmat/ext/categorical.pyx":267
  *             vnew_data[nonref_cnt] = d[i]
@@ -30702,7 +30702,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_58multiply_complex(CYTHON_U
  * 
  * 
  * def multiply_complex(             # <<<<<<<<<<<<<<
- *     int[:] indices,
+ *     const int[:] indices,
  *     win_numeric[:] d,
 */
 
@@ -30802,7 +30802,7 @@ static PyObject *__pyx_fuse_3__pyx_pw_6tabmat_3ext_11categorical_61multiply_comp
       values[4] = __Pyx_ArgRef_VARARGS(__pyx_args, 4);
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 221, __pyx_L3_error)
     }
-    __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 222, __pyx_L3_error)
+    __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 222, __pyx_L3_error)
     __pyx_v_d = __Pyx_PyObject_to_MemoryviewSlice_ds_float(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_d.memview)) __PYX_ERR(0, 223, __pyx_L3_error)
     __pyx_v_ncols = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_ncols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 224, __pyx_L3_error)
     __pyx_v_dtype = values[3];
@@ -31096,7 +31096,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_60multiply_complex(CYTHON_U
  *             vnew_indices[nonref_cnt] = indices[i] - drop_first
 */
     __pyx_t_13 = __pyx_v_i;
-    __pyx_t_14 = ((*((int *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) >= __pyx_v_drop_first);
+    __pyx_t_14 = ((*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) >= __pyx_v_drop_first);
     if (__pyx_t_14) {
 
       /* "tabmat/ext/categorical.pyx":265
@@ -31119,7 +31119,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_60multiply_complex(CYTHON_U
 */
       __pyx_t_13 = __pyx_v_i;
       __pyx_t_15 = __pyx_v_nonref_cnt;
-      *((int *) ( /* dim=0 */ (__pyx_v_vnew_indices.data + __pyx_t_15 * __pyx_v_vnew_indices.strides[0]) )) = ((*((int *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) - __pyx_v_drop_first);
+      *((int *) ( /* dim=0 */ (__pyx_v_vnew_indices.data + __pyx_t_15 * __pyx_v_vnew_indices.strides[0]) )) = ((*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) - __pyx_v_drop_first);
 
       /* "tabmat/ext/categorical.pyx":267
  *             vnew_data[nonref_cnt] = d[i]
@@ -31181,7 +31181,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_60multiply_complex(CYTHON_U
  * 
  * 
  * def multiply_complex(             # <<<<<<<<<<<<<<
- *     int[:] indices,
+ *     const int[:] indices,
  *     win_numeric[:] d,
 */
 
@@ -31281,7 +31281,7 @@ static PyObject *__pyx_fuse_4__pyx_pw_6tabmat_3ext_11categorical_63multiply_comp
       values[4] = __Pyx_ArgRef_VARARGS(__pyx_args, 4);
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 221, __pyx_L3_error)
     }
-    __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 222, __pyx_L3_error)
+    __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 222, __pyx_L3_error)
     __pyx_v_d = __Pyx_PyObject_to_MemoryviewSlice_ds_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_d.memview)) __PYX_ERR(0, 223, __pyx_L3_error)
     __pyx_v_ncols = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_ncols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 224, __pyx_L3_error)
     __pyx_v_dtype = values[3];
@@ -31575,7 +31575,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_62multiply_complex(CYTHON_U
  *             vnew_indices[nonref_cnt] = indices[i] - drop_first
 */
     __pyx_t_13 = __pyx_v_i;
-    __pyx_t_14 = ((*((int *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) >= __pyx_v_drop_first);
+    __pyx_t_14 = ((*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) >= __pyx_v_drop_first);
     if (__pyx_t_14) {
 
       /* "tabmat/ext/categorical.pyx":265
@@ -31598,7 +31598,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_62multiply_complex(CYTHON_U
 */
       __pyx_t_13 = __pyx_v_i;
       __pyx_t_15 = __pyx_v_nonref_cnt;
-      *((int *) ( /* dim=0 */ (__pyx_v_vnew_indices.data + __pyx_t_15 * __pyx_v_vnew_indices.strides[0]) )) = ((*((int *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) - __pyx_v_drop_first);
+      *((int *) ( /* dim=0 */ (__pyx_v_vnew_indices.data + __pyx_t_15 * __pyx_v_vnew_indices.strides[0]) )) = ((*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) - __pyx_v_drop_first);
 
       /* "tabmat/ext/categorical.pyx":267
  *             vnew_data[nonref_cnt] = d[i]
@@ -31660,7 +31660,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_62multiply_complex(CYTHON_U
  * 
  * 
  * def multiply_complex(             # <<<<<<<<<<<<<<
- *     int[:] indices,
+ *     const int[:] indices,
  *     win_numeric[:] d,
 */
 
@@ -31760,7 +31760,7 @@ static PyObject *__pyx_fuse_5__pyx_pw_6tabmat_3ext_11categorical_65multiply_comp
       values[4] = __Pyx_ArgRef_VARARGS(__pyx_args, 4);
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 221, __pyx_L3_error)
     }
-    __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 222, __pyx_L3_error)
+    __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 222, __pyx_L3_error)
     __pyx_v_d = __Pyx_PyObject_to_MemoryviewSlice_ds___pyx_t_float_complex(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_d.memview)) __PYX_ERR(0, 223, __pyx_L3_error)
     __pyx_v_ncols = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_ncols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 224, __pyx_L3_error)
     __pyx_v_dtype = values[3];
@@ -32054,7 +32054,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_64multiply_complex(CYTHON_U
  *             vnew_indices[nonref_cnt] = indices[i] - drop_first
 */
     __pyx_t_13 = __pyx_v_i;
-    __pyx_t_14 = ((*((int *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) >= __pyx_v_drop_first);
+    __pyx_t_14 = ((*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) >= __pyx_v_drop_first);
     if (__pyx_t_14) {
 
       /* "tabmat/ext/categorical.pyx":265
@@ -32077,7 +32077,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_64multiply_complex(CYTHON_U
 */
       __pyx_t_13 = __pyx_v_i;
       __pyx_t_15 = __pyx_v_nonref_cnt;
-      *((int *) ( /* dim=0 */ (__pyx_v_vnew_indices.data + __pyx_t_15 * __pyx_v_vnew_indices.strides[0]) )) = ((*((int *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) - __pyx_v_drop_first);
+      *((int *) ( /* dim=0 */ (__pyx_v_vnew_indices.data + __pyx_t_15 * __pyx_v_vnew_indices.strides[0]) )) = ((*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) - __pyx_v_drop_first);
 
       /* "tabmat/ext/categorical.pyx":267
  *             vnew_data[nonref_cnt] = d[i]
@@ -32139,7 +32139,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_64multiply_complex(CYTHON_U
  * 
  * 
  * def multiply_complex(             # <<<<<<<<<<<<<<
- *     int[:] indices,
+ *     const int[:] indices,
  *     win_numeric[:] d,
 */
 
@@ -32239,7 +32239,7 @@ static PyObject *__pyx_fuse_6__pyx_pw_6tabmat_3ext_11categorical_67multiply_comp
       values[4] = __Pyx_ArgRef_VARARGS(__pyx_args, 4);
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 221, __pyx_L3_error)
     }
-    __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 222, __pyx_L3_error)
+    __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 222, __pyx_L3_error)
     __pyx_v_d = __Pyx_PyObject_to_MemoryviewSlice_ds___pyx_t_double_complex(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_d.memview)) __PYX_ERR(0, 223, __pyx_L3_error)
     __pyx_v_ncols = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_ncols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 224, __pyx_L3_error)
     __pyx_v_dtype = values[3];
@@ -32533,7 +32533,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_66multiply_complex(CYTHON_U
  *             vnew_indices[nonref_cnt] = indices[i] - drop_first
 */
     __pyx_t_13 = __pyx_v_i;
-    __pyx_t_14 = ((*((int *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) >= __pyx_v_drop_first);
+    __pyx_t_14 = ((*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) >= __pyx_v_drop_first);
     if (__pyx_t_14) {
 
       /* "tabmat/ext/categorical.pyx":265
@@ -32556,7 +32556,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_66multiply_complex(CYTHON_U
 */
       __pyx_t_13 = __pyx_v_i;
       __pyx_t_15 = __pyx_v_nonref_cnt;
-      *((int *) ( /* dim=0 */ (__pyx_v_vnew_indices.data + __pyx_t_15 * __pyx_v_vnew_indices.strides[0]) )) = ((*((int *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) - __pyx_v_drop_first);
+      *((int *) ( /* dim=0 */ (__pyx_v_vnew_indices.data + __pyx_t_15 * __pyx_v_vnew_indices.strides[0]) )) = ((*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) - __pyx_v_drop_first);
 
       /* "tabmat/ext/categorical.pyx":267
  *             vnew_data[nonref_cnt] = d[i]
@@ -32618,7 +32618,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_66multiply_complex(CYTHON_U
  * 
  * 
  * def multiply_complex(             # <<<<<<<<<<<<<<
- *     int[:] indices,
+ *     const int[:] indices,
  *     win_numeric[:] d,
 */
 
@@ -32718,7 +32718,7 @@ static PyObject *__pyx_fuse_7__pyx_pw_6tabmat_3ext_11categorical_69multiply_comp
       values[4] = __Pyx_ArgRef_VARARGS(__pyx_args, 4);
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 221, __pyx_L3_error)
     }
-    __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 222, __pyx_L3_error)
+    __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 222, __pyx_L3_error)
     __pyx_v_d = __Pyx_PyObject_to_MemoryviewSlice_ds_PY_LONG_LONG(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_d.memview)) __PYX_ERR(0, 223, __pyx_L3_error)
     __pyx_v_ncols = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_ncols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 224, __pyx_L3_error)
     __pyx_v_dtype = values[3];
@@ -33012,7 +33012,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_68multiply_complex(CYTHON_U
  *             vnew_indices[nonref_cnt] = indices[i] - drop_first
 */
     __pyx_t_13 = __pyx_v_i;
-    __pyx_t_14 = ((*((int *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) >= __pyx_v_drop_first);
+    __pyx_t_14 = ((*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) >= __pyx_v_drop_first);
     if (__pyx_t_14) {
 
       /* "tabmat/ext/categorical.pyx":265
@@ -33035,7 +33035,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_68multiply_complex(CYTHON_U
 */
       __pyx_t_13 = __pyx_v_i;
       __pyx_t_15 = __pyx_v_nonref_cnt;
-      *((int *) ( /* dim=0 */ (__pyx_v_vnew_indices.data + __pyx_t_15 * __pyx_v_vnew_indices.strides[0]) )) = ((*((int *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) - __pyx_v_drop_first);
+      *((int *) ( /* dim=0 */ (__pyx_v_vnew_indices.data + __pyx_t_15 * __pyx_v_vnew_indices.strides[0]) )) = ((*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_13 * __pyx_v_indices.strides[0]) ))) - __pyx_v_drop_first);
 
       /* "tabmat/ext/categorical.pyx":267
  *             vnew_data[nonref_cnt] = d[i]
@@ -33097,7 +33097,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_68multiply_complex(CYTHON_U
  * 
  * 
  * def multiply_complex(             # <<<<<<<<<<<<<<
- *     int[:] indices,
+ *     const int[:] indices,
  *     win_numeric[:] d,
 */
 
@@ -33129,7 +33129,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_68multiply_complex(CYTHON_U
  * 
  * 
  * def subset_categorical_complex(             # <<<<<<<<<<<<<<
- *     int[:] indices,
+ *     const int[:] indices,
  *     int ncols,
 */
 
@@ -33208,7 +33208,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 274, __pyx_L3_error)
     }
-    __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 275, __pyx_L3_error)
+    __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 275, __pyx_L3_error)
     __pyx_v_ncols = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_ncols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 276, __pyx_L3_error)
     __pyx_v_drop_first = __Pyx_PyObject_IsTrue(values[2]); if (unlikely((__pyx_v_drop_first == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 277, __pyx_L3_error)
   }
@@ -33439,7 +33439,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_16subset_categorical_comple
  *             nonzero_cnt += 1
 */
     __pyx_t_12 = __pyx_v_i;
-    __pyx_t_13 = ((*((int *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_12 * __pyx_v_indices.strides[0]) ))) >= __pyx_v_drop_first);
+    __pyx_t_13 = ((*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_12 * __pyx_v_indices.strides[0]) ))) >= __pyx_v_drop_first);
     if (__pyx_t_13) {
 
       /* "tabmat/ext/categorical.pyx":310
@@ -33451,7 +33451,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_16subset_categorical_comple
 */
       __pyx_t_12 = __pyx_v_i;
       __pyx_t_14 = __pyx_v_nonzero_cnt;
-      *((int *) ( /* dim=0 */ (__pyx_v_vnew_indices.data + __pyx_t_14 * __pyx_v_vnew_indices.strides[0]) )) = ((*((int *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_12 * __pyx_v_indices.strides[0]) ))) - __pyx_v_drop_first);
+      *((int *) ( /* dim=0 */ (__pyx_v_vnew_indices.data + __pyx_t_14 * __pyx_v_vnew_indices.strides[0]) )) = ((*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_12 * __pyx_v_indices.strides[0]) ))) - __pyx_v_drop_first);
 
       /* "tabmat/ext/categorical.pyx":311
  *         if indices[i] >= drop_first:
@@ -33511,7 +33511,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_16subset_categorical_comple
  * 
  * 
  * def subset_categorical_complex(             # <<<<<<<<<<<<<<
- *     int[:] indices,
+ *     const int[:] indices,
  *     int ncols,
 */
 
@@ -35989,7 +35989,7 @@ __Pyx_RefNannySetupContext("PyInit_categorical", 0);
  * 
  * 
  * def multiply_complex(             # <<<<<<<<<<<<<<
- *     int[:] indices,
+ *     const int[:] indices,
  *     win_numeric[:] d,
 */
   __pyx_t_4 = __Pyx_PyDict_NewPresized(8); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 221, __pyx_L1_error)
@@ -36080,7 +36080,7 @@ __Pyx_RefNannySetupContext("PyInit_categorical", 0);
  * 
  * 
  * def subset_categorical_complex(             # <<<<<<<<<<<<<<
- *     int[:] indices,
+ *     const int[:] indices,
  *     int ncols,
 */
   __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6tabmat_3ext_11categorical_17subset_categorical_complex, 0, __pyx_mstate_global->__pyx_n_u_subset_categorical_complex, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[28])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 274, __pyx_L1_error)

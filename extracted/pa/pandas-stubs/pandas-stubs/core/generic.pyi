@@ -11,12 +11,13 @@ from collections.abc import (
 )
 import datetime as dt
 import sqlite3
-import sys
 from typing import (
     Any,
     ClassVar,
     Concatenate,
     Literal,
+    Never,
+    Self,
     final,
     overload,
 )
@@ -25,11 +26,7 @@ import numpy as np
 from pandas import Index
 from pandas.core.resample import DatetimeIndexResampler
 from pandas.core.series import Series
-import sqlalchemy.engine
-from typing_extensions import (
-    Never,
-    Self,
-)
+from sqlalchemy.engine import Connectable
 
 from pandas._libs.lib import NoDefaultDoNotUse
 from pandas._typing import (
@@ -105,23 +102,15 @@ class NDFrame:
     @property
     def empty(self) -> _bool: ...
     __array_priority__: int = ...
-    if sys.version_info >= (3, 11):
-        def __array__(
-            self, dtype: _str | np.dtype = ..., copy: _bool | None = ...
-        ) -> np_1darray: ...
-    else:
-        def __array__(
-            self, dtype: _str | np.dtype[Any] = ..., copy: _bool | None = ...
-        ) -> np_1darray: ...
-
+    def __array__(
+        self, dtype: _str | np.dtype = ..., copy: _bool | None = ...
+    ) -> np_1darray: ...
     @final
     def __delitem__(self, key: Hashable) -> None: ...
     @final
     def to_excel(
         self,
-        excel_writer: (  # pyright: ignore[reportUnknownParameterType]
-            FilePath | WriteExcelBuffer | ExcelWriter
-        ),
+        excel_writer: FilePath | WriteExcelBuffer | ExcelWriter,
         sheet_name: _str = "Sheet1",
         na_rep: _str = "",
         float_format: _str | None = ...,
@@ -179,7 +168,7 @@ class NDFrame:
     def to_sql(
         self,
         name: _str,
-        con: str | sqlalchemy.engine.Connectable | sqlite3.Connection,
+        con: str | Connectable | sqlite3.Connection,
         *,
         schema: _str | None = None,
         if_exists: Literal["fail", "replace", "append", "delete_rows"] = "fail",

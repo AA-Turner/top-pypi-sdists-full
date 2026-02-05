@@ -1,7 +1,7 @@
 """
 BLAST_protein_search
 
-Search protein sequences using NCBI BLAST blastp against protein databases
+Search protein sequences using NCBI BLAST blastp against protein databases. Requires Biopython (i...
 """
 
 from typing import Any, Optional, Callable
@@ -19,7 +19,7 @@ def BLAST_protein_search(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Search protein sequences using NCBI BLAST blastp against protein databases
+    Search protein sequences using NCBI BLAST blastp against protein databases. Requires Biopython (i...
 
     Parameters
     ----------

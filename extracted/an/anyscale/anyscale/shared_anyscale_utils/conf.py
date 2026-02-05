@@ -24,6 +24,9 @@ ANYSCALE_CORS_ORIGINS = {
     "https://console.predeploy.anyscale.dev": "https://*.predeploy.anyscale.dev",
 }
 
+# Required ExposeHeaders for CORS configuration to support file viewer feature
+ANYSCALE_CORS_EXPOSE_HEADERS = ["Accept-Ranges", "Content-Range", "Content-Length"]
+
 ANYSCALE_EXTERNAL_API_ENDPOINTS = {
     "development": "https://anyscale-dev.dev/ext",
     "staging": "https://api.anyscale-staging.com",

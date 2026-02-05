@@ -14,7 +14,7 @@ def Crossref_get_journal(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Optional[dict[str, Any]]:
     """
     Get metadata for a specific journal by its ISSN (International Standard Serial Number). Returns j...
 
@@ -31,7 +31,7 @@ def Crossref_get_journal(
 
     Returns
     -------
-    dict[str, Any]
+    Optional[dict[str, Any]]
     """
     # Handle mutable defaults to avoid B006 linting error
 

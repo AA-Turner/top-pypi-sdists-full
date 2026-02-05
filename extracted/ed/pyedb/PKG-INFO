@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyedb
-Version: 0.68.0
+Version: 0.68.2
 Summary: Higher-Level Pythonic Ansys Electronics Data Base
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: PyEDB developers <simon.vandenbrouck@ansys.com>
