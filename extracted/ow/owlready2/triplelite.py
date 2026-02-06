@@ -908,8 +908,8 @@ class SubGraph(BaseSubGraph):
               new_abbrevs.append((storid, iri))
         return storid
       
-    if filename: date = os.path.getmtime(filename)
-    else:        date = time.time()
+    if filename and os.path.exists(filename): date = os.path.getmtime(filename)
+    else:                                     date = time.time()
     
     def insert_objs(triples):
       objs = [(_abbreviate(s), _abbreviate(p), _abbreviate(o)) for s, p, o in triples]

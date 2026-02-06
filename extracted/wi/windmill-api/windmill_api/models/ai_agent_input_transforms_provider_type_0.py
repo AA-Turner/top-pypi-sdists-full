@@ -1,55 +1,59 @@
-from typing import Any, Dict, List, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.ai_agent_input_transforms_provider_type_0_type import AiAgentInputTransformsProviderType0Type
-from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.ai_agent_input_transforms_provider_type_0_value import AiAgentInputTransformsProviderType0Value
+
 
 T = TypeVar("T", bound="AiAgentInputTransformsProviderType0")
 
 
 @_attrs_define
 class AiAgentInputTransformsProviderType0:
-    """Static value passed directly to the step. Use for hardcoded values or resource references like
-    '$res:path/to/resource'
+    """Static provider configuration passed directly to the AI agent
 
-        Attributes:
-            type (AiAgentInputTransformsProviderType0Type):
-            value (Union[Unset, Any]): The static value. For resources, use format '$res:path/to/resource'
+    Attributes:
+        value (AiAgentInputTransformsProviderType0Value): Complete AI provider configuration with resource reference and
+            model selection
+        type (AiAgentInputTransformsProviderType0Type):
     """
 
+    value: "AiAgentInputTransformsProviderType0Value"
     type: AiAgentInputTransformsProviderType0Type
-    value: Union[Unset, Any] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
-        type = self.type.value
+        value = self.value.to_dict()
 
-        value = self.value
+        type = self.type.value
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
+                "value": value,
                 "type": type,
             }
         )
-        if value is not UNSET:
-            field_dict["value"] = value
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.ai_agent_input_transforms_provider_type_0_value import AiAgentInputTransformsProviderType0Value
+
         d = src_dict.copy()
+        value = AiAgentInputTransformsProviderType0Value.from_dict(d.pop("value"))
+
         type = AiAgentInputTransformsProviderType0Type(d.pop("type"))
 
-        value = d.pop("value", UNSET)
-
         ai_agent_input_transforms_provider_type_0 = cls(
-            type=type,
             value=value,
+            type=type,
         )
 
         ai_agent_input_transforms_provider_type_0.additional_properties = d

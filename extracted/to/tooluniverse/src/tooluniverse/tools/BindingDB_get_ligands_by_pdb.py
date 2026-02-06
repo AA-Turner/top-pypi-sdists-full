@@ -1,0 +1,59 @@
+"""
+BindingDB_get_ligands_by_pdb
+
+Get binding affinity data for proteins by PDB structure ID. Returns ligands with measured affinit...
+"""
+
+from typing import Any, Optional, Callable
+from ._shared_client import get_shared_client
+
+
+def BindingDB_get_ligands_by_pdb(
+    pdb_ids: str,
+    affinity_cutoff: Optional[int] = 10000,
+    sequence_identity: Optional[int] = 100,
+    *,
+    stream_callback: Optional[Callable[[str], None]] = None,
+    use_cache: bool = False,
+    validate: bool = True,
+) -> list[Any]:
+    """
+    Get binding affinity data for proteins by PDB structure ID. Returns ligands with measured affinit...
+
+    Parameters
+    ----------
+    pdb_ids : str
+        Comma-separated PDB IDs (e.g., 1Q0L,3ANM)
+    affinity_cutoff : int
+        Maximum affinity in nM (default: 10000)
+    sequence_identity : int
+        Minimum sequence identity % (default: 100)
+    stream_callback : Callable, optional
+        Callback for streaming output
+    use_cache : bool, default False
+        Enable caching
+    validate : bool, default True
+        Validate parameters
+
+    Returns
+    -------
+    list[Any]
+    """
+    # Handle mutable defaults to avoid B006 linting error
+
+    return get_shared_client().run_one_function(
+        {
+            "name": "BindingDB_get_ligands_by_pdb",
+            "arguments": {
+                "pdb_ids": pdb_ids,
+                "affinity_cutoff": affinity_cutoff,
+                "sequence_identity": sequence_identity,
+            },
+        },
+        stream_callback=stream_callback,
+        use_cache=use_cache,
+        validate=validate,
+    )
+
+
+__all__ = ["BindingDB_get_ligands_by_pdb"]

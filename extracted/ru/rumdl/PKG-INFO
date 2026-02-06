@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rumdl
-Version: 0.1.12
+Version: 0.1.13
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -102,12 +102,13 @@ With intelligent caching, subsequent runs are even faster - rumdl only re-lints 
 - [Installation](#installation)
   - [Using Homebrew (macOS/Linux)](#using-homebrew-macoslinux)
   - [Using Cargo (Rust)](#using-cargo-rust)
+  - [Using npm](#using-npm)
   - [Using pip (Python)](#using-pip-python)
   - [Using uv](#using-uv)
   - [Using mise](#using-mise)
   - [Using Nix (macOS/Linux)](#using-nix-macoslinux)
   - [Using Termux User Repository (TUR) (Android)](#using-termux-user-repository-tur-android)
-  - [Using Archlinux User Repository](#using-archlinux-user-repository)
+  - [Using pacman (Arch Linux)](#using-pacman-arch-linux)
   - [Download binary](#download-binary)
   - [Editor Plugins](#editor-plugins)
 - [Usage](#usage)
@@ -182,6 +183,18 @@ brew install rumdl
 cargo install rumdl
 ```
 
+### Using npm
+
+```bash
+npm install -g rumdl
+```
+
+Or as a dev dependency:
+
+```bash
+npm install --save-dev rumdl
+```
+
 ### Using pip (Python)
 
 ```bash
@@ -212,7 +225,7 @@ mise ls-remote rumdl
 mise install rumdl
 
 # Use a specific version for the project
-mise use rumdl@0.1.12
+mise use rumdl@0.1.13
 ```
 
 ### Using Nix (macOS/Linux)
@@ -240,22 +253,12 @@ pkg install tur-repo
 pkg install rumdl
 ```
 
-### Using Archlinux User Repository
+### Using pacman (Arch Linux)
 
-[![rumdl on AUR](https://img.shields.io/aur/version/rumdl?label=rumdl)](https://aur.archlinux.org/packages/rumdl/)
-[![rumdl-bin on AUR](https://img.shields.io/aur/version/rumdl-bin?label=rumdl-bin)](https://aur.archlinux.org/packages/rumdl-bin/)
-
-rumdl is available on the [AUR](https://wiki.archlinux.org/index.php/Arch_User_Repository):
-
-- [rumdl](https://aur.archlinux.org/packages/rumdl/) (release package)
-- [rumdl-bin](https://aur.archlinux.org/packages/rumdl-bin/) (binary package)
-
-You can install it using your [AUR helper](https://wiki.archlinux.org/index.php/AUR_helpers) of choice.
+rumdl is available in the [official Arch Linux repositories](https://archlinux.org/packages/extra/x86_64/rumdl/):
 
 ```bash
-yay -Sy rumdl
-# OR
-yay -Sy rumdl-bin
+pacman -S rumdl
 ```
 
 ### Download binary
@@ -372,7 +375,7 @@ Add the following to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.1.12
+    rev: v0.1.13
     hooks:
       - id: rumdl      # Lint only (fails on issues)
       - id: rumdl-fmt  # Auto-format and fail if issues remain
@@ -406,7 +409,7 @@ However, for pre-commit workflows where you want to exclude certain files even w
    ```yaml
    repos:
      - repo: https://github.com/rvben/rumdl-pre-commit
-       rev: v0.1.12
+       rev: v0.1.13
        hooks:
          - id: rumdl
            args: [--force-exclude]  # Respect exclude patterns from config

@@ -3162,6 +3162,13 @@ class CSSLParser:
                 else:
                     self.error(f"Expected 'constr' after '{constr_modifier}'")
 
+            # v4.9.11: Handle this->member = value initialization in class body
+            elif self._check(TokenType.KEYWORD) and self._current().value == 'this':
+                stmt = self._parse_expression_statement()
+                if stmt:
+                    wrapped = ASTNode('class_body_init', value={'statement': stmt})
+                    node.children.append(wrapped)
+
             else:
                 self._advance()
 
@@ -5440,6 +5447,10 @@ class CSSLParser:
             token = self._advance()
             return ASTNode('pointer_ref', value=token.value)
 
+        # v4.9.11: Handle 'this' keyword — delegate to _parse_primary for proper this-> support
+        if self._check(TokenType.KEYWORD) and self._current().value == 'this':
+            return self._parse_primary()
+
         # Handle identifiers and function calls
         if self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD):
             name = self._advance().value
@@ -6368,7 +6379,17 @@ class CSSLParser:
                 # :: scope access on result of member access (e.g., obj.enumMember::VALUE)
                 member = self._advance().value
                 node = ASTNode('scope_access', value={'object': node, 'member': member})
-            elif self._match(TokenType.PAREN_START):
+            elif self._check(TokenType.PAREN_START):
+                # v4.9.11: Prevent cross-line call chaining after completed calls
+                # f(x)(y) on same line = intentional chaining
+                # f(x)\n(y...) = separate statement, not chaining
+                if node.type == 'call' and self.pos > 0:
+                    prev_token = self.tokens[self.pos - 1]
+                    curr_token = self._current()
+                    if (hasattr(prev_token, 'line') and hasattr(curr_token, 'line')
+                            and curr_token.line > prev_token.line):
+                        break
+                self._advance()  # consume (
                 args, kwargs = self._parse_call_arguments()
                 self._expect(TokenType.PAREN_END)
                 node = ASTNode('call', value={'callee': node, 'args': args, 'kwargs': kwargs})

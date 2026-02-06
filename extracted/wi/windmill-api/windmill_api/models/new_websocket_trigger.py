@@ -22,19 +22,21 @@ T = TypeVar("T", bound="NewWebsocketTrigger")
 class NewWebsocketTrigger:
     """
     Attributes:
-        path (str):
-        script_path (str):
-        is_flow (bool):
-        url (str):
-        filters (List['NewWebsocketTriggerFiltersItem']):
-        can_return_message (bool):
-        can_return_error_result (bool):
+        path (str): The unique path identifier for this trigger
+        script_path (str): Path to the script or flow to execute when a message is received
+        is_flow (bool): True if script_path points to a flow, false if it points to a script
+        url (str): The WebSocket URL to connect to (can be a static URL or computed by a runnable)
+        filters (List['NewWebsocketTriggerFiltersItem']): Array of key-value filters to match incoming messages (only
+            matching messages trigger the script)
+        can_return_message (bool): If true, the script can return a message to send back through the WebSocket
+        can_return_error_result (bool): If true, error results are sent back through the WebSocket
         mode (Union[Unset, NewWebsocketTriggerMode]): job trigger mode
         initial_messages (Union[Unset, List[Union['NewWebsocketTriggerInitialMessagesItemType0',
-            'NewWebsocketTriggerInitialMessagesItemType1']]]):
+            'NewWebsocketTriggerInitialMessagesItemType1']]]): Messages to send immediately after connecting (can be raw
+            strings or computed by runnables)
         url_runnable_args (Union[Unset, NewWebsocketTriggerUrlRunnableArgs]): The arguments to pass to the script or
             flow
-        error_handler_path (Union[Unset, str]):
+        error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, NewWebsocketTriggerErrorHandlerArgs]): The arguments to pass to the script or
             flow
         retry (Union[Unset, NewWebsocketTriggerRetry]): Retry configuration for failed module executions

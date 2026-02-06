@@ -158,7 +158,7 @@ def channels_group(
     undo: bool | None = None,
     /,
     *,
-    name: str = "New Group",
+    name: str = "",
 ) -> None:
     """Add selected F-Curves to a new group
 
@@ -630,6 +630,18 @@ def replace_action(
 
     :param old_session_uid: Old Action, Old Actions session uid to replace
     :param new_session_uid: Replacement Action, The replacement Actions session uid to remap all selected Actions users to
+    """
+
+def replace_action_new(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    old_session_uid: int | None = 0,
+) -> None:
+    """Swap all users of one action to a new action. This ignores the NLA and Action Constraints
+
+    :param old_session_uid: Old Action, Old Actions session uid to replace
     """
 
 def scene_range_frame(

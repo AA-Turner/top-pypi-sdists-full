@@ -93,14 +93,6 @@ class FileOps:
     DOWNLOAD_DIR = "/tmp"
 
     @staticmethod
-    def read_content(file_obj:File, max_length=10000) -> str:
-        return ""
-
-    @staticmethod
-    def get_local_path(file_obj:File) -> str:
-        return file_obj.url
-
-    @staticmethod
     def _get_bytes_stream(file_obj:File) -> tuple[bytes, str]:
         """
         获取文件内容和后缀, 5MB大小限制检查, 超出抛异常

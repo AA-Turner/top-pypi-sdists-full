@@ -578,7 +578,7 @@ fn run_pythonw_script() -> Result<()> {
 
 /// Run a PEP 723-compatible script with `tool.uv` metadata.
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn run_pep723_script_metadata() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -1478,7 +1478,12 @@ fn run_with_overlay_interpreter() -> Result<()> {
     ");
 
     // Switch to a relocatable virtual environment.
-    context.venv().arg("--relocatable").assert().success();
+    context
+        .venv()
+        .arg("--allow-existing")
+        .arg("--relocatable")
+        .assert()
+        .success();
 
     // Cleanup previous shutil
     fs_err::remove_file(context.temp_dir.child("main"))?;

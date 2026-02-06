@@ -197,7 +197,7 @@ fn find_uv_bin_base_prefix() {
     "
     );
 
-    context.venv().assert().success();
+    context.venv().arg("--clear").assert().success();
 
     // Mutate `base_prefix` to simulate lookup in a system Python installation
     uv_snapshot!(context.filters(), context.python_command()
@@ -472,7 +472,7 @@ fn find_uv_bin_error_message() {
     );
 }
 
-#[cfg(feature = "python-eol")]
+#[cfg(feature = "test-python-eol")]
 #[test]
 fn find_uv_bin_py38() {
     let context = TestContext::new("3.8")

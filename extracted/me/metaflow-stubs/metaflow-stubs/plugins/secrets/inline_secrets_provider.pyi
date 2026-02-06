@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.17                                                                                #
-# Generated on 2026-01-22T21:47:05.911669                                                            #
+# MF version: 2.19.18                                                                                #
+# Generated on 2026-02-05T18:18:14.348682                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import abc
 import metaflow
+import abc
 import typing
 if typing.TYPE_CHECKING:
-    import abc
     import metaflow.plugins.secrets
+    import abc
 
 from . import SecretsProvider as SecretsProvider
 

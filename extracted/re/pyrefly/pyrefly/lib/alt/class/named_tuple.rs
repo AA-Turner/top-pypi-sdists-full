@@ -97,27 +97,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Required::Required,
         )];
         params.extend(self.get_named_tuple_field_params(cls, elements));
-        let ty = Type::Function(Box::new(Function {
+        let ty = self.heap.mk_function(Function {
             signature: Callable::list(
                 ParamList::new(params),
                 Type::SelfType(self.as_class_type_unchecked(cls)),
             ),
             metadata: FuncMetadata::def(self.module().dupe(), cls.dupe(), dunder::NEW),
-        }));
+        });
         ClassSynthesizedField::new(ty)
     }
 
-    fn get_named_tuple_init(
-        &self,
-        cls: &Class,
-        elements: &SmallSet<Name>,
-    ) -> ClassSynthesizedField {
-        let mut params = vec![self.class_self_param(cls, false)];
-        params.extend(self.get_named_tuple_field_params(cls, elements));
-        let ty = Type::Function(Box::new(Function {
+    fn get_named_tuple_init(&self, cls: &Class) -> ClassSynthesizedField {
+        let params = vec![
+            self.class_self_param(cls, false),
+            // NamedTuple.__init__ accepts any args at runtime; rely on __new__ for checking.
+            Param::VarArg(None, Type::any_implicit()),
+            Param::Kwargs(None, Type::any_implicit()),
+        ];
+        let ty = self.heap.mk_function(Function {
             signature: Callable::list(ParamList::new(params), Type::None),
             metadata: FuncMetadata::def(self.module().dupe(), cls.dupe(), dunder::INIT),
-        }));
+        });
         ClassSynthesizedField::new(ty)
     }
 
@@ -136,13 +136,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 },
             )
             .collect();
-        let ty = Type::Function(Box::new(Function {
+        let ty = self.heap.mk_function(Function {
             signature: Callable::list(
                 ParamList::new(params),
                 Type::ClassType(self.stdlib.iterable(self.unions(element_types))),
             ),
             metadata: FuncMetadata::def(self.module().dupe(), cls.dupe(), dunder::ITER),
-        }));
+        });
         ClassSynthesizedField::new(ty)
     }
 
@@ -164,7 +164,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let named_tuple = metadata.named_tuple_metadata()?;
         Some(ClassSynthesizedFields::new(smallmap! {
             dunder::NEW => self.get_named_tuple_new(cls, &named_tuple.elements),
-            dunder::INIT => self.get_named_tuple_init(cls, &named_tuple.elements),
+            dunder::INIT => self.get_named_tuple_init(cls),
             dunder::MATCH_ARGS => self.get_named_tuple_match_args(&named_tuple.elements),
             dunder::ITER => self.get_named_tuple_iter(cls, &named_tuple.elements)
         }))

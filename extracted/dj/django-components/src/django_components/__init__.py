@@ -6,6 +6,7 @@
 from django_components.app_settings import ContextBehavior, ComponentsSettings
 from django_components.attributes import format_attributes, merge_attributes
 from django_components.autodiscovery import autodiscover, import_libraries
+from django_components.dependencies import Dependency, DependencyKind, Script, Style
 from django_components.util.command import (
     CommandArg,
     CommandArgGroup,
@@ -20,7 +21,6 @@ from django_components.component import (
     ComponentInput,
     ComponentNode,
     ComponentVars,
-    OnRenderGenerator,
     all_components,
     get_component_by_class_id,
 )
@@ -34,22 +34,24 @@ from django_components.component_registry import (
     registry,
     all_registries,
 )
+from django_components.component_render import OnRenderGenerator
 from django_components.dependencies import DependenciesStrategy, render_dependencies
 from django_components.extension import (
     ComponentExtension,
     ExtensionComponentConfig,
+    OnComponentClassCreatedContext,
+    OnComponentClassDeletedContext,
+    OnComponentDataContext,
+    OnComponentInputContext,
     OnComponentRegisteredContext,
+    OnComponentRenderedContext,
     OnComponentUnregisteredContext,
     OnCssLoadedContext,
+    OnDependenciesContext,
     OnExtensionCreatedContext,
     OnJsLoadedContext,
     OnRegistryCreatedContext,
     OnRegistryDeletedContext,
-    OnComponentClassCreatedContext,
-    OnComponentClassDeletedContext,
-    OnComponentInputContext,
-    OnComponentDataContext,
-    OnComponentRenderedContext,
     OnSlotRenderedContext,
     OnTemplateCompiledContext,
     OnTemplateLoadedContext,
@@ -121,6 +123,8 @@ __all__ = [
     "ContextBehavior",
     "Default",
     "DependenciesStrategy",
+    "Dependency",
+    "DependencyKind",
     "DynamicComponent",
     "Empty",
     "ErrorFallback",
@@ -135,6 +139,7 @@ __all__ = [
     "OnComponentRenderedContext",
     "OnComponentUnregisteredContext",
     "OnCssLoadedContext",
+    "OnDependenciesContext",
     "OnExtensionCreatedContext",
     "OnJsLoadedContext",
     "OnRegistryCreatedContext",
@@ -145,6 +150,7 @@ __all__ = [
     "OnTemplateLoadedContext",
     "ProvideNode",
     "RegistrySettings",
+    "Script",
     "ShorthandComponentFormatter",
     "Slot",
     "SlotContent",
@@ -155,6 +161,7 @@ __all__ = [
     "SlotNode",
     "SlotRef",
     "SlotResult",
+    "Style",
     "TagFormatterABC",
     "TagProtectedError",
     "TagResult",

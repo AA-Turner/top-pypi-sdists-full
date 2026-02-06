@@ -19,6 +19,7 @@ from tests.sdk.conftest import (
     MockSnapshotView,
     MockBenchmarkView,
     MockBlueprintView,
+    MockGatewayConfigView,
     MockNetworkPolicyView,
     create_mock_httpx_response,
 )
@@ -38,8 +39,10 @@ from runloop_api_client.sdk import (
     SnapshotOps,
     BenchmarkOps,
     BlueprintOps,
+    GatewayConfig,
     NetworkPolicy,
     StorageObject,
+    GatewayConfigOps,
     NetworkPolicyOps,
     StorageObjectOps,
 )
@@ -679,7 +682,8 @@ class TestScorerOps:
 
     def test_list_empty(self, mock_client: Mock) -> None:
         """Test list method with empty results."""
-        mock_client.scenarios.scorers.list.return_value = []
+        page = SimpleNamespace(scorers=[])
+        mock_client.scenarios.scorers.list.return_value = page
 
         ops = ScorerOps(mock_client)
         scorers = ops.list(limit=10)
@@ -689,7 +693,8 @@ class TestScorerOps:
 
     def test_list_single(self, mock_client: Mock, scorer_view: MockScorerView) -> None:
         """Test list method with single result."""
-        mock_client.scenarios.scorers.list.return_value = [scorer_view]
+        page = SimpleNamespace(scorers=[scorer_view])
+        mock_client.scenarios.scorers.list.return_value = page
 
         ops = ScorerOps(mock_client)
         scorers = ops.list(
@@ -706,7 +711,8 @@ class TestScorerOps:
         """Test list method with multiple results."""
         scorer_view1 = MockScorerView(id="scorer_001", type="scorer-1")
         scorer_view2 = MockScorerView(id="scorer_002", type="scorer-2")
-        mock_client.scenarios.scorers.list.return_value = [scorer_view1, scorer_view2]
+        page = SimpleNamespace(scorers=[scorer_view1, scorer_view2])
+        mock_client.scenarios.scorers.list.return_value = page
 
         ops = ScorerOps(mock_client)
         scorers = ops.list(limit=10)
@@ -1062,8 +1068,8 @@ class TestScenarioOps:
 
     def test_list_empty(self, mock_client: Mock) -> None:
         """Test list method with empty results."""
-
-        mock_client.scenarios.list.return_value = []
+        page = SimpleNamespace(scenarios=[])
+        mock_client.scenarios.list.return_value = page
 
         ops = ScenarioOps(mock_client)
         scenarios = ops.list(limit=10)
@@ -1073,8 +1079,8 @@ class TestScenarioOps:
 
     def test_list_single(self, mock_client: Mock, scenario_view: MockScenarioView) -> None:
         """Test list method with single result."""
-
-        mock_client.scenarios.list.return_value = [scenario_view]
+        page = SimpleNamespace(scenarios=[scenario_view])
+        mock_client.scenarios.list.return_value = page
 
         ops = ScenarioOps(mock_client)
         scenarios = ops.list(limit=10)
@@ -1086,10 +1092,10 @@ class TestScenarioOps:
 
     def test_list_multiple(self, mock_client: Mock) -> None:
         """Test list method with multiple results."""
-
         scenario_view1 = MockScenarioView(id="scn_001", name="scenario-1")
         scenario_view2 = MockScenarioView(id="scn_002", name="scenario-2")
-        mock_client.scenarios.list.return_value = [scenario_view1, scenario_view2]
+        page = SimpleNamespace(scenarios=[scenario_view1, scenario_view2])
+        mock_client.scenarios.list.return_value = page
 
         ops = ScenarioOps(mock_client)
         scenarios = ops.list(limit=10)
@@ -1182,7 +1188,8 @@ class TestNetworkPolicyOps:
 
     def test_list_empty(self, mock_client: Mock) -> None:
         """Test list method with empty results."""
-        mock_client.network_policies.list.return_value = []
+        page = SimpleNamespace(network_policies=[])
+        mock_client.network_policies.list.return_value = page
 
         ops = NetworkPolicyOps(mock_client)
         network_policies = ops.list(limit=10)
@@ -1192,7 +1199,8 @@ class TestNetworkPolicyOps:
 
     def test_list_single(self, mock_client: Mock, network_policy_view: MockNetworkPolicyView) -> None:
         """Test list method with single result."""
-        mock_client.network_policies.list.return_value = [network_policy_view]
+        page = SimpleNamespace(network_policies=[network_policy_view])
+        mock_client.network_policies.list.return_value = page
 
         ops = NetworkPolicyOps(mock_client)
         network_policies = ops.list(
@@ -1209,7 +1217,8 @@ class TestNetworkPolicyOps:
         """Test list method with multiple results."""
         network_policy_view1 = MockNetworkPolicyView(id="np_001", name="policy-1")
         network_policy_view2 = MockNetworkPolicyView(id="np_002", name="policy-2")
-        mock_client.network_policies.list.return_value = [network_policy_view1, network_policy_view2]
+        page = SimpleNamespace(network_policies=[network_policy_view1, network_policy_view2])
+        mock_client.network_policies.list.return_value = page
 
         ops = NetworkPolicyOps(mock_client)
         network_policies = ops.list(limit=10)
@@ -1222,6 +1231,77 @@ class TestNetworkPolicyOps:
         mock_client.network_policies.list.assert_called_once()
 
 
+class TestGatewayConfigOps:
+    """Tests for GatewayConfigOps class."""
+
+    def test_create(self, mock_client: Mock, gateway_config_view: MockGatewayConfigView) -> None:
+        """Test create method."""
+        mock_client.gateway_configs.create.return_value = gateway_config_view
+
+        ops = GatewayConfigOps(mock_client)
+        gateway_config = ops.create(
+            name="test-gateway-config",
+            endpoint="https://api.example.com",
+            auth_mechanism={"type": "bearer"},
+        )
+
+        assert isinstance(gateway_config, GatewayConfig)
+        assert gateway_config.id == "gwc_123"
+        mock_client.gateway_configs.create.assert_called_once()
+
+    def test_from_id(self, mock_client: Mock) -> None:
+        """Test from_id method."""
+        ops = GatewayConfigOps(mock_client)
+        gateway_config = ops.from_id("gwc_123")
+
+        assert isinstance(gateway_config, GatewayConfig)
+        assert gateway_config.id == "gwc_123"
+
+    def test_list_empty(self, mock_client: Mock) -> None:
+        """Test list method with empty results."""
+        page = SimpleNamespace(gateway_configs=[])
+        mock_client.gateway_configs.list.return_value = page
+
+        ops = GatewayConfigOps(mock_client)
+        gateway_configs = ops.list(limit=10)
+
+        assert len(gateway_configs) == 0
+        mock_client.gateway_configs.list.assert_called_once()
+
+    def test_list_single(self, mock_client: Mock, gateway_config_view: MockGatewayConfigView) -> None:
+        """Test list method with single result."""
+        page = SimpleNamespace(gateway_configs=[gateway_config_view])
+        mock_client.gateway_configs.list.return_value = page
+
+        ops = GatewayConfigOps(mock_client)
+        gateway_configs = ops.list(
+            limit=10,
+            starting_after="gwc_000",
+        )
+
+        assert len(gateway_configs) == 1
+        assert isinstance(gateway_configs[0], GatewayConfig)
+        assert gateway_configs[0].id == "gwc_123"
+        mock_client.gateway_configs.list.assert_called_once()
+
+    def test_list_multiple(self, mock_client: Mock) -> None:
+        """Test list method with multiple results."""
+        gateway_config_view1 = MockGatewayConfigView(id="gwc_001", name="gateway-1")
+        gateway_config_view2 = MockGatewayConfigView(id="gwc_002", name="gateway-2")
+        page = SimpleNamespace(gateway_configs=[gateway_config_view1, gateway_config_view2])
+        mock_client.gateway_configs.list.return_value = page
+
+        ops = GatewayConfigOps(mock_client)
+        gateway_configs = ops.list(limit=10)
+
+        assert len(gateway_configs) == 2
+        assert isinstance(gateway_configs[0], GatewayConfig)
+        assert isinstance(gateway_configs[1], GatewayConfig)
+        assert gateway_configs[0].id == "gwc_001"
+        assert gateway_configs[1].id == "gwc_002"
+        mock_client.gateway_configs.list.assert_called_once()
+
+
 class TestRunloopSDK:
     """Tests for RunloopSDK class."""
 
@@ -1232,6 +1312,7 @@ class TestRunloopSDK:
         assert isinstance(runloop.agent, AgentOps)
         assert isinstance(runloop.benchmark, BenchmarkOps)
         assert isinstance(runloop.devbox, DevboxOps)
+        assert isinstance(runloop.gateway_config, GatewayConfigOps)
         assert isinstance(runloop.network_policy, NetworkPolicyOps)
         assert isinstance(runloop.scorer, ScorerOps)
         assert isinstance(runloop.snapshot, SnapshotOps)

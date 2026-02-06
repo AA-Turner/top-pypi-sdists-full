@@ -12,6 +12,7 @@ from chalk.features.feature_field import Feature
 from chalk.features.inference import generate_inference_resolver
 from chalk.features.resolver import ResourceHint
 from chalk.features.underscore import Underscore, UnderscoreCast, UnderscoreFunction
+from chalk.functions.avro import avro_deserialize
 from chalk.functions.holidays import DayOfWeek
 from chalk.functions.http import http_delete, http_get, http_post, http_put, http_request
 from chalk.functions.proto import (
@@ -1590,6 +1591,50 @@ def map_get(mapping: Mapping[KeyType, ValueType], key: Any):
     value_type = pa.scalar([v for v in mapping.values()]).type.value_type
     map_type = pa.map_(key_type, value_type)
     return UnderscoreFunction("map_get", pa.scalar(mapping, type=map_type), key)
+
+
+def map_keys(mapping: Underscore):
+    """
+    Get the keys of a map as a list.
+
+    Parameters
+    ----------
+    mapping
+        The map to get the keys from.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Transaction:
+    ...    id: int
+    ...    metadata: dict[str, str]
+    ...    metadata_keys: list[str] = F.map_keys(_.metadata)
+    """
+    return UnderscoreFunction("map_keys", mapping)
+
+
+def map_values(mapping: Underscore):
+    """
+    Get the values of a map as a list.
+
+    Parameters
+    ----------
+    mapping
+        The map to get the values from.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Transaction:
+    ...    id: int
+    ...    metadata: dict[str, float]
+    ...    metadata_values: list[float] = F.map_values(_.metadata)
+    """
+    return UnderscoreFunction("map_values", mapping)
 
 
 def struct_pack(mapping: Mapping[str, Underscore | Any]):
@@ -5999,6 +6044,7 @@ __all__ = (
     "array_sum",
     "arrays_overlap",
     "asin",
+    "avro_deserialize",
     "bankers_round",
     "between",
     "bitwise_and",
@@ -6080,6 +6126,8 @@ __all__ = (
     "ltrim",
     "map_dict",
     "map_get",
+    "map_keys",
+    "map_values",
     "max",
     "max_by",
     "max_by_n",

@@ -51,7 +51,7 @@ interactions:
               userGroups:
                 - id: adminGroup
                   type: userGroup
-            - authId: CiQ3MmJmOWI3My05MDkwLTRlNWEtOTc0Yi1kZTAyYzE0NDlhMGESBWxvY2Fs
+            - authId: CiQwODQwMjI5Ni0zNjZiLTQyNzctODM0Mi0zZmE2YzY0MWQwYzMSBWxvY2Fs
               email: demo@example.com
               firstname: Demo
               id: demo
@@ -61,7 +61,7 @@ interactions:
               userGroups:
                 - id: adminGroup
                   type: userGroup
-            - authId: CiRmNjg4MWVhNy1jYzljLTQ0MmEtYjllMS02NDE3NTRmYzJlYzUSBWxvY2Fs
+            - authId: CiQ0ZGY4NTEyNi01MDY4LTRlOWItODkxMS0yMWViYzFhNmU4YjMSBWxvY2Fs
               id: demo2
               permissions: []
               settings: []
@@ -117,7 +117,7 @@ interactions:
               userGroups:
                 - id: adminGroup
                   type: userGroup
-            - authId: CiQ3MmJmOWI3My05MDkwLTRlNWEtOTc0Yi1kZTAyYzE0NDlhMGESBWxvY2Fs
+            - authId: CiQwODQwMjI5Ni0zNjZiLTQyNzctODM0Mi0zZmE2YzY0MWQwYzMSBWxvY2Fs
               email: demo@example.com
               firstname: Demo
               id: demo
@@ -127,7 +127,7 @@ interactions:
               userGroups:
                 - id: adminGroup
                   type: userGroup
-            - authId: CiRmNjg4MWVhNy1jYzljLTQ0MmEtYjllMS02NDE3NTRmYzJlYzUSBWxvY2Fs
+            - authId: CiQ0ZGY4NTEyNi01MDY4LTRlOWItODkxMS0yMWViYzFhNmU4YjMSBWxvY2Fs
               id: demo2
               permissions: []
               settings: []
@@ -217,8 +217,6 @@ interactions:
       body:
         string:
           data:
-            id: default
-            type: organization
             attributes:
               name: Default Organization
               hostname: localhost
@@ -233,6 +231,8 @@ interactions:
                 - enableUserManagement
                 - enableRawExports
                 - enableFlexibleDashboardLayout
+            id: default
+            type: organization
           links:
             self: http://localhost:3000/api/v1/entities/admin/organizations/default
   - request:
@@ -318,8 +318,6 @@ interactions:
       body:
         string:
           data:
-            id: default
-            type: organization
             attributes:
               name: Default Organization
               hostname: localhost
@@ -334,5 +332,7 @@ interactions:
                 - enableUserManagement
                 - enableRawExports
                 - enableFlexibleDashboardLayout
+            id: default
+            type: organization
           links:
             self: http://localhost:3000/api/v1/entities/admin/organizations/default

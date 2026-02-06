@@ -23,7 +23,7 @@ from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFil
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_functions import ExtendedFunctionsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_raw import ExtendedRawAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.location_filters import LocationFiltersAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.location_filters import LocationFiltersAPI as LegacyLocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawAPI, RawDatabasesAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics import RoboticsAPI
@@ -45,7 +45,9 @@ from .api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from .api.hosted_extractor_mappings import HostedExtractorMappingsAPI
 from .api.hosted_extractor_sources import HostedExtractorSourcesAPI
 from .api.infield import APMConfigAPI, InfieldAPI, InFieldCDMConfigAPI, InfieldConfigAPI
+from .api.instances import InstancesAPI
 from .api.labels import LabelsAPI
+from .api.location_filters import LocationFiltersAPI
 from .api.lookup import (
     AssetLookUpAPI,
     DataSetLookUpAPI,
@@ -119,7 +121,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.project = MagicMock(spec_set=ProjectAPI)
 
         self.search = MagicMock(spec=SearchAPI)
-        self.search.locations = MagicMock(spec_set=LocationFiltersAPI)
+        self.search.locations = MagicMock(spec_set=LegacyLocationFiltersAPI)
         self.search.configurations = MagicMock(spec_set=SearchConfigurationsAPI)
         self.dml = MagicMock(spec_set=DMLAPI)
         self.lookup = MagicMock(spec=LookUpGroup)
@@ -159,6 +161,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.assets = MagicMock(spec_set=AssetsAPI)
         self.tool.timeseries = MagicMock(spec_set=TimeSeriesAPI)
         self.tool.filemetadata = MagicMock(spec_set=FileMetadataAPI)
+        self.tool.instances = MagicMock(spec=InstancesAPI)
+        self.tool.location_filters = MagicMock(spec=LocationFiltersAPI)
         self.tool.events = MagicMock(spec_set=EventsAPI)
         self.tool.simulators = MagicMock(spec=SimulatorsAPI)
         self.tool.simulators.models = MagicMock(spec_set=SimulatorModelsAPI)

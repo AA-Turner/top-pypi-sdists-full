@@ -10,7 +10,8 @@ T = TypeVar("T", bound="CreateMqttTriggerJsonBodyV3Config")
 
 @_attrs_define
 class CreateMqttTriggerJsonBodyV3Config:
-    """
+    """MQTT v3 specific configuration (clean_session)
+
     Attributes:
         clean_session (Union[Unset, bool]):
     """

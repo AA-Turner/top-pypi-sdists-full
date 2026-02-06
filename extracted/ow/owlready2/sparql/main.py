@@ -679,12 +679,23 @@ class SQLQuery(FuncSupport):
       
       sql += """%s FROM """ % (", ".join(str(column.binding) for column in self.columns))
       table_2_preceding = {}
+      
+      # Force l'utilisation des table FTS en priorité
+      fts_tables   = [table for table in self.tables if     table.name.startswith("fts")]
+      if fts_tables:
+        other_tables = [table for table in self.tables if not table.name.startswith("fts")]
+        if other_tables:
+          self.tables = fts_tables + other_tables
+          for i in range(len(fts_tables)):
+            table = self.tables[i + 1]
+            if table.join != ",": continue
+            table.join = "CROSS JOIN"
+            
       for table in self.tables:
         preceding = self._find_join_preceding_table(table)
         if preceding: table_2_preceding[table] = preceding
         
       if table_2_preceding:
-        #tables = list(self.tables)
         tables = [table for table in self.tables if table.join == ","] + [table for table in self.tables if table.join != ","]
         for table, preceding in table_2_preceding.items():
           table_i     = tables.index(table)
@@ -748,6 +759,7 @@ class SQLQuery(FuncSupport):
       
     if self.preliminary:
       return """%s(%s) AS (%s)""" % (self.name, ", ".join(column.name for column in self.columns), sql)
+
     return sql
     
   def parse_distinct(self, distinct):

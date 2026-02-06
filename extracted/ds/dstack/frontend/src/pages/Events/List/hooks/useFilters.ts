@@ -77,8 +77,8 @@ const targetTypes = [
 
 export const useFilters = () => {
     const [searchParams, setSearchParams] = useSearchParams();
-    const { data: projectsData } = useGetProjectsQuery();
-    const { data: usersData } = useGetUserListQuery();
+    const { data: projectsData } = useGetProjectsQuery({});
+    const { data: usersData } = useGetUserListQuery({});
 
     const [propertyFilterQuery, setPropertyFilterQuery] = useState<PropertyFilterProps.Query>(() =>
         requestParamsToTokens<RequestParamsKeys>({ searchParams, filterKeys }),
@@ -92,7 +92,7 @@ export const useFilters = () => {
     const filteringOptions = useMemo(() => {
         const options: PropertyFilterProps.FilteringOption[] = [];
 
-        projectsData?.forEach(({ project_name }) => {
+        projectsData?.data?.forEach(({ project_name }) => {
             options.push({
                 propertyKey: filterKeys.TARGET_PROJECTS,
                 value: project_name,
@@ -104,7 +104,7 @@ export const useFilters = () => {
             });
         });
 
-        usersData?.forEach(({ username }) => {
+        usersData?.data?.forEach(({ username }) => {
             options.push({
                 propertyKey: filterKeys.TARGET_USERS,
                 value: username,
@@ -148,37 +148,37 @@ export const useFilters = () => {
         {
             key: filterKeys.TARGET_FLEETS,
             operators: ['='],
-            propertyLabel: 'Target fleets',
+            propertyLabel: 'Target fleet IDs',
         },
         {
             key: filterKeys.TARGET_INSTANCES,
             operators: ['='],
-            propertyLabel: 'Target instances',
+            propertyLabel: 'Target instance IDs',
         },
         {
             key: filterKeys.TARGET_RUNS,
             operators: ['='],
-            propertyLabel: 'Target runs',
+            propertyLabel: 'Target run IDs',
         },
         {
             key: filterKeys.TARGET_JOBS,
             operators: ['='],
-            propertyLabel: 'Target jobs',
+            propertyLabel: 'Target job IDs',
         },
         {
             key: filterKeys.TARGET_VOLUMES,
             operators: ['='],
-            propertyLabel: 'Target volumes',
+            propertyLabel: 'Target volume IDs',
         },
         {
             key: filterKeys.TARGET_GATEWAYS,
             operators: ['='],
-            propertyLabel: 'Target gateways',
+            propertyLabel: 'Target gateway IDs',
         },
         {
             key: filterKeys.TARGET_SECRETS,
             operators: ['='],
-            propertyLabel: 'Target secrets',
+            propertyLabel: 'Target secret IDs',
         },
 
         {
@@ -191,13 +191,13 @@ export const useFilters = () => {
         {
             key: filterKeys.WITHIN_FLEETS,
             operators: ['='],
-            propertyLabel: 'Within fleets',
+            propertyLabel: 'Within fleet IDs',
         },
 
         {
             key: filterKeys.WITHIN_RUNS,
             operators: ['='],
-            propertyLabel: 'Within runs',
+            propertyLabel: 'Within run IDs',
         },
 
         {
@@ -247,14 +247,16 @@ export const useFilters = () => {
             ...(params[filterKeys.TARGET_PROJECTS] && Array.isArray(params[filterKeys.TARGET_PROJECTS])
                 ? {
                       [filterKeys.TARGET_PROJECTS]: params[filterKeys.TARGET_PROJECTS]?.map(
-                          (name: string) => projectsData?.find(({ project_name }) => project_name === name)?.['project_id'],
+                          (name: string) =>
+                              projectsData?.data?.find(({ project_name }) => project_name === name)?.['project_id'],
                       ),
                   }
                 : {}),
             ...(params[filterKeys.WITHIN_PROJECTS] && Array.isArray(params[filterKeys.WITHIN_PROJECTS])
                 ? {
                       [filterKeys.WITHIN_PROJECTS]: params[filterKeys.WITHIN_PROJECTS]?.map(
-                          (name: string) => projectsData?.find(({ project_name }) => project_name === name)?.['project_id'],
+                          (name: string) =>
+                              projectsData?.data?.find(({ project_name }) => project_name === name)?.['project_id'],
                       ),
                   }
                 : {}),
@@ -262,7 +264,7 @@ export const useFilters = () => {
             ...(params[filterKeys.TARGET_USERS] && Array.isArray(params[filterKeys.TARGET_USERS])
                 ? {
                       [filterKeys.TARGET_USERS]: params[filterKeys.TARGET_USERS]?.map(
-                          (name: string) => usersData?.find(({ username }) => username === name)?.['id'],
+                          (name: string) => usersData?.data?.find(({ username }) => username === name)?.['id'],
                       ),
                   }
                 : {}),
@@ -270,7 +272,7 @@ export const useFilters = () => {
             ...(params[filterKeys.ACTORS] && Array.isArray(params[filterKeys.ACTORS])
                 ? {
                       [filterKeys.ACTORS]: params[filterKeys.ACTORS]?.map(
-                          (name: string) => usersData?.find(({ username }) => username === name)?.['id'],
+                          (name: string) => usersData?.data?.find(({ username }) => username === name)?.['id'],
                       ),
                   }
                 : {}),

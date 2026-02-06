@@ -1,7 +1,7 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Standard plug-in to handle pkg_resource special needs.
+"""Standard plug-in to handle pkg_resource special needs.
 
 Nuitka can detect some things that "pkg_resources" may not even be able to during
 runtime, but that is done by nodes and optimization. But there are other things,
@@ -18,7 +18,7 @@ from nuitka.utils.Utils import withNoDeprecationWarning, withNoWarning
 
 class NuitkaPluginResources(NuitkaPluginBase):
     plugin_name = "pkg-resources"
-    plugin_desc = "Workarounds for 'pkg_resources'."
+    plugin_desc = "Required by 'pkg_resources' package."
     plugin_category = "package-support"
 
     def __init__(self):
@@ -149,11 +149,11 @@ register_loader_type(__loader__.__class__, NuitkaProvider)
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

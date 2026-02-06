@@ -87,6 +87,9 @@ async def generate(
     if "replicate" in base_url:  # 硅基
         return await replicate_generate(request, api_key, base_url)
 
+    # if "grok" in base_url:  # 硅基
+    #     return await replicate_generate(request, api_key, base_url)
+
     if api_key and api_key.startswith("FPS"):  # freepik
         return await freepik_generate(request, api_key)
 

@@ -17,12 +17,11 @@ namespace ntgcalls {
         updateThread->Start();
         hardwareInfo = std::make_unique<HardwareInfo>();
         INIT_ASYNC
-#ifndef IS_ANDROID
         LogSink::GetOrCreate();
-#endif
     }
 
     NTgCalls::~NTgCalls() {
+        DESTROY_ASYNC
 #ifdef PYTHON_ENABLED
         py::gil_scoped_release release;
 #endif
@@ -32,15 +31,20 @@ namespace ntgcalls {
             connection->stop();
         }
         connections.clear();
+        onEof = nullptr;
+        mediaStateCallback = nullptr;
+        connectionChangeCallback = nullptr;
+        emitCallback = nullptr;
+        remoteSourceCallback = nullptr;
+        broadcastTimestampCallback = nullptr;
+        segmentPartRequestCallback = nullptr;
+        framesCallback = nullptr;
         hardwareInfo = nullptr;
         lock.unlock();
         updateThread->Stop();
         updateThread = nullptr;
-        DESTROY_ASYNC
         RTC_LOG(LS_VERBOSE) << "NTgCalls destroyed";
-#ifndef IS_ANDROID
         LogSink::UnRef();
-#endif
     }
 
     void NTgCalls::setupListeners(const int64_t chatId) {

@@ -160,7 +160,10 @@ class GroundStationClient(AioBaseClient):
         self, **kwargs: Unpack[CancelContactRequestTypeDef]
     ) -> ContactIdResponseTypeDef:
         """
-        Cancels a contact with a specified contact ID.
+        Cancels or stops a contact with a specified contact ID based on its position in
+        the <a
+        href="https://docs.aws.amazon.com/ground-station/latest/ug/contacts.lifecycle.html">contact
+        lifecycle</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/cancel_contact.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#cancel_contact)
@@ -182,7 +185,7 @@ class GroundStationClient(AioBaseClient):
     ) -> DataflowEndpointGroupIdResponseTypeDef:
         """
         Creates a <code>DataflowEndpoint</code> group containing the specified list of
-        <code>DataflowEndpoint</code> objects.
+        <code> DataflowEndpoint</code> objects.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/create_dataflow_endpoint_group.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#create_dataflow_endpoint_group)
@@ -192,8 +195,8 @@ class GroundStationClient(AioBaseClient):
         self, **kwargs: Unpack[CreateDataflowEndpointGroupV2RequestTypeDef]
     ) -> CreateDataflowEndpointGroupV2ResponseTypeDef:
         """
-        Creates a <code>DataflowEndpointGroupV2</code> containing the specified list of
-        <code>DataflowEndpoint</code> objects.
+        Creates a <code>DataflowEndpoint</code> group containing the specified list of
+        Ground Station Agent based endpoints.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/create_dataflow_endpoint_group_v2.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#create_dataflow_endpoint_group_v2)

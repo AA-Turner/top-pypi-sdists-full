@@ -33,7 +33,7 @@ def db_attrs_with_template(instance: CatalogDataSource, *args: Any) -> None:
 
 @attr.s(auto_attribs=True, kw_only=True, eq=False)
 class CatalogDataSourceBase(Base):
-    _SUPPORTED_CREDENTIALS: ClassVar[list[type[Credentials]]] = [
+    _SUPPORTED_CREDENTIALS: ClassVar[list[builtins.type[Credentials]]] = [
         BasicCredentials,
         ClientSecretCredentials,
         TokenCredentials,
@@ -48,6 +48,7 @@ class CatalogDataSourceBase(Base):
         "name",
         "type",
         "schema",
+        "alternative_data_source_id",
     ]
 
     id: str
@@ -59,8 +60,9 @@ class CatalogDataSourceBase(Base):
     parameters: Optional[list[dict[str, str]]] = None
     decoded_parameters: Optional[list[dict[str, str]]] = None
     credentials: Credentials = attr.field(repr=False)
+    alternative_data_source_id: Optional[str] = None
 
-    @type.validator
+    @type.validator  # type: ignore[attr-defined]
     def _check_allowed_values(self, attribute: attr.Attribute, value: str) -> None:
         value_in_allowed(self.__class__, attribute, value, JsonApiDataSourceInAttributes)
 

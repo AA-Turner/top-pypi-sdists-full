@@ -35,8 +35,8 @@ def main() -> None:
         "-v",
         "--version",
         action="version",
-        help="Print the Kaggle API version",
-        version="Kaggle API " + kaggle.__version__,
+        help="Print the Kaggle CLI version",
+        version="Kaggle CLI " + kaggle.__version__,
     )
     parser.add_argument(
         "-W",
@@ -550,6 +550,7 @@ def parse_kernels(subparsers) -> None:
     parser_kernels_push_optional.add_argument(
         "-t", "--timeout", type=int, dest="timeout", help=Help.param_kernel_timeout
     )
+    parser_kernels_push_optional.add_argument("--accelerator", dest="acc", help=Help.param_kernel_acc)
     parser_kernels_push._action_groups.append(parser_kernels_push_optional)
     parser_kernels_push.set_defaults(func=api.kernels_push_cli)
 
@@ -591,6 +592,9 @@ def parse_kernels(subparsers) -> None:
     )
     parser_kernels_output_optional.add_argument(
         "-q", "--quiet", dest="quiet", action="store_true", required=False, help=Help.param_quiet
+    )
+    parser_kernels_output_optional.add_argument(
+        "--file-pattern", dest="file_pattern", required=False, help=Help.param_kernel_output_file_pattern
     )
     parser_kernels_output._action_groups.append(parser_kernels_output_optional)
     parser_kernels_output.set_defaults(func=api.kernels_output_cli)
@@ -1083,9 +1087,9 @@ class Help(object):
         + ", ".join(kernels_choices)
         + "}\nmodels {"
         + ", ".join(models_choices)
-        + "}\nmodels instances {"
+        + "}\nmodels variations {"
         + ", ".join(model_instances_choices)
-        + "}\nmodels instances versions {"
+        + "}\nmodels variations versions {"
         + ", ".join(model_instance_versions_choices)
         + "}\nconfig {"
         + ", ".join(config_choices)
@@ -1098,8 +1102,8 @@ class Help(object):
     group_datasets = "Commands related to Kaggle datasets"
     group_kernels = "Commands related to Kaggle kernels"
     group_models = "Commands related to Kaggle models"
-    group_model_instances = "Commands related to Kaggle model instances"
-    group_model_instance_versions = "Commands related to Kaggle model instance versions"
+    group_model_instances = "Commands related to Kaggle model variations"
+    group_model_instance_versions = "Commands related to Kaggle model variations versions"
     group_files = "Commands related files"
     group_config = "Configuration settings"
     group_auth = "Commands related to authentication"
@@ -1174,7 +1178,7 @@ class Help(object):
         "File for upload (full path), or the name of the output file produced by a kernel (for code competitions)"
     )
     param_code_kernel = "Name of kernel (notebook) to submit to a code competition"
-    param_code_version = 'Version of kernel to submit to a code competition, e.g. "Version 1"'
+    param_code_version = 'Version of kernel to submit to a code competition, e.g. "3"'
     param_csv = "Print results in CSV format (if not set print in table format)"
     param_page = "Page number for results paging. Page size is 20 by default"
     # NOTE: Default and max page size are set by the mid-tier code.
@@ -1226,7 +1230,7 @@ class Help(object):
     param_dataset_upfile = (
         "Folder for upload, containing data files and a "
         "special datasets-metadata.json file "
-        "(https://github.com/Kaggle/kaggle-api/wiki/Dataset-Metadata). "
+        "(https://github.com/Kaggle/kaggle-cli/blob/main/docs/datasets_metadata.md). "
         "Defaults to current working directory"
     )
     param_dataset_sort_by = (
@@ -1258,7 +1262,7 @@ class Help(object):
     param_kernel_upfile = (
         "Folder for upload, containing data files and a "
         "special kernel-metadata.json file "
-        "(https://github.com/Kaggle/kaggle-api/wiki/Kernel-Metadata). "
+        "(https://github.com/Kaggle/kaggle-cli/blob/main/docs/kernels_metadata.md). "
         "Defaults to current working directory"
     )
     param_kernel_parent = "Find children of the specified parent kernel"
@@ -1293,6 +1297,10 @@ class Help(object):
         "is only applicable if a search term is specified."
     )
     param_kernel_pull_metadata = "Generate metadata when pulling kernel"
+    param_kernel_output_file_pattern = (
+        "Regex pattern to match against filenames. Only files matching the pattern will be downloaded."
+    )
+    param_kernel_acc = "Specify the type of accelerator to use for the kernel run"
 
     # Models params
     param_model = "Model URL suffix in format <owner>/<model-name>"
@@ -1303,47 +1311,47 @@ class Help(object):
     param_model_owner = "Find public models owned by a specific user or organization"
     param_model_downfile = (
         "Folder containing the special model-metadata.json file "
-        "(https://github.com/Kaggle/kaggle-api/wiki/Model-Metadata)."
+        "(https://github.com/Kaggle/kaggle-cli/blob/main/docs/models_metadata.md)."
     )
     param_model_upfile = (
         "Folder containing the special model-metadata.json file "
-        "(https://github.com/Kaggle/kaggle-api/wiki/Model-Metadata). "
+        "(https://github.com/Kaggle/kaggle-cli/blob/main/docs/models_metadata.md). "
         "Defaults to current working directory"
     )
 
     # Model Instances params
-    param_model_instance = "Model Instance URL suffix in format <owner>/<model-name>/<framework>/<instance-slug>"
-    command_model_instances_get = "Get a model instance"
-    command_model_instances_init = "Initialize metadata file for model instance creation"
-    command_model_instances_files = "List files for the current version of a model instance"
-    command_model_instances_list = "List instances of a model"
-    command_model_instances_new = "Create a new model instance"
+    param_model_instance = "Model variation URL suffix in format <owner>/<model-name>/<framework>/<instance-slug>"
+    command_model_instances_get = "Get a model variation"
+    command_model_instances_init = "Initialize metadata file for model variation creation"
+    command_model_instances_files = "List files for the current version of a model variation"
+    command_model_instances_list = "List variations of a model"
+    command_model_instances_new = "Create a new model variation"
     param_model_instance_downfile = (
         "Folder for downloading the special model-instance-metadata.json file "
-        "(https://github.com/Kaggle/kaggle-api/wiki/Model-Metadata#model-instance). "
+        "(https://github.com/Kaggle/kaggle-cli/blob/main/docs/models_metadata.md#model-instance). "
     )
     param_model_instance_upfile = (
         "Folder for upload, containing data files and a "
         "special model-instance-metadata.json file "
-        "(https://github.com/Kaggle/kaggle-api/wiki/Model-Metadata#model-instance). "
+        "(https://github.com/Kaggle/kaggle-cli/blob/main/docs/models_metadata.md#model-instance). "
         "Defaults to current working directory"
     )
-    command_model_instances_delete = "Delete a model instance"
-    command_model_instances_update = "Update a model instance"
+    command_model_instances_delete = "Delete a model variation"
+    command_model_instances_update = "Update a model variation"
 
     # Model Instance Versions params
     param_model_instance_version = (
-        "Model Instance Version URL suffix in format <owner>/<model-name>/<framework>/<instance-slug>/<version-number>"
+        "Model variation version URL suffix in format <owner>/<model-name>/<framework>/<variation-slug>/<version-number>"
     )
 
     # Model Instance Versions params
-    command_model_instance_versions_new = "Create a new model instance version"
+    command_model_instance_versions_new = "Create a new model variation version"
     param_model_instance_version_upfile = "Folder for upload. Defaults to current working directory"
-    command_model_instance_versions_delete = "Delete a model instance version"
-    command_model_instance_versions_download = "Download model instance version files"
-    command_model_instance_versions_files = "List model instance version files"
-    command_model_instance_versions_list = "List model instance versions"
-    param_model_instance_version_notes = "Version notes to record for the new model instance version"
+    command_model_instance_versions_delete = "Delete a model variation version"
+    command_model_instance_versions_download = "Download model variation version files"
+    command_model_instance_versions_files = "List model variation version files"
+    command_model_instance_versions_list = "List model variation versions"
+    param_model_instance_version_notes = "Version notes to record for the new model variation version"
 
     # Files params
     param_files_upload_inbox_path = "Virtual path on the server where the uploaded files will be stored"

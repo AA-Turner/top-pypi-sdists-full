@@ -857,7 +857,11 @@ def parse_owlxml(object f, object queue, str default_base, int batch_size):
       
     elif (tag == "http://www.w3.org/2002/07/owl#DatatypeRestriction"):
       start               = _rindex(stack)
-      datatype, *list_bns = stack[start + 1 : ]
+      #datatype, *list_bns = stack[start + 1 : ]
+      datatype = stack[start + 1]
+      list_bns = stack[start + 2 : ]
+
+      
       list_bns            = new_list2(list_bns, objs, new_blank)
       bn                  = new_blank()
       stack[start :]  = [bn]

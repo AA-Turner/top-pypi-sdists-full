@@ -20,6 +20,12 @@ from hfortix_fortios.models import (
     FortiObjectList,
 )
 
+# Import child table helper types
+from ._multicast_child_tables import (
+    PimSmGlobalVrfHelper,
+    InterfaceHelper,
+)
+
 
 # ================================================================
 # TypedDict Payloads
@@ -282,6 +288,10 @@ class Multicast:
     path: ClassVar[str] = ...
     category: ClassVar[str] = ...
     capabilities: ClassVar[dict[str, Any]] = ...
+    
+    # Child table helpers
+    pim_sm_global_vrf: PimSmGlobalVrfHelper
+    interface: InterfaceHelper
     
     def __init__(self, client: Any) -> None:
         """Initialize endpoint with HTTP client."""

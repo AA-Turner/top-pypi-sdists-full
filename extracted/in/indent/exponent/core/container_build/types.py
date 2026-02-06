@@ -11,9 +11,7 @@ class BuildLogOutput(msgspec.Struct, tag="container_build_log_output"):
     container_image_uuid: str
     data: str
     timestamp: float
-    phase: Literal[
-        "verification", "setup_repo", "build_script", "run_script", "complete_build"
-    ] = "build_script"
+    phase: Literal["verification", "setup_repo", "build_script", "run_script", "complete_build"] = "build_script"
     level: Literal["info", "error", "warning"] = "info"
     command: str | None = None
 

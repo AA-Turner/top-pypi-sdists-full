@@ -58,8 +58,9 @@ def hutchinson_estimator_diag_hessian(random_seed: Optional[jax.Array] = None):
     return HutchinsonState(key=key)
 
   def update_fn(updates, state, params=None, obj_fn=None, **extra_args):
-    del extra_args  # complies with signature of GradientTransformationExtraArgs
-                    # but ignores the extra_args
+    # complies with signature of GradientTransformationExtraArgs but ignores the
+    # extra_args
+    del extra_args
     if params is None:
       raise ValueError("params must be provided to hutchinson update function.")
     if obj_fn is None:
@@ -91,19 +92,19 @@ class SophiaState(NamedTuple):
 
 
 def scale_by_sophia(
-    b1: float = 0.965,
-    b2: float = 0.99,
-    eps: float = 1e-8,
-    gamma: float = 0.01,
-    clip_threshold: Optional[float] = 1.0,
-    update_interval: int = 10,
+    b1: jax.typing.ArrayLike = 0.965,
+    b2: jax.typing.ArrayLike = 0.99,
+    eps: jax.typing.ArrayLike = 1e-8,
+    gamma: jax.typing.ArrayLike = 0.01,
+    clip_threshold: Optional[jax.typing.ArrayLike] = 1.0,
+    update_interval: jax.typing.ArrayLike = 10,
     hessian_diagonal_fn: Union[
         base.GradientTransformation,
         base.GradientTransformationExtraArgs,
     ] = hutchinson_estimator_diag_hessian(),
     mu_dtype: Optional[Any] = None,
     verbose: bool = False,
-    print_win_rate_every_n_steps: int = 0,
+    print_win_rate_every_n_steps: jax.typing.ArrayLike = 0,
 ) -> base.GradientTransformationExtraArgs:
   """Sophia optimizer.
 
@@ -208,23 +209,23 @@ def scale_by_sophia(
 
 def sophia(
     learning_rate: base.ScalarOrSchedule,
-    b1: float = 0.965,
-    b2: float = 0.99,
-    eps: float = 1e-8,
-    weight_decay: float = 1e-4,
+    b1: jax.typing.ArrayLike = 0.965,
+    b2: jax.typing.ArrayLike = 0.99,
+    eps: jax.typing.ArrayLike = 1e-8,
+    weight_decay: jax.typing.ArrayLike = 1e-4,
     weight_decay_mask: Optional[
         Union[Any, Callable[[base.Params], Any]]
     ] = None,
-    gamma: float = 0.01,
-    clip_threshold: Optional[float] = 1.0,
-    update_interval: int = 10,
+    gamma: jax.typing.ArrayLike = 0.01,
+    clip_threshold: Optional[jax.typing.ArrayLike] = 1.0,
+    update_interval: jax.typing.ArrayLike = 10,
     hessian_diagonal_fn: Union[
         base.GradientTransformation,
         base.GradientTransformationExtraArgs,
     ] = hutchinson_estimator_diag_hessian(),
     mu_dtype: Optional[Any] = None,
     verbose: bool = False,
-    print_win_rate_every_n_steps: int = 0,
+    print_win_rate_every_n_steps: jax.typing.ArrayLike = 0,
 ) -> base.GradientTransformationExtraArgs:
   """Sophia optimizer.
 

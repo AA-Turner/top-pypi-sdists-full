@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import inspect
+import json
 import uuid
 from dataclasses import dataclass
-from typing import Any, Callable, Final, Optional, Union, cast
+from typing import Any, Callable, Final, Literal, Optional, Union, cast
 
 from marimo import _loggers
 from marimo._ai._types import (
@@ -34,6 +35,8 @@ DEFAULT_CONFIG = ChatModelConfigDict(
     presence_penalty=0,
 )
 
+# The version of the Vercel AI SDK we use
+AI_SDK_VERSION: Final[Literal[5, 6]] = 5
 DONE_CHUNK: Final[str] = "[DONE]"
 
 
@@ -464,17 +467,22 @@ class ChunkSerializer:
             )
 
             if isinstance(chunk, BaseChunk):
-                # by_alias=True: Use camelCase keys expected by Vercel AI SDK.
-                # exclude_none=True: Remove null values which cause validation errors.
-                self.on_send_chunk(
-                    chunk.model_dump(
+                try:
+                    serialized = json.loads(
+                        chunk.encode(sdk_version=AI_SDK_VERSION)
+                    )
+                except TypeError:
+                    # Fallback for pydantic-ai < 1.52.0 which doesn't have sdk_version param
+                    serialized = chunk.model_dump(
                         mode="json", by_alias=True, exclude_none=True
                     )
-                )
+                self.on_send_chunk(serialized)
                 return
 
         # Handle plain text chunks
         if isinstance(chunk, str):
+            # Coerce str subclasses (like weave's BoxedStr) to plain str
+            chunk = str(chunk)
             if self._text_id is None:
                 self._text_id = f"text_{uuid.uuid4().hex}"
                 self.on_send_chunk({"type": "text-start", "id": self._text_id})

@@ -1,3 +1,4 @@
+import os
 import requests
 from .base_tool import BaseTool
 from .tool_registry import register_tool
@@ -7,6 +8,13 @@ from .tool_registry import register_tool
 class SemanticScholarTool(BaseTool):
     """
     Tool to search for papers on Semantic Scholar including abstracts.
+
+    API key is read from environment variable SEMANTIC_SCHOLAR_API_KEY.
+    Request an API key at: https://www.semanticscholar.org/product/api
+
+    Rate limits:
+    - Without API key: 1 request/second
+    - With API key: 100 requests/second
     """
 
     def __init__(
@@ -16,22 +24,23 @@ class SemanticScholarTool(BaseTool):
     ):
         super().__init__(tool_config)
         self.base_url = base_url
+        # Get API key from environment as fallback
+        self.default_api_key = os.environ.get("SEMANTIC_SCHOLAR_API_KEY", "")
 
     def run(self, arguments):
         query = arguments.get("query")
         limit = arguments.get("limit", 5)
-        api_key = arguments.get("api_key")
         if not query:
             return {"error": "`query` parameter is required."}
-        return self._search(query, limit, api_key)
+        return self._search(query, limit)
 
-    def _search(self, query, limit, api_key):
+    def _search(self, query, limit):
         params = {
             "query": query,
             "limit": limit,
             "fields": "title,abstract,year,venue,url",
         }
-        headers = {"x-api-key": api_key} if api_key else {}
+        headers = {"x-api-key": self.default_api_key} if self.default_api_key else {}
         response = requests.get(
             self.base_url, params=params, headers=headers, timeout=20
         )

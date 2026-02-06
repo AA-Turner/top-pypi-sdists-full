@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.s3-tables-mcp-server
-Version: 0.0.19
+Version: 0.0.20
 Summary: An AWS Labs Model Context Protocol (MCP) server for awslabs.s3-tables-mcp-server
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/s3-tables-mcp-server/
@@ -20,13 +20,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.10
-Requires-Dist: boto3==1.40.8
-Requires-Dist: daft==0.5.8
+Requires-Python: >=3.11
+Requires-Dist: boto3==1.42.41
+Requires-Dist: daft==0.7.1
 Requires-Dist: loguru==0.7.3
 Requires-Dist: mcp[cli]==1.23.0
 Requires-Dist: pyarrow==22.0.0
-Requires-Dist: pydantic==2.11.0
+Requires-Dist: pydantic==2.12.5
 Requires-Dist: pyiceberg==0.10.0
 Requires-Dist: sqlparse==0.5.3
 Description-Content-Type: text/markdown

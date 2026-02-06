@@ -3,7 +3,7 @@ Type annotations for athena service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_athena/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -260,7 +260,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -525,6 +524,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -561,6 +561,7 @@ RegionName = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",

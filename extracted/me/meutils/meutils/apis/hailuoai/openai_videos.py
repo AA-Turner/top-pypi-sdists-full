@@ -10,21 +10,15 @@
 # https://useapi.net/docs/start-here/setup-minimax
 # token 过期时间一个月: 看下free hailuo
 # https://jwt.io/
-import os
+# todoc 重试 内容生成失败。请重试。
 
-# todo: check token
-
-import oss2
 
 from meutils.pipe import *
-from meutils.hash_utils import md5
 from meutils.io.files_utils import to_bytes, to_image
 from meutils.io.image import image_resize
 
-from meutils.jwt_utils import decode_jwt_token
 from meutils.schemas.hailuo_types import BASE_URL_ABROAD as BASE_URL
 
-from meutils.schemas.hailuo_types import VideoRequest, VideoResponse
 from meutils.decorators.retry import retrying
 from meutils.notice.feishu import send_message as _send_message, VIDEOS
 
@@ -109,7 +103,7 @@ async def create_task(request: SoraVideoRequest, token: Optional[str] = None):
             request.seconds = request.model.rsplit('-', 1)[-1].strip("s")
             request.model = "sora2-i2v"
 
-        request.size = request.size or "16x9"
+        request.size = request.size or "1280x720" # todo 缩放16x9报错
         w, h = map(int, request.size.split('x'))
         request.aspect_ratio = "16:9" if w > h else "9:16"
 
@@ -117,7 +111,7 @@ async def create_task(request: SoraVideoRequest, token: Optional[str] = None):
             logger.debug(f"request.size: {request.size}")
 
             _ = await to_image(image_urls[0], response_format="bytes")
-            _ = await image_resize(_, request.size, "url")
+            _ = await image_resize(_, request.size, "fal-url")
             request.input_reference = [_]
 
     if image_urls := request.input_reference or request.first_frame_image or request.last_frame_image:
@@ -126,9 +120,13 @@ async def create_task(request: SoraVideoRequest, token: Optional[str] = None):
         if request.model.startswith('232'):  # 2.x 首帧 首尾帧   文生统一 23204
             if request.last_frame_image or len(image_urls) == 2:
                 request.model = "23210"  # 首尾帧 2.0
+                request.input_reference = await to_image(image_urls)
+
 
             elif request.first_frame_image or len(image_urls) == 1:
+
                 request.model = "23218"  # 首帧 2.3-fast
+                request.input_reference = await to_image(image_urls)
 
         elif request.model.startswith('230'):  # 1.0 文生 23000
             request.seconds = 6
@@ -334,7 +332,7 @@ if __name__ == '__main__':
 
         # input_reference="https://cdn.hailuoai.video/moss/prod/2026-01-26-18/user/multi_chat_file/8ac50491-63ec-46fc-9f98-94d287552003.jpeg"
 
-        input_reference=["https://s3.ffire.cc/files/jimeng.jpg"] * 1,
+        input_reference=["https://s3.ffire.cc/tmp/x.jpg"] * 1,
         # first_frame_image="https://s3.ffire.cc/files/jimeng.jpg",
         # last_frame_image="https://cdn.hailuoai.video/moss/prod/2026-01-26-18/user/multi_chat_file/8ac50491-63ec-46fc-9f98-94d287552003.jpeg",
 
@@ -345,24 +343,35 @@ if __name__ == '__main__':
 
         # size="16:9"
         # size="720x1280"
-        size="16x9"
+        size="9x16"
     )
 
-    data = {
-        "model": "veo3.1-t2v-fast",
-        "prompt": "[Cảnh 1: Sếp bước vào văn phòng, tay cầm một phong bì màu trắng, ánh mắt đầy bí ẩn.]\n[Cảnh 2: Anh chàng mũm mĩm ngồi ở bàn làm việc, mắt dõi theo sếp, lòng đầy hồi hộp. Anh thì thầm với đồng nghiệp bên cạnh:]\n\"Không biết năm nay có đổi đời không...\"\n[Cảnh 3: Sếp đứng trước mặt anh, trao phong bì với nụ cười bí ẩn. Anh chàng mở phong bì, ánh mắt sáng lên khi thấy bên trong là một voucher giảm giá mua chuột máy tính.]\n[Cảnh 4: Anh chàng giơ voucher lên cao, nụ cười hiện rõ trên khuôn mặt với hai lúm đồng tiền đáng yêu. Anh quay sang đồng nghiệp, hài hước nói:]",
-        "seconds": 8,
-        # "size": "720p",
-        # "aspect_ratio": "16:9",
-        "resolution": "1080",
-        # "enhance_prompt": True
-    }
+    # data = {
+    #     "model": "veo3.1-t2v-fast",
+    #     "prompt": "[Cảnh 1: Sếp bước vào văn phòng, tay cầm một phong bì màu trắng, ánh mắt đầy bí ẩn.]\n[Cảnh 2: Anh chàng mũm mĩm ngồi ở bàn làm việc, mắt dõi theo sếp, lòng đầy hồi hộp. Anh thì thầm với đồng nghiệp bên cạnh:]\n\"Không biết năm nay có đổi đời không...\"\n[Cảnh 3: Sếp đứng trước mặt anh, trao phong bì với nụ cười bí ẩn. Anh chàng mở phong bì, ánh mắt sáng lên khi thấy bên trong là một voucher giảm giá mua chuột máy tính.]\n[Cảnh 4: Anh chàng giơ voucher lên cao, nụ cười hiện rõ trên khuôn mặt với hai lúm đồng tiền đáng yêu. Anh quay sang đồng nghiệp, hài hước nói:]",
+    #     "seconds": 8,
+    #     # "size": "720p",
+    #     # "aspect_ratio": "16:9",
+    #     "resolution": "1080",
+    #     # "enhance_prompt": True
+    # }
 
-    request = SoraVideoRequest(**data)
+    # data = {
+    #     "model": "23218",
+    #     "prompt": "https://cos.imyaigc.com/video/hailuo/9a550058-bb0b-4fb0-9c91-2a3d12574cd7.png 脱掉外衣外裤坐下低头含情脉脉看着镜头",
+    #     "seconds": "10",
+    #     "input_reference": [
+    #         "https://cos.imyaigc.com/video/hailuo/9a550058-bb0b-4fb0-9c91-2a3d12574cd7.png"
+    #     ],
+    #     "duration": 10,
+    #     "resolution": "768p"
+    # }
+
+    # request = SoraVideoRequest(**data)
 
     # "图片上传失败，长宽比需在 5:2 和 2:5 之间"
 
-    # r = arun(create_task(request, token=token))
+    r = arun(create_task(request, token=token))
 
     # task_id = "hailuoai-469852272096808964"
 
@@ -405,4 +414,4 @@ if __name__ == '__main__':
     task_id = "472578758479253512"
     task_id = "472581277544718343"
     task_id = "474208609112264706"
-    arun(get_task(task_id=task_id, token=token))
+    # arun(get_task(task_id=task_id, token=token))

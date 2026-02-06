@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Output, Stdio};
 use std::str::FromStr;
 use std::{env, io};
+use uv_preview::Preview;
 use uv_python::downloads::ManagedPythonDownloadList;
 
 use assert_cmd::assert::{Assert, OutputAssertExt};
@@ -26,7 +27,6 @@ use tokio::io::AsyncWriteExt;
 
 use uv_cache::{Cache, CacheBucket};
 use uv_fs::Simplified;
-use uv_preview::Preview;
 use uv_python::managed::ManagedPythonInstallations;
 use uv_python::{
     EnvironmentPreference, PythonInstallation, PythonPreference, PythonRequest, PythonVersion,
@@ -671,7 +671,7 @@ impl TestContext {
         fs_err::create_dir_all(&bin_dir).expect("Failed to create test bin directory");
 
         // When the `git` feature is disabled, enforce that the test suite does not use `git`
-        if cfg!(not(feature = "git")) {
+        if cfg!(not(feature = "test-git")) {
             Self::disallow_git_cli(&bin_dir).expect("Failed to setup disallowed `git` command");
         }
 

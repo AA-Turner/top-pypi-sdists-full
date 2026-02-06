@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.17                                                                                #
-# Generated on 2026-01-22T21:47:05.840686                                                            #
+# MF version: 2.19.18                                                                                #
+# Generated on 2026-02-05T18:18:14.280558                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -254,6 +254,8 @@ ARGO_EVENTS_INTERNAL_WEBHOOK_URL: None
 ARGO_EVENTS_WEBHOOK_AUTH: str
 
 ARGO_EVENTS_SENSOR_NAMESPACE: str
+
+NAMESPACED_EVENTS_PREFIX: str
 
 ARGO_WORKFLOWS_UI_URL: None
 

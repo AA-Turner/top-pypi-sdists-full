@@ -20,6 +20,18 @@ from hfortix_fortios.models import (
     FortiObjectList,
 )
 
+# Import child table helper types
+from ._ospf_child_tables import (
+    AreaHelper,
+    OspfInterfaceHelper,
+    NetworkHelper,
+    NeighborHelper,
+    PassiveInterfaceHelper,
+    SummaryAddressHelper,
+    DistributeListHelper,
+    RedistributeHelper,
+)
+
 
 # ================================================================
 # TypedDict Payloads
@@ -421,6 +433,16 @@ class Ospf:
     path: ClassVar[str] = ...
     category: ClassVar[str] = ...
     capabilities: ClassVar[dict[str, Any]] = ...
+    
+    # Child table helpers
+    area: AreaHelper
+    ospf_interface: OspfInterfaceHelper
+    network: NetworkHelper
+    neighbor: NeighborHelper
+    passive_interface: PassiveInterfaceHelper
+    summary_address: SummaryAddressHelper
+    distribute_list: DistributeListHelper
+    redistribute: RedistributeHelper
     
     def __init__(self, client: Any) -> None:
         """Initialize endpoint with HTTP client."""

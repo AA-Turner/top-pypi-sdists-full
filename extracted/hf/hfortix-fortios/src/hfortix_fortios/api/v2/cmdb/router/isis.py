@@ -52,6 +52,16 @@ from hfortix_fortios._helpers import (
 # Import metadata mixin for schema introspection
 from hfortix_fortios._helpers.metadata_mixin import MetadataMixin
 
+# Import child table helpers
+from ._isis_child_tables import (
+    IsisNetHelper,
+    IsisInterfaceHelper,
+    SummaryAddressHelper,
+    SummaryAddress6Helper,
+    RedistributeHelper,
+    Redistribute6Helper,
+)
+
 # Import Protocol-based type hints (eliminates need for local @overload decorators)
 from hfortix_fortios._protocols import CRUDEndpoint
 
@@ -115,6 +125,14 @@ class Isis(CRUDEndpoint, MetadataMixin):
     def __init__(self, client: "IHTTPClient"):
         """Initialize Isis endpoint."""
         self._client = client
+
+        # Initialize child table helpers
+        self.isis_net = IsisNetHelper(self)
+        self.isis_interface = IsisInterfaceHelper(self)
+        self.summary_address = SummaryAddressHelper(self)
+        self.summary_address6 = SummaryAddress6Helper(self)
+        self.redistribute = RedistributeHelper(self)
+        self.redistribute6 = Redistribute6Helper(self)
 
     # ========================================================================
     # GET Method

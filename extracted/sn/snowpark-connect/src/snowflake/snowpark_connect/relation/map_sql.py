@@ -45,6 +45,7 @@ from snowflake.snowpark_connect.config import (
     get_boolean_session_config_param,
     get_cte_optimization_enabled,
     global_config,
+    is_dynamic_partition_overwrite_enabled,
     record_table_metadata,
     set_config_param,
     should_create_temporary_view_in_snowflake,
@@ -109,6 +110,12 @@ from ..typed_column import TypedColumn
 from ..utils.identifiers import (
     spark_to_sf_single_id,
     spark_to_sf_single_id_with_unquoting,
+)
+from ..utils.io_utils import (
+    PartitionSpec,
+    get_overwrite_condition,
+    get_partition_spec,
+    get_table_type,
 )
 from ..utils.temporary_view_helper import (
     create_snowflake_temporary_view,
@@ -395,7 +402,6 @@ def _insert_into_table(logical_plan, session: Session) -> None:
         spark_to_sf_single_id(str(col), is_column=True)
         for col in as_java_list(logical_plan.userSpecifiedCols())
     ]
-    overwrite_str = "OVERWRITE" if logical_plan.overwrite() else ""
     cols_str = "(" + ", ".join(user_columns) + ")" if user_columns else ""
 
     # Extract partition spec if any
@@ -411,6 +417,15 @@ def _insert_into_table(logical_plan, session: Session) -> None:
 
     target_table = session.table(name)
     target_schema = target_table.schema
+    is_iceberg_table = get_table_type(name, session) == "ICEBERG"
+
+    if partition_columns and logical_plan.overwrite() and is_iceberg_table:
+        # confirm that partition_columns are in the table's partition spec
+        table_partition_spec = get_partition_spec(name, session)
+        if table_partition_spec is not None:
+            _confirm_partition_columns_are_in_spec(
+                list(partition_columns.keys()), table_partition_spec
+            )
 
     # Add partition columns to the dataframe
     if partition_columns:
@@ -431,25 +446,73 @@ def _insert_into_table(logical_plan, session: Session) -> None:
 
         Then the final query will be:
         INSERT INTO TABLE test_table VALUES ('k1', 100, '2021-01-01', 10), ('k2', 200, '2021-01-01', 10), ('k3', 300, '2021-01-01', 10)
+
+        Spark uses positional matching for columns, so partition values must be put in the correct position.
         """
+
+        def _comparable_col_name(col: str) -> str:
+            name = col.upper() if auto_uppercase_column_identifiers() else col
+            return unquote_if_quoted(name)
+
+        comparable_target_schema = [
+            _comparable_col_name(col.name) for col in target_schema.fields
+        ]
+
+        target_column_positions = {
+            name: i for i, name in enumerate(comparable_target_schema)
+        }
+        partition_col_positions = {}
+
         for partition_col, partition_value in partition_columns.items():
-
-            def _comparable_col_name(col: str) -> str:
-                name = col.upper() if auto_uppercase_column_identifiers() else col
-                return unquote_if_quoted(name)
-
-            comparable_target_schema = [
-                _comparable_col_name(col.name) for col in target_schema.fields
-            ]
-
             if _comparable_col_name(partition_col) not in comparable_target_schema:
                 exception = AnalysisException(
                     f"{partition_col} is not a valid partition column in table {name}."
                 )
                 attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
                 raise exception
-            df = df.withColumn(partition_col, snowpark_fn.lit(partition_value))
 
+            # get target position for this partition columns
+            pos = target_column_positions[_comparable_col_name(partition_col)]
+            new_snowpark_name = spark_to_sf_single_id(partition_col)
+            partition_col_positions[pos] = (
+                snowpark_fn.lit(partition_value).alias(new_snowpark_name),
+                partition_col,
+                new_snowpark_name,
+            )
+
+        # the merged projection containing source columns and static partition columns inserted in the correct position
+        columns_for_insert = []
+        spark_names = []
+        snowpark_names = []
+        source_columns = [c for c in df_container.column_map.columns if not c.is_hidden]
+        source_columns.reverse()
+        total_cols = len(source_columns) + len(partition_columns)
+        for position in range(total_cols):
+            if position in partition_col_positions:
+                pcol, spark_name, new_snowpark_name = partition_col_positions[position]
+                columns_for_insert.append(pcol)
+                spark_names.append(spark_name)
+                snowpark_names.append(new_snowpark_name)
+            elif source_columns:
+                scol = source_columns.pop()
+                new_snowpark_name = spark_to_sf_single_id(scol.spark_name)
+                columns_for_insert.append(
+                    snowpark_fn.col(scol.snowpark_name).alias(new_snowpark_name)
+                )
+                spark_names.append(scol.spark_name)
+                snowpark_names.append(new_snowpark_name)
+
+        # apply projection with partition values
+        df = df.select(*columns_for_insert)
+
+        # update container so that we have a proper column map
+        df_container = DataFrameContainer.create_with_column_mapping(
+            dataframe=df,
+            spark_column_names=spark_names,
+            snowpark_column_names=snowpark_names,
+        )
+
+    # at this point the input dataframe should have all columns in the correct order
     expected_number_of_columns = (
         len(user_columns) if user_columns else len(target_schema.fields)
     )
@@ -521,11 +584,85 @@ def _insert_into_table(logical_plan, session: Session) -> None:
     except Exception:
         pass
 
+    if not logical_plan.overwrite():
+        queries = df.queries["queries"]
+        final_query = queries[0]
+        session.sql(
+            f"INSERT INTO {name} {cols_str} {final_query}",
+        ).collect()
+        return
+
+    # both dynamic and static overwrites can be handled the same,
+    # by this point the input has been augmented
+    if is_iceberg_table and (
+        is_dynamic_partition_overwrite_enabled() or len(partition_columns)
+    ):
+        # TODO (SNOW-2820400): add partition overwrite support for FDN tables
+        table_partition_spec = get_partition_spec(name, session)
+        if table_partition_spec is None:
+            # we can't proceed without a partition spec
+            exception = AnalysisException(
+                f"Could not find partition spec for table {name}."
+            )
+            attach_custom_error_code(
+                exception, ErrorCodes.ICEBERG_PARTITION_SPEC_NOT_FOUND
+            )
+            raise exception
+
+        if table_partition_spec.uses_transform():
+            # TODO (SNOW-3046385): add support for transforms
+            raise SnowparkConnectNotImplementedError(
+                "Non-identity transforms are not supported for partition overwrites"
+            )
+
+        # for dynamic overwrites, we need to extract all distinct partition values from the input data
+        # Spark uses positional matching, we don't care about names here
+        input_column_names = df_container.column_map.get_snowpark_columns()
+        snowpark_partition_cols = [
+            input_column_names[pos]
+            for pos in table_partition_spec.partition_column_positions()
+        ]
+
+        distinct_partitions_df = df.select(*snowpark_partition_cols).distinct()
+
+        overwrite_condition = get_overwrite_condition(
+            distinct_partitions_df, table_partition_spec.columns()
+        )
+        df.write.saveAsTable(
+            table_name=name,
+            table_exists=True,
+            mode="overwrite",
+            overwrite_condition=overwrite_condition,
+        )
+        return
+
+    # full overwrite
     queries = df.queries["queries"]
     final_query = queries[0]
     session.sql(
-        f"INSERT {overwrite_str} INTO {name} {cols_str} {final_query}",
+        f"INSERT OVERWRITE INTO {name} {cols_str} {final_query}",
     ).collect()
+
+
+def _confirm_partition_columns_are_in_spec(
+    partition_columns: list[str], partition_spec: PartitionSpec
+) -> None:
+    """
+    Checks if all given partition_columns are present in the partition_spec.
+    If any column is not present, the function raises an exception.
+    Column ordering is not relevant.
+    """
+    # normalize partition field names to account for case sensitivity
+    allowed_partition_columns = {
+        spark_to_sf_single_id(c) for c in partition_spec.columns()
+    }
+    for pc in partition_columns:
+        if spark_to_sf_single_id(pc) not in allowed_partition_columns:
+            exception = AnalysisException(
+                f"[NON_PARTITION_COLUMN] PARTITION clause cannot contain the non-partition column: `{pc}`."
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+            raise exception
 
 
 def _spark_field_to_sql(field: jpype.JObject, is_column: bool) -> str:
@@ -1672,8 +1809,6 @@ def map_sql_to_pandas_df(
                     for part in as_java_list(logical_plan.child().multipartIdentifier())
                 )
                 SNOWFLAKE_CATALOG.refreshTable(table_name_unquoted)
-
-                return pandas.DataFrame({"": [""]}), ""
             case "RepairTable":
                 # No-Op: Snowflake doesn't have explicit partitions to repair.
                 table_relation = logical_plan.child()
@@ -1699,8 +1834,6 @@ def map_sql_to_pandas_df(
                     )
                     attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
                     raise exception
-
-                return pandas.DataFrame({"": [""]}), ""
             case "UnresolvedWith":
                 child = logical_plan.child()
                 child_class = str(child.getClass().getSimpleName())
@@ -1725,7 +1858,7 @@ def map_sql_to_pandas_df(
         rows = session.sql(sql_string).collect()
     if rows:
         return pandas.DataFrame(rows), ""
-    return pandas.DataFrame({"": [""]}), ""
+    return pandas.DataFrame(), '{"type": "struct", "fields": []}'
 
 
 def get_sql_passthrough() -> bool:

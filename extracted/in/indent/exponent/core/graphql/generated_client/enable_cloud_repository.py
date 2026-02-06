@@ -14,7 +14,6 @@ class EnableCloudRepository(BaseModel):
         "EnableCloudRepositoryEnableCloudRepositoryNotFoundError",
         "EnableCloudRepositoryEnableCloudRepositoryCloudSessionError",
         "EnableCloudRepositoryEnableCloudRepositoryEnableCloudRepositoriesResult",
-        "EnableCloudRepositoryEnableCloudRepositoryError",
         "EnableCloudRepositoryEnableCloudRepositoryUnauthenticatedError",
     ] = Field(alias="enableCloudRepository", discriminator="typename__")
 
@@ -64,11 +63,6 @@ class EnableCloudRepositoryEnableCloudRepositoryEnableCloudRepositoriesResultRes
     build_ref: str = Field(alias="buildRef")
     created_at: Any = Field(alias="createdAt")
     updated_at: Any = Field(alias="updatedAt")
-
-
-class EnableCloudRepositoryEnableCloudRepositoryError(BaseModel):
-    typename__: Literal["Error"] = Field(alias="__typename")
-    message: str
 
 
 class EnableCloudRepositoryEnableCloudRepositoryUnauthenticatedError(BaseModel):

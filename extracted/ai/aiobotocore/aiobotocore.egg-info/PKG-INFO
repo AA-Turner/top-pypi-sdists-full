@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiobotocore
-Version: 3.1.1
+Version: 3.1.2
 Summary: Async client for aws services using botocore and aiohttp
 Author-email: Nikolay Novik <nickolainovik@gmail.com>
 License-Expression: Apache-2.0
@@ -24,7 +24,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: aiohttp<4.0.0,>=3.12.0
 Requires-Dist: aioitertools<1.0.0,>=0.5.1
-Requires-Dist: botocore<1.42.31,>=1.41.0
+Requires-Dist: botocore<1.42.43,>=1.41.0
 Requires-Dist: python-dateutil<3.0.0,>=2.1
 Requires-Dist: jmespath<2.0.0,>=0.7.1
 Requires-Dist: multidict<7.0.0,>=6.0.0
@@ -255,6 +255,10 @@ Requirements
 
 Changes
 -------
+
+3.1.2 (2026-02-05)
+^^^^^^^^^^^^^^^^^^^
+* relax botocore dependency specification to support ``"botocore >= 1.41.0, < 1.42.43"``
 
 3.1.1 (2026-01-19)
 ^^^^^^^^^^^^^^^^^^^

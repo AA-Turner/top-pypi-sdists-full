@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xbbg
-Version: 0.11.1
+Version: 0.11.3
 Summary: Intuitive Bloomberg data API
 Author-email: Alpha x1 <alpha.xone@outlook.com>
 License-Expression: Apache-2.0
@@ -27,20 +27,27 @@ Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: narwhals>=2.14.0
-Requires-Dist: numpy>=2.2.6
-Requires-Dist: pandas>=2.0
 Requires-Dist: pyarrow>=22.0.0
-Provides-Extra: test
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: pytest-cov; extra == "test"
-Requires-Dist: coverage; extra == "test"
-Requires-Dist: codecov; extra == "test"
-Provides-Extra: dev
-Requires-Dist: ruff; extra == "dev"
-Requires-Dist: ipykernel; extra == "dev"
-Requires-Dist: build; extra == "dev"
-Requires-Dist: twine; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
+Provides-Extra: pandas
+Requires-Dist: pandas>=2.0; extra == "pandas"
+Provides-Extra: polars
+Requires-Dist: polars>=0.20; extra == "polars"
+Provides-Extra: modin
+Requires-Dist: modin[dask]>=0.25; extra == "modin"
+Provides-Extra: duckdb
+Requires-Dist: duckdb>=1.0; extra == "duckdb"
+Provides-Extra: dask
+Requires-Dist: dask[dataframe]>=2024.1; extra == "dask"
+Provides-Extra: ibis
+Requires-Dist: ibis-framework>=6.0; extra == "ibis"
+Provides-Extra: sqlframe
+Requires-Dist: sqlframe>=3.22; extra == "sqlframe"
+Provides-Extra: all-backends
+Requires-Dist: pandas>=2.0; extra == "all-backends"
+Requires-Dist: polars>=0.20; extra == "all-backends"
+Requires-Dist: duckdb>=1.0; extra == "all-backends"
+Requires-Dist: dask[dataframe]>=2024.1; extra == "all-backends"
+Requires-Dist: ibis-framework>=6.0; extra == "all-backends"
 Provides-Extra: docs
 Requires-Dist: sphinx>=5.3.0; extra == "docs"
 Requires-Dist: sphinx-rtd-theme>=2.0.0; extra == "docs"
@@ -71,7 +78,7 @@ Dynamic: license-file
 ---
 
 <!-- xbbg:latest-release-start -->
-Latest release: xbbg==0.11.0 (release: [notes](https://github.com/alpha-xone/xbbg/releases/tag/v0.11.0))
+Latest release: xbbg==0.11.2 (release: [notes](https://github.com/alpha-xone/xbbg/releases/tag/v0.11.2))
 <!-- xbbg:latest-release-end -->
 
 ## Table of Contents
@@ -517,14 +524,41 @@ Starting with v0.11.0, xbbg is **DataFrame-library agnostic**. You can get outpu
 
 #### Supported Backends
 
-| Backend | Output Type | Best For |
-|---------|-------------|----------|
-| `pandas` | `pd.DataFrame` | Traditional workflows, compatibility |
-| `polars` | `pl.DataFrame` | High performance, large datasets |
-| `polars_lazy` | `pl.LazyFrame` | Deferred execution, query optimization |
-| `pyarrow` | `pa.Table` | Zero-copy interop, memory efficiency |
-| `duckdb` | DuckDB relation | SQL analytics, OLAP queries |
-| `narwhals` | Narwhals DataFrame | Library-agnostic code |
+| Backend | Type | Output | Best For |
+|---------|------|--------|----------|
+| **Eager Backends** ||||
+| `pandas` | Eager | `pd.DataFrame` | Traditional workflows, compatibility |
+| `polars` | Eager | `pl.DataFrame` | High performance, large datasets |
+| `pyarrow` | Eager | `pa.Table` | Zero-copy interop, memory efficiency |
+| `narwhals` | Eager | Narwhals DataFrame | Library-agnostic code |
+| `modin` | Eager | Modin DataFrame | Pandas API with parallel execution |
+| `cudf` | Eager | cuDF DataFrame | GPU-accelerated processing (NVIDIA) |
+| **Lazy Backends** ||||
+| `polars_lazy` | Lazy | `pl.LazyFrame` | Deferred execution, query optimization |
+| `narwhals_lazy` | Lazy | Narwhals LazyFrame | Library-agnostic lazy evaluation |
+| `duckdb` | Lazy | DuckDB relation | SQL analytics, OLAP queries |
+| `dask` | Lazy | Dask DataFrame | Out-of-core and distributed computing |
+| `ibis` | Lazy | Ibis Table | Unified interface to many backends |
+| `pyspark` | Lazy | Spark DataFrame | Big data processing (requires Java) |
+| `sqlframe` | Lazy | SQLFrame DataFrame | SQL-first DataFrame operations |
+
+**Note:** Lazy backends only support `LONG` and `SEMI_LONG` output formats (not `WIDE`).
+
+#### Check Backend Availability
+
+```python
+from xbbg import get_available_backends, print_backend_status, is_backend_available
+
+# List installed backends
+print(get_available_backends())  # ['pandas', 'polars', 'pyarrow', ...]
+
+# Check if a specific backend is available
+if is_backend_available('polars'):
+    print("Polars is installed!")
+
+# Print detailed status of all backends
+print_backend_status()
+```
 
 #### Usage
 
@@ -1711,3 +1745,66 @@ _0.11.0_ - see release: [notes](https://github.com/alpha-xone/xbbg/releases/tag/
 - Logging format compliance fixes (G004, G201)
 
 **Full Changelog**: https://github.com/alpha-xone/xbbg/compare/v0.10.3...v0.11.0
+
+_0.11.1_ - see release: [notes](https://github.com/alpha-xone/xbbg/releases/tag/v0.11.1)
+
+### Fixed
+
+- **Field names now lowercase**: Restored v0.10.x behavior where `bdp()`, `bdh()`, and `bds()` return field/column names as lowercase (#206)
+
+**Full Changelog**: https://github.com/alpha-xone/xbbg/compare/v0.11.0...v0.11.1
+
+_0.11.2_ - see release: [notes](https://github.com/alpha-xone/xbbg/releases/tag/v0.11.2)
+
+### Added
+
+- **Extended multi-backend support**: Added 6 new backends matching narwhals' full backend support:
+  - **Eager backends**: `cudf` (GPU-accelerated via NVIDIA RAPIDS), `modin` (distributed pandas)
+  - **Lazy backends**: `dask` (parallel computing), `ibis` (portable DataFrame expressions), `pyspark` (Apache Spark), `sqlframe` (SQL-based DataFrames)
+  - Total: 13 backends (6 eager + 7 lazy)
+
+- **Backend availability checking**: New functions to check and validate backend availability with helpful error messages:
+  - `is_backend_available(backend)` - Check if a backend package is installed
+  - `check_backend(backend)` - Check availability with version validation, raises helpful errors
+  - `get_available_backends()` - List all currently available backends
+  - `print_backend_status()` - Diagnostic function showing all backend statuses
+
+- **Format compatibility checking**: New functions to validate format support per backend:
+  - `is_format_supported(backend, format)` - Check if a format works with a backend
+  - `get_supported_formats(backend)` - Get set of supported formats for a backend
+  - `check_format_compatibility(backend, format)` - Validate with helpful errors
+  - `validate_backend_format(backend, format)` - Combined validation for API functions
+
+- **`xbbg.ext` module**: New extension module for v1.0 migration containing helper functions that will be removed from `blp` namespace
+  - `xbbg.ext.currency` - `adjust_ccy()` for currency conversion
+  - `xbbg.ext.dividends` - `dividend()` for dividend history
+  - `xbbg.ext.earnings` - `earning()` for earnings breakdowns
+  - `xbbg.ext.turnover` - `turnover()` for trading volume
+  - `xbbg.ext.holdings` - `etf_holdings()`, `preferreds()`, `corporate_bonds()` BQL helpers
+  - `xbbg.ext.futures` - `fut_ticker()`, `active_futures()` for futures resolution
+  - `xbbg.ext.cdx` - `cdx_ticker()`, `active_cdx()` for CDX index resolution
+  - `xbbg.ext.yas` - `yas()`, `YieldType` for fixed income analytics
+
+- New v1.0-compatible import path: `from xbbg.ext import dividend, fut_ticker, ...` (no deprecation warnings)
+
+- **Pandas removed as required dependency**: `xbbg.ext` modules now use only stdlib datetime and narwhals, making pandas fully optional
+
+### Changed
+
+- **Backend enum reorganized**: Backends now categorized as eager (full API) vs lazy (deferred execution)
+
+- **Format restrictions**: WIDE format only available for eager backends (pandas, polars, pyarrow, narwhals, cudf, modin); lazy backends limited to LONG and SEMI_LONG
+
+- **Version requirements updated**: Minimum versions now match narwhals requirements (duckdb>=1.0, dask>=2024.1)
+
+- `xbbg/markets/resolvers.py` now re-exports from `xbbg.ext.futures` and `xbbg.ext.cdx` for backwards compatibility
+
+- Internal implementations moved to `xbbg/ext/` module; old import paths still work with deprecation warnings
+
+### Fixed
+
+- **ibis backend**: Updated to use `ibis.memtable()` instead of deprecated `con.read_in_memory()`
+
+- **sqlframe backend**: Fixed import path to use `sqlframe.duckdb.DuckDBSession`
+
+**Full Changelog**: https://github.com/alpha-xone/xbbg/compare/v0.11.1...v0.11.2

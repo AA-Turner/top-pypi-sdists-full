@@ -2,8 +2,7 @@ from asyncio import TimeoutError
 from json import loads
 from typing import List, Optional
 
-from aiohttp import ClientSession, TCPConnector
-from async_timeout import timeout
+from aiohttp import ClientSession, ClientTimeout, TCPConnector
 
 from algoliasearch.http.api_response import ApiResponse
 from algoliasearch.http.base_config import BaseConfig
@@ -56,16 +55,25 @@ class Transporter(BaseTransporter):
             proxy = self.get_proxy(url)
 
             try:
-                async with timeout(self._timeout / 1000):
-                    resp = await self._session.request(
-                        method=verb,
-                        url=url,
-                        headers=request_options.headers,
-                        data=request_options.data,
-                        proxy=proxy,
-                    )
+                connect_timeout = (
+                    request_options.timeouts["connect"] * (host.retry_count + 1)
+                ) / 1000
+                request_timeout = self._timeout / 1000
 
+                timeout_config = ClientTimeout(
+                    connect=connect_timeout, sock_read=request_timeout
+                )
+
+                async with self._session.request(
+                    method=verb,
+                    url=url,
+                    headers=request_options.headers,
+                    data=request_options.data,
+                    proxy=proxy,
+                    timeout=timeout_config,
+                ) as resp:
                     _raw_data = await resp.text()
+
                     response = ApiResponse(
                         verb=verb,
                         path=path,

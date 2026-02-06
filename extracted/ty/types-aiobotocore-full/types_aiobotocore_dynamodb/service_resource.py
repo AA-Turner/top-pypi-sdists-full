@@ -32,7 +32,11 @@ from aioboto3.resources.base import AIOBoto3ServiceResource
 from aioboto3.resources.collection import AIOResourceCollection
 
 from .client import DynamoDBClient
-from .literals import MultiRegionConsistencyType, TableStatusType
+from .literals import (
+    GlobalTableSettingsReplicationModeType,
+    MultiRegionConsistencyType,
+    TableStatusType,
+)
 from .type_defs import (
     ArchivalSummaryTypeDef,
     AttributeDefinitionTypeDef,
@@ -183,6 +187,7 @@ class Table(AIOBoto3ServiceResource):
     global_table_version: Awaitable[str]
     replicas: Awaitable[list[ReplicaDescriptionTypeDef]]
     global_table_witnesses: Awaitable[list[GlobalTableWitnessDescriptionTypeDef]]
+    global_table_settings_replication_mode: Awaitable[GlobalTableSettingsReplicationModeType]
     restore_summary: Awaitable[RestoreSummaryTypeDef]
     sse_description: Awaitable[SSEDescriptionTypeDef]
     archival_summary: Awaitable[ArchivalSummaryTypeDef]

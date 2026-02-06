@@ -59,13 +59,9 @@ class FileWriteEvent(PersistedExponentEvent):
         write_strategy = info.data.get("write_strategy")
         if write_strategy == WRITE_STRATEGY_NATURAL_EDIT:
             if not isinstance(v, NaturalEditContent):
-                raise ValueError(
-                    "When write_strategy is NATURAL_EDIT, write_content must be NaturalEditContent"
-                )
+                raise ValueError("When write_strategy is NATURAL_EDIT, write_content must be NaturalEditContent")
         elif not isinstance(v, EditContent):
-            raise ValueError(
-                "For non-NATURAL_EDIT strategies, write_content must be EditContent"
-            )
+            raise ValueError("For non-NATURAL_EDIT strategies, write_content must be EditContent")
         return v
 
 

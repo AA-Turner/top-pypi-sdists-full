@@ -19,15 +19,16 @@ T = TypeVar("T", bound="EditPostgresTrigger")
 class EditPostgresTrigger:
     """
     Attributes:
-        replication_slot_name (str):
-        publication_name (str):
-        path (str):
-        script_path (str):
-        is_flow (bool):
-        postgres_resource_path (str):
+        replication_slot_name (str): Name of the PostgreSQL logical replication slot to use
+        publication_name (str): Name of the PostgreSQL publication to subscribe to for change data capture
+        path (str): The unique path identifier for this trigger
+        script_path (str): Path to the script or flow to execute when database changes are detected
+        is_flow (bool): True if script_path points to a flow, false if it points to a script
+        postgres_resource_path (str): Path to the PostgreSQL resource containing connection configuration
         mode (Union[Unset, EditPostgresTriggerMode]): job trigger mode
-        publication (Union[Unset, EditPostgresTriggerPublication]):
-        error_handler_path (Union[Unset, str]):
+        publication (Union[Unset, EditPostgresTriggerPublication]): Configuration for creating/managing the publication
+            (tables, operations)
+        error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, EditPostgresTriggerErrorHandlerArgs]): The arguments to pass to the script or
             flow
         retry (Union[Unset, EditPostgresTriggerRetry]): Retry configuration for failed module executions

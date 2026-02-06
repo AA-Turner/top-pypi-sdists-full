@@ -22,31 +22,38 @@ T = TypeVar("T", bound="EditSchedule")
 class EditSchedule:
     """
     Attributes:
-        schedule (str): The cron schedule to trigger the script or flow. Should include seconds.
-        timezone (str): The timezone to use for the cron schedule
+        schedule (str): Cron expression with 6 fields (seconds, minutes, hours, day of month, month, day of week).
+            Example '0 0 12 * * *' for daily at noon
+        timezone (str): IANA timezone for the schedule (e.g., 'UTC', 'Europe/Paris', 'America/New_York')
         args (EditScheduleArgs): The arguments to pass to the script or flow
-        on_failure (Union[Unset, str]): The path to the script or flow to trigger on failure
-        on_failure_times (Union[Unset, float]): The number of times to retry on failure
-        on_failure_exact (Union[Unset, bool]): Whether the schedule should only run on the exact time
+        on_failure (Union[Unset, str]): Path to a script or flow to run when the scheduled job fails
+        on_failure_times (Union[Unset, float]): Number of consecutive failures before the on_failure handler is
+            triggered (default 1)
+        on_failure_exact (Union[Unset, bool]): If true, trigger on_failure handler only on exactly N failures, not on
+            every failure after N
         on_failure_extra_args (Union[Unset, EditScheduleOnFailureExtraArgs]): The arguments to pass to the script or
             flow
-        on_recovery (Union[Unset, str]): The path to the script or flow to trigger on recovery
-        on_recovery_times (Union[Unset, float]): The number of times to retry on recovery
+        on_recovery (Union[Unset, str]): Path to a script or flow to run when the schedule recovers after failures
+        on_recovery_times (Union[Unset, float]): Number of consecutive successes before the on_recovery handler is
+            triggered (default 1)
         on_recovery_extra_args (Union[Unset, EditScheduleOnRecoveryExtraArgs]): The arguments to pass to the script or
             flow
-        on_success (Union[Unset, str]): The path to the script or flow to trigger on success
+        on_success (Union[Unset, str]): Path to a script or flow to run after each successful execution
         on_success_extra_args (Union[Unset, EditScheduleOnSuccessExtraArgs]): The arguments to pass to the script or
             flow
-        ws_error_handler_muted (Union[Unset, bool]): Whether the WebSocket error handler is muted
+        ws_error_handler_muted (Union[Unset, bool]): If true, the workspace-level error handler will not be triggered
+            for this schedule's failures
         retry (Union[Unset, EditScheduleRetry]): Retry configuration for failed module executions
-        no_flow_overlap (Union[Unset, bool]): Whether the schedule should not run if a flow is already running
-        summary (Union[Unset, str]): The summary of the schedule
-        description (Union[Unset, str]): The description of the schedule
-        tag (Union[Unset, str]): The tag of the schedule
-        paused_until (Union[Unset, datetime.datetime]): The date and time the schedule will be paused until
-        cron_version (Union[Unset, str]): The version of the cron schedule to use (last is v2)
+        no_flow_overlap (Union[Unset, bool]): If true, skip this schedule's execution if the previous run is still in
+            progress (prevents concurrent runs)
+        summary (Union[Unset, str]): Short summary describing the purpose of this schedule
+        description (Union[Unset, str]): Detailed description of what this schedule does
+        tag (Union[Unset, str]): Worker tag to route jobs to specific worker groups
+        paused_until (Union[Unset, datetime.datetime]): ISO 8601 datetime until which the schedule is paused. Schedule
+            resumes automatically after this time
+        cron_version (Union[Unset, str]): Cron parser version. Use 'v2' for extended syntax with additional features
         dynamic_skip (Union[Unset, str]): Path to a script that validates scheduled datetimes. Receives scheduled_for
-            datetime and returns boolean.
+            datetime and returns boolean to skip (true) or run (false)
     """
 
     schedule: str

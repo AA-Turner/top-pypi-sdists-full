@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hfortix-fortios
-Version: 0.5.158
+Version: 0.5.159
 Summary: Type-safe Python client for FortiGate automation and FortiOS REST API - 1,348+ endpoints with async support and atomic transactions
 Author-email: "Herman W. Jacobsen" <herman@wjacobsen.fo>
 Maintainer-email: "Herman W. Jacobsen" <herman@wjacobsen.fo>
@@ -227,6 +227,7 @@ client.api.v2.monitor.router.ipv4.*
 - [Rate Limiting](./docs/fortios/guides/rate-limiting.md) - Request throttling
 - [Validation](./docs/fortios/guides/validation.md) - Input validation
 - [Debugging](./docs/fortios/guides/debugging.md) - Troubleshooting
+- **[Singleton PUT Behavior](./dev/docs/SINGLETON_PUT_BEHAVIOR.md)** - Important: Understanding FortiOS PUT semantics
 
 ### API Reference
 
@@ -234,6 +235,25 @@ client.api.v2.monitor.router.ipv4.*
 - [Services](./docs/fortios/guides/services.md) - Service objects
 - [Schedules](./docs/fortios/guides/schedules.md) - Schedule objects
 - [Traffic Shapers](./docs/fortios/guides/shapers.md) - QoS configuration
+
+## ⚠️ Important: FortiOS PUT Behavior
+
+**When using `put()` on singleton endpoints (like `router.bgp`), FortiOS uses merge semantics:**
+
+```python
+# ❌ This does NOT clear child tables!
+fgt.api.cmdb.router.bgp.put(asn=65500)
+# Neighbors, networks, etc. are UNCHANGED
+
+# ✅ To clear child tables, explicitly pass empty arrays
+fgt.api.cmdb.router.bgp.put(asn=65500, neighbor=[], network=[])
+
+# ✅✅ BEST: Use child table helpers for granular operations
+fgt.api.cmdb.router.bgp.neighbor.set(ip="10.1.1.1", remote_as=65001)
+fgt.api.cmdb.router.bgp.neighbor.delete(ip="10.1.1.1")
+```
+
+**See [Singleton PUT Behavior](./dev/docs/SINGLETON_PUT_BEHAVIOR.md) for complete details.**
 
 ## ✨ Advanced Features
 

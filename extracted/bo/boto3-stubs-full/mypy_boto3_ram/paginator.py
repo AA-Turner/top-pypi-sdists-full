@@ -18,6 +18,7 @@ Usage::
         GetResourceSharesPaginator,
         ListPrincipalsPaginator,
         ListResourcesPaginator,
+        ListSourceAssociationsPaginator,
     )
 
     session = Session()
@@ -29,6 +30,7 @@ Usage::
     get_resource_shares_paginator: GetResourceSharesPaginator = client.get_paginator("get_resource_shares")
     list_principals_paginator: ListPrincipalsPaginator = client.get_paginator("list_principals")
     list_resources_paginator: ListResourcesPaginator = client.get_paginator("list_resources")
+    list_source_associations_paginator: ListSourceAssociationsPaginator = client.get_paginator("list_source_associations")
     ```
 """
 
@@ -52,6 +54,8 @@ from .type_defs import (
     ListPrincipalsResponseTypeDef,
     ListResourcesRequestPaginateTypeDef,
     ListResourcesResponseTypeDef,
+    ListSourceAssociationsRequestPaginateTypeDef,
+    ListSourceAssociationsResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -67,6 +71,7 @@ __all__ = (
     "GetResourceSharesPaginator",
     "ListPrincipalsPaginator",
     "ListResourcesPaginator",
+    "ListSourceAssociationsPaginator",
 )
 
 
@@ -197,4 +202,25 @@ class ListResourcesPaginator(_ListResourcesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ram/paginator/ListResources.html#RAM.Paginator.ListResources.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ram/paginators/#listresourcespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListSourceAssociationsPaginatorBase = Paginator[ListSourceAssociationsResponseTypeDef]
+else:
+    _ListSourceAssociationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListSourceAssociationsPaginator(_ListSourceAssociationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ram/paginator/ListSourceAssociations.html#RAM.Paginator.ListSourceAssociations)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ram/paginators/#listsourceassociationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListSourceAssociationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListSourceAssociationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ram/paginator/ListSourceAssociations.html#RAM.Paginator.ListSourceAssociations.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ram/paginators/#listsourceassociationspaginator)
         """

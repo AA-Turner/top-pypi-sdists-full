@@ -1,12 +1,12 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Select from code helpers.
+"""Select from code helpers.
 
 This aims at being general, but right now is only used for comparison code helpers.
 """
 
-from nuitka import Options
+from nuitka.States import states
 
 from .c_types.CTypePyObjectPointers import CTypePyObjectPtr
 from .Reports import onMissingHelper
@@ -50,7 +50,7 @@ def selectCodeHelper(
     if helper_function not in specialized_helpers_set:
         if (
             report_missing
-            and Options.report_missing_code_helpers
+            and states.report_missing_code_helpers
             and (
                 not non_specialized_helpers_set
                 or helper_function not in non_specialized_helpers_set
@@ -68,11 +68,11 @@ def selectCodeHelper(
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

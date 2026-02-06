@@ -1,9 +1,12 @@
 from adam.commands import validate_args
 from adam.commands.command import Command
-from adam.commands.devices.devices import device
+from adam.commands.devices.devices import Devices
+from adam.config import Config
+from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.repl_state import ReplState, RequiredState
 from adam.utils import log2
 from adam.utils_k8s.pod_files import PodFiles
+from adam.utils_k8s.pods import Pods
 
 class DownloadFile(Command):
     COMMAND = 'download file'
@@ -29,8 +32,8 @@ class DownloadFile(Command):
 
         with self.validate(args, state) as (args, state):
             with validate_args(args, state, name='file'):
-                to_file = PodFiles.download_file(device(state).pod(state),
-                                             device(state).default_container(state),
+                to_file = PodFiles.download_file(Devices.of(state).pod(state),
+                                             Devices.of(state).default_container(state),
                                              state.namespace,
                                              args[0],
                                              args[1] if len(args) > 1 else None)
@@ -39,7 +42,7 @@ class DownloadFile(Command):
                 return state
 
     def completion(self, state: ReplState):
-        return super().completion(state, lambda: {f: None for f in device(state).files(state)}, pods=device(state).pods(state, '-'), auto='jit')
+        return super().completion(state, lambda: {f: None for f in Devices.of(state).files(state)}, pods=Devices.of(state).pods(state, '-'), auto='jit')
 
     def help(self, state: ReplState):
         return super().help(state, 'download file from pod', args='<from-file> [to-file]')

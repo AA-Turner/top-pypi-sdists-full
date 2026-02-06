@@ -59,6 +59,7 @@ Usage::
         ListSecurityProfilePermissionsPaginator,
         ListSecurityProfilesPaginator,
         ListTaskTemplatesPaginator,
+        ListTestCasesPaginator,
         ListTrafficDistributionGroupUsersPaginator,
         ListTrafficDistributionGroupsPaginator,
         ListUseCasesPaginator,
@@ -84,6 +85,7 @@ Usage::
         SearchResourceTagsPaginator,
         SearchRoutingProfilesPaginator,
         SearchSecurityProfilesPaginator,
+        SearchTestCasesPaginator,
         SearchUserHierarchyGroupsPaginator,
         SearchUsersPaginator,
         SearchViewsPaginator,
@@ -143,6 +145,7 @@ Usage::
         list_security_profile_permissions_paginator: ListSecurityProfilePermissionsPaginator = client.get_paginator("list_security_profile_permissions")
         list_security_profiles_paginator: ListSecurityProfilesPaginator = client.get_paginator("list_security_profiles")
         list_task_templates_paginator: ListTaskTemplatesPaginator = client.get_paginator("list_task_templates")
+        list_test_cases_paginator: ListTestCasesPaginator = client.get_paginator("list_test_cases")
         list_traffic_distribution_group_users_paginator: ListTrafficDistributionGroupUsersPaginator = client.get_paginator("list_traffic_distribution_group_users")
         list_traffic_distribution_groups_paginator: ListTrafficDistributionGroupsPaginator = client.get_paginator("list_traffic_distribution_groups")
         list_use_cases_paginator: ListUseCasesPaginator = client.get_paginator("list_use_cases")
@@ -168,6 +171,7 @@ Usage::
         search_resource_tags_paginator: SearchResourceTagsPaginator = client.get_paginator("search_resource_tags")
         search_routing_profiles_paginator: SearchRoutingProfilesPaginator = client.get_paginator("search_routing_profiles")
         search_security_profiles_paginator: SearchSecurityProfilesPaginator = client.get_paginator("search_security_profiles")
+        search_test_cases_paginator: SearchTestCasesPaginator = client.get_paginator("search_test_cases")
         search_user_hierarchy_groups_paginator: SearchUserHierarchyGroupsPaginator = client.get_paginator("search_user_hierarchy_groups")
         search_users_paginator: SearchUsersPaginator = client.get_paginator("search_users")
         search_views_paginator: SearchViewsPaginator = client.get_paginator("search_views")
@@ -279,6 +283,8 @@ from .type_defs import (
     ListSecurityProfilesResponseTypeDef,
     ListTaskTemplatesRequestPaginateTypeDef,
     ListTaskTemplatesResponseTypeDef,
+    ListTestCasesRequestPaginateTypeDef,
+    ListTestCasesResponseTypeDef,
     ListTrafficDistributionGroupsRequestPaginateTypeDef,
     ListTrafficDistributionGroupsResponseTypeDef,
     ListTrafficDistributionGroupUsersRequestPaginateTypeDef,
@@ -329,6 +335,8 @@ from .type_defs import (
     SearchRoutingProfilesResponseTypeDef,
     SearchSecurityProfilesRequestPaginateTypeDef,
     SearchSecurityProfilesResponseTypeDef,
+    SearchTestCasesRequestPaginateTypeDef,
+    SearchTestCasesResponseTypeDef,
     SearchUserHierarchyGroupsRequestPaginateTypeDef,
     SearchUserHierarchyGroupsResponseTypeDef,
     SearchUsersRequestPaginateTypeDef,
@@ -397,6 +405,7 @@ __all__ = (
     "ListSecurityProfilePermissionsPaginator",
     "ListSecurityProfilesPaginator",
     "ListTaskTemplatesPaginator",
+    "ListTestCasesPaginator",
     "ListTrafficDistributionGroupUsersPaginator",
     "ListTrafficDistributionGroupsPaginator",
     "ListUseCasesPaginator",
@@ -422,6 +431,7 @@ __all__ = (
     "SearchResourceTagsPaginator",
     "SearchRoutingProfilesPaginator",
     "SearchSecurityProfilesPaginator",
+    "SearchTestCasesPaginator",
     "SearchUserHierarchyGroupsPaginator",
     "SearchUsersPaginator",
     "SearchViewsPaginator",
@@ -1449,6 +1459,27 @@ class ListTaskTemplatesPaginator(_ListTaskTemplatesPaginatorBase):
 
 
 if TYPE_CHECKING:
+    _ListTestCasesPaginatorBase = AioPaginator[ListTestCasesResponseTypeDef]
+else:
+    _ListTestCasesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListTestCasesPaginator(_ListTestCasesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListTestCases.html#Connect.Paginator.ListTestCases)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/paginators/#listtestcasespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListTestCasesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListTestCasesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListTestCases.html#Connect.Paginator.ListTestCases.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/paginators/#listtestcasespaginator)
+        """
+
+
+if TYPE_CHECKING:
     _ListTrafficDistributionGroupUsersPaginatorBase = AioPaginator[
         ListTrafficDistributionGroupUsersResponseTypeDef
     ]
@@ -1980,6 +2011,27 @@ class SearchSecurityProfilesPaginator(_SearchSecurityProfilesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchSecurityProfiles.html#Connect.Paginator.SearchSecurityProfiles.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/paginators/#searchsecurityprofilespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _SearchTestCasesPaginatorBase = AioPaginator[SearchTestCasesResponseTypeDef]
+else:
+    _SearchTestCasesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class SearchTestCasesPaginator(_SearchTestCasesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchTestCases.html#Connect.Paginator.SearchTestCases)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/paginators/#searchtestcasespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[SearchTestCasesRequestPaginateTypeDef]
+    ) -> AioPageIterator[SearchTestCasesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchTestCases.html#Connect.Paginator.SearchTestCases.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/paginators/#searchtestcasespaginator)
         """
 
 

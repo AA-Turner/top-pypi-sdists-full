@@ -1,9 +1,7 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Code to generate and interact with compiled coroutine objects.
-
-"""
+"""Code to generate and interact with compiled coroutine objects."""
 
 from .CodeHelpers import (
     generateChildExpressionsCode,
@@ -25,7 +23,7 @@ from .LineNumberCodes import emitLineNumberUpdateCode
 from .ModuleCodes import getModuleAccessCode
 from .templates.CodeTemplatesCoroutines import (
     template_coroutine_exception_exit,
-    template_coroutine_noexception_exit,
+    template_coroutine_no_exception_exit,
     template_coroutine_object_body,
     template_coroutine_object_maker,
     template_coroutine_return_exit,
@@ -96,7 +94,7 @@ def getCoroutineObjectCode(
             "exception_state_name": exception_state_name,
         }
     else:
-        generator_exit = template_coroutine_noexception_exit % {
+        generator_exit = template_coroutine_no_exception_exit % {
             "function_cleanup": indented(function_cleanup)
         }
 
@@ -173,7 +171,7 @@ def generateMakeCoroutineObjectCode(to_name, expression, emit, context):
                 coroutine_object_body.getCodeName()
             ),
             "args": ", ".join(str(arg) for arg in args),
-            "closure_copy": indented(closure_copy, 0, True),
+            "closure_copy": indented(closure_copy),
         }
     )
 
@@ -240,11 +238,11 @@ def generateAsyncNextCode(to_name, expression, emit, context):
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

@@ -1,6 +1,6 @@
 from adam.commands import validate_args
 from adam.commands.command import Command
-from adam.commands.devices.devices import device
+from adam.commands.devices.devices import Devices
 from adam.repl_state import ReplState, RequiredState
 
 class Tail(Command):
@@ -27,10 +27,10 @@ class Tail(Command):
 
         with self.validate(args, state) as (args, state):
             with validate_args(args, state, name='file') as args:
-                return device(state).bash(state, state, ['tail', '-n', '10', args])
+                return Devices.of(state).bash(state, state, ['tail', '-n', '10', args])
 
     def completion(self, state: ReplState):
-        return super().completion(state, lambda: {f: None for f in device(state).files(state)}, pods=device(state).pods(state, '-'), auto='jit')
+        return super().completion(state, lambda: {f: None for f in Devices.of(state).files(state)}, pods=Devices.of(state).pods(state, '-'), auto='jit')
 
     def help(self, state: ReplState):
         return super().help(state, 'run tail command on the pod', args='<file>')

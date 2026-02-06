@@ -20,6 +20,24 @@ from hfortix_fortios.models import (
     FortiObjectList,
 )
 
+# Import child table helper types
+from ._bgp_child_tables import (
+    ConfederationPeersHelper,
+    AggregateAddressHelper,
+    AggregateAddress6Helper,
+    NeighborHelper,
+    NeighborGroupHelper,
+    NeighborRangeHelper,
+    NeighborRange6Helper,
+    NetworkHelper,
+    Network6Helper,
+    RedistributeHelper,
+    Redistribute6Helper,
+    AdminDistanceHelper,
+    VrfHelper,
+    Vrf6Helper,
+)
+
 
 # ================================================================
 # TypedDict Payloads
@@ -1218,6 +1236,22 @@ class Bgp:
     path: ClassVar[str] = ...
     category: ClassVar[str] = ...
     capabilities: ClassVar[dict[str, Any]] = ...
+    
+    # Child table helpers
+    confederation_peers: ConfederationPeersHelper
+    aggregate_address: AggregateAddressHelper
+    aggregate_address6: AggregateAddress6Helper
+    neighbor: NeighborHelper
+    neighbor_group: NeighborGroupHelper
+    neighbor_range: NeighborRangeHelper
+    neighbor_range6: NeighborRange6Helper
+    network: NetworkHelper
+    network6: Network6Helper
+    redistribute: RedistributeHelper
+    redistribute6: Redistribute6Helper
+    admin_distance: AdminDistanceHelper
+    vrf: VrfHelper
+    vrf6: Vrf6Helper
     
     def __init__(self, client: Any) -> None:
         """Initialize endpoint with HTTP client."""

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyicu
-Version: 2.16
+Version: 2.16.1
 Summary: Python extension wrapping the ICU C++ API
 Home-page: https://gitlab.pyicu.org/main/pyicu
 Author: Andi Vajda

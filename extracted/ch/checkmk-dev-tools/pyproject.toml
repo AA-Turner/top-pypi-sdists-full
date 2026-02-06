@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "checkmk-dev-tools"
-version = "2.0.2" # will-be-updated-automatically
+version = "2.0.3" # will-be-updated-automatically
 description = "Checkmk DevOps tools"
 authors = [
     "Frans Fürst <frans.fuerst@checkmk.com>",
@@ -14,7 +14,7 @@ exclude = ["cmk_dev/out"]
 
 [tool.poetry.urls]
 Repository = "https://github.com/Checkmk/checkmk-dev-tools"
-Changelog = "https://github.com/Checkmk/checkmk-dev-tools/blob/release/2.0.2/changelog.md"
+Changelog = "https://github.com/Checkmk/checkmk-dev-tools/blob/release/2.0.3/changelog.md"
 
 [tool.poetry.scripts]
 activity-from-fs = 'cmk_dev.activity_from_fs:main'

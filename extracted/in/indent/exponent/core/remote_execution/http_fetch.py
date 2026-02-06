@@ -29,11 +29,7 @@ async def fetch_http_content(http_request: HttpRequest) -> HttpResponse:
 
     try:
         # Set up timeout
-        timeout = (
-            http_request.timeout
-            if http_request.timeout is not None
-            else DEFAULT_TIMEOUT
-        )
+        timeout = http_request.timeout if http_request.timeout is not None else DEFAULT_TIMEOUT
 
         # Set up headers with default User-Agent
         headers = http_request.headers or {}
@@ -55,13 +51,9 @@ async def fetch_http_content(http_request: HttpRequest) -> HttpResponse:
             except UnicodeDecodeError:
                 # If content can't be decoded as text, provide a fallback
                 content = f"Binary content ({len(response.content)} bytes)"
-                logger.warning(
-                    f"Could not decode response content as text for {http_request.url}"
-                )
+                logger.warning(f"Could not decode response content as text for {http_request.url}")
 
-            logger.info(
-                f"HTTP {http_request.method} {http_request.url} -> {response.status_code}"
-            )
+            logger.info(f"HTTP {http_request.method} {http_request.url} -> {response.status_code}")
 
             return HttpResponse(
                 status_code=response.status_code,

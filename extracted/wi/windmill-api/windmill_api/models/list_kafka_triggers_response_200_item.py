@@ -24,23 +24,23 @@ T = TypeVar("T", bound="ListKafkaTriggersResponse200Item")
 class ListKafkaTriggersResponse200Item:
     """
     Attributes:
-        kafka_resource_path (str):
-        group_id (str):
-        topics (List[str]):
+        kafka_resource_path (str): Path to the Kafka resource containing connection configuration
+        group_id (str): Kafka consumer group ID for this trigger
+        topics (List[str]): Array of Kafka topic names to subscribe to
         filters (List['ListKafkaTriggersResponse200ItemFiltersItem']):
-        path (str):
-        script_path (str):
-        email (str):
-        extra_perms (ListKafkaTriggersResponse200ItemExtraPerms):
-        workspace_id (str):
-        edited_by (str):
-        edited_at (datetime.datetime):
-        is_flow (bool):
+        path (str): The unique path identifier for this trigger
+        script_path (str): Path to the script or flow to execute when triggered
+        email (str): Email of the user who owns this trigger, used for permissioned_as
+        extra_perms (ListKafkaTriggersResponse200ItemExtraPerms): Additional permissions for this trigger
+        workspace_id (str): The workspace this trigger belongs to
+        edited_by (str): Username of the last person who edited this trigger
+        edited_at (datetime.datetime): Timestamp of the last edit
+        is_flow (bool): True if script_path points to a flow, false if it points to a script
         mode (ListKafkaTriggersResponse200ItemMode): job trigger mode
-        server_id (Union[Unset, str]):
-        last_server_ping (Union[Unset, datetime.datetime]):
-        error (Union[Unset, str]):
-        error_handler_path (Union[Unset, str]):
+        server_id (Union[Unset, str]): ID of the server currently handling this trigger (internal)
+        last_server_ping (Union[Unset, datetime.datetime]): Timestamp of last server heartbeat (internal)
+        error (Union[Unset, str]): Last error message if the trigger failed
+        error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, ListKafkaTriggersResponse200ItemErrorHandlerArgs]): The arguments to pass to
             the script or flow
         retry (Union[Unset, ListKafkaTriggersResponse200ItemRetry]): Retry configuration for failed module executions

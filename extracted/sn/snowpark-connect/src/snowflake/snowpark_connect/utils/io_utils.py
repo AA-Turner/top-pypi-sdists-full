@@ -2,14 +2,23 @@
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
 import contextlib
+import dataclasses
 import functools
+import json
 import re
 
-from snowflake.snowpark import Session
+from pyspark.errors.exceptions.connect import AnalysisException
+
+from snowflake import snowpark
+from snowflake.snowpark import Column, Session
 from snowflake.snowpark._internal.analyzer.analyzer_utils import (
     create_file_format_statement,
+    unquote_if_quoted,
 )
-from snowflake.snowpark_connect.utils.identifiers import FQN
+from snowflake.snowpark.functions import col, equal_null, lit
+from snowflake.snowpark_connect.error.error_codes import ErrorCodes
+from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+from snowflake.snowpark_connect.utils.identifiers import FQN, spark_to_sf_single_id
 
 _MINUS_AT_THE_BEGINNING_REGEX = re.compile(r"^-")
 
@@ -89,3 +98,120 @@ def get_table_type(
         else:
             return snowpark_session.catalog.getTable(table_name=fqn.name).table_type
     return "TABLE"
+
+
+@dataclasses.dataclass
+class PartitionField:
+    name: str
+    transform: str
+    source_id: int
+
+    @property
+    def position(self) -> int:
+        """
+        0-indexed column position
+        """
+        return self.source_id - 1
+
+
+@dataclasses.dataclass
+class PartitionSpec:
+    fields: list[PartitionField]
+
+    def uses_transform(self) -> bool:
+        """
+        Returns True if any partition field uses a transform.
+        """
+        return any(f.transform != "identity" for f in self.fields)
+
+    def columns(self) -> list[str]:
+        return [f.name for f in self.fields]
+
+    def partition_column_positions(self) -> list[int]:
+        return [f.position for f in self.fields]
+
+
+def get_partition_spec(table_name: str, session: Session) -> PartitionSpec | None:
+    """
+    Retrieves basic partition specs (list of fields with transforms) for the given table.
+    """
+    fqn = FQN.from_string(table_name)
+    table_schema = ".".join(
+        [part for part in [fqn.database, fqn.schema] if part is not None]
+    )
+    unquoted_table_name = unquote_if_quoted(fqn.name)
+
+    # "show" is the only way to get partition specs
+    if table_schema:
+        show_query = (
+            f"show iceberg tables like '{unquoted_table_name}' in schema {table_schema}"
+        )
+    else:
+        show_query = f"show iceberg tables like '{unquoted_table_name}'"
+
+    rows = session.sql(show_query).collect()
+
+    # there should be only one table in the result, otherwise something's wrong
+    if len(rows) != 1:
+        exception = AnalysisException(
+            f"[TABLE_NOT_FOUND] Could not find Iceberg table '{table_name}'"
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+
+    spec_id = rows[0]["current_partition_spec_id"]
+    if spec_id is None:
+        return None
+
+    partition_specs = [
+        spec
+        for spec in json.loads(rows[0]["partition_specs"])
+        if spec["spec-id"] == spec_id
+    ]
+    if not partition_specs:
+        return None
+
+    if len(partition_specs) != 1:
+        exception = AnalysisException(
+            f"[TABLE_NOT_FOUND] Could not find partition spec for Iceberg table '{table_name}'"
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+
+    fields = [
+        PartitionField(f["name"], f["transform"], f["source-id"])
+        for f in partition_specs[0]["fields"]
+    ]
+    return PartitionSpec(fields)
+
+
+def get_overwrite_condition(
+    distinct_partitions_df: snowpark.DataFrame,
+    partition_column_names: list[str],
+) -> Column | None:
+    """
+    Produces a (snowpark) column that can be used as an overwrite_condition when writing data to a table.
+    """
+    distinct_partitions = distinct_partitions_df.collect()
+    if not distinct_partitions:
+        return None
+
+    or_conditions = []
+    for row in distinct_partitions:
+        and_conditions = []
+        for partition_col, value in zip(partition_column_names, row):
+            sf_col_name = spark_to_sf_single_id(
+                unquote_if_quoted(partition_col), is_column=True
+            )
+            # partition values can be NULL, so we need to compare them with equal_null
+            and_conditions.append(equal_null(col(sf_col_name), lit(value)))
+        if and_conditions:
+            combined_and = functools.reduce(lambda a, b: a & b, and_conditions)
+            or_conditions.append(combined_and)
+
+    if or_conditions:
+        combined_or = functools.reduce(lambda a, b: a | b, or_conditions)
+        return combined_or
+
+    # no partitions in the input data
+    return None

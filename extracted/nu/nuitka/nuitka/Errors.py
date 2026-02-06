@@ -1,12 +1,14 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" For enhanced bug reporting, these exceptions should be used.
+"""For enhanced bug reporting, these exceptions should be used.
 
 They ideally should point out what it ought to take for reproducing the
 issue when output.
 
 """
+
+from nuitka.code_generation.Indentation import indented
 
 
 class NuitkaErrorBase(Exception):
@@ -17,8 +19,6 @@ class NuitkaNodeError(NuitkaErrorBase):
     # Try to output more information about nodes passed.
     def __str__(self):
         try:
-            from nuitka.code_generation.Indentation import indented
-
             parts = [""]
 
             for arg in self.args:  # false alarm, pylint: disable=I0021,not-an-iterable
@@ -84,11 +84,11 @@ class NuitkaFilenameError(Exception):
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

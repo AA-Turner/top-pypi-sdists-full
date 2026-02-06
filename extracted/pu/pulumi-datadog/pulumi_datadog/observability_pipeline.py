@@ -21,16 +21,27 @@ __all__ = ['ObservabilityPipelineArgs', 'ObservabilityPipeline']
 @pulumi.input_type
 class ObservabilityPipelineArgs:
     def __init__(__self__, *,
-                 name: pulumi.Input[_builtins.str],
-                 config: Optional[pulumi.Input['ObservabilityPipelineConfigArgs']] = None):
+                 config: pulumi.Input['ObservabilityPipelineConfigArgs'],
+                 name: pulumi.Input[_builtins.str]):
         """
         The set of arguments for constructing a ObservabilityPipeline resource.
-        :param pulumi.Input[_builtins.str] name: The pipeline name.
         :param pulumi.Input['ObservabilityPipelineConfigArgs'] config: Configuration for the pipeline.
+        :param pulumi.Input[_builtins.str] name: The pipeline name.
         """
+        pulumi.set(__self__, "config", config)
         pulumi.set(__self__, "name", name)
-        if config is not None:
-            pulumi.set(__self__, "config", config)
+
+    @_builtins.property
+    @pulumi.getter
+    def config(self) -> pulumi.Input['ObservabilityPipelineConfigArgs']:
+        """
+        Configuration for the pipeline.
+        """
+        return pulumi.get(self, "config")
+
+    @config.setter
+    def config(self, value: pulumi.Input['ObservabilityPipelineConfigArgs']):
+        pulumi.set(self, "config", value)
 
     @_builtins.property
     @pulumi.getter
@@ -43,18 +54,6 @@ class ObservabilityPipelineArgs:
     @name.setter
     def name(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "name", value)
-
-    @_builtins.property
-    @pulumi.getter
-    def config(self) -> Optional[pulumi.Input['ObservabilityPipelineConfigArgs']]:
-        """
-        Configuration for the pipeline.
-        """
-        return pulumi.get(self, "config")
-
-    @config.setter
-    def config(self, value: Optional[pulumi.Input['ObservabilityPipelineConfigArgs']]):
-        pulumi.set(self, "config", value)
 
 
 @pulumi.input_type
@@ -120,60 +119,45 @@ class ObservabilityPipeline(pulumi.CustomResource):
         test = datadog.ObservabilityPipeline("test",
             name="test pipeline",
             config={
+                "destinations": [{
+                    "datadog_logs": [{}],
+                    "id": "destination-1",
+                    "inputs": ["processor-group-1"],
+                }],
                 "sources": [{
-                    "kafka": [{
-                        "id": "source-1",
-                        "groupId": "my-consumer-group",
-                        "topics": [
-                            "my-topic-1",
-                            "my-topic-2",
-                        ],
-                        "tls": [{
-                            "crtFile": "/etc/certs/client.crt",
-                            "keyFile": "/etc/certs/client.key",
-                            "caFile": "/etc/certs/ca.crt",
-                        }],
-                        "sasl": [{
-                            "mechanism": "SCRAM-SHA-512",
-                        }],
-                        "librdkafkaOption": [
-                            {
-                                "name": "fetch.message.max.bytes",
-                                "value": "1048576",
-                            },
-                            {
-                                "name": "socket.timeout.ms",
-                                "value": "500",
-                            },
-                        ],
+                    "id": "source-1",
+                    "datadog_agents": [{
+                        "tls": {
+                            "crt_file": "/etc/certs/client.crt",
+                            "key_file": "/etc/certs/client.key",
+                            "ca_file": "/etc/certs/ca.crt",
+                        },
                     }],
                 }],
-                "processors": [{
-                    "parseJson": [
+                "processor_groups": [{
+                    "id": "processor-group-1",
+                    "enabled": True,
+                    "include": "service:my-service",
+                    "inputs": ["source-1"],
+                    "display_name": "processor group",
+                    "processors": [
+                        {
+                            "id": "parser-1",
+                            "enabled": True,
+                            "include": "service:my-service",
+                            "display_name": "json parser",
+                            "parse_json": {
+                                "field": "message",
+                            },
+                        },
                         {
                             "id": "filter-1",
-                            "include": "service:nginx",
-                            "field": "message2",
-                            "inputs": ["source-1"],
-                        },
-                        {
-                            "id": "filter-3",
-                            "include": "service:nginx",
-                            "field": "message",
-                            "inputs": ["filter-2"],
+                            "enabled": True,
+                            "include": "service:my-service",
+                            "display_name": "filter",
+                            "filter": {},
                         },
                     ],
-                    "filter": [{
-                        "id": "filter-2",
-                        "include": "service:nginx",
-                        "inputs": ["filter-1"],
-                    }],
-                }],
-                "destinations": [{
-                    "datadog_logs": [{
-                        "id": "sink-1",
-                        "inputs": ["filter-3"],
-                    }],
                 }],
             })
         ```
@@ -211,60 +195,45 @@ class ObservabilityPipeline(pulumi.CustomResource):
         test = datadog.ObservabilityPipeline("test",
             name="test pipeline",
             config={
+                "destinations": [{
+                    "datadog_logs": [{}],
+                    "id": "destination-1",
+                    "inputs": ["processor-group-1"],
+                }],
                 "sources": [{
-                    "kafka": [{
-                        "id": "source-1",
-                        "groupId": "my-consumer-group",
-                        "topics": [
-                            "my-topic-1",
-                            "my-topic-2",
-                        ],
-                        "tls": [{
-                            "crtFile": "/etc/certs/client.crt",
-                            "keyFile": "/etc/certs/client.key",
-                            "caFile": "/etc/certs/ca.crt",
-                        }],
-                        "sasl": [{
-                            "mechanism": "SCRAM-SHA-512",
-                        }],
-                        "librdkafkaOption": [
-                            {
-                                "name": "fetch.message.max.bytes",
-                                "value": "1048576",
-                            },
-                            {
-                                "name": "socket.timeout.ms",
-                                "value": "500",
-                            },
-                        ],
+                    "id": "source-1",
+                    "datadog_agents": [{
+                        "tls": {
+                            "crt_file": "/etc/certs/client.crt",
+                            "key_file": "/etc/certs/client.key",
+                            "ca_file": "/etc/certs/ca.crt",
+                        },
                     }],
                 }],
-                "processors": [{
-                    "parseJson": [
+                "processor_groups": [{
+                    "id": "processor-group-1",
+                    "enabled": True,
+                    "include": "service:my-service",
+                    "inputs": ["source-1"],
+                    "display_name": "processor group",
+                    "processors": [
+                        {
+                            "id": "parser-1",
+                            "enabled": True,
+                            "include": "service:my-service",
+                            "display_name": "json parser",
+                            "parse_json": {
+                                "field": "message",
+                            },
+                        },
                         {
                             "id": "filter-1",
-                            "include": "service:nginx",
-                            "field": "message2",
-                            "inputs": ["source-1"],
-                        },
-                        {
-                            "id": "filter-3",
-                            "include": "service:nginx",
-                            "field": "message",
-                            "inputs": ["filter-2"],
+                            "enabled": True,
+                            "include": "service:my-service",
+                            "display_name": "filter",
+                            "filter": {},
                         },
                     ],
-                    "filter": [{
-                        "id": "filter-2",
-                        "include": "service:nginx",
-                        "inputs": ["filter-1"],
-                    }],
-                }],
-                "destinations": [{
-                    "datadog_logs": [{
-                        "id": "sink-1",
-                        "inputs": ["filter-3"],
-                    }],
                 }],
             })
         ```
@@ -303,6 +272,8 @@ class ObservabilityPipeline(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = ObservabilityPipelineArgs.__new__(ObservabilityPipelineArgs)
 
+            if config is None and not opts.urn:
+                raise TypeError("Missing required property 'config'")
             __props__.__dict__["config"] = config
             if name is None and not opts.urn:
                 raise TypeError("Missing required property 'name'")
@@ -339,7 +310,7 @@ class ObservabilityPipeline(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter
-    def config(self) -> pulumi.Output[Optional['outputs.ObservabilityPipelineConfig']]:
+    def config(self) -> pulumi.Output['outputs.ObservabilityPipelineConfig']:
         """
         Configuration for the pipeline.
         """

@@ -18,7 +18,7 @@
 from __future__ import print_function
 
 import csv
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 import io
 
@@ -57,7 +57,6 @@ from kagglesdk.admin.types.inbox_file_service import CreateInboxFileRequest
 from kagglesdk.blobs.types.blob_api_service import ApiStartBlobUploadRequest, ApiStartBlobUploadResponse, ApiBlobType
 from kagglesdk.competitions.types.competition_api_service import (
     ApiListCompetitionsRequest,
-    ApiCompetition,
     ApiCreateCodeSubmissionRequest,
     ApiCreateSubmissionResponse,
     ApiStartSubmissionUploadRequest,
@@ -150,7 +149,6 @@ from kagglesdk.models.types.model_api_service import (
 from kagglesdk.models.types.model_enums import ListModelsOrderBy, ModelInstanceType, ModelFramework
 from kagglesdk.models.types.model_types import Owner
 from kagglesdk.security.types.oauth_service import IntrospectTokenRequest
-from ..models.dataset_column import DatasetColumn
 from ..models.upload_file import UploadFile
 import kagglesdk.kaggle_client
 from enum import EnumMeta
@@ -674,14 +672,12 @@ class KaggleApi:
         if self._authenticate_with_legacy_apikey():
             return
         if self.enable_oauth:
-            print("You must log in to Kaggle to use the Kaggle API.")
+            print("You must authenticate before you can call the Kaggle API.")
             print('Please run "kaggle auth login" to log in.')
         else:
+            print("You must authenticate before you can call the Kaggle API.")
             print(
-                "Could not find {}. Make sure it's located in"
-                " {}. Or use the environment method. See setup"
-                " instructions at"
-                " https://github.com/Kaggle/kaggle-api/".format(self.config_file, self.config_dir)
+                "Follow the instructions to authenticate at: https://github.com/Kaggle/kaggle-cli/blob/main/docs/README.md#authentication"
             )
         exit(1)
 
@@ -740,7 +736,6 @@ class KaggleApi:
             self.CONFIG_NAME_AUTH_METHOD: AuthMethod.ACCESS_TOKEN,
         }
         self.logger.debug(f"Authenticated with access token in: {source}")
-        os.environ.pop("KAGGLE_API_TOKEN", None)
         return True
 
     def _authenticate_with_oauth_creds(self) -> bool:
@@ -1350,6 +1345,12 @@ class KaggleApi:
                     return resp
 
                 submit_request = ApiCreateSubmissionRequest()
+
+                # Admin-only feature to submit for a given model (b/475908216)
+                model_version_id = os.getenv("KAGGLE_COMPETITION_SUBMISSION_MODEL_VERSION_ID", None)
+                if model_version_id:
+                    submit_request.benchmark_model_version_id = int(model_version_id)
+
                 submit_request.competition_name = competition
                 submit_request.blob_file_tokens = response.token
                 if message:
@@ -1384,7 +1385,7 @@ class KaggleApi:
             str:
         """
         if kernel and not version or version and not kernel:
-            raise ValueError("Code competition submissions require both the output file name and the version label")
+            raise ValueError("Code competition submissions require both the output file name and the version number")
         competition = competition or competition_opt
         try:
             if kernel:
@@ -1412,6 +1413,7 @@ class KaggleApi:
         competition: str,
         group: SubmissionGroup = SubmissionGroup.SUBMISSION_GROUP_ALL,
         sort: SubmissionSortBy = SubmissionSortBy.SUBMISSION_SORT_BY_DATE,
+        page_number: int = -1,
         page_token: str = "",
         page_size: int = 20,
     ) -> list[ApiSubmission | None] | None:
@@ -1421,6 +1423,7 @@ class KaggleApi:
             competition (str): The name of the competition.
             group (SubmissionGroup): The submission group.
             sort (SubmissionSortBy): The sort-by option.
+            page_number (int): The page number to show.
             page_token (str): The pageToken for pagination.
             page_size (int): The number of items per page.
 
@@ -1430,6 +1433,7 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             request = ApiListSubmissionsRequest()
             request.competition_name = competition
+            request.page = page_number
             request.page_token = page_token
             request.page_size = page_size
             request.group = group
@@ -2156,17 +2160,17 @@ class KaggleApi:
                 except zipfile.BadZipFile as e:
                     raise ValueError(
                         f"The file {outfile} is corrupted or not a valid zip file. "
-                        "Please report this issue at https://www.github.com/kaggle/kaggle-api"
+                        "Please report this issue at https://www.github.com/kaggle/kaggle-cli/issues"
                     )
                 except FileNotFoundError:
                     raise FileNotFoundError(
                         f"The file {outfile} was not found. "
-                        "Please report this issue at https://www.github.com/kaggle/kaggle-api"
+                        "Please report this issue at https://www.github.com/kaggle/kaggle-cli"
                     )
                 except Exception as e:
                     raise RuntimeError(
                         f"An unexpected error occurred: {e}. "
-                        "Please report this issue at https://www.github.com/kaggle/kaggle-api"
+                        "Please report this issue at https://www.github.com/kaggle/kaggle-cli"
                     )
 
                 try:
@@ -2631,8 +2635,10 @@ class KaggleApi:
         else:
             print("Dataset creation error: " + result.error)
 
-    def download_file(self, response, outfile, http_client, quiet=True, resume=False, chunk_size=1048576):
-        """Downloads a file to an output file, streaming in chunks.
+    def download_file(
+        self, response, outfile, http_client, quiet=True, resume=False, chunk_size=1048576, max_retries=5, timeout=300
+    ):
+        """Downloads a file to an output file, streaming in chunks with automatic retry on failure.
 
         Args:
             response: The response object to download.
@@ -2641,14 +2647,16 @@ class KaggleApi:
             quiet: Suppress verbose output (default is True).
             chunk_size: The size of the chunk to stream.
             resume: Whether to resume an existing download.
+            max_retries: Maximum number of retry attempts on network errors (default is 5).
+            timeout: Timeout in seconds for each chunk read operation (default is 300).
         """
 
         outpath = os.path.dirname(outfile)
         if not os.path.exists(outpath):
             os.makedirs(outpath)
+
+        # Get file metadata
         size = int(response.headers["Content-Length"])
-        size_read = 0
-        open_mode = "wb"
         last_modified = response.headers.get("Last-Modified")
         if last_modified is None:
             remote_date = datetime.now()
@@ -2656,57 +2664,135 @@ class KaggleApi:
             remote_date = datetime.strptime(response.headers["Last-Modified"], "%a, %d %b %Y %H:%M:%S %Z")
         remote_date_timestamp = time.mktime(remote_date.timetuple())
 
-        if not quiet:
-            print("Downloading " + os.path.basename(outfile) + " to " + outpath)
-
-        file_exists = os.path.isfile(outfile)
+        # Check if file is resumable
         resumable = "Accept-Ranges" in response.headers and response.headers["Accept-Ranges"] == "bytes"
 
-        if resume and resumable and file_exists:
-            size_read = os.path.getsize(outfile)
-            open_mode = "ab"
+        # Retry loop for handling network errors
+        retry_count = 0
+        download_url = response.url
+        original_method = response.request.method if hasattr(response, "request") else "GET"
 
-            if not quiet:
-                print(
-                    "... resuming from %d bytes (%d bytes left) ..."
-                    % (
-                        size_read,
-                        size - size_read,
+        # Preserve original request headers for authentication
+        original_headers = {}
+        if hasattr(response, "request") and hasattr(response.request, "headers"):
+            original_headers = dict(response.request.headers)
+
+        while retry_count <= max_retries:
+            try:
+                # Check file existence inside loop (may be created during retry)
+                file_exists = os.path.isfile(outfile)
+
+                # Determine starting position
+                if retry_count > 0 or (resume and resumable and file_exists):
+                    size_read = os.path.getsize(outfile) if file_exists else 0
+                    open_mode = "ab"
+
+                    if size_read >= size:
+                        if not quiet:
+                            print("File already downloaded completely.")
+                        return
+
+                    if not quiet:
+                        if retry_count > 0:
+                            print(
+                                f"Retry {retry_count}/{max_retries}: Resuming from {size_read} bytes ({size - size_read} bytes left)..."
+                            )
+                        else:
+                            print(f"Resuming from {size_read} bytes ({size - size_read} bytes left)...")
+
+                    # Request with Range header for resume, preserving authentication
+                    retry_headers = original_headers.copy()
+                    retry_headers["Range"] = f"bytes={size_read}-"
+                    response = requests.request(
+                        original_method,
+                        download_url,
+                        headers=retry_headers,
+                        stream=True,
+                        timeout=timeout,
                     )
-                )
-
-            request_history = response.history[0]
-            response = requests.request(
-                request_history.request.method,
-                response.url,
-                headers={"Range": "bytes=%d-" % (size_read,)},
-                stream=True,
-            )
-
-        with tqdm(total=size, initial=size_read, unit="B", unit_scale=True, unit_divisor=1024, disable=quiet) as pbar:
-            with open(outfile, open_mode) as out:
-                # TODO: Delete this test after all API methods are converted.
-                if type(response).__name__ == "HTTPResponse":
-                    while True:
-                        data = response.read(chunk_size)
-                        if not data:
-                            break
-                        out.write(data)
-                        os.utime(outfile, times=(remote_date_timestamp - 1, remote_date_timestamp - 1))
-                        size_read = min(size, size_read + chunk_size)
-                        pbar.update(len(data))
                 else:
-                    for data in response.iter_content(chunk_size):
-                        if not data:
-                            break
-                        out.write(data)
-                        os.utime(outfile, times=(remote_date_timestamp - 1, remote_date_timestamp - 1))
-                        size_read = min(size, size_read + chunk_size)
-                        pbar.update(len(data))
-            if not quiet:
-                print("\n", end="")
+                    size_read = 0
+                    open_mode = "wb"
 
-            os.utime(outfile, times=(remote_date_timestamp, remote_date_timestamp))
+                    if not quiet:
+                        print("Downloading " + os.path.basename(outfile) + " to " + outpath)
+
+                # Download with progress bar
+                with tqdm(
+                    total=size, initial=size_read, unit="B", unit_scale=True, unit_divisor=1024, disable=quiet
+                ) as pbar:
+                    with open(outfile, open_mode) as out:
+                        # TODO: Delete this test after all API methods are converted.
+                        if type(response).__name__ == "HTTPResponse":
+                            while True:
+                                data = response.read(chunk_size)
+                                if not data:
+                                    break
+                                out.write(data)
+                                out.flush()  # Ensure data is written to disk
+                                os.utime(outfile, times=(remote_date_timestamp - 1, remote_date_timestamp - 1))
+                                size_read += len(data)
+                                pbar.update(len(data))
+                        else:
+                            for data in response.iter_content(chunk_size):
+                                if not data:
+                                    break
+                                out.write(data)
+                                out.flush()  # Ensure data is written to disk
+                                os.utime(outfile, times=(remote_date_timestamp - 1, remote_date_timestamp - 1))
+                                size_read += len(data)
+                                pbar.update(len(data))
+
+                # Download completed successfully
+                if not quiet:
+                    print("\n", end="")
+
+                os.utime(outfile, times=(remote_date_timestamp, remote_date_timestamp))
+
+                # Verify file size
+                final_size = os.path.getsize(outfile)
+                if final_size != size:
+                    error_msg = f"Downloaded file size ({final_size}) does not match expected size ({size})"
+                    if not quiet:
+                        print(f"\n{error_msg}")
+                    raise ValueError(error_msg)
+
+                # Success - exit retry loop
+                break
+
+            except (
+                requests.exceptions.ConnectionError,
+                requests.exceptions.Timeout,
+                requests.exceptions.ChunkedEncodingError,
+                urllib3_exceptions.ProtocolError,
+                urllib3_exceptions.ReadTimeoutError,
+                OSError,
+            ) as e:
+
+                retry_count += 1
+
+                if retry_count > max_retries:
+                    if not quiet:
+                        print(f"\nDownload failed after {max_retries} retries.")
+                        print(f"Error: {type(e).__name__}: {str(e)}")
+                        print(f"Partial file saved at: {outfile}")
+                        print(f"You can resume by running the same command again.")
+                    raise
+
+                # Calculate backoff time (exponential with jitter)
+                backoff_time = min(2**retry_count + random(), 60)  # Cap at 60 seconds
+
+                if not quiet:
+                    print(f"\nConnection error: {type(e).__name__}: {str(e)}")
+                    print(f"Retrying in {backoff_time:.1f} seconds... (attempt {retry_count}/{max_retries})")
+
+                time.sleep(backoff_time)
+
+                # Ensure file exists for resume
+                if not os.path.isfile(outfile):
+                    open(outfile, "a").close()
+
+                continue
 
     def kernels_list(
         self,
@@ -2954,7 +3040,9 @@ class KaggleApi:
         meta_file = self.kernels_initialize(folder)
         print("Kernel metadata template written to: " + meta_file)
 
-    def kernels_push(self, folder: str, timeout: Optional[str] = None) -> ApiSaveKernelResponse:
+    def kernels_push(
+        self, folder: str, timeout: Optional[str] = None, acc: Optional[str] = None
+    ) -> ApiSaveKernelResponse:
         """Pushes a kernel to Kaggle.
 
         This method reads the metadata file and kernel files from a notebook,
@@ -2963,6 +3051,8 @@ class KaggleApi:
         Args:
             folder (str): The path to the folder.
             timeout (Optional[str]): The maximum run time in seconds.
+            acc (Optional[str]): The type of accelerator to use for the kernel run. If set, this value overrides boolean
+                settings for GPU/TPU found in the metadata file.
 
         Returns:
             ApiSaveKernelResponse: An ApiSaveKernelResponse object.
@@ -3037,7 +3127,7 @@ class KaggleApi:
 
         model_sources = cast(List[str], self.get_or_default(meta_data, "model_sources", []))
         for source in model_sources:
-            self.validate_model_string(source)
+            self.validate_model_instance_version_string(source)
 
         docker_pinning_type = self.get_or_default(meta_data, "docker_image_pinning_type", None)
         if docker_pinning_type is not None and docker_pinning_type not in self.valid_push_pinning_types:
@@ -3081,19 +3171,22 @@ class KaggleApi:
             request.docker_image = self.get_or_default(meta_data, "docker_image", None)
             if timeout:
                 request.session_timeout_seconds = int(timeout)
+            # The allowed names are in an enum that is not currently included in kagglesdk.
+            request.machine_shape = acc if acc else self.get_or_default(meta_data, "machine_shape", None)
             # Without the type hint, mypy thinks save_kernel() has type Any when checking warn_return_any.
             response: ApiSaveKernelResponse = kaggle.kernels.kernels_api_client.save_kernel(request)
             return response
 
-    def kernels_push_cli(self, folder, timeout):
+    def kernels_push_cli(self, folder, timeout, acc):
         """A client wrapper for kernels_push.
 
         Args:
             folder: The path to the folder.
             timeout: The maximum run time in seconds.
+            acc: The accelerator to use.
         """
         folder = folder or os.getcwd()
-        result = self.kernels_push(folder, timeout)
+        result = self.kernels_push(folder, timeout, acc)
 
         if result is None:
             print("Kernel push error: see previous output")
@@ -3224,7 +3317,7 @@ class KaggleApi:
             if file_name is None:
                 print(
                     "Unknown language %s + kernel type %s - please report this "
-                    "on the kaggle-api github issues" % (language, kernel_type)
+                    "on the kaggle-cli github issues" % (language, kernel_type)
                 )
                 print("Saving as a python file, even though this may not be the " "correct language")
                 file_name = "script.py"
@@ -3272,12 +3365,15 @@ class KaggleApi:
         else:
             print("Source code downloaded to " + effective_path)
 
-    def kernels_output(self, kernel: str, path: str, force: bool = False, quiet: bool = True) -> Tuple[List[str], str]:
+    def kernels_output(
+        self, kernel: str, path: str, file_pattern: str = None, force: bool = False, quiet: bool = True
+    ) -> Tuple[List[str], str]:
         """Retrieves the output for a specified kernel.
 
         Args:
             kernel (str): The kernel for which to retrieve the output.
             path (str): The path to which to pull the files.
+            file_pattern (str): Optional regex pattern to match against filenames. Only files matching the pattern will be downloaded.
             force (bool): If True, force an overwrite if the output already exists (default is False).
             quiet (bool): Suppress verbose output (default is True).
 
@@ -3306,6 +3402,14 @@ class KaggleApi:
         if not os.path.isdir(target_dir):
             raise ValueError("You must specify a directory for the kernels output")
 
+        if file_pattern is not None:
+            try:
+                compiled_pattern = re.compile(file_pattern)
+            except re.error as e:
+                raise ValueError(f"Invalid regex pattern '{file_pattern}': {e}")
+        else:
+            compiled_pattern = None
+
         token = None
         with self.build_kaggle_client() as kaggle:
             request = ApiListKernelSessionOutputRequest()
@@ -3316,6 +3420,9 @@ class KaggleApi:
 
         outfiles = []
         for item in response.files:
+            if compiled_pattern and not compiled_pattern.search(item.file_name):
+                continue
+
             outfile = os.path.join(target_dir, item.file_name)
             outfiles.append(outfile)
             download_response = requests.get(item.url, stream=True)
@@ -3337,7 +3444,7 @@ class KaggleApi:
 
         return outfiles, token  # Breaking change, we need to get the token to the UI
 
-    def kernels_output_cli(self, kernel, kernel_opt=None, path=None, force=False, quiet=False):
+    def kernels_output_cli(self, kernel, kernel_opt=None, path=None, force=False, quiet=False, file_pattern=None):
         """A client wrapper for kernels_output.
 
         This method is a client wrapper for the kernels_output function.
@@ -3349,9 +3456,10 @@ class KaggleApi:
             path: The path to which to pull the files.
             force: If True, force an overwrite if the output already exists (default is False).
             quiet: Suppress verbose output (default is False).
+            file_pattern: Regex pattern to match against filenames. Only files matching the pattern will be downloaded.
         """
         kernel = kernel or kernel_opt
-        (_, token) = self.kernels_output(kernel, path, force, quiet)
+        (_, token) = self.kernels_output(kernel, path, file_pattern, force, quiet)
         if token:
             print(f"Next page token: {token}")
 
@@ -4289,7 +4397,7 @@ class KaggleApi:
                         t.extractall(effective_path)
                 except Exception as e:
                     raise ValueError(
-                        "Error extracting the tar.gz file, please report on " "www.github.com/kaggle/kaggle-api", e
+                        "Error extracting the tar.gz file, please report on " "www.github.com/kaggle/kaggle-cli", e
                     )
 
                 try:
@@ -4813,11 +4921,12 @@ class KaggleApi:
             column: A list of values in a column to be processed.
 
         Returns:
-            A DatasetColumn object.
+            An ApiDatasetColumn object.
         """
-        processed_column = DatasetColumn(
-            name=self.get_or_fail(column, "name"), description=self.get_or_default(column, "description", "")
-        )
+        processed_column = ApiDatasetColumn()
+        processed_column.name = self.get_or_fail(column, "name")
+        processed_column.description = self.get_or_default(column, "description", "")
+
         if "type" in column:
             original_type = column["type"].lower()
             processed_column.original_type = original_type

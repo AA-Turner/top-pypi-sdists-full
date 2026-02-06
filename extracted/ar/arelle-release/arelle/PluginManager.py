@@ -317,8 +317,11 @@ def getModuleFilename(moduleURL: str, reload: bool, normalize: bool, base: str |
 
 def parsePluginInfo(moduleURL: str, moduleFilename: str, entryPoint: EntryPoint | None) -> dict | None:
     moduleDir, moduleName = os.path.split(moduleFilename)
-    f = arelle.FileSource.openFileStream(_cntlr, moduleFilename)
-    tree = ast.parse(f.read(), filename=moduleFilename)
+    with arelle.FileSource.openFileStream(_cntlr, moduleFilename) as f:
+        contents = f.read()
+        if '__pluginInfo__' not in contents:
+            return None
+        tree = ast.parse(contents, filename=moduleFilename)
     constantStrings = {}
     functionDefNames = set()
     methodDefNamesByClass = defaultdict(set)
@@ -334,7 +337,6 @@ def parsePluginInfo(moduleURL: str, moduleFilename: str, entryPoint: EntryPoint 
                 continue
             if attr == "__pluginInfo__":
                 isPlugin = True
-                f.close()
                 classMethods = []
                 importURLs = []
                 for i, key in enumerate(item.value.keys):
@@ -411,7 +413,6 @@ def parsePluginInfo(moduleURL: str, moduleFilename: str, entryPoint: EntryPoint 
                 if isinstance(classItem, ast.FunctionDef):
                     methodDefNamesByClass[item.name].add(classItem.name)
     moduleInfo["moduleImports"] = moduleImports
-    f.close()
     return moduleInfo if isPlugin else None
 
 
@@ -508,7 +509,7 @@ def moduleModuleInfo(
             return moduleInfo
         except Exception as err:
             _msg = _("Exception obtaining plug-in module info: {moduleFilename}\n{error}\n{traceback}").format(
-                    error=err, moduleFilename=moduleFilename, traceback=traceback.format_tb(sys.exc_info()[2]))
+                    error=err, moduleFilename=moduleFilename, traceback=traceback.format_exc())
             logPluginTrace(_msg, logging.ERROR)
     return None
 
@@ -628,7 +629,7 @@ def loadModule(moduleInfo: dict[str, Any], packagePrefix: str="") -> None:
             _cntlr.addToLog(message=_ERROR_MESSAGE_IMPORT_TEMPLATE.format(name), level=logging.ERROR)
 
             _msg = _("Exception loading plug-in {name}: {error}\n{traceback}").format(
-                    name=name, error=err, traceback=traceback.format_tb(sys.exc_info()[2]))
+                    name=name, error=err, traceback=traceback.format_exc())
             logPluginTrace(_msg, logging.ERROR)
 
 

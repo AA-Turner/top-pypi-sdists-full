@@ -52,6 +52,18 @@ from hfortix_fortios._helpers import (
 # Import metadata mixin for schema introspection
 from hfortix_fortios._helpers.metadata_mixin import MetadataMixin
 
+# Import child table helpers
+from ._ospf_child_tables import (
+    AreaHelper,
+    OspfInterfaceHelper,
+    NetworkHelper,
+    NeighborHelper,
+    PassiveInterfaceHelper,
+    SummaryAddressHelper,
+    DistributeListHelper,
+    RedistributeHelper,
+)
+
 # Import Protocol-based type hints (eliminates need for local @overload decorators)
 from hfortix_fortios._protocols import CRUDEndpoint
 
@@ -125,6 +137,16 @@ class Ospf(CRUDEndpoint, MetadataMixin):
     def __init__(self, client: "IHTTPClient"):
         """Initialize Ospf endpoint."""
         self._client = client
+
+        # Initialize child table helpers
+        self.area = AreaHelper(self)
+        self.ospf_interface = OspfInterfaceHelper(self)
+        self.network = NetworkHelper(self)
+        self.neighbor = NeighborHelper(self)
+        self.passive_interface = PassiveInterfaceHelper(self)
+        self.summary_address = SummaryAddressHelper(self)
+        self.distribute_list = DistributeListHelper(self)
+        self.redistribute = RedistributeHelper(self)
 
     # ========================================================================
     # GET Method

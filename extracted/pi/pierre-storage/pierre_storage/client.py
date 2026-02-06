@@ -1,6 +1,7 @@
 """Main client for Pierre Git Storage SDK."""
 
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional, cast
 from urllib.parse import urlencode
 
@@ -216,6 +217,7 @@ class GitStorage:
             name,
             api_version,
             self._generate_jwt,
+            created_at=datetime.now(timezone.utc).isoformat(),
         )
 
     async def list_repos(
@@ -317,6 +319,7 @@ class GitStorage:
 
             body = response.json()
             default_branch = body.get("default_branch", "main")
+            created_at = body.get("created_at", "")
 
         # These are guaranteed to be set in __init__
         api_base_url: str = self.options["api_base_url"]  # type: ignore[assignment]
@@ -332,6 +335,7 @@ class GitStorage:
             name,
             api_version,
             self._generate_jwt,
+            created_at=created_at,
         )
 
     async def delete_repo(

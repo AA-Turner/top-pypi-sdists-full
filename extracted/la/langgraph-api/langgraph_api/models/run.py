@@ -14,9 +14,8 @@ from langgraph_api.encryption.middleware import encrypt_request
 from langgraph_api.encryption.shared import (
     using_custom_encryption,
 )
-from langgraph_api.feature_flags import FF_USE_CORE_API
+from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.graph import GRAPHS, get_assistant_id
-from langgraph_api.grpc.ops import Runs as GrpcRuns
 from langgraph_api.otel_context import inject_current_trace_context
 from langgraph_api.schema import (
     All,
@@ -34,9 +33,11 @@ from langgraph_api.utils import AsyncConnectionProto, get_auth_ctx, get_user_id
 from langgraph_api.utils.headers import get_configurable_headers
 from langgraph_api.utils.uuids import uuid7
 from langgraph_api.webhook import validate_webhook_url_or_raise
-from langgraph_runtime.ops import Runs
 
-CrudRuns = GrpcRuns if FF_USE_CORE_API else Runs
+if IS_POSTGRES_OR_GRPC_BACKEND:
+    from langgraph_api.grpc.ops import Runs
+else:
+    from langgraph_runtime.ops import Runs
 
 if TYPE_CHECKING:
     from starlette.authentication import BaseUser
@@ -280,7 +281,7 @@ async def create_valid_run(
         "context": context,
         "command": payload.get("command"),
     }
-    if FF_USE_CORE_API and using_custom_encryption():
+    if IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption():
         encrypted = fields_to_encrypt  # Go layer handles encryption at rest
     else:
         encrypted = await encrypt_request(
@@ -289,7 +290,7 @@ async def create_valid_run(
             ["metadata", "input", "config", "context", "command"],
         )
 
-    run_coro = CrudRuns.put(
+    run_coro = Runs.put(
         conn,
         assistant_id,
         {
@@ -357,7 +358,7 @@ async def create_valid_run(
         if multitask_strategy in ("interrupt", "rollback") and inflight_runs:
             with contextlib.suppress(HTTPException):
                 # if we can't find the inflight runs again, we can proceeed
-                await CrudRuns.cancel(
+                await Runs.cancel(
                     conn,
                     [run["run_id"] for run in inflight_runs],
                     thread_id=thread_id_,

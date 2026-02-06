@@ -8,6 +8,7 @@ import asyncio
 import hashlib
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, cast
 
@@ -241,10 +242,12 @@ class MCPSessionManager:
             raise last_exception
         raise RuntimeError(f"Failed to create MCP session for {endpoint}")
 
-    async def close_all(self) -> None:
-        """Close all cached sessions.
+    async def __aenter__(self):
+        """Enter the async context manager."""
+        return self
 
-        Should be called at the end of a request to clean up resources.
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Exit the async context manager and cleanup all sessions.
 
         Note: We catch BaseException (not just Exception) because:
         1. CancelledError is a BaseException and can occur during cleanup
@@ -274,6 +277,8 @@ class MCPSessionManager:
 
         if errors:
             logger.debug(f"Encountered {len(errors)} errors while closing MCP sessions (expected in streaming)")
+
+        return False
 
 
 @asynccontextmanager
@@ -470,3 +475,39 @@ async def invoke_mcp_tool(
     async with client_wrapper(endpoint, final_headers) as session:
         result = await session.call_tool(tool_name, kwargs)
         return _parse_mcp_result(result)
+
+
+@dataclass
+class MCPServerInfo:
+    """Server information from an MCP server."""
+
+    name: str
+    version: str
+    title: str | None = None
+    description: str | None = None
+
+
+async def get_mcp_server_info(
+    endpoint: str,
+    headers: dict[str, str] | None = None,
+    authorization: str | None = None,
+) -> MCPServerInfo:
+    """Get server info from an MCP server.
+    Args:
+        endpoint: MCP server endpoint URL
+        headers: Optional base headers to include
+        authorization: Optional OAuth access token (just the token, not "Bearer <token>")
+    Returns:
+        MCPServerInfo containing name, version, title, and description
+    """
+    final_headers = prepare_mcp_headers(headers, authorization)
+
+    async with client_wrapper(endpoint, final_headers) as session:
+        init_result = await session.initialize()
+
+        return MCPServerInfo(
+            name=init_result.serverInfo.name,
+            version=init_result.serverInfo.version,
+            title=init_result.serverInfo.title,
+            description=init_result.instructions,
+        )

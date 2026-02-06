@@ -14,6 +14,7 @@ import pyarrow.parquet as pq
 import pyspark.sql.connect.proto.base_pb2 as proto_base
 import pyspark.sql.connect.proto.commands_pb2 as commands_proto
 from pyspark.errors.exceptions.base import AnalysisException
+from pyspark.errors.exceptions.connect import IllegalArgumentException
 
 from snowflake import snowpark
 from snowflake.snowpark._internal.analyzer.analyzer_utils import (
@@ -73,7 +74,12 @@ from snowflake.snowpark_connect.utils.identifiers import (
     spark_to_sf_single_id,
     split_fully_qualified_spark_name,
 )
-from snowflake.snowpark_connect.utils.io_utils import get_table_type
+from snowflake.snowpark_connect.utils.io_utils import (
+    PartitionSpec,
+    get_overwrite_condition,
+    get_partition_spec,
+    get_table_type,
+)
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
@@ -189,6 +195,42 @@ def _validate_table_does_not_exist(
         raise exception
 
 
+def _validate_partition_columns_match_spec(
+    partition_cols: list[str],
+    table_partition_spec: PartitionSpec,
+) -> None:
+    """
+    Checks if all given partition_columns are present in the partition_spec.
+    All columns from the spec should be in partition_cols, in the same order.
+    """
+    if table_partition_spec is None:
+        if partition_cols:
+            exception = IllegalArgumentException(
+                "The provided partitioning does not match the table partitioning: "
+                f"provided [{', '.join(partition_cols)}] but table has no partition columns."
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+            raise exception
+        return
+
+    table_partition_cols = [
+        spark_to_sf_single_id(unquote_if_quoted(c), is_column=True)
+        for c in table_partition_spec.columns()
+    ]
+    provided_partition_cols = [
+        spark_to_sf_single_id(unquote_if_quoted(c), is_column=True)
+        for c in partition_cols
+    ]
+
+    if provided_partition_cols != table_partition_cols:
+        exception = IllegalArgumentException(
+            "The provided partitioning does not match the table partitioning: "
+            f"provided [{', '.join(partition_cols)}] vs table [{', '.join(table_partition_spec.columns())}]."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+
+
 def map_write(request: proto_base.ExecutePlanRequest):
     write_op = request.plan.command.write_operation
     telemetry.report_io_write(write_op.source)
@@ -205,7 +247,17 @@ def map_write(request: proto_base.ExecutePlanRequest):
         case commands_proto.WriteOperation.SaveMode.SAVE_MODE_ERROR_IF_EXISTS:
             write_mode = "errorifexists"
         case commands_proto.WriteOperation.SaveMode.SAVE_MODE_OVERWRITE:
-            write_mode = "overwrite"
+            # the dataframe API doesn't seem to respect spark.sql.sources.partitionOverwriteMode
+            # overwrite-mode is used instead
+            overwrite_mode = write_op.options.get("overwrite-mode", "static")
+            if (
+                overwrite_mode.lower() == "dynamic"
+                and write_op.source == "iceberg"
+                and write_op.partitioning_columns
+            ):
+                write_mode = "overwrite_partitions"
+            else:
+                write_mode = "overwrite"
         case commands_proto.WriteOperation.SaveMode.SAVE_MODE_IGNORE:
             write_mode = "ignore"
 
@@ -328,7 +380,6 @@ def map_write(request: proto_base.ExecutePlanRequest):
                 )
                 if (
                     write_op.partitioning_columns
-                    and write_op.source == "parquet"
                     and partition_overwrite_mode == "dynamic"
                 ):
                     partitioning_columns = write_op.partitioning_columns
@@ -407,22 +458,31 @@ def map_write(request: proto_base.ExecutePlanRequest):
             rewritten_df: snowpark.DataFrame = rewrite_df(input_df, write_op.source)
             get_param_from_options(parameters, write_op.options, write_op.source)
             if write_op.partitioning_columns:
-                if write_op.source != "parquet":
-                    exception = SnowparkConnectNotImplementedError(
-                        "Partitioning is only supported for parquet format"
-                    )
-                    attach_custom_error_code(
-                        exception, ErrorCodes.UNSUPPORTED_OPERATION
-                    )
-                    raise exception
                 # Build Spark-style directory structure: col1=value1/col2=value2/...
                 # Example produced expression (Snowflake SQL):
                 #   'department=' || TO_VARCHAR("department") || '/' || 'region=' || TO_VARCHAR("region")
                 partitioning_column_names = list(write_op.partitioning_columns)
+
+                if (
+                    len(
+                        set(updated_result.column_map.get_spark_columns())
+                        - set(partitioning_column_names)
+                    )
+                    == 0
+                ):
+                    exception = AnalysisException(
+                        "[ALL_PARTITION_COLUMNS_NOT_ALLOWED] Cannot use all columns for partition columns."
+                    )
+                    attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+                    raise exception
                 partition_expr_parts: list[str] = []
                 for col_name in partitioning_column_names:
-                    quoted = f'"{col_name}"'
-                    segment = f"'{col_name}=' || COALESCE(TO_VARCHAR({quoted}), '__HIVE_DEFAULT_PARTITION__')"
+                    if write_op.source == "json":
+                        quoted = f"{rewritten_df.columns[0]}['{col_name}']"
+                        segment = f"'{col_name}=' || COALESCE(TO_VARCHAR({quoted}), '__HIVE_DEFAULT_PARTITION__')"
+                    else:
+                        quoted = f'"{col_name}"'
+                        segment = f"'{col_name}=' || COALESCE(TO_VARCHAR({quoted}), '__HIVE_DEFAULT_PARTITION__')"
                     partition_expr_parts.append(segment)
                 parameters["partition_by"] = " || '/' || ".join(partition_expr_parts)
                 # When using PARTITION BY, Snowflake writes into subdirectories under the base path.
@@ -631,6 +691,44 @@ def map_write(request: proto_base.ExecutePlanRequest):
                         table_name=snowpark_table_name,
                         mode="append",
                         column_order=_column_order_for_write,
+                    )
+                case "overwrite_partitions":
+                    table_schema_or_error = _get_table_schema_or_error(
+                        snowpark_table_name, session
+                    )
+                    _validate_table_exist_and_of_type(
+                        snowpark_table_name, session, "iceberg", table_schema_or_error
+                    )
+
+                    table_partition_spec = get_partition_spec(
+                        snowpark_table_name, session
+                    )
+                    _validate_partition_columns_match_spec(
+                        partition_cols, table_partition_spec
+                    )
+
+                    partition_column_names = updated_result.column_map.get_snowpark_column_names_from_spark_column_names(
+                        partition_cols
+                    )
+                    distinct_partitions_df = input_df.select(
+                        *partition_column_names
+                    ).distinct()
+
+                    overwrite_condition = get_overwrite_condition(
+                        distinct_partitions_df,
+                        partition_column_names,
+                    )
+                    _validate_schema_and_get_writer(
+                        input_df,
+                        "overwrite",
+                        snowpark_table_name,
+                        table_schema_or_error,
+                    ).saveAsTable(
+                        table_name=snowpark_table_name,
+                        table_exists=True,
+                        mode="overwrite",
+                        column_order=_column_order_for_write,
+                        overwrite_condition=overwrite_condition,
                     )
                 case _:
                     exception = SnowparkConnectNotImplementedError(

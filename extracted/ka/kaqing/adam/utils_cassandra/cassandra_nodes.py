@@ -1,5 +1,6 @@
 from adam.utils_context import Context
 from adam.utils_k8s.pods import Pods
+from adam.utils_k8s.secrets import Secrets
 from adam.utils_k8s.pod_exec_result import PodExecResult
 
 # utility collection on cassandra nodes; methods are all static
@@ -22,3 +23,29 @@ class CassandraNodes:
             r.log(ctx)
 
         return r
+
+    def get_host_id(pod_name: str, ns: str, ctx: Context = Context.NULL):
+        # TODO needs state to refactor
+        # return CassandraNAT.build(state, ctx=ctx).host_ids_by_pod[pod_name]
+        try:
+            user, pw = Secrets.get_user_pass(pod_name, ns)
+            command = f'echo "SELECT host_id FROM system.local; exit" | cqlsh --no-color -u {user} -p {pw}'
+            result: PodExecResult = CassandraNodes.exec(pod_name, ns, command, ctx=ctx.copy(show_out=ctx.debug))
+            next = False
+            for line in result.stdout.splitlines():
+                if next:
+                    host_id =line.strip(' ')
+                    CassandraNodes.host_ids_by_pod[pod_name] = host_id
+                    return host_id
+
+                if line.startswith('----------'):
+                    next = True
+                    continue
+        except Exception as e:
+            pass
+            # return str(e)
+
+        if pod_name in CassandraNodes.host_ids_by_pod:
+            return CassandraNodes.host_ids_by_pod[pod_name]
+
+        return 'Unknown'

@@ -43,6 +43,7 @@ __all__ = (
     "ServiceName",
     "SlaStatusType",
     "SlaTypeType",
+    "TagPropagationResourceTypeType",
     "TemplateStatusType",
 )
 
@@ -62,6 +63,7 @@ SearchCasesPaginatorName = Literal["search_cases"]
 SearchRelatedItemsPaginatorName = Literal["search_related_items"]
 SlaStatusType = Literal["Active", "Met", "NotMet", "Overdue"]
 SlaTypeType = Literal["CaseField"]
+TagPropagationResourceTypeType = Literal["Cases"]
 TemplateStatusType = Literal["Active", "Inactive"]
 ConnectCasesServiceName = Literal["connectcases"]
 ServiceName = Literal[

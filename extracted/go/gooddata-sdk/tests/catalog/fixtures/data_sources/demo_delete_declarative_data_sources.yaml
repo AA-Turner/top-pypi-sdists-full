@@ -104,6 +104,7 @@ interactions:
                   id: demoGroup
                   type: userGroup
                 name: USE
+            alternativeDataSourceId: ds-put-abc-id
             password: passw0rd
       headers:
         Accept-Encoding:

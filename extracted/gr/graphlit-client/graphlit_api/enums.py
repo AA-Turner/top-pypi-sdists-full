@@ -734,6 +734,10 @@ class AnthropicModels(str, Enum):
     CLAUDE_4_5_SONNET_20250929 = "CLAUDE_4_5_SONNET_20250929"
     CLAUDE_4_5_OPUS = "CLAUDE_4_5_OPUS"
     CLAUDE_4_5_OPUS_20251101 = "CLAUDE_4_5_OPUS_20251101"
+    CLAUDE_4_6_OPUS = "CLAUDE_4_6_OPUS"
+    CLAUDE_4_6_OPUS_20260205 = "CLAUDE_4_6_OPUS_20260205"
+    CLAUDE_4_6_OPUS_1_M = "CLAUDE_4_6_OPUS_1_M"
+    CLAUDE_4_6_OPUS_1_M_20260205 = "CLAUDE_4_6_OPUS_1_M_20260205"
     CLAUDE_4_OPUS = "CLAUDE_4_OPUS"
     CLAUDE_4_OPUS_20250514 = "CLAUDE_4_OPUS_20250514"
     CLAUDE_4_1_OPUS = "CLAUDE_4_1_OPUS"
@@ -928,6 +932,13 @@ class EntityResolutionStrategyTypes(str, Enum):
     AUTOMATIC = "AUTOMATIC"
 
 
+class AnthropicEffortLevels(str, Enum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    MAX = "MAX"
+
+
 class StoragePolicyTypes(str, Enum):
     ARCHIVE = "ARCHIVE"
     MINIMIZE = "MINIMIZE"
@@ -962,6 +973,7 @@ class GoogleModels(str, Enum):
     GEMINI_1_5_FLASH_002 = "GEMINI_1_5_FLASH_002"
     GEMINI_1_5_PRO_002 = "GEMINI_1_5_PRO_002"
     EMBEDDING_004 = "EMBEDDING_004"
+    GEMINI_EMBEDDING_001 = "GEMINI_EMBEDDING_001"
     CUSTOM = "CUSTOM"
 
 
@@ -1600,6 +1612,7 @@ class AsanaAuthenticationTypes(str, Enum):
 
 
 class OpenAIReasoningEffortLevels(str, Enum):
+    MINIMAL = "MINIMAL"
     LOW = "LOW"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"

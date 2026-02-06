@@ -84,6 +84,7 @@ class ErrorCode(IntEnum):
     API_LLM_CONTENT_FILTER = 301007       # 内容过滤
     API_LLM_IMAGE_FORMAT = 301008         # 图片格式不支持
     API_LLM_VIDEO_FORMAT = 301009         # 视频格式不支持
+    API_PROJECT_NOT_FOUND = 301010        # 项目不存在
 
     # 302xxx - 图片生成API错误
     API_IMAGE_GEN_FAILED = 302001         # 图片生成失败
@@ -136,6 +137,7 @@ class ErrorCode(IntEnum):
     INTEGRATION_FEISHU_AUTH_FAILED = 501001  # 飞书认证失败
     INTEGRATION_FEISHU_API_FAILED = 501002   # 飞书API调用失败
     INTEGRATION_FEISHU_DOC_FAILED = 501003   # 飞书文档操作失败
+    INTEGRATION_FEISHU_TABLE_FAILED = 501004   # 飞书表格调用失败
 
     # 502xxx - 微信集成错误
     INTEGRATION_WECHAT_AUTH_FAILED = 502001  # 微信认证失败

@@ -3,10 +3,10 @@
 
 from __future__ import annotations
 
+import functools
 import io
 import logging
 import os
-import platform
 import re
 import shutil
 import subprocess
@@ -28,7 +28,20 @@ import requests
 logger = logging.getLogger(__name__)
 
 
-BIT_SIZE, LINKAGE = platform.architecture()
+RE_MACHINE = re.compile(r".*\((.+)\)\]", re.DOTALL)
+
+
+@functools.cache
+def python_machine() -> str:
+    """Return the Python machine architecture (e.g. 'i386', 'AMD64', 'ARM64')."""
+    # Only needs to function correctly for Windows platforms.
+    match = RE_MACHINE.match(sys.version)
+    assert match, repr(sys.version)
+    (machine,) = match.groups()
+    machine = {"Intel": "i386"}.get(machine, machine)
+    logger.info(f"python_machine: {machine}")
+    return machine
+
 
 # Reject versions of SDL older than this, update the requirements in the readme if you change this.
 SDL_MIN_VERSION = (3, 2, 0)
@@ -139,8 +152,8 @@ def check_sdl_version() -> None:
             sdl_version_str = subprocess.check_output(["sdl3-config", "--version"], universal_newlines=True).strip()
         except FileNotFoundError as exc:
             msg = (
-                f"libsdl3-dev or equivalent must be installed on your system and must be at least version {needed_version}."
-                "\nsdl3-config must be on PATH."
+                f"libsdl3-dev or equivalent must be installed on your system and must be at least version {needed_version}.\n"
+                "sdl3-config must be on PATH."
             )
             raise RuntimeError(msg) from exc
     except subprocess.CalledProcessError as exc:
@@ -223,8 +236,8 @@ class SDLParser(pcpp.Preprocessor):  # type: ignore[misc]
         assert "SDL3/SDL" not in includepath, (includepath, curdir)
         raise pcpp.OutputDirective(pcpp.Action.IgnoreAndRemove)
 
-    def _should_track_define(self, tokens: list[Any]) -> bool:
-        if len(tokens) < 3:
+    def _should_track_define(self, tokens: list[Any]) -> bool:  # noqa: PLR0911
+        if len(tokens) < 3:  # noqa: PLR2004
             return False
         if tokens[0].value in IGNORE_DEFINES:
             return False
@@ -236,7 +249,7 @@ class SDLParser(pcpp.Preprocessor):  # type: ignore[misc]
             return False  # Likely calls a private function.
         if tokens[1].type == "CPP_LPAREN":
             return False  # Function-like macro.
-        if len(tokens) >= 4 and tokens[2].type == "CPP_INTEGER" and tokens[3].type == "CPP_DOT":
+        if len(tokens) >= 4 and tokens[2].type == "CPP_INTEGER" and tokens[3].type == "CPP_DOT":  # noqa: PLR2004
             return False  # Value is a floating point number.
         if tokens[0].value.startswith("SDL_PR") and (tokens[0].value.endswith("32") or tokens[0].value.endswith("64")):
             return False  # Data type for printing, which is not needed.
@@ -386,10 +399,10 @@ else:
 # Bundle the Windows SDL DLL.
 if sys.platform == "win32" and SDL_BUNDLE_PATH is not None:
     include_dirs.append(str(SDL_INCLUDE))
-    ARCH_MAPPING = {"32bit": "x86", "64bit": "x64"}
-    SDL_LIB_DIR = Path(SDL_BUNDLE_PATH, "lib/", ARCH_MAPPING[BIT_SIZE])
+    ARCH_MAPPING = {"i386": "x86", "AMD64": "x64", "ARM64": "arm64"}
+    SDL_LIB_DIR = Path(SDL_BUNDLE_PATH, "lib/", ARCH_MAPPING[python_machine()])
     library_dirs.append(str(SDL_LIB_DIR))
-    SDL_LIB_DEST = Path("tcod", ARCH_MAPPING[BIT_SIZE])
+    SDL_LIB_DEST = Path("tcod", ARCH_MAPPING[python_machine()])
     SDL_LIB_DEST.mkdir(exist_ok=True)
     SDL_LIB_DEST_FILE = SDL_LIB_DEST / "SDL3.dll"
     SDL_LIB_FILE = SDL_LIB_DIR / "SDL3.dll"

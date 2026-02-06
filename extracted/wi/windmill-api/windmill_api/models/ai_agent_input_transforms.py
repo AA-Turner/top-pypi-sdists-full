@@ -6,42 +6,20 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.ai_agent_input_transforms_max_completion_tokens_type_0 import (
-        AiAgentInputTransformsMaxCompletionTokensType0,
-    )
-    from ..models.ai_agent_input_transforms_max_completion_tokens_type_1 import (
-        AiAgentInputTransformsMaxCompletionTokensType1,
-    )
-    from ..models.ai_agent_input_transforms_max_completion_tokens_type_2 import (
-        AiAgentInputTransformsMaxCompletionTokensType2,
-    )
+    from ..models.ai_agent_input_transforms_max_completion_tokens import AiAgentInputTransformsMaxCompletionTokens
     from ..models.ai_agent_input_transforms_memory_type_0 import AiAgentInputTransformsMemoryType0
     from ..models.ai_agent_input_transforms_memory_type_1 import AiAgentInputTransformsMemoryType1
     from ..models.ai_agent_input_transforms_memory_type_2 import AiAgentInputTransformsMemoryType2
-    from ..models.ai_agent_input_transforms_output_schema_type_0 import AiAgentInputTransformsOutputSchemaType0
-    from ..models.ai_agent_input_transforms_output_schema_type_1 import AiAgentInputTransformsOutputSchemaType1
-    from ..models.ai_agent_input_transforms_output_schema_type_2 import AiAgentInputTransformsOutputSchemaType2
-    from ..models.ai_agent_input_transforms_output_type_type_0 import AiAgentInputTransformsOutputTypeType0
-    from ..models.ai_agent_input_transforms_output_type_type_1 import AiAgentInputTransformsOutputTypeType1
-    from ..models.ai_agent_input_transforms_output_type_type_2 import AiAgentInputTransformsOutputTypeType2
+    from ..models.ai_agent_input_transforms_output_schema import AiAgentInputTransformsOutputSchema
+    from ..models.ai_agent_input_transforms_output_type import AiAgentInputTransformsOutputType
     from ..models.ai_agent_input_transforms_provider_type_0 import AiAgentInputTransformsProviderType0
     from ..models.ai_agent_input_transforms_provider_type_1 import AiAgentInputTransformsProviderType1
     from ..models.ai_agent_input_transforms_provider_type_2 import AiAgentInputTransformsProviderType2
-    from ..models.ai_agent_input_transforms_streaming_type_0 import AiAgentInputTransformsStreamingType0
-    from ..models.ai_agent_input_transforms_streaming_type_1 import AiAgentInputTransformsStreamingType1
-    from ..models.ai_agent_input_transforms_streaming_type_2 import AiAgentInputTransformsStreamingType2
-    from ..models.ai_agent_input_transforms_system_prompt_type_0 import AiAgentInputTransformsSystemPromptType0
-    from ..models.ai_agent_input_transforms_system_prompt_type_1 import AiAgentInputTransformsSystemPromptType1
-    from ..models.ai_agent_input_transforms_system_prompt_type_2 import AiAgentInputTransformsSystemPromptType2
-    from ..models.ai_agent_input_transforms_temperature_type_0 import AiAgentInputTransformsTemperatureType0
-    from ..models.ai_agent_input_transforms_temperature_type_1 import AiAgentInputTransformsTemperatureType1
-    from ..models.ai_agent_input_transforms_temperature_type_2 import AiAgentInputTransformsTemperatureType2
-    from ..models.ai_agent_input_transforms_user_images_type_0 import AiAgentInputTransformsUserImagesType0
-    from ..models.ai_agent_input_transforms_user_images_type_1 import AiAgentInputTransformsUserImagesType1
-    from ..models.ai_agent_input_transforms_user_images_type_2 import AiAgentInputTransformsUserImagesType2
-    from ..models.ai_agent_input_transforms_user_message_type_0 import AiAgentInputTransformsUserMessageType0
-    from ..models.ai_agent_input_transforms_user_message_type_1 import AiAgentInputTransformsUserMessageType1
-    from ..models.ai_agent_input_transforms_user_message_type_2 import AiAgentInputTransformsUserMessageType2
+    from ..models.ai_agent_input_transforms_streaming import AiAgentInputTransformsStreaming
+    from ..models.ai_agent_input_transforms_system_prompt import AiAgentInputTransformsSystemPrompt
+    from ..models.ai_agent_input_transforms_temperature import AiAgentInputTransformsTemperature
+    from ..models.ai_agent_input_transforms_user_images import AiAgentInputTransformsUserImages
+    from ..models.ai_agent_input_transforms_user_message import AiAgentInputTransformsUserMessage
 
 
 T = TypeVar("T", bound="AiAgentInputTransforms")
@@ -53,36 +31,39 @@ class AiAgentInputTransforms:
 
     Attributes:
         provider (Union['AiAgentInputTransformsProviderType0', 'AiAgentInputTransformsProviderType1',
-            'AiAgentInputTransformsProviderType2']): Maps input parameters for a step. Can be a static value or a JavaScript
-            expression that references previous results or flow inputs
-        output_type (Union['AiAgentInputTransformsOutputTypeType0', 'AiAgentInputTransformsOutputTypeType1',
-            'AiAgentInputTransformsOutputTypeType2']): Maps input parameters for a step. Can be a static value or a
-            JavaScript expression that references previous results or flow inputs
-        user_message (Union['AiAgentInputTransformsUserMessageType0', 'AiAgentInputTransformsUserMessageType1',
-            'AiAgentInputTransformsUserMessageType2']): Maps input parameters for a step. Can be a static value or a
-            JavaScript expression that references previous results or flow inputs
-        system_prompt (Union['AiAgentInputTransformsSystemPromptType0', 'AiAgentInputTransformsSystemPromptType1',
-            'AiAgentInputTransformsSystemPromptType2', Unset]): Maps input parameters for a step. Can be a static value or a
-            JavaScript expression that references previous results or flow inputs
-        streaming (Union['AiAgentInputTransformsStreamingType0', 'AiAgentInputTransformsStreamingType1',
-            'AiAgentInputTransformsStreamingType2', Unset]): Maps input parameters for a step. Can be a static value or a
-            JavaScript expression that references previous results or flow inputs
+            'AiAgentInputTransformsProviderType2']): Provider configuration - can be static (ProviderConfig), JavaScript
+            expression, or AI-determined
+        output_type (AiAgentInputTransformsOutputType): Output format type.
+            Valid values: 'text' (default) - plain text response, 'image' - image generation
+        user_message (AiAgentInputTransformsUserMessage): The user's prompt/message to the AI agent. Supports variable
+            interpolation with flow.input syntax.
+        system_prompt (Union[Unset, AiAgentInputTransformsSystemPrompt]): System instructions that guide the AI's
+            behavior, persona, and response style. Optional.
+        streaming (Union[Unset, AiAgentInputTransformsStreaming]): Boolean. If true, stream the AI response
+            incrementally.
+            Streaming events include: token_delta, tool_call, tool_call_arguments, tool_execution, tool_result
         memory (Union['AiAgentInputTransformsMemoryType0', 'AiAgentInputTransformsMemoryType1',
-            'AiAgentInputTransformsMemoryType2', Unset]): Maps input parameters for a step. Can be a static value or a
-            JavaScript expression that references previous results or flow inputs
-        output_schema (Union['AiAgentInputTransformsOutputSchemaType0', 'AiAgentInputTransformsOutputSchemaType1',
-            'AiAgentInputTransformsOutputSchemaType2', Unset]): Maps input parameters for a step. Can be a static value or a
-            JavaScript expression that references previous results or flow inputs
-        user_images (Union['AiAgentInputTransformsUserImagesType0', 'AiAgentInputTransformsUserImagesType1',
-            'AiAgentInputTransformsUserImagesType2', Unset]): Maps input parameters for a step. Can be a static value or a
-            JavaScript expression that references previous results or flow inputs
-        max_completion_tokens (Union['AiAgentInputTransformsMaxCompletionTokensType0',
-            'AiAgentInputTransformsMaxCompletionTokensType1', 'AiAgentInputTransformsMaxCompletionTokensType2', Unset]):
-            Maps input parameters for a step. Can be a static value or a JavaScript expression that references previous
-            results or flow inputs
-        temperature (Union['AiAgentInputTransformsTemperatureType0', 'AiAgentInputTransformsTemperatureType1',
-            'AiAgentInputTransformsTemperatureType2', Unset]): Maps input parameters for a step. Can be a static value or a
-            JavaScript expression that references previous results or flow inputs
+            'AiAgentInputTransformsMemoryType2', Unset]): Memory configuration - can be static (MemoryConfig), JavaScript
+            expression, or AI-determined
+        output_schema (Union[Unset, AiAgentInputTransformsOutputSchema]): JSON Schema object defining structured output
+            format. Used when you need the AI to return data in a specific shape.
+            Supports standard JSON Schema properties: type, properties, required, items, enum, pattern, minLength,
+            maxLength, minimum, maximum, etc.
+            Example: { type: 'object', properties: { name: { type: 'string' }, age: { type: 'integer' } }, required:
+            ['name'] }
+        user_images (Union[Unset, AiAgentInputTransformsUserImages]): Array of image references for vision-capable
+            models.
+            Format: Array<{ bucket: string, key: string }> - S3 object references
+            Example: [{ bucket: 'my-bucket', key: 'images/photo.jpg' }]
+        max_completion_tokens (Union[Unset, AiAgentInputTransformsMaxCompletionTokens]): Integer. Maximum number of
+            tokens the AI will generate in its response.
+            Range: 1 to 4,294,967,295. Typical values: 256-4096 for most use cases.
+        temperature (Union[Unset, AiAgentInputTransformsTemperature]): Float. Controls randomness/creativity of
+            responses.
+            Range: 0.0 to 2.0 (provider-dependent)
+            - 0.0 = deterministic, focused responses
+            - 0.7 = balanced (common default)
+            - 1.0+ = more creative/random
     """
 
     provider: Union[
@@ -90,85 +71,27 @@ class AiAgentInputTransforms:
         "AiAgentInputTransformsProviderType1",
         "AiAgentInputTransformsProviderType2",
     ]
-    output_type: Union[
-        "AiAgentInputTransformsOutputTypeType0",
-        "AiAgentInputTransformsOutputTypeType1",
-        "AiAgentInputTransformsOutputTypeType2",
-    ]
-    user_message: Union[
-        "AiAgentInputTransformsUserMessageType0",
-        "AiAgentInputTransformsUserMessageType1",
-        "AiAgentInputTransformsUserMessageType2",
-    ]
-    system_prompt: Union[
-        "AiAgentInputTransformsSystemPromptType0",
-        "AiAgentInputTransformsSystemPromptType1",
-        "AiAgentInputTransformsSystemPromptType2",
-        Unset,
-    ] = UNSET
-    streaming: Union[
-        "AiAgentInputTransformsStreamingType0",
-        "AiAgentInputTransformsStreamingType1",
-        "AiAgentInputTransformsStreamingType2",
-        Unset,
-    ] = UNSET
+    output_type: "AiAgentInputTransformsOutputType"
+    user_message: "AiAgentInputTransformsUserMessage"
+    system_prompt: Union[Unset, "AiAgentInputTransformsSystemPrompt"] = UNSET
+    streaming: Union[Unset, "AiAgentInputTransformsStreaming"] = UNSET
     memory: Union[
         "AiAgentInputTransformsMemoryType0",
         "AiAgentInputTransformsMemoryType1",
         "AiAgentInputTransformsMemoryType2",
         Unset,
     ] = UNSET
-    output_schema: Union[
-        "AiAgentInputTransformsOutputSchemaType0",
-        "AiAgentInputTransformsOutputSchemaType1",
-        "AiAgentInputTransformsOutputSchemaType2",
-        Unset,
-    ] = UNSET
-    user_images: Union[
-        "AiAgentInputTransformsUserImagesType0",
-        "AiAgentInputTransformsUserImagesType1",
-        "AiAgentInputTransformsUserImagesType2",
-        Unset,
-    ] = UNSET
-    max_completion_tokens: Union[
-        "AiAgentInputTransformsMaxCompletionTokensType0",
-        "AiAgentInputTransformsMaxCompletionTokensType1",
-        "AiAgentInputTransformsMaxCompletionTokensType2",
-        Unset,
-    ] = UNSET
-    temperature: Union[
-        "AiAgentInputTransformsTemperatureType0",
-        "AiAgentInputTransformsTemperatureType1",
-        "AiAgentInputTransformsTemperatureType2",
-        Unset,
-    ] = UNSET
+    output_schema: Union[Unset, "AiAgentInputTransformsOutputSchema"] = UNSET
+    user_images: Union[Unset, "AiAgentInputTransformsUserImages"] = UNSET
+    max_completion_tokens: Union[Unset, "AiAgentInputTransformsMaxCompletionTokens"] = UNSET
+    temperature: Union[Unset, "AiAgentInputTransformsTemperature"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
-        from ..models.ai_agent_input_transforms_max_completion_tokens_type_0 import (
-            AiAgentInputTransformsMaxCompletionTokensType0,
-        )
-        from ..models.ai_agent_input_transforms_max_completion_tokens_type_1 import (
-            AiAgentInputTransformsMaxCompletionTokensType1,
-        )
         from ..models.ai_agent_input_transforms_memory_type_0 import AiAgentInputTransformsMemoryType0
         from ..models.ai_agent_input_transforms_memory_type_1 import AiAgentInputTransformsMemoryType1
-        from ..models.ai_agent_input_transforms_output_schema_type_0 import AiAgentInputTransformsOutputSchemaType0
-        from ..models.ai_agent_input_transforms_output_schema_type_1 import AiAgentInputTransformsOutputSchemaType1
-        from ..models.ai_agent_input_transforms_output_type_type_0 import AiAgentInputTransformsOutputTypeType0
-        from ..models.ai_agent_input_transforms_output_type_type_1 import AiAgentInputTransformsOutputTypeType1
         from ..models.ai_agent_input_transforms_provider_type_0 import AiAgentInputTransformsProviderType0
         from ..models.ai_agent_input_transforms_provider_type_1 import AiAgentInputTransformsProviderType1
-        from ..models.ai_agent_input_transforms_streaming_type_0 import AiAgentInputTransformsStreamingType0
-        from ..models.ai_agent_input_transforms_streaming_type_1 import AiAgentInputTransformsStreamingType1
-        from ..models.ai_agent_input_transforms_system_prompt_type_0 import AiAgentInputTransformsSystemPromptType0
-        from ..models.ai_agent_input_transforms_system_prompt_type_1 import AiAgentInputTransformsSystemPromptType1
-        from ..models.ai_agent_input_transforms_temperature_type_0 import AiAgentInputTransformsTemperatureType0
-        from ..models.ai_agent_input_transforms_temperature_type_1 import AiAgentInputTransformsTemperatureType1
-        from ..models.ai_agent_input_transforms_user_images_type_0 import AiAgentInputTransformsUserImagesType0
-        from ..models.ai_agent_input_transforms_user_images_type_1 import AiAgentInputTransformsUserImagesType1
-        from ..models.ai_agent_input_transforms_user_message_type_0 import AiAgentInputTransformsUserMessageType0
-        from ..models.ai_agent_input_transforms_user_message_type_1 import AiAgentInputTransformsUserMessageType1
 
         provider: Dict[str, Any]
 
@@ -181,65 +104,17 @@ class AiAgentInputTransforms:
         else:
             provider = self.provider.to_dict()
 
-        output_type: Dict[str, Any]
+        output_type = self.output_type.to_dict()
 
-        if isinstance(self.output_type, AiAgentInputTransformsOutputTypeType0):
-            output_type = self.output_type.to_dict()
+        user_message = self.user_message.to_dict()
 
-        elif isinstance(self.output_type, AiAgentInputTransformsOutputTypeType1):
-            output_type = self.output_type.to_dict()
+        system_prompt: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.system_prompt, Unset):
+            system_prompt = self.system_prompt.to_dict()
 
-        else:
-            output_type = self.output_type.to_dict()
-
-        user_message: Dict[str, Any]
-
-        if isinstance(self.user_message, AiAgentInputTransformsUserMessageType0):
-            user_message = self.user_message.to_dict()
-
-        elif isinstance(self.user_message, AiAgentInputTransformsUserMessageType1):
-            user_message = self.user_message.to_dict()
-
-        else:
-            user_message = self.user_message.to_dict()
-
-        system_prompt: Union[Dict[str, Any], Unset]
-        if isinstance(self.system_prompt, Unset):
-            system_prompt = UNSET
-
-        elif isinstance(self.system_prompt, AiAgentInputTransformsSystemPromptType0):
-            system_prompt = UNSET
-            if not isinstance(self.system_prompt, Unset):
-                system_prompt = self.system_prompt.to_dict()
-
-        elif isinstance(self.system_prompt, AiAgentInputTransformsSystemPromptType1):
-            system_prompt = UNSET
-            if not isinstance(self.system_prompt, Unset):
-                system_prompt = self.system_prompt.to_dict()
-
-        else:
-            system_prompt = UNSET
-            if not isinstance(self.system_prompt, Unset):
-                system_prompt = self.system_prompt.to_dict()
-
-        streaming: Union[Dict[str, Any], Unset]
-        if isinstance(self.streaming, Unset):
-            streaming = UNSET
-
-        elif isinstance(self.streaming, AiAgentInputTransformsStreamingType0):
-            streaming = UNSET
-            if not isinstance(self.streaming, Unset):
-                streaming = self.streaming.to_dict()
-
-        elif isinstance(self.streaming, AiAgentInputTransformsStreamingType1):
-            streaming = UNSET
-            if not isinstance(self.streaming, Unset):
-                streaming = self.streaming.to_dict()
-
-        else:
-            streaming = UNSET
-            if not isinstance(self.streaming, Unset):
-                streaming = self.streaming.to_dict()
+        streaming: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.streaming, Unset):
+            streaming = self.streaming.to_dict()
 
         memory: Union[Dict[str, Any], Unset]
         if isinstance(self.memory, Unset):
@@ -260,81 +135,21 @@ class AiAgentInputTransforms:
             if not isinstance(self.memory, Unset):
                 memory = self.memory.to_dict()
 
-        output_schema: Union[Dict[str, Any], Unset]
-        if isinstance(self.output_schema, Unset):
-            output_schema = UNSET
+        output_schema: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.output_schema, Unset):
+            output_schema = self.output_schema.to_dict()
 
-        elif isinstance(self.output_schema, AiAgentInputTransformsOutputSchemaType0):
-            output_schema = UNSET
-            if not isinstance(self.output_schema, Unset):
-                output_schema = self.output_schema.to_dict()
+        user_images: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.user_images, Unset):
+            user_images = self.user_images.to_dict()
 
-        elif isinstance(self.output_schema, AiAgentInputTransformsOutputSchemaType1):
-            output_schema = UNSET
-            if not isinstance(self.output_schema, Unset):
-                output_schema = self.output_schema.to_dict()
+        max_completion_tokens: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.max_completion_tokens, Unset):
+            max_completion_tokens = self.max_completion_tokens.to_dict()
 
-        else:
-            output_schema = UNSET
-            if not isinstance(self.output_schema, Unset):
-                output_schema = self.output_schema.to_dict()
-
-        user_images: Union[Dict[str, Any], Unset]
-        if isinstance(self.user_images, Unset):
-            user_images = UNSET
-
-        elif isinstance(self.user_images, AiAgentInputTransformsUserImagesType0):
-            user_images = UNSET
-            if not isinstance(self.user_images, Unset):
-                user_images = self.user_images.to_dict()
-
-        elif isinstance(self.user_images, AiAgentInputTransformsUserImagesType1):
-            user_images = UNSET
-            if not isinstance(self.user_images, Unset):
-                user_images = self.user_images.to_dict()
-
-        else:
-            user_images = UNSET
-            if not isinstance(self.user_images, Unset):
-                user_images = self.user_images.to_dict()
-
-        max_completion_tokens: Union[Dict[str, Any], Unset]
-        if isinstance(self.max_completion_tokens, Unset):
-            max_completion_tokens = UNSET
-
-        elif isinstance(self.max_completion_tokens, AiAgentInputTransformsMaxCompletionTokensType0):
-            max_completion_tokens = UNSET
-            if not isinstance(self.max_completion_tokens, Unset):
-                max_completion_tokens = self.max_completion_tokens.to_dict()
-
-        elif isinstance(self.max_completion_tokens, AiAgentInputTransformsMaxCompletionTokensType1):
-            max_completion_tokens = UNSET
-            if not isinstance(self.max_completion_tokens, Unset):
-                max_completion_tokens = self.max_completion_tokens.to_dict()
-
-        else:
-            max_completion_tokens = UNSET
-            if not isinstance(self.max_completion_tokens, Unset):
-                max_completion_tokens = self.max_completion_tokens.to_dict()
-
-        temperature: Union[Dict[str, Any], Unset]
-        if isinstance(self.temperature, Unset):
-            temperature = UNSET
-
-        elif isinstance(self.temperature, AiAgentInputTransformsTemperatureType0):
-            temperature = UNSET
-            if not isinstance(self.temperature, Unset):
-                temperature = self.temperature.to_dict()
-
-        elif isinstance(self.temperature, AiAgentInputTransformsTemperatureType1):
-            temperature = UNSET
-            if not isinstance(self.temperature, Unset):
-                temperature = self.temperature.to_dict()
-
-        else:
-            temperature = UNSET
-            if not isinstance(self.temperature, Unset):
-                temperature = self.temperature.to_dict()
+        temperature: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.temperature, Unset):
+            temperature = self.temperature.to_dict()
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -364,42 +179,20 @@ class AiAgentInputTransforms:
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
-        from ..models.ai_agent_input_transforms_max_completion_tokens_type_0 import (
-            AiAgentInputTransformsMaxCompletionTokensType0,
-        )
-        from ..models.ai_agent_input_transforms_max_completion_tokens_type_1 import (
-            AiAgentInputTransformsMaxCompletionTokensType1,
-        )
-        from ..models.ai_agent_input_transforms_max_completion_tokens_type_2 import (
-            AiAgentInputTransformsMaxCompletionTokensType2,
-        )
+        from ..models.ai_agent_input_transforms_max_completion_tokens import AiAgentInputTransformsMaxCompletionTokens
         from ..models.ai_agent_input_transforms_memory_type_0 import AiAgentInputTransformsMemoryType0
         from ..models.ai_agent_input_transforms_memory_type_1 import AiAgentInputTransformsMemoryType1
         from ..models.ai_agent_input_transforms_memory_type_2 import AiAgentInputTransformsMemoryType2
-        from ..models.ai_agent_input_transforms_output_schema_type_0 import AiAgentInputTransformsOutputSchemaType0
-        from ..models.ai_agent_input_transforms_output_schema_type_1 import AiAgentInputTransformsOutputSchemaType1
-        from ..models.ai_agent_input_transforms_output_schema_type_2 import AiAgentInputTransformsOutputSchemaType2
-        from ..models.ai_agent_input_transforms_output_type_type_0 import AiAgentInputTransformsOutputTypeType0
-        from ..models.ai_agent_input_transforms_output_type_type_1 import AiAgentInputTransformsOutputTypeType1
-        from ..models.ai_agent_input_transforms_output_type_type_2 import AiAgentInputTransformsOutputTypeType2
+        from ..models.ai_agent_input_transforms_output_schema import AiAgentInputTransformsOutputSchema
+        from ..models.ai_agent_input_transforms_output_type import AiAgentInputTransformsOutputType
         from ..models.ai_agent_input_transforms_provider_type_0 import AiAgentInputTransformsProviderType0
         from ..models.ai_agent_input_transforms_provider_type_1 import AiAgentInputTransformsProviderType1
         from ..models.ai_agent_input_transforms_provider_type_2 import AiAgentInputTransformsProviderType2
-        from ..models.ai_agent_input_transforms_streaming_type_0 import AiAgentInputTransformsStreamingType0
-        from ..models.ai_agent_input_transforms_streaming_type_1 import AiAgentInputTransformsStreamingType1
-        from ..models.ai_agent_input_transforms_streaming_type_2 import AiAgentInputTransformsStreamingType2
-        from ..models.ai_agent_input_transforms_system_prompt_type_0 import AiAgentInputTransformsSystemPromptType0
-        from ..models.ai_agent_input_transforms_system_prompt_type_1 import AiAgentInputTransformsSystemPromptType1
-        from ..models.ai_agent_input_transforms_system_prompt_type_2 import AiAgentInputTransformsSystemPromptType2
-        from ..models.ai_agent_input_transforms_temperature_type_0 import AiAgentInputTransformsTemperatureType0
-        from ..models.ai_agent_input_transforms_temperature_type_1 import AiAgentInputTransformsTemperatureType1
-        from ..models.ai_agent_input_transforms_temperature_type_2 import AiAgentInputTransformsTemperatureType2
-        from ..models.ai_agent_input_transforms_user_images_type_0 import AiAgentInputTransformsUserImagesType0
-        from ..models.ai_agent_input_transforms_user_images_type_1 import AiAgentInputTransformsUserImagesType1
-        from ..models.ai_agent_input_transforms_user_images_type_2 import AiAgentInputTransformsUserImagesType2
-        from ..models.ai_agent_input_transforms_user_message_type_0 import AiAgentInputTransformsUserMessageType0
-        from ..models.ai_agent_input_transforms_user_message_type_1 import AiAgentInputTransformsUserMessageType1
-        from ..models.ai_agent_input_transforms_user_message_type_2 import AiAgentInputTransformsUserMessageType2
+        from ..models.ai_agent_input_transforms_streaming import AiAgentInputTransformsStreaming
+        from ..models.ai_agent_input_transforms_system_prompt import AiAgentInputTransformsSystemPrompt
+        from ..models.ai_agent_input_transforms_temperature import AiAgentInputTransformsTemperature
+        from ..models.ai_agent_input_transforms_user_images import AiAgentInputTransformsUserImages
+        from ..models.ai_agent_input_transforms_user_message import AiAgentInputTransformsUserMessage
 
         d = src_dict.copy()
 
@@ -434,165 +227,23 @@ class AiAgentInputTransforms:
 
         provider = _parse_provider(d.pop("provider"))
 
-        def _parse_output_type(
-            data: object,
-        ) -> Union[
-            "AiAgentInputTransformsOutputTypeType0",
-            "AiAgentInputTransformsOutputTypeType1",
-            "AiAgentInputTransformsOutputTypeType2",
-        ]:
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                output_type_type_0 = AiAgentInputTransformsOutputTypeType0.from_dict(data)
+        output_type = AiAgentInputTransformsOutputType.from_dict(d.pop("output_type"))
 
-                return output_type_type_0
-            except:  # noqa: E722
-                pass
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                output_type_type_1 = AiAgentInputTransformsOutputTypeType1.from_dict(data)
+        user_message = AiAgentInputTransformsUserMessage.from_dict(d.pop("user_message"))
 
-                return output_type_type_1
-            except:  # noqa: E722
-                pass
-            if not isinstance(data, dict):
-                raise TypeError()
-            output_type_type_2 = AiAgentInputTransformsOutputTypeType2.from_dict(data)
+        _system_prompt = d.pop("system_prompt", UNSET)
+        system_prompt: Union[Unset, AiAgentInputTransformsSystemPrompt]
+        if isinstance(_system_prompt, Unset):
+            system_prompt = UNSET
+        else:
+            system_prompt = AiAgentInputTransformsSystemPrompt.from_dict(_system_prompt)
 
-            return output_type_type_2
-
-        output_type = _parse_output_type(d.pop("output_type"))
-
-        def _parse_user_message(
-            data: object,
-        ) -> Union[
-            "AiAgentInputTransformsUserMessageType0",
-            "AiAgentInputTransformsUserMessageType1",
-            "AiAgentInputTransformsUserMessageType2",
-        ]:
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                user_message_type_0 = AiAgentInputTransformsUserMessageType0.from_dict(data)
-
-                return user_message_type_0
-            except:  # noqa: E722
-                pass
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                user_message_type_1 = AiAgentInputTransformsUserMessageType1.from_dict(data)
-
-                return user_message_type_1
-            except:  # noqa: E722
-                pass
-            if not isinstance(data, dict):
-                raise TypeError()
-            user_message_type_2 = AiAgentInputTransformsUserMessageType2.from_dict(data)
-
-            return user_message_type_2
-
-        user_message = _parse_user_message(d.pop("user_message"))
-
-        def _parse_system_prompt(
-            data: object,
-        ) -> Union[
-            "AiAgentInputTransformsSystemPromptType0",
-            "AiAgentInputTransformsSystemPromptType1",
-            "AiAgentInputTransformsSystemPromptType2",
-            Unset,
-        ]:
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                _system_prompt_type_0 = data
-                system_prompt_type_0: Union[Unset, AiAgentInputTransformsSystemPromptType0]
-                if isinstance(_system_prompt_type_0, Unset):
-                    system_prompt_type_0 = UNSET
-                else:
-                    system_prompt_type_0 = AiAgentInputTransformsSystemPromptType0.from_dict(_system_prompt_type_0)
-
-                return system_prompt_type_0
-            except:  # noqa: E722
-                pass
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                _system_prompt_type_1 = data
-                system_prompt_type_1: Union[Unset, AiAgentInputTransformsSystemPromptType1]
-                if isinstance(_system_prompt_type_1, Unset):
-                    system_prompt_type_1 = UNSET
-                else:
-                    system_prompt_type_1 = AiAgentInputTransformsSystemPromptType1.from_dict(_system_prompt_type_1)
-
-                return system_prompt_type_1
-            except:  # noqa: E722
-                pass
-            if not isinstance(data, dict):
-                raise TypeError()
-            _system_prompt_type_2 = data
-            system_prompt_type_2: Union[Unset, AiAgentInputTransformsSystemPromptType2]
-            if isinstance(_system_prompt_type_2, Unset):
-                system_prompt_type_2 = UNSET
-            else:
-                system_prompt_type_2 = AiAgentInputTransformsSystemPromptType2.from_dict(_system_prompt_type_2)
-
-            return system_prompt_type_2
-
-        system_prompt = _parse_system_prompt(d.pop("system_prompt", UNSET))
-
-        def _parse_streaming(
-            data: object,
-        ) -> Union[
-            "AiAgentInputTransformsStreamingType0",
-            "AiAgentInputTransformsStreamingType1",
-            "AiAgentInputTransformsStreamingType2",
-            Unset,
-        ]:
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                _streaming_type_0 = data
-                streaming_type_0: Union[Unset, AiAgentInputTransformsStreamingType0]
-                if isinstance(_streaming_type_0, Unset):
-                    streaming_type_0 = UNSET
-                else:
-                    streaming_type_0 = AiAgentInputTransformsStreamingType0.from_dict(_streaming_type_0)
-
-                return streaming_type_0
-            except:  # noqa: E722
-                pass
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                _streaming_type_1 = data
-                streaming_type_1: Union[Unset, AiAgentInputTransformsStreamingType1]
-                if isinstance(_streaming_type_1, Unset):
-                    streaming_type_1 = UNSET
-                else:
-                    streaming_type_1 = AiAgentInputTransformsStreamingType1.from_dict(_streaming_type_1)
-
-                return streaming_type_1
-            except:  # noqa: E722
-                pass
-            if not isinstance(data, dict):
-                raise TypeError()
-            _streaming_type_2 = data
-            streaming_type_2: Union[Unset, AiAgentInputTransformsStreamingType2]
-            if isinstance(_streaming_type_2, Unset):
-                streaming_type_2 = UNSET
-            else:
-                streaming_type_2 = AiAgentInputTransformsStreamingType2.from_dict(_streaming_type_2)
-
-            return streaming_type_2
-
-        streaming = _parse_streaming(d.pop("streaming", UNSET))
+        _streaming = d.pop("streaming", UNSET)
+        streaming: Union[Unset, AiAgentInputTransformsStreaming]
+        if isinstance(_streaming, Unset):
+            streaming = UNSET
+        else:
+            streaming = AiAgentInputTransformsStreaming.from_dict(_streaming)
 
         def _parse_memory(
             data: object,
@@ -643,207 +294,33 @@ class AiAgentInputTransforms:
 
         memory = _parse_memory(d.pop("memory", UNSET))
 
-        def _parse_output_schema(
-            data: object,
-        ) -> Union[
-            "AiAgentInputTransformsOutputSchemaType0",
-            "AiAgentInputTransformsOutputSchemaType1",
-            "AiAgentInputTransformsOutputSchemaType2",
-            Unset,
-        ]:
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                _output_schema_type_0 = data
-                output_schema_type_0: Union[Unset, AiAgentInputTransformsOutputSchemaType0]
-                if isinstance(_output_schema_type_0, Unset):
-                    output_schema_type_0 = UNSET
-                else:
-                    output_schema_type_0 = AiAgentInputTransformsOutputSchemaType0.from_dict(_output_schema_type_0)
+        _output_schema = d.pop("output_schema", UNSET)
+        output_schema: Union[Unset, AiAgentInputTransformsOutputSchema]
+        if isinstance(_output_schema, Unset):
+            output_schema = UNSET
+        else:
+            output_schema = AiAgentInputTransformsOutputSchema.from_dict(_output_schema)
 
-                return output_schema_type_0
-            except:  # noqa: E722
-                pass
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                _output_schema_type_1 = data
-                output_schema_type_1: Union[Unset, AiAgentInputTransformsOutputSchemaType1]
-                if isinstance(_output_schema_type_1, Unset):
-                    output_schema_type_1 = UNSET
-                else:
-                    output_schema_type_1 = AiAgentInputTransformsOutputSchemaType1.from_dict(_output_schema_type_1)
+        _user_images = d.pop("user_images", UNSET)
+        user_images: Union[Unset, AiAgentInputTransformsUserImages]
+        if isinstance(_user_images, Unset):
+            user_images = UNSET
+        else:
+            user_images = AiAgentInputTransformsUserImages.from_dict(_user_images)
 
-                return output_schema_type_1
-            except:  # noqa: E722
-                pass
-            if not isinstance(data, dict):
-                raise TypeError()
-            _output_schema_type_2 = data
-            output_schema_type_2: Union[Unset, AiAgentInputTransformsOutputSchemaType2]
-            if isinstance(_output_schema_type_2, Unset):
-                output_schema_type_2 = UNSET
-            else:
-                output_schema_type_2 = AiAgentInputTransformsOutputSchemaType2.from_dict(_output_schema_type_2)
+        _max_completion_tokens = d.pop("max_completion_tokens", UNSET)
+        max_completion_tokens: Union[Unset, AiAgentInputTransformsMaxCompletionTokens]
+        if isinstance(_max_completion_tokens, Unset):
+            max_completion_tokens = UNSET
+        else:
+            max_completion_tokens = AiAgentInputTransformsMaxCompletionTokens.from_dict(_max_completion_tokens)
 
-            return output_schema_type_2
-
-        output_schema = _parse_output_schema(d.pop("output_schema", UNSET))
-
-        def _parse_user_images(
-            data: object,
-        ) -> Union[
-            "AiAgentInputTransformsUserImagesType0",
-            "AiAgentInputTransformsUserImagesType1",
-            "AiAgentInputTransformsUserImagesType2",
-            Unset,
-        ]:
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                _user_images_type_0 = data
-                user_images_type_0: Union[Unset, AiAgentInputTransformsUserImagesType0]
-                if isinstance(_user_images_type_0, Unset):
-                    user_images_type_0 = UNSET
-                else:
-                    user_images_type_0 = AiAgentInputTransformsUserImagesType0.from_dict(_user_images_type_0)
-
-                return user_images_type_0
-            except:  # noqa: E722
-                pass
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                _user_images_type_1 = data
-                user_images_type_1: Union[Unset, AiAgentInputTransformsUserImagesType1]
-                if isinstance(_user_images_type_1, Unset):
-                    user_images_type_1 = UNSET
-                else:
-                    user_images_type_1 = AiAgentInputTransformsUserImagesType1.from_dict(_user_images_type_1)
-
-                return user_images_type_1
-            except:  # noqa: E722
-                pass
-            if not isinstance(data, dict):
-                raise TypeError()
-            _user_images_type_2 = data
-            user_images_type_2: Union[Unset, AiAgentInputTransformsUserImagesType2]
-            if isinstance(_user_images_type_2, Unset):
-                user_images_type_2 = UNSET
-            else:
-                user_images_type_2 = AiAgentInputTransformsUserImagesType2.from_dict(_user_images_type_2)
-
-            return user_images_type_2
-
-        user_images = _parse_user_images(d.pop("user_images", UNSET))
-
-        def _parse_max_completion_tokens(
-            data: object,
-        ) -> Union[
-            "AiAgentInputTransformsMaxCompletionTokensType0",
-            "AiAgentInputTransformsMaxCompletionTokensType1",
-            "AiAgentInputTransformsMaxCompletionTokensType2",
-            Unset,
-        ]:
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                _max_completion_tokens_type_0 = data
-                max_completion_tokens_type_0: Union[Unset, AiAgentInputTransformsMaxCompletionTokensType0]
-                if isinstance(_max_completion_tokens_type_0, Unset):
-                    max_completion_tokens_type_0 = UNSET
-                else:
-                    max_completion_tokens_type_0 = AiAgentInputTransformsMaxCompletionTokensType0.from_dict(
-                        _max_completion_tokens_type_0
-                    )
-
-                return max_completion_tokens_type_0
-            except:  # noqa: E722
-                pass
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                _max_completion_tokens_type_1 = data
-                max_completion_tokens_type_1: Union[Unset, AiAgentInputTransformsMaxCompletionTokensType1]
-                if isinstance(_max_completion_tokens_type_1, Unset):
-                    max_completion_tokens_type_1 = UNSET
-                else:
-                    max_completion_tokens_type_1 = AiAgentInputTransformsMaxCompletionTokensType1.from_dict(
-                        _max_completion_tokens_type_1
-                    )
-
-                return max_completion_tokens_type_1
-            except:  # noqa: E722
-                pass
-            if not isinstance(data, dict):
-                raise TypeError()
-            _max_completion_tokens_type_2 = data
-            max_completion_tokens_type_2: Union[Unset, AiAgentInputTransformsMaxCompletionTokensType2]
-            if isinstance(_max_completion_tokens_type_2, Unset):
-                max_completion_tokens_type_2 = UNSET
-            else:
-                max_completion_tokens_type_2 = AiAgentInputTransformsMaxCompletionTokensType2.from_dict(
-                    _max_completion_tokens_type_2
-                )
-
-            return max_completion_tokens_type_2
-
-        max_completion_tokens = _parse_max_completion_tokens(d.pop("max_completion_tokens", UNSET))
-
-        def _parse_temperature(
-            data: object,
-        ) -> Union[
-            "AiAgentInputTransformsTemperatureType0",
-            "AiAgentInputTransformsTemperatureType1",
-            "AiAgentInputTransformsTemperatureType2",
-            Unset,
-        ]:
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                _temperature_type_0 = data
-                temperature_type_0: Union[Unset, AiAgentInputTransformsTemperatureType0]
-                if isinstance(_temperature_type_0, Unset):
-                    temperature_type_0 = UNSET
-                else:
-                    temperature_type_0 = AiAgentInputTransformsTemperatureType0.from_dict(_temperature_type_0)
-
-                return temperature_type_0
-            except:  # noqa: E722
-                pass
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                _temperature_type_1 = data
-                temperature_type_1: Union[Unset, AiAgentInputTransformsTemperatureType1]
-                if isinstance(_temperature_type_1, Unset):
-                    temperature_type_1 = UNSET
-                else:
-                    temperature_type_1 = AiAgentInputTransformsTemperatureType1.from_dict(_temperature_type_1)
-
-                return temperature_type_1
-            except:  # noqa: E722
-                pass
-            if not isinstance(data, dict):
-                raise TypeError()
-            _temperature_type_2 = data
-            temperature_type_2: Union[Unset, AiAgentInputTransformsTemperatureType2]
-            if isinstance(_temperature_type_2, Unset):
-                temperature_type_2 = UNSET
-            else:
-                temperature_type_2 = AiAgentInputTransformsTemperatureType2.from_dict(_temperature_type_2)
-
-            return temperature_type_2
-
-        temperature = _parse_temperature(d.pop("temperature", UNSET))
+        _temperature = d.pop("temperature", UNSET)
+        temperature: Union[Unset, AiAgentInputTransformsTemperature]
+        if isinstance(_temperature, Unset):
+            temperature = UNSET
+        else:
+            temperature = AiAgentInputTransformsTemperature.from_dict(_temperature)
 
         ai_agent_input_transforms = cls(
             provider=provider,

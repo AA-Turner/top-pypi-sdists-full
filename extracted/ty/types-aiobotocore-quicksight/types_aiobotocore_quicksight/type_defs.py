@@ -216,6 +216,7 @@ from .literals import (
     SheetControlListTypeType,
     SheetControlSliderTypeType,
     SheetImageScalingTypeType,
+    SheetLayoutGroupMemberTypeType,
     SimpleNumericalAggregationFunctionType,
     SimpleTotalAggregationFunctionType,
     SmallMultiplesAxisPlacementType,
@@ -1873,6 +1874,9 @@ __all__ = (
     "SheetImageTooltipTextTypeDef",
     "SheetImageTypeDef",
     "SheetLayoutElementMaximizationOptionTypeDef",
+    "SheetLayoutGroupMemberTypeDef",
+    "SheetLayoutGroupOutputTypeDef",
+    "SheetLayoutGroupTypeDef",
     "SheetStyleTypeDef",
     "SheetTextBoxTypeDef",
     "SheetTypeDef",
@@ -2934,6 +2938,178 @@ class CapabilitiesTypeDef(TypedDict):
     UseAgentWebSearch: NotRequired[Literal["DENY"]]
     KnowledgeBase: NotRequired[Literal["DENY"]]
     Action: NotRequired[Literal["DENY"]]
+    GenericHTTPAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateGenericHTTPAction: NotRequired[Literal["DENY"]]
+    ShareGenericHTTPAction: NotRequired[Literal["DENY"]]
+    UseGenericHTTPAction: NotRequired[Literal["DENY"]]
+    AsanaAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateAsanaAction: NotRequired[Literal["DENY"]]
+    ShareAsanaAction: NotRequired[Literal["DENY"]]
+    UseAsanaAction: NotRequired[Literal["DENY"]]
+    SlackAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSlackAction: NotRequired[Literal["DENY"]]
+    ShareSlackAction: NotRequired[Literal["DENY"]]
+    UseSlackAction: NotRequired[Literal["DENY"]]
+    ServiceNowAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateServiceNowAction: NotRequired[Literal["DENY"]]
+    ShareServiceNowAction: NotRequired[Literal["DENY"]]
+    UseServiceNowAction: NotRequired[Literal["DENY"]]
+    SalesforceAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSalesforceAction: NotRequired[Literal["DENY"]]
+    ShareSalesforceAction: NotRequired[Literal["DENY"]]
+    UseSalesforceAction: NotRequired[Literal["DENY"]]
+    MSExchangeAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateMSExchangeAction: NotRequired[Literal["DENY"]]
+    ShareMSExchangeAction: NotRequired[Literal["DENY"]]
+    UseMSExchangeAction: NotRequired[Literal["DENY"]]
+    PagerDutyAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdatePagerDutyAction: NotRequired[Literal["DENY"]]
+    SharePagerDutyAction: NotRequired[Literal["DENY"]]
+    UsePagerDutyAction: NotRequired[Literal["DENY"]]
+    JiraAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateJiraAction: NotRequired[Literal["DENY"]]
+    ShareJiraAction: NotRequired[Literal["DENY"]]
+    UseJiraAction: NotRequired[Literal["DENY"]]
+    ConfluenceAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateConfluenceAction: NotRequired[Literal["DENY"]]
+    ShareConfluenceAction: NotRequired[Literal["DENY"]]
+    UseConfluenceAction: NotRequired[Literal["DENY"]]
+    OneDriveAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateOneDriveAction: NotRequired[Literal["DENY"]]
+    ShareOneDriveAction: NotRequired[Literal["DENY"]]
+    UseOneDriveAction: NotRequired[Literal["DENY"]]
+    SharePointAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSharePointAction: NotRequired[Literal["DENY"]]
+    ShareSharePointAction: NotRequired[Literal["DENY"]]
+    UseSharePointAction: NotRequired[Literal["DENY"]]
+    MSTeamsAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateMSTeamsAction: NotRequired[Literal["DENY"]]
+    ShareMSTeamsAction: NotRequired[Literal["DENY"]]
+    UseMSTeamsAction: NotRequired[Literal["DENY"]]
+    GoogleCalendarAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateGoogleCalendarAction: NotRequired[Literal["DENY"]]
+    ShareGoogleCalendarAction: NotRequired[Literal["DENY"]]
+    UseGoogleCalendarAction: NotRequired[Literal["DENY"]]
+    ZendeskAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateZendeskAction: NotRequired[Literal["DENY"]]
+    ShareZendeskAction: NotRequired[Literal["DENY"]]
+    UseZendeskAction: NotRequired[Literal["DENY"]]
+    SmartsheetAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSmartsheetAction: NotRequired[Literal["DENY"]]
+    ShareSmartsheetAction: NotRequired[Literal["DENY"]]
+    UseSmartsheetAction: NotRequired[Literal["DENY"]]
+    SAPBusinessPartnerAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSAPBusinessPartnerAction: NotRequired[Literal["DENY"]]
+    ShareSAPBusinessPartnerAction: NotRequired[Literal["DENY"]]
+    UseSAPBusinessPartnerAction: NotRequired[Literal["DENY"]]
+    SAPProductMasterDataAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSAPProductMasterDataAction: NotRequired[Literal["DENY"]]
+    ShareSAPProductMasterDataAction: NotRequired[Literal["DENY"]]
+    UseSAPProductMasterDataAction: NotRequired[Literal["DENY"]]
+    SAPPhysicalInventoryAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSAPPhysicalInventoryAction: NotRequired[Literal["DENY"]]
+    ShareSAPPhysicalInventoryAction: NotRequired[Literal["DENY"]]
+    UseSAPPhysicalInventoryAction: NotRequired[Literal["DENY"]]
+    SAPBillOfMaterialAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSAPBillOfMaterialAction: NotRequired[Literal["DENY"]]
+    ShareSAPBillOfMaterialAction: NotRequired[Literal["DENY"]]
+    UseSAPBillOfMaterialAction: NotRequired[Literal["DENY"]]
+    SAPMaterialStockAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSAPMaterialStockAction: NotRequired[Literal["DENY"]]
+    ShareSAPMaterialStockAction: NotRequired[Literal["DENY"]]
+    UseSAPMaterialStockAction: NotRequired[Literal["DENY"]]
+    FactSetAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateFactSetAction: NotRequired[Literal["DENY"]]
+    ShareFactSetAction: NotRequired[Literal["DENY"]]
+    UseFactSetAction: NotRequired[Literal["DENY"]]
+    AmazonSThreeAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateAmazonSThreeAction: NotRequired[Literal["DENY"]]
+    ShareAmazonSThreeAction: NotRequired[Literal["DENY"]]
+    UseAmazonSThreeAction: NotRequired[Literal["DENY"]]
+    TextractAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateTextractAction: NotRequired[Literal["DENY"]]
+    ShareTextractAction: NotRequired[Literal["DENY"]]
+    UseTextractAction: NotRequired[Literal["DENY"]]
+    ComprehendAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateComprehendAction: NotRequired[Literal["DENY"]]
+    ShareComprehendAction: NotRequired[Literal["DENY"]]
+    UseComprehendAction: NotRequired[Literal["DENY"]]
+    ComprehendMedicalAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateComprehendMedicalAction: NotRequired[Literal["DENY"]]
+    ShareComprehendMedicalAction: NotRequired[Literal["DENY"]]
+    UseComprehendMedicalAction: NotRequired[Literal["DENY"]]
+    AmazonBedrockARSAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateAmazonBedrockARSAction: NotRequired[Literal["DENY"]]
+    ShareAmazonBedrockARSAction: NotRequired[Literal["DENY"]]
+    UseAmazonBedrockARSAction: NotRequired[Literal["DENY"]]
+    AmazonBedrockFSAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateAmazonBedrockFSAction: NotRequired[Literal["DENY"]]
+    ShareAmazonBedrockFSAction: NotRequired[Literal["DENY"]]
+    UseAmazonBedrockFSAction: NotRequired[Literal["DENY"]]
+    AmazonBedrockKRSAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateAmazonBedrockKRSAction: NotRequired[Literal["DENY"]]
+    ShareAmazonBedrockKRSAction: NotRequired[Literal["DENY"]]
+    UseAmazonBedrockKRSAction: NotRequired[Literal["DENY"]]
+    MCPAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateMCPAction: NotRequired[Literal["DENY"]]
+    ShareMCPAction: NotRequired[Literal["DENY"]]
+    UseMCPAction: NotRequired[Literal["DENY"]]
+    OpenAPIAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateOpenAPIAction: NotRequired[Literal["DENY"]]
+    ShareOpenAPIAction: NotRequired[Literal["DENY"]]
+    UseOpenAPIAction: NotRequired[Literal["DENY"]]
+    SandPGMIAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSandPGMIAction: NotRequired[Literal["DENY"]]
+    ShareSandPGMIAction: NotRequired[Literal["DENY"]]
+    UseSandPGMIAction: NotRequired[Literal["DENY"]]
+    SandPGlobalEnergyAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateSandPGlobalEnergyAction: NotRequired[Literal["DENY"]]
+    ShareSandPGlobalEnergyAction: NotRequired[Literal["DENY"]]
+    UseSandPGlobalEnergyAction: NotRequired[Literal["DENY"]]
+    BambooHRAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateBambooHRAction: NotRequired[Literal["DENY"]]
+    ShareBambooHRAction: NotRequired[Literal["DENY"]]
+    UseBambooHRAction: NotRequired[Literal["DENY"]]
+    BoxAgentAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateBoxAgentAction: NotRequired[Literal["DENY"]]
+    ShareBoxAgentAction: NotRequired[Literal["DENY"]]
+    UseBoxAgentAction: NotRequired[Literal["DENY"]]
+    CanvaAgentAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateCanvaAgentAction: NotRequired[Literal["DENY"]]
+    ShareCanvaAgentAction: NotRequired[Literal["DENY"]]
+    UseCanvaAgentAction: NotRequired[Literal["DENY"]]
+    GithubAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateGithubAction: NotRequired[Literal["DENY"]]
+    ShareGithubAction: NotRequired[Literal["DENY"]]
+    UseGithubAction: NotRequired[Literal["DENY"]]
+    NotionAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateNotionAction: NotRequired[Literal["DENY"]]
+    ShareNotionAction: NotRequired[Literal["DENY"]]
+    UseNotionAction: NotRequired[Literal["DENY"]]
+    LinearAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateLinearAction: NotRequired[Literal["DENY"]]
+    ShareLinearAction: NotRequired[Literal["DENY"]]
+    UseLinearAction: NotRequired[Literal["DENY"]]
+    HuggingFaceAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateHuggingFaceAction: NotRequired[Literal["DENY"]]
+    ShareHuggingFaceAction: NotRequired[Literal["DENY"]]
+    UseHuggingFaceAction: NotRequired[Literal["DENY"]]
+    MondayAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateMondayAction: NotRequired[Literal["DENY"]]
+    ShareMondayAction: NotRequired[Literal["DENY"]]
+    UseMondayAction: NotRequired[Literal["DENY"]]
+    HubspotAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateHubspotAction: NotRequired[Literal["DENY"]]
+    ShareHubspotAction: NotRequired[Literal["DENY"]]
+    UseHubspotAction: NotRequired[Literal["DENY"]]
+    IntercomAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateIntercomAction: NotRequired[Literal["DENY"]]
+    ShareIntercomAction: NotRequired[Literal["DENY"]]
+    UseIntercomAction: NotRequired[Literal["DENY"]]
+    NewRelicAction: NotRequired[Literal["DENY"]]
+    CreateAndUpdateNewRelicAction: NotRequired[Literal["DENY"]]
+    ShareNewRelicAction: NotRequired[Literal["DENY"]]
+    UseNewRelicAction: NotRequired[Literal["DENY"]]
     Space: NotRequired[Literal["DENY"]]
     ChatAgent: NotRequired[Literal["DENY"]]
     CreateChatAgents: NotRequired[Literal["DENY"]]
@@ -5392,6 +5568,15 @@ class SheetImageStaticFileSourceTypeDef(TypedDict):
 
 class SheetImageTooltipTextTypeDef(TypedDict):
     PlainText: NotRequired[str]
+
+
+SheetLayoutGroupMemberTypeDef = TypedDict(
+    "SheetLayoutGroupMemberTypeDef",
+    {
+        "Id": str,
+        "Type": SheetLayoutGroupMemberTypeType,
+    },
+)
 
 
 class ShortFormatTextTypeDef(TypedDict):
@@ -8956,6 +9141,16 @@ class SheetImageTooltipConfigurationTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
 
 
+class SheetLayoutGroupOutputTypeDef(TypedDict):
+    Id: str
+    Members: list[SheetLayoutGroupMemberTypeDef]
+
+
+class SheetLayoutGroupTypeDef(TypedDict):
+    Id: str
+    Members: Sequence[SheetLayoutGroupMemberTypeDef]
+
+
 class VisualTitleLabelOptionsTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
     FormatText: NotRequired[ShortFormatTextTypeDef]
@@ -9138,8 +9333,8 @@ class DashboardCustomizationVisualOptionsTypeDef(TypedDict):
 
 class RegisteredUserDashboardFeatureConfigurationsTypeDef(TypedDict):
     StatePersistence: NotRequired[StatePersistenceConfigurationsTypeDef]
-    SharedView: NotRequired[SharedViewConfigurationsTypeDef]
     Bookmarks: NotRequired[BookmarksConfigurationsTypeDef]
+    SharedView: NotRequired[SharedViewConfigurationsTypeDef]
     AmazonQInQuickSight: NotRequired[AmazonQInQuickSightDashboardConfigurationsTypeDef]
     Schedules: NotRequired[SchedulesConfigurationsTypeDef]
     RecentSnapshots: NotRequired[RecentSnapshotsConfigurationsTypeDef]
@@ -11174,6 +11369,7 @@ class DefaultSectionBasedLayoutConfigurationTypeDef(TypedDict):
 class FreeFormLayoutConfigurationOutputTypeDef(TypedDict):
     Elements: list[FreeFormLayoutElementOutputTypeDef]
     CanvasSizeOptions: NotRequired[FreeFormLayoutCanvasSizeOptionsTypeDef]
+    Groups: NotRequired[list[SheetLayoutGroupOutputTypeDef]]
 
 
 class FreeFormSectionLayoutConfigurationOutputTypeDef(TypedDict):
@@ -11183,6 +11379,7 @@ class FreeFormSectionLayoutConfigurationOutputTypeDef(TypedDict):
 class FreeFormLayoutConfigurationTypeDef(TypedDict):
     Elements: Sequence[FreeFormLayoutElementTypeDef]
     CanvasSizeOptions: NotRequired[FreeFormLayoutCanvasSizeOptionsTypeDef]
+    Groups: NotRequired[Sequence[SheetLayoutGroupTypeDef]]
 
 
 class FreeFormSectionLayoutConfigurationTypeDef(TypedDict):

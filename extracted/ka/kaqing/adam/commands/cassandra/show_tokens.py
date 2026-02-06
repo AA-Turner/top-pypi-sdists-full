@@ -2,12 +2,12 @@ import re
 
 from adam.commands import extract_trailing_options
 from adam.commands.command import Command
-from adam.commands.devices.devices import device
+from adam.commands.cql.utils_cql import cassandra
+from adam.commands.devices.devices import Devices
 from adam.commands.nodetool.utils_nodetools import NodeTools
 from adam.repl_state import ReplState, RequiredState
 from adam.utils import log_timing
 from adam.utils_cassandra.address_table import AddressTable, NATError
-from adam.utils_cassandra.pod_service import cassandra
 from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 
@@ -39,7 +39,7 @@ class ShowTokens(Command):
                 with log_timing('show.tokens'):
                     ctx: Context = self.context().copy(background=background)
 
-                    nat: AddressTable = log_timing('nat.build', lambda: AddressTable.snapshot(state, ctx=ctx.copy(show_out=False, background=False)))
+                    nat = log_timing('nat.build', lambda: AddressTable.snapshot(state, ctx=ctx.copy(show_out=False, background=False)))
 
                     ip = nat.local_ip_from_pod_name(state.pod)
 
@@ -107,7 +107,7 @@ class ShowTokens(Command):
                         return state
 
     def completion(self, state: ReplState):
-        return super().completion(state, {'&': None}, pods=device(state).pods(state, '-'))
+        return super().completion(state, {'&': None}, pods=Devices.of(state).pods(state, '-'))
 
     def help(self, state: ReplState):
         return super().help(state, 'show Cassandra tokens', args='[&]')

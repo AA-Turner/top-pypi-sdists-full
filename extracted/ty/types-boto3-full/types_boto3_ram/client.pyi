@@ -33,6 +33,7 @@ from .paginator import (
     GetResourceSharesPaginator,
     ListPrincipalsPaginator,
     ListResourcesPaginator,
+    ListSourceAssociationsPaginator,
 )
 from .type_defs import (
     AcceptResourceShareInvitationRequestTypeDef,
@@ -86,6 +87,8 @@ from .type_defs import (
     ListResourcesResponseTypeDef,
     ListResourceTypesRequestTypeDef,
     ListResourceTypesResponseTypeDef,
+    ListSourceAssociationsRequestTypeDef,
+    ListSourceAssociationsResponseTypeDef,
     PromotePermissionCreatedFromPolicyRequestTypeDef,
     PromotePermissionCreatedFromPolicyResponseTypeDef,
     PromoteResourceShareCreatedFromPolicyRequestTypeDef,
@@ -190,7 +193,8 @@ class RAMClient(BaseClient):
         self, **kwargs: Unpack[AssociateResourceShareRequestTypeDef]
     ) -> AssociateResourceShareResponseTypeDef:
         """
-        Adds the specified list of principals and list of resources to a resource share.
+        Adds the specified list of principals, resources, and source constraints to a
+        resource share.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ram/client/associate_resource_share.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ram/client/#associate_resource_share)
@@ -273,8 +277,8 @@ class RAMClient(BaseClient):
         self, **kwargs: Unpack[DisassociateResourceShareRequestTypeDef]
     ) -> DisassociateResourceShareResponseTypeDef:
         """
-        Removes the specified principals or resources from participating in the
-        specified resource share.
+        Removes the specified principals, resources, or source constraints from
+        participating in the specified resource share.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ram/client/disassociate_resource_share.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ram/client/#disassociate_resource_share)
@@ -449,6 +453,16 @@ class RAMClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ram/client/#list_resources)
         """
 
+    def list_source_associations(
+        self, **kwargs: Unpack[ListSourceAssociationsRequestTypeDef]
+    ) -> ListSourceAssociationsResponseTypeDef:
+        """
+        Lists source associations for resource shares.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ram/client/list_source_associations.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ram/client/#list_source_associations)
+        """
+
     def promote_permission_created_from_policy(
         self, **kwargs: Unpack[PromotePermissionCreatedFromPolicyRequestTypeDef]
     ) -> PromotePermissionCreatedFromPolicyResponseTypeDef:
@@ -597,6 +611,17 @@ class RAMClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_resources"]
     ) -> ListResourcesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ram/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ram/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_source_associations"]
+    ) -> ListSourceAssociationsPaginator:
         """
         Create a paginator for an operation.
 

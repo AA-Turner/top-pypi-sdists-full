@@ -8,7 +8,7 @@ from prompt_toolkit import HTML
 from adam.cli_group import cli
 from adam.commands.command import Command, InvalidArgumentsException, InvalidStateException
 from adam.commands.command_helpers import ClusterCommandHelper
-from adam.commands.devices.devices import device
+from adam.commands.devices.devices import Devices
 from adam.commands.help import Help
 from adam.config import Config
 from adam.sql.async_executor import AsyncExecutor
@@ -47,7 +47,7 @@ def enter_repl(state: ReplState):
 
     Log.log2(f'kaqing {__version__}')
 
-    device(state).enter(state)
+    Devices.of(state).enter(state)
 
     kb = KeyBindings()
 
@@ -154,7 +154,7 @@ def enter_repl(state: ReplState):
                 CommandLog.close_log_file()
 
 def try_device_default_action(state: ReplState, cmds: Command, cmd_list: list[Command], cmd: str, ctx: Context = Context.NULL):
-    action_taken, result = device(state).try_fallback_action(cmds, state, cmd)
+    action_taken, result = Devices.of(state).try_fallback_action(cmds, state, cmd)
 
     if not action_taken:
         ctx=ctx.copy(show_out=True)

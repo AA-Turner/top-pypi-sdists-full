@@ -140,11 +140,10 @@ class HeartbeatInfo(BaseModel):
     exponent_version: str | None = None
     editable_installation: bool = False
     system_info: SystemInfo | None
-    timestamp: datetime.datetime = Field(
-        default_factory=lambda: datetime.datetime.now(datetime.UTC)
-    )
+    timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC))
     timestamp_received: datetime.datetime | None = None
     cli_uuid: str | None = None
+    config_dir: str | None = None
 
 
 class RemoteFile(BaseModel):
@@ -260,12 +259,13 @@ class SQLAttachment(BaseModel):
     query_id: str
 
 
+class SkillAttachment(BaseModel):
+    attachment_type: Literal["skill"] = "skill"
+    skill_name: str
+
+
 MessageAttachment = Annotated[
-    FileAttachment
-    | URLAttachment
-    | TableSchemaAttachment
-    | PromptAttachment
-    | SQLAttachment,
+    FileAttachment | URLAttachment | TableSchemaAttachment | PromptAttachment | SQLAttachment | SkillAttachment,
     Field(discriminator="attachment_type"),
 ]
 
@@ -301,9 +301,7 @@ class ChatMode(str, Enum):
     DATABASE = "DATABASE"  # chat with database connection
     WORKFLOW = "WORKFLOW"
     PLAYGROUND = "PLAYGROUND"  # playground mode with MCP tools only
-    ONCALL = (
-        "ONCALL"  # incident response mode with auto-configured Datadog/Sentry/Sandbox
-    )
+    ONCALL = "ONCALL"  # incident response mode with auto-configured Datadog/Sentry/Sandbox
 
     @classmethod
     def requires_cli(cls, mode: "ChatMode") -> bool:
@@ -339,6 +337,7 @@ class CLIConnectedState(BaseModel):
     system_info: SystemInfo | None
     exponent_version: str | None = None
     editable_installation: bool = False
+    config_dir: str | None = None
 
 
 class DevboxConnectedState(str, Enum):

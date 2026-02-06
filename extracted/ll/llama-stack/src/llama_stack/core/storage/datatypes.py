@@ -255,6 +255,11 @@ class InferenceStoreReference(SqlStoreReference):
 class ResponsesStoreReference(InferenceStoreReference):
     """Responses store configuration with queue tuning."""
 
+    table_name: str = Field(
+        default="openai_responses",
+        description="Name of the table to use for storing OpenAI responses",
+    )
+
 
 class ServerStoresConfig(BaseModel):
     metadata: KVStoreReference | None = Field(
@@ -285,6 +290,10 @@ class ServerStoresConfig(BaseModel):
     prompts: KVStoreReference | None = Field(
         default=KVStoreReference(backend="kv_default", namespace="prompts"),
         description="Prompts store configuration (uses KV backend)",
+    )
+    connectors: KVStoreReference | None = Field(
+        default=KVStoreReference(backend="kv_default", namespace="connectors"),
+        description="Connectors store configuration (uses KV backend)",
     )
 
 

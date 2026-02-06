@@ -34,9 +34,7 @@ class BackgroundProcessTracker:
 
     def __init__(
         self,
-        on_complete: Callable[
-            [TrackedProcess, int, str, bool, int], Coroutine[Any, Any, None]
-        ],
+        on_complete: Callable[[TrackedProcess, int, str, bool, int], Coroutine[Any, Any, None]],
     ):
         """Initialize the tracker.
 
@@ -74,9 +72,7 @@ class BackgroundProcessTracker:
             correlation_id=correlation_id,
         )
         self._processes[process.pid] = tracked
-        self._monitor_tasks[process.pid] = asyncio.create_task(
-            self._monitor_process(process, tracked)
-        )
+        self._monitor_tasks[process.pid] = asyncio.create_task(self._monitor_process(process, tracked))
         logger.info(
             "Tracking background process pid=%d command=%s correlation_id=%s",
             process.pid,

@@ -35,7 +35,7 @@ class ReaperStatus(Command):
 
             pods = self.list_pods(state.sts, state.namespace)
 
-            show_pods(state, pods, state.namespace, show_host_id=False)
+            show_pods(pods, state.namespace, show_host_id=False)
 
             return state
 

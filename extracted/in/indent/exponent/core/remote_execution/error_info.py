@@ -17,14 +17,12 @@ class SerializableErrorInfo(BaseModel):
     def to_string(self) -> str:
         stack_str = "\nStack Trace:\n" + "".join(self.stack) if self.stack else ""
         cause_str = (
-            "\nThe above exception was caused by the following exception:\n"
-            + self.cause.to_string()
+            "\nThe above exception was caused by the following exception:\n" + self.cause.to_string()
             if self.cause
             else ""
         )
         context_str = (
-            "\nThe above exception occurred during handling of the following exception:\n"
-            + self.context.to_string()
+            "\nThe above exception occurred during handling of the following exception:\n" + self.context.to_string()
             if self.context
             else ""
         )

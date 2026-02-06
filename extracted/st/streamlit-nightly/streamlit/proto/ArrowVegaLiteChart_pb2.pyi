@@ -21,8 +21,8 @@ from collections import abc as _abc
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from google.protobuf.internal import containers as _containers
+from streamlit.proto import ArrowData_pb2 as _ArrowData_pb2
 from streamlit.proto import ArrowNamedDataSet_pb2 as _ArrowNamedDataSet_pb2
-from streamlit.proto import Arrow_pb2 as _Arrow_pb2
 import builtins as _builtins
 import sys
 import typing as _typing
@@ -57,7 +57,7 @@ class ArrowVegaLiteChart(_message.Message):
     form_id: _builtins.str
     """The form ID of the widget, this is required if selections are activated on the chart."""
     @_builtins.property
-    def data(self) -> _Arrow_pb2.Arrow:
+    def data(self) -> _ArrowData_pb2.ArrowData:
         """The dataframe that will be used as the chart's main data source, if
         specified using Vega-Lite's inline API.
         """
@@ -76,7 +76,7 @@ class ArrowVegaLiteChart(_message.Message):
         self,
         *,
         spec: _builtins.str = ...,
-        data: _Arrow_pb2.Arrow | None = ...,
+        data: _ArrowData_pb2.ArrowData | None = ...,
         datasets: _abc.Iterable[_ArrowNamedDataSet_pb2.ArrowNamedDataSet] | None = ...,
         use_container_width: _builtins.bool = ...,
         theme: _builtins.str = ...,

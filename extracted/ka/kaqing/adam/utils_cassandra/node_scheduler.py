@@ -8,7 +8,7 @@ from adam.config import Config
 from adam.repl_state import ReplState
 from adam.utils_cassandra.node_restartability import NodeRestartability
 from adam.utils_context import Context
-from adam.utils_k8s.pods import Pods, strip_pod_name
+from adam.utils_k8s.pods import Pods
 
 def ts():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -30,7 +30,7 @@ class NodeScheduler:
     def schedule(state: ReplState, pod: str, ctx: Context):
         NodeScheduler.start(state, ctx)
 
-        NodeScheduler._ctx.log2(f'[{ts()}] Restart requested for {strip_pod_name(pod)}@{state.namespace}.')
+        NodeScheduler._ctx.log2(f'[{ts()}] Restart requested for {pod}@{state.namespace}.')
         with NodeScheduler.lock:
             NodeScheduler._queue[(pod, state.namespace)] = time.time()
 
@@ -74,45 +74,10 @@ class NodeScheduler:
         with NodeScheduler.lock:
             for pod, t in list(NodeScheduler._in_restartings.items()):
                 if (secs := int(time.time() - t)) >= timeout:
-                    NodeScheduler._ctx.log2(f'[{ts()}] {int(secs)} seconds have been passed since restart of {strip_pod_name(pod[0])}@{pod[1]}. Removing from in_restart queue...')
+                    NodeScheduler._ctx.log2(f'[{ts()}] {int(secs)} seconds have been passed since restart of {pod[0]}@{pod[1]}. Removing from in_restart queue...')
                     NodeScheduler.done(pod, NodeScheduler._ctx)
 
             return NodeScheduler._in_restartings
-
-    def restarts(ctx: Context = Context.NULL):
-        pods = set()
-
-        for p in NodeScheduler.pending().keys():
-            pods.add(p[0])
-        for p in NodeScheduler.restartings(ctx=ctx).keys():
-            pods.add(p[0])
-
-        return sorted(list(pods))
-
-    def cancel_restarts(state: ReplState, pods: list[str], timeout: int = 0, ctx: Context = Context.NULL):
-        canceled: dict[tuple[str, str], float] = {}
-
-        # 1. delete from the pending queue first
-        for pod in pods:
-            key = (pod, state.namespace)
-            with NodeScheduler.lock:
-                if key in NodeScheduler._queue:
-                    ts = NodeScheduler._queue[key]
-                    del NodeScheduler._queue[key]
-                    canceled[key] = ts
-
-        # 2. the pod could've been deleted on step 1, however, yet possible to leak into the restarting queue
-        # deleting from the restarting is fine as DN condition will kick in
-        for pod, ts in NodeScheduler.restartings(timeout, ctx=ctx).copy().items():
-            if pod[1] == state.namespace and pod[0] in pods:
-                with NodeScheduler.lock:
-                    try:
-                        NodeScheduler.done(pod, NodeScheduler._ctx)
-                        canceled[pod] = ts
-                    except:
-                        pass
-
-        return canceled
 
     def waiting_ons():
         return copy(NodeScheduler._waiting_ons)
@@ -142,7 +107,7 @@ class NodeScheduler:
                         else:
                             with NodeScheduler.lock:
                                 NodeScheduler._waiting_ons[(pod, namespace)] = node.waiting_on()
-                            ctx.log2(f'[{ts()}] {strip_pod_name(pod)}@{namespace} is not restartable{ir}.')
+                            ctx.log2(f'[{ts()}] {pod}@{namespace} is not restartable{ir}.')
 
                     if not restarted:
                         time.sleep(5)

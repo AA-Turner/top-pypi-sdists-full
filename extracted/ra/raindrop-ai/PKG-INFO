@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: raindrop-ai
-Version: 0.0.37
+Version: 0.0.38
 Summary: Raindrop AI (Python SDK)
 License: MIT
 Author: Raindrop AI
@@ -56,7 +56,6 @@ poetry run pytest --cov=raindrop
 ```bash
 poetry run green -vv
 ```
-
 
 
 

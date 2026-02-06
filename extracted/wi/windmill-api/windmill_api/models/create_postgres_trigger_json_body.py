@@ -21,15 +21,16 @@ T = TypeVar("T", bound="CreatePostgresTriggerJsonBody")
 class CreatePostgresTriggerJsonBody:
     """
     Attributes:
-        path (str):
-        script_path (str):
-        is_flow (bool):
-        postgres_resource_path (str):
-        replication_slot_name (Union[Unset, str]):
-        publication_name (Union[Unset, str]):
+        path (str): The unique path identifier for this trigger
+        script_path (str): Path to the script or flow to execute when database changes are detected
+        is_flow (bool): True if script_path points to a flow, false if it points to a script
+        postgres_resource_path (str): Path to the PostgreSQL resource containing connection configuration
+        replication_slot_name (Union[Unset, str]): Name of the PostgreSQL logical replication slot to use
+        publication_name (Union[Unset, str]): Name of the PostgreSQL publication to subscribe to for change data capture
         mode (Union[Unset, CreatePostgresTriggerJsonBodyMode]): job trigger mode
-        publication (Union[Unset, CreatePostgresTriggerJsonBodyPublication]):
-        error_handler_path (Union[Unset, str]):
+        publication (Union[Unset, CreatePostgresTriggerJsonBodyPublication]): Configuration for creating/managing the
+            publication (tables, operations)
+        error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, CreatePostgresTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
             script or flow
         retry (Union[Unset, CreatePostgresTriggerJsonBodyRetry]): Retry configuration for failed module executions

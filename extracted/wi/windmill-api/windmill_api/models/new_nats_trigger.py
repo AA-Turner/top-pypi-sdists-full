@@ -18,16 +18,16 @@ T = TypeVar("T", bound="NewNatsTrigger")
 class NewNatsTrigger:
     """
     Attributes:
-        path (str):
-        script_path (str):
-        is_flow (bool):
-        nats_resource_path (str):
-        use_jetstream (bool):
-        subjects (List[str]):
-        stream_name (Union[Unset, str]):
-        consumer_name (Union[Unset, str]):
+        path (str): The unique path identifier for this trigger
+        script_path (str): Path to the script or flow to execute when a message is received
+        is_flow (bool): True if script_path points to a flow, false if it points to a script
+        nats_resource_path (str): Path to the NATS resource containing connection configuration
+        use_jetstream (bool): If true, uses NATS JetStream for durable message delivery
+        subjects (List[str]): Array of NATS subjects to subscribe to
+        stream_name (Union[Unset, str]): JetStream stream name (required when use_jetstream is true)
+        consumer_name (Union[Unset, str]): JetStream consumer name (required when use_jetstream is true)
         mode (Union[Unset, NewNatsTriggerMode]): job trigger mode
-        error_handler_path (Union[Unset, str]):
+        error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, NewNatsTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
         retry (Union[Unset, NewNatsTriggerRetry]): Retry configuration for failed module executions
     """

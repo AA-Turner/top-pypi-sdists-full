@@ -1,14 +1,12 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Support for glfw, details in below class definitions.
-
-"""
+"""Support for glfw, details in below class definitions."""
 
 import os
 import re
 
-from nuitka import Options
+from nuitka.options.Options import isStandaloneMode
 from nuitka.plugins.PluginBase import NuitkaPluginBase
 from nuitka.utils.FileOperations import getFileContents
 from nuitka.utils.ModuleNames import ModuleName
@@ -28,9 +26,7 @@ class NuitkaPluginGlfw(NuitkaPluginBase):
 
     # TODO: Maybe rename to opengl maybe
     plugin_name = "glfw"  # Nuitka knows us by this name
-    plugin_desc = (
-        "Required for 'OpenGL' (PyOpenGL) and 'glfw' package in standalone mode."
-    )
+    plugin_desc = "Required by 'glfw' and 'PyOpenGL' packages."
     plugin_category = "package-support"
 
     @staticmethod
@@ -44,7 +40,7 @@ class NuitkaPluginGlfw(NuitkaPluginBase):
         Returns:
             True if this is a standalone compilation.
         """
-        return Options.isStandaloneMode()
+        return isStandaloneMode()
 
     def getImplicitImports(self, module):
         if module.getFullName() == "OpenGL":
@@ -125,11 +121,11 @@ os.environ["PYGLFW_LIBRARY"] = os.path.join(__nuitka_binary_dir, "glfw", "%s")
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

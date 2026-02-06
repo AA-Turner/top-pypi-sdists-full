@@ -7,11 +7,7 @@ def relative_luminance(c: Color) -> float:
     r, g, b = c.rgb
 
     def to_linear(channel: float) -> float:
-        return (
-            channel / 12.92
-            if channel <= 0.03928
-            else ((channel + 0.055) / 1.055) ** 2.4
-        )
+        return channel / 12.92 if channel <= 0.03928 else ((channel + 0.055) / 1.055) ** 2.4
 
     R, G, B = map(to_linear, (r, g, b))
 
@@ -28,9 +24,7 @@ def contrast_ratio(c1: Color, c2: Color) -> float:
     return (L_high + 0.05) / (L_low + 0.05)
 
 
-def adjust_color_for_contrast(
-    base: Color, target: Color, min_contrast: float = 4.5, step: float = 0.005
-) -> Color:
+def adjust_color_for_contrast(base: Color, target: Color, min_contrast: float = 4.5, step: float = 0.005) -> Color:
     """
     Increments either upward or downward in HSL 'l'
     (depending on whether target is lighter or darker than base)

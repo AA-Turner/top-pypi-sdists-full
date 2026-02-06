@@ -144,7 +144,7 @@ def rule_nl_kvk_3_1_2_1(
     NL-KVK.3.1.2.1: xbrli:startDate, xbrli:endDate, xbrli:instant formatted as yyyy-mm-dd without time.
     """
     contextsWithPeriodTime = pluginData.getContextsWithPeriodTime(val.modelXbrl)
-    if len(contextsWithPeriodTime) !=0:
+    if len(contextsWithPeriodTime) != 0:
         yield Validation.error(
             codes='NL.NL-KVK-3.1.2.1.periodWithTimeContent',
             msg=_('xbrli:startDate, xbrli:endDate, xbrli:instant must be formatted as yyyy-mm-dd without time'),
@@ -166,7 +166,7 @@ def rule_nl_kvk_3_1_2_2(
     NL-KVK.3.1.2.1: xbrli:startDate, xbrli:endDate, xbrli:instant format to be formatted as yyyy-mm-dd without time zone.
     """
     contextsWithPeriodTimeZone = pluginData.getContextsWithPeriodTimeZone(val.modelXbrl)
-    if len(contextsWithPeriodTimeZone) !=0:
+    if len(contextsWithPeriodTimeZone) != 0:
             yield Validation.error(
                 codes='NL.NL-KVK-3.1.2.2.periodWithTimeZone',
                 msg=_('xbrli:startDate, xbrli:endDate, xbrli:instant must be formatted as yyyy-mm-dd without time zone'),
@@ -188,7 +188,7 @@ def rule_nl_kvk_3_1_3_1 (
     NL-KVK.3.1.3.1: xbrli:segment must not be used in contexts.
     """
     contextsWithSegments = pluginData.getContextsWithSegments(val.modelXbrl)
-    if len(contextsWithSegments) !=0:
+    if len(contextsWithSegments) != 0:
         yield Validation.error(
             codes='NL.NL-KVK-3.1.3.1.segmentUsed',
             msg=_('xbrli:segment must not be used in contexts.'),
@@ -210,7 +210,7 @@ def rule_nl_kvk_3_1_3_2 (
     NL-KVK.3.1.3.2: xbrli:scenario must only contain content defined in XBRL Dimensions specification.
     """
     contextsWithImproperContent = pluginData.getContextsWithImproperContent(val.modelXbrl)
-    if len(contextsWithImproperContent) !=0:
+    if len(contextsWithImproperContent) != 0:
         yield Validation.error(
             codes='NL.NL-KVK-3.1.3.2.scenarioContainsNotAllowedContent',
             msg=_('xbrli:scenario must only contain content defined in XBRL Dimensions specification.'),
@@ -412,7 +412,6 @@ def rule_nl_kvk_3_2_7_1 (
         for fact in facts:
             if not fact.isEscaped and (
                 fact.concept.isTextBlock or
-                len(fact) > 0 or # Has child XML elements
                 (fact.text and escapeWorthyStr.match(fact.text)) # Has special characters
             ):
                 improperlyEscapedFacts.append(fact)
@@ -1018,25 +1017,35 @@ def rule_nl_kvk_3_6_3_6(
         one non-dimensional context and no dimensional contexts.
     """
     filingInformationDocument = pluginData.getFilingInformationDocument(val.modelXbrl)
-    nonDimensionalContexts = []
-    dimensionalContexts = []
+    nonDimensionalContexts = set()
+    dimensionalContexts = set()
     for context in val.modelXbrl.contexts.values():
         if context.modelDocument != filingInformationDocument:
             continue
         if context.hasScenario or context.hasSegment:
-            dimensionalContexts.append(context)
+            dimensionalContexts.add(context)
         else:
-            nonDimensionalContexts.append(context)
+            nonDimensionalContexts.add(context)
+
+    # Include contexts used on filing information facts, even if they're not defined in the filing information document.
+    filingInformationFacts = pluginData.getFilingInformationFacts(val.modelXbrl)
+    for fact in filingInformationFacts:
+        context = fact.context
+        if context.hasScenario or context.hasSegment:
+            dimensionalContexts.add(context)
+        else:
+            nonDimensionalContexts.add(context)
+
     if len(nonDimensionalContexts) > 1:
         yield Validation.error(
             codes='NL.NL-KVK.3.6.3.6.dimensionalContextOrMultipleNonDimensionalContextsReportedInKvkFilingDocument',
-            modelObject=nonDimensionalContexts,
+            modelObject=sorted(nonDimensionalContexts, key=lambda c: c.id or 'unknown'),
             msg=_('The separate document that contains mandatory facts includes multiple non-dimensional contexts.'
                   ' It should have at most one.'))
     if dimensionalContexts:
         yield Validation.error(
             codes='NL.NL-KVK.3.6.3.6.dimensionalContextOrMultipleNonDimensionalContextsReportedInKvkFilingDocument',
-            modelObject=dimensionalContexts,
+            modelObject=sorted(dimensionalContexts, key=lambda c: c.id or 'unknown'),
             msg=_('The separate document that contains mandatory facts includes facts with dimensions.'
                   ' Facts in this document should not use dimensions.'))
 
@@ -1055,16 +1064,63 @@ def rule_nl_kvk_3_6_3_7(
     NL-KVK.3.6.3.7: The separate Inline XBRL document for filing purposes MUST NOT report any units.
     """
     filingInformationDocument = pluginData.getFilingInformationDocument(val.modelXbrl)
-    units = []
+    units = set()
     for unit in val.modelXbrl.units.values():
         if unit.modelDocument == filingInformationDocument:
-            units.append(unit)
+            units.add(unit)
+
+    # Include units used on filing information facts, even if they're not defined in the filing information document.
+    filingInformationFacts = pluginData.getFilingInformationFacts(val.modelXbrl)
+    for fact in filingInformationFacts:
+        if fact.unit is not None:
+            units.add(fact.unit)
+
     if units:
         yield Validation.error(
             codes='NL.NL-KVK.3.6.3.7.unitsReportedInKvkFilingDocument',
-            modelObject=units,
+            modelObject=sorted(units, key=lambda u: u.id or 'unknown'),
             msg=_('The separate document that includes mandatory facts includes facts with reported units.'
                   ' This file should not include facts with reported units.'))
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ALL_NL_INLINE_DISCLOSURE_SYSTEMS,
+)
+def rule_nl_kvk_prohibited_dimension_use(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    NL-KVK.prohibitedUseOfDimensions: Dimension use is prohibited on elements under kvk:NonDimensionalLineItems.
+    """
+    assert pluginData.nonDimensionalLineItemsQName is not None
+    nonDimensionalLineItemsElement = val.modelXbrl.qnameConcepts.get(pluginData.nonDimensionalLineItemsQName)
+    if nonDimensionalLineItemsElement is None:
+        return
+    linkrole = 'https://www.nltaxonomie.nl/kvk/role/lineitems-nondimensional-usage'
+    relationshipSet = val.modelXbrl.relationshipSet(XbrlConst.domainMember, linkrole)
+    nonDimensionalLineItems = set()
+    def collect(startElement: ModelObject) -> None:
+        if startElement.qname in nonDimensionalLineItems:
+            return
+        nonDimensionalLineItems.add(startElement.qname)
+        for rel in relationshipSet.fromModelObject(startElement):
+            collect(rel.toModelObject)
+    collect(nonDimensionalLineItemsElement)
+    invalidDimensionUseFacts = []
+    for qname in nonDimensionalLineItems:
+        for fact in val.modelXbrl.factsByQname[qname]:
+            if fact.context.hasScenario or fact.context.hasSegment:
+                invalidDimensionUseFacts.append(fact)
+    if invalidDimensionUseFacts:
+        yield Validation.error(
+            codes='NL.NL-KVK.prohibitedUseOfDimensions',
+            msg=_("The filing uses dimensions on some elements for which dimension use is prohibited."),
+            modelObject=invalidDimensionUseFacts,
+        )
 
 
 @validation(
@@ -2081,7 +2137,7 @@ def rule_nl_kvk_7_2_1_2(
     factsInError = []
     articleFacts = val.modelXbrl.factsByQname.get(pluginData.AnnualReportOfForeignGroupHeadForExemptionUnderArticle408Qn, set())
     for fact in articleFacts:
-        if fact is not None and fact.xValid >= VALID and fact.xValue == 'False':
+        if fact is not None and fact.xValid >= VALID and fact.xValue is False:
             factsInError.append(fact)
     if len(factsInError) > 0:
         yield Validation.error(

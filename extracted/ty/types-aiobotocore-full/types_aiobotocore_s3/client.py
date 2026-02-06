@@ -214,6 +214,8 @@ from .type_defs import (
     SelectObjectContentRequestTypeDef,
     UpdateBucketMetadataInventoryTableConfigurationRequestTypeDef,
     UpdateBucketMetadataJournalTableConfigurationRequestTypeDef,
+    UpdateObjectEncryptionRequestTypeDef,
+    UpdateObjectEncryptionResponseTypeDef,
     UploadPartCopyOutputTypeDef,
     UploadPartCopyRequestTypeDef,
     UploadPartOutputTypeDef,
@@ -241,6 +243,7 @@ __all__ = ("S3Client",)
 
 
 class Exceptions(BaseClientExceptions):
+    AccessDenied: type[BotocoreClientError]
     BucketAlreadyExists: type[BotocoreClientError]
     BucketAlreadyOwnedByYou: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
@@ -1380,6 +1383,17 @@ class S3Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/update_bucket_metadata_journal_table_configuration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#update_bucket_metadata_journal_table_configuration)
+        """
+
+    async def update_object_encryption(
+        self, **kwargs: Unpack[UpdateObjectEncryptionRequestTypeDef]
+    ) -> UpdateObjectEncryptionResponseTypeDef:
+        """
+        This operation is not supported for directory buckets or Amazon S3 on Outposts
+        buckets.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/update_object_encryption.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#update_object_encryption)
         """
 
     async def upload_part(

@@ -1,5 +1,9 @@
-from setuptools import find_packages, setup, Extension
-import os, platform, sys
+import os
+import platform
+import sys
+
+import numpy as np
+from setuptools import Extension, find_packages, setup
 
 # look for environment variable that specifies path to SCIP
 scipoptdir = os.environ.get("SCIPOPTDIR", "").strip('"')
@@ -13,9 +17,14 @@ if not scipoptdir:
     conda_prefix = os.environ.get("CONDA_PREFIX", "").strip('"')
 
     if conda_prefix and os.path.exists(os.path.join(conda_prefix, "include")):
-        includedirs = os.path.join(conda_prefix, "include")
-        libdir = os.path.join(conda_prefix, "lib")
-        libname = "libscip" if platform.system() == "Windows" else "scip"
+        if platform.system() == "Windows":
+            includedirs = [os.path.join(conda_prefix, "Library/include")]
+            libdir = os.path.join(conda_prefix, "Library/lib")
+            libname = "libscip"
+        else:
+            includedirs = [os.path.join(conda_prefix, "include")]
+            libdir = os.path.join(conda_prefix, "lib")
+            libname = "scip"
         print(f"Detected conda environment at {conda_prefix}.")
         print(f"Using include path {includedirs}.")
         print(f"Using library directory {libdir}.\n")
@@ -59,7 +68,13 @@ else:
         libname = "scip"
     else:
         # assume that SCIP is installed on the system
-        libdir = os.path.abspath(os.path.join(scipoptdir, "lib"))
+        # check for lib64 first (newer SCIP tarballs), then lib
+        if os.path.exists(os.path.join(scipoptdir, "lib64")):
+            libdir = os.path.abspath(os.path.join(scipoptdir, "lib64"))
+        elif os.path.exists(os.path.join(scipoptdir, "lib")):
+            libdir = os.path.abspath(os.path.join(scipoptdir, "lib"))
+        else:
+            sys.exit("Could not find lib or lib64 directory in SCIPOPTDIR=%s" % scipoptdir)
         libname = "libscip" if platform.system() == "Windows" else "scip"
 
     print("Using include path %s." % includedirs)
@@ -101,7 +116,7 @@ extensions = [
     Extension(
         "pyscipopt.scip",
         [os.path.join(packagedir, "scip%s" % ext)],
-        include_dirs=includedirs,
+        include_dirs=includedirs + [np.get_include()],
         library_dirs=[libdir],
         libraries=[libname],
         extra_compile_args=extra_compile_args,
@@ -118,7 +133,7 @@ with open("README.md") as f:
 
 setup(
     name="PySCIPOpt",
-    version="6.0.0",
+    version="6.1.0",
     description="Python interface and modeling environment for SCIP",
     long_description=long_description,
     long_description_content_type="text/markdown",

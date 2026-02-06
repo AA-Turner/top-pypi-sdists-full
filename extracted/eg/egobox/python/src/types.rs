@@ -91,6 +91,15 @@ pub(crate) enum InfillOptimizer {
     Slsqp = 2,
 }
 
+#[gen_stub_pyclass_enum]
+#[pyclass(eq, eq_int, rename_all = "SCREAMING_SNAKE_CASE")]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) enum FailsafeStrategy {
+    Rejection = 1,
+    Imputation = 2,
+    Viability = 3,
+}
+
 #[gen_stub_pyclass]
 #[pyclass]
 #[derive(Clone, Copy)]

@@ -1,7 +1,7 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Tags and set of it.
+"""Tags and set of it.
 
 Used by optimization to keep track of the current state of optimization, these
 tags trigger the execution of optimization steps, which in turn may emit these
@@ -24,7 +24,7 @@ allowed_tags = (
     # TODO: A bit unclear what this it, potentially a changed variable.
     "var_usage",
     # Detected module variable to be read only.
-    "read_only_mvar",
+    "read_only_module_variable",
     # Trusting module variables in functions.
     "trusted_module_variables",
     # New built-in reference detected.
@@ -46,28 +46,23 @@ class TagSet(set):
         for tag in signal:
             self.add(tag)
 
-    def check(self, tags):
-        for tag in tags.split():
-            assert tag in allowed_tags, tag
-
-            if tag in self:
-                return True
-        return False
-
     def add(self, tag):
         assert tag in allowed_tags, tag
 
         set.add(self, tag)
 
+    def asString(self):
+        return ",".join(sorted(self))
+
 
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

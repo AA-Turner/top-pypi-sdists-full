@@ -142,7 +142,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match ty {
             Type::ClassDef(c) if c.is_builtin("tuple") => Some(self.instantiate_type_var_tuple()),
             Type::ClassDef(c) => Some(((*self.get_class_tparams(c)).clone(), self.instantiate(c))),
-            Type::TypeAlias(ta) => self.unwrap_class_object_silently(&ta.as_value(self.stdlib)),
+            Type::TypeAlias(ta) => {
+                self.unwrap_class_object_silently(&self.get_type_alias(ta).as_value(self.stdlib))
+            }
             // Note that for the purposes of type narrowing, we always unwrap Type::Type(Type::ClassType),
             // but it's not always a valid argument to isinstance/issubclass. expr_infer separately checks
             // whether the argument is valid.
@@ -153,7 +155,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::Any(a)) => Some((TParams::empty(), a.propagate())),
             Type::Type(box Type::SpecialForm(SpecialForm::Callable)) => Some((
                 TParams::empty(),
-                Type::Callable(Box::new(Callable::ellipsis(Type::any_implicit()))),
+                self.heap
+                    .mk_callable_from(Callable::ellipsis(Type::any_implicit())),
             )),
             Type::None | Type::Type(box Type::None) => Some((TParams::empty(), Type::None)),
             Type::ClassType(cls) if cls.is_builtin("type") => {

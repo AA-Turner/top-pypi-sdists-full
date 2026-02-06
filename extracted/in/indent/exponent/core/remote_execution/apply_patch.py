@@ -98,11 +98,7 @@ def _check_patch_boundaries_lenient(lines: list[str]) -> list[str]:
             raise err
         first = lines[0]
         last = lines[-1]
-        if (
-            first in ("<<EOF", "<<'EOF'", '<<"EOF"')
-            and last.endswith("EOF")
-            and len(lines) >= 4
-        ):
+        if first in ("<<EOF", "<<'EOF'", '<<"EOF"') and last.endswith("EOF") and len(lines) >= 4:
             inner = lines[1:-1]
             _check_patch_boundaries_strict(inner)
             return inner
@@ -154,17 +150,13 @@ def _parse_one_hunk(lines: list[str], line_number: int) -> tuple[Hunk, int]:
                 continue
             if remaining[0].startswith("***"):
                 break
-            chunk, chunk_lines = _parse_update_file_chunk(
-                remaining, line_number + parsed_lines, len(chunks) == 0
-            )
+            chunk, chunk_lines = _parse_update_file_chunk(remaining, line_number + parsed_lines, len(chunks) == 0)
             chunks.append(chunk)
             parsed_lines += chunk_lines
             remaining = remaining[chunk_lines:]
 
         if not chunks:
-            raise InvalidHunkError(
-                f"Update file hunk for path '{path}' is empty", line_number
-            )
+            raise InvalidHunkError(f"Update file hunk for path '{path}' is empty", line_number)
         return UpdateFile(path=path, move_path=move_path, chunks=chunks), parsed_lines
 
     raise InvalidHunkError(
@@ -197,20 +189,14 @@ def _parse_update_file_chunk(
         start_index = 0
 
     if start_index >= len(lines):
-        raise InvalidHunkError(
-            "Update hunk does not contain any lines", line_number + 1
-        )
+        raise InvalidHunkError("Update hunk does not contain any lines", line_number + 1)
 
-    chunk = UpdateFileChunk(
-        change_context=change_context, old_lines=[], new_lines=[], is_end_of_file=False
-    )
+    chunk = UpdateFileChunk(change_context=change_context, old_lines=[], new_lines=[], is_end_of_file=False)
     parsed_lines = 0
     for line in lines[start_index:]:
         if line == EOF_MARKER:
             if parsed_lines == 0:
-                raise InvalidHunkError(
-                    "Update hunk does not contain any lines", line_number + 1
-                )
+                raise InvalidHunkError("Update hunk does not contain any lines", line_number + 1)
             chunk.is_end_of_file = True
             parsed_lines += 1
             break
@@ -247,9 +233,7 @@ async def apply_patch(patch: str, base_dir: Path | str | None = None) -> Affecte
     return await _apply_hunks_to_files(hunks, base_path)
 
 
-async def _apply_hunks_to_files(
-    hunks: list[Hunk], base_dir: Path | None
-) -> AffectedPaths:
+async def _apply_hunks_to_files(hunks: list[Hunk], base_dir: Path | None) -> AffectedPaths:
     if not hunks:
         raise PatchError("No files were modified.")
 
@@ -296,9 +280,7 @@ def _resolve_path(path: str, base_dir: Path | None) -> Path:
     return candidate
 
 
-async def _derive_new_contents_from_chunks(
-    path: Path, chunks: list[UpdateFileChunk]
-) -> str:
+async def _derive_new_contents_from_chunks(path: Path, chunks: list[UpdateFileChunk]) -> str:
     try:
         original_contents = await AsyncPath(path).read_text()
     except OSError as err:
@@ -323,43 +305,30 @@ def _compute_replacements(
 
     for chunk in chunks:
         if chunk.change_context is not None:
-            idx = _seek_sequence(
-                original_lines, [chunk.change_context], line_index, False
-            )
+            idx = _seek_sequence(original_lines, [chunk.change_context], line_index, False)
             if idx is None:
-                raise PatchError(
-                    f"Failed to find context '{chunk.change_context}' in {path}"
-                )
+                raise PatchError(f"Failed to find context '{chunk.change_context}' in {path}")
             line_index = idx + 1
 
         if not chunk.old_lines:
             insertion_idx = (
-                len(original_lines) - 1
-                if original_lines and original_lines[-1] == ""
-                else len(original_lines)
+                len(original_lines) - 1 if original_lines and original_lines[-1] == "" else len(original_lines)
             )
             replacements.append((insertion_idx, 0, list(chunk.new_lines)))
             continue
 
         pattern = list(chunk.old_lines)
         new_slice = list(chunk.new_lines)
-        found = _seek_sequence(
-            original_lines, pattern, line_index, chunk.is_end_of_file
-        )
+        found = _seek_sequence(original_lines, pattern, line_index, chunk.is_end_of_file)
 
         if found is None and pattern and pattern[-1] == "":
             pattern = pattern[:-1]
             if new_slice and new_slice[-1] == "":
                 new_slice = new_slice[:-1]
-            found = _seek_sequence(
-                original_lines, pattern, line_index, chunk.is_end_of_file
-            )
+            found = _seek_sequence(original_lines, pattern, line_index, chunk.is_end_of_file)
 
         if found is None:
-            raise PatchError(
-                f"Failed to find expected lines in {path}:\n"
-                + "\n".join(chunk.old_lines)
-            )
+            raise PatchError(f"Failed to find expected lines in {path}:\n" + "\n".join(chunk.old_lines))
 
         replacements.append((found, len(pattern), new_slice))
         line_index = found + len(pattern)
@@ -368,9 +337,7 @@ def _compute_replacements(
     return replacements
 
 
-def _apply_replacements(
-    lines: list[str], replacements: list[tuple[int, int, list[str]]]
-) -> list[str]:
+def _apply_replacements(lines: list[str], replacements: list[tuple[int, int, list[str]]]) -> list[str]:
     out = list(lines)
     for start, old_len, new_lines in reversed(replacements):
         del out[start : start + old_len]
@@ -379,17 +346,13 @@ def _apply_replacements(
     return out
 
 
-def _seek_sequence(
-    lines: list[str], pattern: list[str], start: int, eof: bool
-) -> int | None:
+def _seek_sequence(lines: list[str], pattern: list[str], start: int, eof: bool) -> int | None:
     if not pattern:
         return start
     if len(pattern) > len(lines):
         return None
 
-    search_start = (
-        len(lines) - len(pattern) if eof and len(lines) >= len(pattern) else start
-    )
+    search_start = len(lines) - len(pattern) if eof and len(lines) >= len(pattern) else start
     last = len(lines) - len(pattern)
     for i in range(search_start, last + 1):
         if lines[i : i + len(pattern)] == pattern:
@@ -474,9 +437,7 @@ async def main() -> None:
     else:
         patch_text = sys.stdin.read()
         if not patch_text:
-            sys.stderr.write(
-                "Usage: apply_patch 'PATCH'\n       echo 'PATCH' | apply_patch\n"
-            )
+            sys.stderr.write("Usage: apply_patch 'PATCH'\n       echo 'PATCH' | apply_patch\n")
             sys.exit(2)
     try:
         affected = await apply_patch(patch_text)

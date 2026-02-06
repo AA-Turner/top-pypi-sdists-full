@@ -1,13 +1,13 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Built-in codes
+"""Built-in codes
 
 This is code generation for built-in references, and some built-ins like range,
 bin, etc.
 """
 
-from nuitka import Builtins
+from nuitka.Builtins import builtin_anon_codes
 from nuitka.PythonVersions import python_version
 
 from .CodeHelpers import (
@@ -59,10 +59,7 @@ def generateBuiltinAnonymousRefCode(to_name, expression, emit, context):
     with withObjectCodeTemporaryAssignment(
         to_name, "builtin_value", expression, emit, context
     ) as value_name:
-        emit(
-            "%s = (PyObject *)%s;"
-            % (value_name, Builtins.builtin_anon_codes[builtin_name])
-        )
+        emit("%s = (PyObject *)%s;" % (value_name, builtin_anon_codes[builtin_name]))
 
 
 def generateBuiltinType1Code(to_name, expression, emit, context):
@@ -516,11 +513,11 @@ def getBuiltinCallViaSpecCode(spec, to_name, called_name, expression, emit, cont
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

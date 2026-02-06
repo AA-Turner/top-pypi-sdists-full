@@ -133,6 +133,7 @@ class ScanQueueMessage(BECMessage):
             scan_type (str): one of the registered scan types; either rpc calls or scan types defined in the scan server
             parameter (dict): required parameters for the given scan_stype
             queue (str): either "primary" or "interception"
+            allow_restart (bool): Whether the server is allowed to restart the scan if needed. If False, only a ScanRestartMessage will be sent.
             metadata (dict, optional): additional metadata to describe the scan
         Examples:
             >>> ScanQueueMessage(scan_type="dscan", parameter={"motor1": "samx", "from_m1:": -5, "to_m1": 5, "steps_m1": 10, "motor2": "samy", "from_m2": -5, "to_m2": 5, "steps_m2": 10, "exp_time": 0.1})
@@ -142,6 +143,10 @@ class ScanQueueMessage(BECMessage):
     scan_type: str
     parameter: dict
     queue: str = Field(default="primary")
+    allow_restart: bool = Field(
+        default=True,
+        description="Whether the server is allowed to restart the scan if needed. If False, only a ScanRestartMessage will be sent.",
+    )
 
     @model_validator(mode="after")
     @classmethod
@@ -186,7 +191,8 @@ class ScanStatusMessage(BECMessage):
 
     Args:
         scan_id (str): Unique scan ID
-        status (Literal["open", "paused", "aborted", "halted", "closed"]) : Current scan status
+        status (Literal["open", "paused", "aborted", "halted", "closed", "user_completed"]) : Current scan status
+        reason (Literal["user", "alarm"] | None = None): Reason for the status change, if applicable
         scan_number (int, optional): Scan number
         session_id (str, optional): Session ID
         num_points (int, optional): Number of points in the scan. Only relevant if the number of points is determined by BEC.
@@ -207,7 +213,8 @@ class ScanStatusMessage(BECMessage):
 
     msg_type: ClassVar[str] = "scan_status"
     scan_id: str | None
-    status: Literal["open", "paused", "aborted", "halted", "closed"]
+    status: Literal["open", "paused", "aborted", "halted", "closed", "user_completed"]
+    reason: Literal["user", "alarm"] | None = None
     scan_number: int | None = None
     session_id: str | None = None
     num_points: int | None = Field(
@@ -238,12 +245,39 @@ class ScanStatusMessage(BECMessage):
         return f"{self.__class__.__name__}({content, self.metadata}))"
 
 
+class ScanRestartMessage(BECMessage):
+    """
+    Message type that informs about a scan restart.
+
+    Args:
+        original_scan_id (str): Unique ID of the original scan
+        original_request_id (str): Request ID of the original scan
+        new_request_id (str): Request ID of the restarted scan
+
+    """
+
+    msg_type: ClassVar[str] = "scan_restart"
+    original_scan_id: str
+    scan_msg: ScanQueueMessage
+
+
 class ScanQueueModificationMessage(BECMessage):
     """Message type for sending scan queue modifications
 
     Args:
         scan_id (str): Unique scan ID
-        action (str): One of the actions defined in ACTIONS: ("pause", "deferred_pause", "continue", "abort", "clear", "restart", "halt", "resume")
+        action (str): One of the actions defined in ACTIONS:
+                "pause",
+                "deferred_pause",
+                "continue",
+                "abort",
+                "clear",
+                "restart",
+                "halt",
+                "resume",
+                "lock",
+                "release_lock",
+                "user_completed"
         parameter (dict): Additional parameters for the action
         queue (str): Defaults to "primary" queue. The name of the queue that receives the modification.
         metadata (dict, optional): Additional metadata to describe and identify the scan.
@@ -255,7 +289,17 @@ class ScanQueueModificationMessage(BECMessage):
     msg_type: ClassVar[str] = "scan_queue_modification"
     scan_id: str | list[str] | None | list[None]
     action: Literal[
-        "pause", "deferred_pause", "continue", "abort", "clear", "restart", "halt", "resume"
+        "pause",
+        "deferred_pause",
+        "continue",
+        "abort",
+        "clear",
+        "restart",
+        "halt",
+        "resume",
+        "lock",
+        "release_lock",
+        "user_completed",
     ]
     parameter: dict
     queue: str = Field(default="primary")
@@ -333,17 +377,34 @@ class QueueInfoEntry(BaseModel):
     active_request_block: RequestBlock | None = None
 
 
+class ScanQueueLock(BaseModel):
+    """
+    Model for scan queue locks. It represents a lock that can be applied
+    to a scan queue to prevent certain actions. Locks can be used to lock the
+    scan queue for various reasons.
+
+    """
+
+    reason: str
+    identifier: str
+
+
 class ScanQueueStatus(BaseModel):
     """
-    Model for scan queue status information. It represents the status of a single queue, e.g. "primary" or "interception".
+    Model for scan queue status information.
+    It represents the status of a single queue, e.g. "primary" or "interception".
+    If the queue is locked, the locks field contains the list of locks applied to the queue.
+
 
     Args:
         info (list[QueueInfoEntry]): List of QueueInfoEntry objects representing the current queue status
-        status (str): Current status of the scan queue
+        status (Literal["PAUSED", "RUNNING", "LOCKED"]): Current status of the scan queue
+        locks (list[ScanQueueLock], optional): List of ScanQueueLock objects representing the locks applied to the queue
     """
 
     info: list[QueueInfoEntry]
-    status: str
+    status: Literal["PAUSED", "RUNNING", "LOCKED"]
+    locks: list[ScanQueueLock] = Field(default_factory=list)
 
 
 class ScanQueueStatusMessage(BECMessage):
@@ -830,7 +891,8 @@ class ScanHistoryMessage(BECMessage):
         scan_number (int): Scan number.
         dataset_number (int): Dataset number.
         file_path (str): Path to the file.
-        exit_status (Literal["closed", "aborted", "halted"]): Exit status of the scan.
+        exit_status (Literal["closed", "aborted", "halted", "user_completed"]): Exit status of the scan.
+        reason (Literal["user", "alarm"] | None, optional): Reason for the exit status, if applicable.
         start_time (float): Start time of the scan.
         end_time (float): End time of the scan.
         scan_name (str): Name of the scan.
@@ -846,7 +908,8 @@ class ScanHistoryMessage(BECMessage):
     scan_number: int
     dataset_number: int
     file_path: str
-    exit_status: Literal["closed", "aborted", "halted"]
+    exit_status: Literal["closed", "aborted", "halted", "user_completed"]
+    reason: Literal["user", "alarm"] | None = None
     start_time: float
     end_time: float
     scan_name: str

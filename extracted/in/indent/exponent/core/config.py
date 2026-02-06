@@ -110,9 +110,7 @@ def write_chat_artifact(filename: str, content: str, chat_uuid: str) -> str:
     artifacts_dir = get_chat_artifacts_dir(chat_uuid)
     os.makedirs(artifacts_dir, exist_ok=True)
     file_path = os.path.join(artifacts_dir, filename)
-    if not os.path.abspath(file_path).startswith(
-        os.path.abspath(artifacts_dir) + os.sep
-    ):
+    if not os.path.abspath(file_path).startswith(os.path.abspath(artifacts_dir) + os.sep):
         raise ValueError(f"Invalid filename: {filename}")
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(content)
@@ -207,11 +205,7 @@ class Settings(BaseSettings):
     def write_settings_to_config_file(self) -> None:
         os.makedirs(SETTINGS_FOLDER, exist_ok=True)
         with open(SETTINGS_FILE_PATH, "w") as f:
-            f.write(
-                self.model_dump_json(
-                    include=self.config_file_keys, exclude_defaults=True
-                )
-            )
+            f.write(self.model_dump_json(include=self.config_file_keys, exclude_defaults=True))
 
     def get_config_file_settings(self) -> dict[str, Any]:
         return self.model_dump(include=self.config_file_keys, exclude_defaults=True)
@@ -245,9 +239,7 @@ class Settings(BaseSettings):
 
 
 @lru_cache(maxsize=1)
-def get_settings(
-    use_prod: bool = False, use_staging: bool = False, shadow_prod: bool = False
-) -> Settings:
+def get_settings(use_prod: bool = False, use_staging: bool = False, shadow_prod: bool = False) -> Settings:
     if is_editable_install() and not (use_prod or use_staging or shadow_prod):
         base_url = "http://localhost:3000"
         base_api_url = "http://localhost:8000"

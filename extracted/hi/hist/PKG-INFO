@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hist
-Version: 2.10.0
+Version: 2.10.1
 Summary: Hist classes and utilities
 Project-URL: Homepage, https://github.com/scikit-hep/hist
 Project-URL: Documentation, https://hist.readthedocs.io/
@@ -38,7 +38,7 @@ Requires-Dist: typing-extensions>=4; python_version < '3.11'
 Provides-Extra: dask
 Requires-Dist: dask-awkward>=2025.9.0; extra == 'dask'
 Requires-Dist: dask-histogram>=2023.1; extra == 'dask'
-Requires-Dist: dask[dataframe]<2025,>=2022; extra == 'dask'
+Requires-Dist: dask[dataframe]<2025.4.0,>=2022; extra == 'dask'
 Provides-Extra: fit
 Requires-Dist: iminuit>=2.9.0; extra == 'fit'
 Requires-Dist: scipy>=1.7.0; extra == 'fit'

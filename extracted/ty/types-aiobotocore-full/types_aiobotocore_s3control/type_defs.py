@@ -301,6 +301,7 @@ __all__ = (
     "NoncurrentVersionTransitionTypeDef",
     "ObjectEncryptionFilterOutputTypeDef",
     "ObjectEncryptionFilterTypeDef",
+    "ObjectEncryptionTypeDef",
     "ObjectLambdaAccessPointAliasTypeDef",
     "ObjectLambdaAccessPointTypeDef",
     "ObjectLambdaConfigurationOutputTypeDef",
@@ -380,6 +381,8 @@ __all__ = (
     "S3SetObjectTaggingOperationOutputTypeDef",
     "S3SetObjectTaggingOperationTypeDef",
     "S3TagTypeDef",
+    "S3UpdateObjectEncryptionOperationTypeDef",
+    "S3UpdateObjectEncryptionSSEKMSTypeDef",
     "SSEKMSEncryptionTypeDef",
     "SSEKMSFilterTypeDef",
     "SSEKMSTypeDef",
@@ -1135,6 +1138,11 @@ class SSEKMSFilterTypeDef(TypedDict):
     BucketKeyEnabled: NotRequired[bool]
 
 
+class S3UpdateObjectEncryptionSSEKMSTypeDef(TypedDict):
+    KMSKeyArn: str
+    BucketKeyEnabled: NotRequired[bool]
+
+
 class SelectionCriteriaTypeDef(TypedDict):
     Delimiter: NotRequired[str]
     MaxDepth: NotRequired[int]
@@ -1872,6 +1880,10 @@ class ObjectEncryptionFilterTypeDef(TypedDict):
     NOTSSE: NotRequired[Mapping[str, Any]]
 
 
+class ObjectEncryptionTypeDef(TypedDict):
+    SSEKMS: NotRequired[S3UpdateObjectEncryptionSSEKMSTypeDef]
+
+
 class PrefixLevelStorageMetricsTypeDef(TypedDict):
     IsEnabled: NotRequired[bool]
     SelectionCriteria: NotRequired[SelectionCriteriaTypeDef]
@@ -2114,6 +2126,10 @@ class JobManifestGeneratorFilterTypeDef(TypedDict):
     ObjectSizeLessThanBytes: NotRequired[int]
     MatchAnyStorageClass: NotRequired[Sequence[S3StorageClassType]]
     MatchAnyObjectEncryption: NotRequired[Sequence[ObjectEncryptionFilterTypeDef]]
+
+
+class S3UpdateObjectEncryptionOperationTypeDef(TypedDict):
+    ObjectEncryption: NotRequired[ObjectEncryptionTypeDef]
 
 
 class PrefixLevelTypeDef(TypedDict):
@@ -2530,6 +2546,7 @@ class JobOperationOutputTypeDef(TypedDict):
     S3PutObjectRetention: NotRequired[S3SetObjectRetentionOperationOutputTypeDef]
     S3ReplicateObject: NotRequired[dict[str, Any]]
     S3ComputeObjectChecksum: NotRequired[S3ComputeObjectChecksumOperationTypeDef]
+    S3UpdateObjectEncryption: NotRequired[S3UpdateObjectEncryptionOperationTypeDef]
 
 
 class JobOperationTypeDef(TypedDict):
@@ -2543,6 +2560,7 @@ class JobOperationTypeDef(TypedDict):
     S3PutObjectRetention: NotRequired[S3SetObjectRetentionOperationTypeDef]
     S3ReplicateObject: NotRequired[Mapping[str, Any]]
     S3ComputeObjectChecksum: NotRequired[S3ComputeObjectChecksumOperationTypeDef]
+    S3UpdateObjectEncryption: NotRequired[S3UpdateObjectEncryptionOperationTypeDef]
 
 
 LifecycleRuleUnionTypeDef = Union[LifecycleRuleTypeDef, LifecycleRuleOutputTypeDef]

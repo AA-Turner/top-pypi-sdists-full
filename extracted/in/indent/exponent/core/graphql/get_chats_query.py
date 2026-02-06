@@ -6,7 +6,6 @@ GET_CHATS_QUERY: str = """
             }
             ... on Chats {
                 chats {
-                    id
                     chatUuid
                     name
                     subtitle

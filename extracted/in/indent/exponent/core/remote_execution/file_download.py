@@ -55,9 +55,7 @@ async def download_file_from_url(
             )
 
     except httpx.TimeoutException:
-        error_msg = (
-            f"Download from {request.url} timed out after {request.timeout} seconds"
-        )
+        error_msg = f"Download from {request.url} timed out after {request.timeout} seconds"
         logger.error(error_msg)
         return DownloadFromUrlResponse(
             file_path=request.file_path,
@@ -67,9 +65,7 @@ async def download_file_from_url(
         )
 
     except httpx.HTTPStatusError as e:
-        error_msg = (
-            f"HTTP error downloading from {request.url}: {e.response.status_code}"
-        )
+        error_msg = f"HTTP error downloading from {request.url}: {e.response.status_code}"
         logger.error(error_msg)
         return DownloadFromUrlResponse(
             file_path=request.file_path,

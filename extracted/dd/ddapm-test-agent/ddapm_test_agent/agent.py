@@ -53,6 +53,7 @@ from .checks import CheckTrace
 from .checks import Checks
 from .checks import start_trace
 from .integration import Integration
+from .llmobs_event_platform import LLMObsEventPlatformAPI
 from .logs import LOGS_ENDPOINT
 from .logs import OTLPLogsGRPCServicer
 from .logs import decode_logs_request
@@ -209,7 +210,7 @@ async def _prepare_and_send_request(data: bytes, request: Request, headers: Mapp
     log.info("Forwarding request to agent at %r", full_agent_url)
     log.debug(f"Using headers: {headers}")
 
-    (client_response, body) = await _forward_request(data, headers, full_agent_url)
+    client_response, body = await _forward_request(data, headers, full_agent_url)
     return web.Response(
         status=client_response.status,
         headers=client_response.headers,
@@ -805,6 +806,34 @@ class Agent:
             raise web.HTTPBadRequest(text=msg)
 
     async def handle_evp_proxy_v2_api_v2_llmobs(self, request: Request) -> web.Response:
+        if request.app["disable_llmobs_data_forwarding"]:
+            return web.HTTPOk()
+
+        dd_site = request.app["dd_site"]
+        dd_api_key = request.app["dd_api_key"]
+        agent_url = request.app["agent_url"]
+        headers = request.headers.copy()
+        if agent_url:
+            url = f"{agent_url}/evp_proxy/v2/api/v2/llmobs"  # use configured agent URL if provided
+        elif dd_api_key is None:
+            log.error("No DD_API_KEY set to forward LLM Observability events to Datadog. Skipping forwarding.")
+            return web.HTTPOk()
+        elif not dd_site:
+            log.error("No DD_SITE set to forward LLM Observability events to Datadog. Skipping forwarding.")
+            return web.HTTPOk()
+        else:
+            url = f"https://llmobs-intake.{dd_site}/api/v2/llmobs"
+            headers["DD-API-KEY"] = dd_api_key
+
+        async with ClientSession() as session:
+            async with session.post(url, headers=headers, data=await request.read()) as resp:
+                if not resp.ok:
+                    log.warning(
+                        f"Failed to forward LLM Observability events to Datadog: {resp.status} {await resp.text()}"
+                    )
+                else:
+                    log.info(f"Forwarded LLM Observability events to Datadog: {resp.status} {await resp.text()}")
+
         return web.HTTPOk()
 
     async def handle_evp_proxy_v2_llmobs_eval_metric(self, request: Request) -> web.Response:
@@ -881,6 +910,17 @@ class Agent:
         return web.HTTPAccepted()
 
     async def handle_info(self, request: Request) -> web.Response:
+        # CORS headers for cross-origin requests from Datadog UI
+        headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+        }
+
+        # Handle OPTIONS preflight
+        if request.method == "OPTIONS":
+            return web.Response(status=200, headers=headers)
+
         return web.json_response(
             {
                 "version": os.environ.get("TEST_AGENT_VERSION", "test"),
@@ -902,6 +942,7 @@ class Agent:
                 "peer_tags": ["db.name", "mongodb.db", "messaging.system"],
                 "span_events": True,  # Advertise support for the top-level Span field for Span Events
             },
+            headers=headers,
         )
 
     async def _handle_traces(self, request: Request, version: Literal["v0.4", "v0.5", "v0.7", "v1"]) -> web.Response:
@@ -1601,6 +1642,9 @@ def make_app(
     vcr_ci_mode: bool,
     vcr_provider_map: str,
     vcr_ignore_headers: str,
+    dd_site: str,
+    dd_api_key: str | None,
+    disable_llmobs_data_forwarding: bool,
     enable_web_ui: bool = False,
 ) -> web.Application:
     agent = Agent()
@@ -1650,6 +1694,7 @@ def make_app(
             web.post("/evp_proxy/v2/api/v2/exposures", agent.handle_evp_proxy_v2_api_v2_exposures),
             web.post("/evp_proxy/v4/api/v2/errorsintake", agent.handle_evp_proxy_v4_api_v2_errorsintake),
             web.get("/info", agent.handle_info),
+            web.options("/info", agent.handle_info),
             web.get("/test/session/start", agent.handle_session_start),
             web.get("/test/session/clear", agent.handle_session_clear),
             web.get("/test/session/snapshot", agent.handle_snapshot),
@@ -1682,6 +1727,12 @@ def make_app(
             ),
         ]
     )
+
+    # Add LLM Observability Event Platform API routes
+    # These provide Datadog Event Platform compatible endpoints for local development
+    llmobs_event_platform_api = LLMObsEventPlatformAPI(agent)
+    app.add_routes(llmobs_event_platform_api.get_routes())
+
     checks = Checks(
         checks=[
             CheckMetaTracerVersionHeader,
@@ -1707,6 +1758,9 @@ def make_app(
     app["snapshot_removed_attrs"] = snapshot_removed_attrs
     app["snapshot_regex_placeholders"] = snapshot_regex_placeholders
     app["vcr_cassettes_directory"] = vcr_cassettes_directory
+    app["dd_site"] = dd_site
+    app["dd_api_key"] = dd_api_key
+    app["disable_llmobs_data_forwarding"] = disable_llmobs_data_forwarding
     return app
 
 
@@ -2010,6 +2064,24 @@ def main(args: Optional[List[str]] = None) -> None:
         default=int(os.environ.get("MAX_REQUESTS", 200)),
         help="Maximum number of requests to keep in memory for the UI (default: 200). Older requests are discarded when limit is reached.",
     )
+    parser.add_argument(
+        "--dd-site",
+        type=str,
+        default=os.environ.get("DD_SITE", "datadoghq.com"),
+        help="Datadog site to use for the agent. Example: --dd-site=datadoghq.com",
+    )
+    parser.add_argument(
+        "--dd-api-key",
+        type=str,
+        default=os.environ.get("DD_API_KEY", ""),
+        help="Datadog API key to use for the agent. Example: --dd-api-key=1234567890",
+    )
+    parser.add_argument(
+        "--disable-llmobs-data-forwarding",
+        action="store_true",
+        default=os.environ.get("DISABLE_LLMOBS_DATA_FORWARDING", "").lower() in ("true", "1", "yes"),
+        help="Disable data forwarding to Datadog.",
+    )
     parsed_args = parser.parse_args(args=args)
     logging.basicConfig(level=parsed_args.log_level)
 
@@ -2056,6 +2128,9 @@ def main(args: Optional[List[str]] = None) -> None:
         vcr_ci_mode=parsed_args.vcr_ci_mode,
         vcr_provider_map=parsed_args.vcr_provider_map,
         vcr_ignore_headers=parsed_args.vcr_ignore_headers,
+        dd_site=parsed_args.dd_site,
+        dd_api_key=parsed_args.dd_api_key,
+        disable_llmobs_data_forwarding=parsed_args.disable_llmobs_data_forwarding,
         enable_web_ui=parsed_args.web_ui_port > 0,
     )
 

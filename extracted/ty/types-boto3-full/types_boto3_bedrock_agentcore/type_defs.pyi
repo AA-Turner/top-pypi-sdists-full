@@ -61,6 +61,7 @@ __all__ = (
     "BranchFilterTypeDef",
     "BranchTypeDef",
     "BrowserExtensionTypeDef",
+    "BrowserProfileConfigurationTypeDef",
     "BrowserSessionStreamTypeDef",
     "BrowserSessionSummaryTypeDef",
     "CodeInterpreterResultTypeDef",
@@ -160,6 +161,8 @@ __all__ = (
     "RetrieveMemoryRecordsOutputTypeDef",
     "RightExpressionTypeDef",
     "S3LocationTypeDef",
+    "SaveBrowserSessionProfileRequestTypeDef",
+    "SaveBrowserSessionProfileResponseTypeDef",
     "SearchCriteriaTypeDef",
     "ServiceQuotaExceededExceptionTypeDef",
     "SessionSummaryTypeDef",
@@ -229,6 +232,9 @@ class BranchFilterTypeDef(TypedDict):
 class BranchTypeDef(TypedDict):
     name: str
     rootEventId: NotRequired[str]
+
+class BrowserProfileConfigurationTypeDef(TypedDict):
+    profileIdentifier: str
 
 class LiveViewStreamTypeDef(TypedDict):
     streamEndpoint: NotRequired[str]
@@ -439,6 +445,14 @@ class S3LocationTypeDef(TypedDict):
     prefix: str
     versionId: NotRequired[str]
 
+class SaveBrowserSessionProfileRequestTypeDef(TypedDict):
+    profileIdentifier: str
+    browserIdentifier: str
+    sessionId: str
+    traceId: NotRequired[str]
+    traceParent: NotRequired[str]
+    clientToken: NotRequired[str]
+
 class StartCodeInterpreterSessionRequestTypeDef(TypedDict):
     codeInterpreterIdentifier: str
     traceId: NotRequired[str]
@@ -552,6 +566,13 @@ class ListActorsOutputTypeDef(TypedDict):
     actorSummaries: list[ActorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class SaveBrowserSessionProfileResponseTypeDef(TypedDict):
+    profileIdentifier: str
+    browserIdentifier: str
+    sessionId: str
+    lastUpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class StartCodeInterpreterSessionResponseTypeDef(TypedDict):
     codeInterpreterIdentifier: str
@@ -903,6 +924,7 @@ class GetBrowserSessionResponseTypeDef(TypedDict):
     createdAt: datetime
     viewPort: ViewPortTypeDef
     extensions: list[BrowserExtensionTypeDef]
+    profileConfiguration: BrowserProfileConfigurationTypeDef
     sessionTimeoutSeconds: int
     status: BrowserSessionStatusType
     streams: BrowserSessionStreamTypeDef
@@ -918,6 +940,7 @@ class StartBrowserSessionRequestTypeDef(TypedDict):
     sessionTimeoutSeconds: NotRequired[int]
     viewPort: NotRequired[ViewPortTypeDef]
     extensions: NotRequired[Sequence[BrowserExtensionTypeDef]]
+    profileConfiguration: NotRequired[BrowserProfileConfigurationTypeDef]
     clientToken: NotRequired[str]
 
 class InvokeCodeInterpreterResponseTypeDef(TypedDict):

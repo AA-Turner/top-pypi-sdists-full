@@ -44,6 +44,7 @@ __all__ = (
     "TimeToLiveStatusType",
     "TypeStatusType",
     "ViewTypeType",
+    "WarmThroughputStatusType",
 )
 
 CdcPropagateTagsType = Literal["NONE", "TABLE"]
@@ -71,6 +72,7 @@ ThroughputModeType = Literal["PAY_PER_REQUEST", "PROVISIONED"]
 TimeToLiveStatusType = Literal["ENABLED"]
 TypeStatusType = Literal["ACTIVE", "CREATING", "DELETING", "RESTORING"]
 ViewTypeType = Literal["KEYS_ONLY", "NEW_AND_OLD_IMAGES", "NEW_IMAGE", "OLD_IMAGE"]
+WarmThroughputStatusType = Literal["AVAILABLE", "UPDATING"]
 KeyspacesServiceName = Literal["keyspaces"]
 ServiceName = Literal[
     "accessanalyzer",

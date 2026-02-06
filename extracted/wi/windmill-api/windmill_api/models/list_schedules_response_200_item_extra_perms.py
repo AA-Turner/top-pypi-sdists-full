@@ -8,7 +8,7 @@ T = TypeVar("T", bound="ListSchedulesResponse200ItemExtraPerms")
 
 @_attrs_define
 class ListSchedulesResponse200ItemExtraPerms:
-    """ """
+    """Additional permissions for this schedule"""
 
     additional_properties: Dict[str, bool] = _attrs_field(init=False, factory=dict)
 

@@ -15,7 +15,7 @@
 """Tests for methods in `optax.transforms._accumulation.py`."""
 
 from absl.testing import absltest
-import chex
+from absl.testing import parameterized
 import flax
 import jax
 import jax.numpy as jnp
@@ -27,6 +27,12 @@ from optax._src import update
 from optax.transforms import _accumulation
 from optax.transforms import _constraining
 
+OPTIMIZERS_TO_TEST = [
+    {'opt_name': 'adam', 'opt_kwargs': {'learning_rate': 0.1}},
+    {'opt_name': 'adam', 'opt_kwargs': {'learning_rate': 0.1,
+                                        'mu_dtype': jnp.float32}}
+]
+
 
 class Loss(flax.linen.Module):
 
@@ -37,9 +43,8 @@ class Loss(flax.linen.Module):
     )
 
 
-class AccumulationTest(chex.TestCase):
+class AccumulationTest(parameterized.TestCase):
 
-  @chex.all_variants
   def test_ema(self):
     values = jnp.array([5.0, 7.0])
     decay = 0.9
@@ -48,7 +53,7 @@ class AccumulationTest(chex.TestCase):
     ema = _accumulation.ema(decay=decay, debias=False)
     state = ema.init(values[0])  # init to zeroes
 
-    transform_fn = self.variant(ema.update)
+    transform_fn = jax.jit(ema.update)
     mean, state = transform_fn(values[0], state)
     np.testing.assert_allclose(mean, (1 - d) * values[0], atol=1e-4)
 
@@ -57,7 +62,6 @@ class AccumulationTest(chex.TestCase):
         mean, (1 - d) * (values[1] + d * values[0]), atol=1e-2
     )
 
-  @chex.all_variants
   def test_ema_debias(self):
     values = jnp.array([5.0, 7.0])
     decay = 0.9
@@ -66,7 +70,7 @@ class AccumulationTest(chex.TestCase):
     ema = _accumulation.ema(decay=decay)
     state = ema.init(values[0])
 
-    transform_fn = self.variant(ema.update)
+    transform_fn = jax.jit(ema.update)
     mean, state = transform_fn(values[0], state)
     np.testing.assert_allclose(mean, values[0], atol=1e-4)
 
@@ -153,7 +157,6 @@ class AccumulationTest(chex.TestCase):
       self.assertFalse(bool(skip_state['should_skip']))
       self.assertEqual(float(skip_state['norm_squared']), 0.0)
 
-  @chex.variants(with_jit=True, without_jit=True, with_pmap=True)
   def test_multi_steps(self):
     batch_size = 32
     x_size = 7
@@ -192,7 +195,7 @@ class AccumulationTest(chex.TestCase):
 
     prev_loss = loss_apply(params, data)
     for idx in range(5 * k_steps):
-      updates, opt_state = self.variant(train_step)(data, opt_state, params)
+      updates, opt_state = jax.jit(train_step)(data, opt_state, params)
       new_params = update.apply_updates(params, updates)
       new_loss = loss_apply(new_params, data)
       if idx % k_steps < k_steps - 1:
@@ -312,7 +315,8 @@ class AccumulationTest(chex.TestCase):
           params['a'], jnp.negative(jnp.full([], 2.0))
       )
 
-  def test_multi_steps_mixed_precision(self):
+  @parameterized.parameters(OPTIMIZERS_TO_TEST)
+  def test_multi_steps_mixed_precision(self, opt_name, opt_kwargs):
     batch_size = 32
     x_size = 7
     k_steps = 4
@@ -324,11 +328,7 @@ class AccumulationTest(chex.TestCase):
 
     # Compare optimizer dtypes with and without MultiSteps
     def create_optimizer(k_steps):
-      base_opt = combine.chain(
-          transform.scale_by_adam(),
-          transform.add_decayed_weights(1e-2),
-          transform.scale(-1e-4),
-      )
+      base_opt = getattr(alias, opt_name)(**opt_kwargs)
       ms_opt = _accumulation.MultiSteps(base_opt, k_steps)
       return base_opt, ms_opt
 
@@ -354,6 +354,7 @@ class AccumulationTest(chex.TestCase):
     dtypes = [jnp.float32, jnp.float16, jnp.bfloat16]
     for upd_dtype in dtypes:
       for param_dtype in dtypes:
+        data = data.astype(param_dtype)
         with self.subTest(
             f'upd_dtype={upd_dtype.__name__}-param_dtype={param_dtype.__name__}'
         ):

@@ -34,15 +34,12 @@ class SessionLog:
         request = response.request
         await response.aread()
         self.append_log(
-            f"Response for request: {request.method} {request.url}\n"
-            f"Response: {response.status_code}, {response.text}"
+            f"Response for request: {request.method} {request.url}\nResponse: {response.status_code}, {response.text}"
         )
 
 
 class RemoteExecutionClientSession:
-    def __init__(
-        self, working_directory: str, base_url: str, base_ws_url: str, api_key: str
-    ):
+    def __init__(self, working_directory: str, base_url: str, base_ws_url: str, api_key: str):
         self.chat_uuid: str | None = None
 
         self.working_directory = working_directory
@@ -113,9 +110,7 @@ async def get_session(
     base_ws_url: str,
     api_key: str,
 ) -> AsyncGenerator[RemoteExecutionClientSession, None]:
-    session = RemoteExecutionClientSession(
-        working_directory, base_url, base_ws_url, api_key
-    )
+    session = RemoteExecutionClientSession(working_directory, base_url, base_ws_url, api_key)
     try:
         yield session
     except Exception as exc:

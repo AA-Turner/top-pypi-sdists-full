@@ -33,6 +33,7 @@ class ConnectorType(str, Enum):
     ENGINE_INTERNAL = 'engine_internal'
     ODBC = 'odbc'
     SNOWFLAKE = 'snowflake'
+    DATABRICKS = 'databricks'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

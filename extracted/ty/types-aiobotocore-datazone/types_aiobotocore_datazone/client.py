@@ -146,6 +146,7 @@ from .type_defs import (
     DeleteAssetTypeInputTypeDef,
     DeleteConnectionInputTypeDef,
     DeleteConnectionOutputTypeDef,
+    DeleteDataExportConfigurationInputTypeDef,
     DeleteDataProductInputTypeDef,
     DeleteDataSourceInputTypeDef,
     DeleteDataSourceOutputTypeDef,
@@ -871,6 +872,16 @@ class DataZoneClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/delete_connection.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#delete_connection)
+        """
+
+    async def delete_data_export_configuration(
+        self, **kwargs: Unpack[DeleteDataExportConfigurationInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes data export configuration for a domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/delete_data_export_configuration.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#delete_data_export_configuration)
         """
 
     async def delete_data_product(

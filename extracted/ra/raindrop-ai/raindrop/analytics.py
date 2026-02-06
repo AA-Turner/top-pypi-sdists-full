@@ -29,6 +29,7 @@ import weakref
 import urllib.parse
 
 from traceloop.sdk import Traceloop
+from traceloop.sdk.instruments import Instruments
 from traceloop.sdk.tracing.tracing import (
     TracerWrapper,
     get_chained_entity_path,
@@ -69,6 +70,8 @@ __all__ = [
     "set_llm_span_io",
     "flush",
     "shutdown",
+    # Re-exported from traceloop for auto-instrumentation control
+    "Instruments",
 ]
 
 
@@ -574,9 +577,22 @@ def _temp_env(key: str, value: str):
 def init(
     api_key: str,
     tracing_enabled: bool = False,
+    auto_instrument: bool = True,
     **traceloop_kwargs,
 ):
-    """Initialize Raindrop with Traceloop integration."""
+    """Initialize Raindrop with Traceloop integration.
+
+    Args:
+        api_key: Raindrop API key.
+        tracing_enabled: Enable OpenTelemetry tracing.
+        auto_instrument: If True (default), Traceloop will auto-instrument
+            detected LLM client libraries (OpenAI, Anthropic, etc). Set to
+            False to disable all auto-instrumentation. Manual tracing
+            (@task, @tool, begin/finish) works regardless of this setting.
+        **traceloop_kwargs: Extra kwargs forwarded to Traceloop.init().
+            Can include ``instruments`` or ``block_instruments`` for
+            fine-grained control over which libraries are instrumented.
+    """
     global write_key
     write_key = api_key
 
@@ -585,6 +601,11 @@ def init(
 
     if not _tracing_enabled:
         return
+
+    # When auto_instrument is False (default), disable all auto-instrumentation
+    # unless the caller explicitly passed `instruments` or `block_instruments`.
+    if not auto_instrument and "instruments" not in traceloop_kwargs:
+        traceloop_kwargs["instruments"] = set()
 
     parsed_url = urllib.parse.urlparse(api_url)
     api_endpoint = f"{parsed_url.scheme}://{parsed_url.netloc}"

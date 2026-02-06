@@ -3,7 +3,7 @@ Type annotations for transfer service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_transfer/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -131,7 +131,7 @@ ListUsersPaginatorName = Literal["list_users"]
 ListWebAppsPaginatorName = Literal["list_web_apps"]
 ListWorkflowsPaginatorName = Literal["list_workflows"]
 MapTypeType = Literal["DIRECTORY", "FILE"]
-MdnResponseType = Literal["NONE", "SYNC"]
+MdnResponseType = Literal["ASYNC", "NONE", "SYNC"]
 MdnSigningAlgType = Literal["DEFAULT", "NONE", "SHA1", "SHA256", "SHA384", "SHA512"]
 OverwriteExistingType = Literal["FALSE", "TRUE"]
 PreserveContentTypeType = Literal["DISABLED", "ENABLED"]
@@ -295,7 +295,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -560,6 +559,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -603,6 +603,7 @@ RegionName = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",

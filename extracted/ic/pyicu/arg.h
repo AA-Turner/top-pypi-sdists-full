@@ -24,7 +24,6 @@
 #ifndef _arg_h
 #define _arg_h
 
-#include <memory>
 #include <type_traits>
 
 #include "common.h"

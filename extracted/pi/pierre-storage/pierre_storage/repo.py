@@ -112,6 +112,7 @@ class RepoImpl:
         name: str,
         api_version: int,
         generate_jwt: Callable[[str, Optional[Dict[str, Any]]], str],
+        created_at: str = "",
     ) -> None:
         """Initialize repository.
 
@@ -123,9 +124,11 @@ class RepoImpl:
             name: Customer name
             api_version: API version
             generate_jwt: Function to generate JWT tokens
+            created_at: Repository creation timestamp
         """
         self._id = repo_id
         self._default_branch = default_branch
+        self._created_at = created_at
         self.api_base_url = api_base_url.rstrip("/")
         self.storage_base_url = storage_base_url
         self.name = name
@@ -141,6 +144,11 @@ class RepoImpl:
     def default_branch(self) -> str:
         """Get default branch name."""
         return self._default_branch
+
+    @property
+    def created_at(self) -> str:
+        """Get repository creation timestamp."""
+        return self._created_at
 
     async def get_remote_url(
         self,

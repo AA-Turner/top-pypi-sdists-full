@@ -112,6 +112,14 @@ ERROR_PATTERNS: List[ErrorPattern] = [
     (['headobject operation', 'not found'],
      ErrorCode.RESOURCE_S3_DOWNLOAD_FAILED, "S3对象不存在"),
 
+    # ==================== 权益类错误 ====================
+    (['因触发限流调用内置集成失败',"限流"],
+     ErrorCode.API_LLM_RATE_LIMIT, "限流"),
+
+     (['project not found'],
+     ErrorCode.API_PROJECT_NOT_FOUND, "项目不存在"),
+
+
     # ==================== OCR/文档处理错误 ====================
     (['ocr识别失败', '无法从响应中提取有效的json'],
      ErrorCode.RESOURCE_FILE_FORMAT_ERROR, "OCR识别失败"),
@@ -261,7 +269,7 @@ ERROR_PATTERNS: List[ErrorPattern] = [
      ErrorCode.CONFIG_API_KEY_MISSING, "AWS凭证缺失"),
     (['生成pdf报告失败', 'stylesheet'],
      ErrorCode.RESOURCE_FILE_FORMAT_ERROR, "PDF样式错误"),
-    (['从数据库查询', '失败'],
+    (['从数据库查询'],
      ErrorCode.INTEGRATION_DB_QUERY, "数据库查询失败"),
     (['excel文件解析', '表格结构检测失败'],
      ErrorCode.RESOURCE_FILE_FORMAT_ERROR, "Excel解析失败"),
@@ -293,6 +301,8 @@ ERROR_PATTERNS: List[ErrorPattern] = [
      ErrorCode.INTEGRATION_DB_CONNECTION, "数据库连接已关闭"),
     (['psycopg2', 'postgresql'],
      ErrorCode.INTEGRATION_DB_QUERY, "数据库错误"),
+    (['数据库读取失败'],
+     ErrorCode.INTEGRATION_DB_CONNECTION, "数据库连接失败"),
 
     # ==================== 网络相关错误 ====================
     (['broken pipe', 'errno 32'],
@@ -365,6 +375,8 @@ ERROR_PATTERNS: List[ErrorPattern] = [
      ErrorCode.API_AUDIO_GEN_FAILED, "腾讯云TTS生成失败"),
 
     # ==================== 飞书相关错误 ====================
+    (['FeishuBitable API error'],
+     ErrorCode.INTEGRATION_FEISHU_TABLE_FAILED, "飞书Bitable API错误"),
     (['获取草稿列表失败'],
      ErrorCode.INTEGRATION_FEISHU_API_FAILED, "飞书获取草稿列表失败"),
     (['飞书api错误'],

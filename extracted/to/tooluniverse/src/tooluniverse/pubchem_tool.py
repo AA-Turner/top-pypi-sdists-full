@@ -137,7 +137,9 @@ class PubChemRESTTool(BaseTool):
         if self.output_format:
             out_fmt = self.output_format
         else:
-            out_fmt = self.endpoint_template.strip("/").split("/")[-1].upper()
+            # Strip query parameters before determining format
+            endpoint_path = self.endpoint_template.split("?")[0]
+            out_fmt = endpoint_path.strip("/").split("/")[-1].upper()
 
         if out_fmt == "JSON":
             try:

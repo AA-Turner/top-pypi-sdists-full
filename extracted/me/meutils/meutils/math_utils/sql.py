@@ -134,7 +134,7 @@ def main():
 
 if __name__ == "__main__":
     # 按日期范围生成
-    script = generate_partition_script_by_dates('2025-12-12', '2027-01-01')
+    script = generate_partition_script_by_dates('2026-02-04', '2027-01-01')
     print(script)
 
     # 按月份生成
@@ -153,5 +153,10 @@ if __name__ == "__main__":
     -- 3. 应用双写 or 停写切换
     RENAME TABLE logs TO logs_old, logs_new TO logs;
 
-    SELECT count(1) FROM `logs` WHERE created_at > UNIX_TIMESTAMP('2025-09-24 00:00:00')
+    SELECT count(1) FROM `logs` WHERE created_at > UNIX_TIMESTAMP('2025-09-24 00:00:00');
+    
+    
+    
+    DELETE FROM tasks WHERE create_time < UNIX_TIMESTAMP('2026-02-01 00:00:00');
+
     """

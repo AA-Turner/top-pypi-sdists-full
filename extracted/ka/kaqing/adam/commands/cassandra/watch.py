@@ -39,7 +39,7 @@ class Watch(Command):
                 return state
 
             stop_event = threading.Event()
-            thread = threading.Thread(target=self.loop, args=(stop_event, state, state.sts, pods, state.namespace), daemon=True)
+            thread = threading.Thread(target=self.loop, args=(stop_event, state.sts, pods, state.namespace), daemon=True)
             thread.start()
 
             try:
@@ -55,8 +55,8 @@ class Watch(Command):
 
             return state
 
-    def loop(self, stop_flag: threading.Event, state: ReplState, sts: str, pods: List[client.V1Pod], ns: str):
-        show_pods(state, pods, ns)
+    def loop(self, stop_flag: threading.Event, sts: str, pods: List[client.V1Pod], ns: str):
+        show_pods(pods, ns)
         show_rollout(sts, ns)
 
         cnt = Config().get('watch.interval', 10)
@@ -65,7 +65,7 @@ class Watch(Command):
             cnt -= 1
 
             if not cnt:
-                show_pods(state, pods, ns)
+                show_pods(pods, ns)
                 show_rollout(sts, ns)
                 cnt = Config().get('watch.interval', 10)
 

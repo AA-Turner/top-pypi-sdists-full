@@ -212,7 +212,6 @@ def batch_create_raw_activations(activations_data: list):
             try:
                 conn = get_conn()
                 cur = conn.cursor()
-                cur.execute("SET statement_timeout = '60s'")
                 execute_values(cur, '''
                     INSERT INTO "RawActivation"
                     ("modelId", "contrastivePairId", "contrastivePairSetId", "layer", "seqLen", "hiddenDim", "promptLen", "hiddenStates", "answerText", "isPositive", "promptFormat", "createdAt")
@@ -232,7 +231,7 @@ def extract_benchmark(model, tokenizer, model_id: int, benchmark_name: str, set_
                       num_layers: int, device: str, limit: int = 500):
     """Extract raw activations for a single benchmark using 3 formats."""
     print(f"  [EXTRACT] Importing extraction strategy...", flush=True)
-    from wisent.core.activations.extraction_strategy import ExtractionStrategy, build_extraction_texts
+    from wisent.core.activations import ExtractionStrategy, build_extraction_texts
     print(f"  [EXTRACT] Extraction strategy imported", flush=True)
 
     # Get actual device from model if available

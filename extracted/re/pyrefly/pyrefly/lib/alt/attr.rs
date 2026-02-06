@@ -1335,10 +1335,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AttributeBase1::QuantifiedValue(quantified) => {
                 match (quantified.kind(), attr_name.as_str()) {
                     (QuantifiedKind::ParamSpec, "args") => {
-                        acc.found_type(Type::ArgsValue(Box::new(quantified.clone())), base)
+                        acc.found_type(self.heap.mk_args_value(quantified.clone()), base)
                     }
                     (QuantifiedKind::ParamSpec, "kwargs") => {
-                        acc.found_type(Type::KwargsValue(Box::new(quantified.clone())), base)
+                        acc.found_type(self.heap.mk_kwargs_value(quantified.clone()), base)
                     }
                     _ => self.lookup_attr_from_attribute_base1(
                         AttributeBase1::ClassInstance(quantified.class_type(self.stdlib).clone()),
@@ -1803,7 +1803,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 acc.push(AttributeBase1::ClassInstance(self.stdlib.bool().clone()))
             }
             Type::Any(style) => acc.push(AttributeBase1::Any(style)),
-            Type::TypeAlias(ta) => self.as_attribute_base1(ta.as_value(self.stdlib), acc),
+            Type::TypeAlias(ta) => {
+                self.as_attribute_base1(self.get_type_alias(&ta).as_value(self.stdlib), acc)
+            }
             Type::Type(box Type::Tuple(tuple)) => self
                 .as_attribute_base1(Type::type_form(self.erase_tuple_type(tuple).to_type()), acc),
             Type::Type(box Type::ClassType(class)) => {
@@ -1895,7 +1897,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 | SpecialForm::Protocol
                 | SpecialForm::Tuple,
             )) => acc.push(AttributeBase1::TypeAny(AnyStyle::Implicit)),
-            Type::Type(box Type::SpecialForm(SpecialForm::Type)) => {
+            Type::Type(box Type::SpecialForm(SpecialForm::Type))
+            | Type::Type(box Type::Type(box Type::Any(_))) => {
                 acc.push(AttributeBase1::ClassObject(ClassBase::ClassDef(
                     self.stdlib.builtins_type().clone(),
                 )))
@@ -2335,7 +2338,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             None => {
-                if let Some(exports) = self.exports.get_every_export(module_name) {
+                if let Some(exports) = self.exports.get_every_export_untracked(module_name) {
                     res.extend(exports.iter().map(|name| AttrInfo {
                         name: name.clone(),
                         ty: None,

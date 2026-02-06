@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hfortix
-Version: 0.5.158
+Version: 0.5.159
 Summary: Type-safe Python SDK for FortiGate firewall automation and FortiOS REST API - 1,348+ endpoints with async support and complete type safety
 Author-email: "Herman W. Jacobsen" <herman@wjacobsen.fo>
 Maintainer-email: "Herman W. Jacobsen" <herman@wjacobsen.fo>
@@ -36,8 +36,8 @@ Classifier: Framework :: Pydantic
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: hfortix-core>=0.5.154
-Requires-Dist: hfortix-fortios>=0.5.154
+Requires-Dist: hfortix-core>=0.5.159
+Requires-Dist: hfortix-fortios>=0.5.159
 Provides-Extra: fortios
 Requires-Dist: hfortix-fortios>=0.5.154; extra == "fortios"
 Provides-Extra: all

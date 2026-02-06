@@ -1491,6 +1491,32 @@ class CSSLRuntime:
                 else:
                     methods[method_name] = child
 
+                    # v4.9.11: Handle 'uses memory(addr)' on class methods
+                    method_uses_memory = func_info.get('uses_memory')
+                    if method_uses_memory:
+                        host_obj = self._evaluate(method_uses_memory)
+                        from .cssl_types import Address
+                        host_key = None
+                        if isinstance(host_obj, Address):
+                            reflected = host_obj.reflect()
+                            if isinstance(reflected, ASTNode) and reflected.type == 'function':
+                                host_key = reflected.value.get('name')
+                            elif reflected is not None:
+                                host_key = str(id(reflected))
+                        elif isinstance(host_obj, ASTNode):
+                            host_key = host_obj.value.get('name') if isinstance(host_obj.value, dict) else str(id(host_obj))
+                        elif isinstance(host_obj, str):
+                            host_key = host_obj
+                        else:
+                            host_key = str(id(host_obj))
+                        if host_key:
+                            if not hasattr(self, '_memory_hooks'):
+                                self._memory_hooks = {}
+                            if host_key not in self._memory_hooks:
+                                self._memory_hooks[host_key] = []
+                            self._memory_hooks[host_key].append(child)
+                        child.value['_is_memory_hook'] = True
+
             elif child.type == 'typed_declaration':
                 # This is a member variable
                 decl = child.value
@@ -1504,6 +1530,12 @@ class CSSLRuntime:
                     'default': self._evaluate(member_value) if member_value else None
                 }
 
+        # v4.9.11: Collect class body init statements (this->member = value)
+        body_init_stmts = []
+        for child in node.children:
+            if child.type == 'class_body_init':
+                body_init_stmts.append(child)
+
         # Create class definition object
         class_def = CSSLClass(
             name=class_name,
@@ -1516,6 +1548,7 @@ class CSSLRuntime:
         class_def.constructors = constructors  # Multiple constructors from 'constr' keyword
         class_def.destructors = destructors    # v4.8.8: Destructors (constr ~Name())
         class_def.class_params = class_params  # Class-level constructor parameters
+        class_def.body_init_stmts = body_init_stmts  # v4.9.11: this->member = value inits
         class_def.extends_args = extends_args  # Arguments to pass to parent constructor
 
         # Register class in scope (local by default, global if marked)
@@ -2875,6 +2908,14 @@ class CSSLRuntime:
                 elif isinstance(val, str):
                     # Address string from memory().get("address")
                     instance = Address(val)
+                elif isinstance(val, int):
+                    # v4.9.11: Support address n = 0x7ff89b1f5618 - hex int literal as address
+                    addr_str = hex(val)
+                    existing = Address._registry.get(addr_str)
+                    if existing is not None:
+                        instance = Address(address_str=addr_str)
+                    else:
+                        instance = Address(address_str=addr_str)
                 else:
                     # Create address from object
                     instance = Address(obj=val)
@@ -5968,6 +6009,13 @@ class CSSLRuntime:
 
         return source
 
+    def _exec_class_body_init(self, node: ASTNode) -> Any:
+        """v4.9.11: Execute class body init statement (this->member = value)."""
+        stmt = node.value.get('statement')
+        if stmt:
+            return self._execute_node(stmt)
+        return None
+
     def _exec_assignment(self, node: ASTNode) -> Any:
         """Execute assignment"""
         target = node.value.get('target')
@@ -8040,6 +8088,25 @@ class CSSLRuntime:
                 param_values[param_name] = kwargs[param_name]
             else:
                 param_values[param_name] = None
+
+        # v4.9.11: Execute class body init statements (this->member = value)
+        # These run before constructors, with class params available in scope
+        body_init_stmts = getattr(class_def, 'body_init_stmts', [])
+        if body_init_stmts:
+            old_instance = self._current_instance
+            old_scope = self.scope
+            self._current_instance = instance
+            init_scope = Scope(parent=self.scope)
+            # Make class params available
+            for pname, pval in param_values.items():
+                init_scope.set(pname, pval)
+            self.scope = init_scope
+            try:
+                for stmt in body_init_stmts:
+                    self._execute_node(stmt)
+            finally:
+                self.scope = old_scope
+                self._current_instance = old_instance
 
         # Call parent constructor with extends_args if parent exists and args specified
         if class_def.parent and extends_args:

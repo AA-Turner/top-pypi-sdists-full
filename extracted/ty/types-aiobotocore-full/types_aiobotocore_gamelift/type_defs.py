@@ -76,6 +76,7 @@ from .literals import (
     ScalingStatusTypeType,
     SortOrderType,
     TerminationModeType,
+    ZeroCapacityStrategyType,
 )
 
 if sys.version_info >= (3, 12):
@@ -330,6 +331,7 @@ __all__ = (
     "LocationStateTypeDef",
     "LocationalDeploymentTypeDef",
     "LogConfigurationTypeDef",
+    "ManagedCapacityConfigurationTypeDef",
     "MatchedPlayerSessionTypeDef",
     "MatchmakingConfigurationTypeDef",
     "MatchmakingRuleSetTypeDef",
@@ -1062,6 +1064,11 @@ class GameServerContainerGroupCountsTypeDef(TypedDict):
     TERMINATING: NotRequired[int]
 
 
+class ManagedCapacityConfigurationTypeDef(TypedDict):
+    ZeroCapacityStrategy: NotRequired[ZeroCapacityStrategyType]
+    ScaleInAfterInactivityMinutes: NotRequired[int]
+
+
 class TargetTrackingConfigurationTypeDef(TypedDict):
     TargetValue: float
 
@@ -1302,14 +1309,6 @@ class UpdateBuildInputTypeDef(TypedDict):
     Version: NotRequired[str]
 
 
-class UpdateFleetCapacityInputTypeDef(TypedDict):
-    FleetId: str
-    DesiredInstances: NotRequired[int]
-    MinSize: NotRequired[int]
-    MaxSize: NotRequired[int]
-    Location: NotRequired[str]
-
-
 class UpdateGameServerInputTypeDef(TypedDict):
     GameServerGroupName: str
     GameServerId: str
@@ -1449,13 +1448,6 @@ class UpdateBuildOutputTypeDef(TypedDict):
 class UpdateFleetAttributesOutputTypeDef(TypedDict):
     FleetId: str
     FleetArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateFleetCapacityOutputTypeDef(TypedDict):
-    FleetId: str
-    FleetArn: str
-    Location: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1612,6 +1604,7 @@ class CreateScriptInputTypeDef(TypedDict):
     StorageLocation: NotRequired[S3LocationTypeDef]
     ZipFile: NotRequired[BlobTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    NodeJsVersion: NotRequired[str]
 
 
 class RequestUploadCredentialsOutputTypeDef(TypedDict):
@@ -1628,6 +1621,7 @@ class ScriptTypeDef(TypedDict):
     SizeOnDisk: NotRequired[int]
     CreationTime: NotRequired[datetime]
     StorageLocation: NotRequired[S3LocationTypeDef]
+    NodeJsVersion: NotRequired[str]
 
 
 class UpdateScriptInputTypeDef(TypedDict):
@@ -2119,6 +2113,24 @@ class FleetCapacityTypeDef(TypedDict):
     InstanceCounts: NotRequired[EC2InstanceCountsTypeDef]
     Location: NotRequired[str]
     GameServerContainerGroupCounts: NotRequired[GameServerContainerGroupCountsTypeDef]
+    ManagedCapacityConfiguration: NotRequired[ManagedCapacityConfigurationTypeDef]
+
+
+class UpdateFleetCapacityInputTypeDef(TypedDict):
+    FleetId: str
+    DesiredInstances: NotRequired[int]
+    MinSize: NotRequired[int]
+    MaxSize: NotRequired[int]
+    Location: NotRequired[str]
+    ManagedCapacityConfiguration: NotRequired[ManagedCapacityConfigurationTypeDef]
+
+
+class UpdateFleetCapacityOutputTypeDef(TypedDict):
+    FleetId: str
+    FleetArn: str
+    Location: str
+    ManagedCapacityConfiguration: ManagedCapacityConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GameServerGroupAutoScalingPolicyTypeDef(TypedDict):

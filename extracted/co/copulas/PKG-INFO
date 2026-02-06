@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: copulas
-Version: 0.14.0
+Version: 0.14.1
 Summary: Create tabular synthetic data using copulas-based modeling.
 Author-email: "DataCebo, Inc." <info@sdv.dev>
-License: BSL-1.1
+License-Expression: BUSL-1.1
 Project-URL: Source Code, https://github.com/sdv-dev/Copulas/
 Project-URL: Issue Tracker, https://github.com/sdv-dev/Copulas/issues
 Project-URL: Changes, https://github.com/sdv-dev/Copulas/blob/main/HISTORY.md
@@ -12,7 +12,6 @@ Project-URL: Chat, https://bit.ly/sdv-slack-invite
 Keywords: copulas
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
-Classifier: License :: Free for non-commercial use
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -30,11 +29,11 @@ Requires-Dist: numpy>=1.23.3; python_version >= "3.10" and python_version < "3.1
 Requires-Dist: numpy>=1.26.0; python_version >= "3.12" and python_version < "3.13"
 Requires-Dist: numpy>=2.1.0; python_version >= "3.13" and python_version < "3.14"
 Requires-Dist: numpy>=2.3.2; python_version >= "3.14"
-Requires-Dist: pandas>=1.4.0; python_version < "3.11"
-Requires-Dist: pandas>=1.5.0; python_version >= "3.11" and python_version < "3.12"
-Requires-Dist: pandas>=2.1.1; python_version >= "3.12" and python_version < "3.13"
-Requires-Dist: pandas>=2.2.3; python_version >= "3.13" and python_version < "3.14"
-Requires-Dist: pandas>=2.3.3; python_version >= "3.14"
+Requires-Dist: pandas<3,>=1.4.0; python_version < "3.11"
+Requires-Dist: pandas<3,>=1.5.0; python_version >= "3.11" and python_version < "3.12"
+Requires-Dist: pandas<3,>=2.1.1; python_version >= "3.12" and python_version < "3.13"
+Requires-Dist: pandas<3,>=2.2.3; python_version >= "3.13" and python_version < "3.14"
+Requires-Dist: pandas<3,>=2.3.3; python_version >= "3.14"
 Requires-Dist: plotly>=5.10.0; python_version < "3.13"
 Requires-Dist: plotly>=5.12.0; python_version >= "3.13"
 Requires-Dist: scipy>=1.7.3; python_version < "3.10"

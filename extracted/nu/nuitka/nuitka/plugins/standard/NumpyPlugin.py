@@ -1,8 +1,7 @@
 #     Copyright 2025, Jorj McKie, mailto:<jorj.x.mckie@outlook.de> find license text at end of file
 
 
-""" Details see below in class definition.
-"""
+"""Details see below in class definition."""
 
 from nuitka.plugins.PluginBase import NuitkaPluginBase
 
@@ -11,7 +10,7 @@ class NuitkaPluginNumpy(NuitkaPluginBase):
     """This plugin is now not doing anything anymore."""
 
     plugin_name = "numpy"  # Nuitka knows us by this name
-    plugin_desc = "Deprecated, was once required by the numpy package"
+    plugin_desc = "Deprecated, was once required by 'numpy' package."
     plugin_category = "package-support,obsolete"
 
     @classmethod
@@ -22,11 +21,11 @@ class NuitkaPluginNumpy(NuitkaPluginBase):
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

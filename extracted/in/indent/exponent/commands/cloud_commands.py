@@ -25,9 +25,6 @@ from exponent.core.graphql.generated_client.create_cloud_chat_from_repository im
 from exponent.core.graphql.generated_client.enable_cloud_repository import (
     EnableCloudRepositoryEnableCloudRepositoryEnableCloudRepositoriesResult,
 )
-from exponent.core.graphql.generated_client.github_repositories import (
-    GithubRepositoriesGithubRepositoriesRepositories,
-)
 from exponent.core.graphql.generated_client.rebuild_cloud_repository import (
     RebuildCloudRepositoryRebuildCloudRepositoryContainerImages,
 )
@@ -46,9 +43,7 @@ async def enable_cloud_repository(
     org_name: str,
     repo_name: str,
 ) -> dict[str, Any]:
-    graphql_client = GraphQLClient(
-        api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url
-    )
+    graphql_client = GraphQLClient(api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url)
 
     result = await graphql_client.enable_cloud_repository(
         repositories=[RepositoryInput(orgName=org_name, repoName=repo_name)]
@@ -63,15 +58,9 @@ async def enable_cloud_repository(
             repo_result = enable_result.results[0]
             return {
                 "__typename": "EnableCloudRepositoriesResult",
-                "buildRef": repo_result.images[0].build_ref
-                if repo_result.images
-                else None,
-                "createdAt": repo_result.images[0].created_at
-                if repo_result.images
-                else None,
-                "updatedAt": repo_result.images[0].updated_at
-                if repo_result.images
-                else None,
+                "buildRef": repo_result.images[0].build_ref if repo_result.images else None,
+                "createdAt": repo_result.images[0].created_at if repo_result.images else None,
+                "updatedAt": repo_result.images[0].updated_at if repo_result.images else None,
             }
         elif enable_result.results:
             return {
@@ -86,7 +75,7 @@ async def enable_cloud_repository(
     else:
         return {
             "__typename": enable_result.typename__,
-            "message": enable_result.message,
+            "message": enable_result.message if hasattr(enable_result, "message") else "Unknown error",
         }
 
 
@@ -97,17 +86,13 @@ async def rebuild_cloud_repository(
     org_name: str,
     repo_name: str,
 ) -> dict[str, Any]:
-    graphql_client = GraphQLClient(
-        api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url
-    )
+    graphql_client = GraphQLClient(api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url)
 
     result = await graphql_client.rebuild_cloud_repository(org_name, repo_name)
 
     # Convert typed response to dict for backward compatibility
     rebuild_result = result.rebuild_cloud_repository
-    if isinstance(
-        rebuild_result, RebuildCloudRepositoryRebuildCloudRepositoryContainerImages
-    ):
+    if isinstance(rebuild_result, RebuildCloudRepositoryRebuildCloudRepositoryContainerImages):
         # Return the first image for backward compatibility
         if rebuild_result.images:
             first_image = rebuild_result.images[0]
@@ -125,7 +110,7 @@ async def rebuild_cloud_repository(
     else:
         return {
             "__typename": rebuild_result.typename__,
-            "message": rebuild_result.message,
+            "message": rebuild_result.message if hasattr(rebuild_result, "message") else "Unknown error",
         }
 
 
@@ -134,51 +119,39 @@ async def list_github_repositories(
     base_api_url: str,
     base_ws_url: str,
 ) -> dict[str, Any]:
-    graphql_client = GraphQLClient(
-        api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url
-    )
+    graphql_client = GraphQLClient(api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url)
 
     result = await graphql_client.get_github_repositories()
 
     # Convert typed response to dict for backward compatibility
     github_repos = result.github_repositories
-    if isinstance(github_repos, GithubRepositoriesGithubRepositoriesRepositories):
-        return {
-            "__typename": "GithubRepositories",
-            "repositories": [
-                {
-                    "uuid": repo.uuid,
-                    "githubOrgName": repo.github_org_name,
-                    "githubRepoName": repo.github_repo_name,
-                    "createdAt": repo.created_at,
-                    "updatedAt": repo.updated_at,
-                    "baseHost": None,
-                    "containerImageId": None,
-                }
-                for repo in github_repos.repositories
-            ],
-        }
-    else:
-        return {
-            "__typename": "Error",
-            "message": github_repos.message,
-        }
+    return {
+        "__typename": "GithubRepositories",
+        "repositories": [
+            {
+                "uuid": repo.uuid,
+                "githubOrgName": repo.github_org_name,
+                "githubRepoName": repo.github_repo_name,
+                "createdAt": repo.created_at,
+                "updatedAt": repo.updated_at,
+                "baseHost": None,
+                "containerImageId": None,
+            }
+            for repo in github_repos.repositories
+        ],
+    }
 
 
 async def create_cloud_chat_from_repository(
     api_key: str,
     base_api_url: str,
     base_ws_url: str,
-    repository_id: str,
+    repository_uuid: str,
     provider: SandboxProvider | None = None,
 ) -> dict[str, Any]:
-    graphql_client = GraphQLClient(
-        api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url
-    )
+    graphql_client = GraphQLClient(api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url)
 
-    result = await graphql_client.create_cloud_chat_from_repository(
-        repository_id=repository_id, provider=provider
-    )
+    result = await graphql_client.create_cloud_chat_from_repository(repository_uuid=repository_uuid, provider=provider)
 
     create_cloud_chat = result.create_cloud_chat
     if isinstance(create_cloud_chat, CreateCloudChatFromRepositoryCreateCloudChatChat):
@@ -189,9 +162,7 @@ async def create_cloud_chat_from_repository(
     else:
         return {
             "__typename": create_cloud_chat.typename__,
-            "message": create_cloud_chat.message
-            if hasattr(create_cloud_chat, "message")
-            else "Unknown error",
+            "message": create_cloud_chat.message if hasattr(create_cloud_chat, "message") else "Unknown error",
         }
 
 
@@ -202,9 +173,7 @@ async def start_chat_turn_with_prompt(
     chat_uuid: str,
     prompt: str,
 ) -> dict[str, Any]:
-    graphql_client = GraphQLClient(
-        api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url
-    )
+    graphql_client = GraphQLClient(api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url)
 
     result = await graphql_client.start_chat_turn(
         chat_uuid=chat_uuid,
@@ -253,16 +222,10 @@ def enable_repo(
     base_ws_url = settings.get_base_ws_url()
 
     try:
-        result = asyncio.run(
-            enable_cloud_repository(
-                api_key, base_api_url, base_ws_url, org_name, repo_name
-            )
-        )
+        result = asyncio.run(enable_cloud_repository(api_key, base_api_url, base_ws_url, org_name, repo_name))
 
         if result["__typename"] == "EnableCloudRepositoriesResult":
-            click.secho(
-                f"✓ Successfully enabled repository {org_name}/{repo_name}", fg="green"
-            )
+            click.secho(f"✓ Successfully enabled repository {org_name}/{repo_name}", fg="green")
             click.echo(f"  Build ref: {result.get('buildRef', 'N/A')}")
             click.echo(f"  Created at: {result.get('createdAt', 'N/A')}")
             click.echo(f"  Updated at: {result.get('updatedAt', 'N/A')}")
@@ -307,11 +270,7 @@ def rebuild(
     base_ws_url = settings.get_base_ws_url()
 
     try:
-        result = asyncio.run(
-            rebuild_cloud_repository(
-                api_key, base_api_url, base_ws_url, org_name, repo_name
-            )
-        )
+        result = asyncio.run(rebuild_cloud_repository(api_key, base_api_url, base_ws_url, org_name, repo_name))
 
         if result["__typename"] == "ContainerImage":
             click.secho(
@@ -350,25 +309,19 @@ def list_repos(
     base_ws_url = settings.get_base_ws_url()
 
     try:
-        result = asyncio.run(
-            list_github_repositories(api_key, base_api_url, base_ws_url)
-        )
+        result = asyncio.run(list_github_repositories(api_key, base_api_url, base_ws_url))
 
         if result["__typename"] == "GithubRepositories":
             repositories = result.get("repositories", [])
             if repositories:
                 click.secho(f"✓ Found {len(repositories)} repositories:", fg="green")
                 for repo in repositories:
-                    click.echo(
-                        f"\n  Repository: {repo['githubOrgName']}/{repo['githubRepoName']}"
-                    )
+                    click.echo(f"\n  Repository: {repo['githubOrgName']}/{repo['githubRepoName']}")
                     click.echo(f"    ID: {repo['id']}")
                     if repo.get("baseHost"):
                         click.echo(f"    Base Host: {repo['baseHost']}")
                     if repo.get("containerImageId"):
-                        click.echo(
-                            f"    Container Image ID: {repo['containerImageId']}"
-                        )
+                        click.echo(f"    Container Image ID: {repo['containerImageId']}")
                     click.echo(f"    Created: {repo['createdAt']}")
                     click.echo(f"    Updated: {repo['updatedAt']}")
             else:
@@ -447,11 +400,7 @@ def send_initial_prompt(
         fg="cyan",
     )
 
-    prompt_result = asyncio.run(
-        start_chat_turn_with_prompt(
-            api_key, base_api_url, base_ws_url, chat_uuid, prompt
-        )
-    )
+    prompt_result = asyncio.run(start_chat_turn_with_prompt(api_key, base_api_url, base_ws_url, chat_uuid, prompt))
 
     if prompt_result["__typename"] == "Chat":
         click.secho("✓ Prompt sent successfully", fg="green")
@@ -545,9 +494,7 @@ def create_chat(
         )
 
         chat_result = asyncio.run(
-            create_cloud_chat_from_repository(
-                api_key, base_api_url, base_ws_url, selected_repo["id"]
-            )
+            create_cloud_chat_from_repository(api_key, base_api_url, base_ws_url, selected_repo["id"])
         )
 
         if chat_result["__typename"] != "Chat":

@@ -181,13 +181,16 @@ class ComfyUIServer:
         while time.time() - start_time < timeout:
             # Check if process died
             if self._process and self._process.poll() is not None:
-                # Let output thread finish
+                # Let output thread finish reading remaining output
                 if self._output_thread:
                     self._stop_output_thread = True
-                    self._output_thread.join(timeout=2)
+                    self._output_thread.join(timeout=5)  # Give threads time to finish
+
+                # Include captured output in error for debugging
+                output_tail = "\n".join(self._output_lines[-50:]) if self._output_lines else "(no output captured)"
                 raise ServerError(
                     "ComfyUI server exited unexpectedly",
-                    f"Exit code: {self._process.returncode}"
+                    f"Exit code: {self._process.returncode}\n\nServer output (last 50 lines):\n{output_tail}"
                 )
 
             try:

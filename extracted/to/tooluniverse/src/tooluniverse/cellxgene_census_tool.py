@@ -81,6 +81,16 @@ class CELLxGENECensusTool(BaseTool):
             obs_value_filter = arguments.get("obs_value_filter")
             column_names = arguments.get("column_names")
 
+            # Safeguard: Require filter to prevent querying 50M+ cells
+            if not obs_value_filter:
+                return {
+                    "status": "error",
+                    "error": "obs_value_filter is required. The Census contains 50M+ cells; "
+                    "queries without filters will timeout. Examples: "
+                    "'tissue == \"lung\"', 'cell_type == \"T cell\"', "
+                    '\'disease == "COVID-19" and tissue == "blood"\'',
+                }
+
             with cellxgene_census.open_soma(census_version=census_version) as census:
                 obs_df = cellxgene_census.get_obs(
                     census,
@@ -150,6 +160,15 @@ class CELLxGENECensusTool(BaseTool):
             var_value_filter = arguments.get("var_value_filter")
             obs_column_names = arguments.get("obs_column_names")
             var_column_names = arguments.get("var_column_names")
+
+            # Safeguard: Require at least one filter to prevent massive queries
+            if not obs_value_filter and not var_value_filter:
+                return {
+                    "status": "error",
+                    "error": "At least one filter (obs_value_filter or var_value_filter) is required. "
+                    "The Census contains 50M+ cells and 60K+ genes; unfiltered queries will timeout. "
+                    'Examples: obs_value_filter=\'tissue == "lung"\', var_value_filter=\'feature_name in ["TP53", "BRCA1"]\'',
+                }
 
             with cellxgene_census.open_soma(census_version=census_version) as census:
                 adata = cellxgene_census.get_anndata(

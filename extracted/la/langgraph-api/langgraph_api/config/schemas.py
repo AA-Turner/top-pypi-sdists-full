@@ -135,7 +135,6 @@ class ThreadTTLConfig(TypedDict, total=False):
 
     - "delete": Remove the thread and all its data entirely.
     - "keep_latest": Prune old checkpoints but keep the thread and its latest state.
-      Requires core API (FF_USE_CORE_API=true).
     """
     default_ttl: float | None
     """Default thread TTL in minutes; threads past this age are subject to the `strategy`."""

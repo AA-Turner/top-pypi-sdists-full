@@ -16,10 +16,10 @@ from sklearn.svm import LinearSVC
 from sklearn.preprocessing import StandardScaler
 
 from wisent.core.models.wisent_model import WisentModel
-from wisent.core.activations.extraction_strategy import ExtractionStrategy
+from wisent.core.activations import ExtractionStrategy
 from wisent.core.activations.activations_collector import ActivationCollector
 from wisent.core.contrastive_pairs.core.pair import ContrastivePair
-from wisent.core.contrastive_pairs.core.response import PositiveResponse, NegativeResponse
+from wisent.core.contrastive_pairs.core.io.response import PositiveResponse, NegativeResponse
 
 
 WORD_LIST = [
@@ -111,7 +111,7 @@ def compute_linear_separability(pos_acts: np.ndarray, neg_acts: np.ndarray) -> f
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     
-    svm = LinearSVC(max_iter=1000, dual=False)
+    svm = LinearSVC( dual=False)
     svm.fit(X_scaled, y)
     
     return svm.score(X_scaled, y)

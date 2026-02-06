@@ -43,6 +43,8 @@ __all__ = (
     "ConnectionPropertyKeyType",
     "ConnectionStatusType",
     "ConnectionTypeType",
+    "ConnectorOAuth2GrantTypeType",
+    "ContentTypeType",
     "CrawlStateType",
     "CrawlerHistoryStateType",
     "CrawlerLineageSettingsType",
@@ -93,6 +95,7 @@ __all__ = (
     "GetWorkflowRunsPaginatorName",
     "GlueRecordTypeType",
     "GlueServiceName",
+    "HTTPMethodType",
     "HudiTargetCompressionTypeType",
     "HyperTargetCompressionTypeType",
     "IcebergNullOrderType",
@@ -102,6 +105,7 @@ __all__ = (
     "IcebergUpdateActionType",
     "InclusionAnnotationValueType",
     "IntegrationStatusType",
+    "IntegrationTypeType",
     "JDBCConnectionTypeType",
     "JDBCDataTypeType",
     "JdbcMetadataEntryType",
@@ -140,6 +144,7 @@ __all__ = (
     "PermissionTypeType",
     "PiiTypeType",
     "PrincipalTypeType",
+    "PropertyLocationType",
     "PropertyTypeType",
     "QuoteCharType",
     "RecrawlBehaviorType",
@@ -383,6 +388,8 @@ ConnectionTypeType = Literal[
     "ZOHOCRM",
     "ZOOM",
 ]
+ConnectorOAuth2GrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS", "JWT_BEARER"]
+ContentTypeType = Literal["APPLICATION_JSON", "URL_ENCODED"]
 CrawlStateType = Literal["CANCELLED", "CANCELLING", "ERROR", "FAILED", "RUNNING", "SUCCEEDED"]
 CrawlerHistoryStateType = Literal["COMPLETED", "FAILED", "RUNNING", "STOPPED"]
 CrawlerLineageSettingsType = Literal["DISABLE", "ENABLE"]
@@ -409,6 +416,7 @@ ExistConditionType = Literal["MUST_EXIST", "NONE", "NOT_EXIST"]
 FieldDataTypeType = Literal[
     "ARRAY",
     "BIGINT",
+    "BINARY",
     "BOOLEAN",
     "BYTE",
     "DATE",
@@ -423,6 +431,7 @@ FieldDataTypeType = Literal[
     "STRING",
     "STRUCT",
     "TIMESTAMP",
+    "UNION",
 ]
 FieldFilterOperatorType = Literal[
     "BETWEEN",
@@ -461,6 +470,7 @@ GetWorkflowRunsPaginatorName = Literal["get_workflow_runs"]
 GlueRecordTypeType = Literal[
     "BIGDECIMAL", "BYTE", "DATE", "DOUBLE", "FLOAT", "INT", "LONG", "SHORT", "STRING", "TIMESTAMP"
 ]
+HTTPMethodType = Literal["GET", "POST"]
 HudiTargetCompressionTypeType = Literal["gzip", "lzo", "snappy", "uncompressed"]
 HyperTargetCompressionTypeType = Literal["uncompressed"]
 IcebergNullOrderType = Literal["nulls-first", "nulls-last"]
@@ -484,6 +494,7 @@ InclusionAnnotationValueType = Literal["EXCLUDE", "INCLUDE"]
 IntegrationStatusType = Literal[
     "ACTIVE", "CREATING", "DELETING", "FAILED", "MODIFYING", "NEEDS_ATTENTION", "SYNCING"
 ]
+IntegrationTypeType = Literal["REST"]
 JDBCConnectionTypeType = Literal["mysql", "oracle", "postgresql", "redshift", "sqlserver"]
 JDBCDataTypeType = Literal[
     "ARRAY",
@@ -596,6 +607,7 @@ PiiTypeType = Literal[
     "RowPartialMasking",
 ]
 PrincipalTypeType = Literal["GROUP", "ROLE", "USER"]
+PropertyLocationType = Literal["BODY", "HEADER", "PATH", "QUERY_PARAM"]
 PropertyTypeType = Literal["READ_ONLY", "SECRET", "SECRET_OR_USER_INPUT", "UNUSED", "USER_INPUT"]
 QuoteCharType = Literal["disabled", "quillemet", "quote", "single_quote"]
 RecrawlBehaviorType = Literal["CRAWL_EVENT_MODE", "CRAWL_EVERYTHING", "CRAWL_NEW_FOLDERS_ONLY"]

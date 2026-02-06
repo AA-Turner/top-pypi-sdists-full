@@ -10,10 +10,11 @@ T = TypeVar("T", bound="ListGcpTriggersResponse200ItemDeliveryConfig")
 
 @_attrs_define
 class ListGcpTriggersResponse200ItemDeliveryConfig:
-    """
+    """Configuration for push delivery mode.
+
     Attributes:
-        authenticate (bool):
-        audience (Union[Unset, str]):
+        authenticate (bool): If true, push messages will include OIDC authentication tokens.
+        audience (Union[Unset, str]): The audience claim for OIDC tokens used in push authentication.
     """
 
     authenticate: bool

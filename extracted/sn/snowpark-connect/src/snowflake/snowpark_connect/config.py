@@ -171,6 +171,12 @@ class GlobalConfig:
         # Control whether to convert decimal - to integral types and vice versa: DecimalType(p,0) <-> ByteType/ShortType/IntegerType/LongType
         # Values: "client_default" (behavior based on client type), "enabled", "disabled"
         "snowpark.connect.integralTypesEmulation": "client_default",
+        # Resource constraint for UDFs - when set to "x86", UDFs will be created with architecture constraint
+        # This requires an x86-compatible warehouse for execution
+        "snowpark.connect.udf.resource_constraint.architecture": None,
+        # Test-only configuration: Force UDFs/UDTFs to be created in stored procedures
+        # regardless of Python version compatibility. This helps test SPROC code paths in local CI.
+        "snowpark.connect.test.force_create_sproc": "false",
     }
 
     boolean_config_list = [
@@ -189,6 +195,7 @@ class GlobalConfig:
         "snowflake.repartition.for.writes",
         "spark.sql.legacy.dataset.nameNonStructGroupingKeyAsValue",
         "snowpark.connect.handleIntegralOverflow",
+        "snowpark.connect.test.force_create_sproc",
     ]
 
     int_config_list = [
@@ -312,6 +319,7 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "mapreduce.fileoutputcommitter.marksuccessfuljobs",
     "spark.sql.parquet.enable.summary-metadata",
     "parquet.enable.summary-metadata",
+    "spark.sql.sources.partitionOverwriteMode",
 }
 AZURE_ACCOUNT_KEY = re.compile(
     r"^fs\.azure\.sas\.[^\.]+\.[^\.]+\.blob\.core\.windows\.net$"
@@ -348,6 +356,7 @@ class SessionConfig:
         # JDBC driver JARs - comma-separated list of local paths or Maven coordinates
         # Example: "/path/to/driver.jar" or "org.neo4j:neo4j-jdbc-driver:4.0.9"
         "spark.jars": None,
+        "spark.sql.sources.partitionOverwriteMode": "static",
     }
 
     def __init__(self) -> None:
@@ -386,6 +395,15 @@ CONFIG_ALLOWED_VALUES: dict[str, tuple] = {
         "client_default",
         "enabled",
         "disabled",
+    ),
+    "spark.sql.sources.partitionOverwriteMode": (
+        "static",
+        "dynamic",
+    ),
+    "snowpark.connect.udf.resource_constraint.architecture": (
+        None,
+        "",
+        "x86",
     ),
 }
 
@@ -586,8 +604,13 @@ def _verify_static_config_not_modified(key: str) -> None:
 
 def _verify_is_valid_config_value(key: str, value: Any) -> None:
     if key in CONFIG_ALLOWED_VALUES and value not in CONFIG_ALLOWED_VALUES[key]:
+        # Use repr() for non-string values (like None) to display them properly,
+        # but keep string values unquoted for consistency with existing error messages
+        allowed_values_str = ", ".join(
+            repr(v) if not isinstance(v, str) else v for v in CONFIG_ALLOWED_VALUES[key]
+        )
         exception = ValueError(
-            f"Invalid value '{value}' for key '{key}'. Allowed values: {', '.join(CONFIG_ALLOWED_VALUES[key])}."
+            f"Invalid value '{value}' for key '{key}'. Allowed values: {allowed_values_str}."
         )
         attach_custom_error_code(exception, ErrorCodes.INVALID_CONFIG_VALUE)
         raise exception
@@ -782,6 +805,19 @@ def should_create_temporary_view_in_snowflake() -> bool:
     )
 
 
+def is_force_create_sproc_enabled() -> bool:
+    """
+    Check if the test flag for forcing SPROC creation is enabled.
+
+    This is a test-only configuration that forces UDFs/UDTFs to be created
+    in stored procedures regardless of Python version compatibility.
+    This helps test SPROC code paths in local CI.
+    """
+    return str_to_bool(
+        global_config.get("snowpark.connect.test.force_create_sproc", "false")
+    )
+
+
 def auto_uppercase_column_identifiers() -> bool:
     session_config = sessions_config[get_spark_session_id()]
     auto_upper_case_config = session_config[
@@ -936,3 +972,12 @@ def is_java_udf_creator_initialized() -> bool:
 def set_java_udf_creator_initialized_state(value: bool) -> None:
     global _java_udf_creator_initialized
     _java_udf_creator_initialized = value
+
+
+def is_dynamic_partition_overwrite_enabled() -> bool:
+    return (
+        get_string_session_config_param(
+            "spark.sql.sources.partitionOverwriteMode"
+        ).lower()
+        == "dynamic"
+    )

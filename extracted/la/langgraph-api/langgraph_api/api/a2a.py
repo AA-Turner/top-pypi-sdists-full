@@ -1482,7 +1482,7 @@ async def handle_tasks_get(
         return {"result": task_response}
 
     except Exception as e:
-        await logger.aerror(
+        await logger.aexception(
             f"Error in tasks/get for task {params.get('id')}: {e!s}", exc_info=True
         )
         return {

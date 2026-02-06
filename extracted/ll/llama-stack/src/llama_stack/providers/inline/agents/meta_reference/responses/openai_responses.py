@@ -4,7 +4,6 @@
 # This source code is licensed under the terms described in the LICENSE file in
 # the root directory of this source tree.
 
-import asyncio
 import re
 import time
 import uuid
@@ -19,11 +18,14 @@ from llama_stack.providers.utils.responses.responses_store import (
 )
 from llama_stack.providers.utils.tools.mcp import MCPSessionManager
 from llama_stack_api import (
+    AddItemsRequest,
+    Connectors,
     ConversationItem,
     Conversations,
     Files,
     Inference,
     InvalidConversationIdError,
+    ListItemsRequest,
     ListOpenAIResponseInputItem,
     ListOpenAIResponseObject,
     OpenAIChatCompletionContentPartParam,
@@ -39,6 +41,7 @@ from llama_stack_api import (
     OpenAIResponseObject,
     OpenAIResponseObjectStream,
     OpenAIResponsePrompt,
+    OpenAIResponseReasoning,
     OpenAIResponseText,
     OpenAIResponseTextFormat,
     OpenAISystemMessageParam,
@@ -83,6 +86,7 @@ class OpenAIResponsesImpl:
         conversations_api: Conversations,
         prompts_api: Prompts,
         files_api: Files,
+        connectors_api: Connectors,
         vector_stores_config=None,
     ):
         self.inference_api = inference_api
@@ -100,6 +104,7 @@ class OpenAIResponsesImpl:
         )
         self.prompts_api = prompts_api
         self.files_api = files_api
+        self.connectors_api = connectors_api
 
     async def _prepend_previous_response(
         self,
@@ -150,7 +155,9 @@ class OpenAIResponsesImpl:
 
             tool_context.recover_tools_from_previous_response(previous_response)
         elif conversation is not None:
-            conversation_items = await self.conversations_api.list_items(conversation, order="asc")
+            conversation_items = await self.conversations_api.list_items(
+                ListItemsRequest(conversation_id=conversation, order="asc")
+            )
 
             # Use stored messages as source of truth (like previous_response.messages)
             stored_messages = await self.responses_store.get_conversation_messages(conversation)
@@ -462,6 +469,9 @@ class OpenAIResponsesImpl:
         guardrails: list[str | ResponseGuardrailSpec] | None = None,
         parallel_tool_calls: bool | None = None,
         max_tool_calls: int | None = None,
+        reasoning: OpenAIResponseReasoning | None = None,
+        max_output_tokens: int | None = None,
+        safety_identifier: str | None = None,
         metadata: dict[str, str] | None = None,
     ):
         stream = bool(stream)
@@ -499,9 +509,6 @@ class OpenAIResponsesImpl:
             if not conversation.startswith("conv_"):
                 raise InvalidConversationIdError(conversation)
 
-        if max_tool_calls is not None and max_tool_calls < 1:
-            raise ValueError(f"Invalid {max_tool_calls=}; should be >= 1")
-
         stream_gen = self._create_streaming_response(
             input=input,
             conversation=conversation,
@@ -518,6 +525,9 @@ class OpenAIResponsesImpl:
             guardrail_ids=guardrail_ids,
             parallel_tool_calls=parallel_tool_calls,
             max_tool_calls=max_tool_calls,
+            reasoning=reasoning,
+            max_output_tokens=max_output_tokens,
+            safety_identifier=safety_identifier,
             metadata=metadata,
             include=include,
         )
@@ -573,6 +583,9 @@ class OpenAIResponsesImpl:
         guardrail_ids: list[str] | None = None,
         parallel_tool_calls: bool | None = True,
         max_tool_calls: int | None = None,
+        reasoning: OpenAIResponseReasoning | None = None,
+        max_output_tokens: int | None = None,
+        safety_identifier: str | None = None,
         metadata: dict[str, str] | None = None,
         include: list[ResponseItemInclude] | None = None,
     ) -> AsyncIterator[OpenAIResponseObjectStream]:
@@ -612,46 +625,45 @@ class OpenAIResponsesImpl:
 
         # Create a per-request MCP session manager for session reuse (fix for #4452)
         # This avoids redundant tools/list calls when making multiple MCP tool invocations
-        mcp_session_manager = MCPSessionManager()
+        async with MCPSessionManager() as mcp_session_manager:
+            request_tool_executor = ToolExecutor(
+                tool_groups_api=self.tool_groups_api,
+                tool_runtime_api=self.tool_runtime_api,
+                vector_io_api=self.vector_io_api,
+                vector_stores_config=self.tool_executor.vector_stores_config,
+                mcp_session_manager=mcp_session_manager,
+            )
 
-        # Create a per-request ToolExecutor with the session manager
-        request_tool_executor = ToolExecutor(
-            tool_groups_api=self.tool_groups_api,
-            tool_runtime_api=self.tool_runtime_api,
-            vector_io_api=self.vector_io_api,
-            vector_stores_config=self.tool_executor.vector_stores_config,
-            mcp_session_manager=mcp_session_manager,
-        )
+            orchestrator = StreamingResponseOrchestrator(
+                inference_api=self.inference_api,
+                ctx=ctx,
+                response_id=response_id,
+                created_at=created_at,
+                prompt=prompt,
+                text=text,
+                max_infer_iters=max_infer_iters,
+                parallel_tool_calls=parallel_tool_calls,
+                tool_executor=request_tool_executor,
+                safety_api=self.safety_api,
+                connectors_api=self.connectors_api,
+                guardrail_ids=guardrail_ids,
+                instructions=instructions,
+                max_tool_calls=max_tool_calls,
+                reasoning=reasoning,
+                max_output_tokens=max_output_tokens,
+                safety_identifier=safety_identifier,
+                metadata=metadata,
+                include=include,
+                store=store,
+            )
 
-        orchestrator = StreamingResponseOrchestrator(
-            inference_api=self.inference_api,
-            ctx=ctx,
-            response_id=response_id,
-            created_at=created_at,
-            prompt=prompt,
-            text=text,
-            max_infer_iters=max_infer_iters,
-            parallel_tool_calls=parallel_tool_calls,
-            tool_executor=request_tool_executor,
-            safety_api=self.safety_api,
-            guardrail_ids=guardrail_ids,
-            instructions=instructions,
-            max_tool_calls=max_tool_calls,
-            metadata=metadata,
-            include=include,
-        )
+            final_response = None
+            failed_response = None
 
-        # Stream the response
-        final_response = None
-        failed_response = None
+            output_items: list[ConversationItem] = []
 
-        # Type as ConversationItem to avoid list invariance issues
-        output_items: list[ConversationItem] = []
+            input_items_for_storage = self._prepare_input_items_for_storage(all_input)
 
-        # Prepare input items for storage once (used by all persistence calls)
-        input_items_for_storage = self._prepare_input_items_for_storage(all_input)
-
-        try:
             async for stream_chunk in orchestrator.create_response():
                 match stream_chunk.type:
                     case "response.completed" | "response.incomplete":
@@ -689,16 +701,6 @@ class OpenAIResponsesImpl:
                         await self.responses_store.store_conversation_messages(conversation, messages_to_store)
 
                 yield stream_chunk
-        finally:
-            # Clean up MCP sessions at the end of the request (fix for #4452)
-            # Use shield() to prevent cancellation from interrupting cleanup and leaking resources
-            # Wrap in try/except as cleanup errors should not mask the original response
-            try:
-                await asyncio.shield(mcp_session_manager.close_all())
-            except BaseException as e:
-                # Debug level - cleanup errors are expected in streaming scenarios where
-                # anyio cancel scopes may be in a different task context
-                logger.debug(f"Error during MCP session cleanup: {e}")
 
     async def delete_openai_response(self, response_id: str) -> OpenAIDeleteResponseObject:
         return await self.responses_store.delete_response_object(response_id)
@@ -721,4 +723,4 @@ class OpenAIResponsesImpl:
 
         adapter = TypeAdapter(list[ConversationItem])
         validated_items = adapter.validate_python(conversation_items)
-        await self.conversations_api.add_items(conversation_id, validated_items)
+        await self.conversations_api.add_items(conversation_id, AddItemsRequest(items=validated_items))

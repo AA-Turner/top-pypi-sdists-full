@@ -37,6 +37,9 @@ from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.relation.read.map_read import JsonReaderConfig
+from snowflake.snowpark_connect.relation.read.map_read_partitioned_file import (
+    _read_file_with_partitions,
+)
 from snowflake.snowpark_connect.relation.read.metadata_utils import (
     add_filename_metadata_to_reader,
 )
@@ -125,6 +128,7 @@ def map_read_json(
             attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
             raise exception
         if process_single_bz2_file:
+            # TODO: SNOW-3022765 Add read partitioned files support for reading bz2 file
             df = read_single_bz2_file(
                 session,
                 paths,
@@ -251,15 +255,27 @@ def read_normal_json_files(
         session.read.options(snowpark_options), raw_options
     )
 
-    df = reader.json(paths[0])
+    df, _ = _read_file_with_partitions(
+        session=session,
+        reader=reader,
+        file_format="json",
+        path=paths[0],
+        schema=schema,
+        snowpark_options=snowpark_options,
+        raw_options=raw_options,
+    )
     if len(paths) > 1:
-        # TODO: figure out if this is what Spark does.
         for p in paths[1:]:
-            df = df.union_all(
-                add_filename_metadata_to_reader(
-                    session.read.options(snowpark_options), raw_options
-                ).json(p)
+            partition_df, _ = _read_file_with_partitions(
+                session=session,
+                reader=reader,
+                file_format="json",
+                path=p,
+                schema=schema,
+                snowpark_options=snowpark_options,
+                raw_options=raw_options,
             )
+            df = df.union_all(partition_df)
 
     if schema is None:
         schema = copy.deepcopy(df.schema)

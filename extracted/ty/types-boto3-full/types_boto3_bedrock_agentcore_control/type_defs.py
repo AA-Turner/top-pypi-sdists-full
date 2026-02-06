@@ -28,6 +28,7 @@ from .literals import (
     ApiKeyCredentialLocationType,
     AuthorizerTypeType,
     BrowserNetworkModeType,
+    BrowserProfileStatusType,
     BrowserStatusType,
     ClaimMatchOperatorTypeType,
     CodeInterpreterNetworkModeType,
@@ -98,6 +99,7 @@ __all__ = (
     "BrowserNetworkConfigurationOutputTypeDef",
     "BrowserNetworkConfigurationTypeDef",
     "BrowserNetworkConfigurationUnionTypeDef",
+    "BrowserProfileSummaryTypeDef",
     "BrowserSigningConfigInputTypeDef",
     "BrowserSigningConfigOutputTypeDef",
     "BrowserSummaryTypeDef",
@@ -124,6 +126,8 @@ __all__ = (
     "CreateAgentRuntimeResponseTypeDef",
     "CreateApiKeyCredentialProviderRequestTypeDef",
     "CreateApiKeyCredentialProviderResponseTypeDef",
+    "CreateBrowserProfileRequestTypeDef",
+    "CreateBrowserProfileResponseTypeDef",
     "CreateBrowserRequestTypeDef",
     "CreateBrowserResponseTypeDef",
     "CreateCodeInterpreterRequestTypeDef",
@@ -174,6 +178,8 @@ __all__ = (
     "DeleteAgentRuntimeRequestTypeDef",
     "DeleteAgentRuntimeResponseTypeDef",
     "DeleteApiKeyCredentialProviderRequestTypeDef",
+    "DeleteBrowserProfileRequestTypeDef",
+    "DeleteBrowserProfileResponseTypeDef",
     "DeleteBrowserRequestTypeDef",
     "DeleteBrowserResponseTypeDef",
     "DeleteCodeInterpreterRequestTypeDef",
@@ -232,6 +238,8 @@ __all__ = (
     "GetAgentRuntimeResponseTypeDef",
     "GetApiKeyCredentialProviderRequestTypeDef",
     "GetApiKeyCredentialProviderResponseTypeDef",
+    "GetBrowserProfileRequestTypeDef",
+    "GetBrowserProfileResponseTypeDef",
     "GetBrowserRequestTypeDef",
     "GetBrowserResponseTypeDef",
     "GetCodeInterpreterRequestTypeDef",
@@ -295,6 +303,9 @@ __all__ = (
     "ListApiKeyCredentialProvidersRequestPaginateTypeDef",
     "ListApiKeyCredentialProvidersRequestTypeDef",
     "ListApiKeyCredentialProvidersResponseTypeDef",
+    "ListBrowserProfilesRequestPaginateTypeDef",
+    "ListBrowserProfilesRequestTypeDef",
+    "ListBrowserProfilesResponseTypeDef",
     "ListBrowsersRequestPaginateTypeDef",
     "ListBrowsersRequestTypeDef",
     "ListBrowsersResponseTypeDef",
@@ -593,6 +604,19 @@ class VpcConfigTypeDef(TypedDict):
     subnets: Sequence[str]
 
 
+class BrowserProfileSummaryTypeDef(TypedDict):
+    profileId: str
+    profileArn: str
+    name: str
+    status: BrowserProfileStatusType
+    createdAt: datetime
+    lastUpdatedAt: datetime
+    description: NotRequired[str]
+    lastSavedAt: NotRequired[datetime]
+    lastSavedBrowserSessionId: NotRequired[str]
+    lastSavedBrowserId: NotRequired[str]
+
+
 class BrowserSigningConfigInputTypeDef(TypedDict):
     enabled: bool
 
@@ -692,6 +716,13 @@ class CreateApiKeyCredentialProviderRequestTypeDef(TypedDict):
 
 class SecretTypeDef(TypedDict):
     secretArn: str
+
+
+class CreateBrowserProfileRequestTypeDef(TypedDict):
+    name: str
+    description: NotRequired[str]
+    clientToken: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 
 class GatewayPolicyEngineConfigurationTypeDef(TypedDict):
@@ -824,6 +855,11 @@ class DeleteAgentRuntimeRequestTypeDef(TypedDict):
 
 class DeleteApiKeyCredentialProviderRequestTypeDef(TypedDict):
     name: str
+
+
+class DeleteBrowserProfileRequestTypeDef(TypedDict):
+    profileId: str
+    clientToken: NotRequired[str]
 
 
 class DeleteBrowserRequestTypeDef(TypedDict):
@@ -964,6 +1000,10 @@ class GetApiKeyCredentialProviderRequestTypeDef(TypedDict):
     name: str
 
 
+class GetBrowserProfileRequestTypeDef(TypedDict):
+    profileId: str
+
+
 class GetBrowserRequestTypeDef(TypedDict):
     browserId: str
 
@@ -1101,6 +1141,11 @@ class ListAgentRuntimesRequestTypeDef(TypedDict):
 class ListApiKeyCredentialProvidersRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
+
+
+class ListBrowserProfilesRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 
 ListBrowsersRequestTypeDef = TypedDict(
@@ -1526,6 +1571,14 @@ class CreateAgentRuntimeEndpointResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateBrowserProfileResponseTypeDef(TypedDict):
+    profileId: str
+    profileArn: str
+    createdAt: datetime
+    status: BrowserProfileStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateBrowserResponseTypeDef(TypedDict):
     browserId: str
     browserArn: str
@@ -1579,6 +1632,15 @@ class DeleteAgentRuntimeEndpointResponseTypeDef(TypedDict):
 class DeleteAgentRuntimeResponseTypeDef(TypedDict):
     status: AgentRuntimeStatusType
     agentRuntimeId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteBrowserProfileResponseTypeDef(TypedDict):
+    profileId: str
+    profileArn: str
+    status: BrowserProfileStatusType
+    lastUpdatedAt: datetime
+    lastSavedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1662,6 +1724,20 @@ GetAgentRuntimeEndpointResponseTypeDef = TypedDict(
 )
 
 
+class GetBrowserProfileResponseTypeDef(TypedDict):
+    profileId: str
+    profileArn: str
+    name: str
+    description: str
+    status: BrowserProfileStatusType
+    createdAt: datetime
+    lastUpdatedAt: datetime
+    lastSavedAt: datetime
+    lastSavedBrowserSessionId: str
+    lastSavedBrowserId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetPolicyEngineResponseTypeDef(TypedDict):
     policyEngineId: str
     name: str
@@ -1708,6 +1784,12 @@ class ListAgentRuntimesResponseTypeDef(TypedDict):
 
 class ListApiKeyCredentialProvidersResponseTypeDef(TypedDict):
     credentialProviders: list[ApiKeyCredentialProviderItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListBrowserProfilesResponseTypeDef(TypedDict):
+    profileSummaries: list[BrowserProfileSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2059,6 +2141,10 @@ class ListAgentRuntimesRequestPaginateTypeDef(TypedDict):
 
 
 class ListApiKeyCredentialProvidersRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListBrowserProfilesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 

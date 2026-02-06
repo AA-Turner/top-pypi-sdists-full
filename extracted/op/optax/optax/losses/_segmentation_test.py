@@ -16,14 +16,13 @@
 
 from absl.testing import absltest
 from absl.testing import parameterized
-import chex
 import jax
 import jax.numpy as jnp
 import numpy as np
 from optax.losses import _segmentation
 
 
-class DiceLossTest(chex.TestCase):
+class DiceLossTest(parameterized.TestCase):
 
   def setUp(self):
     super().setUp()
@@ -334,10 +333,9 @@ class DiceLossTest(chex.TestCase):
         self.key, 0.5, (2, 16, 16, 2)
     )  # Wrong classes
 
-    with self.assertRaises(AssertionError):
+    with self.assertRaises(ValueError):
       _segmentation.dice_loss(predictions, targets)
 
-  @chex.all_variants
   def test_jit_compilation(self):
     """Test that the function can be JIT compiled."""
     # Use simpler shapes to avoid dynamic reshape issues
@@ -350,20 +348,19 @@ class DiceLossTest(chex.TestCase):
     loss_no_jit = _segmentation.dice_loss(predictions, targets)
 
     # Test with JIT
-    jit_loss_fn = self.variant(_segmentation.dice_loss)
+    jit_loss_fn = jax.jit(_segmentation.dice_loss)
     loss_jit = jit_loss_fn(predictions, targets)
 
     # Should be approximately equal
     np.testing.assert_allclose(loss_no_jit, loss_jit, rtol=1e-6)
 
-  @chex.all_variants
   def test_vmap_compatibility(self):
     """Test that the function works with vmap."""
 
     def single_loss(pred, target):
       return _segmentation.dice_loss(pred[None, ...], target[None, ...])
 
-    batched_loss = self.variant(jax.vmap(single_loss))
+    batched_loss = jax.jit(jax.vmap(single_loss))
 
     predictions = jax.random.normal(
         self.key, (4, 4, 1)
@@ -417,6 +414,59 @@ class DiceLossTest(chex.TestCase):
     )
     # Should be the same for binary case
     self.assertTrue(jnp.allclose(loss_binary_with_bg, loss_binary_no_bg))
+
+  def test_dice_loss_weighting_parameters(self):
+    """Test Dice loss with different alpha and beta weightings."""
+    probs = jnp.array([[[0.1, 0.9], [0.8, 0.2]]])  # (1, 2, 2)
+    targets = jnp.array([[[0.0, 1.0], [1.0, 0.0]]])  # (1, 2, 2)
+    smooth = 1.0
+    alpha = 0.3
+    beta = 0.7
+
+    # Manual calculation
+    intersection = jnp.sum(probs * targets, axis=1)
+    pred_sum = jnp.sum(probs, axis=1)
+    target_sum = jnp.sum(targets, axis=1)
+
+    numerator = intersection + smooth
+    denominator = (
+        intersection
+        + alpha * (pred_sum - intersection)
+        + beta * (target_sum - intersection)
+        + smooth
+    )
+    expected_coeff = numerator / denominator
+    expected_loss_val = 1.0 - expected_coeff
+    expected_loss = jnp.mean(expected_loss_val, axis=-1)
+
+    loss = _segmentation.dice_loss(
+        probs,
+        targets,
+        smooth=smooth,
+        alpha=alpha,
+        beta=beta,
+        apply_softmax=False,
+    )
+    np.testing.assert_allclose(loss, expected_loss, rtol=1e-6)
+
+    # Test that default parameters (alpha=beta=0.5) work correctly
+    dice_loss_val = _segmentation.dice_loss(
+        probs, targets, apply_softmax=False, smooth=smooth
+    )
+    # Manual calculation for alpha=beta=0.5 to verify implementation
+    default_alpha = 0.5
+    default_beta = 0.5
+    default_numerator = intersection + smooth
+    default_denominator = (
+        intersection
+        + default_alpha * (pred_sum - intersection)
+        + default_beta * (target_sum - intersection)
+        + smooth
+    )
+    expected_default_coeff = default_numerator / default_denominator
+    expected_default_loss_val = 1.0 - expected_default_coeff
+    expected_default_loss = jnp.mean(expected_default_loss_val, axis=-1)
+    np.testing.assert_allclose(dice_loss_val, expected_default_loss, rtol=1e-6)
 
   def test_improved_shape_handling(self):
     """Test the improved shape handling for binary cases."""

@@ -34,20 +34,25 @@ __all__ = (
     "ConditionalOperatorType",
     "ContinuousBackupsStatusType",
     "ContributorInsightsActionType",
+    "ContributorInsightsEnabledWaiterName",
     "ContributorInsightsModeType",
     "ContributorInsightsStatusType",
     "DestinationStatusType",
     "DynamoDBServiceName",
+    "ExportCompletedWaiterName",
     "ExportFormatType",
     "ExportStatusType",
     "ExportTypeType",
     "ExportViewTypeType",
+    "GlobalTableSettingsReplicationModeType",
     "GlobalTableStatusType",
+    "ImportCompletedWaiterName",
     "ImportStatusType",
     "IndexStatusType",
     "InputCompressionTypeType",
     "InputFormatType",
     "KeyTypeType",
+    "KinesisStreamingDestinationActiveWaiterName",
     "ListBackupsPaginatorName",
     "ListTablesPaginatorName",
     "ListTagsOfResourcePaginatorName",
@@ -118,21 +123,26 @@ ComparisonOperatorType = Literal[
 ConditionalOperatorType = Literal["AND", "OR"]
 ContinuousBackupsStatusType = Literal["DISABLED", "ENABLED"]
 ContributorInsightsActionType = Literal["DISABLE", "ENABLE"]
+ContributorInsightsEnabledWaiterName = Literal["contributor_insights_enabled"]
 ContributorInsightsModeType = Literal["ACCESSED_AND_THROTTLED_KEYS", "THROTTLED_KEYS"]
 ContributorInsightsStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING", "FAILED"]
 DestinationStatusType = Literal[
     "ACTIVE", "DISABLED", "DISABLING", "ENABLE_FAILED", "ENABLING", "UPDATING"
 ]
+ExportCompletedWaiterName = Literal["export_completed"]
 ExportFormatType = Literal["DYNAMODB_JSON", "ION"]
 ExportStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
 ExportTypeType = Literal["FULL_EXPORT", "INCREMENTAL_EXPORT"]
 ExportViewTypeType = Literal["NEW_AND_OLD_IMAGES", "NEW_IMAGE"]
+GlobalTableSettingsReplicationModeType = Literal["DISABLED", "ENABLED", "ENABLED_WITH_OVERRIDES"]
 GlobalTableStatusType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
+ImportCompletedWaiterName = Literal["import_completed"]
 ImportStatusType = Literal["CANCELLED", "CANCELLING", "COMPLETED", "FAILED", "IN_PROGRESS"]
 IndexStatusType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
 InputCompressionTypeType = Literal["GZIP", "NONE", "ZSTD"]
 InputFormatType = Literal["CSV", "DYNAMODB_JSON", "ION"]
 KeyTypeType = Literal["HASH", "RANGE"]
+KinesisStreamingDestinationActiveWaiterName = Literal["kinesis_streaming_destination_active"]
 ListBackupsPaginatorName = Literal["list_backups"]
 ListTablesPaginatorName = Literal["list_tables"]
 ListTagsOfResourcePaginatorName = Literal["list_tags_of_resource"]
@@ -599,7 +609,14 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal["list_backups", "list_tables", "list_tags_of_resource", "query", "scan"]
-WaiterName = Literal["table_exists", "table_not_exists"]
+WaiterName = Literal[
+    "contributor_insights_enabled",
+    "export_completed",
+    "import_completed",
+    "kinesis_streaming_destination_active",
+    "table_exists",
+    "table_not_exists",
+]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",

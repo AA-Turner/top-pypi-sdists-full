@@ -18,21 +18,21 @@ class ListAssetsByUsageResponse200ItemItem:
     Attributes:
         path (str):
         kind (ListAssetsByUsageResponse200ItemItemKind):
-        access_type (Union[Unset, ListAssetsByUsageResponse200ItemItemAccessType]):
+        access_type (Union[Unset, None, ListAssetsByUsageResponse200ItemItemAccessType]):
     """
 
     path: str
     kind: ListAssetsByUsageResponse200ItemItemKind
-    access_type: Union[Unset, ListAssetsByUsageResponse200ItemItemAccessType] = UNSET
+    access_type: Union[Unset, None, ListAssetsByUsageResponse200ItemItemAccessType] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         path = self.path
         kind = self.kind.value
 
-        access_type: Union[Unset, str] = UNSET
+        access_type: Union[Unset, None, str] = UNSET
         if not isinstance(self.access_type, Unset):
-            access_type = self.access_type.value
+            access_type = self.access_type.value if self.access_type else None
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -55,8 +55,10 @@ class ListAssetsByUsageResponse200ItemItem:
         kind = ListAssetsByUsageResponse200ItemItemKind(d.pop("kind"))
 
         _access_type = d.pop("access_type", UNSET)
-        access_type: Union[Unset, ListAssetsByUsageResponse200ItemItemAccessType]
-        if isinstance(_access_type, Unset):
+        access_type: Union[Unset, None, ListAssetsByUsageResponse200ItemItemAccessType]
+        if _access_type is None:
+            access_type = None
+        elif isinstance(_access_type, Unset):
             access_type = UNSET
         else:
             access_type = ListAssetsByUsageResponse200ItemItemAccessType(_access_type)

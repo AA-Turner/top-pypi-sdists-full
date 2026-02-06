@@ -1,8 +1,9 @@
-#[cfg(any(feature = "git", feature = "git-lfs"))]
+#[cfg(any(feature = "test-git", feature = "test-git-lfs"))]
 use std::collections::BTreeSet;
 use std::process::Command;
 
 use anyhow::Result;
+use assert_cmd::assert::OutputAssertExt;
 use assert_fs::{
     assert::PathAssert,
     fixture::{FileTouch, FileWriteStr, PathChild},
@@ -180,15 +181,20 @@ fn tool_install() {
 }
 
 #[test]
-fn tool_install_with_global_python() -> Result<()> {
-    let context = TestContext::new_with_versions(&["3.11", "3.12"])
+fn tool_install_python_from_global_version_file() {
+    let context = TestContext::new_with_versions(&["3.11", "3.12", "3.13"])
         .with_filtered_counts()
         .with_filtered_exe_suffix();
     let tool_dir = context.temp_dir.child("tools");
     let bin_dir = context.temp_dir.child("bin");
-    let uv = context.user_config_dir.child("uv");
-    let versions = uv.child(".python-version");
-    versions.write_str("3.11")?;
+
+    // Pin to 3.12
+    context
+        .python_pin()
+        .arg("3.12")
+        .arg("--global")
+        .assert()
+        .success();
 
     // Install a tool
     uv_snapshot!(context.filters(), context.tool_install()
@@ -214,12 +220,145 @@ fn tool_install_with_global_python() -> Result<()> {
     Installed 1 executable: flask
     ");
 
-    tool_dir.child("flask").assert(predicate::path::is_dir());
-    assert!(
-        bin_dir
-            .child(format!("flask{}", std::env::consts::EXE_SUFFIX))
-            .exists()
-    );
+    // It should use the version from the global file
+    uv_snapshot!(context.filters(), Command::new("flask").arg("--version").env(EnvVars::PATH, bin_dir.as_os_str()), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    Python 3.12.[X]
+    Flask 3.0.2
+    Werkzeug 3.0.1
+
+    ----- stderr -----
+    ");
+
+    // Change global version
+    context
+        .python_pin()
+        .arg("3.13")
+        .arg("--global")
+        .assert()
+        .success();
+
+    // Installing flask again should be a no-op, even though the global pin changed
+    uv_snapshot!(context.filters(), context.tool_install()
+        .arg("flask")
+        .env(EnvVars::UV_TOOL_DIR, tool_dir.as_os_str())
+        .env(EnvVars::XDG_BIN_HOME, bin_dir.as_os_str())
+        .env(EnvVars::PATH, bin_dir.as_os_str()), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    `flask` is already installed
+    ");
+
+    uv_snapshot!(context.filters(), Command::new("flask").arg("--version").env(EnvVars::PATH, bin_dir.as_os_str()), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    Python 3.12.[X]
+    Flask 3.0.2
+    Werkzeug 3.0.1
+
+    ----- stderr -----
+    ");
+
+    // Using `--upgrade` forces us to check the environment
+    uv_snapshot!(context.filters(), context.tool_install()
+        .arg("flask")
+        .arg("--upgrade")
+        .env(EnvVars::UV_TOOL_DIR, tool_dir.as_os_str())
+        .env(EnvVars::XDG_BIN_HOME, bin_dir.as_os_str())
+        .env(EnvVars::PATH, bin_dir.as_os_str()), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved [N] packages in [TIME]
+    Audited [N] packages in [TIME]
+    Installed 1 executable: flask
+    ");
+
+    // This will not change to the new global pin, since there was not a reinstall request
+    uv_snapshot!(context.filters(), Command::new("flask").arg("--version").env(EnvVars::PATH, bin_dir.as_os_str()), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    Python 3.12.[X]
+    Flask 3.0.2
+    Werkzeug 3.0.1
+
+    ----- stderr -----
+    ");
+
+    // Using `--reinstall` forces us to install flask again
+    uv_snapshot!(context.filters(), context.tool_install()
+        .arg("flask")
+        .arg("--reinstall")
+        .env(EnvVars::UV_TOOL_DIR, tool_dir.as_os_str())
+        .env(EnvVars::XDG_BIN_HOME, bin_dir.as_os_str())
+        .env(EnvVars::PATH, bin_dir.as_os_str()), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Ignoring existing environment for `flask`: the Python interpreter does not match the environment interpreter
+    Resolved [N] packages in [TIME]
+    Prepared [N] packages in [TIME]
+    Installed [N] packages in [TIME]
+     + blinker==1.7.0
+     + click==8.1.7
+     + flask==3.0.2
+     + itsdangerous==2.1.2
+     + jinja2==3.1.3
+     + markupsafe==2.1.5
+     + werkzeug==3.0.1
+    Installed 1 executable: flask
+    ");
+
+    // This will change to the new global pin, since there was not an explicit request recorded in
+    // the receipt
+    uv_snapshot!(context.filters(), Command::new("flask").arg("--version").env(EnvVars::PATH, bin_dir.as_os_str()), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    Python 3.13.[X]
+    Flask 3.0.2
+    Werkzeug 3.0.1
+
+    ----- stderr -----
+    ");
+
+    // If we request a specific Python version, it takes precedence over the pin
+    uv_snapshot!(context.filters(), context.tool_install()
+        .arg("flask")
+        .arg("--python")
+        .arg("3.11")
+        .env(EnvVars::UV_TOOL_DIR, tool_dir.as_os_str())
+        .env(EnvVars::XDG_BIN_HOME, bin_dir.as_os_str())
+        .env(EnvVars::PATH, bin_dir.as_os_str()), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Ignoring existing environment for `flask`: the requested Python interpreter does not match the environment interpreter
+    Resolved [N] packages in [TIME]
+    Prepared [N] packages in [TIME]
+    Installed [N] packages in [TIME]
+     + blinker==1.7.0
+     + click==8.1.7
+     + flask==3.0.2
+     + itsdangerous==2.1.2
+     + jinja2==3.1.3
+     + markupsafe==2.1.5
+     + werkzeug==3.0.1
+    Installed 1 executable: flask
+    ");
 
     uv_snapshot!(context.filters(), Command::new("flask").arg("--version").env(EnvVars::PATH, bin_dir.as_os_str()), @"
     success: true
@@ -232,19 +371,7 @@ fn tool_install_with_global_python() -> Result<()> {
     ----- stderr -----
     ");
 
-    // Change global version
-    uv_snapshot!(context.filters(), context.python_pin().arg("3.12").arg("--global"),
-        @"
-    success: true
-    exit_code: 0
-    ----- stdout -----
-    Updated `[UV_USER_CONFIG_DIR]/.python-version` from `3.11` -> `3.12`
-
-    ----- stderr -----
-    "
-    );
-
-    // Install flask again
+    // Use `--reinstall` to install flask again
     uv_snapshot!(context.filters(), context.tool_install()
         .arg("flask")
         .arg("--reinstall")
@@ -270,8 +397,7 @@ fn tool_install_with_global_python() -> Result<()> {
     Installed 1 executable: flask
     ");
 
-    // Currently, when reinstalling a tool we use the original version the tool
-    // was installed with, not the most up-to-date global version
+    // We should continue to use the version from the install, not the global pin
     uv_snapshot!(context.filters(), Command::new("flask").arg("--version").env(EnvVars::PATH, bin_dir.as_os_str()), @"
     success: true
     exit_code: 0
@@ -282,8 +408,6 @@ fn tool_install_with_global_python() -> Result<()> {
 
     ----- stderr -----
     ");
-
-    Ok(())
 }
 
 #[test]
@@ -1821,7 +1945,7 @@ fn tool_install_unnamed_package() {
 
 /// Test installing a tool with a Git requirement.
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn tool_install_git() {
     let context = TestContext::new("3.12").with_filtered_exe_suffix();
     let tool_dir = context.temp_dir.child("tools");
@@ -1916,7 +2040,7 @@ fn tool_install_git() {
 
 /// Test installing a tool with a Git LFS enabled requirement.
 #[test]
-#[cfg(feature = "git-lfs")]
+#[cfg(feature = "test-git-lfs")]
 fn tool_install_git_lfs() {
     let context = TestContext::new("3.13")
         .with_filtered_exe_suffix()
@@ -1957,7 +2081,7 @@ fn tool_install_git_lfs() {
     // Verify a successful LFS request
     uv_snapshot!(context.filters(), context.tool_install()
         .arg("--lfs")
-        .arg("test-lfs-repo @ git+https://github.com/astral-sh/test-lfs-repo@c6d77ab63d91104f32ab5e5ae2943f4d26ff875f")
+        .arg("test-lfs-repo @ git+https://github.com/astral-sh/test-lfs-repo@54e5eebd3c6851b1353fc7b1e5b4eca11e27581c")
         .env(EnvVars::UV_TOOL_DIR, tool_dir.as_os_str())
         .env(EnvVars::XDG_BIN_HOME, bin_dir.as_os_str())
         .env(EnvVars::PATH, path.as_os_str()), @"
@@ -1969,7 +2093,7 @@ fn tool_install_git_lfs() {
     Resolved 1 package in [TIME]
     Prepared 1 package in [TIME]
     Installed 1 package in [TIME]
-     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo@c6d77ab63d91104f32ab5e5ae2943f4d26ff875f#lfs=true)
+     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo@54e5eebd3c6851b1353fc7b1e5b4eca11e27581c#lfs=true)
     Installed 2 executables: test-lfs-repo, test-lfs-repo-assets
     ");
 
@@ -1990,7 +2114,7 @@ fn tool_install_git_lfs() {
         // We should have a tool receipt
         assert_snapshot!(fs_err::read_to_string(tool_dir.join("test-lfs-repo").join("uv-receipt.toml")).unwrap(), @r#"
         [tool]
-        requirements = [{ name = "test-lfs-repo", git = "https://github.com/astral-sh/test-lfs-repo?lfs=true&rev=c6d77ab63d91104f32ab5e5ae2943f4d26ff875f" }]
+        requirements = [{ name = "test-lfs-repo", git = "https://github.com/astral-sh/test-lfs-repo?lfs=true&rev=54e5eebd3c6851b1353fc7b1e5b4eca11e27581c" }]
         entrypoints = [
             { name = "test-lfs-repo", install-path = "[TEMP_DIR]/bin/test-lfs-repo", from = "test-lfs-repo" },
             { name = "test-lfs-repo-assets", install-path = "[TEMP_DIR]/bin/test-lfs-repo-assets", from = "test-lfs-repo" },
@@ -2036,7 +2160,7 @@ fn tool_install_git_lfs() {
     uv_snapshot!(filters, context.tool_install()
         .arg("--reinstall")
         .arg("--lfs")
-        .arg("test-lfs-repo @ git+https://github.com/astral-sh/test-lfs-repo@c6d77ab63d91104f32ab5e5ae2943f4d26ff875f")
+        .arg("test-lfs-repo @ git+https://github.com/astral-sh/test-lfs-repo@54e5eebd3c6851b1353fc7b1e5b4eca11e27581c")
         .env(EnvVars::UV_INTERNAL__TEST_LFS_DISABLED, "1")
         .env(EnvVars::UV_TOOL_DIR, tool_dir.as_os_str())
         .env(EnvVars::XDG_BIN_HOME, bin_dir.as_os_str())
@@ -2051,7 +2175,7 @@ fn tool_install_git_lfs() {
 
     // Attempt to install when LFS artifacts are missing but LFS was not requested.
     uv_snapshot!(context.filters(), context.tool_install()
-        .arg("test-lfs-repo @ git+https://github.com/astral-sh/test-lfs-repo@c6d77ab63d91104f32ab5e5ae2943f4d26ff875f")
+        .arg("test-lfs-repo @ git+https://github.com/astral-sh/test-lfs-repo@54e5eebd3c6851b1353fc7b1e5b4eca11e27581c")
         .env(EnvVars::UV_TOOL_DIR, tool_dir.as_os_str())
         .env(EnvVars::XDG_BIN_HOME, bin_dir.as_os_str())
         .env(EnvVars::PATH, path.as_os_str()), @"
@@ -2064,8 +2188,8 @@ fn tool_install_git_lfs() {
     Prepared 1 package in [TIME]
     Uninstalled 1 package in [TIME]
     Installed 1 package in [TIME]
-     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo@c6d77ab63d91104f32ab5e5ae2943f4d26ff875f#lfs=true)
-     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo@c6d77ab63d91104f32ab5e5ae2943f4d26ff875f)
+     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo@54e5eebd3c6851b1353fc7b1e5b4eca11e27581c#lfs=true)
+     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo@54e5eebd3c6851b1353fc7b1e5b4eca11e27581c)
     Installed 2 executables: test-lfs-repo, test-lfs-repo-assets
     ");
 

@@ -304,7 +304,16 @@ def _coerce_context(graph: Pregel, context: Any) -> Any:
         context_schema,
     )
     if isinstance(context, dict) and schema_is_class:
-        return context_schema(**_filter_context_by_schema(context, graph))
+        try:
+            return context_schema(**_filter_context_by_schema(context, graph))
+        except Exception as e:
+            # Context coercion errors (missing fields, type mismatches, validation errors)
+            # are user errors - they're caused by invalid input to the graph
+            from langgraph_grpc_common.conversion.exception import (
+                UserCodeExecutionErrorException,
+            )
+
+            raise UserCodeExecutionErrorException(e, node_name=None) from e
 
     return context
 

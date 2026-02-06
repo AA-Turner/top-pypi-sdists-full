@@ -10,6 +10,10 @@ import threading
 from snowflake.snowpark_connect.utils.spcs_logger import setup_spcs_logger
 
 if __name__ == "__main__":
+    """
+    This script is now only used by snowpark-submit server container. It shouldn't be exposed to users.
+    """
+
     from snowflake.snowpark_connect.server import start_session
     from snowflake.snowpark_connect.utils.snowpark_connect_logging import (
         ensure_logger_has_handler,
@@ -54,19 +58,17 @@ if __name__ == "__main__":
     # Set up the logger based on environment
     if not args.disable_spcs_log_format:
         # Initialize SPCS log format when running in Snowpark Container Services (default)
-        logger = setup_spcs_logger(
+        setup_spcs_logger(
             log_level=log_level,
             enable_console_output=False,  # Shows human-readable logs to stderr
         )
-    else:
-        for logger_name in loggers_to_configure:
-            target_logger = logging.getLogger(logger_name)
-            target_logger.handlers.clear()
-            configured_logger = ensure_logger_has_handler(
-                logger_name, log_level, force_level=True
-            )
-        # Get the logger for use in signal handlers
-        logger = logging.getLogger("snowflake_connect_server")
+
+    for logger_name in loggers_to_configure:
+        target_logger = logging.getLogger(logger_name)
+        target_logger.handlers.clear()
+        configured_logger = ensure_logger_has_handler(
+            logger_name, log_level, force_level=True
+        )
 
     # Create stop_event and optionally set up signal handlers in start_server
     stop_event = threading.Event()

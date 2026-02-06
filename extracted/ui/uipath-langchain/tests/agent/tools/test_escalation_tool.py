@@ -15,6 +15,8 @@ from uipath.agent.models.agent import (
 from uipath.platform.action_center.tasks import TaskRecipient, TaskRecipientType
 
 from uipath_langchain.agent.tools.escalation_tool import (
+    _get_user_email,
+    _parse_task_data,
     create_escalation_tool,
     resolve_asset,
     resolve_recipient_value,
@@ -509,6 +511,9 @@ class TestEscalationToolOutputSchema:
         """Test that tool properly processes and validates results."""
         # Mock interrupt to return a proper result object with action and data
         mock_result = MagicMock()
+        mock_result.id = 123
+        mock_result.key = None
+        mock_result.assigned_to_user = None
         mock_result.action = "approve"
         mock_result.data = {}
         mock_interrupt.return_value = mock_result
@@ -519,9 +524,11 @@ class TestEscalationToolOutputSchema:
         # Invoke through the wrapper
         result = await tool.awrapper(tool, call, {})  # type: ignore[attr-defined]
 
-        # Should successfully process the result
+        # Should successfully process the result with task info
         assert isinstance(result, dict)
-        assert result == {}
+        assert result["outcome"] == "approve"
+        assert result["task_id"] == 123
+        assert result["assigned_to"] is None
 
     @pytest.mark.asyncio
     @patch("uipath_langchain.agent.tools.escalation_tool.interrupt")
@@ -546,14 +553,19 @@ class TestEscalationToolOutputSchema:
 
     @pytest.mark.asyncio
     @patch("uipath_langchain.agent.tools.escalation_tool.interrupt")
-    async def test_escalation_tool_with_outcome_mapping(self, mock_interrupt):
-        """Test escalation tool with outcome mapping for actions."""
+    async def test_escalation_tool_with_outcome_mapping_end(self, mock_interrupt):
+        """Test escalation tool with outcome mapping that ends agent."""
+        from uipath_langchain.agent.exceptions import AgentTerminationException
+
         mock_result = MagicMock()
+        mock_result.id = 456
+        mock_result.key = None
+        mock_result.assigned_to_user = None
         mock_result.action = "approve"
         mock_result.data = {"approved": True}
         mock_interrupt.return_value = mock_result
 
-        # Create resource with outcome mapping
+        # Create resource with outcome mapping where approve -> end
         channel_dict = {
             "name": "action_center",
             "type": "actionCenter",
@@ -578,8 +590,141 @@ class TestEscalationToolOutputSchema:
         tool = create_escalation_tool(resource)
         call = ToolCall(args={}, id="test-call", name=tool.name)
 
-        # Invoke through the wrapper
-        await tool.awrapper(tool, call, {})  # type: ignore[attr-defined]
+        # Invoke through the wrapper - should raise AgentTerminationException
+        with pytest.raises(AgentTerminationException):
+            await tool.awrapper(tool, call, {})  # type: ignore[attr-defined]
 
-        # Verify interrupt was called with approval action
         assert mock_interrupt.called
+
+
+class TestGetUserEmail:
+    """Test the _get_user_email helper function."""
+
+    def test_none_returns_none(self):
+        """Test that None input returns None."""
+        assert _get_user_email(None) is None
+
+    def test_dict_with_email_address(self):
+        """Test extraction from dict with emailAddress field."""
+        user = {"emailAddress": "test@example.com", "name": "Test"}
+        assert _get_user_email(user) == "test@example.com"
+
+    def test_dict_without_email_address(self):
+        """Test dict without emailAddress returns None."""
+        user = {"name": "Test", "id": 123}
+        assert _get_user_email(user) is None
+
+    def test_object_with_email_address(self):
+        """Test extraction from object with emailAddress attribute."""
+        user = MagicMock(emailAddress="test@example.com")
+        assert _get_user_email(user) == "test@example.com"
+
+    def test_object_without_email_address(self):
+        """Test object without emailAddress attribute returns None."""
+        user = MagicMock(spec=["name", "id"])
+        assert _get_user_email(user) is None
+
+
+class TestEscalationToolTaskInfo:
+    """Test that escalation tool extracts task_id and assigned_to."""
+
+    @pytest.fixture
+    def escalation_resource(self):
+        """Create a minimal escalation tool resource config."""
+        return AgentEscalationResourceConfig(
+            name="approval",
+            description="Request approval",
+            channels=[
+                AgentEscalationChannel(
+                    name="action_center",
+                    type="actionCenter",
+                    description="Action Center channel",
+                    input_schema={"type": "object", "properties": {}},
+                    output_schema={"type": "object", "properties": {}},
+                    properties=AgentEscalationChannelProperties(
+                        app_name="ApprovalApp",
+                        app_version=1,
+                        resource_key="test-key",
+                    ),
+                    recipients=[],
+                )
+            ],
+        )
+
+    @pytest.mark.asyncio
+    @patch("uipath_langchain.agent.tools.escalation_tool.interrupt")
+    async def test_wrapper_returns_task_id_and_assigned_to(
+        self, mock_interrupt, escalation_resource
+    ):
+        """Test that wrapper result includes task_id and assigned_to from Task."""
+        mock_result = MagicMock()
+        mock_result.id = 12345
+        mock_result.key = None
+        mock_result.assigned_to_user = {"emailAddress": "user@example.com"}
+        mock_result.action = "approve"
+        mock_result.data = {"reason": "looks good"}
+        mock_interrupt.return_value = mock_result
+
+        tool = create_escalation_tool(escalation_resource)
+        call = ToolCall(args={}, id="test-call", name=tool.name)
+        result = await tool.awrapper(tool, call, {})  # type: ignore[attr-defined]
+
+        assert result["task_id"] == 12345
+        assert result["assigned_to"] == "user@example.com"
+        assert result["outcome"] == "approve"
+
+    @pytest.mark.asyncio
+    @patch("uipath_langchain.agent.tools.escalation_tool.interrupt")
+    async def test_wrapper_handles_missing_assigned_to_user(
+        self, mock_interrupt, escalation_resource
+    ):
+        """Test that wrapper handles None assigned_to_user gracefully."""
+        mock_result = MagicMock()
+        mock_result.id = 99999
+        mock_result.key = None
+        mock_result.assigned_to_user = None
+        mock_result.action = "reject"
+        mock_result.data = {}
+        mock_interrupt.return_value = mock_result
+
+        tool = create_escalation_tool(escalation_resource)
+        call = ToolCall(args={}, id="test-call", name=tool.name)
+        result = await tool.awrapper(tool, call, {})  # type: ignore[attr-defined]
+
+        assert result["task_id"] == 99999
+        assert result["assigned_to"] is None
+
+
+class TestParseTaskData:
+    """Test output task data is filtered correctly."""
+
+    def test_filters_input_fields_when_no_output_schema(self):
+        """Test that input fields are excluded when output_schema is None."""
+        data = {"input_field": "value1", "output_field": "value2"}
+        input_schema = {"properties": {"input_field": {"type": "string"}}}
+
+        result = _parse_task_data(data, input_schema, output_schema=None)
+
+        assert result == {"output_field": "value2"}
+        assert "input_field" not in result
+
+    def test_includes_only_output_fields_when_output_schema_provided(self):
+        """Test that only output schema fields are included."""
+        data = {"field1": "a", "field2": "b", "field3": "c"}
+        input_schema = {"properties": {"field1": {"type": "string"}}}
+        output_schema = {
+            "properties": {"field1": {"type": "string"}, "field2": {"type": "string"}}
+        }
+
+        result = _parse_task_data(data, input_schema, output_schema)
+
+        assert result == {"field1": "a", "field2": "b"}
+        assert "field3" not in result
+
+    def test_handles_missing_properties_in_schemas(self):
+        """Test behavior when schemas lack 'properties' key."""
+        data = {"field": "value"}
+
+        # No properties key in schemas
+        result = _parse_task_data(data, {}, None)
+        assert result == {"field": "value"}

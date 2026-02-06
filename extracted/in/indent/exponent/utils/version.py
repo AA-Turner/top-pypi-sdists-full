@@ -26,11 +26,7 @@ class _UpgradeState:
 def get_python_path() -> str:
     """Get the path to the Python interpreter."""
     try:
-        return (
-            subprocess.check_output(["which", "python"])
-            .decode(errors="replace")
-            .strip()
-        )
+        return subprocess.check_output(["which", "python"]).decode(errors="replace").strip()
     except Exception:
         return "unknown"
 
@@ -85,11 +81,7 @@ def get_latest_pypi_exponent_version() -> str | None:
     try:
         return cast(
             str,
-            (
-                Client()
-                .get("https://pypi.org/pypi/indent/json")
-                .json()["info"]["version"]
-            ),
+            (Client().get("https://pypi.org/pypi/indent/json").json()["info"]["version"]),
         )
     except (HTTPError, JSONDecodeError, KeyError):
         click.secho(
@@ -113,9 +105,7 @@ def check_exponent_version() -> tuple[str, str] | None:
         click.secho("Unable to determine current Indent version.", fg="yellow")
         return None
 
-    if (latest_version := get_latest_pypi_exponent_version()) and Version(
-        latest_version
-    ) > Version(installed_version):
+    if (latest_version := get_latest_pypi_exponent_version()) and Version(latest_version) > Version(installed_version):
         return installed_version, latest_version
 
     return None
@@ -141,7 +131,9 @@ def _get_upgrade_command_str(version: str) -> str:
 
 
 def _new_version_str(current_version: str, new_version: str) -> str:
-    return f"\n{click.style('A new Indent version is available:', fg='cyan')} {new_version} (current: {current_version})\n"
+    return (
+        f"\n{click.style('A new Indent version is available:', fg='cyan')} {new_version} (current: {current_version})\n"
+    )
 
 
 def _windows_new_version_str(current_version: str, new_version: str) -> str:
@@ -192,9 +184,7 @@ def upgrade_exponent(
         click.echo(f"New version available: {new_version}")
 
     click.secho("Upgrading...", bold=True, fg="yellow")
-    result = subprocess.run(
-        upgrade_command, capture_output=True, text=True, check=False
-    )
+    result = subprocess.run(upgrade_command, capture_output=True, text=True, check=False)
 
     click.echo(result.stdout)
     click.echo(result.stderr)

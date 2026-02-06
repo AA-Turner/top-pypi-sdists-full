@@ -1,7 +1,7 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Reformulation of for loop statements.
+"""Reformulation of for loop statements.
 
 Consult the Developer Manual for information. TODO: Add ability to sync
 source code comments with Developer Manual sections.
@@ -56,6 +56,7 @@ def _buildForLoopNode(provider, node, sync, source_ref):
         temp_scope=temp_scope, name="iter_value", temp_type="object"
     )
 
+    # ast naming, spell-checker: ignore orelse
     else_block = buildStatementsNode(
         provider=provider,
         nodes=node.orelse if node.orelse else None,
@@ -202,11 +203,11 @@ def buildAsyncForLoopNode(provider, node, source_ref):
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

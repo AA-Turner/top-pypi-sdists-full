@@ -1343,6 +1343,20 @@ class CSSLBuiltins:
                     if hex(id(val)) == addr:
                         return val
             return addr
+        elif isinstance(addr, int):
+            # v4.9.11: Support reflect(0x7ff89b1f5618) - hex int literal as address
+            addr_str = hex(addr)
+            result = Address._registry.get(addr_str)
+            if result is not None:
+                return result
+            if self.runtime:
+                for name, val in self.runtime.scope.variables.items():
+                    if id(val) == addr:
+                        return val
+                for name, val in self.runtime.global_scope.variables.items():
+                    if id(val) == addr:
+                        return val
+            return Address(address_str=addr_str)
         else:
             # v4.9.3: Safe passthrough - value is already dereferenced
             return addr

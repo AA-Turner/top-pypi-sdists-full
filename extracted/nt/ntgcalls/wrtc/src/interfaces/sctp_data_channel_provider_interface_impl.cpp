@@ -40,6 +40,8 @@ namespace wrtc {
     SctpDataChannelProviderInterfaceImpl::~SctpDataChannelProviderInterfaceImpl() {
         assert(networkThread->IsCurrent());
         weakFactory.InvalidateWeakPtrs();
+        onStateChangedCallback = nullptr;
+        onMessageReceivedCallback = nullptr;
         dataChannel->UnregisterObserver();
         dataChannel->Close();
         dataChannel = nullptr;
@@ -86,9 +88,10 @@ namespace wrtc {
         return sctpTransport->SendData(sid.stream_id_int(), params, payload);
     }
 
-    void SctpDataChannelProviderInterfaceImpl::AddSctpDataStream(const webrtc::StreamId sid, const webrtc::PriorityValue priority) {
+    webrtc::RTCError SctpDataChannelProviderInterfaceImpl::AddSctpDataStream(const webrtc::StreamId sid, const webrtc::PriorityValue priority) {
         assert(networkThread->IsCurrent());
         sctpTransport->OpenStream(sid.stream_id_int(), priority);
+        return webrtc::RTCError::OK();
     }
 
     void SctpDataChannelProviderInterfaceImpl::RemoveSctpDataStream(webrtc::StreamId sid) {

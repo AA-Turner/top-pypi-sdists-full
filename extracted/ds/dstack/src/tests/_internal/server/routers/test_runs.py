@@ -48,6 +48,7 @@ from dstack._internal.server.models import JobModel, RunModel
 from dstack._internal.server.schemas.runs import ApplyRunPlanRequest
 from dstack._internal.server.services.projects import add_project_member
 from dstack._internal.server.services.runs import run_model_to_run
+from dstack._internal.server.services.runs.spec import validate_run_spec_and_set_defaults
 from dstack._internal.server.testing.common import (
     create_backend,
     create_fleet,
@@ -63,6 +64,7 @@ from dstack._internal.server.testing.common import (
     get_fleet_spec,
     get_job_provisioning_data,
     get_run_spec,
+    list_events,
 )
 from dstack._internal.server.testing.matchers import SomeUUID4Str
 from tests._internal.server.background.tasks.test_process_running_jobs import settings
@@ -939,6 +941,53 @@ class TestListRuns:
             },
         ]
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "client_version,expected_probes",
+        [
+            ("0.20.7", []),
+            ("0.20.8", None),
+            (None, None),
+        ],
+    )
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_patches_service_configuration_probes_for_old_clients(
+        self,
+        test_db,
+        session: AsyncSession,
+        client: AsyncClient,
+        client_version: Optional[str],
+        expected_probes: Optional[list],
+    ) -> None:
+        user = await create_user(session=session)
+        project = await create_project(session=session, owner=user)
+        repo = await create_repo(session=session, project_id=project.id)
+
+        service_conf = ServiceConfiguration(
+            commands=["echo hello"],
+            port=80,
+            probes=None,  # This should be patched to [] for clients prior to 0.20.8
+        )
+        run_spec = get_run_spec(
+            configuration=service_conf,
+            repo_id=repo.name,
+        )
+        await create_run(session=session, project=project, repo=repo, user=user, run_spec=run_spec)
+
+        headers = get_auth_headers(user.token)
+        if client_version is not None:
+            headers["X-API-Version"] = client_version
+        response = await client.post(
+            "/api/runs/list",
+            headers=headers,
+            json={"project_name": project.name},
+        )
+
+        assert response.status_code == 200
+        runs_list = response.json()
+        assert len(runs_list) == 1
+        assert runs_list[0]["run_spec"]["configuration"]["probes"] == expected_probes
+
 
 class TestGetRun:
     @pytest.mark.asyncio
@@ -1017,6 +1066,53 @@ class TestGetRun:
         )
         assert response.status_code == 200, response.json()
         assert response.json()["id"] == str(run.id)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "client_version,expected_probes",
+        [
+            ("0.20.7", []),
+            ("0.20.8", None),
+            (None, None),
+        ],
+    )
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_patches_service_configuration_probes_for_old_clients(
+        self,
+        test_db,
+        session: AsyncSession,
+        client: AsyncClient,
+        client_version: Optional[str],
+        expected_probes: Optional[list],
+    ) -> None:
+        user = await create_user(session=session)
+        project = await create_project(session=session, owner=user)
+        repo = await create_repo(session=session, project_id=project.id)
+
+        service_conf = ServiceConfiguration(
+            commands=["echo hello"],
+            port=80,
+            probes=None,  # This should be patched to [] for clients prior to 0.20.8
+        )
+        run_spec = get_run_spec(
+            configuration=service_conf,
+            repo_id=repo.name,
+        )
+        run = await create_run(
+            session=session, project=project, repo=repo, user=user, run_spec=run_spec
+        )
+
+        headers = get_auth_headers(user.token)
+        if client_version is not None:
+            headers["X-API-Version"] = client_version
+        response = await client.post(
+            f"/api/project/{project.name}/runs/get",
+            headers=headers,
+            json={"run_name": run.run_name},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["run_spec"]["configuration"]["probes"] == expected_probes
 
 
 class TestGetRunPlan:
@@ -1475,6 +1571,65 @@ class TestGetRunPlan:
         assert user.ssh_public_key == run_spec_ssh_public_key
         assert user.ssh_private_key is not None
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "client_version,expected_probes",
+        [
+            ("0.20.7", []),
+            ("0.20.8", None),
+            (None, None),
+        ],
+    )
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_patches_service_configuration_probes_for_old_clients(
+        self,
+        test_db,
+        session: AsyncSession,
+        client: AsyncClient,
+        client_version: Optional[str],
+        expected_probes: Optional[list],
+    ) -> None:
+        user = await create_user(session=session)
+        project = await create_project(session=session, owner=user)
+        repo = await create_repo(session=session, project_id=project.id)
+
+        service_conf = ServiceConfiguration(
+            commands=["echo hello"],
+            port=80,
+            probes=None,  # This should be patched to [] for clients prior to 0.20.8
+        )
+        run_spec = get_run_spec(
+            run_name="test-service",
+            configuration=service_conf,
+            repo_id=repo.name,
+        )
+        await create_run(
+            session=session,
+            project=project,
+            repo=repo,
+            user=user,
+            run_spec=run_spec,
+            run_name="test-service",
+        )
+
+        body = {"run_spec": run_spec.dict()}
+        headers = get_auth_headers(user.token)
+        if client_version is not None:
+            headers["X-API-Version"] = client_version
+        response = await client.post(
+            f"/api/project/{project.name}/runs/get_plan",
+            headers=headers,
+            json=body,
+        )
+
+        assert response.status_code == 200
+        run_plan = response.json()
+        assert run_plan["run_spec"]["configuration"]["probes"] == expected_probes
+        assert run_plan["effective_run_spec"]["configuration"]["probes"] == expected_probes
+        assert (
+            run_plan["current_resource"]["run_spec"]["configuration"]["probes"] == expected_probes
+        )
+
 
 class TestApplyPlan:
     @pytest.mark.asyncio
@@ -1548,6 +1703,7 @@ class TestApplyPlan:
         repo = await create_repo(session=session, project_id=project.id)
         run_spec = get_run_spec(
             run_name="test-service",
+            configuration_path="old.dstack.yml",
             repo_id=repo.name,
             configuration=ServiceConfiguration(
                 type="service",
@@ -1556,6 +1712,8 @@ class TestApplyPlan:
                 replicas=Range(min=1, max=1),
             ),
         )
+        # set defaults to avoid phantom changes being detected
+        validate_run_spec_and_set_defaults(user, run_spec)
         run_model = await create_run(
             session=session,
             project=project,
@@ -1565,6 +1723,7 @@ class TestApplyPlan:
             run_spec=run_spec,
         )
         run = run_model_to_run(run_model)
+        run_spec.configuration_path = "new.dstack.yml"
         run_spec.configuration.replicas = Range(min=2, max=2)
         response = await client.post(
             f"/api/project/{project.name}/runs/apply",
@@ -1585,8 +1744,15 @@ class TestApplyPlan:
         updated_run = run_model_to_run(run_model)
         assert run.deployment_num == 0
         assert updated_run.deployment_num == 1
+        assert run.run_spec.configuration_path == "old.dstack.yml"
+        assert updated_run.run_spec.configuration_path == "new.dstack.yml"
         assert run.run_spec.configuration.replicas == Range(min=1, max=1)
         assert updated_run.run_spec.configuration.replicas == Range(min=2, max=2)
+        events = await list_events(session)
+        assert len(events) == 1
+        assert events[0].message == (
+            "Run updated. Deployment: 1. Changed fields: configuration_path, configuration.replicas"
+        )
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
@@ -1654,6 +1820,57 @@ class TestApplyPlan:
         await session.refresh(user)
         assert user.ssh_public_key == run_spec_ssh_public_key
         assert user.ssh_private_key is not None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "client_version,expected_probes",
+        [
+            ("0.20.7", []),  # Prior to 0.20.8, probes=None should be patched to []
+            ("0.20.8", None),  # 0.20.8 and later should keep probes=None
+            (None, None),  # None client version should keep probes=None
+        ],
+    )
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_patches_service_configuration_probes_for_old_clients(
+        self,
+        test_db,
+        session: AsyncSession,
+        client: AsyncClient,
+        client_version: Optional[str],
+        expected_probes: Optional[list],
+    ) -> None:
+        user = await create_user(session=session)
+        project = await create_project(session=session, owner=user)
+        repo = await create_repo(session=session, project_id=project.id)
+
+        service_conf = ServiceConfiguration(
+            commands=["echo hello"],
+            port=80,
+            probes=None,  # This should be patched to [] for clients prior to 0.20.8
+        )
+        run_spec = get_run_spec(
+            run_name="test-service",
+            configuration=service_conf,
+            repo_id=repo.name,
+        )
+
+        headers = get_auth_headers(user.token)
+        if client_version is not None:
+            headers["X-API-Version"] = client_version
+        response = await client.post(
+            f"/api/project/{project.name}/runs/apply",
+            headers=headers,
+            json={
+                "plan": {
+                    "run_spec": run_spec.dict(),
+                    "current_resource": None,
+                },
+                "force": False,
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["run_spec"]["configuration"]["probes"] == expected_probes
 
 
 class TestSubmitRun:
@@ -2085,6 +2302,7 @@ class TestSubmitService:
             "specified_gateway_in_run_conf",
             "expected_service_url",
             "expected_model_url",
+            "is_gateway",
         ),
         [
             pytest.param(
@@ -2092,6 +2310,7 @@ class TestSubmitService:
                 None,
                 "https://test-service.default-gateway.example",
                 "https://gateway.default-gateway.example",
+                True,
                 id="submits-to-default-gateway",
             ),
             pytest.param(
@@ -2099,6 +2318,7 @@ class TestSubmitService:
                 True,
                 "https://test-service.default-gateway.example",
                 "https://gateway.default-gateway.example",
+                True,
                 id="submits-to-default-gateway-when-gateway-true",
             ),
             pytest.param(
@@ -2106,6 +2326,7 @@ class TestSubmitService:
                 "non-default-gateway",
                 "https://test-service.non-default-gateway.example",
                 "https://gateway.non-default-gateway.example",
+                True,
                 id="submits-to-specified-gateway",
             ),
             pytest.param(
@@ -2113,6 +2334,7 @@ class TestSubmitService:
                 None,
                 "/proxy/services/test-project/test-service/",
                 "/proxy/models/test-project/",
+                False,
                 id="submits-in-server-when-no-default-gateway",
             ),
             pytest.param(
@@ -2120,6 +2342,7 @@ class TestSubmitService:
                 False,
                 "/proxy/services/test-project/test-service/",
                 "/proxy/models/test-project/",
+                False,
                 id="submits-in-server-when-specified",
             ),
         ],
@@ -2130,9 +2353,10 @@ class TestSubmitService:
         session: AsyncSession,
         client: AsyncClient,
         existing_gateways: List[Tuple[str, bool]],
-        specified_gateway_in_run_conf: str,
+        specified_gateway_in_run_conf: Union[str, bool, None],
         expected_service_url: str,
         expected_model_url: str,
+        is_gateway: bool,
     ) -> None:
         user = await create_user(session=session, global_role=GlobalRole.USER)
         project = await create_project(session=session, owner=user, name="test-project")
@@ -2171,6 +2395,8 @@ class TestSubmitService:
         assert response.status_code == 200
         assert response.json()["service"]["url"] == expected_service_url
         assert response.json()["service"]["model"]["base_url"] == expected_model_url
+        events = await list_events(session)
+        assert ("Service registered in gateway" in {e.message for e in events}) == is_gateway
 
     @pytest.mark.asyncio
     async def test_return_error_if_specified_gateway_not_exists(

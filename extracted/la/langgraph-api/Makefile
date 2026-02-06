@@ -47,6 +47,7 @@ AUTH_TEST ?= "tests/integration_tests/test_custom_auth.py"
 LANGGRAPH_HTTP ?= {"disable_mcp": false, "disable_a2a": false}
 LANGGRAPH_AES_KEY ?= '1234567890123456'
 BG_JOB_TIMEOUT_SECS ?= 3600
+CRON_SCHEDULER_SLEEP_TIME ?= 0
 RELOAD_ARGS ?= --reload --reload-dir langgraph_api --reload-dir ../runtime_inmem
 
 ifdef CI
@@ -171,6 +172,7 @@ start:
 	LANGSMITH_TRACING=$(LANGSMITH_TRACING) \
 	FF_USE_CORE_API=$(FF_USE_CORE_API) \
 	BG_JOB_TIMEOUT_SECS=$(BG_JOB_TIMEOUT_SECS) \
+	CRON_SCHEDULER_SLEEP_TIME=$(CRON_SCHEDULER_SLEEP_TIME) \
 	REDIS_URI=fake \
 	DATABASE_URI=:memory: \
 	MIGRATIONS_PATH=__inmem \
@@ -196,6 +198,7 @@ start-encrypt:
 	LANGGRAPH_CONFIG='{"agent": {"configurable": {"model_name": "openai"}}}' \
 	LANGSMITH_LANGGRAPH_API_VARIANT=test \
 	BG_JOB_TIMEOUT_SECS=$(BG_JOB_TIMEOUT_SECS) \
+	CRON_SCHEDULER_SLEEP_TIME=$(CRON_SCHEDULER_SLEEP_TIME) \
 	REDIS_URI=fake \
 	DATABASE_URI=:memory: \
 	MIGRATIONS_PATH=__inmem \

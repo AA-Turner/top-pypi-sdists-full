@@ -1,7 +1,7 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Standard plug-in to make enum module work when compiled.
+"""Standard plug-in to make enum module work when compiled.
 
 The enum module provides a free function __new__ in class dictionaries to
 manual metaclass calls. These become then unbound methods instead of static
@@ -16,8 +16,8 @@ class NuitkaPluginEnumWorkarounds(NuitkaPluginBase):
     """This is to make enum module work when compiled with Nuitka."""
 
     plugin_name = "enum-compat"
-    plugin_desc = "Required for Python2 and 'enum' package."
-    plugin_category = "package-support"
+    plugin_desc = "Required by 'enum' package on Python2."
+    plugin_category = "package-support,python2"
 
     @classmethod
     def isRelevant(cls):
@@ -51,11 +51,11 @@ Monkey patching "enum" for compiled '__new__' methods.""",
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

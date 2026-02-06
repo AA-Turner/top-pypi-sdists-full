@@ -1,13 +1,13 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Nuitka templates can have more checks that the normal '%' operation.
+"""Nuitka templates can have more checks that the normal '%' operation.
 
 This wraps strings with a class derived from "str" that does more checks.
 """
 
-from nuitka import Options
 from nuitka.__past__ import iterItems
+from nuitka.States import states
 from nuitka.Tracing import optimization_logger
 
 
@@ -60,18 +60,18 @@ def enableDebug(globals_dict):
 
 
 def checkDebug(globals_dict):
-    if Options.is_debug:
+    if states.is_debug:
         enableDebug(globals_dict)
 
 
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

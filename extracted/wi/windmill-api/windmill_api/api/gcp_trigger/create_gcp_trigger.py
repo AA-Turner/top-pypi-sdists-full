@@ -53,7 +53,8 @@ def sync_detailed(
 
     Args:
         workspace (str):
-        json_body (CreateGcpTriggerJsonBody):
+        json_body (CreateGcpTriggerJsonBody): Data for creating or updating a Google Cloud Pub/Sub
+            trigger.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -85,7 +86,8 @@ async def asyncio_detailed(
 
     Args:
         workspace (str):
-        json_body (CreateGcpTriggerJsonBody):
+        json_body (CreateGcpTriggerJsonBody): Data for creating or updating a Google Cloud Pub/Sub
+            trigger.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

@@ -338,7 +338,7 @@ async def to_image(
             w, h = map(int, mini_aspect_ratio.split(':'))
             if not (min(w / h, h / w) < img.width / img.height < max(w / h, h / w)):
                 logger.debug(f"resize: {mini_aspect_ratio}")
-                target_ratio = min(w / h, h / w) + 0.01 # mini_aspect_ratio
+                target_ratio = min(w / h, h / w) + 0.01  # mini_aspect_ratio
                 image_bytes = await image_resize(image_bytes, target_ratio=target_ratio, response_format="bytes")
 
         logger.debug(f"response_format: {response_format}")
@@ -367,8 +367,10 @@ async def do_file_data(
         return await asyncio.gather(*tasks)
 
     # 针对单文件
-    if isinstance(file, str):  # url
-        # file = file
+    if isinstance(file, str):  # url1;url2
+        if ';' in file:
+            return file.split(';')
+
         return file
 
     elif isinstance(file, UploadFile):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama_stack
-Version: 0.4.4
+Version: 0.5.0
 Summary: Llama Stack
 Author-email: Meta Llama <llama-oss@meta.com>
 License: MIT
@@ -45,8 +45,12 @@ Requires-Dist: starlette>=0.49.1
 Requires-Dist: psycopg2-binary
 Requires-Dist: tornado>=6.5.3
 Requires-Dist: urllib3>=2.6.3
+Requires-Dist: oracledb>=3.4.1
+Requires-Dist: oci>=2.165.0
+Requires-Dist: numpy>=2.3.2
+Requires-Dist: mcp>=1.23.0
 Provides-Extra: client
-Requires-Dist: llama-stack-client==0.4.4; extra == "client"
+Requires-Dist: llama-stack-client==0.5.0; extra == "client"
 Dynamic: license-file
 
 # Llama Stack
@@ -158,6 +162,7 @@ Please checkout our [Documentation](https://llamastack.github.io/docs) page for 
     * A [Zero-to-Hero Guide](https://github.com/meta-llama/llama-stack/tree/main/docs/zero_to_hero_guide) that guide you through all the key components of llama stack with code samples.
 * [Contributing](CONTRIBUTING.md)
     * [Adding a new API Provider](https://llamastack.github.io/docs/contributing/new_api_provider) to walk-through how to add a new API provider.
+    * [Release Process](RELEASE_PROCESS.md) for information about release schedules and versioning.
 
 ### Llama Stack Client SDKs
 
@@ -171,6 +176,13 @@ Check out our client SDKs for connecting to a Llama Stack server in your preferr
 | Kotlin | [llama-stack-client-kotlin](https://github.com/meta-llama/llama-stack-client-kotlin) | [![Maven version](https://img.shields.io/maven-central/v/com.llama.llamastack/llama-stack-client-kotlin)](https://central.sonatype.com/artifact/com.llama.llamastack/llama-stack-client-kotlin)
 
 You can find more example scripts with client SDKs to talk with the Llama Stack server in our [llama-stack-apps](https://github.com/meta-llama/llama-stack-apps/tree/main/examples) repo.
+
+## Community
+
+We hold regular community calls to discuss the latest developments and get feedback from the community.
+
+- Date: every Thursday
+- Time: 09:00 AM PST (check the [Community Event on Discord](https://discord.com/events/1257833999603335178/1413266296748900513) for the latest details)
 
 ## 🌟 GitHub Star History
 ## Star History

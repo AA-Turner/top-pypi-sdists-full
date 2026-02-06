@@ -8,6 +8,7 @@ This is to provide the base class for all Yaml plugins. These deal with the
 configuration files of Nuitka.
 """
 
+from nuitka.options.Options import assumeYesForDownloads
 from nuitka.utils.Yaml import getYamlPackageConfiguration
 
 from .PluginBase import NuitkaPluginBase
@@ -17,7 +18,14 @@ class NuitkaYamlPluginBase(NuitkaPluginBase):
     """Nuitka base class for all plugins that use yaml config"""
 
     def __init__(self):
-        self.config = getYamlPackageConfiguration()
+        self.config = None
+
+    def onCompilationStartChecks(self):
+        self.config = getYamlPackageConfiguration(
+            logger=None,
+            assume_yes_for_downloads=assumeYesForDownloads(),
+            check_checksums=True,
+        )
 
     def getYamlConfigItem(
         self, module_name, section, item_name, decide_relevant, default, recursive
@@ -108,11 +116,11 @@ class NuitkaYamlPluginBase(NuitkaPluginBase):
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

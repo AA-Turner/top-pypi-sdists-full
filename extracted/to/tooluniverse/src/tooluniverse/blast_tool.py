@@ -79,22 +79,30 @@ class NCBIBlastTool(BaseTool):
         if not BIOPYTHON_AVAILABLE:
             return {
                 "status": "error",
-                "data": {
-                    "error": "Biopython is required for BLAST tools. Install with: pip install biopython"
-                },
+                "error": "Biopython is required for BLAST tools. Install with: pip install biopython",
             }
 
         try:
             sequence = arguments.get("sequence", "")
-            blast_type = arguments.get("blast_type", "blastn")
-            database = arguments.get("database", "nt")
+
+            # Determine blast_type from tool name or arguments
+            tool_name = self.tool_config.get("name", "")
+            if "protein" in tool_name.lower():
+                default_blast_type = "blastp"
+                default_database = "nr"
+            else:
+                default_blast_type = "blastn"
+                default_database = "nt"
+
+            blast_type = arguments.get("blast_type", default_blast_type)
+            database = arguments.get("database", default_database)
             expect = arguments.get("expect", 10.0)
             hitlist_size = arguments.get("hitlist_size", 50)
 
             if not sequence:
                 return {
                     "status": "error",
-                    "data": {"error": "Missing required parameter: sequence"},
+                    "error": "Missing required parameter: sequence",
                 }
 
             # Validate sequence
@@ -103,14 +111,12 @@ class NCBIBlastTool(BaseTool):
                 if len(seq_obj) < 10:
                     return {
                         "status": "error",
-                        "data": {
-                            "error": "Sequence too short (minimum 10 nucleotides)"
-                        },
+                        "error": "Sequence too short (minimum 10 residues)",
                     }
             except Exception as e:
                 return {
                     "status": "error",
-                    "data": {"error": f"Invalid sequence format: {str(e)}"},
+                    "error": f"Invalid sequence format: {str(e)}",
                 }
 
             # Perform BLAST search
@@ -133,10 +139,8 @@ class NCBIBlastTool(BaseTool):
             if "error" in parsed_results:
                 return {
                     "status": "error",
-                    "data": {
-                        "error": parsed_results["error"],
-                        "raw_data": parsed_results.get("raw_xml", ""),
-                    },
+                    "error": parsed_results["error"],
+                    "raw_data": parsed_results.get("raw_xml", ""),
                 }
 
             return {
@@ -151,5 +155,5 @@ class NCBIBlastTool(BaseTool):
         except Exception as e:
             return {
                 "status": "error",
-                "data": {"error": f"BLAST search failed: {str(e)}"},
+                "error": f"BLAST search failed: {str(e)}",
             }

@@ -21,23 +21,28 @@ T = TypeVar("T", bound="EditHttpTrigger")
 class EditHttpTrigger:
     """
     Attributes:
-        path (str):
-        script_path (str):
-        is_flow (bool):
-        http_method (EditHttpTriggerHttpMethod):
-        authentication_method (EditHttpTriggerAuthenticationMethod):
-        is_static_website (bool):
-        route_path (Union[Unset, str]):
-        summary (Union[Unset, str]):
-        description (Union[Unset, str]):
-        workspaced_route (Union[Unset, bool]):
-        static_asset_config (Union[Unset, EditHttpTriggerStaticAssetConfig]):
-        authentication_resource_path (Union[Unset, str]):
+        path (str): The unique path identifier for this trigger
+        script_path (str): Path to the script or flow to execute when triggered
+        is_flow (bool): True if script_path points to a flow, false if it points to a script
+        http_method (EditHttpTriggerHttpMethod): HTTP method (get, post, put, delete, patch) that triggers this endpoint
+        authentication_method (EditHttpTriggerAuthenticationMethod): How requests are authenticated - 'none' (public),
+            'windmill' (Windmill token), 'api_key', 'basic_http', 'custom_script', 'signature'
+        is_static_website (bool): If true, serves static files from S3/storage instead of running a script
+        route_path (Union[Unset, str]): The URL route path that will trigger this endpoint (e.g., 'api/myendpoint').
+            Must NOT start with a /.
+        summary (Union[Unset, str]): Short summary describing the purpose of this trigger
+        description (Union[Unset, str]): Detailed description of what this trigger does
+        workspaced_route (Union[Unset, bool]): If true, the route includes the workspace ID in the path
+        static_asset_config (Union[Unset, EditHttpTriggerStaticAssetConfig]): Configuration for serving static assets
+            (s3 bucket, storage path, filename)
+        authentication_resource_path (Union[Unset, str]): Path to the resource containing authentication configuration
+            (for api_key, basic_http, custom_script, signature methods)
         is_async (Union[Unset, bool]): Deprecated, use request_type instead
-        request_type (Union[Unset, EditHttpTriggerRequestType]):
-        wrap_body (Union[Unset, bool]):
-        raw_string (Union[Unset, bool]):
-        error_handler_path (Union[Unset, str]):
+        request_type (Union[Unset, EditHttpTriggerRequestType]): How the request is handled - 'sync' waits for result,
+            'async' returns job ID immediately, 'sync_sse' streams results via Server-Sent Events
+        wrap_body (Union[Unset, bool]): If true, wraps the request body in a 'body' parameter
+        raw_string (Union[Unset, bool]): If true, passes the request body as a raw string instead of parsing as JSON
+        error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, EditHttpTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
         retry (Union[Unset, EditHttpTriggerRetry]): Retry configuration for failed module executions
     """

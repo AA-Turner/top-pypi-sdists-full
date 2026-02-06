@@ -279,6 +279,7 @@ __all__ = (
     "DeleteAssetTypeInputTypeDef",
     "DeleteConnectionInputTypeDef",
     "DeleteConnectionOutputTypeDef",
+    "DeleteDataExportConfigurationInputTypeDef",
     "DeleteDataProductInputTypeDef",
     "DeleteDataSourceInputTypeDef",
     "DeleteDataSourceOutputTypeDef",
@@ -1452,6 +1453,10 @@ class DeleteAssetTypeInputTypeDef(TypedDict):
 class DeleteConnectionInputTypeDef(TypedDict):
     domainIdentifier: str
     identifier: str
+
+
+class DeleteDataExportConfigurationInputTypeDef(TypedDict):
+    domainIdentifier: str
 
 
 class DeleteDataProductInputTypeDef(TypedDict):

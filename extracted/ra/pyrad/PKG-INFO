@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: pyrad
-Version: 2.5.2
+Version: 2.5.4
 Summary: RADIUS tools
-Author-email: Istvan Ruzman <istvan@ruzman.eu>, Christian Giese <gic@gicnet.de>, Stefan Lieberth <stefan@lieberth.net>
+Author-email: Christian Giese <gic@gicnet.de>, Istvan Ruzman <istvan@ruzman.eu>, Stefan Lieberth <stefan@lieberth.net>
 License: BSD-3-Clause
 Project-URL: Repository, https://github.com/pyradius/pyrad
 Project-URL: Documentation, https://pyradius-pyrad.readthedocs.io
@@ -23,10 +23,8 @@ Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: netaddr>=0.8.0
-Requires-Dist: six>=1.16.0
 Provides-Extra: test
 Requires-Dist: pytest>=8; extra == "test"
-Requires-Dist: mock; python_version < "3.10" and extra == "test"
 Provides-Extra: docs
 Requires-Dist: sphinx>=7.0; extra == "docs"
 Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
@@ -59,18 +57,24 @@ pyrad is an implementation of a RADIUS client/server as described in RFC2865.
 It takes care of all the details like building RADIUS packets, sending
 them and decoding responses.
 
-Here is an example of doing a authentication request::
+Here is an example of doing a authentication request:
+
+.. code-block:: python
 
     from pyrad.client import Client
     from pyrad.dictionary import Dictionary
     import pyrad.packet
 
-    srv = Client(server="localhost", secret=b"Kah3choteereethiejeimaeziecumi",
-                 dict=Dictionary("dictionary"))
+    srv = Client(
+        server="localhost",
+        secret=b"Kah3choteereethiejeimaeziecumi",
+        dict=Dictionary("dictionary"),
+    )
 
     # create request
-    req = srv.CreateAuthPacket(code=pyrad.packet.AccessRequest,
-                               User_Name="wichert", NAS_Identifier="localhost")
+    req = srv.CreateAuthPacket(
+        code=pyrad.packet.AccessRequest, User_Name="wichert", NAS_Identifier="localhost"
+    )
     req["User-Password"] = req.PwCrypt("password")
 
     # send request
@@ -82,9 +86,8 @@ Here is an example of doing a authentication request::
         print("access denied")
 
     print("Attributes returned by server:")
-    for i in reply.keys():
-        print("%s: %s" % (i, reply[i]))
-
+    for key, val in reply.items():
+        print(f"{key}: {val}")
 
 
 Requirements & Installation

@@ -8,7 +8,7 @@ T = TypeVar("T", bound="ListGcpTriggersResponse200ItemExtraPerms")
 
 @_attrs_define
 class ListGcpTriggersResponse200ItemExtraPerms:
-    """ """
+    """Additional permissions for this trigger"""
 
     additional_properties: Dict[str, bool] = _attrs_field(init=False, factory=dict)
 

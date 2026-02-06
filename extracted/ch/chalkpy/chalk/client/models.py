@@ -833,17 +833,12 @@ class OfflineQueryDeadlineOptions(BaseModel):
 
     retry_on_shard_deadline: Optional[bool] = None
     """
-    Whether to retry when the per-shard deadline is triggered. Will default to true.
+    Whether to retry when the per-shard deadline is triggered. Will default to false.
     """
 
     query_deadline: Union[timedelta, str, None] = None
     """
     Maximum amount of time that the entire query can work before being failed.
-    """
-
-    retry_on_query_deadline: Optional[bool] = None
-    """
-    Whether to retry when the entire query's deadline is triggered. Will default to false.
     """
 
     def with_chalk_durations(self) -> OfflineQueryDeadlineOptions:
@@ -859,7 +854,6 @@ class OfflineQueryDeadlineOptions(BaseModel):
                 if isinstance(self.query_deadline, timedelta)
                 else self.query_deadline
             ),
-            retry_on_query_deadline=self.retry_on_query_deadline,
         )
 
 

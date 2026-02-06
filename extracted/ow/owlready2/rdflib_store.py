@@ -236,3 +236,5 @@ class TripleLiteRDFlibGraph(rdflib.Graph):
   def get_context(self, onto): return self.store.get_context(onto)
   
   def BNode(self): return BNode(-self.store.world.new_blank_node())
+
+  

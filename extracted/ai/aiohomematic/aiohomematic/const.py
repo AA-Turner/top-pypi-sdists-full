@@ -21,7 +21,7 @@ from typing import Any, Final, NamedTuple, Required, TypeAlias, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
-VERSION: Final = "2026.2.3"
+VERSION: Final = "2026.2.5"
 
 # Detect test speedup mode via environment
 _TEST_SPEEDUP: Final = (
@@ -108,6 +108,37 @@ class TimeoutConfig(BaseModel):
 
     startup_max_init_retry_delay: float = 5 if _TEST_SPEEDUP else 30
     """Maximum delay between startup initialization retry attempts after backoff (default: 30s)."""
+
+    command_throttle_interval: float = 0.0
+    """Minimum interval between consecutive device commands per interface (default: 0.0 = disabled).
+
+    When set to a positive value (e.g. 0.5), outgoing ``set_value`` and ``put_paramset``
+    calls are rate-limited so that at least this many seconds elapse between consecutive
+    commands on the same RF interface.  This reduces duty-cycle usage and lowers the
+    probability of packet loss during bulk operations.
+    """
+
+    burst_threshold: int = 5
+    """Number of commands within burst_window that triggers burst detection (default: 5).
+
+    When more than this many commands arrive within burst_window seconds on the same
+    interface, subsequent HIGH-priority commands are automatically downgraded to LOW
+    priority.  Set to 0 to disable burst detection.
+    """
+
+    burst_window: float = 0.5
+    """Time window in seconds for burst detection (default: 0.5s).
+
+    Commands are counted within a sliding window of this duration.
+    """
+
+    optimistic_update_timeout: float = 30.0
+    """Rollback timeout for optimistic state updates (default: 30.0 seconds).
+
+    Determines how long to wait for CCU confirmation before rolling back the optimistic value
+    to the previous confirmed state. If the CCU does not confirm the value within this timeout,
+    the local value is automatically reverted and a rollback event is published.
+    """
 
 
 DEFAULT_TIMEOUT_CONFIG: Final = TimeoutConfig()
@@ -1083,6 +1114,20 @@ class Operations(IntEnum):
     READ = 1
     WRITE = 2
     EVENT = 4
+
+
+@unique
+class RollbackReason(StrEnum):
+    """Enum for optimistic value rollback reasons."""
+
+    TIMEOUT = "timeout"
+    """CCU did not respond within optimistic_update_timeout."""
+
+    SEND_ERROR = "send_error"
+    """Exception occurred during send_value()."""
+
+    VALUE_MISMATCH = "mismatch"
+    """CCU confirmed different value than sent."""
 
 
 @unique

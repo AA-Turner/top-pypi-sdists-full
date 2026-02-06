@@ -28,6 +28,7 @@ def _generate_server_api_schema() -> dict[str, Any]:
     import marimo._data.models as data
     import marimo._messaging.errors as errors
     import marimo._messaging.notification as notifications
+    import marimo._metadata.opengraph as opengraph
     import marimo._runtime.commands as commands
     import marimo._secrets.models as secrets_models
     import marimo._server.models.completion as completion
@@ -132,6 +133,7 @@ def _generate_server_api_schema() -> dict[str, Any]:
         ToolDefinition,
         # Sub components
         home.MarimoFile,
+        opengraph.OpenGraphMetadata,
         files.FileInfo,
         commands.ExecuteCellCommand,
         snippets.SnippetSection,
@@ -207,7 +209,7 @@ def _generate_server_api_schema() -> dict[str, Any]:
         commands.StopKernelCommand,
         commands.UpdateCellConfigCommand,
         commands.UpdateUserConfigCommand,
-        commands.UpdateWidgetModelCommand,
+        commands.ModelCommand,
         commands.ValidateSQLCommand,
         models.BaseResponse,
         models.ClearCacheRequest,
@@ -245,7 +247,7 @@ def _generate_server_api_schema() -> dict[str, Any]:
         models.UpdateUIElementValuesRequest,
         models.UpdateUIElementRequest,
         models.UpdateUserConfigRequest,
-        models.UpdateWidgetModelRequest,
+        models.ModelRequest,
         models.ValidateSQLRequest,
     ]
 

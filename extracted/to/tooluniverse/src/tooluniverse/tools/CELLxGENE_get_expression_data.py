@@ -1,7 +1,7 @@
 """
 CELLxGENE_get_expression_data
 
-Query gene expression data from CELLxGENE Census as AnnData object summary. Filter cells and gene...
+Query gene expression data from CELLxGENE Census (50M+ cells, 60K+ genes). CRITICAL: At least one...
 """
 
 from typing import Any, Optional, Callable
@@ -22,7 +22,7 @@ def CELLxGENE_get_expression_data(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Query gene expression data from CELLxGENE Census as AnnData object summary. Filter cells and gene...
+    Query gene expression data from CELLxGENE Census (50M+ cells, 60K+ genes). CRITICAL: At least one...
 
     Parameters
     ----------
@@ -31,9 +31,9 @@ def CELLxGENE_get_expression_data(
     organism : str
         Organism name
     obs_value_filter : str
-        Cell filter (e.g., 'tissue == "lung" and disease == "COVID-19"')
+        REQUIRED (or use var_value_filter) - Cell filter. Common values: tissue_gener...
     var_value_filter : str
-        Gene filter (e.g., 'feature_name in ["CD4", "CD8A"]')
+        REQUIRED (or use obs_value_filter) - Gene filter by symbol or Ensembl ID. Exa...
     obs_column_names : list[str]
         Cell metadata columns to include
     var_column_names : list[str]

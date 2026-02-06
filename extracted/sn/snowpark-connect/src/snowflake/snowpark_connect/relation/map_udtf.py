@@ -208,6 +208,8 @@ def register_udtf(
         udtf_proto: relation_proto.CommonInlineUserDefinedTableFunction,
         spark_column_names,
     ):
+        from snowflake.snowpark_connect.utils.udf_utils import _get_resource_constraint
+
         kwargs = {
             "session": session,
             "udtf_proto": udtf_proto,
@@ -218,6 +220,7 @@ def register_udtf(
             "called_from": "register_udtf",
             "is_arrow_enabled": is_arrow_enabled_in_udtf(),
             "is_spark_compatible_udtf_mode_enabled": is_spark_compatible_udtf_mode_enabled(),
+            "resource_constraint": _get_resource_constraint(),
         }
 
         if require_creating_udtf_in_sproc(udtf_proto):
@@ -267,6 +270,8 @@ def map_common_inline_user_defined_table_function(
         udtf_proto: relation_proto.CommonInlineUserDefinedTableFunction,
         spark_column_names,
     ):
+        from snowflake.snowpark_connect.utils.udf_utils import _get_resource_constraint
+
         kwargs = {
             "session": session,
             "udtf_proto": udtf_proto,
@@ -277,6 +282,7 @@ def map_common_inline_user_defined_table_function(
             "called_from": "map_common_inline_user_defined_table_function",
             "is_arrow_enabled": is_arrow_enabled_in_udtf(),
             "is_spark_compatible_udtf_mode_enabled": is_spark_compatible_udtf_mode_enabled(),
+            "resource_constraint": _get_resource_constraint(),
         }
 
         if require_creating_udtf_in_sproc(udtf_proto):

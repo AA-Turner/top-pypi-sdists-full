@@ -85,6 +85,32 @@ class TestGitStorage:
             assert repo.id == "test-repo"
 
     @pytest.mark.asyncio
+    async def test_create_repo_sets_created_at(self, git_storage_options: dict) -> None:
+        """Test that create_repo sets created_at on the returned repo."""
+        from datetime import datetime, timezone
+
+        storage = GitStorage(git_storage_options)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.is_success = True
+        mock_response.json.return_value = {"repo_id": "test-repo", "url": "https://test.git"}
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
+                return_value=mock_response
+            )
+
+            before = datetime.now(timezone.utc).isoformat()
+            repo = await storage.create_repo(id="test-repo")
+            after = datetime.now(timezone.utc).isoformat()
+
+            assert repo.created_at is not None
+            assert len(repo.created_at) > 0
+            assert repo.created_at >= before
+            assert repo.created_at <= after
+
+    @pytest.mark.asyncio
     async def test_create_repo_with_base_repo(self, git_storage_options: dict) -> None:
         """Test creating a repository with GitHub sync."""
         storage = GitStorage(git_storage_options)
@@ -281,6 +307,47 @@ class TestGitStorage:
             repo = await storage.find_one(id="test-repo")
             assert repo is not None
             assert repo.id == "test-repo"
+
+    @pytest.mark.asyncio
+    async def test_find_one_created_at(self, git_storage_options: dict) -> None:
+        """Test that find_one exposes created_at from API response."""
+        storage = GitStorage(git_storage_options)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.is_success = True
+        mock_response.json.return_value = {
+            "default_branch": "main",
+            "created_at": "2024-06-15T12:00:00Z",
+        }
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
+                return_value=mock_response
+            )
+
+            repo = await storage.find_one(id="test-repo")
+            assert repo is not None
+            assert repo.created_at == "2024-06-15T12:00:00Z"
+
+    @pytest.mark.asyncio
+    async def test_find_one_created_at_missing(self, git_storage_options: dict) -> None:
+        """Test that find_one defaults created_at to empty string when not in response."""
+        storage = GitStorage(git_storage_options)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.is_success = True
+        mock_response.json.return_value = {"default_branch": "main"}
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
+                return_value=mock_response
+            )
+
+            repo = await storage.find_one(id="test-repo")
+            assert repo is not None
+            assert repo.created_at == ""
 
     @pytest.mark.asyncio
     async def test_find_one_not_found(self, git_storage_options: dict) -> None:

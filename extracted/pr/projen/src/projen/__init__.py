@@ -8386,12 +8386,14 @@ class SourceCode(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.SourceCod
         project: "Project",
         file_path: builtins.str,
         *,
+        executable: typing.Optional[builtins.bool] = None,
         indent: typing.Optional[jsii.Number] = None,
         readonly: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
         :param project: -
         :param file_path: -
+        :param executable: (experimental) Whether the generated file should be marked as executable. Default: false
         :param indent: (experimental) Indentation size. Default: 2
         :param readonly: (experimental) Whether the generated file should be readonly. Default: true
 
@@ -8401,7 +8403,9 @@ class SourceCode(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.SourceCod
             type_hints = typing.get_type_hints(_typecheckingstub__df8be88cd766883f8907162beaca5942a5ced596ef64437b757913e47b609893)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
-        options = SourceCodeOptions(indent=indent, readonly=readonly)
+        options = SourceCodeOptions(
+            executable=executable, indent=indent, readonly=readonly
+        )
 
         jsii.create(self.__class__, self, [project, file_path, options])
 
@@ -8464,17 +8468,23 @@ class SourceCode(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.SourceCod
 @jsii.data_type(
     jsii_type="projen.SourceCodeOptions",
     jsii_struct_bases=[],
-    name_mapping={"indent": "indent", "readonly": "readonly"},
+    name_mapping={
+        "executable": "executable",
+        "indent": "indent",
+        "readonly": "readonly",
+    },
 )
 class SourceCodeOptions:
     def __init__(
         self,
         *,
+        executable: typing.Optional[builtins.bool] = None,
         indent: typing.Optional[jsii.Number] = None,
         readonly: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Options for ``SourceCodeFile``.
 
+        :param executable: (experimental) Whether the generated file should be marked as executable. Default: false
         :param indent: (experimental) Indentation size. Default: 2
         :param readonly: (experimental) Whether the generated file should be readonly. Default: true
 
@@ -8482,13 +8492,27 @@ class SourceCodeOptions:
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__96c604ba47f53eeef393d736d7b829dae144b7a43fad8affb927e7859a46ac29)
+            check_type(argname="argument executable", value=executable, expected_type=type_hints["executable"])
             check_type(argname="argument indent", value=indent, expected_type=type_hints["indent"])
             check_type(argname="argument readonly", value=readonly, expected_type=type_hints["readonly"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if executable is not None:
+            self._values["executable"] = executable
         if indent is not None:
             self._values["indent"] = indent
         if readonly is not None:
             self._values["readonly"] = readonly
+
+    @builtins.property
+    def executable(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the generated file should be marked as executable.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("executable")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def indent(self) -> typing.Optional[jsii.Number]:
@@ -14307,6 +14331,7 @@ def _typecheckingstub__df8be88cd766883f8907162beaca5942a5ced596ef64437b757913e47
     project: Project,
     file_path: builtins.str,
     *,
+    executable: typing.Optional[builtins.bool] = None,
     indent: typing.Optional[jsii.Number] = None,
     readonly: typing.Optional[builtins.bool] = None,
 ) -> None:
@@ -14333,6 +14358,7 @@ def _typecheckingstub__b1bc8a0529aa4ca39c77add345ebadba429d8974597a851741ec0cd40
 
 def _typecheckingstub__96c604ba47f53eeef393d736d7b829dae144b7a43fad8affb927e7859a46ac29(
     *,
+    executable: typing.Optional[builtins.bool] = None,
     indent: typing.Optional[jsii.Number] = None,
     readonly: typing.Optional[builtins.bool] = None,
 ) -> None:

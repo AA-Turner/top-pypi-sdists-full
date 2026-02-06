@@ -13,7 +13,7 @@ import mimetypes
 from PIL import Image, ImageDraw
 
 from meutils.pipe import *
-from meutils.io.files_utils import to_url, to_bytes
+from meutils.io.files_utils import to_url, to_bytes, to_url_fal
 
 from PIL import Image
 
@@ -72,7 +72,7 @@ async def image_resize(image, target_ratio: Union[float, str], output_path, fill
         img_base64 = base64.b64encode(img_bytes).decode("utf-8")
         return f"data:image/{format.lower()};base64,{img_base64}"
 
-    elif output_path == 'url':
+    elif "url" in output_path:
         format = "JPEG"
         # 创建一个字节流缓冲区
         buffered = io.BytesIO()
@@ -81,7 +81,11 @@ async def image_resize(image, target_ratio: Union[float, str], output_path, fill
         # 获取缓冲区的字节内容
         img_bytes = buffered.getvalue()
 
+        if output_path == "fal-url":
+            return await to_url_fal(img_bytes, f"{shortuuid.random()}.jpg")
+
         return await to_url(img_bytes, f"{shortuuid.random()}.jpg")
+
 
     else:
         result.save(output_path)
@@ -310,6 +314,3 @@ if __name__ == '__main__':
     # output_path = 'url'
 
     # arun(image_resize(image, target_ratio="1280x720", output_path=output_path))
-
-
-

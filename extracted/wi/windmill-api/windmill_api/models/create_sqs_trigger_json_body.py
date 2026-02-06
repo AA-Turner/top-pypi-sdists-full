@@ -19,15 +19,16 @@ T = TypeVar("T", bound="CreateSqsTriggerJsonBody")
 class CreateSqsTriggerJsonBody:
     """
     Attributes:
-        queue_url (str):
-        aws_auth_resource_type (CreateSqsTriggerJsonBodyAwsAuthResourceType):
-        aws_resource_path (str):
-        path (str):
-        script_path (str):
-        is_flow (bool):
-        message_attributes (Union[Unset, List[str]]):
+        queue_url (str): The full URL of the AWS SQS queue to poll for messages
+        aws_auth_resource_type (CreateSqsTriggerJsonBodyAwsAuthResourceType): Authentication type - 'credentials' for
+            access key/secret, 'oidc' for OpenID Connect
+        aws_resource_path (str): Path to the AWS resource containing credentials or OIDC configuration
+        path (str): The unique path identifier for this trigger
+        script_path (str): Path to the script or flow to execute when a message is received
+        is_flow (bool): True if script_path points to a flow, false if it points to a script
+        message_attributes (Union[Unset, List[str]]): Array of SQS message attribute names to include with each message
         mode (Union[Unset, CreateSqsTriggerJsonBodyMode]): job trigger mode
-        error_handler_path (Union[Unset, str]):
+        error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, CreateSqsTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the script
             or flow
         retry (Union[Unset, CreateSqsTriggerJsonBodyRetry]): Retry configuration for failed module executions

@@ -10,8 +10,8 @@ readme = "README.rst"
 license = { text = "BSD-3-Clause" }
 requires-python = ">=3.8"
 authors = [
-  { name = "Istvan Ruzman", email = "istvan@ruzman.eu" },
   { name = "Christian Giese", email = "gic@gicnet.de" },
+  { name = "Istvan Ruzman", email = "istvan@ruzman.eu" },
   { name = "Stefan Lieberth", email = "stefan@lieberth.net" },
 ]
 keywords = ["radius", "authentication", "AAA", "accounting", "authorization", "RADIUS"]
@@ -32,13 +32,11 @@ classifiers = [
 
 dependencies = [
   "netaddr>=0.8.0",
-  "six>=1.16.0",
 ]
 
 [project.optional-dependencies]
 test = [
   "pytest>=8",
-  "mock; python_version<'3.10'",
 ]
 docs = [
     "sphinx>=7.0",
@@ -56,7 +54,7 @@ include-package-data = true
 zip-safe = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["pyrad/tests"]
 addopts = "-ra"
 
 [tool.setuptools.dynamic]

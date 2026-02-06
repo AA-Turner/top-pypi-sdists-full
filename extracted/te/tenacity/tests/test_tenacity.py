@@ -17,7 +17,6 @@
 import datetime
 import logging
 import re
-import sys
 import time
 import typing
 import unittest
@@ -28,6 +27,7 @@ from fractions import Fraction
 from unittest import mock
 
 import pytest
+from typeguard import check_type
 
 import tenacity
 from tenacity import RetryCallState, RetryError, Retrying, retry
@@ -368,6 +368,24 @@ class TestWaitConditions(unittest.TestCase):
             w = r.wait(make_retry_state(1, 5))
             self.assertLess(w, 8)
             self.assertGreaterEqual(w, 5)
+
+    def test_wait_exception(self):
+        def predicate(exc):
+            if isinstance(exc, ValueError):
+                return 3.5
+            return 10.0
+
+        r = Retrying(wait=tenacity.wait_exception(predicate))
+
+        fut1 = tenacity.Future.construct(1, ValueError(), True)
+        self.assertEqual(r.wait(make_retry_state(1, 0, last_result=fut1)), 3.5)
+
+        fut2 = tenacity.Future.construct(1, KeyError(), True)
+        self.assertEqual(r.wait(make_retry_state(1, 0, last_result=fut2)), 10.0)
+
+        fut3 = tenacity.Future.construct(1, None, False)
+        with self.assertRaises(RuntimeError):
+            r.wait(make_retry_state(1, 0, last_result=fut3))
 
     def test_wait_double_sum(self):
         r = Retrying(wait=tenacity.wait_random(0, 3) + tenacity.wait_fixed(5))
@@ -1711,17 +1729,8 @@ class TestRetryException(unittest.TestCase):
 
 
 class TestRetryTyping(unittest.TestCase):
-    @pytest.mark.skipif(
-        sys.version_info < (3, 0), reason="typeguard not supported for python 2"
-    )
     def test_retry_type_annotations(self):
         """The decorator should maintain types of decorated functions."""
-        # Just in case this is run with unit-test, return early for py2
-        if sys.version_info < (3, 0):
-            return
-
-        # Function-level import because we can't install this for python 2.
-        from typeguard import check_type
 
         def num_to_str(number):
             # type: (int) -> str

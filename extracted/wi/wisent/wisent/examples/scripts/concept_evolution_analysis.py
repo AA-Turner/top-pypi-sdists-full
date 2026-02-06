@@ -27,9 +27,9 @@ from datetime import datetime
 
 from wisent.core.models.wisent_model import WisentModel
 from wisent.core.contrastive_pairs.core.pair import ContrastivePair
-from wisent.core.contrastive_pairs.core.response import PositiveResponse, NegativeResponse
+from wisent.core.contrastive_pairs.core.io.response import PositiveResponse, NegativeResponse
 from wisent.core.activations.activations_collector import ActivationCollector
-from wisent.core.activations.extraction_strategy import ExtractionStrategy
+from wisent.core.activations import ExtractionStrategy
 from wisent.core.contrastive_pairs.diagnostics.control_vectors import (
     detect_geometry_structure,
     GeometryAnalysisConfig,
@@ -634,7 +634,7 @@ def compute_linear_probe_accuracy(
         if n_folds < 2:
             return 0.5
         
-        clf = LogisticRegression(max_iter=1000, solver='lbfgs')
+        clf = LogisticRegression( solver='lbfgs')
         scores = cross_val_score(clf, X, y, cv=n_folds, scoring='accuracy')
         return float(scores.mean())
     except Exception as e:

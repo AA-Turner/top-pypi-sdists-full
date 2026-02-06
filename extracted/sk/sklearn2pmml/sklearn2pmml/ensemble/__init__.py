@@ -1,8 +1,10 @@
 from sklearn.base import clone, BaseEstimator, ClassifierMixin, RegressorMixin
+from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import LinearRegression
 from sklearn.linear_model._base import LinearClassifierMixin, LinearModel, SparseCoefMixin
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.utils.metaestimators import _BaseComposition
+from sklearn.utils.validation import check_is_fitted
 from sklearn2pmml.util import check_predicate, eval_rows, fqn, to_expr_func
 
 import copy
@@ -140,10 +142,11 @@ def _to_sparse(X, step_mask, step_result):
 	else:
 		result = numpy.empty((X.shape[0], step_result.shape[1]), dtype = object)
 	# Fill array
+	step_mask = numpy.asarray(step_mask).ravel()
 	if len(step_result.shape) == 1:
-		result[step_mask.ravel()] = step_result
+		result[step_mask] = step_result
 	else:
-		result[step_mask.ravel(), :] = step_result
+		result[step_mask, :] = step_result
 	return result
 
 class _BaseEnsemble(_BaseComposition):
@@ -176,6 +179,14 @@ class _BaseEnsemble(_BaseComposition):
 	def set_params(self, **kwargs):
 		self._set_params("_steps", **kwargs)
 		return self
+
+	def __sklearn_is_fitted__(self):
+		try:
+			for name, estimator, predicate in self.steps:
+				check_is_fitted(estimator)
+			return True
+		except NotFittedError:
+			return False
 
 	def _to_evaluation_dataset(self, X):
 		if self.controller is not None:

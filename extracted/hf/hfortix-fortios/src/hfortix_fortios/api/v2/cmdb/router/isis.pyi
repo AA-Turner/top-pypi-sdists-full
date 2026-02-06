@@ -20,6 +20,16 @@ from hfortix_fortios.models import (
     FortiObjectList,
 )
 
+# Import child table helper types
+from ._isis_child_tables import (
+    IsisNetHelper,
+    IsisInterfaceHelper,
+    SummaryAddressHelper,
+    SummaryAddress6Helper,
+    RedistributeHelper,
+    Redistribute6Helper,
+)
+
 
 # ================================================================
 # TypedDict Payloads
@@ -333,6 +343,14 @@ class Isis:
     path: ClassVar[str] = ...
     category: ClassVar[str] = ...
     capabilities: ClassVar[dict[str, Any]] = ...
+    
+    # Child table helpers
+    isis_net: IsisNetHelper
+    isis_interface: IsisInterfaceHelper
+    summary_address: SummaryAddressHelper
+    summary_address6: SummaryAddress6Helper
+    redistribute: RedistributeHelper
+    redistribute6: Redistribute6Helper
     
     def __init__(self, client: Any) -> None:
         """Initialize endpoint with HTTP client."""

@@ -1952,27 +1952,33 @@ class StrategyExecutor(Thread):
             if is_pure_pandas_data_source:
                 self.broker.initialize_market_calendars(data_source.get_trading_days_pandas())
             else:
-                # PERFORMANCE: default get_trading_days() spans 1950->today, which can cost 10s+
-                # in option-heavy backtests. For backtesting, bound the calendar to the backtest
-                # window (+/- a small buffer) so schedule generation is O(window) instead of
-                # O(75 years).
+                # PERFORMANCE: default `get_trading_days()` spans 1950->today, which can be very expensive.
+                # In backtesting we know the simulation window; bound the calendar query to that range
+                # (+/- a small buffer) so schedule generation is O(window) instead of O(decades).
                 if self.strategy.is_backtesting:
                     try:
-                        start = getattr(self.strategy, "_backtesting_start", None) or getattr(
-                            self.strategy, "backtesting_start", None
+                        datetime_start = (
+                            getattr(self.broker, "datetime_start", None)
+                            or getattr(data_source, "datetime_start", None)
+                            or getattr(self.strategy, "_backtesting_start", None)
+                            or getattr(self.strategy, "backtesting_start", None)
                         )
-                        end = getattr(self.strategy, "_backtesting_end", None) or getattr(
-                            self.strategy, "backtesting_end", None
+                        datetime_end = (
+                            getattr(self.broker, "datetime_end", None)
+                            or getattr(data_source, "datetime_end", None)
+                            or getattr(self.strategy, "_backtesting_end", None)
+                            or getattr(self.strategy, "backtesting_end", None)
                         )
-                        tzinfo = getattr(getattr(self.broker, "data_source", None), "tzinfo", None) or LUMIBOT_DEFAULT_PYTZ
+                        tzinfo = getattr(data_source, "tzinfo", None) or LUMIBOT_DEFAULT_PYTZ
 
-                        if start is not None and end is not None:
+                        if datetime_start is not None and datetime_end is not None:
                             buffer = timedelta(days=14)
+                            # `get_trading_days` treats end_date as exclusive; include the final day.
                             self.broker.initialize_market_calendars(
                                 get_trading_days(
                                     market=market,
-                                    start_date=start - buffer,
-                                    end_date=end + buffer,
+                                    start_date=datetime_start - buffer,
+                                    end_date=datetime_end + buffer + timedelta(days=1),
                                     tzinfo=tzinfo,
                                 )
                             )

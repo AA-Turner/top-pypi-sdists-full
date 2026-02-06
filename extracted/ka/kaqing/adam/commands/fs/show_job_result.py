@@ -1,10 +1,11 @@
 from prompt_toolkit.completion import WordCompleter
 
+from adam.commands.fs.utils_fs import show_last_results, show_last_local_results
 from adam.commands.command import Command
 from adam.repl_state import ReplState
 from adam.utils import log_to_pods
-from adam.utils_job.async_job import AsyncJobs
-from adam.utils_job.show_job_results import show_last_local_results, show_last_results
+from adam.utils_async_job import AsyncJobs
+from adam.utils_context import Context
 
 class ShowJobResults(Command):
     COMMAND = 'show job result'
@@ -50,9 +51,11 @@ class ShowJobResults(Command):
                         command = command[6:]
 
                     meta_dict[job_id] = command
+            # meta = {job_id: AsyncJobs.commands()[job_id].command for job_id in job_ids}
             return WordCompleter(job_ids, meta_dict=meta_dict)
 
         return super().completion(state, job_completer())
+        # return super().completion(state, lambda: {j: None for j in reversed(sorted(AsyncJobs.commands().keys()))}, auto='jit')
 
     def help(self, state: ReplState):
         return super().help(state, 'show results of last background job', args='[job_id]')

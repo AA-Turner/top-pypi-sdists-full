@@ -48,6 +48,7 @@ from .literals import (
     AudioOnlyHlsTrackTypeType,
     AudioTypeType,
     AuthenticationSchemeType,
+    Av1BitDepthType,
     Av1GopSizeUnitsType,
     Av1LevelType,
     Av1LookAheadRateControlType,
@@ -4550,6 +4551,7 @@ class Av1SettingsOutputTypeDef(TypedDict):
     SpatialAq: NotRequired[Av1SpatialAqType]
     TemporalAq: NotRequired[Av1TemporalAqType]
     TimecodeInsertion: NotRequired[Av1TimecodeInsertionBehaviorType]
+    BitDepth: NotRequired[Av1BitDepthType]
 
 
 class Av1SettingsTypeDef(TypedDict):
@@ -4576,6 +4578,7 @@ class Av1SettingsTypeDef(TypedDict):
     SpatialAq: NotRequired[Av1SpatialAqType]
     TemporalAq: NotRequired[Av1TemporalAqType]
     TimecodeInsertion: NotRequired[Av1TimecodeInsertionBehaviorType]
+    BitDepth: NotRequired[Av1BitDepthType]
 
 
 class AvailConfigurationTypeDef(TypedDict):

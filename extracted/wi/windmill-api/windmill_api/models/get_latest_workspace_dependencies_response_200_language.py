@@ -6,6 +6,7 @@ class GetLatestWorkspaceDependenciesResponse200Language(str, Enum):
     BASH = "bash"
     BIGQUERY = "bigquery"
     BUN = "bun"
+    BUNNATIVE = "bunnative"
     CSHARP = "csharp"
     DENO = "deno"
     DUCKDB = "duckdb"

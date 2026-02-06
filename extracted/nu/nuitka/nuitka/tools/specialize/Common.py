@@ -1,11 +1,17 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Common helper functions for specializing code."""
+"""Common helper functions for specializing code."""
+
+import contextlib
 
 from nuitka.Constants import the_empty_unicode
-from nuitka.tools.quality.auto_format.AutoFormat import (  # For import from here, pylint: disable=unused-import
+from nuitka.tools.quality.auto_format.AutoFormat import (
     withFileOpenedAndAutoFormatted,
+)
+from nuitka.tools.release.Copyright import (
+    attachLeadingComment,
+    getCopyrightClaim,
 )
 
 
@@ -364,14 +370,32 @@ def check():
 
 check()
 
+
+@contextlib.contextmanager
+def withFileOpenedAndAutoFormattedWithClaim(filename, claim, ignore_errors=False):
+    """Context manager for opening a file, auto-formatting it, and adding a copyright claim."""
+    with withFileOpenedAndAutoFormatted(
+        filename=filename,
+        ignore_errors=ignore_errors,
+    ) as output:
+        yield output
+
+    if claim:
+        attachLeadingComment(
+            filename=filename,
+            effective_filename=filename,
+            comments=getCopyrightClaim(filename=filename, claim=claim),
+        )
+
+
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

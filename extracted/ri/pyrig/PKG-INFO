@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyrig
-Version: 7.0.15
+Version: 7.0.16
 Summary: A Python toolkit to rig up your project that standardizes and automates project setup, configuration and development.
 Keywords: project-setup,automation,scaffolding,cli,testing,ci-cd,devops,packaging
 Author: Winipedia

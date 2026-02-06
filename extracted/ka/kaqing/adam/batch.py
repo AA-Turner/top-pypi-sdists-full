@@ -13,9 +13,9 @@ from adam.commands.deploy.deploy import Deploy, DeployCommandHelper
 from adam.commands.deploy.undeploy import Undeploy, UndeployCommandHelper
 from adam.commands.app.login import Login
 from adam.commands.cassandra.download_cassandra_log import DownloadCassandraLog
-from adam.commands.check_up.check import Check, CheckCommandHelper
-from adam.commands.check_up.generate_report import GenerateReport
-from adam.commands.check_up.issues import Issues
+from adam.commands.diag.check import Check, CheckCommandHelper
+from adam.commands.diag.generate_report import GenerateReport
+from adam.commands.diag.issues import Issues
 from adam.commands.fs.ls import Ls
 from adam.commands.medusa.medusa import Medusa
 from adam.commands.nodetool.nodetool import NodeTool, NodeToolCommandHelper

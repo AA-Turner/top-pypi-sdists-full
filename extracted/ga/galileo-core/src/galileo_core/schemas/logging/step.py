@@ -182,7 +182,7 @@ class BaseStep(BaseModel):
         description="Galileo ID of the trace containing the span (or the same value as id for a trace)",
     )
 
-    model_config = ConfigDict(validate_assignment=True, from_attributes=True)
+    model_config = ConfigDict(validate_assignment=True)
 
     def __init__(self, **data: Any):
         for k, v in list(data.items()):

@@ -1,8 +1,7 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Support for gi typelib files and DLLs
-"""
+"""Support for gi typelib files and DLLs"""
 
 import os
 
@@ -11,7 +10,7 @@ from nuitka.plugins.PluginBase import NuitkaPluginBase, standalone_only
 
 class NuitkaPluginGi(NuitkaPluginBase):
     plugin_name = "gi"
-    plugin_desc = "Support for GI package typelib dependency."
+    plugin_desc = "Required by 'gi' package."
     plugin_category = "package-support"
 
     @staticmethod
@@ -105,11 +104,11 @@ if not os.getenv("GI_TYPELIB_PATH"):
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

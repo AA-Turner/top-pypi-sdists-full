@@ -61,6 +61,7 @@ __all__ = (
     "BlobTypeDef",
     "BranchFilterTypeDef",
     "BranchTypeDef",
+    "BrowserExtensionTypeDef",
     "BrowserSessionStreamTypeDef",
     "BrowserSessionSummaryTypeDef",
     "CodeInterpreterResultTypeDef",
@@ -152,12 +153,14 @@ __all__ = (
     "PayloadTypeTypeDef",
     "PayloadTypeUnionTypeDef",
     "ResourceContentTypeDef",
+    "ResourceLocationTypeDef",
     "ResourceNotFoundExceptionTypeDef",
     "ResponseMetadataTypeDef",
     "RetrieveMemoryRecordsInputPaginateTypeDef",
     "RetrieveMemoryRecordsInputTypeDef",
     "RetrieveMemoryRecordsOutputTypeDef",
     "RightExpressionTypeDef",
+    "S3LocationTypeDef",
     "SearchCriteriaTypeDef",
     "ServiceQuotaExceededExceptionTypeDef",
     "SessionSummaryTypeDef",
@@ -486,6 +489,12 @@ class MemoryContentTypeDef(TypedDict):
     text: NotRequired[str]
 
 
+class S3LocationTypeDef(TypedDict):
+    bucket: str
+    prefix: str
+    versionId: NotRequired[str]
+
+
 class StartCodeInterpreterSessionRequestTypeDef(TypedDict):
     codeInterpreterIdentifier: str
     traceId: NotRequired[str]
@@ -758,16 +767,6 @@ class StartMemoryExtractionJobInputTypeDef(TypedDict):
     clientToken: NotRequired[str]
 
 
-class StartBrowserSessionRequestTypeDef(TypedDict):
-    browserIdentifier: str
-    traceId: NotRequired[str]
-    traceParent: NotRequired[str]
-    name: NotRequired[str]
-    sessionTimeoutSeconds: NotRequired[int]
-    viewPort: NotRequired[ViewPortTypeDef]
-    clientToken: NotRequired[str]
-
-
 class ListActorsInputPaginateTypeDef(TypedDict):
     memoryId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -837,6 +836,10 @@ class MemoryRecordUpdateInputTypeDef(TypedDict):
     memoryStrategyId: NotRequired[str]
 
 
+class ResourceLocationTypeDef(TypedDict):
+    s3: NotRequired[S3LocationTypeDef]
+
+
 class ValidationExceptionTypeDef(TypedDict):
     message: str
     reason: ValidationExceptionReasonType
@@ -860,20 +863,6 @@ class ToolArgumentsTypeDef(TypedDict):
     content: NotRequired[Sequence[InputContentBlockTypeDef]]
     directoryPath: NotRequired[str]
     taskId: NotRequired[str]
-
-
-class GetBrowserSessionResponseTypeDef(TypedDict):
-    browserIdentifier: str
-    sessionId: str
-    name: str
-    createdAt: datetime
-    viewPort: ViewPortTypeDef
-    sessionTimeoutSeconds: int
-    status: BrowserSessionStatusType
-    streams: BrowserSessionStreamTypeDef
-    sessionReplayArtifact: str
-    lastUpdatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class StartBrowserSessionResponseTypeDef(TypedDict):
@@ -977,6 +966,10 @@ class BatchUpdateMemoryRecordsInputTypeDef(TypedDict):
     records: Sequence[MemoryRecordUpdateInputTypeDef]
 
 
+class BrowserExtensionTypeDef(TypedDict):
+    location: ResourceLocationTypeDef
+
+
 class InvokeCodeInterpreterRequestTypeDef(TypedDict):
     codeInterpreterIdentifier: str
     name: ToolNameType
@@ -1032,6 +1025,32 @@ class ListMemoryExtractionJobsOutputTypeDef(TypedDict):
     jobs: list[ExtractionJobMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class GetBrowserSessionResponseTypeDef(TypedDict):
+    browserIdentifier: str
+    sessionId: str
+    name: str
+    createdAt: datetime
+    viewPort: ViewPortTypeDef
+    extensions: list[BrowserExtensionTypeDef]
+    sessionTimeoutSeconds: int
+    status: BrowserSessionStatusType
+    streams: BrowserSessionStreamTypeDef
+    sessionReplayArtifact: str
+    lastUpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartBrowserSessionRequestTypeDef(TypedDict):
+    browserIdentifier: str
+    traceId: NotRequired[str]
+    traceParent: NotRequired[str]
+    name: NotRequired[str]
+    sessionTimeoutSeconds: NotRequired[int]
+    viewPort: NotRequired[ViewPortTypeDef]
+    extensions: NotRequired[Sequence[BrowserExtensionTypeDef]]
+    clientToken: NotRequired[str]
 
 
 class InvokeCodeInterpreterResponseTypeDef(TypedDict):

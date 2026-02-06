@@ -16,7 +16,10 @@ from pyspark.serializers import CloudPickleSerializer
 import snowflake.snowpark.functions as snowpark_fn
 import snowflake.snowpark.types as snowpark_types
 from snowflake import snowpark
-from snowflake.snowpark._internal.analyzer.analyzer_utils import unquote_if_quoted
+from snowflake.snowpark._internal.analyzer.analyzer_utils import (
+    quote_name_without_upper_casing,
+    unquote_if_quoted,
+)
 from snowflake.snowpark._internal.analyzer.expression import (
     Attribute,
     NamedExpression,
@@ -30,11 +33,15 @@ from snowflake.snowpark.table_function import _ExplodeFunctionCall
 from snowflake.snowpark.types import DataType, StructType, _NumericType
 from snowflake.snowpark_connect import tcm
 from snowflake.snowpark_connect.column_name_handler import (
+    ALREADY_QUOTED,
     ColumnNameMap,
     ColumnQualifier,
     make_column_names_snowpark_compatible,
 )
-from snowflake.snowpark_connect.config import global_config
+from snowflake.snowpark_connect.config import (
+    global_config,
+    is_force_create_sproc_enabled,
+)
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import (
@@ -76,9 +83,13 @@ from snowflake.snowpark_connect.utils.expression_transformer import (
 from snowflake.snowpark_connect.utils.identifiers import (
     split_fully_qualified_spark_name,
 )
-from snowflake.snowpark_connect.utils.udtf_helper import (
-    TEST_FLAG_FORCE_CREATE_SPROC,
-    create_apply_udtf_in_sproc,
+from snowflake.snowpark_connect.utils.udtf_helper import create_apply_udtf_in_sproc
+from snowflake.snowpark_connect.utils.udtf_utils import (
+    process_dependencies_string_array,
+    process_udtf_packages,
+)
+from snowflake.snowpark_connect.utils.udxf_import_utils import (
+    get_python_udxf_import_files,
 )
 
 
@@ -167,6 +178,13 @@ def map_drop(
         column_qualifiers=[c.qualifiers for c in new_columns],
         parent_column_name_map=column_map,
         equivalent_snowpark_names=[c.equivalent_snowpark_names for c in new_columns],
+        cached_schema_getter=lambda: StructType(
+            [
+                f
+                for f in input_df.schema.fields
+                if f.name not in _get_column_names_to_drop()
+            ]
+        ),
     )
 
 
@@ -1393,7 +1411,10 @@ def map_group_map(
 
     output_type = proto_to_snowpark_type(func_proto.python_udf.output_type)
 
-    if not is_compatible_python or TEST_FLAG_FORCE_CREATE_SPROC or tcm.TCM_MODE:
+    udtf_packages = global_config.get("snowpark.connect.udf.packages", "")
+    udtf_imports = get_python_udxf_import_files(snowpark.Session.get_active_session())
+
+    if not is_compatible_python or is_force_create_sproc_enabled() or tcm.TCM_MODE:
         original_columns = None
         if input_container.column_map is not None:
             original_columns = [
@@ -1406,16 +1427,26 @@ def map_group_map(
             snowpark_grouping_expressions,
             original_columns,
             input_df.schema,
+            udtf_packages,
+            udtf_imports,
         )
 
         group_by_df = input_df.group_by(*snowpark_grouping_expressions)
         inner_df = group_by_df._dataframe
 
-        renamed_columns = [f"snowflake_jtf_{column}" for column in input_df.columns]
-        order_by_arg = snowpark_sorting_columns if snowpark_sorting_columns else None
+        renamed_columns = [
+            f"snowflake_jtf_{column if ALREADY_QUOTED.match(column) else quote_name_without_upper_casing(column)}"
+            for column in input_df.columns
+        ]
+        renamed_grouping_columns = [
+            f"snowflake_jtf_{col.get_name()}" for col in snowpark_grouping_expressions
+        ]
+        order_by_arg = [
+            f"snowflake_jtf_{col.get_name()}" for col in snowpark_sorting_columns
+        ]
         tfc = snowpark_fn.call_table_function(
             apply_udtf_temp_name, *renamed_columns
-        ).over(partition_by=snowpark_grouping_expressions, order_by=order_by_arg)
+        ).over(partition_by=renamed_grouping_columns, order_by=order_by_arg)
 
         result = (
             inner_df.to_df(renamed_columns)
@@ -1423,12 +1454,18 @@ def map_group_map(
             .drop(*renamed_columns)
         )
     else:
+        from snowflake.snowpark_connect.utils.udf_utils import _get_resource_constraint
+
         (
             callable_func,
             _,
         ) = CloudPickleSerializer().loads(func_proto.python_udf.command)
         result = input_df.group_by(*snowpark_grouping_expressions).apply_in_pandas(
-            callable_func, output_type
+            callable_func,
+            output_type,
+            resource_constraint=_get_resource_constraint(),
+            packages=process_udtf_packages(udtf_packages, custom_packages=["pandas"]),
+            imports=process_dependencies_string_array(udtf_imports),
         )
 
     return DataFrameContainer.create_with_column_mapping(
@@ -1607,8 +1644,10 @@ def _can_cast_column_in_schema(
     return any(
         isinstance(column_type_to_cast_to, t)
         for t in TYPE_MAP_FOR_TO_SCHEMA[
-            type(initial_column_type)
-            if not isinstance(initial_column_type, _NumericType)
-            else _NumericType
+            (
+                type(initial_column_type)
+                if not isinstance(initial_column_type, _NumericType)
+                else _NumericType
+            )
         ]
     )

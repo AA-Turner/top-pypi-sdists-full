@@ -39,7 +39,9 @@ class TestValidationError(unittest.TestCase):
                     null
                     ],
                 msg = '',
-                type = ''
+                type = '',
+                input = None,
+                ctx = arthur_client.api_bindings.models.context.Context()
             )
         else:
             return ValidationError(

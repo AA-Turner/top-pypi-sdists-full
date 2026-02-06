@@ -251,9 +251,7 @@ def login(settings: Settings, key: str) -> None:
         return
 
     click.echo("Verifying API key...")
-    run_until_complete(
-        set_login_complete(key, settings.get_base_api_url(), settings.get_base_ws_url())
-    )
+    run_until_complete(set_login_complete(key, settings.get_base_api_url(), settings.get_base_ws_url()))
     click.secho("Success!", fg="green")
 
     click.echo(f"Saving API Key to {settings.config_file_path}")
@@ -393,9 +391,7 @@ def report_sandbox(settings: Settings, sandbox_id: str | None = None) -> None:
     # Get sandbox ID from parameter or environment variable
     if not sandbox_id:
         sandbox_id = (
-            os.environ.get("SANDBOX_ID")
-            or os.environ.get("E2B_SANDBOX_ID")
-            or os.environ.get("MODAL_SANDBOX_ID")
+            os.environ.get("SANDBOX_ID") or os.environ.get("E2B_SANDBOX_ID") or os.environ.get("MODAL_SANDBOX_ID")
         )
 
     if not sandbox_id:

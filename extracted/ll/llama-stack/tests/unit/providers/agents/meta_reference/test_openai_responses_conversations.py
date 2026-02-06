@@ -7,6 +7,10 @@
 
 import pytest
 
+# Fixtures imported from test_openai_responses via root conftest.py for pytest 8.4+ compatibility
+from llama_stack.providers.inline.agents.meta_reference.responses.openai_responses import (
+    OpenAIResponsesImpl,
+)
 from llama_stack_api.common.errors import (
     ConversationNotFoundError,
     InvalidConversationIdError,
@@ -22,13 +26,6 @@ from llama_stack_api.openai_responses import (
     OpenAIResponseOutputMessageContentOutputText,
 )
 
-# Import existing fixtures from the main responses test file
-pytest_plugins = ["tests.unit.providers.agents.meta_reference.test_openai_responses"]
-
-from llama_stack.providers.inline.agents.meta_reference.responses.openai_responses import (
-    OpenAIResponsesImpl,
-)
-
 
 @pytest.fixture
 def responses_impl_with_conversations(
@@ -41,6 +38,7 @@ def responses_impl_with_conversations(
     mock_safety_api,
     mock_prompts_api,
     mock_files_api,
+    mock_connectors_api,
 ):
     """Create OpenAIResponsesImpl instance with conversations API."""
     return OpenAIResponsesImpl(
@@ -53,6 +51,7 @@ def responses_impl_with_conversations(
         safety_api=mock_safety_api,
         prompts_api=mock_prompts_api,
         files_api=mock_files_api,
+        connectors_api=mock_connectors_api,
     )
 
 
@@ -106,7 +105,8 @@ class TestMessageSyncing:
         call_args = mock_conversations_api.add_items.call_args
 
         assert call_args[0][0] == conv_id  # conversation_id
-        items = call_args[0][1]  # conversation_items
+        request = call_args[0][1]  # AddItemsRequest
+        items = request.items
 
         assert len(items) == 2
         # User message
@@ -152,7 +152,8 @@ class TestMessageSyncing:
         mock_conversations_api.add_items.assert_called_once()
         call_args = mock_conversations_api.add_items.call_args
 
-        items = call_args[0][1]
+        request = call_args[0][1]  # AddItemsRequest
+        items = request.items
         # Should have input message + output message
         assert len(items) == 2
 
@@ -198,6 +199,7 @@ class TestIntegrationWorkflow:
                 object="response",
                 output=[message_item],
                 status="completed",
+                store=True,
             )
 
             yield OpenAIResponseObjectStreamResponseCompleted(response=mock_response, type="response.completed")

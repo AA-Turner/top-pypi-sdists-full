@@ -41,7 +41,9 @@ class TestHTTPValidationError(unittest.TestCase):
                             null
                             ], 
                         msg = '', 
-                        type = '', )
+                        type = '', 
+                        input = null, 
+                        ctx = arthur_client.api_bindings.models.context.Context(), )
                     ]
             )
         else:

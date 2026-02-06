@@ -3,7 +3,7 @@ Type annotations for ram service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ram/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -29,6 +29,7 @@ __all__ = (
     "GetResourceSharesPaginatorName",
     "ListPrincipalsPaginatorName",
     "ListResourcesPaginatorName",
+    "ListSourceAssociationsPaginatorName",
     "PaginatorName",
     "PermissionFeatureSetType",
     "PermissionStatusType",
@@ -57,6 +58,7 @@ GetResourceShareInvitationsPaginatorName = Literal["get_resource_share_invitatio
 GetResourceSharesPaginatorName = Literal["get_resource_shares"]
 ListPrincipalsPaginatorName = Literal["list_principals"]
 ListResourcesPaginatorName = Literal["list_resources"]
+ListSourceAssociationsPaginatorName = Literal["list_source_associations"]
 PermissionFeatureSetType = Literal["CREATED_FROM_POLICY", "PROMOTING_TO_STANDARD", "STANDARD"]
 PermissionStatusType = Literal["ATTACHABLE", "DELETED", "DELETING", "UNATTACHABLE"]
 PermissionTypeFilterType = Literal["ALL", "AWS_MANAGED", "CUSTOMER_MANAGED"]
@@ -66,9 +68,16 @@ ResourceOwnerType = Literal["OTHER-ACCOUNTS", "SELF"]
 ResourceRegionScopeFilterType = Literal["ALL", "GLOBAL", "REGIONAL"]
 ResourceRegionScopeType = Literal["GLOBAL", "REGIONAL"]
 ResourceShareAssociationStatusType = Literal[
-    "ASSOCIATED", "ASSOCIATING", "DISASSOCIATED", "DISASSOCIATING", "FAILED"
+    "ASSOCIATED",
+    "ASSOCIATING",
+    "DISASSOCIATED",
+    "DISASSOCIATING",
+    "FAILED",
+    "RESTORING",
+    "SUSPENDED",
+    "SUSPENDING",
 ]
-ResourceShareAssociationTypeType = Literal["PRINCIPAL", "RESOURCE"]
+ResourceShareAssociationTypeType = Literal["PRINCIPAL", "RESOURCE", "SOURCE"]
 ResourceShareFeatureSetType = Literal["CREATED_FROM_POLICY", "PROMOTING_TO_STANDARD", "STANDARD"]
 ResourceShareInvitationStatusType = Literal["ACCEPTED", "EXPIRED", "PENDING", "REJECTED"]
 ResourceShareStatusType = Literal["ACTIVE", "DELETED", "DELETING", "FAILED", "PENDING"]
@@ -217,7 +226,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -482,6 +490,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -502,6 +511,7 @@ PaginatorName = Literal[
     "get_resource_shares",
     "list_principals",
     "list_resources",
+    "list_source_associations",
 ]
 RegionName = Literal[
     "af-south-1",

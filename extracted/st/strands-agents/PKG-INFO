@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents
-Version: 1.24.0
+Version: 1.25.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/sdk-python
 Project-URL: Bug Tracker, https://github.com/strands-agents/sdk-python/issues
@@ -96,6 +96,7 @@ Requires-Dist: mypy<2.0.0,>=1.15.0; extra == 'dev'
 Requires-Dist: pre-commit<4.6.0,>=3.2.0; extra == 'dev'
 Requires-Dist: pytest-asyncio<1.4.0,>=1.0.0; extra == 'dev'
 Requires-Dist: pytest-cov<8.0.0,>=7.0.0; extra == 'dev'
+Requires-Dist: pytest-timeout<3.0.0,>=2.0.0; extra == 'dev'
 Requires-Dist: pytest-xdist<4.0.0,>=3.0.0; extra == 'dev'
 Requires-Dist: pytest<10.0.0,>=9.0.0; extra == 'dev'
 Requires-Dist: ruff<0.15.0,>=0.13.0; extra == 'dev'

@@ -58,6 +58,7 @@ __all__ = (
     "BudgetNotificationsForAccountTypeDef",
     "BudgetOutputTypeDef",
     "BudgetPaginatorTypeDef",
+    "BudgetPerformanceHistoryPaginatorTypeDef",
     "BudgetPerformanceHistoryTypeDef",
     "BudgetTypeDef",
     "BudgetUnionTypeDef",
@@ -95,6 +96,7 @@ __all__ = (
     "DescribeBudgetNotificationsForAccountResponseTypeDef",
     "DescribeBudgetPerformanceHistoryRequestPaginateTypeDef",
     "DescribeBudgetPerformanceHistoryRequestTypeDef",
+    "DescribeBudgetPerformanceHistoryResponsePaginatorTypeDef",
     "DescribeBudgetPerformanceHistoryResponseTypeDef",
     "DescribeBudgetRequestTypeDef",
     "DescribeBudgetResponseTypeDef",
@@ -511,15 +513,6 @@ class DescribeBudgetNotificationsForAccountResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
-class BudgetPerformanceHistoryTypeDef(TypedDict):
-    BudgetName: NotRequired[str]
-    BudgetType: NotRequired[BudgetTypeType]
-    CostFilters: NotRequired[dict[str, list[str]]]
-    CostTypes: NotRequired[CostTypesTypeDef]
-    TimeUnit: NotRequired[TimeUnitType]
-    BillingViewArn: NotRequired[str]
-    BudgetedAndActualAmountsList: NotRequired[list[BudgetedAndActualAmountsTypeDef]]
-
 class ActionTypeDef(TypedDict):
     ActionId: str
     BudgetName: str
@@ -551,6 +544,17 @@ class BudgetOutputTypeDef(TypedDict):
     BillingViewArn: NotRequired[str]
     HealthStatus: NotRequired[HealthStatusOutputTypeDef]
 
+class BudgetPerformanceHistoryTypeDef(TypedDict):
+    BudgetName: NotRequired[str]
+    BudgetType: NotRequired[BudgetTypeType]
+    CostFilters: NotRequired[dict[str, list[str]]]
+    CostTypes: NotRequired[CostTypesTypeDef]
+    TimeUnit: NotRequired[TimeUnitType]
+    BillingViewArn: NotRequired[str]
+    BudgetedAndActualAmountsList: NotRequired[list[BudgetedAndActualAmountsTypeDef]]
+    FilterExpression: NotRequired[ExpressionOutputTypeDef]
+    Metrics: NotRequired[list[MetricType]]
+
 class BudgetPaginatorTypeDef(TypedDict):
     BudgetName: str
     TimeUnit: TimeUnitType
@@ -567,6 +571,17 @@ class BudgetPaginatorTypeDef(TypedDict):
     Metrics: NotRequired[list[MetricType]]
     BillingViewArn: NotRequired[str]
     HealthStatus: NotRequired[HealthStatusOutputTypeDef]
+
+class BudgetPerformanceHistoryPaginatorTypeDef(TypedDict):
+    BudgetName: NotRequired[str]
+    BudgetType: NotRequired[BudgetTypeType]
+    CostFilters: NotRequired[dict[str, list[str]]]
+    CostTypes: NotRequired[CostTypesTypeDef]
+    TimeUnit: NotRequired[TimeUnitType]
+    BillingViewArn: NotRequired[str]
+    BudgetedAndActualAmountsList: NotRequired[list[BudgetedAndActualAmountsTypeDef]]
+    FilterExpression: NotRequired[ExpressionPaginatorTypeDef]
+    Metrics: NotRequired[list[MetricType]]
 
 class BudgetTypeDef(TypedDict):
     BudgetName: str
@@ -611,11 +626,6 @@ class DescribeBudgetPerformanceHistoryRequestTypeDef(TypedDict):
     BudgetName: str
     TimePeriod: NotRequired[TimePeriodUnionTypeDef]
     MaxResults: NotRequired[int]
-    NextToken: NotRequired[str]
-
-class DescribeBudgetPerformanceHistoryResponseTypeDef(TypedDict):
-    BudgetPerformanceHistory: BudgetPerformanceHistoryTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ActionHistoryDetailsTypeDef(TypedDict):
@@ -683,8 +693,18 @@ class DescribeBudgetsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class DescribeBudgetPerformanceHistoryResponseTypeDef(TypedDict):
+    BudgetPerformanceHistory: BudgetPerformanceHistoryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class DescribeBudgetsResponsePaginatorTypeDef(TypedDict):
     Budgets: list[BudgetPaginatorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class DescribeBudgetPerformanceHistoryResponsePaginatorTypeDef(TypedDict):
+    BudgetPerformanceHistory: BudgetPerformanceHistoryPaginatorTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

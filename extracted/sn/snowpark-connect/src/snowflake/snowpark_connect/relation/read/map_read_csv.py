@@ -11,6 +11,9 @@ from pyspark.errors.exceptions.base import AnalysisException
 
 import snowflake.snowpark.functions as snowpark_fn
 from snowflake import snowpark
+from snowflake.snowpark._internal.analyzer.analyzer_utils import (
+    quote_name_without_upper_casing,
+)
 from snowflake.snowpark._internal.utils import (
     TempObjectType,
     random_name_for_temp_object,
@@ -33,6 +36,10 @@ from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.relation.read.map_read import CsvReaderConfig
+from snowflake.snowpark_connect.relation.read.map_read_partitioned_file import (
+    _read_file_with_partitions,
+    _read_partitioned_file_with_partitions,
+)
 from snowflake.snowpark_connect.relation.read.metadata_utils import (
     add_filename_metadata_to_reader,
     get_non_metadata_fields,
@@ -119,37 +126,59 @@ def map_read_csv(
 
         result_can_be_cached = True
 
-        if raw_options.get("snowpark.populateFileMetadata", False):
+        if str_to_bool(raw_options.get("snowpark.populateFileMetadata", "false")):
             # TODO: SNOW-3002469 copy into approach does not support metadata columns today, so we fallback to the UNION ALL approach.
-            df = read_data(
-                reader,
-                schema,
+            # Use partitioned file reading to support Hive-style partitioning
+            df, read_using_external_table = _read_csv_with_partitions(
                 session,
+                reader,
                 paths[0],
-                file_format_options,
+                schema,
                 snowpark_reader_options,
+                file_format_options,
                 raw_options,
                 parse_header,
             )
+            result_can_be_cached = (
+                result_can_be_cached and not read_using_external_table
+            )
             # Note: UNION ALL operates sequentially which can be a bottleneck for large datasets.
             for p in paths[1:]:
-                df = df.union_all(reader.csv(p))
+                partition_df, read_using_external_table = _read_csv_with_partitions(
+                    session,
+                    reader,
+                    p,
+                    schema,
+                    snowpark_reader_options,
+                    file_format_options,
+                    raw_options,
+                    parse_header,
+                )
+                df = df.union_all(partition_df)
+                result_can_be_cached = (
+                    result_can_be_cached and not read_using_external_table
+                )
         else:
             # Use copy into approach for parallel loading.
             if len(paths) == 1:
-                df = read_data(
-                    reader,
-                    schema,
+                # Try to read with partitions (Hive-style partitioning)
+                df, read_using_external_table = _read_csv_with_partitions(
                     session,
+                    reader,
                     paths[0],
-                    file_format_options,
+                    schema,
                     snowpark_reader_options,
+                    file_format_options,
                     raw_options,
                     parse_header,
+                )
+                result_can_be_cached = (
+                    result_can_be_cached and not read_using_external_table
                 )
 
             if len(paths) > 1:
                 # Note: this assumes that all paths are exact filenames, not directories. It will fail early if any path is a directory.
+                # When reading a direct path to partitioned file, partitions are not included in the final result.
                 logger.debug(
                     f"Using COPY INTO FILES optimization for {len(paths)} files."
                 )
@@ -252,7 +281,186 @@ def _parse_csv_snowpark_options(snowpark_options: dict[str, Any]) -> dict[str, A
         file_format_options["SKIP_HEADER"] = 1
         del file_format_options["PARSE_HEADER"]
 
+    # Match Spark behavior: always skip blank lines
+    file_format_options["SKIP_BLANK_LINES"] = True
+
     return file_format_options
+
+
+def _read_csv_with_partitions(
+    session: snowpark.Session,
+    reader: DataFrameReader,
+    path: str,
+    schema: StructType | None,
+    snowpark_reader_options: dict[str, Any],
+    file_format_options: dict[str, Any],
+    raw_options: dict,
+    parse_header: bool,
+) -> tuple[snowpark.DataFrame, bool]:
+    """
+    Reads CSV files and adds partition columns from subdirectories (Hive-style partitioning).
+
+    Returns a tuple of read DataFrame and a boolean indicating if DataFrame was read from external table.
+
+    Args:
+        session: The Snowpark session.
+        reader: The DataFrameReader to use.
+        path: The path to read from.
+        schema: Optional schema to use.
+        snowpark_reader_options: Options for the Snowpark reader.
+        file_format_options: Options for the file format.
+        raw_options: Raw options from the read request.
+        parse_header: Whether to parse the CSV header.
+
+    Returns:
+        A tuple of (DataFrame, bool) where the bool indicates if external table was used.
+    """
+    filename = path.strip("/").split("/")[-1]
+
+    # Case 1: Schema is provided by user
+    if schema is not None:
+        (
+            df,
+            partition_columns,
+            read_using_external_table,
+        ) = _read_partitioned_file_with_partitions(
+            session=session,
+            reader=reader,
+            file_format="csv",
+            path=path,
+            schema=schema,
+            snowpark_options=snowpark_reader_options,
+            raw_options=raw_options,
+        )
+
+        if not read_using_external_table:
+            non_metadata_fields = get_non_metadata_fields(df.schema.fields)
+            # Validate schema field count matches
+            if not columns_length_equals(
+                len(non_metadata_fields), len(partition_columns), len(schema.fields)
+            ):
+                exception = Exception(f"csv load from {filename} failed.")
+                attach_custom_error_code(exception, ErrorCodes.INVALID_CAST)
+                raise exception
+
+            # If enforceSchema=False, validate header names match schema names
+            if str(raw_options.get("enforceSchema", "True")).lower() == "false":
+                for i in range(len(schema.fields)):
+                    if (
+                        schema.fields[i].name != non_metadata_fields[i].name
+                        and f'"{schema.fields[i].name}"' != non_metadata_fields[i].name
+                    ):
+                        exception = Exception(
+                            "CSV header does not conform to the schema"
+                        )
+                        attach_custom_error_code(
+                            exception, ErrorCodes.INVALID_OPERATION
+                        )
+                        raise exception
+
+        return df, read_using_external_table
+
+    # Case 2: No schema provided - get headers for column names
+    headers = get_header_names(
+        session,
+        path,
+        file_format_options,
+        snowpark_reader_options,
+        raw_options,
+        parse_header,
+    )
+
+    if len(headers) > 0:
+        # Case 2a: No schema, inferSchema=False => create StringType schema from headers
+        if (
+            not str_to_bool(
+                str(
+                    raw_options.get(
+                        "inferSchema", raw_options.get("inferschema", "false")
+                    )
+                )
+            )
+            and schema is None
+        ):
+            effective_schema = StructType(
+                [StructField(h, StringType(), True) for h in headers]
+            )
+            reader = reader.schema(effective_schema)
+
+            return _read_file_with_partitions(
+                session=session,
+                reader=reader,
+                file_format="csv",
+                path=path,
+                schema=effective_schema,
+                snowpark_options=snowpark_reader_options,
+                raw_options=raw_options,
+            )
+        else:
+            # Case 2b: No schema, inferSchema=True => read and validate/rename columns
+            (
+                df,
+                partition_columns,
+                read_using_external_table,
+            ) = _read_partitioned_file_with_partitions(
+                session=session,
+                reader=reader,
+                file_format="csv",
+                path=path,
+                schema=None,
+                snowpark_options=snowpark_reader_options,
+                raw_options=raw_options,
+            )
+            partition_columns = [
+                quote_name_without_upper_casing(col) for col in partition_columns
+            ]
+            non_metadata_fields = get_non_metadata_fields(df.schema.fields)
+
+            # Validate header count matches inferred schema
+            if not columns_length_equals(
+                len(non_metadata_fields), len(partition_columns), len(headers)
+            ):
+                exception = Exception(
+                    f"CSV header: {headers} does not conform to the schema"
+                )
+                attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+                raise exception
+
+            # Rename columns if names don't match headers
+            if any(
+                non_metadata_fields[i].name != headers[i] for i in range(len(headers))
+            ):
+                df = df.select(
+                    [
+                        snowpark_fn.col(non_metadata_fields[i].name).alias(headers[i])
+                        for i in range(len(headers))
+                        if headers[i] not in partition_columns
+                    ]
+                    + partition_columns
+                )
+        return df, read_using_external_table
+
+    # Case 3: Fallback - no headers (shouldn't normally reach here)
+    return _read_file_with_partitions(
+        session=session,
+        reader=reader,
+        file_format="csv",
+        path=path,
+        schema=None,
+        snowpark_options=snowpark_reader_options,
+        raw_options=raw_options,
+    )
+
+
+def columns_length_equals(
+    non_metadata_columns: int, partition_columns: int, expected_columns: int
+) -> bool:
+    columns_without_partitions_equals_expected_columns = (
+        non_metadata_columns - partition_columns == expected_columns
+    )
+    column_count_equals = non_metadata_columns == expected_columns
+
+    return columns_without_partitions_equals_expected_columns or column_count_equals
 
 
 def _deduplicate_column_names_pyspark_style(
@@ -361,86 +569,6 @@ def get_header_names(
     )
 
     return [f'"{name}"' for name in deduplicated_names]
-
-
-def read_data(
-    reader: DataFrameReader,
-    schema: snowpark.types.StructType | None,
-    session: snowpark.Session,
-    path: str,
-    file_format_options: dict,
-    snowpark_read_options: dict,
-    raw_options: dict,
-    parse_header: bool,
-) -> snowpark.DataFrame:
-    filename = path.strip("/").split("/")[-1]
-
-    if schema is not None:
-        df = reader.csv(path)
-        non_metadata_fields = get_non_metadata_fields(df.schema.fields)
-        if len(schema.fields) != len(non_metadata_fields):
-            exception = Exception(f"csv load from {filename} failed.")
-            attach_custom_error_code(exception, ErrorCodes.INVALID_CAST)
-            raise exception
-        if str(raw_options.get("enforceSchema", "True")).lower() == "false":
-            for i in range(len(schema.fields)):
-                if (
-                    schema.fields[i].name != non_metadata_fields[i].name
-                    and f'"{schema.fields[i].name}"' != non_metadata_fields[i].name
-                ):
-                    exception = Exception("CSV header does not conform to the schema")
-                    attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
-                    raise exception
-        return df
-
-    headers = get_header_names(
-        session,
-        path,
-        file_format_options,
-        snowpark_read_options,
-        raw_options,
-        parse_header,
-    )
-
-    # Create schema with the column names and read CSV
-    if len(headers) > 0:
-        if (
-            not str_to_bool(
-                str(
-                    raw_options.get(
-                        "inferSchema", raw_options.get("inferschema", "false")
-                    )
-                )
-            )
-            and schema is None
-        ):
-            inferred_schema = StructType(
-                [StructField(h, StringType(), True) for h in headers]
-            )
-            df = reader.schema(inferred_schema).csv(path)
-        else:
-            df = reader.csv(path)
-            non_metadata_fields = get_non_metadata_fields(df.schema.fields)
-            if len(non_metadata_fields) != len(headers):
-                exception = Exception(
-                    f"CSV header: {headers} does not conform to the schema"
-                )
-                attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
-                raise exception
-            if any(
-                non_metadata_fields[i].name != headers[i]
-                for i in range(len(non_metadata_fields))
-            ):
-                df = df.select(
-                    [
-                        snowpark_fn.col(non_metadata_fields[i].name).alias(headers[i])
-                        for i in range(len(non_metadata_fields))
-                    ]
-                )
-        return df
-
-    # Fallback: no headers, shouldn't reach here
-    return reader.csv(path)
 
 
 def _emulate_integral_types_for_csv(t: DataType) -> DataType:
@@ -573,13 +701,13 @@ def _get_schema_for_copy_into(
         return schema
 
     # Case 2: Read the first file to infer the schema
-    df = read_data(
-        reader,
-        schema,
+    df, _ = _read_csv_with_partitions(
         session,
+        reader,
         first_path,
-        file_format_options,
+        schema,
         snowpark_reader_options,
+        file_format_options,
         raw_options,
         parse_header,
     )

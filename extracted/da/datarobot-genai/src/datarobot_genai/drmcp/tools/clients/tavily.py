@@ -22,6 +22,7 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.dependencies import get_http_headers
 from pydantic import BaseModel
 from pydantic import ConfigDict
+from pydantic import Field
 from tavily import AsyncTavilyClient
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,7 @@ async def get_tavily_access_token() -> str:
     )
 
 
-class TavilySearchResult(BaseModel):
+class _TavilySearchResult(BaseModel):
     """A single search result from Tavily API."""
 
     title: str
@@ -68,8 +69,8 @@ class TavilySearchResult(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     @classmethod
-    def from_tavily_sdk(cls, result: dict[str, Any]) -> "TavilySearchResult":
-        """Create a TavilySearchResult from Tavily SDK response data."""
+    def from_tavily_sdk(cls, result: dict[str, Any]) -> "_TavilySearchResult":
+        """Create a _TavilySearchResult from Tavily SDK response data."""
         return cls(
             title=result.get("title", ""),
             url=result.get("url", ""),
@@ -82,7 +83,7 @@ class TavilySearchResult(BaseModel):
         return self.model_dump(by_alias=True)
 
 
-class TavilyImage(BaseModel):
+class _TavilyImage(BaseModel):
     """An image result from Tavily API."""
 
     url: str
@@ -91,8 +92,8 @@ class TavilyImage(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     @classmethod
-    def from_tavily_sdk(cls, image: dict[str, Any] | str) -> "TavilyImage":
-        """Create a TavilyImage from Tavily SDK response data."""
+    def from_tavily_sdk(cls, image: dict[str, Any] | str) -> "_TavilyImage":
+        """Create a _TavilyImage from Tavily SDK response data."""
         if isinstance(image, str):
             return cls(url=image)
         return cls(
@@ -100,9 +101,128 @@ class TavilyImage(BaseModel):
             description=image.get("description"),
         )
 
+    def as_flat_dict(self) -> dict[str, Any]:
+        return self.model_dump(by_alias=True)
+
+
+class TavilySearchResults(BaseModel):
+    results: list[_TavilySearchResult]
+    response_time: float
+    answer: str | None = None
+    images: list[_TavilyImage] = Field(default_factory=list)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @classmethod
+    def from_tavily_sdk(cls, result: dict[str, Any]) -> "TavilySearchResults":
+        """Create a TavilySearchResult from Tavily SDK response data."""
+        return cls(
+            results=[_TavilySearchResult.from_tavily_sdk(r) for r in result.get("results", [])],
+            response_time=result.get("response_time", 0.0),
+            answer=result.get("answer"),
+            images=[_TavilyImage.from_tavily_sdk(img) for img in result.get("images", [])],
+        )
+
+    def as_flat_dict(
+        self, include_images: bool = False, include_answer: bool = False
+    ) -> dict[str, Any]:
+        """Return a flat dictionary representation of the search result."""
+        response: dict[str, Any] = {
+            "results": [r.as_flat_dict() for r in self.results],
+            "resultCount": len(self.results),
+            "responseTime": self.response_time,
+        }
+        if include_answer:
+            response["answer"] = self.answer
+        if include_images:
+            response["images"] = [img.as_flat_dict() for img in self.images]
+        return response
+
+
+class _TavilyExtractResult(BaseModel):
+    url: str
+    raw_content: str
+    images: list[_TavilyImage] | None = None
+    favicon: str | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @classmethod
+    def from_tavily_sdk(cls, result: dict[str, Any]) -> "_TavilyExtractResult":
+        """Create a _TavilyExtractResult from Tavily SDK response data."""
+        images = None
+        if result.get("images"):
+            images = [_TavilyImage.from_tavily_sdk(img) for img in result.get("images", [])]
+        return cls(
+            url=result.get("url", ""),
+            raw_content=result.get("raw_content", ""),
+            images=images,
+            favicon=result.get("favicon"),
+        )
+
+    def as_flat_dict(self) -> dict[str, Any]:
+        """Return a flat dictionary representation of the extract result."""
+        data = self.model_dump(by_alias=True, exclude_none=True)
+        if self.images:
+            data["images"] = [
+                {"url": img.url, "description": img.description} for img in self.images
+            ]
+        return data
+
+
+class TavilyExtractResults(BaseModel):
+    results: list[_TavilyExtractResult]
+    response_time: float = 0.0
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @classmethod
+    def from_tavily_sdk(cls, result: dict[str, Any]) -> "TavilyExtractResults":
+        """Create a TavilyExtractResults from Tavily SDK response data."""
+        return cls(
+            results=[_TavilyExtractResult.from_tavily_sdk(r) for r in result.get("results", [])],
+            response_time=result.get("response_time", 0.0),
+        )
+
+    def as_flat_dict(self) -> dict[str, Any]:
+        """Return a flat dictionary representation of the extract result."""
+        return {
+            "results": [r.as_flat_dict() for r in self.results],
+            "resultCount": len(self.results),
+            "responseTime": self.response_time,
+        }
+
+
+class _TavilyUsage(BaseModel):
+    credits: int
+
+
+class TavilyMapResults(BaseModel):
+    results: list[str]  # List of sub-pages
+    usage: _TavilyUsage | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @classmethod
+    def from_tavily_sdk(cls, result: dict[str, Any]) -> "TavilyMapResults":
+        """Create a TavilyMapResults from Tavily SDK response data."""
+        tavily_usage = None
+        if usage := result.get("usage"):
+            tavily_usage = _TavilyUsage(credits=usage.get("credits", 0))
+
+        return cls(results=result.get("results", []), usage=tavily_usage)
+
+    def as_flat_dict(self) -> dict[str, Any]:
+        """Return a flat dictionary representation of the map result."""
+        return {
+            "results": self.results,
+            "usageCredits": self.usage.credits if self.usage else None,
+            "count": len(self.results),
+        }
+
 
 class TavilyClient:
-    """Client for interacting with Tavily Search API.
+    """Client for interacting with Tavily API.
 
     This is a wrapper around the official tavily-python SDK.
     """
@@ -122,7 +242,7 @@ class TavilyClient:
         include_image_descriptions: bool = False,
         chunks_per_source: int = CHUNKS_PER_SOURCE_DEFAULT,
         include_answer: bool = False,
-    ) -> dict[str, Any]:
+    ) -> TavilySearchResults:
         """
         Perform a web search using Tavily API.
 
@@ -139,7 +259,7 @@ class TavilyClient:
 
         Returns
         -------
-            Dict with search results from Tavily API.
+            TavilySearchResults
 
         Raises
         ------
@@ -184,7 +304,120 @@ class TavilyClient:
         if time_range:
             search_kwargs["time_range"] = time_range
 
-        return await self._client.search(**search_kwargs)
+        result = await self._client.search(**search_kwargs)
+        return TavilySearchResults.from_tavily_sdk(result)
+
+    async def extract(
+        self,
+        urls: str | list[str],
+        *,
+        query: str | None = None,
+        chunks_per_source: int = 3,
+        extract_depth: Literal["basic", "advanced"] = "basic",
+        format: Literal["markdown", "text"] = "markdown",
+        include_images: bool = False,
+        include_favicon: bool = False,
+        timeout: float = 30.0,
+    ) -> TavilyExtractResults:
+        """
+        Extract content from URLs using Tavily Extract API.
+
+        Args:
+            urls: The URL or list of URLs to extract content from (max 20).
+            query: User intent for reranking extracted content chunks based on relevance.
+            chunks_per_source: Maximum number of 500-char snippets per URL (1-5, default 3).
+            extract_depth: Depth of extraction ("basic" or "advanced").
+            format: Format of extracted content ("markdown" or "text").
+            include_images: Whether to include images in results.
+            include_favicon: Whether to include favicon in results.
+            timeout: Request timeout in seconds (1.0-60.0, default 30.0).
+
+        Returns
+        -------
+            TavilyExtractResults
+
+        Raises
+        ------
+            ValueError: If validation fails.
+            TavilyInvalidAPIKeyError: If the API key is invalid.
+            TavilyUsageLimitExceededError: If usage limit is exceeded.
+            TavilyForbiddenError: If access is forbidden.
+            TavilyBadRequestError: If the request is malformed.
+        """
+        url_list = [urls] if isinstance(urls, str) else urls
+
+        # Validate inputs
+        if not url_list:
+            raise ValueError("urls cannot be empty.")
+        if len(url_list) > 20:
+            raise ValueError("Maximum number of URLs is 20.")
+        if chunks_per_source <= 0:
+            raise ValueError("chunks_per_source must be greater than 0.")
+        if chunks_per_source > 5:
+            raise ValueError("chunks_per_source must be smaller than or equal to 5.")
+        if timeout < 1.0 or timeout > 60.0:  # noqa: PLR2004
+            raise ValueError("timeout must be between 1.0 and 60.0 seconds.")
+
+        chunks_per_source = min(chunks_per_source, 5)
+
+        extract_kwargs: dict[str, Any] = {
+            "urls": url_list,
+            "extract_depth": extract_depth,
+            "format": format,
+            "include_images": include_images,
+            "include_favicon": include_favicon,
+            "timeout": timeout,
+        }
+
+        if query:
+            extract_kwargs["query"] = query
+            extract_kwargs["chunks_per_source"] = chunks_per_source
+
+        result = await self._client.extract(**extract_kwargs)
+        return TavilyExtractResults.from_tavily_sdk(result)
+
+    async def map_(
+        self,
+        url: str,
+        instructions: str | None = None,
+        limit: int = 50,
+        include_usage: bool = False,
+    ) -> TavilyMapResults:
+        """
+        Generate a structured map of a website to discover relevant sub-pages.
+
+        Args:
+            url: The root URL to begin mapping.
+            instructions: Instructions to guide the mapper toward specific paths.
+            limit: Total links to process.
+            include_usage: Whether to include credit usage information in the response.
+
+        Returns
+        -------
+            TavilyMapResults
+
+        Raises
+        ------
+            ValueError: If validation fails.
+            TavilyInvalidAPIKeyError: If the API key is invalid.
+            TavilyUsageLimitExceededError: If usage limit is exceeded.
+            TavilyForbiddenError: If access is forbidden.
+            TavilyBadRequestError: If the request is malformed.
+        """
+        if not url or not url.strip():
+            raise ValueError("Argument validation error: url cannot be empty.")
+        if limit <= 0:
+            raise ValueError("Argument validation error: limit must be greater than 0.")
+        if limit > 200:
+            raise ValueError("Argument validation error: limit must be less than 200.")
+
+        result = await self._client.map(
+            url=url,
+            instructions=instructions,
+            limit=limit,
+            include_usage=include_usage,
+        )
+        return TavilyMapResults.from_tavily_sdk(result)
 
     async def __aenter__(self) -> "TavilyClient":
         """Async context manager entry."""

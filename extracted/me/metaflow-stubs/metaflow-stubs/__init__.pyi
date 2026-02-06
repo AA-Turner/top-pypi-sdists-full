@@ -1,15 +1,15 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.17                                                                                #
-# Generated on 2026-01-22T21:47:05.957849                                                            #
+# MF version: 2.19.18                                                                                #
+# Generated on 2026-02-05T18:18:14.400208                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import typing
     import datetime
+    import typing
 FlowSpecDerived = typing.TypeVar("FlowSpecDerived", bound="FlowSpec", contravariant=False, covariant=False)
 StepFlag = typing.NewType("StepFlag", bool)
 
@@ -39,18 +39,19 @@ from .user_decorators.user_step_decorator import UserStepDecorator as UserStepDe
 from .user_decorators.user_step_decorator import StepMutator as StepMutator
 from .user_decorators.user_step_decorator import user_step_decorator as user_step_decorator
 from .user_decorators.user_flow_decorator import FlowMutator as FlowMutator
+from . import metaflow_git as metaflow_git
 from . import events as events
 from . import tuple_util as tuple_util
-from . import metaflow_git as metaflow_git
 from . import runner as runner
 from . import plugins as plugins
 from .plugins.datatools.s3.s3 import S3 as S3
 from . import includefile as includefile
 from .includefile import IncludeFile as IncludeFile
-from .plugins.parsers import yaml_parser as yaml_parser
-from .plugins.pypi.parsers import pyproject_toml_parser as pyproject_toml_parser
-from .plugins.pypi.parsers import conda_environment_yml_parser as conda_environment_yml_parser
 from .plugins.pypi.parsers import requirements_txt_parser as requirements_txt_parser
+from .plugins.namespaced_events import namespaced_event_name as namespaced_event_name
+from .plugins.parsers import yaml_parser as yaml_parser
+from .plugins.pypi.parsers import conda_environment_yml_parser as conda_environment_yml_parser
+from .plugins.pypi.parsers import pyproject_toml_parser as pyproject_toml_parser
 from . import cards as cards
 from . import client as client
 from .client.core import namespace as namespace
@@ -214,6 +215,369 @@ def timeout(f: typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_gene
     ...
 
 @typing.overload
+def card(*, type: str = 'default', id: str | None = None, options: typing.Dict[str, typing.Any] = {}, timeout: int = 45) -> typing.Callable[[typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]], typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]]:
+    """
+    Creates a human-readable report, a Metaflow Card, after this step completes.
+    
+    Note that you may add multiple `@card` decorators in a step with different parameters.
+    
+    
+    Parameters
+    ----------
+    type : str, default 'default'
+        Card type.
+    id : str, optional, default None
+        If multiple cards are present, use this id to identify this card.
+    options : Dict[str, Any], default {}
+        Options passed to the card. The contents depend on the card type.
+    timeout : int, default 45
+        Interrupt reporting if it takes more than this many seconds.
+    """
+    ...
+
+@typing.overload
+def card(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
+    ...
+
+@typing.overload
+def card(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
+    ...
+
+def card(f: typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | None = None, *, type: str = 'default', id: str | None = None, options: typing.Dict[str, typing.Any] = {}, timeout: int = 45):
+    """
+    Creates a human-readable report, a Metaflow Card, after this step completes.
+    
+    Note that you may add multiple `@card` decorators in a step with different parameters.
+    
+    
+    Parameters
+    ----------
+    type : str, default 'default'
+        Card type.
+    id : str, optional, default None
+        If multiple cards are present, use this id to identify this card.
+    options : Dict[str, Any], default {}
+        Options passed to the card. The contents depend on the card type.
+    timeout : int, default 45
+        Interrupt reporting if it takes more than this many seconds.
+    """
+    ...
+
+@typing.overload
+def secrets(*, sources: typing.List[str | typing.Dict[str, typing.Any]] = [], role: str | None = None, allow_override: bool | None = False) -> typing.Callable[[typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]], typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]]:
+    """
+    Specifies secrets to be retrieved and injected as environment variables prior to
+    the execution of a step.
+    
+    
+    Parameters
+    ----------
+    sources : List[Union[str, Dict[str, Any]]], default: []
+        List of secret specs, defining how the secrets are to be retrieved
+    role : str, optional, default: None
+        Role to use for fetching secrets
+    allow_override : bool, optional, default: False
+        Toggle whether secrets can replace existing environment variables.
+    """
+    ...
+
+@typing.overload
+def secrets(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
+    ...
+
+@typing.overload
+def secrets(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
+    ...
+
+def secrets(f: typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | None = None, *, sources: typing.List[str | typing.Dict[str, typing.Any]] = [], role: str | None = None, allow_override: bool | None = False):
+    """
+    Specifies secrets to be retrieved and injected as environment variables prior to
+    the execution of a step.
+    
+    
+    Parameters
+    ----------
+    sources : List[Union[str, Dict[str, Any]]], default: []
+        List of secret specs, defining how the secrets are to be retrieved
+    role : str, optional, default: None
+        Role to use for fetching secrets
+    allow_override : bool, optional, default: False
+        Toggle whether secrets can replace existing environment variables.
+    """
+    ...
+
+@typing.overload
+def pypi(*, packages: typing.Dict[str, str] = {}, python: str | None = None) -> typing.Callable[[typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]], typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]]:
+    """
+    Specifies the PyPI packages for the step.
+    
+    Information in this decorator will augment any
+    attributes set in the `@pyi_base` flow-level decorator. Hence,
+    you can use `@pypi_base` to set packages required by all
+    steps and use `@pypi` to specify step-specific overrides.
+    
+    
+    Parameters
+    ----------
+    packages : Dict[str, str], default: {}
+        Packages to use for this step. The key is the name of the package
+        and the value is the version to use.
+    python : str, optional, default: None
+        Version of Python to use, e.g. '3.7.4'. A default value of None implies
+        that the version used will correspond to the version of the Python interpreter used to start the run.
+    """
+    ...
+
+@typing.overload
+def pypi(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
+    ...
+
+@typing.overload
+def pypi(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
+    ...
+
+def pypi(f: typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | None = None, *, packages: typing.Dict[str, str] = {}, python: str | None = None):
+    """
+    Specifies the PyPI packages for the step.
+    
+    Information in this decorator will augment any
+    attributes set in the `@pyi_base` flow-level decorator. Hence,
+    you can use `@pypi_base` to set packages required by all
+    steps and use `@pypi` to specify step-specific overrides.
+    
+    
+    Parameters
+    ----------
+    packages : Dict[str, str], default: {}
+        Packages to use for this step. The key is the name of the package
+        and the value is the version to use.
+    python : str, optional, default: None
+        Version of Python to use, e.g. '3.7.4'. A default value of None implies
+        that the version used will correspond to the version of the Python interpreter used to start the run.
+    """
+    ...
+
+@typing.overload
+def resources(*, cpu: int = 1, gpu: int | None = None, disk: int | None = None, memory: int = 4096, shared_memory: int | None = None) -> typing.Callable[[typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]], typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]]:
+    """
+    Specifies the resources needed when executing this step.
+    
+    Use `@resources` to specify the resource requirements
+    independently of the specific compute layer (`@batch`, `@kubernetes`).
+    
+    You can choose the compute layer on the command line by executing e.g.
+    ```
+    python myflow.py run --with batch
+    ```
+    or
+    ```
+    python myflow.py run --with kubernetes
+    ```
+    which executes the flow on the desired system using the
+    requirements specified in `@resources`.
+    
+    
+    Parameters
+    ----------
+    cpu : int, default 1
+        Number of CPUs required for this step.
+    gpu : int, optional, default None
+        Number of GPUs required for this step.
+    disk : int, optional, default None
+        Disk size (in MB) required for this step. Only applies on Kubernetes.
+    memory : int, default 4096
+        Memory size (in MB) required for this step.
+    shared_memory : int, optional, default None
+        The value for the size (in MiB) of the /dev/shm volume for this step.
+        This parameter maps to the `--shm-size` option in Docker.
+    """
+    ...
+
+@typing.overload
+def resources(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
+    ...
+
+@typing.overload
+def resources(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
+    ...
+
+def resources(f: typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | None = None, *, cpu: int = 1, gpu: int | None = None, disk: int | None = None, memory: int = 4096, shared_memory: int | None = None):
+    """
+    Specifies the resources needed when executing this step.
+    
+    Use `@resources` to specify the resource requirements
+    independently of the specific compute layer (`@batch`, `@kubernetes`).
+    
+    You can choose the compute layer on the command line by executing e.g.
+    ```
+    python myflow.py run --with batch
+    ```
+    or
+    ```
+    python myflow.py run --with kubernetes
+    ```
+    which executes the flow on the desired system using the
+    requirements specified in `@resources`.
+    
+    
+    Parameters
+    ----------
+    cpu : int, default 1
+        Number of CPUs required for this step.
+    gpu : int, optional, default None
+        Number of GPUs required for this step.
+    disk : int, optional, default None
+        Disk size (in MB) required for this step. Only applies on Kubernetes.
+    memory : int, default 4096
+        Memory size (in MB) required for this step.
+    shared_memory : int, optional, default None
+        The value for the size (in MiB) of the /dev/shm volume for this step.
+        This parameter maps to the `--shm-size` option in Docker.
+    """
+    ...
+
+def kubernetes(*, cpu: int = 1, memory: int = 4096, disk: int = 10240, image: str | None = None, image_pull_policy: str = 'KUBERNETES_IMAGE_PULL_POLICY', image_pull_secrets: typing.List[str] = [], service_account: str = 'METAFLOW_KUBERNETES_SERVICE_ACCOUNT', secrets: typing.List[str] | None = None, node_selector: typing.Dict[str, str] | str | None = None, namespace: str = 'METAFLOW_KUBERNETES_NAMESPACE', gpu: int | None = None, gpu_vendor: str = 'KUBERNETES_GPU_VENDOR', tolerations: typing.List[typing.Dict[str, str]] = [], labels: typing.Dict[str, str] = 'METAFLOW_KUBERNETES_LABELS', annotations: typing.Dict[str, str] = 'METAFLOW_KUBERNETES_ANNOTATIONS', use_tmpfs: bool = False, tmpfs_tempdir: bool = True, tmpfs_size: int | None = None, tmpfs_path: str | None = '/metaflow_temp', persistent_volume_claims: typing.Dict[str, str] | None = None, shared_memory: int | None = None, port: int | None = None, compute_pool: str | None = None, hostname_resolution_timeout: int = 600, qos: str = 'Burstable', security_context: typing.Dict[str, typing.Any] | None = None) -> typing.Callable[[typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]], typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]]:
+    """
+    Specifies that this step should execute on Kubernetes.
+    
+    
+    Parameters
+    ----------
+    cpu : int, default 1
+        Number of CPUs required for this step. If `@resources` is
+        also present, the maximum value from all decorators is used.
+    memory : int, default 4096
+        Memory size (in MB) required for this step. If
+        `@resources` is also present, the maximum value from all decorators is
+        used.
+    disk : int, default 10240
+        Disk size (in MB) required for this step. If
+        `@resources` is also present, the maximum value from all decorators is
+        used.
+    image : str, optional, default None
+        Docker image to use when launching on Kubernetes. If not specified, and
+        METAFLOW_KUBERNETES_CONTAINER_IMAGE is specified, that image is used. If
+        not, a default Docker image mapping to the current version of Python is used.
+    image_pull_policy: str, default KUBERNETES_IMAGE_PULL_POLICY
+        If given, the imagePullPolicy to be applied to the Docker image of the step.
+    image_pull_secrets: List[str], default []
+        The default is extracted from METAFLOW_KUBERNETES_IMAGE_PULL_SECRETS.
+        Kubernetes image pull secrets to use when pulling container images
+        in Kubernetes.
+    service_account : str, default METAFLOW_KUBERNETES_SERVICE_ACCOUNT
+        Kubernetes service account to use when launching pod in Kubernetes.
+    secrets : List[str], optional, default None
+        Kubernetes secrets to use when launching pod in Kubernetes. These
+        secrets are in addition to the ones defined in `METAFLOW_KUBERNETES_SECRETS`
+        in Metaflow configuration.
+    node_selector: Union[Dict[str,str], str], optional, default None
+        Kubernetes node selector(s) to apply to the pod running the task.
+        Can be passed in as a comma separated string of values e.g.
+        'kubernetes.io/os=linux,kubernetes.io/arch=amd64' or as a dictionary
+        {'kubernetes.io/os': 'linux', 'kubernetes.io/arch': 'amd64'}
+    namespace : str, default METAFLOW_KUBERNETES_NAMESPACE
+        Kubernetes namespace to use when launching pod in Kubernetes.
+    gpu : int, optional, default None
+        Number of GPUs required for this step. A value of zero implies that
+        the scheduled node should not have GPUs.
+    gpu_vendor : str, default KUBERNETES_GPU_VENDOR
+        The vendor of the GPUs to be used for this step.
+    tolerations : List[Dict[str,str]], default []
+        The default is extracted from METAFLOW_KUBERNETES_TOLERATIONS.
+        Kubernetes tolerations to use when launching pod in Kubernetes.
+    labels: Dict[str, str], default: METAFLOW_KUBERNETES_LABELS
+        Kubernetes labels to use when launching pod in Kubernetes.
+    annotations: Dict[str, str], default: METAFLOW_KUBERNETES_ANNOTATIONS
+        Kubernetes annotations to use when launching pod in Kubernetes.
+    use_tmpfs : bool, default False
+        This enables an explicit tmpfs mount for this step.
+    tmpfs_tempdir : bool, default True
+        sets METAFLOW_TEMPDIR to tmpfs_path if set for this step.
+    tmpfs_size : int, optional, default: None
+        The value for the size (in MiB) of the tmpfs mount for this step.
+        This parameter maps to the `--tmpfs` option in Docker. Defaults to 50% of the
+        memory allocated for this step.
+    tmpfs_path : str, optional, default /metaflow_temp
+        Path to tmpfs mount for this step.
+    persistent_volume_claims : Dict[str, str], optional, default None
+        A map (dictionary) of persistent volumes to be mounted to the pod for this step. The map is from persistent
+        volumes to the path to which the volume is to be mounted, e.g., `{'pvc-name': '/path/to/mount/on'}`.
+    shared_memory: int, optional
+        Shared memory size (in MiB) required for this step
+    port: int, optional
+        Port number to specify in the Kubernetes job object
+    compute_pool : str, optional, default None
+        Compute pool to be used for for this step.
+        If not specified, any accessible compute pool within the perimeter is used.
+    hostname_resolution_timeout: int, default 10 * 60
+        Timeout in seconds for the workers tasks in the gang scheduled cluster to resolve the hostname of control task.
+        Only applicable when @parallel is used.
+    qos: str, default: Burstable
+        Quality of Service class to assign to the pod. Supported values are: Guaranteed, Burstable, BestEffort
+    
+    security_context: Dict[str, Any], optional, default None
+        Container security context. Applies to the task container. Allows the following keys:
+        - privileged: bool, optional, default None
+        - allow_privilege_escalation: bool, optional, default None
+        - run_as_user: int, optional, default None
+        - run_as_group: int, optional, default None
+        - run_as_non_root: bool, optional, default None
+    """
+    ...
+
+@typing.overload
+def parallel(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
+    """
+    Decorator prototype for all step decorators. This function gets specialized
+    and imported for all decorators types by _import_plugin_decorators().
+    """
+    ...
+
+@typing.overload
+def parallel(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
+    ...
+
+def parallel(f: typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | None = None):
+    """
+    Decorator prototype for all step decorators. This function gets specialized
+    and imported for all decorators types by _import_plugin_decorators().
+    """
+    ...
+
+@typing.overload
+def environment(*, vars: typing.Dict[str, str] = {}) -> typing.Callable[[typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]], typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]]:
+    """
+    Specifies environment variables to be set prior to the execution of a step.
+    
+    
+    Parameters
+    ----------
+    vars : Dict[str, str], default {}
+        Dictionary of environment variables to set.
+    """
+    ...
+
+@typing.overload
+def environment(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
+    ...
+
+@typing.overload
+def environment(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
+    ...
+
+def environment(f: typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | None = None, *, vars: typing.Dict[str, str] = {}):
+    """
+    Specifies environment variables to be set prior to the execution of a step.
+    
+    
+    Parameters
+    ----------
+    vars : Dict[str, str], default {}
+        Dictionary of environment variables to set.
+    """
+    ...
+
+@typing.overload
 def batch(*, cpu: int = 1, gpu: int = 0, memory: int = 4096, image: str | None = None, queue: str = 'METAFLOW_BATCH_JOB_QUEUE', iam_role: str = 'METAFLOW_ECS_S3_ACCESS_IAM_ROLE', execution_role: str = 'METAFLOW_ECS_FARGATE_EXECUTION_ROLE', shared_memory: int | None = None, max_swap: int | None = None, swappiness: int | None = None, aws_batch_tags: typing.Dict[str, str] | None = None, use_tmpfs: bool = False, tmpfs_tempdir: bool = True, tmpfs_size: int | None = None, tmpfs_path: str | None = None, inferentia: int = 0, trainium: int = None, efa: int = 0, ephemeral_storage: int = None, log_driver: str | None = None, log_options: typing.List[str] | None = None) -> typing.Callable[[typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]], typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]]:
     """
     Specifies that this step should execute on [AWS Batch](https://aws.amazon.com/batch/).
@@ -369,6 +733,57 @@ def batch(f: typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_genera
     ...
 
 @typing.overload
+def catch(*, var: str | None = None, print_exception: bool = True) -> typing.Callable[[typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]], typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]]:
+    """
+    Specifies that the step will success under all circumstances.
+    
+    The decorator will create an optional artifact, specified by `var`, which
+    contains the exception raised. You can use it to detect the presence
+    of errors, indicating that all happy-path artifacts produced by the step
+    are missing.
+    
+    
+    Parameters
+    ----------
+    var : str, optional, default None
+        Name of the artifact in which to store the caught exception.
+        If not specified, the exception is not stored.
+    print_exception : bool, default True
+        Determines whether or not the exception is printed to
+        stdout when caught.
+    """
+    ...
+
+@typing.overload
+def catch(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
+    ...
+
+@typing.overload
+def catch(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
+    ...
+
+def catch(f: typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | None = None, *, var: str | None = None, print_exception: bool = True):
+    """
+    Specifies that the step will success under all circumstances.
+    
+    The decorator will create an optional artifact, specified by `var`, which
+    contains the exception raised. You can use it to detect the presence
+    of errors, indicating that all happy-path artifacts produced by the step
+    are missing.
+    
+    
+    Parameters
+    ----------
+    var : str, optional, default None
+        Name of the artifact in which to store the caught exception.
+        If not specified, the exception is not stored.
+    print_exception : bool, default True
+        Determines whether or not the exception is printed to
+        stdout when caught.
+    """
+    ...
+
+@typing.overload
 def conda(*, packages: typing.Dict[str, str] = {}, libraries: typing.Dict[str, str] = {}, python: str | None = None, disabled: bool = False) -> typing.Callable[[typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]], typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]]:
     """
     Specifies the Conda environment for the step.
@@ -428,100 +843,6 @@ def conda(f: typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_genera
     ...
 
 @typing.overload
-def pypi(*, packages: typing.Dict[str, str] = {}, python: str | None = None) -> typing.Callable[[typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]], typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]]:
-    """
-    Specifies the PyPI packages for the step.
-    
-    Information in this decorator will augment any
-    attributes set in the `@pyi_base` flow-level decorator. Hence,
-    you can use `@pypi_base` to set packages required by all
-    steps and use `@pypi` to specify step-specific overrides.
-    
-    
-    Parameters
-    ----------
-    packages : Dict[str, str], default: {}
-        Packages to use for this step. The key is the name of the package
-        and the value is the version to use.
-    python : str, optional, default: None
-        Version of Python to use, e.g. '3.7.4'. A default value of None implies
-        that the version used will correspond to the version of the Python interpreter used to start the run.
-    """
-    ...
-
-@typing.overload
-def pypi(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
-    ...
-
-@typing.overload
-def pypi(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
-    ...
-
-def pypi(f: typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | None = None, *, packages: typing.Dict[str, str] = {}, python: str | None = None):
-    """
-    Specifies the PyPI packages for the step.
-    
-    Information in this decorator will augment any
-    attributes set in the `@pyi_base` flow-level decorator. Hence,
-    you can use `@pypi_base` to set packages required by all
-    steps and use `@pypi` to specify step-specific overrides.
-    
-    
-    Parameters
-    ----------
-    packages : Dict[str, str], default: {}
-        Packages to use for this step. The key is the name of the package
-        and the value is the version to use.
-    python : str, optional, default: None
-        Version of Python to use, e.g. '3.7.4'. A default value of None implies
-        that the version used will correspond to the version of the Python interpreter used to start the run.
-    """
-    ...
-
-@typing.overload
-def secrets(*, sources: typing.List[str | typing.Dict[str, typing.Any]] = [], role: str | None = None, allow_override: bool | None = False) -> typing.Callable[[typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]], typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]]:
-    """
-    Specifies secrets to be retrieved and injected as environment variables prior to
-    the execution of a step.
-    
-    
-    Parameters
-    ----------
-    sources : List[Union[str, Dict[str, Any]]], default: []
-        List of secret specs, defining how the secrets are to be retrieved
-    role : str, optional, default: None
-        Role to use for fetching secrets
-    allow_override : bool, optional, default: False
-        Toggle whether secrets can replace existing environment variables.
-    """
-    ...
-
-@typing.overload
-def secrets(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
-    ...
-
-@typing.overload
-def secrets(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
-    ...
-
-def secrets(f: typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | None = None, *, sources: typing.List[str | typing.Dict[str, typing.Any]] = [], role: str | None = None, allow_override: bool | None = False):
-    """
-    Specifies secrets to be retrieved and injected as environment variables prior to
-    the execution of a step.
-    
-    
-    Parameters
-    ----------
-    sources : List[Union[str, Dict[str, Any]]], default: []
-        List of secret specs, defining how the secrets are to be retrieved
-    role : str, optional, default: None
-        Role to use for fetching secrets
-    allow_override : bool, optional, default: False
-        Toggle whether secrets can replace existing environment variables.
-    """
-    ...
-
-@typing.overload
 def retry(*, times: int = 3, minutes_between_retries: int = 2) -> typing.Callable[[typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]], typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]]:
     """
     Specifies the number of times the task corresponding
@@ -576,328 +897,51 @@ def retry(f: typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_genera
     """
     ...
 
-@typing.overload
-def card(*, type: str = 'default', id: str | None = None, options: typing.Dict[str, typing.Any] = {}, timeout: int = 45) -> typing.Callable[[typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]], typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]]:
+def airflow_external_task_sensor(*, timeout: int, poke_interval: int, mode: str, exponential_backoff: bool, pool: str, soft_fail: bool, name: str, description: str, external_dag_id: str, external_task_ids: typing.List[str], allowed_states: typing.List[str], failed_states: typing.List[str], execution_delta: "datetime.timedelta", check_existence: bool) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
     """
-    Creates a human-readable report, a Metaflow Card, after this step completes.
-    
-    Note that you may add multiple `@card` decorators in a step with different parameters.
+    The `@airflow_external_task_sensor` decorator attaches a Airflow [ExternalTaskSensor](https://airflow.apache.org/docs/apache-airflow/stable/_api/airflow/sensors/external_task/index.html#airflow.sensors.external_task.ExternalTaskSensor) before the start step of the flow.
+    This decorator only works when a flow is scheduled on Airflow and is compiled using `airflow create`. More than one `@airflow_external_task_sensor` can be added as a flow decorators. Adding more than one decorator will ensure that `start` step starts only after all sensors finish.
     
     
     Parameters
     ----------
-    type : str, default 'default'
-        Card type.
-    id : str, optional, default None
-        If multiple cards are present, use this id to identify this card.
-    options : Dict[str, Any], default {}
-        Options passed to the card. The contents depend on the card type.
-    timeout : int, default 45
-        Interrupt reporting if it takes more than this many seconds.
+    timeout : int
+        Time, in seconds before the task times out and fails. (Default: 3600)
+    poke_interval : int
+        Time in seconds that the job should wait in between each try. (Default: 60)
+    mode : str
+        How the sensor operates. Options are: { poke | reschedule }. (Default: "poke")
+    exponential_backoff : bool
+        allow progressive longer waits between pokes by using exponential backoff algorithm. (Default: True)
+    pool : str
+        the slot pool this task should run in,
+        slot pools are a way to limit concurrency for certain tasks. (Default:None)
+    soft_fail : bool
+        Set to true to mark the task as SKIPPED on failure. (Default: False)
+    name : str
+        Name of the sensor on Airflow
+    description : str
+        Description of sensor in the Airflow UI
+    external_dag_id : str
+        The dag_id that contains the task you want to wait for.
+    external_task_ids : List[str]
+        The list of task_ids that you want to wait for.
+        If None (default value) the sensor waits for the DAG. (Default: None)
+    allowed_states : List[str]
+        Iterable of allowed states, (Default: ['success'])
+    failed_states : List[str]
+        Iterable of failed or dis-allowed states. (Default: None)
+    execution_delta : datetime.timedelta
+        time difference with the previous execution to look at,
+        the default is the same logical date as the current task or DAG. (Default: None)
+    check_existence: bool
+        Set to True to check if the external task exists or check if
+        the DAG to wait for exists. (Default: True)
     """
     ...
 
 @typing.overload
-def card(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
-    ...
-
-@typing.overload
-def card(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
-    ...
-
-def card(f: typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | None = None, *, type: str = 'default', id: str | None = None, options: typing.Dict[str, typing.Any] = {}, timeout: int = 45):
-    """
-    Creates a human-readable report, a Metaflow Card, after this step completes.
-    
-    Note that you may add multiple `@card` decorators in a step with different parameters.
-    
-    
-    Parameters
-    ----------
-    type : str, default 'default'
-        Card type.
-    id : str, optional, default None
-        If multiple cards are present, use this id to identify this card.
-    options : Dict[str, Any], default {}
-        Options passed to the card. The contents depend on the card type.
-    timeout : int, default 45
-        Interrupt reporting if it takes more than this many seconds.
-    """
-    ...
-
-def kubernetes(*, cpu: int = 1, memory: int = 4096, disk: int = 10240, image: str | None = None, image_pull_policy: str = 'KUBERNETES_IMAGE_PULL_POLICY', image_pull_secrets: typing.List[str] = [], service_account: str = 'METAFLOW_KUBERNETES_SERVICE_ACCOUNT', secrets: typing.List[str] | None = None, node_selector: typing.Dict[str, str] | str | None = None, namespace: str = 'METAFLOW_KUBERNETES_NAMESPACE', gpu: int | None = None, gpu_vendor: str = 'KUBERNETES_GPU_VENDOR', tolerations: typing.List[typing.Dict[str, str]] = [], labels: typing.Dict[str, str] = 'METAFLOW_KUBERNETES_LABELS', annotations: typing.Dict[str, str] = 'METAFLOW_KUBERNETES_ANNOTATIONS', use_tmpfs: bool = False, tmpfs_tempdir: bool = True, tmpfs_size: int | None = None, tmpfs_path: str | None = '/metaflow_temp', persistent_volume_claims: typing.Dict[str, str] | None = None, shared_memory: int | None = None, port: int | None = None, compute_pool: str | None = None, hostname_resolution_timeout: int = 600, qos: str = 'Burstable', security_context: typing.Dict[str, typing.Any] | None = None) -> typing.Callable[[typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]], typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]]:
-    """
-    Specifies that this step should execute on Kubernetes.
-    
-    
-    Parameters
-    ----------
-    cpu : int, default 1
-        Number of CPUs required for this step. If `@resources` is
-        also present, the maximum value from all decorators is used.
-    memory : int, default 4096
-        Memory size (in MB) required for this step. If
-        `@resources` is also present, the maximum value from all decorators is
-        used.
-    disk : int, default 10240
-        Disk size (in MB) required for this step. If
-        `@resources` is also present, the maximum value from all decorators is
-        used.
-    image : str, optional, default None
-        Docker image to use when launching on Kubernetes. If not specified, and
-        METAFLOW_KUBERNETES_CONTAINER_IMAGE is specified, that image is used. If
-        not, a default Docker image mapping to the current version of Python is used.
-    image_pull_policy: str, default KUBERNETES_IMAGE_PULL_POLICY
-        If given, the imagePullPolicy to be applied to the Docker image of the step.
-    image_pull_secrets: List[str], default []
-        The default is extracted from METAFLOW_KUBERNETES_IMAGE_PULL_SECRETS.
-        Kubernetes image pull secrets to use when pulling container images
-        in Kubernetes.
-    service_account : str, default METAFLOW_KUBERNETES_SERVICE_ACCOUNT
-        Kubernetes service account to use when launching pod in Kubernetes.
-    secrets : List[str], optional, default None
-        Kubernetes secrets to use when launching pod in Kubernetes. These
-        secrets are in addition to the ones defined in `METAFLOW_KUBERNETES_SECRETS`
-        in Metaflow configuration.
-    node_selector: Union[Dict[str,str], str], optional, default None
-        Kubernetes node selector(s) to apply to the pod running the task.
-        Can be passed in as a comma separated string of values e.g.
-        'kubernetes.io/os=linux,kubernetes.io/arch=amd64' or as a dictionary
-        {'kubernetes.io/os': 'linux', 'kubernetes.io/arch': 'amd64'}
-    namespace : str, default METAFLOW_KUBERNETES_NAMESPACE
-        Kubernetes namespace to use when launching pod in Kubernetes.
-    gpu : int, optional, default None
-        Number of GPUs required for this step. A value of zero implies that
-        the scheduled node should not have GPUs.
-    gpu_vendor : str, default KUBERNETES_GPU_VENDOR
-        The vendor of the GPUs to be used for this step.
-    tolerations : List[Dict[str,str]], default []
-        The default is extracted from METAFLOW_KUBERNETES_TOLERATIONS.
-        Kubernetes tolerations to use when launching pod in Kubernetes.
-    labels: Dict[str, str], default: METAFLOW_KUBERNETES_LABELS
-        Kubernetes labels to use when launching pod in Kubernetes.
-    annotations: Dict[str, str], default: METAFLOW_KUBERNETES_ANNOTATIONS
-        Kubernetes annotations to use when launching pod in Kubernetes.
-    use_tmpfs : bool, default False
-        This enables an explicit tmpfs mount for this step.
-    tmpfs_tempdir : bool, default True
-        sets METAFLOW_TEMPDIR to tmpfs_path if set for this step.
-    tmpfs_size : int, optional, default: None
-        The value for the size (in MiB) of the tmpfs mount for this step.
-        This parameter maps to the `--tmpfs` option in Docker. Defaults to 50% of the
-        memory allocated for this step.
-    tmpfs_path : str, optional, default /metaflow_temp
-        Path to tmpfs mount for this step.
-    persistent_volume_claims : Dict[str, str], optional, default None
-        A map (dictionary) of persistent volumes to be mounted to the pod for this step. The map is from persistent
-        volumes to the path to which the volume is to be mounted, e.g., `{'pvc-name': '/path/to/mount/on'}`.
-    shared_memory: int, optional
-        Shared memory size (in MiB) required for this step
-    port: int, optional
-        Port number to specify in the Kubernetes job object
-    compute_pool : str, optional, default None
-        Compute pool to be used for for this step.
-        If not specified, any accessible compute pool within the perimeter is used.
-    hostname_resolution_timeout: int, default 10 * 60
-        Timeout in seconds for the workers tasks in the gang scheduled cluster to resolve the hostname of control task.
-        Only applicable when @parallel is used.
-    qos: str, default: Burstable
-        Quality of Service class to assign to the pod. Supported values are: Guaranteed, Burstable, BestEffort
-    
-    security_context: Dict[str, Any], optional, default None
-        Container security context. Applies to the task container. Allows the following keys:
-        - privileged: bool, optional, default None
-        - allow_privilege_escalation: bool, optional, default None
-        - run_as_user: int, optional, default None
-        - run_as_group: int, optional, default None
-        - run_as_non_root: bool, optional, default None
-    """
-    ...
-
-@typing.overload
-def environment(*, vars: typing.Dict[str, str] = {}) -> typing.Callable[[typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]], typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]]:
-    """
-    Specifies environment variables to be set prior to the execution of a step.
-    
-    
-    Parameters
-    ----------
-    vars : Dict[str, str], default {}
-        Dictionary of environment variables to set.
-    """
-    ...
-
-@typing.overload
-def environment(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
-    ...
-
-@typing.overload
-def environment(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
-    ...
-
-def environment(f: typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | None = None, *, vars: typing.Dict[str, str] = {}):
-    """
-    Specifies environment variables to be set prior to the execution of a step.
-    
-    
-    Parameters
-    ----------
-    vars : Dict[str, str], default {}
-        Dictionary of environment variables to set.
-    """
-    ...
-
-@typing.overload
-def catch(*, var: str | None = None, print_exception: bool = True) -> typing.Callable[[typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]], typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]]:
-    """
-    Specifies that the step will success under all circumstances.
-    
-    The decorator will create an optional artifact, specified by `var`, which
-    contains the exception raised. You can use it to detect the presence
-    of errors, indicating that all happy-path artifacts produced by the step
-    are missing.
-    
-    
-    Parameters
-    ----------
-    var : str, optional, default None
-        Name of the artifact in which to store the caught exception.
-        If not specified, the exception is not stored.
-    print_exception : bool, default True
-        Determines whether or not the exception is printed to
-        stdout when caught.
-    """
-    ...
-
-@typing.overload
-def catch(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
-    ...
-
-@typing.overload
-def catch(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
-    ...
-
-def catch(f: typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | None = None, *, var: str | None = None, print_exception: bool = True):
-    """
-    Specifies that the step will success under all circumstances.
-    
-    The decorator will create an optional artifact, specified by `var`, which
-    contains the exception raised. You can use it to detect the presence
-    of errors, indicating that all happy-path artifacts produced by the step
-    are missing.
-    
-    
-    Parameters
-    ----------
-    var : str, optional, default None
-        Name of the artifact in which to store the caught exception.
-        If not specified, the exception is not stored.
-    print_exception : bool, default True
-        Determines whether or not the exception is printed to
-        stdout when caught.
-    """
-    ...
-
-@typing.overload
-def resources(*, cpu: int = 1, gpu: int | None = None, disk: int | None = None, memory: int = 4096, shared_memory: int | None = None) -> typing.Callable[[typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]], typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType]]:
-    """
-    Specifies the resources needed when executing this step.
-    
-    Use `@resources` to specify the resource requirements
-    independently of the specific compute layer (`@batch`, `@kubernetes`).
-    
-    You can choose the compute layer on the command line by executing e.g.
-    ```
-    python myflow.py run --with batch
-    ```
-    or
-    ```
-    python myflow.py run --with kubernetes
-    ```
-    which executes the flow on the desired system using the
-    requirements specified in `@resources`.
-    
-    
-    Parameters
-    ----------
-    cpu : int, default 1
-        Number of CPUs required for this step.
-    gpu : int, optional, default None
-        Number of GPUs required for this step.
-    disk : int, optional, default None
-        Disk size (in MB) required for this step. Only applies on Kubernetes.
-    memory : int, default 4096
-        Memory size (in MB) required for this step.
-    shared_memory : int, optional, default None
-        The value for the size (in MiB) of the /dev/shm volume for this step.
-        This parameter maps to the `--shm-size` option in Docker.
-    """
-    ...
-
-@typing.overload
-def resources(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
-    ...
-
-@typing.overload
-def resources(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
-    ...
-
-def resources(f: typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | None = None, *, cpu: int = 1, gpu: int | None = None, disk: int | None = None, memory: int = 4096, shared_memory: int | None = None):
-    """
-    Specifies the resources needed when executing this step.
-    
-    Use `@resources` to specify the resource requirements
-    independently of the specific compute layer (`@batch`, `@kubernetes`).
-    
-    You can choose the compute layer on the command line by executing e.g.
-    ```
-    python myflow.py run --with batch
-    ```
-    or
-    ```
-    python myflow.py run --with kubernetes
-    ```
-    which executes the flow on the desired system using the
-    requirements specified in `@resources`.
-    
-    
-    Parameters
-    ----------
-    cpu : int, default 1
-        Number of CPUs required for this step.
-    gpu : int, optional, default None
-        Number of GPUs required for this step.
-    disk : int, optional, default None
-        Disk size (in MB) required for this step. Only applies on Kubernetes.
-    memory : int, default 4096
-        Memory size (in MB) required for this step.
-    shared_memory : int, optional, default None
-        The value for the size (in MiB) of the /dev/shm volume for this step.
-        This parameter maps to the `--shm-size` option in Docker.
-    """
-    ...
-
-@typing.overload
-def parallel(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
-    """
-    Decorator prototype for all step decorators. This function gets specialized
-    and imported for all decorators types by _import_plugin_decorators().
-    """
-    ...
-
-@typing.overload
-def parallel(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
-    ...
-
-def parallel(f: typing.Callable[[~FlowSpecDerived, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | typing.Callable[[~FlowSpecDerived, typing.Any, metaflow.cmd.develop.stub_generator.StepFlag], NoneType] | None = None):
-    """
-    Decorator prototype for all step decorators. This function gets specialized
-    and imported for all decorators types by _import_plugin_decorators().
-    """
-    ...
-
-@typing.overload
-def trigger(*, event: str | typing.Dict[str, typing.Any] | None = None, events: typing.List[str | typing.Dict[str, typing.Any]] = [], options: typing.Dict[str, typing.Any] = {}) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
+def trigger(*, event: ForwardRef('Union[str, Dict[str, Any], Callable[[ParameterContext], Union[str, Dict[str, Any]]]]') | None = None, events: "List[Union[str, Dict[str, Any],Callable[[ParameterContext], Union[str, Dict[str, Any]]]]]" = [], options: typing.Dict[str, typing.Any] = {}) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
     """
     Specifies the event(s) that this flow depends on.
     
@@ -929,13 +973,24 @@ def trigger(*, event: str | typing.Dict[str, typing.Any] | None = None, events: 
     @trigger(event={'name':'foo', 'parameters':{'common_name': 'common_name', 'flow_param': 'event_field'}})
     ```
     
+    For namespaced events, you can use `namespaced_event_name` which resolves the
+    full event name at deploy time based on @project settings:
+    ```
+    from metaflow import namespaced_event_name
+    
+    @trigger(event=namespaced_event_name('foo'))
+    
+    @trigger(event={'name': namespaced_event_name('foo'), 'parameters': {'x': 'y'}})
+    ```
+    
     
     Parameters
     ----------
-    event : Union[str, Dict[str, Any]], optional, default None
-        Event dependency for this flow.
-    events : List[Union[str, Dict[str, Any]]], default []
-        Events dependency for this flow.
+    event : Union[str, Dict[str, Any], Callable[[ParameterContext], Union[str, Dict[str, Any]]]], optional, default None
+        Event dependency for this flow. Can be a string, dict, or a callable that
+        returns a string or dict at deploy time.
+    events : List[Union[str, Dict[str, Any],Callable[[ParameterContext], Union[str, Dict[str, Any]]]]], default []
+        Events dependency for this flow. Each element can be a string, dict, or callable.
     options : Dict[str, Any], default {}
         Backend-specific configuration for tuning eventing behavior.
     """
@@ -945,7 +1000,7 @@ def trigger(*, event: str | typing.Dict[str, typing.Any] | None = None, events: 
 def trigger(f: typing.Type[FlowSpecDerived]) -> typing.Type[FlowSpecDerived]:
     ...
 
-def trigger(f: typing.Type[~FlowSpecDerived] | None = None, *, event: str | typing.Dict[str, typing.Any] | None = None, events: typing.List[str | typing.Dict[str, typing.Any]] = [], options: typing.Dict[str, typing.Any] = {}):
+def trigger(f: typing.Type[~FlowSpecDerived] | None = None, *, event: ForwardRef('Union[str, Dict[str, Any], Callable[[ParameterContext], Union[str, Dict[str, Any]]]]') | None = None, events: "List[Union[str, Dict[str, Any],Callable[[ParameterContext], Union[str, Dict[str, Any]]]]]" = [], options: typing.Dict[str, typing.Any] = {}):
     """
     Specifies the event(s) that this flow depends on.
     
@@ -977,56 +1032,26 @@ def trigger(f: typing.Type[~FlowSpecDerived] | None = None, *, event: str | typi
     @trigger(event={'name':'foo', 'parameters':{'common_name': 'common_name', 'flow_param': 'event_field'}})
     ```
     
+    For namespaced events, you can use `namespaced_event_name` which resolves the
+    full event name at deploy time based on @project settings:
+    ```
+    from metaflow import namespaced_event_name
+    
+    @trigger(event=namespaced_event_name('foo'))
+    
+    @trigger(event={'name': namespaced_event_name('foo'), 'parameters': {'x': 'y'}})
+    ```
+    
     
     Parameters
     ----------
-    event : Union[str, Dict[str, Any]], optional, default None
-        Event dependency for this flow.
-    events : List[Union[str, Dict[str, Any]]], default []
-        Events dependency for this flow.
+    event : Union[str, Dict[str, Any], Callable[[ParameterContext], Union[str, Dict[str, Any]]]], optional, default None
+        Event dependency for this flow. Can be a string, dict, or a callable that
+        returns a string or dict at deploy time.
+    events : List[Union[str, Dict[str, Any],Callable[[ParameterContext], Union[str, Dict[str, Any]]]]], default []
+        Events dependency for this flow. Each element can be a string, dict, or callable.
     options : Dict[str, Any], default {}
         Backend-specific configuration for tuning eventing behavior.
-    """
-    ...
-
-@typing.overload
-def pypi_base(*, packages: typing.Dict[str, str] = {}, python: str | None = None) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
-    """
-    Specifies the PyPI packages for all steps of the flow.
-    
-    Use `@pypi_base` to set common packages required by all
-    steps and use `@pypi` to specify step-specific overrides.
-    
-    Parameters
-    ----------
-    packages : Dict[str, str], default: {}
-        Packages to use for this flow. The key is the name of the package
-        and the value is the version to use.
-    python : str, optional, default: None
-        Version of Python to use, e.g. '3.7.4'. A default value of None implies
-        that the version used will correspond to the version of the Python interpreter used to start the run.
-    """
-    ...
-
-@typing.overload
-def pypi_base(f: typing.Type[FlowSpecDerived]) -> typing.Type[FlowSpecDerived]:
-    ...
-
-def pypi_base(f: typing.Type[~FlowSpecDerived] | None = None, *, packages: typing.Dict[str, str] = {}, python: str | None = None):
-    """
-    Specifies the PyPI packages for all steps of the flow.
-    
-    Use `@pypi_base` to set common packages required by all
-    steps and use `@pypi` to specify step-specific overrides.
-    
-    Parameters
-    ----------
-    packages : Dict[str, str], default: {}
-        Packages to use for this flow. The key is the name of the package
-        and the value is the version to use.
-    python : str, optional, default: None
-        Version of Python to use, e.g. '3.7.4'. A default value of None implies
-        that the version used will correspond to the version of the Python interpreter used to start the run.
     """
     ...
 
@@ -1081,6 +1106,98 @@ def schedule(f: typing.Type[~FlowSpecDerived] | None = None, *, hourly: bool = F
     """
     ...
 
+@typing.overload
+def pypi_base(*, packages: typing.Dict[str, str] = {}, python: str | None = None) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
+    """
+    Specifies the PyPI packages for all steps of the flow.
+    
+    Use `@pypi_base` to set common packages required by all
+    steps and use `@pypi` to specify step-specific overrides.
+    
+    Parameters
+    ----------
+    packages : Dict[str, str], default: {}
+        Packages to use for this flow. The key is the name of the package
+        and the value is the version to use.
+    python : str, optional, default: None
+        Version of Python to use, e.g. '3.7.4'. A default value of None implies
+        that the version used will correspond to the version of the Python interpreter used to start the run.
+    """
+    ...
+
+@typing.overload
+def pypi_base(f: typing.Type[FlowSpecDerived]) -> typing.Type[FlowSpecDerived]:
+    ...
+
+def pypi_base(f: typing.Type[~FlowSpecDerived] | None = None, *, packages: typing.Dict[str, str] = {}, python: str | None = None):
+    """
+    Specifies the PyPI packages for all steps of the flow.
+    
+    Use `@pypi_base` to set common packages required by all
+    steps and use `@pypi` to specify step-specific overrides.
+    
+    Parameters
+    ----------
+    packages : Dict[str, str], default: {}
+        Packages to use for this flow. The key is the name of the package
+        and the value is the version to use.
+    python : str, optional, default: None
+        Version of Python to use, e.g. '3.7.4'. A default value of None implies
+        that the version used will correspond to the version of the Python interpreter used to start the run.
+    """
+    ...
+
+@typing.overload
+def conda_base(*, packages: typing.Dict[str, str] = {}, libraries: typing.Dict[str, str] = {}, python: str | None = None, disabled: bool = False) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
+    """
+    Specifies the Conda environment for all steps of the flow.
+    
+    Use `@conda_base` to set common libraries required by all
+    steps and use `@conda` to specify step-specific additions.
+    
+    
+    Parameters
+    ----------
+    packages : Dict[str, str], default {}
+        Packages to use for this flow. The key is the name of the package
+        and the value is the version to use.
+    libraries : Dict[str, str], default {}
+        Supported for backward compatibility. When used with packages, packages will take precedence.
+    python : str, optional, default None
+        Version of Python to use, e.g. '3.7.4'. A default value of None implies
+        that the version used will correspond to the version of the Python interpreter used to start the run.
+    disabled : bool, default False
+        If set to True, disables Conda.
+    """
+    ...
+
+@typing.overload
+def conda_base(f: typing.Type[FlowSpecDerived]) -> typing.Type[FlowSpecDerived]:
+    ...
+
+def conda_base(f: typing.Type[~FlowSpecDerived] | None = None, *, packages: typing.Dict[str, str] = {}, libraries: typing.Dict[str, str] = {}, python: str | None = None, disabled: bool = False):
+    """
+    Specifies the Conda environment for all steps of the flow.
+    
+    Use `@conda_base` to set common libraries required by all
+    steps and use `@conda` to specify step-specific additions.
+    
+    
+    Parameters
+    ----------
+    packages : Dict[str, str], default {}
+        Packages to use for this flow. The key is the name of the package
+        and the value is the version to use.
+    libraries : Dict[str, str], default {}
+        Supported for backward compatibility. When used with packages, packages will take precedence.
+    python : str, optional, default None
+        Version of Python to use, e.g. '3.7.4'. A default value of None implies
+        that the version used will correspond to the version of the Python interpreter used to start the run.
+    disabled : bool, default False
+        If set to True, disables Conda.
+    """
+    ...
+
 def airflow_s3_key_sensor(*, timeout: int, poke_interval: int, mode: str, exponential_backoff: bool, pool: str, soft_fail: bool, name: str, description: str, bucket_key: str | typing.List[str], bucket_name: str, wildcard_match: bool, aws_conn_id: str, verify: bool) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
     """
     The `@airflow_s3_key_sensor` decorator attaches a Airflow [S3KeySensor](https://airflow.apache.org/docs/apache-airflow-providers-amazon/stable/_api/airflow/providers/amazon/aws/sensors/s3/index.html#airflow.providers.amazon.aws.sensors.s3.S3KeySensor)
@@ -1124,46 +1241,38 @@ def airflow_s3_key_sensor(*, timeout: int, poke_interval: int, mode: str, expone
     """
     ...
 
-def airflow_external_task_sensor(*, timeout: int, poke_interval: int, mode: str, exponential_backoff: bool, pool: str, soft_fail: bool, name: str, description: str, external_dag_id: str, external_task_ids: typing.List[str], allowed_states: typing.List[str], failed_states: typing.List[str], execution_delta: "datetime.timedelta", check_existence: bool) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
+def project(*, name: str, branch: str | None = None, production: bool = False) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
     """
-    The `@airflow_external_task_sensor` decorator attaches a Airflow [ExternalTaskSensor](https://airflow.apache.org/docs/apache-airflow/stable/_api/airflow/sensors/external_task/index.html#airflow.sensors.external_task.ExternalTaskSensor) before the start step of the flow.
-    This decorator only works when a flow is scheduled on Airflow and is compiled using `airflow create`. More than one `@airflow_external_task_sensor` can be added as a flow decorators. Adding more than one decorator will ensure that `start` step starts only after all sensors finish.
+    Specifies what flows belong to the same project.
+    
+    A project-specific namespace is created for all flows that
+    use the same `@project(name)`.
     
     
     Parameters
     ----------
-    timeout : int
-        Time, in seconds before the task times out and fails. (Default: 3600)
-    poke_interval : int
-        Time in seconds that the job should wait in between each try. (Default: 60)
-    mode : str
-        How the sensor operates. Options are: { poke | reschedule }. (Default: "poke")
-    exponential_backoff : bool
-        allow progressive longer waits between pokes by using exponential backoff algorithm. (Default: True)
-    pool : str
-        the slot pool this task should run in,
-        slot pools are a way to limit concurrency for certain tasks. (Default:None)
-    soft_fail : bool
-        Set to true to mark the task as SKIPPED on failure. (Default: False)
     name : str
-        Name of the sensor on Airflow
-    description : str
-        Description of sensor in the Airflow UI
-    external_dag_id : str
-        The dag_id that contains the task you want to wait for.
-    external_task_ids : List[str]
-        The list of task_ids that you want to wait for.
-        If None (default value) the sensor waits for the DAG. (Default: None)
-    allowed_states : List[str]
-        Iterable of allowed states, (Default: ['success'])
-    failed_states : List[str]
-        Iterable of failed or dis-allowed states. (Default: None)
-    execution_delta : datetime.timedelta
-        time difference with the previous execution to look at,
-        the default is the same logical date as the current task or DAG. (Default: None)
-    check_existence: bool
-        Set to True to check if the external task exists or check if
-        the DAG to wait for exists. (Default: True)
+        Project name. Make sure that the name is unique amongst all
+        projects that use the same production scheduler. The name may
+        contain only lowercase alphanumeric characters and underscores.
+    
+    branch : Optional[str], default None
+        The branch to use. If not specified, the branch is set to
+        `user.<username>` unless `production` is set to `True`. This can
+        also be set on the command line using `--branch` as a top-level option.
+        It is an error to specify `branch` in the decorator and on the command line.
+    
+    production : bool, default False
+        Whether or not the branch is the production branch. This can also be set on the
+        command line using `--production` as a top-level option. It is an error to specify
+        `production` in the decorator and on the command line.
+        The project branch name will be:
+          - if `branch` is specified:
+            - if `production` is True: `prod.<branch>`
+            - if `production` is False: `test.<branch>`
+          - if `branch` is not specified:
+            - if `production` is True: `prod`
+            - if `production` is False: `user.<username>`
     """
     ...
 
@@ -1265,92 +1374,6 @@ def trigger_on_finish(f: typing.Type[~FlowSpecDerived] | None = None, *, flow: t
         Upstream flow dependencies for this flow.
     options : Dict[str, Any], default {}
         Backend-specific configuration for tuning eventing behavior.
-    """
-    ...
-
-def project(*, name: str, branch: str | None = None, production: bool = False) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
-    """
-    Specifies what flows belong to the same project.
-    
-    A project-specific namespace is created for all flows that
-    use the same `@project(name)`.
-    
-    
-    Parameters
-    ----------
-    name : str
-        Project name. Make sure that the name is unique amongst all
-        projects that use the same production scheduler. The name may
-        contain only lowercase alphanumeric characters and underscores.
-    
-    branch : Optional[str], default None
-        The branch to use. If not specified, the branch is set to
-        `user.<username>` unless `production` is set to `True`. This can
-        also be set on the command line using `--branch` as a top-level option.
-        It is an error to specify `branch` in the decorator and on the command line.
-    
-    production : bool, default False
-        Whether or not the branch is the production branch. This can also be set on the
-        command line using `--production` as a top-level option. It is an error to specify
-        `production` in the decorator and on the command line.
-        The project branch name will be:
-          - if `branch` is specified:
-            - if `production` is True: `prod.<branch>`
-            - if `production` is False: `test.<branch>`
-          - if `branch` is not specified:
-            - if `production` is True: `prod`
-            - if `production` is False: `user.<username>`
-    """
-    ...
-
-@typing.overload
-def conda_base(*, packages: typing.Dict[str, str] = {}, libraries: typing.Dict[str, str] = {}, python: str | None = None, disabled: bool = False) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
-    """
-    Specifies the Conda environment for all steps of the flow.
-    
-    Use `@conda_base` to set common libraries required by all
-    steps and use `@conda` to specify step-specific additions.
-    
-    
-    Parameters
-    ----------
-    packages : Dict[str, str], default {}
-        Packages to use for this flow. The key is the name of the package
-        and the value is the version to use.
-    libraries : Dict[str, str], default {}
-        Supported for backward compatibility. When used with packages, packages will take precedence.
-    python : str, optional, default None
-        Version of Python to use, e.g. '3.7.4'. A default value of None implies
-        that the version used will correspond to the version of the Python interpreter used to start the run.
-    disabled : bool, default False
-        If set to True, disables Conda.
-    """
-    ...
-
-@typing.overload
-def conda_base(f: typing.Type[FlowSpecDerived]) -> typing.Type[FlowSpecDerived]:
-    ...
-
-def conda_base(f: typing.Type[~FlowSpecDerived] | None = None, *, packages: typing.Dict[str, str] = {}, libraries: typing.Dict[str, str] = {}, python: str | None = None, disabled: bool = False):
-    """
-    Specifies the Conda environment for all steps of the flow.
-    
-    Use `@conda_base` to set common libraries required by all
-    steps and use `@conda` to specify step-specific additions.
-    
-    
-    Parameters
-    ----------
-    packages : Dict[str, str], default {}
-        Packages to use for this flow. The key is the name of the package
-        and the value is the version to use.
-    libraries : Dict[str, str], default {}
-        Supported for backward compatibility. When used with packages, packages will take precedence.
-    python : str, optional, default None
-        Version of Python to use, e.g. '3.7.4'. A default value of None implies
-        that the version used will correspond to the version of the Python interpreter used to start the run.
-    disabled : bool, default False
-        If set to True, disables Conda.
     """
     ...
 

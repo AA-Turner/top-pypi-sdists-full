@@ -11,7 +11,6 @@ from ._shared_client import get_shared_client
 def SemanticScholar_search_papers(
     query: str,
     limit: int,
-    api_key: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -26,8 +25,6 @@ def SemanticScholar_search_papers(
         Search query for Semantic Scholar. Use keywords separated by spaces to refine...
     limit : int
         Maximum number of papers to return from Semantic Scholar.
-    api_key : str
-        Optional API key for Semantic Scholar to obtain a higher quota.
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -44,7 +41,7 @@ def SemanticScholar_search_papers(
     return get_shared_client().run_one_function(
         {
             "name": "SemanticScholar_search_papers",
-            "arguments": {"query": query, "limit": limit, "api_key": api_key},
+            "arguments": {"query": query, "limit": limit},
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

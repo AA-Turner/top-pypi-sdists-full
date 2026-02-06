@@ -8,6 +8,7 @@ from pyspark.sql.connect.proto.expressions_pb2 import CommonInlineUserDefinedFun
 import snowflake.snowpark.functions as snowpark_fn
 from snowflake import snowpark
 from snowflake.snowpark.types import StructType
+from snowflake.snowpark_connect.config import global_config
 from snowflake.snowpark_connect.constants import MAP_IN_ARROW_EVAL_TYPE
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.expression.map_unresolved_star import (
@@ -31,6 +32,9 @@ from snowflake.snowpark_connect.utils.udf_helper import udf_check
 from snowflake.snowpark_connect.utils.udtf_helper import (
     create_pandas_udtf_in_sproc,
     require_creating_udtf_in_sproc,
+)
+from snowflake.snowpark_connect.utils.udxf_import_utils import (
+    get_python_udxf_import_files,
 )
 
 
@@ -146,18 +150,35 @@ def _map_with_udtf(
         udf_proto.WhichOneof("function") == "python_udf"
         and udf_proto.python_udf.eval_type == MAP_IN_ARROW_EVAL_TYPE
     )
+    udtf_packages = global_config.get("snowpark.connect.udf.packages", "")
+    udtf_imports = get_python_udxf_import_files(snowpark.Session.get_active_session())
     if require_creating_udtf_in_sproc(udf_proto):
         udtf_name = create_pandas_udtf_in_sproc(
-            udf_proto, spark_column_names, input_schema, return_type
+            udf_proto,
+            spark_column_names,
+            input_schema,
+            return_type,
+            udtf_packages,
+            udtf_imports,
         )
     else:
         if map_in_arrow:
             map_udtf = create_pandas_udtf_with_arrow(
-                udf_proto, spark_column_names, input_schema, return_type
+                udf_proto,
+                spark_column_names,
+                input_schema,
+                return_type,
+                udtf_packages,
+                udtf_imports,
             )
         else:
             map_udtf = create_pandas_udtf(
-                udf_proto, spark_column_names, input_schema, return_type
+                udf_proto,
+                spark_column_names,
+                input_schema,
+                return_type,
+                udtf_packages,
+                udtf_imports,
             )
         udtf_name = map_udtf.name
     return _call_udtf(udtf_name, input_df, return_type)

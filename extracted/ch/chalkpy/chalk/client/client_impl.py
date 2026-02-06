@@ -347,14 +347,9 @@ def _does_result_match(
             else:
                 expected_value = converter.from_rich_to_json(expected_value, missing_value_strategy="allow")
         if isinstance(a.value, float) and isinstance(expected_value, (float, int)):
-            return (
-                # short circuit for float comparison
-                (a.value == expected_value)
-                # If you specify both `float_rel_tolerance` and `float_abs_tolerance`,
-                # the numbers will be considered equal if either tolerance is met.
-                or (abs(a.value - expected_value) <= float_abs_tolerance)
-                or (abs(a.value - expected_value) <= float_rel_tolerance * max(abs(a.value), abs(expected_value)))
-            )
+            from chalk.utils.comparison import floats_are_close
+
+            return floats_are_close(a.value, expected_value, float_rel_tolerance, float_abs_tolerance)
         return a.value == expected_value
     return False
 

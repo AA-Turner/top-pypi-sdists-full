@@ -26,6 +26,7 @@ __all__ = (
     "AudioFormatType",
     "BedrockRuntimeServiceName",
     "CachePointTypeType",
+    "CacheTTLType",
     "ConversationRoleType",
     "DocumentFormatType",
     "GuardrailActionType",
@@ -54,6 +55,7 @@ __all__ = (
     "GuardrailWordPolicyActionType",
     "ImageFormatType",
     "ListAsyncInvokesPaginatorName",
+    "OutputFormatTypeType",
     "PaginatorName",
     "PerformanceConfigLatencyType",
     "ResourceServiceName",
@@ -87,6 +89,7 @@ AudioFormatType = Literal[
     "x-aac",
 ]
 CachePointTypeType = Literal["default"]
+CacheTTLType = Literal["1h", "5m"]
 ConversationRoleType = Literal["assistant", "user"]
 DocumentFormatType = Literal["csv", "doc", "docx", "html", "md", "pdf", "txt", "xls", "xlsx"]
 GuardrailActionType = Literal["GUARDRAIL_INTERVENED", "NONE"]
@@ -149,6 +152,7 @@ GuardrailTraceType = Literal["disabled", "enabled", "enabled_full"]
 GuardrailWordPolicyActionType = Literal["BLOCKED", "NONE"]
 ImageFormatType = Literal["gif", "jpeg", "png", "webp"]
 ListAsyncInvokesPaginatorName = Literal["list_async_invokes"]
+OutputFormatTypeType = Literal["json_schema"]
 PerformanceConfigLatencyType = Literal["optimized", "standard"]
 ServiceTierTypeType = Literal["default", "flex", "priority", "reserved"]
 SortAsyncInvocationByType = Literal["SubmissionTime"]

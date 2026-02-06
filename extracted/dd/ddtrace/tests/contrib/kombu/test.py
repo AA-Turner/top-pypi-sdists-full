@@ -3,7 +3,6 @@ import kombu
 import mock
 import pytest
 
-from ddtrace._trace.pin import Pin
 from ddtrace.contrib.internal.kombu import utils
 from ddtrace.contrib.internal.kombu.patch import patch
 from ddtrace.contrib.internal.kombu.patch import unpatch
@@ -21,7 +20,6 @@ DSM_TEST_PATH_HEADER_SIZE = 28
 
 
 class TestKombuPatch(TracerTestCase):
-    TEST_SERVICE = "kombu-patch"
     TEST_PORT = RABBITMQ_CONFIG["port"]
 
     def setUp(self):
@@ -30,7 +28,6 @@ class TestKombuPatch(TracerTestCase):
         conn = kombu.Connection("amqp://guest:guest@127.0.0.1:{p}//".format(p=self.TEST_PORT))
         conn.connect()
         producer = conn.Producer()
-        Pin._override(producer, service=self.TEST_SERVICE, tracer=self.tracer)
 
         self.conn = conn
         self.producer = producer
@@ -64,8 +61,7 @@ class TestKombuPatch(TracerTestCase):
             to_publish, exchange=task_queue.exchange, routing_key=task_queue.routing_key, declare=[task_queue]
         )
 
-        with kombu.Consumer(self.conn, [task_queue], accept=["json"], callbacks=[process_message]) as consumer:
-            Pin._override(consumer, service="kombu-patch", tracer=self.tracer)
+        with kombu.Consumer(self.conn, [task_queue], accept=["json"], callbacks=[process_message]):
             self.conn.drain_events(timeout=2)
 
         self.assertEqual(results[0], to_publish)
@@ -76,7 +72,6 @@ class TestKombuPatch(TracerTestCase):
         self.assertEqual(len(spans), 2)
         producer_span = spans[0]
         assert_is_measured(producer_span)
-        self.assertEqual(producer_span.service, self.TEST_SERVICE)
         self.assertEqual(producer_span.name, kombux.PUBLISH_NAME)
         self.assertEqual(producer_span.span_type, "worker")
         self.assertEqual(producer_span.error, 0)
@@ -91,7 +86,6 @@ class TestKombuPatch(TracerTestCase):
 
         consumer_span = spans[1]
         assert_is_measured(consumer_span)
-        self.assertEqual(consumer_span.service, self.TEST_SERVICE)
         self.assertEqual(consumer_span.name, kombux.RECEIVE_NAME)
         self.assertEqual(consumer_span.span_type, "worker")
         self.assertEqual(consumer_span.error, 0)
@@ -132,7 +126,6 @@ class TestKombuSettings(TracerTestCase):
         conn = kombu.Connection("amqp://guest:guest@127.0.0.1:{p}//".format(p=RABBITMQ_CONFIG["port"]))
         conn.connect()
         producer = conn.Producer()
-        Pin._override(producer, tracer=self.tracer)
 
         self.conn = conn
         self.producer = producer
@@ -153,7 +146,6 @@ class TestKombuSchematization(TracerTestCase):
         conn = kombu.Connection("amqp://guest:guest@127.0.0.1:{p}//".format(p=self.TEST_PORT))
         conn.connect()
         producer = conn.Producer()
-        Pin._override(producer, tracer=self.tracer)
 
         self.conn = conn
         self.producer = producer
@@ -181,8 +173,7 @@ class TestKombuSchematization(TracerTestCase):
             to_publish, exchange=task_queue.exchange, routing_key=task_queue.routing_key, declare=[task_queue]
         )
 
-        with kombu.Consumer(self.conn, [task_queue], accept=["json"], callbacks=[process_message]) as consumer:
-            Pin._override(consumer, tracer=self.tracer)
+        with kombu.Consumer(self.conn, [task_queue], accept=["json"], callbacks=[process_message]):
             self.conn.drain_events(timeout=2)
 
         return self.get_spans()
@@ -208,14 +199,14 @@ class TestKombuSchematization(TracerTestCase):
     @TracerTestCase.run_in_subprocess(env_overrides=dict())
     def test_schematized_unspecified_service_name_default(self):
         spans = self._create_schematized_spans()
-        for span in spans:
-            assert span.service is None, "Expected None, got {}".format(span.service)
+        assert spans, "Expected spans, got {}".format(spans)
+        assert spans[0].service == "kombu", "Expected kombu, got {}".format(spans[0].service)
 
     @TracerTestCase.run_in_subprocess(env_overrides=dict(DD_TRACE_SPAN_ATTRIBUTE_SCHEMA="v0"))
     def test_schematized_unspecified_service_name_v0(self):
         spans = self._create_schematized_spans()
-        for span in spans:
-            assert span.service is None, "Expected None, got {}".format(span.service)
+        assert spans, "Expected spans, got {}".format(spans)
+        assert spans[0].service == "kombu", "Expected kombu, got {}".format(spans[0].service)
 
     @TracerTestCase.run_in_subprocess(env_overrides=dict(DD_TRACE_SPAN_ATTRIBUTE_SCHEMA="v1"))
     def test_schematized_unspecified_service_name_v1(self):
@@ -257,8 +248,7 @@ class TestKombuSchematization(TracerTestCase):
                 to_publish, exchange=task_queue.exchange, routing_key=task_queue.routing_key, declare=[task_queue]
             )
 
-        with kombu.Consumer(self.conn, [task_queue], accept=["json"], callbacks=[process_message]) as consumer:
-            Pin._override(consumer, tracer=self.tracer)
+        with kombu.Consumer(self.conn, [task_queue], accept=["json"], callbacks=[process_message]):
             self.conn.drain_events(timeout=2)
 
         spans = self.get_spans()
@@ -277,7 +267,6 @@ class TestKombuDsm(TracerTestCase):
         self.conn = kombu.Connection("amqp://guest:guest@127.0.0.1:{p}//".format(p=RABBITMQ_CONFIG["port"]))
         self.conn.connect()
         self.producer = self.conn.Producer()
-        Pin._override(self.producer, tracer=self.tracer)
 
         from ddtrace.internal.datastreams import data_streams_processor
 
@@ -309,7 +298,6 @@ class TestKombuDsm(TracerTestCase):
             self.producer.publish(to_publish, routing_key=task_queue.routing_key, declare=[task_queue])
 
         with kombu.Consumer(self.conn, [task_queue], accept=["json"], callbacks=[process_message]) as consumer:
-            Pin._override(consumer, service="kombu-patch", tracer=self.tracer)
             self.conn.drain_events(timeout=2)
             queue_name = consumer.channel.queue_declare("tasks", passive=True).queue
 

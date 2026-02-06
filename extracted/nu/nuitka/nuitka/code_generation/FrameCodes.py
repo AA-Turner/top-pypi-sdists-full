@@ -1,7 +1,7 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Frame codes
+"""Frame codes
 
 This is about frame stacks and their management. There are different kinds
 of frames for different uses.
@@ -308,7 +308,7 @@ Py_CLEAR(%(frame_identifier)s->m_frame.f_locals);
             template_frame_guard_normal_main_block,
             frame_identifier=frame_identifier,
             frame_cache_identifier=frame_cache_identifier,
-            codes=indented(codes, 0),
+            codes=indented(codes),
             no_exception_exit=no_exception_exit,
             needs_preserve=needs_preserve,
             make_frame_code=make_frame_code,
@@ -406,7 +406,7 @@ def getFrameGuardGeneratorCode(
             frame_identifier=frame_identifier,
             frame_cache_identifier=frame_cache_identifier,
             context_identifier=context_identifier,
-            codes=indented(codes, 0),
+            codes=indented(codes),
             no_exception_exit=no_exception_exit,
             needs_preserve=False,  # TODO: Clears stuff
             make_frame_code=make_frame_code,
@@ -505,11 +505,11 @@ SET_CURRENT_EXCEPTION(tstate, &%(exception_preserved)s);
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

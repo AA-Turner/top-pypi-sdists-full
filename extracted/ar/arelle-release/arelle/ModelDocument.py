@@ -217,8 +217,6 @@ def load(modelXbrl, uri, base=None, referringElement=None, isEntry=False, isDisc
                 _("%(fileName)s: file error: %(error)s \nLoading terminated."),
                 modelObject=referringElement, fileName=os.path.basename(uri), error=str(err))
             raise LoadingException()
-        #import traceback
-        #print("traceback {}".format(traceback.format_tb(sys.exc_info()[2])))
         modelXbrl.error("IOerror",
                 _("%(fileName)s: file error: %(error)s"),
                 modelObject=referringElement, fileName=os.path.basename(uri), error=str(err))
@@ -881,6 +879,10 @@ class ModelDocument:
             dummyRootElement = self.parser.makeelement("{http://dummy}dummy") # may fail for streaming
             for modelObject in self.xmlRootElement.iter():
                 modelObject.__dict__.clear() # clear python variables of modelObjects (not lxml)
+            # Clearing namespace declarations results in substantial namespace fixup work for descendant elements.
+            # Clear children before the root, the likely contributor of namespace declarations.
+            for modelObject in self.xmlRootElement:
+                modelObject.clear()
             self.xmlRootElement.clear() # clear entire lxml subtree
             self.parserLookupName.__dict__.clear()
             self.parserLookupClass.__dict__.clear()
@@ -1072,7 +1074,7 @@ class ModelDocument:
                         self.modelXbrl.arcroleTypes[modelObject.arcroleURI].append(modelObject)
                     elif ln == "linkbaseRef":
                         if _mislocated:
-                            self.modelXbrl.error("xbrl.5.1.2.LinkbaseRefLocation",
+                            self.modelXbrl.error("xbrl.5.1.2.linkbaseRefLocation",
                                 _("Schema file link:linkbaseRef may only be located at path //xs:schema/xs:annotation/xs:appinfo but was found at %(elementPath)s"),
                                 modelObject=modelObject, elementPath=self.xmlDocument.getpath(parentModelObject))
                         self.schemaLinkbaseRefDiscover(modelObject)

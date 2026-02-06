@@ -48,7 +48,7 @@ interactions:
             to access it.
           status: 404
           title: Not Found
-          traceId: 7f546aeaa7efbd57a9d8254b888b8330
+          traceId: aae5de8e5d88c9ca7ba548d1689b769c
   - request:
       method: POST
       uri: http://localhost:3000/api/v1/entities/dataSources
@@ -61,6 +61,7 @@ interactions:
             username: demouser
             password: demopass
             url: jdbc:redshift://aws.endpoint:5439/demo?autosave=true
+            alternativeDataSourceId: ds-abc-id
           id: test
           type: dataSource
       headers:
@@ -82,7 +83,7 @@ interactions:
         Cache-Control:
           - no-cache, no-store, max-age=0, must-revalidate
         Content-Length:
-          - '304'
+          - '342'
         Content-Type:
           - application/json
         DATE: *id001
@@ -104,15 +105,16 @@ interactions:
       body:
         string:
           data:
-            id: test
-            type: dataSource
             attributes:
               url: jdbc:redshift://aws.endpoint:5439/demo?autosave=true
               username: demouser
               authenticationType: USERNAME_PASSWORD
-              name: Test2
+              alternativeDataSourceId: ds-abc-id
               type: REDSHIFT
+              name: Test2
               schema: demo
+            id: test
+            type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources/test
   - request:
@@ -136,7 +138,7 @@ interactions:
         Cache-Control:
           - no-cache, no-store, max-age=0, must-revalidate
         Content-Length:
-          - '304'
+          - '342'
         Content-Type:
           - application/json
         DATE: *id001
@@ -158,15 +160,16 @@ interactions:
       body:
         string:
           data:
-            id: test
-            type: dataSource
             attributes:
               url: jdbc:redshift://aws.endpoint:5439/demo?autosave=true
               username: demouser
               authenticationType: USERNAME_PASSWORD
-              name: Test2
+              alternativeDataSourceId: ds-abc-id
               type: REDSHIFT
+              name: Test2
               schema: demo
+            id: test
+            type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources/test
   - request:

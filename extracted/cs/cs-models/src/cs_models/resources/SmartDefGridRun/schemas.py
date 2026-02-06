@@ -23,6 +23,7 @@ class SmartDefGridRunResourceSchema(Schema):
     started_by_user_id = fields.String(required=True)
 
     notes = fields.String(allow_none=True)
+    llm_analyzer_response = fields.Raw(allow_none=True)
     client_token = fields.String(allow_none=True)
 
     created_at = fields.DateTime(dump_only=True)

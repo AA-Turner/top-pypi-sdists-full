@@ -1,9 +1,10 @@
 from adam.commands import extract_trailing_options, validate_args
 from adam.commands.command import Command
+from adam.commands.cql.utils_cql import cassandra_table_names
 from adam.commands.export.export_databases import ExportDatabases, export_db
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
-from adam.utils_job.async_job import AsyncJobs
+from adam.utils_async_job import AsyncJobs
 from adam.utils_context import Context
 
 class ShowColumnCounts(Command):

@@ -8,7 +8,7 @@ T = TypeVar("T", bound="GetHttpTriggerResponse200ExtraPerms")
 
 @_attrs_define
 class GetHttpTriggerResponse200ExtraPerms:
-    """ """
+    """Additional permissions for this trigger"""
 
     additional_properties: Dict[str, bool] = _attrs_field(init=False, factory=dict)
 

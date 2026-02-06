@@ -1,6 +1,7 @@
 from adam.commands import validate_args
 from adam.commands.command import Command
-from adam.commands.devices.devices import device
+from adam.commands.devices.device import Device
+from adam.commands.devices.devices import Devices
 from adam.repl_state import ReplState
 
 class Cd(Command):
@@ -27,13 +28,14 @@ class Cd(Command):
 
         with self.validate(args, state, apply=False) as (args, state):
             with validate_args(args, state, name='directory') as arg_str:
+                device: Device = Devices.of(state)
                 for dir in arg_str.split('/'):
-                    device(state).cd(dir, state)
+                    device.cd(dir, state)
 
                 return state
 
     def completion(self, state: ReplState):
-        return device(state).cd_completion(Cd.COMMAND, state, default = {})
+        return Devices.of(state).cd_completion(Cd.COMMAND, state, default = {})
 
     def help(self, state: ReplState):
         return super().help(state, 'move around on the operational device hierarchy', args='<path> | ..')

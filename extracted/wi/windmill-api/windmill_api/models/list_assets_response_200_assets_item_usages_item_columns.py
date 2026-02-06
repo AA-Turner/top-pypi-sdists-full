@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Type, TypeVar
+from typing import Any, Dict, List, Optional, Type, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -14,14 +14,14 @@ T = TypeVar("T", bound="ListAssetsResponse200AssetsItemUsagesItemColumns")
 class ListAssetsResponse200AssetsItemUsagesItemColumns:
     """The columns used (for tables)"""
 
-    additional_properties: Dict[str, ListAssetsResponse200AssetsItemUsagesItemColumnsAdditionalProperty] = _attrs_field(
-        init=False, factory=dict
-    )
+    additional_properties: Dict[
+        str, Optional[ListAssetsResponse200AssetsItemUsagesItemColumnsAdditionalProperty]
+    ] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         field_dict: Dict[str, Any] = {}
         for prop_name, prop in self.additional_properties.items():
-            field_dict[prop_name] = prop.value
+            field_dict[prop_name] = prop.value if prop else None
 
         field_dict.update({})
 
@@ -34,7 +34,14 @@ class ListAssetsResponse200AssetsItemUsagesItemColumns:
 
         additional_properties = {}
         for prop_name, prop_dict in d.items():
-            additional_property = ListAssetsResponse200AssetsItemUsagesItemColumnsAdditionalProperty(prop_dict)
+            _additional_property = prop_dict
+            additional_property: Optional[ListAssetsResponse200AssetsItemUsagesItemColumnsAdditionalProperty]
+            if _additional_property is None:
+                additional_property = None
+            else:
+                additional_property = ListAssetsResponse200AssetsItemUsagesItemColumnsAdditionalProperty(
+                    _additional_property
+                )
 
             additional_properties[prop_name] = additional_property
 
@@ -45,10 +52,12 @@ class ListAssetsResponse200AssetsItemUsagesItemColumns:
     def additional_keys(self) -> List[str]:
         return list(self.additional_properties.keys())
 
-    def __getitem__(self, key: str) -> ListAssetsResponse200AssetsItemUsagesItemColumnsAdditionalProperty:
+    def __getitem__(self, key: str) -> Optional[ListAssetsResponse200AssetsItemUsagesItemColumnsAdditionalProperty]:
         return self.additional_properties[key]
 
-    def __setitem__(self, key: str, value: ListAssetsResponse200AssetsItemUsagesItemColumnsAdditionalProperty) -> None:
+    def __setitem__(
+        self, key: str, value: Optional[ListAssetsResponse200AssetsItemUsagesItemColumnsAdditionalProperty]
+    ) -> None:
         self.additional_properties[key] = value
 
     def __delitem__(self, key: str) -> None:

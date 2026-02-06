@@ -1,6 +1,4 @@
-from typing import Dict, List, Optional
-
-from npe2._pydantic_compat import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 from ._commands import CommandContribution
 from ._configuration import ConfigurationContribution
@@ -30,13 +28,13 @@ __all__ = [
 
 
 class ContributionPoints(BaseModel):
-    commands: Optional[List[CommandContribution]]
-    readers: Optional[List[ReaderContribution]]
-    writers: Optional[List[WriterContribution]]
-    widgets: Optional[List[WidgetContribution]]
-    sample_data: Optional[List[SampleDataContribution]]
-    themes: Optional[List[ThemeContribution]]
-    menus: Dict[str, List[MenuItem]] = Field(
+    commands: list[CommandContribution] | None = None
+    readers: list[ReaderContribution] | None = None
+    writers: list[WriterContribution] | None = None
+    widgets: list[WidgetContribution] | None = None
+    sample_data: list[SampleDataContribution] | None = None
+    themes: list[ThemeContribution] | None = None
+    menus: dict[str, list[MenuItem]] = Field(
         default_factory=dict,
         description="Add menu items to existing napari menus."
         "A menu item can be a command, such as open a widget, or a submenu."
@@ -44,10 +42,10 @@ class ContributionPoints(BaseModel):
         "This allows you to organize your plugin's contributions within"
         "napari's menu structure.",
     )
-    submenus: Optional[List[SubmenuContribution]]
-    keybindings: Optional[List[KeyBindingContribution]] = Field(None, hide_docs=True)
+    submenus: list[SubmenuContribution] | None = None
+    keybindings: list[KeyBindingContribution] | None = Field(None, hide_docs=True)
 
-    configuration: List[ConfigurationContribution] = Field(
+    configuration: list[ConfigurationContribution] = Field(
         default_factory=list,
         hide_docs=True,
         description="Configuration options for this plugin."
@@ -58,6 +56,7 @@ class ContributionPoints(BaseModel):
         "keys will be used for the submenu entry names.",
     )
 
-    @validator("configuration", pre=True)
+    @field_validator("configuration", mode="before")
+    @classmethod
     def _to_list(cls, v):
         return v if isinstance(v, list) else [v]

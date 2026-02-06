@@ -27,6 +27,7 @@ from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_sess
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 
 JAVA_UDTF_PREFIX = "__SC_JAVA_UDTF_"
+VARIANT_COMPATIBLE_TYPES = (ArrayType, MapType, StructType, VariantType)
 
 GROUP_MAP_UDTF_TEMPLATE = """
 import org.apache.spark.sql.connect.common.UdfPacket;
@@ -110,6 +111,99 @@ public class JavaUdtfHandler {
         };
 
         accumulatedValues.clear();
+
+        return StreamSupport.stream(Spliterators.spliteratorUnknownSize(javaResult, Spliterator.ORDERED), false)
+                .map(i -> new OutputRow(i));
+  }
+}
+"""
+
+CO_GROUP_MAP_UDTF_TEMPLATE = """
+import org.apache.spark.sql.connect.common.UdfPacket;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.Serializable;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
+import java.util.*;
+import java.lang.*;
+import java.util.stream.Collectors;
+import com.snowflake.snowpark_java.types.*;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+
+public class OutputRow {
+  public Variant __java_udtf_prefix__C1;
+  public OutputRow(Variant __java_udtf_prefix__C1) {
+    this.__java_udtf_prefix__C1 = __java_udtf_prefix__C1;
+  }
+}
+
+public class JavaUdtfHandler {
+    private final static String OPERATION_FILE = "__operation_file__";
+    private static Object operation = null;
+    private static UdfPacket udfPacket = null;
+
+    private __key_type__ currentKey = null;
+    private List<__value_type__> accumulatedValues1 = new ArrayList<>();
+    private List<__value_type__> accumulatedValues2 = new ArrayList<>();
+
+  public static Class getOutputClass() { return OutputRow.class; }
+
+    private static void loadOperation() throws IOException, ClassNotFoundException {
+        if (operation != null) {
+            return;
+        }
+
+        udfPacket = com.snowflake.sas.scala.Utils$.MODULE$.deserializeUdfPacket(OPERATION_FILE);
+        operation = udfPacket.function();
+    }
+
+  public Stream<OutputRow> process(__key_type__ key, __value_type__ value, Integer source) throws IOException, ClassNotFoundException {
+        loadOperation();
+        currentKey = key;
+        if (value != null) {
+            if (source == 1) {
+                accumulatedValues1.add(value);
+            } else {
+                accumulatedValues2.add(value);
+            }
+        }
+        return Stream.empty();
+  }
+
+  public Stream<OutputRow> endPartition() throws IOException, ClassNotFoundException {
+        if (accumulatedValues1.isEmpty() && accumulatedValues2.isEmpty()) {
+            return Stream.empty();
+        }
+
+        __key_conversion__
+        __value1_iterator_conversion__
+        __value2_iterator_conversion__
+
+        scala.Function3<Object, scala.collection.Iterator<Object>, scala.collection.Iterator<Object>, Object> func3 =
+            (scala.Function3<Object, scala.collection.Iterator<Object>, scala.collection.Iterator<Object>, Object>) operation;
+        Object scalaResult = func3.apply(scalaKey, scalaIterator1, scalaIterator2);
+
+        scala.collection.Iterator<Object> scalaResultIterator;
+        if (scalaResult instanceof scala.collection.Iterator) {
+            scalaResultIterator = (scala.collection.Iterator<Object>) scalaResult;
+        } else {
+            scalaResultIterator = ((scala.collection.Iterable<Object>) scalaResult).iterator();
+        }
+
+        java.util.Iterator<Variant> javaResult = new java.util.Iterator<Variant>() {
+            public boolean hasNext() { return scalaResultIterator.hasNext(); }
+            public Variant next() {
+                return com.snowflake.sas.scala.Utils$.MODULE$.toVariant(scalaResultIterator.next(), udfPacket);
+            }
+        };
+
+        accumulatedValues1.clear();
+        accumulatedValues2.clear();
 
         return StreamSupport.stream(Spliterators.spliteratorUnknownSize(javaResult, Spliterator.ORDERED), false)
                 .map(i -> new OutputRow(i));
@@ -480,7 +574,7 @@ def create_java_udtf_for_scala_group_map_handling(
     key_type = proto_to_snowpark_type(input_types[0])
     value_type = proto_to_snowpark_type(input_types[1])
 
-    if isinstance(key_type, (ArrayType, MapType, StructType, VariantType)):
+    if isinstance(key_type, VARIANT_COMPATIBLE_TYPES):
         key_type_java = "Variant"
         key_type_sql = "VARIANT"
         is_variant_key = True
@@ -489,7 +583,7 @@ def create_java_udtf_for_scala_group_map_handling(
         key_type_sql = map_type_to_snowflake_type(key_type)
         is_variant_key = False
 
-    if isinstance(value_type, (ArrayType, MapType, StructType, VariantType)):
+    if isinstance(value_type, VARIANT_COMPATIBLE_TYPES):
         value_type_java = "Variant"
         value_type_sql = "VARIANT"
         is_variant_value = True
@@ -526,6 +620,180 @@ def create_java_udtf_for_scala_group_map_handling(
 
     sql = udtf.to_create_function_sql()
     logger.info(f"Creating Java UDTF for group_map: {sql}")
+    session.sql(sql).collect()
+
+    return udtf_name
+
+
+@dataclass(frozen=True)
+class JavaCoGroupMapUDTFDef:
+    """
+    Definition for creating a Java UDTF for Scala co_group_map operations.
+
+    This handles Function3[K, Iterator[V1], Iterator[V2], TraversableOnce[U]] semantics where
+    the function takes a key and two iterators of values (one from each dataset),
+    returning a sequence of results.
+
+    The UDTF receives rows with a source marker (1 or 2) to indicate which dataset
+    each value came from. Values are accumulated separately and then passed to the
+    Scala function as two iterators.
+    """
+
+    name: str
+    key_type_java: str
+    key_type_sql: str
+    value_type_java: str
+    value_type_sql: str
+    imports: list[str]
+    is_variant_key: bool
+    is_variant_value: bool
+
+    def _gen_body_java(self) -> str:
+        if self.is_variant_key:
+            key_conversion = "Object scalaKey = com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, currentKey, 0);"
+        else:
+            key_conversion = "Object scalaKey = currentKey;"
+
+        if self.is_variant_value:
+            value1_iterator_conversion = """
+        java.util.Iterator<Object> javaIterator1 = accumulatedValues1.stream()
+            .map(v -> com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, v, 1))
+            .iterator();
+        scala.collection.Iterator<Object> scalaIterator1 = new scala.collection.AbstractIterator<Object>() {
+            public boolean hasNext() { return javaIterator1.hasNext(); }
+            public Object next() { return javaIterator1.next(); }
+        };"""
+            value2_iterator_conversion = """
+        java.util.Iterator<Object> javaIterator2 = accumulatedValues2.stream()
+            .map(v -> com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, v, 2))
+            .iterator();
+        scala.collection.Iterator<Object> scalaIterator2 = new scala.collection.AbstractIterator<Object>() {
+            public boolean hasNext() { return javaIterator2.hasNext(); }
+            public Object next() { return javaIterator2.next(); }
+        };"""
+        else:
+            value1_iterator_conversion = """
+        java.util.Iterator<__value_type__> javaIterator1 = accumulatedValues1.iterator();
+        scala.collection.Iterator<Object> scalaIterator1 = new scala.collection.AbstractIterator<Object>() {
+            public boolean hasNext() { return javaIterator1.hasNext(); }
+            public Object next() { return javaIterator1.next(); }
+        };""".replace(
+                "__value_type__", self.value_type_java
+            )
+            value2_iterator_conversion = """
+        java.util.Iterator<__value_type__> javaIterator2 = accumulatedValues2.iterator();
+        scala.collection.Iterator<Object> scalaIterator2 = new scala.collection.AbstractIterator<Object>() {
+            public boolean hasNext() { return javaIterator2.hasNext(); }
+            public Object next() { return javaIterator2.next(); }
+        };""".replace(
+                "__value_type__", self.value_type_java
+            )
+
+        return (
+            CO_GROUP_MAP_UDTF_TEMPLATE.replace(
+                "__operation_file__", self.imports[0].split("/")[-1]
+            )
+            .replace("__key_type__", self.key_type_java)
+            .replace("__value_type__", self.value_type_java)
+            .replace("__key_conversion__", key_conversion)
+            .replace("__value1_iterator_conversion__", value1_iterator_conversion)
+            .replace("__value2_iterator_conversion__", value2_iterator_conversion)
+            .replace("__java_udtf_prefix__", JAVA_UDTF_PREFIX)
+        )
+
+    def to_create_function_sql(self) -> str:
+        def quote_single(s: str) -> str:
+            return "'" + s + "'"
+
+        imports_sql = f"IMPORTS = ({', '.join(quote_single(x) for x in self.imports)})"
+
+        params = f"key {self.key_type_sql}, value {self.value_type_sql}, source INTEGER"
+
+        return f"""
+create or replace function {self.name}({params})
+returns table ({JAVA_UDTF_PREFIX}C1 VARIANT)
+language java
+runtime_version = 17
+PACKAGES = ('com.snowflake:snowpark:latest')
+{imports_sql}
+handler='JavaUdtfHandler'
+as
+$$
+{self._gen_body_java()}
+$$;"""
+
+
+def create_java_udtf_for_scala_co_group_map_handling(
+    udf_proto: CommonInlineUserDefinedFunction,
+) -> str:
+    """
+    Create a Java UDTF for Scala co_group_map operations (cogroup).
+
+    The Scala function has signature Function3[K, Iterator[V1], Iterator[V2], TraversableOnce[U]].
+    This UDTF uses a UNION ALL approach where rows from both datasets are combined with a source
+    marker. The UDTF accumulates values per partition and separates them by source in endPartition.
+
+    Args:
+        udf_proto: The UDF protobuf containing the function definition
+    """
+    ensure_scala_udf_jars_uploaded()
+
+    session = get_or_create_snowpark_session()
+
+    input_types = udf_proto.scalar_scala_udf.inputTypes
+    assert (
+        len(input_types) == 3
+    ), "Co-group map function should have exactly 3 input types"
+
+    key_type = proto_to_snowpark_type(input_types[0])
+    value1_type = proto_to_snowpark_type(input_types[1])
+    value2_type = proto_to_snowpark_type(input_types[2])
+
+    if isinstance(key_type, VARIANT_COMPATIBLE_TYPES):
+        key_type_java = "Variant"
+        key_type_sql = "VARIANT"
+        is_variant_key = True
+    else:
+        key_type_java = map_type_to_java_type(key_type)
+        key_type_sql = map_type_to_snowflake_type(key_type)
+        is_variant_key = False
+
+    is_variant_value1 = isinstance(value1_type, VARIANT_COMPATIBLE_TYPES)
+    is_variant_value2 = isinstance(value2_type, VARIANT_COMPATIBLE_TYPES)
+    is_variant_value = is_variant_value1 or is_variant_value2
+
+    if is_variant_value:
+        value_type_java = "Variant"
+        value_type_sql = "VARIANT"
+    else:
+        value_type_java = map_type_to_java_type(value1_type)
+        value_type_sql = map_type_to_snowflake_type(value1_type)
+
+    udtf_name = (
+        JAVA_UDTF_PREFIX
+        + "CGM_"
+        + hashlib.md5(udf_proto.scalar_scala_udf.payload).hexdigest()
+    )
+
+    imports = build_jvm_udxf_imports(
+        session,
+        udf_proto.scalar_scala_udf.payload,
+        udtf_name,
+    )
+
+    udtf = JavaCoGroupMapUDTFDef(
+        name=udtf_name,
+        key_type_java=key_type_java,
+        key_type_sql=key_type_sql,
+        value_type_java=value_type_java,
+        value_type_sql=value_type_sql,
+        imports=imports,
+        is_variant_key=is_variant_key,
+        is_variant_value=is_variant_value,
+    )
+
+    sql = udtf.to_create_function_sql()
+    logger.info(f"Creating Java UDTF for co_group_map: {sql}")
     session.sql(sql).collect()
 
     return udtf_name

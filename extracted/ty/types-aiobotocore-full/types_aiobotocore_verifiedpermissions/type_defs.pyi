@@ -84,6 +84,8 @@ __all__ = (
     "DeletePolicyStoreInputTypeDef",
     "DeletePolicyTemplateInputTypeDef",
     "DeterminingPolicyItemTypeDef",
+    "EncryptionSettingsTypeDef",
+    "EncryptionStateTypeDef",
     "EntitiesDefinitionTypeDef",
     "EntityIdentifierTypeDef",
     "EntityItemTypeDef",
@@ -107,6 +109,8 @@ __all__ = (
     "IsAuthorizedOutputTypeDef",
     "IsAuthorizedWithTokenInputTypeDef",
     "IsAuthorizedWithTokenOutputTypeDef",
+    "KmsEncryptionSettingsTypeDef",
+    "KmsEncryptionStateTypeDef",
     "ListIdentitySourcesInputPaginateTypeDef",
     "ListIdentitySourcesInputTypeDef",
     "ListIdentitySourcesOutputTypeDef",
@@ -240,6 +244,14 @@ class DeletePolicyStoreInputTypeDef(TypedDict):
 class DeletePolicyTemplateInputTypeDef(TypedDict):
     policyStoreId: str
     policyTemplateId: str
+
+class KmsEncryptionSettingsTypeDef(TypedDict):
+    key: str
+    encryptionContext: NotRequired[Mapping[str, str]]
+
+class KmsEncryptionStateTypeDef(TypedDict):
+    key: str
+    encryptionContext: dict[str, str]
 
 class GetIdentitySourceInputTypeDef(TypedDict):
     policyStoreId: str
@@ -581,30 +593,19 @@ class CognitoUserPoolConfigurationTypeDef(TypedDict):
     clientIds: NotRequired[Sequence[str]]
     groupConfiguration: NotRequired[CognitoGroupConfigurationTypeDef]
 
-class CreatePolicyStoreInputTypeDef(TypedDict):
-    validationSettings: ValidationSettingsTypeDef
-    clientToken: NotRequired[str]
-    description: NotRequired[str]
-    deletionProtection: NotRequired[DeletionProtectionType]
-    tags: NotRequired[Mapping[str, str]]
-
-class GetPolicyStoreOutputTypeDef(TypedDict):
-    policyStoreId: str
-    arn: str
-    validationSettings: ValidationSettingsTypeDef
-    createdDate: datetime
-    lastUpdatedDate: datetime
-    description: str
-    deletionProtection: DeletionProtectionType
-    cedarVersion: CedarVersionType
-    tags: dict[str, str]
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class UpdatePolicyStoreInputTypeDef(TypedDict):
     policyStoreId: str
     validationSettings: ValidationSettingsTypeDef
     deletionProtection: NotRequired[DeletionProtectionType]
     description: NotRequired[str]
+
+class EncryptionSettingsTypeDef(TypedDict):
+    kmsEncryptionSettings: NotRequired[KmsEncryptionSettingsTypeDef]
+    default: NotRequired[Mapping[str, Any]]
+
+class EncryptionStateTypeDef(TypedDict):
+    kmsEncryptionState: NotRequired[KmsEncryptionStateTypeDef]
+    default: NotRequired[dict[str, Any]]
 
 class ListIdentitySourcesInputTypeDef(TypedDict):
     policyStoreId: str
@@ -686,6 +687,27 @@ class PolicyDefinitionTypeDef(TypedDict):
     static: NotRequired[StaticPolicyDefinitionTypeDef]
     templateLinked: NotRequired[TemplateLinkedPolicyDefinitionTypeDef]
 
+class CreatePolicyStoreInputTypeDef(TypedDict):
+    validationSettings: ValidationSettingsTypeDef
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+    deletionProtection: NotRequired[DeletionProtectionType]
+    encryptionSettings: NotRequired[EncryptionSettingsTypeDef]
+    tags: NotRequired[Mapping[str, str]]
+
+class GetPolicyStoreOutputTypeDef(TypedDict):
+    policyStoreId: str
+    arn: str
+    validationSettings: ValidationSettingsTypeDef
+    createdDate: datetime
+    lastUpdatedDate: datetime
+    description: str
+    deletionProtection: DeletionProtectionType
+    encryptionState: EncryptionStateTypeDef
+    cedarVersion: CedarVersionType
+    tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class OpenIdConnectConfigurationDetailTypeDef(TypedDict):
     issuer: str
     tokenSelection: OpenIdConnectTokenSelectionDetailTypeDef
@@ -713,7 +735,7 @@ class UpdateOpenIdConnectConfigurationTypeDef(TypedDict):
 class UpdatePolicyInputTypeDef(TypedDict):
     policyStoreId: str
     policyId: str
-    definition: UpdatePolicyDefinitionTypeDef
+    definition: NotRequired[UpdatePolicyDefinitionTypeDef]
 
 class BatchIsAuthorizedInputItemOutputTypeDef(TypedDict):
     principal: NotRequired[EntityIdentifierTypeDef]

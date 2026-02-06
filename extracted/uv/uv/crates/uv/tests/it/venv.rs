@@ -36,16 +36,16 @@ fn create_venv() {
     uv_snapshot!(context.filters(), context.venv()
         .arg(context.venv.as_os_str())
         .arg("--python")
-        .arg("3.12"), @"
-    success: true
-    exit_code: 0
+        .arg("3.12"), @r"
+    success: false
+    exit_code: 2
     ----- stdout -----
 
     ----- stderr -----
     Using CPython 3.12.[X] interpreter at: [PYTHON-3.12]
     Creating virtual environment at: .venv
-    warning: A virtual environment already exists at `.venv`. In the future, uv will require `--clear` to replace it
-    Activate with: source .venv/[BIN]/activate
+    error: Failed to create virtual environment
+      Caused by: A virtual environment already exists at `[VENV]/`. Use `--clear` to replace it
     "
     );
 
@@ -221,7 +221,7 @@ fn virtual_empty() -> Result<()> {
         wow = "someconfig"
     "#})?;
 
-    uv_snapshot!(context.filters(), context.venv(), @"
+    uv_snapshot!(context.filters(), context.venv().arg("--clear"), @r"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -229,7 +229,6 @@ fn virtual_empty() -> Result<()> {
     ----- stderr -----
     Using CPython 3.12.[X] interpreter at: [PYTHON-3.12]
     Creating virtual environment at: .venv
-    warning: A virtual environment already exists at `.venv`. In the future, uv will require `--clear` to replace it
     Activate with: source .venv/[BIN]/activate
     ");
 
@@ -250,7 +249,7 @@ fn virtual_dependency_group() -> Result<()> {
         dev = ["sniffio"]
     "#})?;
 
-    uv_snapshot!(context.filters(), context.venv(), @"
+    uv_snapshot!(context.filters(), context.venv().arg("--clear"), @r"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -258,7 +257,6 @@ fn virtual_dependency_group() -> Result<()> {
     ----- stderr -----
     Using CPython 3.12.[X] interpreter at: [PYTHON-3.12]
     Creating virtual environment at: .venv
-    warning: A virtual environment already exists at `.venv`. In the future, uv will require `--clear` to replace it
     Activate with: source .venv/[BIN]/activate
     ");
 
@@ -833,7 +831,7 @@ fn create_venv_explicit_request_takes_priority_over_python_version_file() {
 }
 
 #[test]
-#[cfg(feature = "pypi")]
+#[cfg(feature = "test-pypi")]
 fn seed() {
     let context = TestContext::new_with_versions(&["3.12"]);
     uv_snapshot!(context.filters(), context.venv()
@@ -857,7 +855,7 @@ fn seed() {
 }
 
 #[test]
-#[cfg(feature = "pypi")]
+#[cfg(feature = "test-pypi")]
 fn seed_older_python_version() {
     let context = TestContext::new_with_versions(&["3.11"]);
     uv_snapshot!(context.filters(), context.venv()
@@ -966,7 +964,7 @@ fn create_venv_unknown_python_patch() {
     context.venv.assert(predicates::path::missing());
 }
 
-#[cfg(feature = "python-patch")]
+#[cfg(feature = "test-python-patch")]
 #[test]
 fn create_venv_python_patch() {
     let context = TestContext::new_with_versions(&["3.12.9"]);
@@ -1302,6 +1300,11 @@ fn verify_pyvenv_cfg_relocatable() {
     activate_nu.assert(predicates::str::contains(
         r"let virtual_env = (path self | path dirname | path dirname)",
     ));
+
+    // csh cannot determine its own script location, so activate.csh should not
+    // be generated when --relocatable is used.
+    let activate_csh = scripts.child("activate.csh");
+    activate_csh.assert(predicates::path::missing());
 }
 
 /// With `relocatable-envs-default` preview feature, venvs are relocatable by default.
@@ -1506,7 +1509,19 @@ fn venv_python_preference() {
     Activate with: source .venv/[BIN]/activate
     ");
 
-    uv_snapshot!(context.filters(), context.venv().arg("--no-managed-python"), @"
+    uv_snapshot!(context.filters(), context.venv().arg("--no-managed-python"), @r"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    Using CPython 3.11.[X] interpreter at: [PYTHON-3.11]
+    Creating virtual environment at: .venv
+    error: Failed to create virtual environment
+      Caused by: A virtual environment already exists at `.venv`. Use `--clear` to replace it
+    ");
+
+    uv_snapshot!(context.filters(), context.venv().arg("--clear").arg("--no-managed-python"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -1514,23 +1529,22 @@ fn venv_python_preference() {
     ----- stderr -----
     Using CPython 3.11.[X] interpreter at: [PYTHON-3.11]
     Creating virtual environment at: .venv
-    warning: A virtual environment already exists at `.venv`. In the future, uv will require `--clear` to replace it
     Activate with: source .venv/[BIN]/activate
     ");
 
-    uv_snapshot!(context.filters(), context.venv().arg("--no-managed-python"), @"
-    success: true
-    exit_code: 0
+    uv_snapshot!(context.filters(), context.venv(), @r"
+    success: false
+    exit_code: 2
     ----- stdout -----
 
     ----- stderr -----
-    Using CPython 3.11.[X] interpreter at: [PYTHON-3.11]
+    Using CPython 3.12.[X]
     Creating virtual environment at: .venv
-    warning: A virtual environment already exists at `.venv`. In the future, uv will require `--clear` to replace it
-    Activate with: source .venv/[BIN]/activate
+    error: Failed to create virtual environment
+      Caused by: A virtual environment already exists at `.venv`. Use `--clear` to replace it
     ");
 
-    uv_snapshot!(context.filters(), context.venv(), @"
+    uv_snapshot!(context.filters(), context.venv().arg("--clear").arg("--managed-python"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -1538,19 +1552,6 @@ fn venv_python_preference() {
     ----- stderr -----
     Using CPython 3.12.[X]
     Creating virtual environment at: .venv
-    warning: A virtual environment already exists at `.venv`. In the future, uv will require `--clear` to replace it
-    Activate with: source .venv/[BIN]/activate
-    ");
-
-    uv_snapshot!(context.filters(), context.venv().arg("--managed-python"), @"
-    success: true
-    exit_code: 0
-    ----- stdout -----
-
-    ----- stderr -----
-    Using CPython 3.12.[X]
-    Creating virtual environment at: .venv
-    warning: A virtual environment already exists at `.venv`. In the future, uv will require `--clear` to replace it
     Activate with: source .venv/[BIN]/activate
     ");
 }
@@ -1648,11 +1649,12 @@ fn create_venv_symlink_recreate_preservation() -> Result<()> {
     // Verify symlink is preserved after first creation
     assert!(symlink_path.path().is_symlink());
 
-    // Run uv venv again WITHOUT --clear to test recreation behavior
+    // Run uv venv again with --clear to test symlink preservation during recreation
     uv_snapshot!(context.filters(), context.venv()
         .arg(symlink_path.as_os_str())
+        .arg("--clear")
         .arg("--python")
-        .arg("3.12"), @"
+        .arg("3.12"), @r"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -1660,7 +1662,6 @@ fn create_venv_symlink_recreate_preservation() -> Result<()> {
     ----- stderr -----
     Using CPython 3.12.[X] interpreter at: [PYTHON-3.12]
     Creating virtual environment at: .venv
-    warning: A virtual environment already exists at `.venv`. In the future, uv will require `--clear` to replace it
     Activate with: source .venv/[BIN]/activate
     "
     );
@@ -1712,11 +1713,12 @@ fn create_venv_nested_symlink_preservation() -> Result<()> {
     assert!(symlink_path.path().is_symlink());
     assert!(intermediate_link.path().is_symlink());
 
-    // Run uv venv again to test nested symlink preservation during recreation
+    // Run uv venv again with --clear to test nested symlink preservation during recreation
     uv_snapshot!(context.filters(), context.venv()
         .arg(symlink_path.as_os_str())
+        .arg("--clear")
         .arg("--python")
-        .arg("3.12"), @"
+        .arg("3.12"), @r"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -1724,7 +1726,6 @@ fn create_venv_nested_symlink_preservation() -> Result<()> {
     ----- stderr -----
     Using CPython 3.12.[X] interpreter at: [PYTHON-3.12]
     Creating virtual environment at: .venv
-    warning: A virtual environment already exists at `.venv`. In the future, uv will require `--clear` to replace it
     Activate with: source .venv/[BIN]/activate
     "
     );

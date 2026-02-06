@@ -1,7 +1,7 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" The type nodes.
+"""The type nodes.
 
 These ones deal with types and they are great for optimization. We need to know
 them, their relationship or check for them in re-formulations.
@@ -10,7 +10,7 @@ them, their relationship or check for them in re-formulations.
 
 from nuitka.__past__ import GenericAlias
 from nuitka.Builtins import builtin_names
-from nuitka.Options import isExperimental
+from nuitka.options.Options import isExperimental
 
 from .BuiltinRefNodes import (
     ExpressionBuiltinAnonymousRef,
@@ -29,8 +29,10 @@ from .ChildrenHavingMixins import (
 )
 from .ExpressionBases import ExpressionBase, ExpressionBuiltinSingleArgBase
 from .ExpressionBasesGenerated import (
+    ExpressionParameterSpecificationBase,
     ExpressionSubtypeCheckBase,
     ExpressionTypeVariableBase,
+    ExpressionTypeVariableTupleBase,
 )
 from .ExpressionShapeMixins import ExpressionBoolShapeExactMixin
 from .NodeBases import SideEffectsFromChildrenMixin
@@ -357,6 +359,28 @@ class ExpressionTypeVariable(ExpressionTypeVariableBase, ExpressionBase):
     auto_compute_handling = "final,no_raise"
     node_attributes = ("name",)
 
+    python_version_spec = ">= 0x3c0"
+
+
+class ExpressionTypeVariableTuple(ExpressionTypeVariableTupleBase, ExpressionBase):
+    kind = "EXPRESSION_TYPE_VARIABLE_TUPLE"
+
+    auto_compute_handling = "final,no_raise"
+    node_attributes = ("name",)
+
+    python_version_spec = ">= 0x3c0"
+
+
+class ExpressionParameterSpecification(
+    ExpressionParameterSpecificationBase, ExpressionBase
+):
+    kind = "EXPRESSION_PARAMETER_SPECIFICATION"
+
+    auto_compute_handling = "final,no_raise"
+    node_attributes = ("name",)
+
+    python_version_spec = ">= 0x3c0"
+
 
 class ExpressionTypeMakeGeneric(ChildrenExpressionTypeMakeGenericMixin, ExpressionBase):
     kind = "EXPRESSION_TYPE_MAKE_GENERIC"
@@ -377,11 +401,11 @@ class ExpressionTypeMakeGeneric(ChildrenExpressionTypeMakeGenericMixin, Expressi
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

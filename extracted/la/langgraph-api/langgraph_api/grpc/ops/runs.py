@@ -12,7 +12,7 @@ from uuid import UUID
 import structlog
 from google.protobuf.empty_pb2 import Empty  # type: ignore[import]
 from grpc import StatusCode
-from grpc.aio import AioRpcError
+from grpc.aio import EOF, AioRpcError
 from langgraph_grpc_common.conversion.config import config_from_proto
 from langgraph_grpc_common.proto import (
     core_api_pb2 as pb,
@@ -164,6 +164,31 @@ class GrpcStreamHandler:
         )
         await self._stream.write(subscribe_msg)
 
+        # Wait for subscription confirmation
+        subscribed_event = await self._stream.read()
+        if subscribed_event.event_type == "control":
+            control_signal = subscribed_event.message.decode("utf-8")
+            if control_signal == "subscribed":
+                await logger.adebug(
+                    "Subscription confirmed",
+                    run_id=self.run_id,
+                    thread_id=self.thread_id,
+                )
+            else:
+                await logger.awarning(
+                    "Unexpected control signal during subscription",
+                    run_id=self.run_id,
+                    thread_id=self.thread_id,
+                    signal=control_signal,
+                )
+        else:
+            await logger.awarning(
+                "Unexpected event type during subscription",
+                run_id=self.run_id,
+                thread_id=self.thread_id,
+                event_type=subscribed_event.event_type,
+            )
+
     async def join(
         self,
         *,
@@ -201,8 +226,14 @@ class GrpcStreamHandler:
         # waiting for more messages and can begin its shutdown sequence.
         await self._stream.done_writing()
 
-        # Yield events from the stream
-        async for event in self._stream:
+        # Yield events from the stream using read() instead of async iteration
+        # (cannot mix read() from start() with async for)
+        while True:
+            event = await self._stream.read()
+            # read() returns EOF when stream ends
+            if event == EOF:
+                break
+
             # Convert protobuf StreamEvent to tuple format
             event_bytes = event.event_type.encode("utf-8")
             message_bytes = event.message
@@ -708,7 +739,7 @@ class Runs(Authenticated):
         await client.runs.MarkDone(request)
 
     @staticmethod
-    async def next(wait: bool, limit: int = 1) -> AsyncIterator[tuple[Run, int]]:  # type: ignore[return-value]
+    async def next(wait: bool, limit: int = 1) -> AsyncIterator[tuple[Run, int]]:
         """Get the next run from the queue, and the attempt number.
 
         1 is the first attempt, 2 is the first retry, etc.
@@ -720,12 +751,9 @@ class Runs(Authenticated):
         client = await get_shared_client()
         response = await client.runs.Next(request)
 
-        async def generate_results():
-            for run_with_attempt in response.runs:
-                run = proto_to_run(run_with_attempt.run)
-                yield run, run_with_attempt.attempt
-
-        return generate_results()
+        for run_with_attempt in response.runs:
+            run = proto_to_run(run_with_attempt.run)
+            yield run, run_with_attempt.attempt
 
     class Stream(Authenticated):
         """Stream operations for runs."""

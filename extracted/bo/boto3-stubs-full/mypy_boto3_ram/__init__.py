@@ -17,6 +17,7 @@ Usage::
         GetResourceSharesPaginator,
         ListPrincipalsPaginator,
         ListResourcesPaginator,
+        ListSourceAssociationsPaginator,
         RAMClient,
     )
 
@@ -29,6 +30,7 @@ Usage::
     get_resource_shares_paginator: GetResourceSharesPaginator = client.get_paginator("get_resource_shares")
     list_principals_paginator: ListPrincipalsPaginator = client.get_paginator("list_principals")
     list_resources_paginator: ListResourcesPaginator = client.get_paginator("list_resources")
+    list_source_associations_paginator: ListSourceAssociationsPaginator = client.get_paginator("list_source_associations")
     ```
 """
 
@@ -40,6 +42,7 @@ from .paginator import (
     GetResourceSharesPaginator,
     ListPrincipalsPaginator,
     ListResourcesPaginator,
+    ListSourceAssociationsPaginator,
 )
 
 Client = RAMClient
@@ -53,5 +56,6 @@ __all__ = (
     "GetResourceSharesPaginator",
     "ListPrincipalsPaginator",
     "ListResourcesPaginator",
+    "ListSourceAssociationsPaginator",
     "RAMClient",
 )

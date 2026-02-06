@@ -8,23 +8,11 @@
 // Staging jdr-benchmark: 8ced7b1a-275f-48f3-88bf-ae08fdc4b414
 const DEPLOYMENT_ID = process.env.DEPLOYMENT_ID || '8ced7b1a-275f-48f3-88bf-ae08fdc4b414'; // jdr-benchmark deployment id
 const LANGSMITH_API_KEY = process.env.LANGSMITH_API_KEY;
-const API_BASE = 'https://beta.api.host.langchain.com/v1';
+const API_BASE = process.env.API_BASE || 'https://beta.api.host.langchain.com/v1';
 
 // Deployment configuration
 const REVISION_CONFIG = {
     repo_path: "langgraph.json",
-    env_vars: [
-        {
-            name: "N_JOBS_PER_WORKER",
-            value: "100",
-            type: "secret"
-        },
-        {
-            name: "FF_LOG_DROPPED_EVENTS",
-            value: "true",
-            type: "secret"
-        }
-    ],
     shareable: false
 };
 

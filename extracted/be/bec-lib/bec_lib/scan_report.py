@@ -163,7 +163,11 @@ class ScanReport:
                 except Exception:  # pylint: disable=broad-except
                     logger.warning(f"Failed to stop motor {motor}.")
         else:
-            self._client.queue.request_scan_abortion()
+            if self.request.scan and self.request.scan.scan_id:
+                scan_id = self.request.scan.scan_id
+            else:
+                scan_id = None
+            self._client.queue.request_scan_abortion(scan_id)
         return self
 
     def _check_timeout(self, timeout: float | None = None, elapsed_time: float = 0) -> None:
@@ -218,6 +222,9 @@ class ScanReport:
 
         def conditions_are_met() -> bool:
             """Check if the conditions are met"""
+            if not self.scan and self.status == "COMPLETED":
+                # If it is not a scan, just return True when completed
+                return True
             if num_points and not self._num_points_reached():
                 return False
             if file_written and not self._file_written():

@@ -3,7 +3,7 @@ name = "athena-intelligence"
 
 [tool.poetry]
 name = "athena-intelligence"
-version = "0.1.586"
+version = "0.1.619"
 description = "Athena Intelligence Python Library"
 readme = "README.md"
 authors = []
@@ -37,7 +37,7 @@ Repository = 'https://github.com/Athena-Intel/athena-python'
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
-fastapi = "0.115.10"
+fastapi = ">=0.115.10,<0.130.0"
 httpx = ">=0.21.2"
 langchain_core = "^0.3.40"
 langserve = "^0.3.1"

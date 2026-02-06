@@ -40,9 +40,7 @@ async def git_file_walk(
 
     # Find untracked files relative to the root
     untracked_diff = repo.diff(flags=DiffOption.INCLUDE_UNTRACKED)
-    untracked_files_from_root = [
-        AsyncPath(delta.new_file.path) for delta in untracked_diff.deltas
-    ]
+    untracked_files_from_root = [AsyncPath(delta.new_file.path) for delta in untracked_diff.deltas]
 
     # Current working directory relative to the repo root
     dir_path = await AsyncPath(directory).resolve()
@@ -170,15 +168,11 @@ async def _get_git_branch(repo: Repository) -> str | None:
 
 
 class GitIgnoreHandler:
-    def __init__(
-        self, working_directory: str, default_ignores: list[str] | None = None
-    ):
+    def __init__(self, working_directory: str, default_ignores: list[str] | None = None):
         self.checkers = {}
 
         if default_ignores:
-            self.checkers[working_directory] = self._parse_ignore_extra(
-                working_directory, default_ignores
-            )
+            self.checkers[working_directory] = self._parse_ignore_extra(working_directory, default_ignores)
 
     async def read_ignorefile(self, path: str) -> None:
         new_ignore = await self._get_ignored_checker(path)
@@ -207,21 +201,13 @@ class GitIgnoreHandler:
         return result
 
     def is_ignored(self, path: str) -> bool:
-        return any(
-            self.checkers[dp](path)
-            for dp in self.checkers
-            if self._is_subpath(path, dp)
-        )
+        return any(self.checkers[dp](path) for dp in self.checkers if self._is_subpath(path, dp))
 
-    def _parse_ignore_extra(
-        self, working_directory: str, ignore_extra: list[str]
-    ) -> Callable[[str], bool]:
+    def _parse_ignore_extra(self, working_directory: str, ignore_extra: list[str]) -> Callable[[str], bool]:
         rules: list[IgnoreRule] = []
 
         for pattern in ignore_extra:
-            if (
-                rule := rule_from_pattern(pattern, base_path=working_directory)
-            ) is not None:
+            if (rule := rule_from_pattern(pattern, base_path=working_directory)) is not None:
                 rules.append(rule)
 
         def rule_handler(file_path: str) -> bool:
@@ -250,9 +236,7 @@ class GitIgnoreHandler:
         return None
 
     @staticmethod
-    def _or(
-        a: Callable[[str], bool], b: Callable[[str], bool]
-    ) -> Callable[[str], bool]:
+    def _or(a: Callable[[str], bool], b: Callable[[str], bool]) -> Callable[[str], bool]:
         def or_handler(file_path: str) -> bool:
             return a(file_path) or b(file_path)
 

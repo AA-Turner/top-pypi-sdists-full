@@ -30,6 +30,7 @@ __all__ = (
     "AuthorizerTypeType",
     "BedrockAgentCoreControlServiceName",
     "BrowserNetworkModeType",
+    "BrowserProfileStatusType",
     "BrowserStatusType",
     "ClaimMatchOperatorTypeType",
     "CodeInterpreterNetworkModeType",
@@ -52,6 +53,7 @@ __all__ = (
     "ListAgentRuntimeVersionsPaginatorName",
     "ListAgentRuntimesPaginatorName",
     "ListApiKeyCredentialProvidersPaginatorName",
+    "ListBrowserProfilesPaginatorName",
     "ListBrowsersPaginatorName",
     "ListCodeInterpretersPaginatorName",
     "ListEvaluatorsPaginatorName",
@@ -107,6 +109,7 @@ AgentRuntimeStatusType = Literal[
 ApiKeyCredentialLocationType = Literal["HEADER", "QUERY_PARAMETER"]
 AuthorizerTypeType = Literal["AWS_IAM", "CUSTOM_JWT", "NONE"]
 BrowserNetworkModeType = Literal["PUBLIC", "VPC"]
+BrowserProfileStatusType = Literal["DELETED", "DELETING", "READY", "SAVING"]
 BrowserStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETED", "DELETE_FAILED", "DELETING", "READY"
 ]
@@ -174,6 +177,7 @@ ListAgentRuntimeEndpointsPaginatorName = Literal["list_agent_runtime_endpoints"]
 ListAgentRuntimeVersionsPaginatorName = Literal["list_agent_runtime_versions"]
 ListAgentRuntimesPaginatorName = Literal["list_agent_runtimes"]
 ListApiKeyCredentialProvidersPaginatorName = Literal["list_api_key_credential_providers"]
+ListBrowserProfilesPaginatorName = Literal["list_browser_profiles"]
 ListBrowsersPaginatorName = Literal["list_browsers"]
 ListCodeInterpretersPaginatorName = Literal["list_code_interpreters"]
 ListEvaluatorsPaginatorName = Literal["list_evaluators"]
@@ -660,6 +664,7 @@ PaginatorName = Literal[
     "list_agent_runtime_versions",
     "list_agent_runtimes",
     "list_api_key_credential_providers",
+    "list_browser_profiles",
     "list_browsers",
     "list_code_interpreters",
     "list_evaluators",

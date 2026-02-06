@@ -17,27 +17,27 @@ class RawScriptAssetsItem:
     Attributes:
         path (str): Path to the asset
         kind (RawScriptAssetsItemKind): Type of asset
-        access_type (Union[Unset, RawScriptAssetsItemAccessType]): Access level for this asset
-        alt_access_type (Union[Unset, RawScriptAssetsItemAltAccessType]): Alternative access level
+        access_type (Union[Unset, None, RawScriptAssetsItemAccessType]): Access level for this asset
+        alt_access_type (Union[Unset, None, RawScriptAssetsItemAltAccessType]): Alternative access level
     """
 
     path: str
     kind: RawScriptAssetsItemKind
-    access_type: Union[Unset, RawScriptAssetsItemAccessType] = UNSET
-    alt_access_type: Union[Unset, RawScriptAssetsItemAltAccessType] = UNSET
+    access_type: Union[Unset, None, RawScriptAssetsItemAccessType] = UNSET
+    alt_access_type: Union[Unset, None, RawScriptAssetsItemAltAccessType] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         path = self.path
         kind = self.kind.value
 
-        access_type: Union[Unset, str] = UNSET
+        access_type: Union[Unset, None, str] = UNSET
         if not isinstance(self.access_type, Unset):
-            access_type = self.access_type.value
+            access_type = self.access_type.value if self.access_type else None
 
-        alt_access_type: Union[Unset, str] = UNSET
+        alt_access_type: Union[Unset, None, str] = UNSET
         if not isinstance(self.alt_access_type, Unset):
-            alt_access_type = self.alt_access_type.value
+            alt_access_type = self.alt_access_type.value if self.alt_access_type else None
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -62,15 +62,19 @@ class RawScriptAssetsItem:
         kind = RawScriptAssetsItemKind(d.pop("kind"))
 
         _access_type = d.pop("access_type", UNSET)
-        access_type: Union[Unset, RawScriptAssetsItemAccessType]
-        if isinstance(_access_type, Unset):
+        access_type: Union[Unset, None, RawScriptAssetsItemAccessType]
+        if _access_type is None:
+            access_type = None
+        elif isinstance(_access_type, Unset):
             access_type = UNSET
         else:
             access_type = RawScriptAssetsItemAccessType(_access_type)
 
         _alt_access_type = d.pop("alt_access_type", UNSET)
-        alt_access_type: Union[Unset, RawScriptAssetsItemAltAccessType]
-        if isinstance(_alt_access_type, Unset):
+        alt_access_type: Union[Unset, None, RawScriptAssetsItemAltAccessType]
+        if _alt_access_type is None:
+            alt_access_type = None
+        elif isinstance(_alt_access_type, Unset):
             alt_access_type = UNSET
         else:
             alt_access_type = RawScriptAssetsItemAltAccessType(_alt_access_type)

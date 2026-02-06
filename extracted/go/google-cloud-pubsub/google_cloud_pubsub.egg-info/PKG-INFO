@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-pubsub
-Version: 2.34.0
+Version: 2.35.0
 Summary: Google Cloud Pub/Sub API client library
 Home-page: https://github.com/googleapis/python-pubsub
 Author: Google LLC
@@ -12,8 +12,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -22,7 +20,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 License-File: LICENSE
 Requires-Dist: grpcio<2.0.0,>=1.51.3; python_version < "3.14"
 Requires-Dist: grpcio<2.0.0,>=1.75.1; python_version >= "3.14"
@@ -34,10 +32,8 @@ Requires-Dist: proto-plus<2.0.0,>=1.25.0; python_version >= "3.13"
 Requires-Dist: protobuf!=4.21.0,!=4.21.1,!=4.21.2,!=4.21.3,!=4.21.4,!=4.21.5,<7.0.0,>=3.20.2
 Requires-Dist: grpc-google-iam-v1<1.0.0,>=0.12.4
 Requires-Dist: grpcio-status>=1.33.2
-Requires-Dist: opentelemetry-api<=1.22.0; python_version <= "3.7"
-Requires-Dist: opentelemetry-api>=1.27.0; python_version >= "3.8"
-Requires-Dist: opentelemetry-sdk<=1.22.0; python_version <= "3.7"
-Requires-Dist: opentelemetry-sdk>=1.27.0; python_version >= "3.8"
+Requires-Dist: opentelemetry-api>=1.27.0
+Requires-Dist: opentelemetry-sdk>=1.27.0
 Provides-Extra: libcst
 Requires-Dist: libcst>=0.3.10; extra == "libcst"
 Dynamic: author
@@ -56,7 +52,7 @@ Dynamic: summary
 Python Client for Google Cloud Pub / Sub
 ========================================
 
-|GA| |pypi| |versions| 
+|GA| |pypi| |versions|
 
 `Google Cloud Pub / Sub`_ is a fully-managed real-time messaging service that
 allows you to send and receive messages between independent applications. You
@@ -115,11 +111,13 @@ dependencies.
 
 Supported Python Versions
 ^^^^^^^^^^^^^^^^^^^^^^^^^
-Python >= 3.7
+Python >= 3.9
 
 Deprecated Python Versions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
-Python <= 3.6.
+Python < 3.9
+
+The last version of this library compatible with Python 3.7 and 3.8 is google-cloud-pubsub==2.34.0.
 
 The last version of this library compatible with Python 2.7 is google-cloud-pubsub==1.7.0.
 
@@ -201,7 +199,7 @@ the topic, and subscribe to that, passing a callback function.
 
     with pubsub_v1.SubscriberClient() as subscriber:
         subscriber.create_subscription(
-            name=subscription_name, topic=topic_name)  
+            name=subscription_name, topic=topic_name)
         future = subscriber.subscribe(subscription_name, callback)
 
 The future returned by the call to ``subscriber.subscribe`` can be used to
@@ -245,7 +243,7 @@ For example, to use JSON Web Tokens, provide a `google.auth.jwt.Credentials`_ in
 
     # The same for the publisher, except that the "audience" claim needs to be adjusted
     publisher_audience = "https://pubsub.googleapis.com/google.pubsub.v1.Publisher"
-    credentials_pub = credentials.with_claims(audience=publisher_audience) 
+    credentials_pub = credentials.with_claims(audience=publisher_audience)
     publisher = pubsub_v1.PublisherClient(credentials=credentials_pub)
 
 .. _Credentials: https://google-auth.readthedocs.io/en/latest/reference/google.auth.credentials.html#google.auth.credentials.Credentials

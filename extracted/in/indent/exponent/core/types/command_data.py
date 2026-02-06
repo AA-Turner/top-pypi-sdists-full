@@ -10,9 +10,7 @@ WRITE_STRATEGY_NATURAL_EDIT: Literal["NATURAL_EDIT"] = "NATURAL_EDIT"
 WRITE_STRATEGY_SEARCH_REPLACE: Literal["SEARCH_REPLACE"] = "SEARCH_REPLACE"
 WRITE_STRATEGY_UDIFF: Literal["UDIFF"] = "UDIFF"
 
-FileWriteStrategyName = Literal[
-    "FULL_FILE_REWRITE", "UDIFF", "SEARCH_REPLACE", "NATURAL_EDIT"
-]
+FileWriteStrategyName = Literal["FULL_FILE_REWRITE", "UDIFF", "SEARCH_REPLACE", "NATURAL_EDIT"]
 
 
 class CommandType(str, Enum):
@@ -170,9 +168,7 @@ class NaturalEditContent(BaseModel):
     @property
     def is_noop(self) -> bool:
         return bool(
-            self.new_file is not None
-            and self.original_file is not None
-            and self.new_file == self.original_file
+            self.new_file is not None and self.original_file is not None and self.new_file == self.original_file
         )
 
 

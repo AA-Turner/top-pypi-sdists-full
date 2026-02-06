@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ddapm-test-agent
-Version: 1.39.0
+Version: 1.40.0
 Summary: Test agent for Datadog APM client libraries
 Home-page: https://github.com/Datadog/dd-apm-test-agent
 Author: Kyle Verhoog
@@ -138,6 +138,16 @@ When proxying is enabled, the response from the Datadog agent will be returned i
 
 At the trace-level, proxying can also be disabled by including the `X-Datadog-Agent-Proxy-Disabled` header with a value of `true`. This will disable proxying after a trace
 is handled, regardless of whether an agent URL is set.
+
+
+### LLM Observability Proxy
+
+The test agent provides a mechanism to dual ship LLM Observability events to Datadog, regardless of whether the Datadog agent is running.
+If using the Datadog agent, set the `DD_AGENT_URL` environment variable or `--agent-url` command-line argument to the URL of the Datadog agent (see [Proxy](#proxy) for more details).
+
+If not running a Datadog agent, set the `DD_SITE` environment variable or `--dd-site` command-line argument to the site of the Datadog instance to forward events to. Additionally, set the `DD_API_KEY` environment variable or `--dd-api-key` command-line argument to the API key to use for the Datadog instance.
+
+To disable LLM Observability event forwarding, set the `DISABLE_LLMOBS_DATA_FORWARDING` environment variable or `--disable-llmobs-data-forwarding` command-line argument to `true`.
 
 
 ### Snapshot testing

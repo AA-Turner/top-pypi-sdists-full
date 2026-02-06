@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.17                                                                                #
-# Generated on 2026-01-22T21:47:05.854038                                                            #
+# MF version: 2.19.18                                                                                #
+# Generated on 2026-02-05T18:18:14.293654                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,30 +9,31 @@ from __future__ import annotations
 
 from . import test_unbounded_foreach_decorator as test_unbounded_foreach_decorator
 from .test_unbounded_foreach_decorator import InternalTestUnboundedForeachInput as InternalTestUnboundedForeachInput
-from . import argo as argo
 from . import timeout_decorator as timeout_decorator
-from . import aws as aws
-from . import datatools as datatools
+from . import cards as cards
+from . import secrets as secrets
 from . import frameworks as frameworks
 from . import parallel_decorator as parallel_decorator
 from . import pypi as pypi
-from . import airflow as airflow
-from . import secrets as secrets
-from . import retry_decorator as retry_decorator
-from . import cards as cards
-from . import kubernetes as kubernetes
 from . import resources_decorator as resources_decorator
+from . import argo as argo
+from . import aws as aws
+from . import kubernetes as kubernetes
 from . import environment_decorator as environment_decorator
+from . import datatools as datatools
 from . import catch_decorator as catch_decorator
-from . import exit_hook as exit_hook
+from . import airflow as airflow
+from . import retry_decorator as retry_decorator
 from . import events_decorator as events_decorator
+from . import exit_hook as exit_hook
 from . import project_decorator as project_decorator
 from . import uv as uv
-from . import gcp as gcp
-from . import storage_executor as storage_executor
 from . import azure as azure
+from . import storage_executor as storage_executor
+from . import gcp as gcp
 from . import debug_logger as debug_logger
 from . import debug_monitor as debug_monitor
+from . import namespaced_events as namespaced_events
 from . import parsers as parsers
 from .cards.card_modules.basic import BlankCard as BlankCard
 from .cards.card_modules.basic import DefaultCard as DefaultCard

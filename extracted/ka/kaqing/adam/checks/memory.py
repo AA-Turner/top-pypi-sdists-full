@@ -32,23 +32,22 @@ class Memory(Check):
             if container.resources.limits and "memory" in container.resources.limits:
                 details['limit'] = container.resources.limits["memory"]
 
-            if ctx.find_issues:
-                if issue := self.find_error(ctx, 'Not marking nodes down due to local pause',
-                                            'local pause due to memory pressure'):
-                    issues.append(issue)
-                if issue := self.find_error(ctx, 'java.lang.OutOfMemoryError: Direct buffer memory',
-                                            'direct buffer OOM'):
-                    issues.append(issue)
-                if issue := self.find_error(ctx, 'query aborted (see tombstone_failure_threshold)',
-                                            'too many tombstones'):
-                    issues.append(issue)
+            if issue := self.find_error(ctx, 'Not marking nodes down due to local pause',
+                                        'local pause due to memory pressure'):
+                issues.append(issue)
+            if issue := self.find_error(ctx, 'java.lang.OutOfMemoryError: Direct buffer memory',
+                                        'direct buffer OOM'):
+                issues.append(issue)
+            if issue := self.find_error(ctx, 'query aborted (see tombstone_failure_threshold)',
+                                        'too many tombstones'):
+                issues.append(issue)
         except Exception as e:
             issues.append(self.issue_from_err(sts_name=ctx.statefulset, ns=ctx.namespace, pod_name=ctx.pod, exception=e))
 
         return CheckResult(self.name(), details, issues)
 
     def find_error(self, ctx: CheckContext, pattern: str, issue_desc: str):
-        ctx_fg = ctx.copy(show_out=ctx.show_verbose, background=False, text_color=Color.gray)
+        ctx_fg = ctx.copy(background=False, text_color=Color.gray)
         escaped = pattern.replace('"', '\"')
         result = CassandraNodes.exec(ctx.pod, ctx.namespace, f'tac /c3/cassandra/logs/system.log | grep "{escaped}" | head -1', ctx=ctx_fg)
         if result.stdout.find(pattern) > 0:

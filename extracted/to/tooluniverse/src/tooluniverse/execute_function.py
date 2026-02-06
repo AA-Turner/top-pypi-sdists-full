@@ -545,7 +545,7 @@ class ToolUniverse:
     def _check_api_key_requirements(self, tool_config):
         """
         Check if a tool's required API keys are available.
-        Also supports optional_api_keys where at least one key from the list must be available.
+        Also supports optional_api_keys which enhance performance but don't block loading.
 
         Args:
             tool_config (dict): Tool configuration containing optional 'required_api_keys' and 'optional_api_keys' fields
@@ -563,20 +563,19 @@ class ToolUniverse:
             if not self._get_api_key(key):
                 missing_keys.append(key)
 
-        # Check optional keys (at least one must be available)
-        optional_satisfied = True
+        # Check optional keys (log if missing, but don't block loading)
+        # Optional keys enhance performance but tools still work without them
         if optional_keys:
             optional_available = any(self._get_api_key(key) for key in optional_keys)
             if not optional_available:
-                optional_satisfied = False
-                # For error reporting, add a descriptive message about optional keys
-                missing_keys.append(f"At least one of: {', '.join(optional_keys)}")
+                tool_name = tool_config.get("name", "unknown")
+                self.logger.debug(
+                    f"Tool '{tool_name}': Optional API keys not set for better performance: {', '.join(optional_keys)}"
+                )
 
-        # Tool is valid if all required keys are available AND optional requirement is satisfied
-        all_valid = (
-            len([k for k in missing_keys if not k.startswith("At least one of:")]) == 0
-            and optional_satisfied
-        )
+        # Tool is valid if all required keys are available
+        # Optional keys do NOT block loading
+        all_valid = len(missing_keys) == 0
 
         return all_valid, missing_keys
 

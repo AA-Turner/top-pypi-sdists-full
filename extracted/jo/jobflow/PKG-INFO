@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jobflow
-Version: 0.3.0
+Version: 0.3.1
 Summary: jobflow is a library for writing computational workflows
 Author-email: Alex Ganose <a.ganose@imperial.ac.uk>
 License: modified BSD
@@ -154,7 +154,7 @@ the jobs is determined automatically and can be visualised using the flow graph.
 
 ## Installation
 
-`jobflow` is a Python 3.9+ library and can be installed using `pip`.
+`jobflow` is a Python 3.10+ library and can be installed using `pip`.
 
 ```bash
 pip install jobflow

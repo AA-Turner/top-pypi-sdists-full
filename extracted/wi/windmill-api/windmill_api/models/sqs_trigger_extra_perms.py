@@ -8,7 +8,7 @@ T = TypeVar("T", bound="SqsTriggerExtraPerms")
 
 @_attrs_define
 class SqsTriggerExtraPerms:
-    """ """
+    """Additional permissions for this trigger"""
 
     additional_properties: Dict[str, bool] = _attrs_field(init=False, factory=dict)
 

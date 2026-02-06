@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kfactory
-Version: 2.4.0
+Version: 2.4.1
 Summary: KLayout API implementation of gdsfactory
 Author-email: gdsfactory community <contact@gdsfactory.com>
 Classifier: Programming Language :: Python :: 3.11
@@ -10,22 +10,23 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: aenum<4,>=3.1.15
-Requires-Dist: cachetools>=5.2.0
+Requires-Dist: aenum<4,>=3.1.16
+Requires-Dist: cachetools>=6.2.4
 Requires-Dist: klayout<0.31.0,>=0.30.5
 Requires-Dist: loguru<0.8,>=0.7.3
-Requires-Dist: pydantic<2.13,>=2.12
-Requires-Dist: pydantic-extra-types>=2.10.5
-Requires-Dist: pydantic-settings<3,>=2.0.1
-Requires-Dist: pygit2<2,>=1.18.2
-Requires-Dist: rapidfuzz<4,>=3.13.0
-Requires-Dist: rectangle-packer<3,>=2.0.2
-Requires-Dist: requests<3,>=2.23.3
+Requires-Dist: pydantic<2.13,>=2.12.5
+Requires-Dist: pydantic-extra-types>=2.11
+Requires-Dist: pydantic-settings<3,>=2.12
+Requires-Dist: pygit2<2,>=1.19.1
+Requires-Dist: rapidfuzz<4,>=3.14.3
+Requires-Dist: rectangle-packer<3,>=2.0.5
+Requires-Dist: requests<3,>=2.32.5
+Requires-Dist: ruamel.yaml<0.20,>=0.19.1
 Requires-Dist: ruamel.yaml.string<0.2,>=0.1.1
-Requires-Dist: scipy<2,>=1.14.1
-Requires-Dist: toolz<2,>=1
-Requires-Dist: typer<0.22,>=0.21
 Requires-Dist: semver<4,>=3.0.4
+Requires-Dist: scipy<2,>=1.17.0
+Requires-Dist: toolz<2,>=1.1.0
+Requires-Dist: typer<0.22,>=0.21.1
 Provides-Extra: dev
 Requires-Dist: kfactory[ci]; extra == "dev"
 Requires-Dist: mypy>=1.15.0; extra == "dev"
@@ -76,14 +77,14 @@ Requires-Dist: ipytree>=0.2.2; extra == "ipy"
 Requires-Dist: ipywidgets>=8.1.5; extra == "ipy"
 Dynamic: license-file
 
-# KFactory 2.4.0
+# KFactory 2.4.1
 
 [![codecov](https://codecov.io/gh/gdsfactory/kfactory/graph/badge.svg?token=dArcfnQE4w)](https://codecov.io/gh/gdsfactory/kfactory)
 
 Kfactory is the backend for [gdsfactory](https://github.com/gdsfactory/gdsfactory). It is built upon [KLayout](https://klayout.de).
 It offers basic operations like gdsfactory, so it can be used on its own as as layout tool as well.
 
-It is recommended to pin the version of KFactory in `requirements.txt` or `pyproject.toml` with `kfactory==2.4.0` for example.
+It is recommended to pin the version of KFactory in `requirements.txt` or `pyproject.toml` with `kfactory==2.4.1` for example.
 
 Features similar to gdsfactory:
 

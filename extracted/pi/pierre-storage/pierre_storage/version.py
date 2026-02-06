@@ -1,7 +1,7 @@
 """Version information for Pierre Storage SDK."""
 
 PACKAGE_NAME = "code-storage-py-sdk"
-PACKAGE_VERSION = "0.12.1"
+PACKAGE_VERSION = "0.12.2"
 
 
 def get_user_agent() -> str:

@@ -18,6 +18,56 @@ from snowflake import snowpark
 from snowflake.snowpark.types import StructType, VariantType
 
 
+# DUPLICATED CODE from pandas_udtf_utils.py to avoid incorrect loading for stored procedure UDTF creation
+def process_dependencies_string_array(input_str: str) -> list[str]:
+    """
+    Parse a string representation of a dependency array into a list of strings.
+
+    Converts a bracket-enclosed, comma-separated string (e.g., "[scipy, pandas, numpy]")
+    into a list of trimmed package names (e.g., ["scipy", "pandas", "numpy"]).
+
+    Args:
+        input_str: A string in the format "[item1, item2, ...]" or "item1, item2, ...".
+                   Can also be empty or None.
+
+    Returns:
+        A list of trimmed dependency names. Returns an empty list if input is empty or None.
+
+    Examples:
+        >>> process_dependencies_string_array("[scipy, pandas]")
+        ['scipy', 'pandas']
+        >>> process_dependencies_string_array("numpy, pyarrow")
+        ['numpy', 'pyarrow']
+        >>> process_dependencies_string_array("")
+        []
+    """
+    if input_str and len(input_str) > 0:
+        return [i.strip() for i in input_str.strip("[] ").split(",") if i.strip()]
+    return []
+
+
+def process_udtf_packages(
+    packages_str: str,
+    is_arrow_enabled: bool = False,
+    custom_packages: list[str] | None = None,
+) -> list[str]:
+    packages = process_dependencies_string_array(packages_str)
+    # Include pyarrow in packages when using Arrow-enabled UDTF
+    if is_arrow_enabled and "pyarrow" not in packages:
+        packages += ["pyarrow"]
+
+    if "pyspark" not in packages:
+        # need this to support table argument in UDTF.
+        packages += ["pyspark"]
+
+    if custom_packages:
+        for custom_package in custom_packages:
+            if custom_package not in packages:
+                packages.append(custom_package)
+
+    return packages
+
+
 def create_udtf(
     session: snowpark.Session,
     udtf_proto: relation_proto.CommonInlineUserDefinedTableFunction,
@@ -28,6 +78,7 @@ def create_udtf(
     is_arrow_enabled: bool,
     is_spark_compatible_udtf_mode_enabled: bool,
     called_from: str,
+    resource_constraint: dict[str, str] | None = None,
 ) -> str | snowpark.udtf.UserDefinedTableFunction:
     udtf = udtf_proto.python_udtf
     callable_func = CloudPickleSerializer().loads(udtf.command)
@@ -54,23 +105,8 @@ def create_udtf(
         if hasattr(callable_func, "terminate"):
             callable_func.end_partition = callable_func.terminate
 
-    def process_packages(packages_str: str) -> list[str]:
-        packages = []
-        if packages_str and len(packages_str) > 0:
-            packages = [p.strip() for p in packages_str.strip("[]").split(",")]
-
-        # Include pyarrow in packages when using Arrow-enabled UDTF
-        if is_arrow_enabled and "pyarrow" not in packages:
-            packages += ["pyarrow"]
-
-        if "pyspark" not in packages:
-            # need this to support table argument in UDTF.
-            packages += ["pyspark"]
-
-        return packages
-
-    packages = process_packages(packages)
-    imports = [i.strip() for i in imports.split(",") if i.strip()]
+    packages = process_udtf_packages(packages, is_arrow_enabled)
+    imports = process_dependencies_string_array(imports)
     match called_from:
         case "register_udtf":
             return session.udtf.register(
@@ -80,6 +116,7 @@ def create_udtf(
                 replace=True,
                 packages=packages,
                 imports=imports,
+                resource_constraint=resource_constraint,
             )
         case "map_common_inline_user_defined_table_function":
             # Check if the number of arguments provided matches the function signature
@@ -107,6 +144,7 @@ def create_udtf(
                 replace=True,
                 packages=packages,
                 imports=imports,
+                resource_constraint=resource_constraint,
             )
         case _:
             raise NotImplementedError(

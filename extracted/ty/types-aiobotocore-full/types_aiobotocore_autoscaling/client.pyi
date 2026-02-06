@@ -221,7 +221,7 @@ class AutoScalingClient(AioBaseClient):
     ) -> dict[str, Any]:
         """
         This API operation is superseded by <a
-        href="https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_AttachTrafficSources.html">https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_AttachTrafficSources.html</a>,
+        href="https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_AttachTrafficSources.html">AttachTrafficSources</a>,
         which can attach multiple traffic sources types.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling/client/attach_load_balancers.html)
@@ -614,7 +614,7 @@ class AutoScalingClient(AioBaseClient):
     ) -> dict[str, Any]:
         """
         This API operation is superseded by <a
-        href="https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_DescribeTrafficSources.html">DetachTrafficSources</a>,
+        href="https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_DetachTrafficSources.html">DetachTrafficSources</a>,
         which can detach multiple traffic sources types.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling/client/detach_load_balancer_target_groups.html)

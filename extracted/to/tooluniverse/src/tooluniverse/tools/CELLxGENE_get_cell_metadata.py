@@ -1,7 +1,7 @@
 """
 CELLxGENE_get_cell_metadata
 
-Query cell (observation) metadata from CELLxGENE Census. Returns cell type, tissue, disease, dono...
+Query cell metadata from CELLxGENE Census (50M+ human/mouse single cells). CRITICAL: obs_value_fi...
 """
 
 from typing import Any, Optional, Callable
@@ -10,8 +10,8 @@ from ._shared_client import get_shared_client
 
 def CELLxGENE_get_cell_metadata(
     operation: str,
+    obs_value_filter: str,
     organism: Optional[str] = "Homo sapiens",
-    obs_value_filter: Optional[str] = None,
     column_names: Optional[list[str]] = None,
     census_version: Optional[str] = "stable",
     *,
@@ -20,7 +20,7 @@ def CELLxGENE_get_cell_metadata(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Query cell (observation) metadata from CELLxGENE Census. Returns cell type, tissue, disease, dono...
+    Query cell metadata from CELLxGENE Census (50M+ human/mouse single cells). CRITICAL: obs_value_fi...
 
     Parameters
     ----------
@@ -29,7 +29,7 @@ def CELLxGENE_get_cell_metadata(
     organism : str
         Organism name
     obs_value_filter : str
-        Filter cells using SQL-like syntax. Format: 'field == "value"'. Operators: ==...
+        REQUIRED - filter cells using SQL-like syntax. Unfiltered queries timeout (50...
     column_names : list[str]
         Specific columns to return (default: all columns)
     census_version : str

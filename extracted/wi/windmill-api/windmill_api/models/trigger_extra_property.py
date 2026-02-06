@@ -18,14 +18,14 @@ T = TypeVar("T", bound="TriggerExtraProperty")
 class TriggerExtraProperty:
     """
     Attributes:
-        path (str):
-        script_path (str):
-        email (str):
-        extra_perms (TriggerExtraPropertyExtraPerms):
-        workspace_id (str):
-        edited_by (str):
-        edited_at (datetime.datetime):
-        is_flow (bool):
+        path (str): The unique path identifier for this trigger
+        script_path (str): Path to the script or flow to execute when triggered
+        email (str): Email of the user who owns this trigger, used for permissioned_as
+        extra_perms (TriggerExtraPropertyExtraPerms): Additional permissions for this trigger
+        workspace_id (str): The workspace this trigger belongs to
+        edited_by (str): Username of the last person who edited this trigger
+        edited_at (datetime.datetime): Timestamp of the last edit
+        is_flow (bool): True if script_path points to a flow, false if it points to a script
         mode (TriggerExtraPropertyMode): job trigger mode
     """
 

@@ -37,27 +37,29 @@ T = TypeVar("T", bound="ListWebsocketTriggersResponse200Item")
 class ListWebsocketTriggersResponse200Item:
     """
     Attributes:
-        url (str):
-        filters (List['ListWebsocketTriggersResponse200ItemFiltersItem']):
-        can_return_message (bool):
-        can_return_error_result (bool):
-        path (str):
-        script_path (str):
-        email (str):
-        extra_perms (ListWebsocketTriggersResponse200ItemExtraPerms):
-        workspace_id (str):
-        edited_by (str):
-        edited_at (datetime.datetime):
-        is_flow (bool):
+        url (str): The WebSocket URL to connect to (can be a static URL or computed by a runnable)
+        filters (List['ListWebsocketTriggersResponse200ItemFiltersItem']): Array of key-value filters to match incoming
+            messages (only matching messages trigger the script)
+        can_return_message (bool): If true, the script can return a message to send back through the WebSocket
+        can_return_error_result (bool): If true, error results are sent back through the WebSocket
+        path (str): The unique path identifier for this trigger
+        script_path (str): Path to the script or flow to execute when triggered
+        email (str): Email of the user who owns this trigger, used for permissioned_as
+        extra_perms (ListWebsocketTriggersResponse200ItemExtraPerms): Additional permissions for this trigger
+        workspace_id (str): The workspace this trigger belongs to
+        edited_by (str): Username of the last person who edited this trigger
+        edited_at (datetime.datetime): Timestamp of the last edit
+        is_flow (bool): True if script_path points to a flow, false if it points to a script
         mode (ListWebsocketTriggersResponse200ItemMode): job trigger mode
-        server_id (Union[Unset, str]):
-        last_server_ping (Union[Unset, datetime.datetime]):
-        error (Union[Unset, str]):
+        server_id (Union[Unset, str]): ID of the server currently handling this trigger (internal)
+        last_server_ping (Union[Unset, datetime.datetime]): Timestamp of last server heartbeat (internal)
+        error (Union[Unset, str]): Last error message if the trigger failed
         initial_messages (Union[Unset, List[Union['ListWebsocketTriggersResponse200ItemInitialMessagesItemType0',
-            'ListWebsocketTriggersResponse200ItemInitialMessagesItemType1']]]):
+            'ListWebsocketTriggersResponse200ItemInitialMessagesItemType1']]]): Messages to send immediately after
+            connecting (can be raw strings or computed by runnables)
         url_runnable_args (Union[Unset, ListWebsocketTriggersResponse200ItemUrlRunnableArgs]): The arguments to pass to
             the script or flow
-        error_handler_path (Union[Unset, str]):
+        error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, ListWebsocketTriggersResponse200ItemErrorHandlerArgs]): The arguments to pass
             to the script or flow
         retry (Union[Unset, ListWebsocketTriggersResponse200ItemRetry]): Retry configuration for failed module

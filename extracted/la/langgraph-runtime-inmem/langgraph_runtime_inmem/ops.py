@@ -253,6 +253,7 @@ class Assistants(Authenticated):
         name: str,
         ctx: Auth.types.BaseAuthContext | None = None,
         description: str | None = None,
+        system: bool = False,
     ) -> AsyncIterator[Assistant]:
         """Insert an assistant."""
         from langgraph_api.graph import assert_graph_exists
@@ -3003,6 +3004,22 @@ class Crons:
         on_run_completed: Literal["delete", "keep"] | None = None,
         end_time: datetime | None = None,
         metadata: dict | None = None,
+        enabled: bool,
+        ctx: Auth.types.BaseAuthContext | None = None,
+    ) -> AsyncIterator[Cron]:
+        raise NotImplementedError
+
+    @staticmethod
+    async def update(
+        conn: InMemConnectionProto,
+        *,
+        cron_id: UUID,
+        schedule: str | None = None,
+        end_time: datetime | None = None,
+        enabled: bool | None = None,
+        on_run_completed: Literal["delete", "keep"] | None = None,
+        payload: dict | None = None,
+        metadata: dict | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> AsyncIterator[Cron]:
         raise NotImplementedError
@@ -3038,6 +3055,7 @@ class Crons:
         *,
         assistant_id: UUID | None,
         thread_id: UUID | None,
+        enabled: bool,
         limit: int,
         offset: int,
         select: list[CronSelectField] | None = None,

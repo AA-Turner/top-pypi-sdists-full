@@ -1,8 +1,8 @@
+from adam.commands.fs.utils_fs import show_last_results_for_background_jobs
 from adam.commands.command import Command
 from adam.repl_state import ReplState
-from adam.utils_job.async_job import AsyncJobs
+from adam.utils_async_job import AsyncJobs
 from adam.utils_context import Context
-from adam.utils_job.show_job_results import show_last_results_for_background_jobs
 
 class ShowJobs(Command):
     COMMAND = 'show jobs'

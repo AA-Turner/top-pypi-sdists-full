@@ -31,9 +31,7 @@ class GraphQLClient:
 
     def __init__(self, api_key: str, base_api_url: str, base_ws_url: str):
         self.graphql_url = f"{base_api_url}/graphql"
-        self.websocket_url = f"{base_ws_url}/graphql_ws".replace(
-            "https", "wss"
-        ).replace("http", "ws")
+        self.websocket_url = f"{base_ws_url}/graphql_ws".replace("https", "wss").replace("http", "ws")
         self.api_key = api_key
         self._typed_client = IndentGraphQLClient(
             url=self.graphql_url,
@@ -57,23 +55,17 @@ class GraphQLClient:
         return await self._typed_client.refresh_api_key()
 
     async def create_cloud_chat_from_repository(
-        self, repository_id: str, provider: SandboxProvider | None = None
+        self, repository_uuid: str, provider: SandboxProvider | None = None
     ) -> CreateCloudChatFromRepository:
         """Create a cloud chat from a repository with proper typing."""
         return await self._typed_client.create_cloud_chat_from_repository(
-            repository_id=repository_id, provider=provider
+            repository_uuid=repository_uuid, provider=provider
         )
 
-    async def enable_cloud_repository(
-        self, repositories: list[RepositoryInput]
-    ) -> EnableCloudRepository:
-        return await self._typed_client.enable_cloud_repository(
-            repositories=repositories
-        )
+    async def enable_cloud_repository(self, repositories: list[RepositoryInput]) -> EnableCloudRepository:
+        return await self._typed_client.enable_cloud_repository(repositories=repositories)
 
-    async def rebuild_cloud_repository(
-        self, org_name: str, repo_name: str
-    ) -> RebuildCloudRepository:
+    async def rebuild_cloud_repository(self, org_name: str, repo_name: str) -> RebuildCloudRepository:
         """Rebuild cloud repository with proper typing."""
         return await self._typed_client.rebuild_cloud_repository(org_name, repo_name)
 
@@ -149,9 +141,7 @@ class GraphQLClient:
             fetch_schema_from_transport=False,
             execute_timeout=timeout,
         ) as session:
-            query = GraphQLRequest(
-                query_str, variable_values=vars, operation_name=op_name
-            )
+            query = GraphQLRequest(query_str, variable_values=vars, operation_name=op_name)
             result = await session.execute(query)
             return result
 

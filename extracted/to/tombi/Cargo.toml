@@ -13,7 +13,7 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.7.26"  # We use git tags for versioning. This is just a placeholder.
+version = "0.7.27"  # We use git tags for versioning. This is just a placeholder.
 # tombi: lint.rules.deprecated.disabled = true
 authors = ["ya7010 <ya7010@outlook.com>"]
 edition = "2024"
@@ -24,7 +24,7 @@ license = "MIT"
 addr = "0.15.6"
 ahash = { version = "0.8.11", features = ["serde"] }
 anyhow = "1.0.98"
-bytes = "1.10.1"
+bytes = "1.11.1"
 chrono = { version = "0.4.41", features = ["serde"] }
 clap = { version = "4.5.37", features = ["derive", "env", "string"] }
 console_error_panic_hook = "0.1.7"

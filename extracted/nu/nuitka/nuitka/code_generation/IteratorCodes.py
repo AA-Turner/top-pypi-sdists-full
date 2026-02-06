@@ -1,7 +1,7 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Iteration related codes.
+"""Iteration related codes.
 
 Next variants and unpacking with related checks.
 """
@@ -99,11 +99,11 @@ def getBuiltinLoopBreakNextCode(expression, to_name, value, emit, context):
             "to_name": to_name,
             "break_indicator_code": break_indicator_code,
             "break_target": break_target,
-            "release_temps": indented(getErrorExitReleaseCode(context), 8),
+            "release_temps": indented(getErrorExitReleaseCode(context)),
             "var_description_code": indented(
-                getFrameVariableTypeDescriptionCode(context), 8
+                getFrameVariableTypeDescriptionCode(context)
             ),
-            "line_number_code": indented(getErrorLineNumberUpdateCode(context), 8),
+            "line_number_code": indented(getErrorLineNumberUpdateCode(context)),
             "exception_target": context.getExceptionEscape(),
             "exception_state_name": exception_state_name,
         }
@@ -365,11 +365,11 @@ def generateBuiltinAllCode(to_name, expression, emit, context):
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

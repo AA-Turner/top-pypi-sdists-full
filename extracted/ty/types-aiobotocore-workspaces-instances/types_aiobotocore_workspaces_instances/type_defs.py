@@ -25,6 +25,7 @@ from .literals import (
     AmdSevSnpEnumType,
     AutoRecoveryEnumType,
     BandwidthWeightingEnumType,
+    BillingModeType,
     CapacityReservationPreferenceEnumType,
     CpuCreditsEnumType,
     DisassociateModeEnumType,
@@ -32,10 +33,12 @@ from .literals import (
     HttpEndpointEnumType,
     HttpProtocolIpv6EnumType,
     HttpTokensEnumType,
+    InstanceConfigurationTenancyEnumType,
     InstanceInterruptionBehaviorEnumType,
     InstanceMetadataTagsEnumType,
     InterfaceTypeEnumType,
     MarketTypeEnumType,
+    PlatformTypeEnumType,
     ProvisionStateEnumType,
     ResourceTypeEnumType,
     SpotInstanceTypeEnumType,
@@ -51,6 +54,7 @@ else:
 
 __all__ = (
     "AssociateVolumeRequestTypeDef",
+    "BillingConfigurationTypeDef",
     "BlockDeviceMappingRequestTypeDef",
     "CapacityReservationSpecificationTypeDef",
     "CapacityReservationTargetTypeDef",
@@ -74,6 +78,7 @@ __all__ = (
     "GetWorkspaceInstanceResponseTypeDef",
     "HibernationOptionsRequestTypeDef",
     "IamInstanceProfileSpecificationTypeDef",
+    "InstanceConfigurationFilterTypeDef",
     "InstanceIpv6AddressTypeDef",
     "InstanceMaintenanceOptionsRequestTypeDef",
     "InstanceMarketOptionsRequestTypeDef",
@@ -104,6 +109,7 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "RunInstancesMonitoringEnabledTypeDef",
     "SpotMarketOptionsTypeDef",
+    "SupportedInstanceConfigurationTypeDef",
     "TagResourceRequestTypeDef",
     "TagSpecificationTypeDef",
     "TagTypeDef",
@@ -118,6 +124,10 @@ class AssociateVolumeRequestTypeDef(TypedDict):
     WorkspaceInstanceId: str
     VolumeId: str
     Device: str
+
+
+class BillingConfigurationTypeDef(TypedDict):
+    BillingMode: BillingModeType
 
 
 class EbsBlockDeviceTypeDef(TypedDict):
@@ -214,6 +224,12 @@ class IamInstanceProfileSpecificationTypeDef(TypedDict):
     Name: NotRequired[str]
 
 
+class InstanceConfigurationFilterTypeDef(TypedDict):
+    BillingMode: BillingModeType
+    PlatformType: PlatformTypeEnumType
+    Tenancy: InstanceConfigurationTenancyEnumType
+
+
 class InstanceIpv6AddressTypeDef(TypedDict):
     Ipv6Address: NotRequired[str]
     IsPrimaryIpv6: NotRequired[bool]
@@ -248,8 +264,10 @@ class InstanceNetworkPerformanceOptionsRequestTypeDef(TypedDict):
     BandwidthWeighting: NotRequired[BandwidthWeightingEnumType]
 
 
-class InstanceTypeInfoTypeDef(TypedDict):
-    InstanceType: NotRequired[str]
+class SupportedInstanceConfigurationTypeDef(TypedDict):
+    BillingMode: NotRequired[BillingModeType]
+    PlatformType: NotRequired[PlatformTypeEnumType]
+    Tenancy: NotRequired[InstanceConfigurationTenancyEnumType]
 
 
 class LicenseConfigurationRequestTypeDef(TypedDict):
@@ -260,11 +278,6 @@ class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
-
-
-class ListInstanceTypesRequestTypeDef(TypedDict):
-    MaxResults: NotRequired[int]
-    NextToken: NotRequired[str]
 
 
 class ListRegionsRequestTypeDef(TypedDict):
@@ -369,16 +382,23 @@ class GetWorkspaceInstanceResponseTypeDef(TypedDict):
     ProvisionState: ProvisionStateEnumType
     WorkspaceInstanceId: str
     EC2ManagedInstance: EC2ManagedInstanceTypeDef
+    BillingConfiguration: BillingConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class ListInstanceTypesResponseTypeDef(TypedDict):
-    InstanceTypes: list[InstanceTypeInfoTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
+class ListInstanceTypesRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    InstanceConfigurationFilter: NotRequired[InstanceConfigurationFilterTypeDef]
+
+
+class InstanceTypeInfoTypeDef(TypedDict):
+    InstanceType: NotRequired[str]
+    SupportedInstanceConfigurations: NotRequired[list[SupportedInstanceConfigurationTypeDef]]
 
 
 class ListInstanceTypesRequestPaginateTypeDef(TypedDict):
+    InstanceConfigurationFilter: NotRequired[InstanceConfigurationFilterTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -448,6 +468,12 @@ class InstanceNetworkInterfaceSpecificationTypeDef(TypedDict):
     SubnetId: NotRequired[str]
 
 
+class ListInstanceTypesResponseTypeDef(TypedDict):
+    InstanceTypes: list[InstanceTypeInfoTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class InstanceMarketOptionsRequestTypeDef(TypedDict):
     MarketType: NotRequired[MarketTypeEnumType]
     SpotOptions: NotRequired[SpotMarketOptionsTypeDef]
@@ -492,3 +518,4 @@ class CreateWorkspaceInstanceRequestTypeDef(TypedDict):
     ManagedInstance: ManagedInstanceRequestTypeDef
     ClientToken: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    BillingConfiguration: NotRequired[BillingConfigurationTypeDef]

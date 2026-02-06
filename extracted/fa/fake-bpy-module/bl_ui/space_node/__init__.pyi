@@ -388,53 +388,6 @@ class NODE_MT_view_pie(_bpy_types.Menu):
         :param _context:
         """
 
-class NODE_PT_active_node_color(_bpy_types.Panel):
-    bl_category: typing.Any
-    bl_label: typing.Any
-    bl_options: typing.Any
-    bl_parent_id: typing.Any
-    bl_region_type: typing.Any
-    bl_rna: typing.Any
-    bl_space_type: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-    def draw_header(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-    def draw_header_preset(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-    @classmethod
-    def poll(cls, context) -> None:
-        """
-
-        :param context:
-        """
-
 class NODE_PT_active_node_custom_properties(
     rna_prop_ui.PropertyPanel, _bpy_types.Panel
 ):

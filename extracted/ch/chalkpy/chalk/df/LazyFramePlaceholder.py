@@ -540,6 +540,76 @@ class LazyFramePlaceholder:
         # errors about missing columns.
         return UnderscoreAttr(UnderscoreRoot(), column)
 
+    def union_all(self, *others: "LazyFramePlaceholder") -> "LazyFramePlaceholder":
+        """Combine this DataFrame with one or more others by stacking rows.
+
+        All DataFrames must have the same schema (different column order is
+         allowed - the output will have the same column order as ``self``).
+        Duplicates **are** retained. Row order **is not** preserved.
+
+        Parameters
+        ----------
+        *others
+            One or more DataFrames to union with this DataFrame.
+
+        Returns
+        -------
+        DataFrame with all rows from all input DataFrames.
+
+        Raises
+        ------
+        ValueError
+            If no other DataFrames are provided, or if schemas don't match.
+
+        Examples
+        --------
+        >>> df1 = DataFrame({"x": [1, 2], "y": [10, 20]})
+        >>> df2 = DataFrame({"x": [3, 4], "y": [30, 40]})
+        >>> df3 = DataFrame({"x": [5], "y": [50]})
+        >>> result = df1.union_all(df2, df3)
+        >>> # result contains all 5 rows from df1, df2, and df3, in any order
+        """
+
+        return self._construct(self_dataframe=self, function_name="union_all", others=others)
+
+    def union(self, other: "LazyFramePlaceholder") -> "LazyFramePlaceholder":
+        """Combine this DataFrame with another by stacking rows.
+
+        Convenience method for unioning with a single DataFrame.
+        Equivalent to ``union_all(other)``.
+
+        Both DataFrames must have the same schema (different column order is
+        allowed - the output will have the same column order as ``self``).
+        Duplicates **are** retained. Row order **is not** preserved.
+
+        Parameters
+        ----------
+        other
+            DataFrame to union with this DataFrame.
+
+        Returns
+        -------
+        DataFrame with all rows from both input DataFrames.
+
+        Raises
+        ------
+        ValueError
+            If schemas don't match.
+
+        Examples
+        --------
+        >>> df1 = DataFrame({"x": [1, 2], "y": [10, 20]})
+        >>> df2 = DataFrame({"x": [3, 4], "y": [30, 40]})
+        >>> result = df1.union(df2)
+        >>> # result contains all 4 rows from df1 and df2, in any order
+
+        See Also
+        --------
+        union_all : Union with multiple DataFrames at once.
+        """
+
+        return self._construct(self_dataframe=self, function_name="union", other=other)
+
     def project(self, columns: typing.Mapping[str, Underscore]) -> "LazyFramePlaceholder":
         """Project to a new set of columns using expressions.
 

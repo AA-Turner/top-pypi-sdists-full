@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-aiobotocore-cloudsearchdomain
-Version: 3.1.1
-Summary: Type annotations for aiobotocore CloudSearchDomain 3.1.1 service generated with mypy-boto3-builder 8.12.0
+Version: 3.1.2
+Summary: Type annotations for aiobotocore CloudSearchDomain 3.1.2 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[aiobotocore CloudSearchDomain 3.1.1](https://pypi.org/project/aiobotocore/)
+[aiobotocore CloudSearchDomain 3.1.2](https://pypi.org/project/aiobotocore/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -103,7 +103,7 @@ You can generate type annotations for `aiobotocore` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'aiobotocore==3.1.1' mypy-boto3-builder`
+   `uvx --with 'aiobotocore==3.1.2' mypy-boto3-builder`
 2. Select `aiobotocore` AWS SDK.
 3. Add `CloudSearchDomain` service.
 4. Use provided commands to install generated packages.

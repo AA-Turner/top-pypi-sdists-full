@@ -1,14 +1,12 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Ignore listing of modules that are not found, but probably that's acceptable.
-
-"""
+"""Ignore listing of modules that are not found, but probably that's acceptable."""
 
 import sys
 
 from nuitka.Errors import NuitkaOptimizationError
-from nuitka.PythonFlavors import isNuitkaPython
+from nuitka.PythonFlavors import isMonolithPy
 
 
 def getModuleIgnoreList():
@@ -422,7 +420,7 @@ areallylongpackageandmodulenametotestreprtruncation""",
 
 
 def isIgnoreListedNotExistingModule(module_name):
-    if module_name in sys.builtin_module_names and not isNuitkaPython():
+    if module_name in sys.builtin_module_names and not isMonolithPy():
         raise NuitkaOptimizationError(
             """
 Your CPython version has a built-in module '%s', that is not ignore listed
@@ -436,11 +434,11 @@ please report this as a bug."""
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

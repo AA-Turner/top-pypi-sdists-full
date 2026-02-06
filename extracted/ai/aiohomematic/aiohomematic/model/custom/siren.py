@@ -14,6 +14,7 @@ from enum import StrEnum, unique
 from typing import Final, TypedDict, Unpack
 
 from aiohomematic import i18n
+from aiohomematic.client import CommandPriority
 from aiohomematic.const import DataPointCategory, DeviceProfile, Field
 from aiohomematic.exceptions import ValidationException
 from aiohomematic.model.custom.capabilities.siren import SMOKE_SENSOR_SIREN_CAPABILITIES, SirenCapabilities
@@ -120,12 +121,12 @@ class BaseCustomDpSiren(CustomDataPoint):
         """Return true if siren is on."""
 
     @abstractmethod
-    @bind_collector
+    @bind_collector(priority=CommandPriority.CRITICAL)
     async def turn_off(self, *, collector: CallParameterCollector | None = None) -> None:
         """Turn the device off."""
 
     @abstractmethod
-    @bind_collector
+    @bind_collector(priority=CommandPriority.CRITICAL)
     async def turn_on(
         self,
         *,
@@ -164,7 +165,7 @@ class CustomDpIpSiren(BaseCustomDpSiren):
         """Return true if siren is on."""
         return self._dp_acoustic_alarm_active.value is True or self._dp_optical_alarm_active.value is True
 
-    @bind_collector
+    @bind_collector(priority=CommandPriority.CRITICAL)
     async def turn_off(self, *, collector: CallParameterCollector | None = None) -> None:
         """Turn the device off."""
         if (acoustic_default := self._dp_acoustic_alarm_selection.default) is not None:
@@ -175,7 +176,7 @@ class CustomDpIpSiren(BaseCustomDpSiren):
             await self._dp_duration_unit.send_value(value=duration_unit_default, collector=collector)
         await self._dp_duration.send_value(value=self._dp_duration.default, collector=collector)
 
-    @bind_collector
+    @bind_collector(priority=CommandPriority.CRITICAL)
     async def turn_on(
         self,
         *,
@@ -257,12 +258,12 @@ class CustomDpIpSirenSmoke(BaseCustomDpSiren):
             return False
         return bool(self._dp_smoke_detector_alarm_status.value != _SMOKE_DETECTOR_ALARM_STATUS_IDLE_OFF)
 
-    @bind_collector
+    @bind_collector(priority=CommandPriority.CRITICAL)
     async def turn_off(self, *, collector: CallParameterCollector | None = None) -> None:
         """Turn the device off."""
         await self._dp_smoke_detector_command.send_value(value=_SirenCommand.OFF, collector=collector)
 
-    @bind_collector
+    @bind_collector(priority=CommandPriority.CRITICAL)
     async def turn_on(
         self,
         *,
@@ -328,7 +329,7 @@ class CustomDpSoundPlayer(TimerUnitMixin, BaseCustomDpSiren):
         activity = self._dp_direction.value
         return activity is not None and activity in _ACTIVITY_STATES_ACTIVE
 
-    @bind_collector
+    @bind_collector(priority=CommandPriority.CRITICAL)
     async def play_sound(
         self,
         *,
@@ -389,7 +390,7 @@ class CustomDpSoundPlayer(TimerUnitMixin, BaseCustomDpSiren):
         await self._set_ramp_time_on_value(ramp_time=ramp_time, collector=collector)
         await self._set_on_time_value(on_time=on_time, collector=collector)
 
-    @bind_collector
+    @bind_collector(priority=CommandPriority.CRITICAL)
     async def stop_sound(
         self,
         *,
@@ -399,7 +400,7 @@ class CustomDpSoundPlayer(TimerUnitMixin, BaseCustomDpSiren):
         await self._dp_level.send_value(value=0.0, collector=collector)
         await self._dp_on_time_value.send_value(value=0, collector=collector)
 
-    @bind_collector
+    @bind_collector(priority=CommandPriority.CRITICAL)
     async def turn_off(self, *, collector: CallParameterCollector | None = None) -> None:
         """Turn the device off."""
         await self.stop_sound(collector=collector)

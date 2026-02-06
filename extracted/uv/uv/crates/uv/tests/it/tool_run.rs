@@ -933,7 +933,7 @@ fn tool_run_url() {
 
 /// Test running a tool with a Git requirement.
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn tool_run_git() {
     let context = TestContext::new("3.12").with_filtered_counts();
     let tool_dir = context.temp_dir.child("tools");
@@ -1025,7 +1025,7 @@ fn tool_run_git() {
 
 /// Test running a tool with a Git LFS enabled requirement.
 #[test]
-#[cfg(feature = "git-lfs")]
+#[cfg(feature = "test-git-lfs")]
 fn tool_run_git_lfs() {
     let context = TestContext::new("3.13")
         .with_filtered_counts()
@@ -1036,7 +1036,7 @@ fn tool_run_git_lfs() {
 
     uv_snapshot!(context.filters(), context.tool_run()
         .arg("--lfs")
-        .arg("git+https://github.com/astral-sh/test-lfs-repo@c6d77ab63d91104f32ab5e5ae2943f4d26ff875f")
+        .arg("git+https://github.com/astral-sh/test-lfs-repo@54e5eebd3c6851b1353fc7b1e5b4eca11e27581c")
         .env(EnvVars::UV_TOOL_DIR, tool_dir.as_os_str())
         .env(EnvVars::XDG_BIN_HOME, bin_dir.as_os_str()), @"
     success: true
@@ -1048,12 +1048,12 @@ fn tool_run_git_lfs() {
     Resolved [N] packages in [TIME]
     Prepared [N] packages in [TIME]
     Installed [N] packages in [TIME]
-     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo@c6d77ab63d91104f32ab5e5ae2943f4d26ff875f#lfs=true)
+     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo@54e5eebd3c6851b1353fc7b1e5b4eca11e27581c#lfs=true)
     ");
 
     uv_snapshot!(context.filters(), context.tool_run()
         .arg("--lfs")
-        .arg("test-lfs-repo @ git+https://github.com/astral-sh/test-lfs-repo@c6d77ab63d91104f32ab5e5ae2943f4d26ff875f")
+        .arg("test-lfs-repo @ git+https://github.com/astral-sh/test-lfs-repo@54e5eebd3c6851b1353fc7b1e5b4eca11e27581c")
         .env(EnvVars::UV_TOOL_DIR, tool_dir.as_os_str())
         .env(EnvVars::XDG_BIN_HOME, bin_dir.as_os_str()), @"
     success: true
@@ -1070,7 +1070,7 @@ fn tool_run_git_lfs() {
 
     uv_snapshot!(context.filters(), context.tool_run()
         .arg("--from")
-        .arg("git+https://github.com/astral-sh/test-lfs-repo@c6d77ab63d91104f32ab5e5ae2943f4d26ff875f")
+        .arg("git+https://github.com/astral-sh/test-lfs-repo@54e5eebd3c6851b1353fc7b1e5b4eca11e27581c")
         .arg("--lfs")
         .arg("test-lfs-repo-assets")
         .env(EnvVars::UV_TOOL_DIR, tool_dir.as_os_str())
@@ -1084,12 +1084,12 @@ fn tool_run_git_lfs() {
     Resolved [N] packages in [TIME]
     Prepared [N] packages in [TIME]
     Installed [N] packages in [TIME]
-     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo@c6d77ab63d91104f32ab5e5ae2943f4d26ff875f#lfs=true)
+     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo@54e5eebd3c6851b1353fc7b1e5b4eca11e27581c#lfs=true)
     ");
 
     uv_snapshot!(context.filters(), context.tool_run()
         .arg("--from")
-        .arg("test-lfs-repo @ git+https://github.com/astral-sh/test-lfs-repo@c6d77ab63d91104f32ab5e5ae2943f4d26ff875f")
+        .arg("test-lfs-repo @ git+https://github.com/astral-sh/test-lfs-repo@54e5eebd3c6851b1353fc7b1e5b4eca11e27581c")
         .arg("--lfs")
         .arg("test-lfs-repo-assets")
         .env(EnvVars::UV_TOOL_DIR, tool_dir.as_os_str())
@@ -1122,7 +1122,7 @@ fn tool_run_git_lfs() {
 
     uv_snapshot!(filters, context.tool_run()
         .arg("--lfs")
-        .arg("test-lfs-repo @ git+https://github.com/astral-sh/test-lfs-repo@c6d77ab63d91104f32ab5e5ae2943f4d26ff875f")
+        .arg("test-lfs-repo @ git+https://github.com/astral-sh/test-lfs-repo@54e5eebd3c6851b1353fc7b1e5b4eca11e27581c")
         .env(EnvVars::UV_INTERNAL__TEST_LFS_DISABLED, "1")
         .env(EnvVars::UV_TOOL_DIR, tool_dir.as_os_str())
         .env(EnvVars::XDG_BIN_HOME, bin_dir.as_os_str()), @"
@@ -1138,7 +1138,7 @@ fn tool_run_git_lfs() {
     #[cfg(not(windows))]
     uv_snapshot!(context.filters(), context.tool_run()
         .arg("--from")
-        .arg("test-lfs-repo @ git+https://github.com/astral-sh/test-lfs-repo@c6d77ab63d91104f32ab5e5ae2943f4d26ff875f")
+        .arg("test-lfs-repo @ git+https://github.com/astral-sh/test-lfs-repo@54e5eebd3c6851b1353fc7b1e5b4eca11e27581c")
         .arg("test-lfs-repo-assets")
         .env(EnvVars::UV_TOOL_DIR, tool_dir.as_os_str())
         .env(EnvVars::XDG_BIN_HOME, bin_dir.as_os_str()), @r#"
@@ -1150,7 +1150,7 @@ fn tool_run_git_lfs() {
     Resolved [N] packages in [TIME]
     Prepared [N] packages in [TIME]
     Installed [N] packages in [TIME]
-     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo@c6d77ab63d91104f32ab5e5ae2943f4d26ff875f)
+     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo@54e5eebd3c6851b1353fc7b1e5b4eca11e27581c)
     Traceback (most recent call last):
       File "[CACHE_DIR]/archive-v0/[HASH]/bin/test-lfs-repo-assets", line 12, in <module>
         sys.exit(main_lfs())
@@ -1166,7 +1166,7 @@ fn tool_run_git_lfs() {
     #[cfg(windows)]
     uv_snapshot!(context.filters(), context.tool_run()
         .arg("--from")
-        .arg("test-lfs-repo @ git+https://github.com/astral-sh/test-lfs-repo@c6d77ab63d91104f32ab5e5ae2943f4d26ff875f")
+        .arg("test-lfs-repo @ git+https://github.com/astral-sh/test-lfs-repo@54e5eebd3c6851b1353fc7b1e5b4eca11e27581c")
         .arg("test-lfs-repo-assets")
         .env(EnvVars::UV_TOOL_DIR, tool_dir.as_os_str())
         .env(EnvVars::XDG_BIN_HOME, bin_dir.as_os_str()), @r#"
@@ -1178,7 +1178,7 @@ fn tool_run_git_lfs() {
     Resolved [N] packages in [TIME]
     Prepared [N] packages in [TIME]
     Installed [N] packages in [TIME]
-     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo@c6d77ab63d91104f32ab5e5ae2943f4d26ff875f)
+     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo@54e5eebd3c6851b1353fc7b1e5b4eca11e27581c)
     Traceback (most recent call last):
       File "<frozen runpy>", line 198, in _run_module_as_main
       File "<frozen runpy>", line 88, in _run_code
@@ -2394,6 +2394,93 @@ fn tool_run_hint_version_not_available() {
 
     hint: A managed Python download is available for Python 3.12, but the Python preference is set to 'only system'
     ");
+}
+
+#[test]
+fn tool_run_python_from_global_version_file() {
+    let context = TestContext::new_with_versions(&["3.12", "3.11"])
+        .with_filtered_counts()
+        .with_filtered_python_sources();
+
+    context
+        .python_pin()
+        .arg("3.11")
+        .arg("--global")
+        .assert()
+        .success();
+
+    uv_snapshot!(context.filters(), context.tool_run()
+        .arg("python")
+        .arg("--version"), @r###"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    Python 3.11.[X]
+
+    ----- stderr -----
+    Resolved in [TIME]
+    Audited in [TIME]
+    "###);
+}
+
+#[test]
+fn tool_run_python_version_overrides_global_pin() {
+    let context = TestContext::new_with_versions(&["3.12", "3.11"])
+        .with_filtered_counts()
+        .with_filtered_python_sources();
+
+    // Set global pin to 3.11
+    context
+        .python_pin()
+        .arg("3.11")
+        .arg("--global")
+        .assert()
+        .success();
+
+    // Explicitly request python3.12, should override global pin
+    uv_snapshot!(context.filters(), context.tool_run()
+        .arg("python3.12")
+        .arg("--version"), @r###"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    Python 3.12.[X]
+
+    ----- stderr -----
+    Resolved in [TIME]
+    Audited in [TIME]
+    "###);
+}
+
+#[test]
+fn tool_run_python_with_explicit_default_bypasses_global_pin() {
+    let context = TestContext::new_with_versions(&["3.12", "3.11"])
+        .with_filtered_counts()
+        .with_filtered_python_sources();
+
+    // Set global pin to 3.11
+    context
+        .python_pin()
+        .arg("3.11")
+        .arg("--global")
+        .assert()
+        .success();
+
+    // Explicitly request --python default, should bypass global pin and use system default (3.12)
+    uv_snapshot!(context.filters(), context.tool_run()
+        .arg("--python")
+        .arg("default")
+        .arg("python")
+        .arg("--version"), @r###"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    Python 3.12.[X]
+
+    ----- stderr -----
+    Resolved in [TIME]
+    Audited in [TIME]
+    "###);
 }
 
 #[test]

@@ -44,6 +44,7 @@ from .literals import (
     ContactInitiationMethodType,
     ContactInteractionTypeType,
     ContactMediaProcessingFailureModeType,
+    ContactMetricNameType,
     ContactParticipantRoleType,
     ContactRecordingTypeType,
     ContactStateType,
@@ -75,6 +76,7 @@ from .literals import (
     EvaluationTranscriptTypeType,
     EvaluationTypeType,
     EventSourceNameType,
+    ExecutionRecordStatusType,
     FailureReasonCodeType,
     FileStatusTypeType,
     FileUseCaseTypeType,
@@ -142,6 +144,8 @@ from .literals import (
     StringComparisonTypeType,
     TaskTemplateFieldTypeType,
     TaskTemplateStatusType,
+    TestCaseExecutionStatusType,
+    TestCaseStatusType,
     TimerEligibleParticipantRolesType,
     TrafficDistributionGroupStatusType,
     TrafficTypeType,
@@ -375,6 +379,8 @@ __all__ = (
     "CreateSecurityProfileResponseTypeDef",
     "CreateTaskTemplateRequestTypeDef",
     "CreateTaskTemplateResponseTypeDef",
+    "CreateTestCaseRequestTypeDef",
+    "CreateTestCaseResponseTypeDef",
     "CreateTrafficDistributionGroupRequestTypeDef",
     "CreateTrafficDistributionGroupResponseTypeDef",
     "CreateUseCaseRequestTypeDef",
@@ -449,6 +455,7 @@ __all__ = (
     "DeleteRuleRequestTypeDef",
     "DeleteSecurityProfileRequestTypeDef",
     "DeleteTaskTemplateRequestTypeDef",
+    "DeleteTestCaseRequestTypeDef",
     "DeleteTrafficDistributionGroupRequestTypeDef",
     "DeleteUseCaseRequestTypeDef",
     "DeleteUserHierarchyGroupRequestTypeDef",
@@ -508,6 +515,8 @@ __all__ = (
     "DescribeRuleResponseTypeDef",
     "DescribeSecurityProfileRequestTypeDef",
     "DescribeSecurityProfileResponseTypeDef",
+    "DescribeTestCaseRequestTypeDef",
+    "DescribeTestCaseResponseTypeDef",
     "DescribeTrafficDistributionGroupRequestTypeDef",
     "DescribeTrafficDistributionGroupResponseTypeDef",
     "DescribeUserHierarchyGroupRequestTypeDef",
@@ -661,6 +670,7 @@ __all__ = (
     "EvaluationTypeDef",
     "EvaluatorUserUnionTypeDef",
     "EventBridgeActionDefinitionTypeDef",
+    "ExecutionRecordTypeDef",
     "ExpiryTypeDef",
     "ExpressionOutputTypeDef",
     "ExpressionPaginatorTypeDef",
@@ -707,6 +717,8 @@ __all__ = (
     "GetPromptFileResponseTypeDef",
     "GetTaskTemplateRequestTypeDef",
     "GetTaskTemplateResponseTypeDef",
+    "GetTestCaseExecutionSummaryRequestTypeDef",
+    "GetTestCaseExecutionSummaryResponseTypeDef",
     "GetTrafficDistributionRequestTypeDef",
     "GetTrafficDistributionResponseTypeDef",
     "GlobalResiliencyMetadataTypeDef",
@@ -910,6 +922,13 @@ __all__ = (
     "ListTaskTemplatesRequestPaginateTypeDef",
     "ListTaskTemplatesRequestTypeDef",
     "ListTaskTemplatesResponseTypeDef",
+    "ListTestCaseExecutionRecordsRequestTypeDef",
+    "ListTestCaseExecutionRecordsResponseTypeDef",
+    "ListTestCaseExecutionsRequestTypeDef",
+    "ListTestCaseExecutionsResponseTypeDef",
+    "ListTestCasesRequestPaginateTypeDef",
+    "ListTestCasesRequestTypeDef",
+    "ListTestCasesResponseTypeDef",
     "ListTrafficDistributionGroupUsersRequestPaginateTypeDef",
     "ListTrafficDistributionGroupUsersRequestTypeDef",
     "ListTrafficDistributionGroupUsersResponseTypeDef",
@@ -974,6 +993,7 @@ __all__ = (
     "NumberConditionTypeDef",
     "NumberReferenceTypeDef",
     "NumericQuestionPropertyValueAutomationTypeDef",
+    "ObservationSummaryTypeDef",
     "OperationalHourTypeDef",
     "OutboundAdditionalRecipientsTypeDef",
     "OutboundCallerConfigTypeDef",
@@ -1166,6 +1186,9 @@ __all__ = (
     "SearchSecurityProfilesRequestPaginateTypeDef",
     "SearchSecurityProfilesRequestTypeDef",
     "SearchSecurityProfilesResponseTypeDef",
+    "SearchTestCasesRequestPaginateTypeDef",
+    "SearchTestCasesRequestTypeDef",
+    "SearchTestCasesResponseTypeDef",
     "SearchUserHierarchyGroupsRequestPaginateTypeDef",
     "SearchUserHierarchyGroupsRequestTypeDef",
     "SearchUserHierarchyGroupsResponseTypeDef",
@@ -1237,6 +1260,8 @@ __all__ = (
     "StartScreenSharingRequestTypeDef",
     "StartTaskContactRequestTypeDef",
     "StartTaskContactResponseTypeDef",
+    "StartTestCaseExecutionRequestTypeDef",
+    "StartTestCaseExecutionResponseTypeDef",
     "StartWebRTCContactRequestTypeDef",
     "StartWebRTCContactResponseTypeDef",
     "StateTransitionTypeDef",
@@ -1246,6 +1271,7 @@ __all__ = (
     "StopContactRecordingRequestTypeDef",
     "StopContactRequestTypeDef",
     "StopContactStreamingRequestTypeDef",
+    "StopTestCaseExecutionRequestTypeDef",
     "StringConditionTypeDef",
     "StringReferenceTypeDef",
     "SubmitAutoEvaluationActionDefinitionTypeDef",
@@ -1262,6 +1288,7 @@ __all__ = (
     "TaskActionDefinitionOutputTypeDef",
     "TaskActionDefinitionTypeDef",
     "TaskActionDefinitionUnionTypeDef",
+    "TaskAttachmentTypeDef",
     "TaskTemplateConstraintsOutputTypeDef",
     "TaskTemplateConstraintsTypeDef",
     "TaskTemplateConstraintsUnionTypeDef",
@@ -1280,6 +1307,13 @@ __all__ = (
     "TelephonyConfigUnionTypeDef",
     "TemplateAttributesTypeDef",
     "TemplatedMessageConfigTypeDef",
+    "TestCaseEntryPointTypeDef",
+    "TestCaseExecutionTypeDef",
+    "TestCaseSearchCriteriaPaginatorTypeDef",
+    "TestCaseSearchCriteriaTypeDef",
+    "TestCaseSearchFilterTypeDef",
+    "TestCaseSummaryTypeDef",
+    "TestCaseTypeDef",
     "ThresholdTypeDef",
     "ThresholdV2TypeDef",
     "TimestampTypeDef",
@@ -1349,6 +1383,7 @@ __all__ = (
     "UpdateSecurityProfileRequestTypeDef",
     "UpdateTaskTemplateRequestTypeDef",
     "UpdateTaskTemplateResponseTypeDef",
+    "UpdateTestCaseRequestTypeDef",
     "UpdateTrafficDistributionRequestTypeDef",
     "UpdateUserHierarchyGroupNameRequestTypeDef",
     "UpdateUserHierarchyRequestTypeDef",
@@ -1402,6 +1437,7 @@ __all__ = (
     "ViewVersionSummaryTypeDef",
     "VocabularySummaryTypeDef",
     "VocabularyTypeDef",
+    "VoiceCallEntryPointParametersTypeDef",
     "VoiceRecordingConfigurationTypeDef",
     "WisdomInfoTypeDef",
     "WorkspaceAssociationSearchCriteriaPaginatorTypeDef",
@@ -2064,7 +2100,7 @@ class ContactFlowVersionSummaryTypeDef(TypedDict):
 
 
 class ContactMetricInfoTypeDef(TypedDict):
-    Name: Literal["POSITION_IN_QUEUE"]
+    Name: ContactMetricNameType
 
 
 class ContactMetricValueTypeDef(TypedDict):
@@ -2580,6 +2616,11 @@ class DeleteTaskTemplateRequestTypeDef(TypedDict):
     TaskTemplateId: str
 
 
+class DeleteTestCaseRequestTypeDef(TypedDict):
+    InstanceId: str
+    TestCaseId: str
+
+
 class DeleteTrafficDistributionGroupRequestTypeDef(TypedDict):
     TrafficDistributionGroupId: str
 
@@ -2764,6 +2805,12 @@ class DescribeRuleRequestTypeDef(TypedDict):
 class DescribeSecurityProfileRequestTypeDef(TypedDict):
     SecurityProfileId: str
     InstanceId: str
+
+
+class DescribeTestCaseRequestTypeDef(TypedDict):
+    InstanceId: str
+    TestCaseId: str
+    Status: NotRequired[TestCaseStatusType]
 
 
 class DescribeTrafficDistributionGroupRequestTypeDef(TypedDict):
@@ -3146,6 +3193,13 @@ class EventBridgeActionDefinitionTypeDef(TypedDict):
     Name: str
 
 
+class ExecutionRecordTypeDef(TypedDict):
+    ObservationId: NotRequired[str]
+    Status: NotRequired[ExecutionRecordStatusType]
+    Timestamp: NotRequired[datetime]
+    Record: NotRequired[str]
+
+
 class ExpiryTypeDef(TypedDict):
     DurationInSeconds: NotRequired[int]
     ExpiryTimestamp: NotRequired[datetime]
@@ -3229,6 +3283,18 @@ class GetTaskTemplateRequestTypeDef(TypedDict):
     InstanceId: str
     TaskTemplateId: str
     SnapshotVersion: NotRequired[str]
+
+
+class GetTestCaseExecutionSummaryRequestTypeDef(TypedDict):
+    InstanceId: str
+    TestCaseId: str
+    TestCaseExecutionId: str
+
+
+class ObservationSummaryTypeDef(TypedDict):
+    TotalObservations: NotRequired[int]
+    ObservationsPassed: NotRequired[int]
+    ObservationsFailed: NotRequired[int]
 
 
 class GetTrafficDistributionRequestTypeDef(TypedDict):
@@ -3793,6 +3859,39 @@ class TaskTemplateMetadataTypeDef(TypedDict):
     Status: NotRequired[TaskTemplateStatusType]
     LastModifiedTime: NotRequired[datetime]
     CreatedTime: NotRequired[datetime]
+
+
+class ListTestCaseExecutionRecordsRequestTypeDef(TypedDict):
+    InstanceId: str
+    TestCaseId: str
+    TestCaseExecutionId: str
+    Status: NotRequired[TestCaseExecutionStatusType]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
+class TestCaseExecutionTypeDef(TypedDict):
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    TestCaseExecutionId: NotRequired[str]
+    TestCaseId: NotRequired[str]
+    TestCaseExecutionStatus: NotRequired[TestCaseExecutionStatusType]
+    Tags: NotRequired[dict[str, str]]
+
+
+class ListTestCasesRequestTypeDef(TypedDict):
+    InstanceId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
+class TestCaseSummaryTypeDef(TypedDict):
+    Id: NotRequired[str]
+    Arn: NotRequired[str]
+    Name: NotRequired[str]
+    Status: NotRequired[TestCaseStatusType]
+    LastModifiedTime: NotRequired[datetime]
+    LastModifiedRegion: NotRequired[str]
 
 
 class ListTrafficDistributionGroupUsersRequestTypeDef(TypedDict):
@@ -4362,6 +4461,17 @@ class StartScreenSharingRequestTypeDef(TypedDict):
     ClientToken: NotRequired[str]
 
 
+class TaskAttachmentTypeDef(TypedDict):
+    FileName: str
+    S3Url: str
+
+
+class StartTestCaseExecutionRequestTypeDef(TypedDict):
+    InstanceId: str
+    TestCaseId: str
+    ClientToken: NotRequired[str]
+
+
 class StopContactMediaProcessingRequestTypeDef(TypedDict):
     InstanceId: NotRequired[str]
     ContactId: NotRequired[str]
@@ -4378,6 +4488,13 @@ class StopContactStreamingRequestTypeDef(TypedDict):
     InstanceId: str
     ContactId: str
     StreamingId: str
+
+
+class StopTestCaseExecutionRequestTypeDef(TypedDict):
+    InstanceId: str
+    TestCaseExecutionId: str
+    TestCaseId: str
+    ClientToken: NotRequired[str]
 
 
 class SuspendContactRecordingRequestTypeDef(TypedDict):
@@ -4401,6 +4518,12 @@ class TagResourceRequestTypeDef(TypedDict):
 class TemplateAttributesTypeDef(TypedDict):
     CustomAttributes: NotRequired[Mapping[str, str]]
     CustomerProfileAttributes: NotRequired[str]
+
+
+class VoiceCallEntryPointParametersTypeDef(TypedDict):
+    SourcePhoneNumber: NotRequired[str]
+    DestinationPhoneNumber: NotRequired[str]
+    FlowId: NotRequired[str]
 
 
 class TranscriptCriteriaTypeDef(TypedDict):
@@ -4859,6 +4982,12 @@ class CreateTaskTemplateResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateTestCaseResponseTypeDef(TypedDict):
+    TestCaseId: str
+    TestCaseArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateTrafficDistributionGroupResponseTypeDef(TypedDict):
     Id: str
     Arn: str
@@ -5023,6 +5152,13 @@ class StartOutboundVoiceContactResponseTypeDef(TypedDict):
 
 class StartTaskContactResponseTypeDef(TypedDict):
     ContactId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartTestCaseExecutionResponseTypeDef(TypedDict):
+    TestCaseExecutionId: str
+    TestCaseId: str
+    Status: TestCaseExecutionStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -5280,6 +5416,20 @@ class SecurityProfileSearchCriteriaTypeDef(TypedDict):
     OrConditions: NotRequired[Sequence[Mapping[str, Any]]]
     AndConditions: NotRequired[Sequence[Mapping[str, Any]]]
     StringCondition: NotRequired[StringConditionTypeDef]
+
+
+class TestCaseSearchCriteriaPaginatorTypeDef(TypedDict):
+    OrConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    AndConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    StringCondition: NotRequired[StringConditionTypeDef]
+    StatusCondition: NotRequired[TestCaseStatusType]
+
+
+class TestCaseSearchCriteriaTypeDef(TypedDict):
+    OrConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    AndConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    StringCondition: NotRequired[StringConditionTypeDef]
+    StatusCondition: NotRequired[TestCaseStatusType]
 
 
 class UserHierarchyGroupSearchCriteriaPaginatorTypeDef(TypedDict):
@@ -5959,7 +6109,7 @@ class GetContactMetricsRequestTypeDef(TypedDict):
 
 
 class ContactMetricResultTypeDef(TypedDict):
-    Name: Literal["POSITION_IN_QUEUE"]
+    Name: ContactMetricNameType
     Value: ContactMetricValueTypeDef
 
 
@@ -5990,6 +6140,17 @@ class DataTableValueTypeDef(TypedDict):
     LockVersion: NotRequired[DataTableLockVersionTypeDef]
     LastModifiedTime: NotRequired[TimestampTypeDef]
     LastModifiedRegion: NotRequired[str]
+
+
+class ListTestCaseExecutionsRequestTypeDef(TypedDict):
+    InstanceId: str
+    TestCaseId: NotRequired[str]
+    TestCaseName: NotRequired[str]
+    StartTime: NotRequired[TimestampTypeDef]
+    EndTime: NotRequired[TimestampTypeDef]
+    Status: NotRequired[TestCaseExecutionStatusType]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
 
 
 SearchContactsTimeRangeTypeDef = TypedDict(
@@ -6404,6 +6565,12 @@ class EvaluationTranscriptPointOfInterestTypeDef(TypedDict):
     TranscriptSegment: NotRequired[str]
 
 
+class ListTestCaseExecutionRecordsResponseTypeDef(TypedDict):
+    ExecutionRecords: list[ExecutionRecordTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 FieldValueUnionUnionTypeDef = Union[FieldValueUnionTypeDef, FieldValueUnionOutputTypeDef]
 
 
@@ -6686,6 +6853,11 @@ class ListTaskTemplatesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListTestCasesRequestPaginateTypeDef(TypedDict):
+    InstanceId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListTrafficDistributionGroupUsersRequestPaginateTypeDef(TypedDict):
     TrafficDistributionGroupId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -6760,6 +6932,14 @@ class SearchVocabulariesRequestPaginateTypeDef(TypedDict):
     NameStartsWith: NotRequired[str]
     LanguageCode: NotRequired[VocabularyLanguageCodeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class GetTestCaseExecutionSummaryResponseTypeDef(TypedDict):
+    StartTime: datetime
+    EndTime: datetime
+    Status: TestCaseExecutionStatusType
+    ObservationSummary: ObservationSummaryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class HierarchyPathReferenceTypeDef(TypedDict):
@@ -7034,6 +7214,18 @@ class ListSecurityProfilesResponseTypeDef(TypedDict):
 
 class ListTaskTemplatesResponseTypeDef(TypedDict):
     TaskTemplates: list[TaskTemplateMetadataTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListTestCaseExecutionsResponseTypeDef(TypedDict):
+    TestCaseExecutions: list[TestCaseExecutionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListTestCasesResponseTypeDef(TypedDict):
+    TestCaseSummaryList: list[TestCaseSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -7330,6 +7522,15 @@ class TemplatedMessageConfigTypeDef(TypedDict):
     TemplateAttributes: TemplateAttributesTypeDef
 
 
+TestCaseEntryPointTypeDef = TypedDict(
+    "TestCaseEntryPointTypeDef",
+    {
+        "Type": NotRequired[Literal["VOICE_CALL"]],
+        "VoiceCallEntryPointParameters": NotRequired[VoiceCallEntryPointParametersTypeDef],
+    },
+)
+
+
 class TranscriptTypeDef(TypedDict):
     Criteria: Sequence[TranscriptCriteriaTypeDef]
     MatchType: NotRequired[SearchContactsMatchTypeType]
@@ -7533,6 +7734,10 @@ class RoutingProfileSearchFilterTypeDef(TypedDict):
 
 
 class SecurityProfilesSearchFilterTypeDef(TypedDict):
+    TagFilter: NotRequired[ControlPlaneTagFilterTypeDef]
+
+
+class TestCaseSearchFilterTypeDef(TypedDict):
     TagFilter: NotRequired[ControlPlaneTagFilterTypeDef]
 
 
@@ -8280,6 +8485,7 @@ class StartTaskContactRequestTypeDef(TypedDict):
     QuickConnectId: NotRequired[str]
     RelatedContactId: NotRequired[str]
     SegmentAttributes: NotRequired[Mapping[str, SegmentAttributeValueUnionTypeDef]]
+    Attachments: NotRequired[Sequence[TaskAttachmentTypeDef]]
 
 
 class UpdateContactRequestTypeDef(TypedDict):
@@ -8327,6 +8533,48 @@ class StartOutboundChatContactRequestTypeDef(TypedDict):
     RelatedContactId: NotRequired[str]
     SupportedMessagingContentTypes: NotRequired[Sequence[str]]
     ClientToken: NotRequired[str]
+
+
+class CreateTestCaseRequestTypeDef(TypedDict):
+    InstanceId: str
+    Name: str
+    Content: str
+    Description: NotRequired[str]
+    EntryPoint: NotRequired[TestCaseEntryPointTypeDef]
+    InitializationData: NotRequired[str]
+    Status: NotRequired[TestCaseStatusType]
+    TestCaseId: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
+    LastModifiedTime: NotRequired[TimestampTypeDef]
+    LastModifiedRegion: NotRequired[str]
+
+
+class TestCaseTypeDef(TypedDict):
+    Arn: NotRequired[str]
+    Id: NotRequired[str]
+    Name: NotRequired[str]
+    Content: NotRequired[str]
+    EntryPoint: NotRequired[TestCaseEntryPointTypeDef]
+    InitializationData: NotRequired[str]
+    Description: NotRequired[str]
+    Status: NotRequired[TestCaseStatusType]
+    LastModifiedTime: NotRequired[datetime]
+    LastModifiedRegion: NotRequired[str]
+    Tags: NotRequired[dict[str, str]]
+    TestCaseSha256: NotRequired[str]
+
+
+class UpdateTestCaseRequestTypeDef(TypedDict):
+    InstanceId: str
+    TestCaseId: str
+    Content: NotRequired[str]
+    EntryPoint: NotRequired[TestCaseEntryPointTypeDef]
+    InitializationData: NotRequired[str]
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    Status: NotRequired[TestCaseStatusType]
+    LastModifiedTime: NotRequired[TimestampTypeDef]
+    LastModifiedRegion: NotRequired[str]
 
 
 class ContactAnalysisTypeDef(TypedDict):
@@ -8565,6 +8813,21 @@ class SearchSecurityProfilesRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     SearchCriteria: NotRequired[SecurityProfileSearchCriteriaTypeDef]
     SearchFilter: NotRequired[SecurityProfilesSearchFilterTypeDef]
+
+
+class SearchTestCasesRequestPaginateTypeDef(TypedDict):
+    InstanceId: str
+    SearchFilter: NotRequired[TestCaseSearchFilterTypeDef]
+    SearchCriteria: NotRequired[TestCaseSearchCriteriaPaginatorTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class SearchTestCasesRequestTypeDef(TypedDict):
+    InstanceId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    SearchFilter: NotRequired[TestCaseSearchFilterTypeDef]
+    SearchCriteria: NotRequired[TestCaseSearchCriteriaTypeDef]
 
 
 class ConnectionDataTypeDef(TypedDict):
@@ -8944,6 +9207,18 @@ class StartOutboundEmailContactRequestTypeDef(TypedDict):
     ClientToken: NotRequired[str]
 
 
+class DescribeTestCaseResponseTypeDef(TypedDict):
+    TestCase: TestCaseTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class SearchTestCasesResponseTypeDef(TypedDict):
+    TestCases: list[TestCaseTypeDef]
+    ApproximateTotalCount: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class DescribeDataTableAttributeResponseTypeDef(TypedDict):
     Attribute: DataTableAttributeTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -9168,6 +9443,7 @@ class SearchCriteriaTypeDef(TypedDict):
     SearchableContactAttributes: NotRequired[SearchableContactAttributesTypeDef]
     SearchableSegmentAttributes: NotRequired[SearchableSegmentAttributesTypeDef]
     ActiveRegions: NotRequired[Sequence[str]]
+    ContactTags: NotRequired[ControlPlaneTagFilterTypeDef]
 
 
 class EvaluationFormItemEnablementConfigurationOutputTypeDef(TypedDict):
@@ -9490,6 +9766,7 @@ class ContactSearchSummaryTypeDef(TypedDict):
     SegmentAttributes: NotRequired[dict[str, ContactSearchSummarySegmentAttributeValueTypeDef]]
     Name: NotRequired[str]
     RoutingCriteria: NotRequired[RoutingCriteriaTypeDef]
+    Tags: NotRequired[dict[str, str]]
     GlobalResiliencyMetadata: NotRequired[GlobalResiliencyMetadataTypeDef]
 
 
@@ -9561,6 +9838,7 @@ class ContactSearchSummaryPaginatorTypeDef(TypedDict):
     ]
     Name: NotRequired[str]
     RoutingCriteria: NotRequired[RoutingCriteriaPaginatorTypeDef]
+    Tags: NotRequired[dict[str, str]]
     GlobalResiliencyMetadata: NotRequired[GlobalResiliencyMetadataTypeDef]
 
 

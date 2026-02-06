@@ -113,6 +113,7 @@ __all__ = (
     "ServiceName",
     "SortOrderType",
     "TerminationModeType",
+    "ZeroCapacityStrategyType",
 )
 
 AcceptanceTypeType = Literal["ACCEPT", "REJECT"]
@@ -918,6 +919,7 @@ ScalingStatusTypeType = Literal[
 SearchGameSessionsPaginatorName = Literal["search_game_sessions"]
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
 TerminationModeType = Literal["FORCE_TERMINATE", "TRIGGER_ON_PROCESS_TERMINATE"]
+ZeroCapacityStrategyType = Literal["MANUAL", "SCALE_TO_AND_FROM_ZERO"]
 GameLiftServiceName = Literal["gamelift"]
 ServiceName = Literal[
     "accessanalyzer",

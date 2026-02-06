@@ -31,10 +31,10 @@ import tempfile
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any, Iterator
 
-from .contrastive_pairs import execute_generate_pairs_from_task
-from .activations import execute_get_activations
+from .data.contrastive_pairs import execute_generate_pairs_from_task
+from .data.activations import execute_get_activations
 from .steering_objects import execute_create_steering_object
-from .responses import execute_generate_responses
+from .data.responses import execute_generate_responses
 from .scores import execute_evaluate_responses
 
 
@@ -560,7 +560,7 @@ def _execute_welfare_optimization(args):
     os.makedirs(output_dir, exist_ok=True)
     pairs_file = os.path.join(output_dir, f"{trait}_{direction}_pairs.json")
 
-    from wisent.core.contrastive_pairs.core.serialization import save_contrastive_pair_set
+    from wisent.core.contrastive_pairs.core.io.serialization import save_contrastive_pair_set
     save_contrastive_pair_set(pair_set, pairs_file)
     print(f"   Saved pairs to: {pairs_file}")
 
@@ -848,7 +848,7 @@ def _execute_personalization_optimization(args):
     os.makedirs(output_dir, exist_ok=True)
     pairs_file = os.path.join(output_dir, f"{trait_name}_pairs.json")
 
-    from wisent.core.contrastive_pairs.core.serialization import save_contrastive_pair_set
+    from wisent.core.contrastive_pairs.core.io.serialization import save_contrastive_pair_set
     save_contrastive_pair_set(pair_set, pairs_file)
 
     # Get model's number of layers

@@ -4,13 +4,13 @@ import click
 from adam.commands import extract_options, extract_trailing_options
 from adam.commands.command import Command
 from adam.commands.command_helpers import ClusterOrPodCommandHelper
-from adam.commands.devices.devices import device
+from adam.commands.cql.utils_cql import cassandra
+from adam.commands.devices.devices import Devices
 from adam.commands.nodetool.nodetool_commands import NODETOOL_COMMANDS
 from adam.commands.nodetool.utils_nodetool import abort_nodetool_tasks, find_running_nodetool_tasks
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
 from adam.utils import log
-from adam.utils_cassandra.pod_service import cassandra
 from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 
@@ -70,7 +70,7 @@ class NodeTool(Command):
                         return state
 
     def completion(self, state: ReplState):
-        return super().completion(state, {c: {'--force': {'&': None}, '&': None} for c in NODETOOL_COMMANDS}, pods=device(state).pods(state, '-'))
+        return super().completion(state, {c: {'--force': {'&': None}, '&': None} for c in NODETOOL_COMMANDS}, pods=Devices.of(state).pods(state, '-'))
 
     def help(self, state: ReplState):
         return super().help(state, 'run nodetool with arguments', args='<sub-command> [&]')

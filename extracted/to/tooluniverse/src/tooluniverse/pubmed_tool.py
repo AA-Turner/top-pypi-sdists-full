@@ -1,3 +1,4 @@
+import os
 import requests
 import time
 import threading
@@ -15,11 +16,19 @@ class PubMedRESTTool(BaseRESTTool):
     Implements rate limiting per NCBI guidelines:
     - Without API key: 3 requests/second
     - With API key: 10 requests/second
+
+    API key is read from environment variable NCBI_API_KEY.
+    Get your free key at: https://www.ncbi.nlm.nih.gov/account/
     """
 
     # Class-level rate limiting (shared across all instances)
     _last_request_time = 0.0
     _rate_limit_lock = threading.Lock()
+
+    def __init__(self, tool_config):
+        super().__init__(tool_config)
+        # Get API key from environment as fallback
+        self.default_api_key = os.environ.get("NCBI_API_KEY", "")
 
     def _get_param_mapping(self) -> Dict[str, str]:
         """Map PubMed E-utilities parameter names."""
@@ -67,9 +76,9 @@ class PubMedRESTTool(BaseRESTTool):
         if "query" in args:
             params["term"] = args["query"]
 
-        # Add API key if provided
-        if "api_key" in args and args["api_key"]:
-            params["api_key"] = args["api_key"]
+        # Add API key from environment variable
+        if self.default_api_key:
+            params["api_key"] = self.default_api_key
 
         # Handle limit
         if "limit" in args and args["limit"]:
@@ -90,7 +99,7 @@ class PubMedRESTTool(BaseRESTTool):
         url = None
         try:
             # Enforce rate limiting before making request
-            has_api_key = bool(arguments.get("api_key"))
+            has_api_key = bool(self.default_api_key)
             self._enforce_rate_limit(has_api_key)
 
             endpoint = self.tool_config["fields"]["endpoint"]

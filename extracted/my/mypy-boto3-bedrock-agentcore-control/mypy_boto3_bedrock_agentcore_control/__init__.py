@@ -16,6 +16,7 @@ Usage::
         ListAgentRuntimeVersionsPaginator,
         ListAgentRuntimesPaginator,
         ListApiKeyCredentialProvidersPaginator,
+        ListBrowserProfilesPaginator,
         ListBrowsersPaginator,
         ListCodeInterpretersPaginator,
         ListEvaluatorsPaginator,
@@ -51,6 +52,7 @@ Usage::
     list_agent_runtime_versions_paginator: ListAgentRuntimeVersionsPaginator = client.get_paginator("list_agent_runtime_versions")
     list_agent_runtimes_paginator: ListAgentRuntimesPaginator = client.get_paginator("list_agent_runtimes")
     list_api_key_credential_providers_paginator: ListApiKeyCredentialProvidersPaginator = client.get_paginator("list_api_key_credential_providers")
+    list_browser_profiles_paginator: ListBrowserProfilesPaginator = client.get_paginator("list_browser_profiles")
     list_browsers_paginator: ListBrowsersPaginator = client.get_paginator("list_browsers")
     list_code_interpreters_paginator: ListCodeInterpretersPaginator = client.get_paginator("list_code_interpreters")
     list_evaluators_paginator: ListEvaluatorsPaginator = client.get_paginator("list_evaluators")
@@ -73,6 +75,7 @@ from .paginator import (
     ListAgentRuntimesPaginator,
     ListAgentRuntimeVersionsPaginator,
     ListApiKeyCredentialProvidersPaginator,
+    ListBrowserProfilesPaginator,
     ListBrowsersPaginator,
     ListCodeInterpretersPaginator,
     ListEvaluatorsPaginator,
@@ -106,6 +109,7 @@ __all__ = (
     "ListAgentRuntimeVersionsPaginator",
     "ListAgentRuntimesPaginator",
     "ListApiKeyCredentialProvidersPaginator",
+    "ListBrowserProfilesPaginator",
     "ListBrowsersPaginator",
     "ListCodeInterpretersPaginator",
     "ListEvaluatorsPaginator",

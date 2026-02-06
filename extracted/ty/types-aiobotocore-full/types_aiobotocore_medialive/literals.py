@@ -56,6 +56,7 @@ __all__ = (
     "Av1SceneChangeDetectType",
     "Av1SpatialAqType",
     "Av1TemporalAqType",
+    "Av1TimecodeInsertionBehaviorType",
     "AvailBlankingStateType",
     "BandwidthReductionFilterStrengthType",
     "BandwidthReductionPostFilterSharpeningType",
@@ -97,6 +98,7 @@ __all__ = (
     "CmafTimedMetadataId3FrameType",
     "CmafTimedMetadataPassthroughType",
     "ColorSpaceType",
+    "ConnectionModeType",
     "ContentTypeType",
     "DashRoleAudioType",
     "DashRoleCaptionType",
@@ -484,6 +486,7 @@ Av1RateControlModeType = Literal["CBR", "QVBR"]
 Av1SceneChangeDetectType = Literal["DISABLED", "ENABLED"]
 Av1SpatialAqType = Literal["DISABLED", "ENABLED"]
 Av1TemporalAqType = Literal["DISABLED", "ENABLED"]
+Av1TimecodeInsertionBehaviorType = Literal["DISABLED", "METADATA_OBU"]
 AvailBlankingStateType = Literal["DISABLED", "ENABLED"]
 BandwidthReductionFilterStrengthType = Literal[
     "AUTO", "STRENGTH_1", "STRENGTH_2", "STRENGTH_3", "STRENGTH_4"
@@ -564,6 +567,7 @@ CmafNielsenId3BehaviorType = Literal["NO_PASSTHROUGH", "PASSTHROUGH"]
 CmafTimedMetadataId3FrameType = Literal["NONE", "PRIV", "TDRL"]
 CmafTimedMetadataPassthroughType = Literal["DISABLED", "ENABLED"]
 ColorSpaceType = Literal["HDR10", "HLG_2020", "REC_601", "REC_709"]
+ConnectionModeType = Literal["CALLER", "LISTENER"]
 ContentTypeType = Literal["image/jpeg"]
 DashRoleAudioType = Literal[
     "ALTERNATE",
@@ -865,6 +869,7 @@ InputTypeType = Literal[
     "SDI",
     "SMPTE_2110_RECEIVER_GROUP",
     "SRT_CALLER",
+    "SRT_LISTENER",
     "TS_FILE",
     "UDP_PUSH",
     "URL_PULL",

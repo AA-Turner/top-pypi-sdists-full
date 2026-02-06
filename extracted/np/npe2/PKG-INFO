@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: npe2
-Version: 0.7.9
+Version: 0.8.0
 Summary: napari plugin engine v2
 Project-URL: homepage, https://github.com/napari/npe2
 Project-URL: repository, https://github.com/napari/npe2
@@ -13,38 +13,45 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Requires-Dist: build>=1
 Requires-Dist: platformdirs
 Requires-Dist: psygnal>=0.3.0
-Requires-Dist: pydantic
+Requires-Dist: pydantic-extra-types
+Requires-Dist: pydantic>1
 Requires-Dist: pyyaml
 Requires-Dist: rich
 Requires-Dist: tomli-w
 Requires-Dist: tomli; python_version < '3.11'
 Requires-Dist: typer
 Provides-Extra: dev
-Requires-Dist: black; extra == 'dev'
 Requires-Dist: ipython; extra == 'dev'
 Requires-Dist: isort; extra == 'dev'
 Requires-Dist: mypy; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
 Provides-Extra: docs
+Requires-Dist: furo; extra == 'docs'
 Requires-Dist: jinja2; extra == 'docs'
+Requires-Dist: jupyter-book<2; extra == 'docs'
 Requires-Dist: magicgui>=0.3.3; extra == 'docs'
+Requires-Dist: sphinx-tabs; extra == 'docs'
 Provides-Extra: json
 Requires-Dist: jsonschema; extra == 'json'
 Provides-Extra: testing
+Requires-Dist: build; extra == 'testing'
 Requires-Dist: jsonschema; extra == 'testing'
 Requires-Dist: magicgui; extra == 'testing'
 Requires-Dist: napari-plugin-engine; extra == 'testing'
 Requires-Dist: napari-svg==0.1.5; extra == 'testing'
 Requires-Dist: numpy; extra == 'testing'
+Requires-Dist: pip; extra == 'testing'
 Requires-Dist: pytest; extra == 'testing'
 Requires-Dist: pytest-cov; extra == 'testing'
 Requires-Dist: pytest-pretty; extra == 'testing'
@@ -72,7 +79,6 @@ offers comprehensive information for **plugin users** and for **plugin developer
 ### Plugin users
 
 For plugin users, the docs include information about:
-- [Starting to use plugins](https://napari.org/stable/plugins/start_using_plugins/index.html#plugins-getting-started)
 - [Finding and installing plugins](https://napari.org/stable/plugins/start_using_plugins/finding_and_installing_plugins.html#find-and-install-plugins)
 
 ### Plugin developers

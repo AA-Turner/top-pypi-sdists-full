@@ -63,7 +63,9 @@ def map_execution_command(
             if pandas_df is not None:
                 relation = relation_proto.Relation(
                     local_relation=relation_proto.LocalRelation(
-                        data=pandas_to_arrow_batches_bytes(pandas_df),
+                        data=None
+                        if pandas_df.empty
+                        else pandas_to_arrow_batches_bytes(pandas_df),
                         schema=schema,
                     )
                 )

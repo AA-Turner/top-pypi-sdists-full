@@ -1,8 +1,8 @@
 import base64
+import importlib
 from typing import TYPE_CHECKING, Any
 
 import msgspec
-from pydantic_ai.format_prompt import format_as_xml
 
 from exponent.core.remote_execution.file_reference import FilePath
 
@@ -10,6 +10,16 @@ if TYPE_CHECKING:
     from exponent_server.core.tools.edit_tool import (
         EditToolInput as ServerSideEditToolInput,
     )
+
+
+def _load_format_as_xml() -> Any:
+    try:
+        return importlib.import_module("pydantic_ai.format_prompt").format_as_xml
+    except (ModuleNotFoundError, AttributeError):
+        return getattr(importlib.import_module("pydantic_ai.format_as_xml"), "format_as_xml")
+
+
+format_as_xml = _load_format_as_xml()
 
 
 class PartialToolResult(msgspec.Struct, tag_field="tool_name", omit_defaults=True):
@@ -106,9 +116,7 @@ class ReadToolArtifactResult(ToolResult, tag=READ_TOOL_ARTIFACT_NAME):
             if s3_key.startswith(chat_prefix):
                 s3_key = s3_key[len(chat_prefix) :]
         else:
-            raise ValueError(
-                f"S3 URI {s3_uri} does not match expected bucket prefix {bucket_prefix}"
-            )
+            raise ValueError(f"S3 URI {s3_uri} does not match expected bucket prefix {bucket_prefix}")
 
         file_bytes = await s3_client.get_object(s3_key)
         return base64.standard_b64encode(file_bytes).decode("utf-8")
@@ -136,10 +144,7 @@ class ReadToolResult(ToolResult, tag=READ_TOOL_NAME):
             metadata_attrs.append(f'mode="{self.metadata.file_mode}"')
 
         lines = self.content.splitlines()
-        lines = [
-            f"{str(i).rjust(6)}→{line}"
-            for i, line in enumerate(lines, start=self.start_line + 1)
-        ]
+        lines = [f"{str(i).rjust(6)}→{line}" for i, line in enumerate(lines, start=self.start_line + 1)]
 
         if metadata_attrs:
             metadata_header = "<metadata " + " ".join(metadata_attrs) + " />"
@@ -552,16 +557,12 @@ class ErrorResponse(msgspec.Struct, tag="error"):
     error_message: str
 
 
-class StreamingCodeExecutionResponseChunk(
-    msgspec.Struct, tag="streaming_code_execution_chunk"
-):
+class StreamingCodeExecutionResponseChunk(msgspec.Struct, tag="streaming_code_execution_chunk"):
     correlation_id: str
     content: str
     truncated: bool = False
 
-    def add(
-        self, new_chunk: "StreamingCodeExecutionResponseChunk"
-    ) -> "StreamingCodeExecutionResponseChunk":
+    def add(self, new_chunk: "StreamingCodeExecutionResponseChunk") -> "StreamingCodeExecutionResponseChunk":
         """Aggregates content of this and a new chunk."""
         assert self.correlation_id == new_chunk.correlation_id
         return StreamingCodeExecutionResponseChunk(
@@ -607,9 +608,7 @@ class AuthFailedMessage(msgspec.Struct):
     reason: str
 
 
-class BackgroundProcessCompletedNotification(
-    msgspec.Struct, tag="background_process_completed"
-):
+class BackgroundProcessCompletedNotification(msgspec.Struct, tag="background_process_completed"):
     """Sent from CLI to server when a background bash process completes."""
 
     pid: int

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: deepl
-Version: 1.27.0
+Version: 1.28.0
 Summary: Python library for the DeepL API.
 License: MIT
 Author: DeepL SE
@@ -19,8 +19,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Provides-Extra: keyring
-Requires-Dist: keyring (>=23.4.1,<24.0.0) ; extra == "keyring"
-Requires-Dist: requests (>=2.32.4)
+Requires-Dist: keyring (>=25.7.0,<26.0.0) ; extra == "keyring"
+Requires-Dist: requests (>=2.32.5)
 Project-URL: Bug Tracker, https://github.com/DeepLcom/deepl-python/issues
 Project-URL: Documentation, https://www.deepl.com/docs-api/
 Project-URL: Repository, https://github.com/DeepLcom/deepl-python

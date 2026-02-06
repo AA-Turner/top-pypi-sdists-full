@@ -46,6 +46,7 @@ class SmartDefGridRunModel(Base):
 
     started_by_user_id = Column(String(64), nullable=False)
     notes = Column(Text, nullable=True)
+    llm_analyzer_response = Column(JSON, nullable=True)
     # optional idempotency token if you want “re-run latest”
     client_token = Column(String(128), nullable=True, index=True)
 

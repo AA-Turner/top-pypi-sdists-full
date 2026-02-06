@@ -22,9 +22,7 @@ def to_mostly_xml_helper(
         for key, value in d.items():
             if isinstance(value, list):
                 # Handle lists with item tags
-                list_items = "\n".join(
-                    f"<item>\n{to_mostly_xml_helper(item)}\n</item>" for item in value
-                )
+                list_items = "\n".join(f"<item>\n{to_mostly_xml_helper(item)}\n</item>" for item in value)
                 parts.append(f"<{key}>\n{list_items}\n</{key}>")
             elif isinstance(value, dict):
                 # Nested dict

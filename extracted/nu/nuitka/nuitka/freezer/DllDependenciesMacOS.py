@@ -1,7 +1,7 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-"""DLL dependency scan methods for macOS. """
+"""DLL dependency scan methods for macOS."""
 
 import os
 import re
@@ -10,14 +10,14 @@ import sys
 from nuitka.containers.OrderedDicts import OrderedDict
 from nuitka.containers.OrderedSets import OrderedSet
 from nuitka.Errors import NuitkaForbiddenDLLEncounter
-from nuitka.plugins.Plugins import Plugins
+from nuitka.plugins.Hooks import isAcceptableMissingDLL
 from nuitka.PythonFlavors import (
     getHomebrewInstallPath,
     getSystemPrefixPath,
     isAnacondaPython,
     isCPythonOfficialPackage,
     isHomebrewPython,
-    isNuitkaPython,
+    isMonolithPy,
     isPythonBuildStandalonePython,
 )
 from nuitka.PythonVersions import python_version
@@ -244,8 +244,8 @@ def _resolveBinaryPathDLLsMacOS(
         elif os.path.basename(path) == os.path.basename(binary_filename):
             # We ignore the references to itself coming from the library id.
             continue
-        elif isNuitkaPython() and not os.path.isabs(path) and not os.path.exists(path):
-            # Although Nuitka Python statically links all packages, some of them
+        elif isMonolithPy() and not os.path.isabs(path) and not os.path.exists(path):
+            # Although MonolithPy statically links all packages, some of them
             # have proprietary dependencies that cannot be statically built and
             # must instead be linked to the python executable. Due to how the
             # python executable is linked, we end up with relative paths to
@@ -338,7 +338,7 @@ def _resolveBinaryPathDLLsMacOS(
                                 resolved_path = binary_filename
 
         if not os.path.exists(resolved_path):
-            acceptable, plugin_name = Plugins.isAcceptableMissingDLL(
+            acceptable, plugin_name = isAcceptableMissingDLL(
                 package_name=package_name,
                 filename=binary_filename,
             )
@@ -352,7 +352,7 @@ def _resolveBinaryPathDLLsMacOS(
             # We check both the user and the used DLL if they are listed. This
             # might be a form of bug hiding, that the later is not sufficient,
             # that we should address later.
-            acceptable, plugin_name = Plugins.isAcceptableMissingDLL(
+            acceptable, plugin_name = isAcceptableMissingDLL(
                 package_name=package_name,
                 filename=resolved_path,
             )
@@ -451,11 +451,11 @@ Error, problem with dependency scan of '%s' with '%s' please report the bug."""
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

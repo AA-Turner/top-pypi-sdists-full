@@ -21,7 +21,6 @@ from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from streamlit.proto import Alert_pb2 as _Alert_pb2
 from streamlit.proto import ArrowVegaLiteChart_pb2 as _ArrowVegaLiteChart_pb2
-from streamlit.proto import Arrow_pb2 as _Arrow_pb2
 from streamlit.proto import AudioInput_pb2 as _AudioInput_pb2
 from streamlit.proto import Audio_pb2 as _Audio_pb2
 from streamlit.proto import Balloons_pb2 as _Balloons_pb2
@@ -34,6 +33,7 @@ from streamlit.proto import Checkbox_pb2 as _Checkbox_pb2
 from streamlit.proto import Code_pb2 as _Code_pb2
 from streamlit.proto import ColorPicker_pb2 as _ColorPicker_pb2
 from streamlit.proto import Components_pb2 as _Components_pb2
+from streamlit.proto import Dataframe_pb2 as _Dataframe_pb2
 from streamlit.proto import DateInput_pb2 as _DateInput_pb2
 from streamlit.proto import DateTimeInput_pb2 as _DateTimeInput_pb2
 from streamlit.proto import DeckGlJsonChart_pb2 as _DeckGlJsonChart_pb2
@@ -66,6 +66,7 @@ from streamlit.proto import Slider_pb2 as _Slider_pb2
 from streamlit.proto import Snow_pb2 as _Snow_pb2
 from streamlit.proto import Space_pb2 as _Space_pb2
 from streamlit.proto import Spinner_pb2 as _Spinner_pb2
+from streamlit.proto import Table_pb2 as _Table_pb2
 from streamlit.proto import TextAlignmentConfig_pb2 as _TextAlignmentConfig_pb2
 from streamlit.proto import TextArea_pb2 as _TextArea_pb2
 from streamlit.proto import TextInput_pb2 as _TextInput_pb2
@@ -95,8 +96,8 @@ class Element(_message.Message):
     WIDTH_CONFIG_FIELD_NUMBER: _builtins.int
     TEXT_ALIGNMENT_CONFIG_FIELD_NUMBER: _builtins.int
     ALERT_FIELD_NUMBER: _builtins.int
-    ARROW_DATA_FRAME_FIELD_NUMBER: _builtins.int
-    ARROW_TABLE_FIELD_NUMBER: _builtins.int
+    DATAFRAME_FIELD_NUMBER: _builtins.int
+    TABLE_FIELD_NUMBER: _builtins.int
     ARROW_VEGA_LITE_CHART_FIELD_NUMBER: _builtins.int
     AUDIO_FIELD_NUMBER: _builtins.int
     AUDIO_INPUT_FIELD_NUMBER: _builtins.int
@@ -158,9 +159,9 @@ class Element(_message.Message):
     @_builtins.property
     def alert(self) -> _Alert_pb2.Alert: ...
     @_builtins.property
-    def arrow_data_frame(self) -> _Arrow_pb2.Arrow: ...
+    def dataframe(self) -> _Dataframe_pb2.Dataframe: ...
     @_builtins.property
-    def arrow_table(self) -> _Arrow_pb2.Arrow: ...
+    def table(self) -> _Table_pb2.Table: ...
     @_builtins.property
     def arrow_vega_lite_chart(self) -> _ArrowVegaLiteChart_pb2.ArrowVegaLiteChart: ...
     @_builtins.property
@@ -270,8 +271,8 @@ class Element(_message.Message):
         width_config: _WidthConfig_pb2.WidthConfig | None = ...,
         text_alignment_config: _TextAlignmentConfig_pb2.TextAlignmentConfig | None = ...,
         alert: _Alert_pb2.Alert | None = ...,
-        arrow_data_frame: _Arrow_pb2.Arrow | None = ...,
-        arrow_table: _Arrow_pb2.Arrow | None = ...,
+        dataframe: _Dataframe_pb2.Dataframe | None = ...,
+        table: _Table_pb2.Table | None = ...,
         arrow_vega_lite_chart: _ArrowVegaLiteChart_pb2.ArrowVegaLiteChart | None = ...,
         audio: _Audio_pb2.Audio | None = ...,
         audio_input: _AudioInput_pb2.AudioInput | None = ...,
@@ -323,9 +324,9 @@ class Element(_message.Message):
         heading: _Heading_pb2.Heading | None = ...,
         code: _Code_pb2.Code | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_height_config", b"_height_config", "_text_alignment_config", b"_text_alignment_config", "_width_config", b"_width_config", "alert", b"alert", "arrow_data_frame", b"arrow_data_frame", "arrow_table", b"arrow_table", "arrow_vega_lite_chart", b"arrow_vega_lite_chart", "audio", b"audio", "audio_input", b"audio_input", "balloons", b"balloons", "bidi_component", b"bidi_component", "button", b"button", "button_group", b"button_group", "camera_input", b"camera_input", "chat_input", b"chat_input", "checkbox", b"checkbox", "code", b"code", "color_picker", b"color_picker", "component_instance", b"component_instance", "date_input", b"date_input", "date_time_input", b"date_time_input", "deck_gl_json_chart", b"deck_gl_json_chart", "doc_string", b"doc_string", "download_button", b"download_button", "empty", b"empty", "exception", b"exception", "favicon", b"favicon", "feedback", b"feedback", "file_uploader", b"file_uploader", "graphviz_chart", b"graphviz_chart", "heading", b"heading", "height_config", b"height_config", "html", b"html", "iframe", b"iframe", "imgs", b"imgs", "json", b"json", "link_button", b"link_button", "markdown", b"markdown", "metric", b"metric", "multiselect", b"multiselect", "number_input", b"number_input", "page_link", b"page_link", "plotly_chart", b"plotly_chart", "progress", b"progress", "radio", b"radio", "selectbox", b"selectbox", "skeleton", b"skeleton", "slider", b"slider", "snow", b"snow", "space", b"space", "spinner", b"spinner", "text", b"text", "text_alignment_config", b"text_alignment_config", "text_area", b"text_area", "text_input", b"text_input", "time_input", b"time_input", "toast", b"toast", "type", b"type", "video", b"video", "width_config", b"width_config"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_height_config", b"_height_config", "_text_alignment_config", b"_text_alignment_config", "_width_config", b"_width_config", "alert", b"alert", "arrow_vega_lite_chart", b"arrow_vega_lite_chart", "audio", b"audio", "audio_input", b"audio_input", "balloons", b"balloons", "bidi_component", b"bidi_component", "button", b"button", "button_group", b"button_group", "camera_input", b"camera_input", "chat_input", b"chat_input", "checkbox", b"checkbox", "code", b"code", "color_picker", b"color_picker", "component_instance", b"component_instance", "dataframe", b"dataframe", "date_input", b"date_input", "date_time_input", b"date_time_input", "deck_gl_json_chart", b"deck_gl_json_chart", "doc_string", b"doc_string", "download_button", b"download_button", "empty", b"empty", "exception", b"exception", "favicon", b"favicon", "feedback", b"feedback", "file_uploader", b"file_uploader", "graphviz_chart", b"graphviz_chart", "heading", b"heading", "height_config", b"height_config", "html", b"html", "iframe", b"iframe", "imgs", b"imgs", "json", b"json", "link_button", b"link_button", "markdown", b"markdown", "metric", b"metric", "multiselect", b"multiselect", "number_input", b"number_input", "page_link", b"page_link", "plotly_chart", b"plotly_chart", "progress", b"progress", "radio", b"radio", "selectbox", b"selectbox", "skeleton", b"skeleton", "slider", b"slider", "snow", b"snow", "space", b"space", "spinner", b"spinner", "table", b"table", "text", b"text", "text_alignment_config", b"text_alignment_config", "text_area", b"text_area", "text_input", b"text_input", "time_input", b"time_input", "toast", b"toast", "type", b"type", "video", b"video", "width_config", b"width_config"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_height_config", b"_height_config", "_text_alignment_config", b"_text_alignment_config", "_width_config", b"_width_config", "alert", b"alert", "arrow_data_frame", b"arrow_data_frame", "arrow_table", b"arrow_table", "arrow_vega_lite_chart", b"arrow_vega_lite_chart", "audio", b"audio", "audio_input", b"audio_input", "balloons", b"balloons", "bidi_component", b"bidi_component", "button", b"button", "button_group", b"button_group", "camera_input", b"camera_input", "chat_input", b"chat_input", "checkbox", b"checkbox", "code", b"code", "color_picker", b"color_picker", "component_instance", b"component_instance", "date_input", b"date_input", "date_time_input", b"date_time_input", "deck_gl_json_chart", b"deck_gl_json_chart", "doc_string", b"doc_string", "download_button", b"download_button", "empty", b"empty", "exception", b"exception", "favicon", b"favicon", "feedback", b"feedback", "file_uploader", b"file_uploader", "graphviz_chart", b"graphviz_chart", "heading", b"heading", "height_config", b"height_config", "html", b"html", "iframe", b"iframe", "imgs", b"imgs", "json", b"json", "link_button", b"link_button", "markdown", b"markdown", "metric", b"metric", "multiselect", b"multiselect", "number_input", b"number_input", "page_link", b"page_link", "plotly_chart", b"plotly_chart", "progress", b"progress", "radio", b"radio", "selectbox", b"selectbox", "skeleton", b"skeleton", "slider", b"slider", "snow", b"snow", "space", b"space", "spinner", b"spinner", "text", b"text", "text_alignment_config", b"text_alignment_config", "text_area", b"text_area", "text_input", b"text_input", "time_input", b"time_input", "toast", b"toast", "type", b"type", "video", b"video", "width_config", b"width_config"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_height_config", b"_height_config", "_text_alignment_config", b"_text_alignment_config", "_width_config", b"_width_config", "alert", b"alert", "arrow_vega_lite_chart", b"arrow_vega_lite_chart", "audio", b"audio", "audio_input", b"audio_input", "balloons", b"balloons", "bidi_component", b"bidi_component", "button", b"button", "button_group", b"button_group", "camera_input", b"camera_input", "chat_input", b"chat_input", "checkbox", b"checkbox", "code", b"code", "color_picker", b"color_picker", "component_instance", b"component_instance", "dataframe", b"dataframe", "date_input", b"date_input", "date_time_input", b"date_time_input", "deck_gl_json_chart", b"deck_gl_json_chart", "doc_string", b"doc_string", "download_button", b"download_button", "empty", b"empty", "exception", b"exception", "favicon", b"favicon", "feedback", b"feedback", "file_uploader", b"file_uploader", "graphviz_chart", b"graphviz_chart", "heading", b"heading", "height_config", b"height_config", "html", b"html", "iframe", b"iframe", "imgs", b"imgs", "json", b"json", "link_button", b"link_button", "markdown", b"markdown", "metric", b"metric", "multiselect", b"multiselect", "number_input", b"number_input", "page_link", b"page_link", "plotly_chart", b"plotly_chart", "progress", b"progress", "radio", b"radio", "selectbox", b"selectbox", "skeleton", b"skeleton", "slider", b"slider", "snow", b"snow", "space", b"space", "spinner", b"spinner", "table", b"table", "text", b"text", "text_alignment_config", b"text_alignment_config", "text_area", b"text_area", "text_input", b"text_input", "time_input", b"time_input", "toast", b"toast", "type", b"type", "video", b"video", "width_config", b"width_config"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__height_config: _TypeAlias = _typing.Literal["height_config"]  # noqa: Y015
     _WhichOneofArgType__height_config: _TypeAlias = _typing.Literal["_height_config", b"_height_config"]  # noqa: Y015
@@ -333,7 +334,7 @@ class Element(_message.Message):
     _WhichOneofArgType__text_alignment_config: _TypeAlias = _typing.Literal["_text_alignment_config", b"_text_alignment_config"]  # noqa: Y015
     _WhichOneofReturnType__width_config: _TypeAlias = _typing.Literal["width_config"]  # noqa: Y015
     _WhichOneofArgType__width_config: _TypeAlias = _typing.Literal["_width_config", b"_width_config"]  # noqa: Y015
-    _WhichOneofReturnType_type: _TypeAlias = _typing.Literal["alert", "arrow_data_frame", "arrow_table", "arrow_vega_lite_chart", "audio", "audio_input", "balloons", "bidi_component", "button", "button_group", "download_button", "camera_input", "chat_input", "checkbox", "color_picker", "component_instance", "date_input", "deck_gl_json_chart", "doc_string", "empty", "exception", "favicon", "feedback", "file_uploader", "graphviz_chart", "html", "iframe", "imgs", "json", "link_button", "markdown", "metric", "multiselect", "number_input", "page_link", "plotly_chart", "progress", "radio", "selectbox", "skeleton", "slider", "snow", "space", "spinner", "text", "text_area", "text_input", "time_input", "date_time_input", "toast", "video", "heading", "code"]  # noqa: Y015
+    _WhichOneofReturnType_type: _TypeAlias = _typing.Literal["alert", "dataframe", "table", "arrow_vega_lite_chart", "audio", "audio_input", "balloons", "bidi_component", "button", "button_group", "download_button", "camera_input", "chat_input", "checkbox", "color_picker", "component_instance", "date_input", "deck_gl_json_chart", "doc_string", "empty", "exception", "favicon", "feedback", "file_uploader", "graphviz_chart", "html", "iframe", "imgs", "json", "link_button", "markdown", "metric", "multiselect", "number_input", "page_link", "plotly_chart", "progress", "radio", "selectbox", "skeleton", "slider", "snow", "space", "spinner", "text", "text_area", "text_input", "time_input", "date_time_input", "toast", "video", "heading", "code"]  # noqa: Y015
     _WhichOneofArgType_type: _TypeAlias = _typing.Literal["type", b"type"]  # noqa: Y015
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__height_config) -> _WhichOneofReturnType__height_config | None: ...

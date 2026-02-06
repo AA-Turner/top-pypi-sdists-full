@@ -1,23 +1,22 @@
 Metadata-Version: 2.4
 Name: asdf_standard
-Version: 1.4.0
+Version: 1.5.0
 Summary: The ASDF Standard schemas
-Author-email: The ASDF Developers <help@stsci.edu>
+Author: The ASDF Developers
 Project-URL: tracker, https://github.com/asdf-format/asdf-standard/issues
 Project-URL: documentation, https://www.asdf-format.org/projects/asdf-standard/en/latest
 Project-URL: repository, https://github.com/asdf-format/asdf-standard
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Development Status :: 5 - Production/Stable
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: docs
-Requires-Dist: tomli; extra == "docs"
+Requires-Dist: tomli; python_version < "3.11" and extra == "docs"
 Requires-Dist: sphinx>=4.0; extra == "docs"
 Requires-Dist: sphinx-asdf>=0.1.3; extra == "docs"
 Requires-Dist: graphviz; extra == "docs"
-Requires-Dist: matplotlib; extra == "docs"
 Requires-Dist: docutils; extra == "docs"
 Requires-Dist: furo; extra == "docs"
 Provides-Extra: test

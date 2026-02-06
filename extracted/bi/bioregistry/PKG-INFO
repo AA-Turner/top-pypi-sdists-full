@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: bioregistry
-Version: 0.13.18
+Version: 0.13.19
 Summary: Integrated registry of biological databases and nomenclatures
 Keywords: snekpack,cookiecutter,databases,biological databases,biomedical databases,persistent identifiers
 Author: Charles Tapley Hoyt
@@ -53,11 +53,11 @@ Requires-Dist: tabulate ; extra == 'align'
 Requires-Dist: defusedxml ; extra == 'align'
 Requires-Dist: class-resolver ; extra == 'align'
 Requires-Dist: fairsharing-client>=0.1.0 ; extra == 'align'
-Requires-Dist: pandas ; extra == 'align'
+Requires-Dist: pandas<3.0 ; extra == 'align'
 Requires-Dist: matplotlib ; extra == 'charts'
 Requires-Dist: matplotlib-venn ; extra == 'charts'
 Requires-Dist: seaborn ; extra == 'charts'
-Requires-Dist: pandas ; extra == 'charts'
+Requires-Dist: pandas<3.0 ; extra == 'charts'
 Requires-Dist: jinja2 ; extra == 'charts'
 Requires-Dist: sphinx>=8 ; extra == 'docs'
 Requires-Dist: sphinx-rtd-theme>=3.0 ; extra == 'docs'
@@ -70,13 +70,13 @@ Requires-Dist: rdflib-jsonld ; extra == 'export'
 Requires-Dist: ndex2 ; extra == 'export'
 Requires-Dist: more-itertools ; extra == 'gha'
 Requires-Dist: click-default-group ; extra == 'health'
-Requires-Dist: pandas ; extra == 'health'
+Requires-Dist: pandas<3.0 ; extra == 'health'
 Requires-Dist: tabulate ; extra == 'health'
 Requires-Dist: pyyaml ; extra == 'health'
 Requires-Dist: jinja2 ; extra == 'health'
-Requires-Dist: pandas ; extra == 'mapping-checking'
+Requires-Dist: pandas<3.0 ; extra == 'mapping-checking'
 Requires-Dist: sentence-transformers ; extra == 'mapping-checking'
-Requires-Dist: pandas ; extra == 'paper-ranking'
+Requires-Dist: pandas<3.0 ; extra == 'paper-ranking'
 Requires-Dist: scikit-learn ; extra == 'paper-ranking'
 Requires-Dist: tabulate ; extra == 'paper-ranking'
 Requires-Dist: pubmed-downloader>=0.0.12 ; extra == 'paper-ranking'

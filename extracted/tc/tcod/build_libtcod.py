@@ -11,9 +11,8 @@ import platform
 import re
 import subprocess
 import sys
-from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Final
 
 import attrs
 import pycparser  # type: ignore[import-untyped]
@@ -27,7 +26,10 @@ sys.path.append(str(Path(__file__).parent))  # Allow importing local modules.
 
 import build_sdl
 
-Py_LIMITED_API = 0x03100000
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
+
+Py_LIMITED_API: None | int = 0x03100000
 
 HEADER_PARSE_PATHS = ("tcod/", "libtcod/src/libtcod/")
 HEADER_PARSE_EXCLUDES = ("gl2_ext_.h", "renderer_gl_internal.h", "event.h")
@@ -165,9 +167,14 @@ libraries: list[str] = [*build_sdl.libraries]
 library_dirs: list[str] = [*build_sdl.library_dirs]
 define_macros: list[tuple[str, Any]] = []
 
-if "PYODIDE" not in os.environ:
+if "free-threading build" in sys.version:
+    Py_LIMITED_API = None
+if "PYODIDE" in os.environ:
     # Unable to apply Py_LIMITED_API to Pyodide in cffi<=1.17.1
     # https://github.com/python-cffi/cffi/issues/179
+    Py_LIMITED_API = None
+
+if Py_LIMITED_API:
     define_macros.append(("Py_LIMITED_API", Py_LIMITED_API))
 
 sources += walk_sources("tcod/")
@@ -269,7 +276,7 @@ def find_sdl_attrs(prefix: str) -> Iterator[tuple[str, int | str | Any]]:
 
     `prefix` is used to filter out which names to copy.
     """
-    from tcod._libtcod import lib
+    from tcod._libtcod import lib  # noqa: PLC0415
 
     if prefix.startswith("SDL_"):
         name_starts_at = 4
@@ -320,12 +327,14 @@ EXCLUDE_CONSTANT_PREFIXES = [
 ]
 
 
+RE_CONSTANTS_ALL: Final = re.compile(
+    r"(.*# --- From constants.py ---).*(# --- End constants.py ---.*)",
+    re.DOTALL,
+)
+
+
 def update_module_all(filename: Path, new_all: str) -> None:
     """Update the __all__ of a file with the constants from new_all."""
-    RE_CONSTANTS_ALL = re.compile(
-        r"(.*# --- From constants.py ---).*(# --- End constants.py ---.*)",
-        re.DOTALL,
-    )
     match = RE_CONSTANTS_ALL.match(filename.read_text(encoding="utf-8"))
     assert match, f"Can't determine __all__ subsection in {filename}!"
     header, footer = match.groups()
@@ -346,8 +355,8 @@ def generate_enums(prefix: str) -> Iterator[str]:
 
 def write_library_constants() -> None:
     """Write libtcod constants into the tcod.constants module."""
-    import tcod.color
-    from tcod._libtcod import ffi, lib
+    import tcod.color  # noqa: PLC0415
+    from tcod._libtcod import ffi, lib  # noqa: PLC0415
 
     with Path("tcod/constants.py").open("w", encoding="utf-8") as f:
         all_names = []
@@ -441,6 +450,8 @@ def _fix_reserved_name(name: str) -> str:
 
 @attrs.define(frozen=True)
 class ConvertedParam:
+    """Converted type parameter from C types into Python type-hints."""
+
     name: str = attrs.field(converter=_fix_reserved_name)
     hint: str
     original: str
@@ -460,7 +471,8 @@ def _type_from_names(names: list[str]) -> str:
     return "Any"
 
 
-def _param_as_hint(node: pycparser.c_ast.Node, default_name: str) -> ConvertedParam:
+def _param_as_hint(node: pycparser.c_ast.Node, default_name: str) -> ConvertedParam:  # noqa: PLR0911
+    """Return a Python type-hint from a C AST node."""
     original = pycparser.c_generator.CGenerator().visit(node)
     name: str
     names: list[str]

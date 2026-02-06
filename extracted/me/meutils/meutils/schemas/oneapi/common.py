@@ -176,6 +176,7 @@ MODEL_PRICE = {
     "async/minimax-hailuo-image-01": 0.02,
     "async/gpt-image-1.5": 0.06,
     "async/seedream-4.5": 0.06,
+    "seedream-4.5": 0.1,
 
     "grok-4-image": 0.03,
 
@@ -189,12 +190,13 @@ MODEL_PRICE = {
     "vip/nano-banana-pro": 0.15 * 4,
     "vip/nano-banana-pro_4k": 0.3 * 4,
 
-    "gemini-3-pro-image-preview": 0.2,
+    "gemini-3-pro-image-preview": 0.1,
     "gemini-3-pro-video": 0.1,
 
-    "gemini-2.5-flash-image": 0.04 * 3,
-    "gemini-2.5-flash-image-preview": 0.08,
-    "gemini-2.5-flash-image-preview-hd": 0.08,
+    "gemini-2.5-flash-image": 0.03,
+    "gemini-2.5-flash-image-preview": 0.03,
+    "gemini-2.5-flash-image-preview-hd": 0.03,
+
 
     "qwen-image": 0.05,
     "qwen-image-edit": 0.05,
@@ -312,6 +314,10 @@ MODEL_PRICE = {
     "doubao-seedance-1-5-pro_12s_480p": 0.5 * 3,  # 0.8
     "doubao-seedance-1-5-pro_12s_720p": 0.8 * 3,
     "doubao-seedance-1-5-pro_12s_1080p": 1.5 * 3,
+
+    # "doubao-seedance-1-0-pro-fast-251015": 1.5 * 3,
+    # "doubao-seedance-1-0-pro-fast-251015": 1.5 * 3,
+    # "doubao-seedance-1-0-pro-fast-251015": 1.5 * 3,
 
     "api-volcengine-high_aes_general_v30l_zt2i": 0.05,
     "api-volcengine-byteedit_v2.0": 0.05,

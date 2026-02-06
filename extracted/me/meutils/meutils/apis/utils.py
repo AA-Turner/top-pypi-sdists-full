@@ -366,7 +366,6 @@ if __name__ == '__main__':
     # ))
 
     UPSTREAM_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
-    # UPSTREAM_API_KEY = "85abd27e-11ac-449b-ad88-66369e320df0 "
     UPSTREAM_API_KEY = "c18e9ef5-b6f7-449b-897f-8004f091aad0"
     path = "/contents/generations/tasks"
     # API_KEY=sk-R6y5di2fR3OAxEH3idNZIc4sm3CWIS4LAzRfhxSVbhXrrIej

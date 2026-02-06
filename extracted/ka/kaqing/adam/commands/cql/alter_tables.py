@@ -1,10 +1,9 @@
 from adam.commands import extract_options, validate_args
 from adam.commands.command import Command
-from adam.commands.cql.utils_cql import cassandra_tables as get_tables
+from adam.commands.cql.utils_cql import cassandra, cassandra_tables as get_tables
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
 from adam.utils import log2, log_exc
-from adam.utils_cassandra.pod_service import cassandra
 from adam.utils_context import Context
 
 class AlterTables(Command):

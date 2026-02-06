@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nats-py
-Version: 2.13.0
+Version: 2.13.1
 Summary: NATS client for Python
 Author-email: Waldemar Quevedo <wally@synadia.com>
 License-Expression: Apache-2.0

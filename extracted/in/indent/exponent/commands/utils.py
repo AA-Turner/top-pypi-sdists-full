@@ -25,9 +25,7 @@ def print_editable_install_forced_prod_warning(settings: SettingsProtocol) -> No
 
 
 def print_editable_install_warning(settings: SettingsProtocol) -> None:
-    click.secho(
-        "Detected local editable install, using local URLs", fg="yellow", bold=True
-    )
+    click.secho("Detected local editable install, using local URLs", fg="yellow", bold=True)
     click.secho("- base_url=", fg="yellow", bold=True, nl=False)
     click.secho(f"{settings.base_url}", fg=(100, 200, 255), bold=False)
     click.secho("- base_api_url=", fg="yellow", bold=True, nl=False)
@@ -42,9 +40,7 @@ def print_exponent_message(base_url: str, chat_uuid: str) -> None:
     click.echo()
     click.secho(f"△ Indent v{version}", fg=(180, 150, 255), bold=True)
     click.echo()
-    click.echo(
-        " - Link: " + click.style(f"{base_url}/chats/{chat_uuid}", fg=(100, 200, 255))
-    )
+    click.echo(" - Link: " + click.style(f"{base_url}/chats/{chat_uuid}", fg=(100, 200, 255)))
 
     if shell is not None:
         click.echo(f" - Shell: {shell}")
@@ -58,9 +54,7 @@ def is_indent_app_installed() -> bool:
     return False
 
 
-def launch_exponent_browser(
-    environment: Environment, base_url: str, chat_uuid: str
-) -> None:
+def launch_exponent_browser(environment: Environment, base_url: str, chat_uuid: str) -> None:
     if is_indent_app_installed() and environment == Environment.production:
         url = f"exponent://chats/{chat_uuid}"
     else:

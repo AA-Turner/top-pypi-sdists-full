@@ -20,7 +20,6 @@ Konstantin Mishchenko and Aaron Defazio. A new variant of D-Adapt Adam that
 adapts the learning rate faster.
 """
 from typing import NamedTuple, Optional
-import chex
 import jax
 import jax.numpy as jnp
 from optax._src import base
@@ -38,19 +37,19 @@ class ProdigyState(NamedTuple):
   # Initial point.
   params0: base.Updates
   # Distance to solution estimate.
-  estim_lr: chex.Array  # shape=(), dtype=jnp.float32.
-  numerator_weighted: chex.Array  # shape=(), dtype=jnp.float32.
-  count: chex.Array  # shape=(), dtype=int32.
+  estim_lr: jax.typing.ArrayLike  # shape=(), dtype=jnp.float32.
+  numerator_weighted: jax.typing.ArrayLike  # shape=(), dtype=jnp.float32.
+  count: jax.typing.ArrayLike  # shape=(), dtype=int32.
 
 
 def prodigy(
     learning_rate: base.ScalarOrSchedule = 1.0,
-    betas: tuple[float, float] = (0.9, 0.999),
-    beta3: Optional[float] = None,
-    eps: float = 1e-8,
-    estim_lr0: float = 1e-6,
-    estim_lr_coef: float = 1.0,
-    weight_decay: float = 0.0,
+    betas: tuple[jax.typing.ArrayLike, jax.typing.ArrayLike] = (0.9, 0.999),
+    beta3: Optional[jax.typing.ArrayLike] = None,
+    eps: jax.typing.ArrayLike = 1e-8,
+    estim_lr0: jax.typing.ArrayLike = 1e-6,
+    estim_lr_coef: jax.typing.ArrayLike = 1.0,
+    weight_decay: jax.typing.ArrayLike = 0.0,
     safeguard_warmup: bool = False,
 ) -> base.GradientTransformationExtraArgs:
   """Learning rate free AdamW with Prodigy.
@@ -115,8 +114,9 @@ def prodigy(
       params: Optional[base.Params] = None,
       **extra_args,
   ) -> tuple[base.Updates, ProdigyState]:
-    del extra_args  # complies with signature of GradientTransformationExtraArgs
-                    # but ignores the extra_args
+    # complies with signature of GradientTransformationExtraArgs but ignores the
+    # extra_args
+    del extra_args
     if params is None:
       raise ValueError(base.NO_PARAMS_MSG)
     count = state.count

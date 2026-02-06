@@ -1,6 +1,6 @@
 from adam.commands import validate_args
 from adam.commands.command import Command
-from adam.commands.devices.devices import device
+from adam.commands.devices.devices import Devices
 from adam.repl_state import ReplState, RequiredState
 
 class PreviewTable(Command):
@@ -27,7 +27,7 @@ class PreviewTable(Command):
 
         with self.validate(args, state) as (args, state):
             with validate_args(args, state, at_least=1) as table:
-                device(state).preview(table, state)
+                Devices.of(state).preview(table, state)
 
             return state
 

@@ -201,9 +201,9 @@ if __name__ == '__main__':
     data = {
         "model": "nano-banana2",
         "prompt": "使图片变清晰，不改变原图比例 --4K",
-        "image": [
-            "https://cdnzjzai.m.nengshuohuihua.com/banana/refer/202602/02/20260202185746552733.jpeg?auth_key=1770029895-78f88911851543c692009bcfb89072b9-0-073258e5b2a3121093e5fc0875908869"
-        ],
+        # "image": [
+        #     "https://cdnzjzai.m.nengshuohuihua.com/banana/refer/202602/02/20260202185746552733.jpeg?auth_key=1770029895-78f88911851543c692009bcfb89072b9-0-073258e5b2a3121093e5fc0875908869"
+        # ],
         "resolution": "4k"
     }
 

@@ -17,27 +17,27 @@ class FlowModuleValue2Type0AssetsItem:
     Attributes:
         path (str): Path to the asset
         kind (FlowModuleValue2Type0AssetsItemKind): Type of asset
-        access_type (Union[Unset, FlowModuleValue2Type0AssetsItemAccessType]): Access level for this asset
-        alt_access_type (Union[Unset, FlowModuleValue2Type0AssetsItemAltAccessType]): Alternative access level
+        access_type (Union[Unset, None, FlowModuleValue2Type0AssetsItemAccessType]): Access level for this asset
+        alt_access_type (Union[Unset, None, FlowModuleValue2Type0AssetsItemAltAccessType]): Alternative access level
     """
 
     path: str
     kind: FlowModuleValue2Type0AssetsItemKind
-    access_type: Union[Unset, FlowModuleValue2Type0AssetsItemAccessType] = UNSET
-    alt_access_type: Union[Unset, FlowModuleValue2Type0AssetsItemAltAccessType] = UNSET
+    access_type: Union[Unset, None, FlowModuleValue2Type0AssetsItemAccessType] = UNSET
+    alt_access_type: Union[Unset, None, FlowModuleValue2Type0AssetsItemAltAccessType] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         path = self.path
         kind = self.kind.value
 
-        access_type: Union[Unset, str] = UNSET
+        access_type: Union[Unset, None, str] = UNSET
         if not isinstance(self.access_type, Unset):
-            access_type = self.access_type.value
+            access_type = self.access_type.value if self.access_type else None
 
-        alt_access_type: Union[Unset, str] = UNSET
+        alt_access_type: Union[Unset, None, str] = UNSET
         if not isinstance(self.alt_access_type, Unset):
-            alt_access_type = self.alt_access_type.value
+            alt_access_type = self.alt_access_type.value if self.alt_access_type else None
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -62,15 +62,19 @@ class FlowModuleValue2Type0AssetsItem:
         kind = FlowModuleValue2Type0AssetsItemKind(d.pop("kind"))
 
         _access_type = d.pop("access_type", UNSET)
-        access_type: Union[Unset, FlowModuleValue2Type0AssetsItemAccessType]
-        if isinstance(_access_type, Unset):
+        access_type: Union[Unset, None, FlowModuleValue2Type0AssetsItemAccessType]
+        if _access_type is None:
+            access_type = None
+        elif isinstance(_access_type, Unset):
             access_type = UNSET
         else:
             access_type = FlowModuleValue2Type0AssetsItemAccessType(_access_type)
 
         _alt_access_type = d.pop("alt_access_type", UNSET)
-        alt_access_type: Union[Unset, FlowModuleValue2Type0AssetsItemAltAccessType]
-        if isinstance(_alt_access_type, Unset):
+        alt_access_type: Union[Unset, None, FlowModuleValue2Type0AssetsItemAltAccessType]
+        if _alt_access_type is None:
+            alt_access_type = None
+        elif isinstance(_alt_access_type, Unset):
             alt_access_type = UNSET
         else:
             alt_access_type = FlowModuleValue2Type0AssetsItemAltAccessType(_alt_access_type)

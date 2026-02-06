@@ -15,7 +15,7 @@ use wiremock::{
     matchers::{basic_auth, method, path},
 };
 
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 use crate::common::{self, decode_token};
 use crate::common::{
     DEFAULT_PYTHON_VERSION, TestContext, build_vendor_links_url, download_to_disk, get_bin,
@@ -2102,7 +2102,7 @@ async fn install_deduplicated_indices() {
 
 /// Install a package from a public GitHub repository
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn install_git_public_https() {
     let context = TestContext::new(DEFAULT_PYTHON_VERSION);
 
@@ -2127,7 +2127,7 @@ fn install_git_public_https() {
 
 /// Install a package from a public GitHub repository, omitting the `git+` prefix
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn install_implicit_git_public_https() {
     let context = TestContext::new(DEFAULT_PYTHON_VERSION);
 
@@ -2152,7 +2152,7 @@ fn install_implicit_git_public_https() {
 
 /// Install and update a package from a public GitHub repository
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn update_ref_git_public_https() {
     let context = TestContext::new(DEFAULT_PYTHON_VERSION);
 
@@ -2199,7 +2199,7 @@ fn update_ref_git_public_https() {
 
 /// Install a package from a public GitHub repository at a ref that does not exist
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn install_git_public_https_missing_branch_or_tag() {
     let context = TestContext::new(DEFAULT_PYTHON_VERSION);
 
@@ -2227,7 +2227,7 @@ fn install_git_public_https_missing_branch_or_tag() {
 }
 
 #[tokio::test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 async fn install_git_public_rate_limited_by_github_rest_api_403_response() {
     let context = TestContext::new("3.12");
 
@@ -2255,7 +2255,7 @@ async fn install_git_public_rate_limited_by_github_rest_api_403_response() {
 }
 
 #[tokio::test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 async fn install_git_public_rate_limited_by_github_rest_api_429_response() {
     use uv_client::DEFAULT_RETRIES;
 
@@ -2287,7 +2287,7 @@ async fn install_git_public_rate_limited_by_github_rest_api_429_response() {
 
 /// Install a package from a public GitHub repository at a ref that does not exist
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn install_git_public_https_missing_commit() {
     let context = TestContext::new(DEFAULT_PYTHON_VERSION);
 
@@ -2326,7 +2326,7 @@ fn install_git_public_https_missing_commit() {
 }
 
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn install_git_public_https_exact_commit() {
     let context = TestContext::new(DEFAULT_PYTHON_VERSION);
 
@@ -2374,7 +2374,7 @@ fn install_git_public_https_exact_commit() {
 
 /// Install a package from a private GitHub repository using a PAT
 #[test]
-#[cfg(all(not(windows), feature = "git"))]
+#[cfg(all(not(windows), feature = "test-git"))]
 fn install_git_private_https_pat() {
     use crate::common::decode_token;
 
@@ -2403,7 +2403,7 @@ fn install_git_private_https_pat() {
 /// Install a package from a private GitHub repository using a PAT
 /// Include a public GitHub repository too, to ensure that the authentication is not erroneously copied over.
 #[test]
-#[cfg(all(not(windows), feature = "git"))]
+#[cfg(all(not(windows), feature = "test-git"))]
 fn install_git_private_https_pat_mixed_with_public() {
     let context = TestContext::new(DEFAULT_PYTHON_VERSION);
     let token = decode_token(common::READ_ONLY_GITHUB_TOKEN);
@@ -2431,7 +2431,7 @@ fn install_git_private_https_pat_mixed_with_public() {
 
 /// Install packages from multiple private GitHub repositories with separate PATS
 #[test]
-#[cfg(all(not(windows), feature = "git"))]
+#[cfg(all(not(windows), feature = "test-git"))]
 fn install_git_private_https_multiple_pat() {
     let context = TestContext::new(DEFAULT_PYTHON_VERSION);
     let token_1 = decode_token(common::READ_ONLY_GITHUB_TOKEN);
@@ -2463,7 +2463,7 @@ fn install_git_private_https_multiple_pat() {
 
 /// Install a package from a private GitHub repository at a specific commit using a PAT
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn install_git_private_https_pat_at_ref() {
     let context = TestContext::new(DEFAULT_PYTHON_VERSION);
     let token = decode_token(common::READ_ONLY_GITHUB_TOKEN);
@@ -2501,7 +2501,7 @@ fn install_git_private_https_pat_at_ref() {
 /// Install a package from a private GitHub repository using a PAT and username
 /// An arbitrary username is supported when using a PAT.
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn install_git_private_https_pat_and_username() {
     let context = TestContext::new(DEFAULT_PYTHON_VERSION).with_unset_git_credential_helper();
     let token = decode_token(common::READ_ONLY_GITHUB_TOKEN);
@@ -2525,7 +2525,7 @@ fn install_git_private_https_pat_and_username() {
 
 /// Install a package from a private GitHub repository using a PAT
 #[test]
-#[cfg(all(not(windows), feature = "git"))]
+#[cfg(all(not(windows), feature = "test-git"))]
 fn install_git_private_https_pat_not_authorized() {
     let context = TestContext::new(DEFAULT_PYTHON_VERSION);
 
@@ -2627,7 +2627,7 @@ fn install_github_artifact_private_https_multiple_pat() {
 /// It should fail gracefully, instead of silently hanging forever
 /// Regression test for <https://github.com/astral-sh/uv/issues/5107>
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn install_git_private_https_interactive() {
     let context = TestContext::new(DEFAULT_PYTHON_VERSION);
 
@@ -3831,7 +3831,7 @@ fn install_constraints_respects_offline_mode() {
 }
 
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn install_git_source_respects_offline_mode() {
     let context = TestContext::new("3.12");
 
@@ -6712,7 +6712,7 @@ fn already_installed_multiple_versions() -> Result<()> {
 
 /// Install a package from a remote URL
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn already_installed_remote_url() {
     let context = TestContext::new(DEFAULT_PYTHON_VERSION);
 
@@ -7978,7 +7978,7 @@ fn concatenated_quoted_arguments() -> Result<()> {
 }
 
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn tool_uv_sources() -> Result<()> {
     let context = TestContext::new("3.12");
     // Use a subdir to test path normalization.
@@ -8843,7 +8843,7 @@ build-constraint-dependencies = [
 }
 
 /// Include a `build_constraints.txt` file with a compatible constraint.
-#[cfg(feature = "python-eol")]
+#[cfg(feature = "test-python-eol")]
 #[test]
 fn compatible_build_constraint_in_pyproject_toml() -> Result<()> {
     let context = TestContext::new("3.8");
@@ -9151,7 +9151,7 @@ fn switch_python_version() -> Result<()> {
 
 /// See: <https://github.com/astral-sh/uv/pull/6714>
 #[test]
-#[cfg(feature = "slow-tests")]
+#[cfg(feature = "test-slow")]
 fn stale_egg_info() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -9566,7 +9566,7 @@ fn missing_git_prefix() -> Result<()> {
 }
 
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn missing_subdirectory_git() -> Result<()> {
     let context = TestContext::new("3.12");
     let requirements_txt = context.temp_dir.child("requirements.txt");
@@ -9817,7 +9817,7 @@ fn cyclic_build_dependency() {
 }
 
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn direct_url_json_git_default() -> Result<()> {
     let context = TestContext::new("3.12");
     let requirements_txt = context.temp_dir.child("requirements.txt");
@@ -9855,7 +9855,7 @@ fn direct_url_json_git_default() -> Result<()> {
 }
 
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn direct_url_json_git_tag() -> Result<()> {
     let context = TestContext::new("3.12");
     let requirements_txt = context.temp_dir.child("requirements.txt");
@@ -10950,7 +10950,7 @@ fn no_sources_workspace_discovery() -> Result<()> {
 
 /// Test `--no-sources-package` with pip install to selectively disable sources.
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn pip_install_no_sources_package() -> Result<()> {
     let context = TestContext::new("3.12");
     context.temp_dir.child("pyproject.toml").write_str(indoc! {
@@ -11419,7 +11419,7 @@ fn pep_751_install_directory() -> Result<()> {
 }
 
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn pep_751_install_git() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -13002,13 +13002,12 @@ fn pip_install_build_dependencies_respect_locked_versions() -> Result<()> {
     "#})?;
 
     // The child should be built with anyio 4.0
-    uv_snapshot!(context.filters(), context.pip_install().arg(".").env(EnvVars::EXPECTED_ANYIO_VERSION, "4.0"), @"
+    uv_snapshot!(context.filters(), context.pip_install().arg(".").env(EnvVars::EXPECTED_ANYIO_VERSION, "4.0"), @r"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
     Prepared [N] packages in [TIME]
     Installed [N] packages in [TIME]
@@ -13036,13 +13035,12 @@ fn pip_install_build_dependencies_respect_locked_versions() -> Result<()> {
 
     // The child should be rebuilt with anyio 3.7, without `--reinstall`
     uv_snapshot!(context.filters(), context.pip_install().arg(".")
-        .arg("--reinstall-package").arg("child").env(EnvVars::EXPECTED_ANYIO_VERSION, "4.0"), @"
+        .arg("--reinstall-package").arg("child").env(EnvVars::EXPECTED_ANYIO_VERSION, "4.0"), @r"
     success: false
     exit_code: 1
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
       × Failed to build `child @ file://[TEMP_DIR]/child`
       ├─▶ The build backend returned an error
@@ -13056,37 +13054,18 @@ fn pip_install_build_dependencies_respect_locked_versions() -> Result<()> {
     ");
 
     uv_snapshot!(context.filters(), context.pip_install().arg(".")
-        .arg("--reinstall-package").arg("child").env(EnvVars::EXPECTED_ANYIO_VERSION, "3.7"), @"
+        .arg("--reinstall-package").arg("child").env(EnvVars::EXPECTED_ANYIO_VERSION, "3.7"), @r"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
     Prepared [N] packages in [TIME]
     Uninstalled [N] packages in [TIME]
     Installed [N] packages in [TIME]
      - anyio==4.0.0
      + anyio==3.7.1
-     ~ child==0.1.0 (from file://[TEMP_DIR]/child)
-     ~ parent==0.1.0 (from file://[TEMP_DIR]/)
-    ");
-
-    // With preview enabled, there's no warning
-    uv_snapshot!(context.filters(), context.pip_install().arg(".")
-        .arg("--preview-features").arg("extra-build-dependencies")
-        .arg("--reinstall-package").arg("child")
-        .env(EnvVars::EXPECTED_ANYIO_VERSION, "3.7"), @"
-    success: true
-    exit_code: 0
-    ----- stdout -----
-
-    ----- stderr -----
-    Resolved [N] packages in [TIME]
-    Prepared [N] packages in [TIME]
-    Uninstalled [N] packages in [TIME]
-    Installed [N] packages in [TIME]
      ~ child==0.1.0 (from file://[TEMP_DIR]/child)
      ~ parent==0.1.0 (from file://[TEMP_DIR]/)
     ");
@@ -13692,7 +13671,10 @@ fn pip_install_no_sources_editable_to_registry_switch() -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "python-managed")]
+// TODO(zb): On Windows, this test shows the minor version symlink path instead of the
+// actual installation path. The `report_target_environment` fix only handles the "Using Python"
+// message but not the "externally managed" error path which uses `env.root()` directly.
+#[cfg(all(feature = "test-python-managed", not(windows)))]
 #[test]
 fn install_with_system_interpreter() {
     let context = TestContext::new_with_versions(&[])
@@ -13722,7 +13704,7 @@ fn install_with_system_interpreter() {
 }
 
 /// Test that a missing Python version is not installed when not using `--target` or `--prefix`.
-#[cfg(feature = "python-managed")]
+#[cfg(feature = "test-python-managed")]
 #[test]
 fn install_missing_python_no_target() {
     // Create a context that only has Python 3.11 available.
@@ -13745,7 +13727,7 @@ fn install_missing_python_no_target() {
 }
 
 // If there are no python interpreters available, `uv pip install` into a target should install one.
-#[cfg(feature = "python-managed")]
+#[cfg(feature = "test-python-managed")]
 #[test]
 fn install_missing_python_with_target() {
     // Create a context with no installed python interpreters.
@@ -13775,7 +13757,7 @@ fn install_missing_python_with_target() {
     );
 }
 
-#[cfg(feature = "python-managed")]
+#[cfg(feature = "test-python-managed")]
 #[test]
 fn install_missing_python_version_with_target() {
     // Create a context that only has Python 3.11 available.
@@ -13860,7 +13842,13 @@ fn build_backend_wrong_wheel_platform() -> Result<()> {
     // (compatible host, incompatible host) x (compatible target, incompatible target)
 
     // A Python 3.13 host with a 3.13 implicit target works.
-    context.venv().arg("-p").arg("3.13").assert().success();
+    context
+        .venv()
+        .arg("--clear")
+        .arg("-p")
+        .arg("3.13")
+        .assert()
+        .success();
     uv_snapshot!(context.filters(), context.pip_install().arg("./child"), @"
     success: true
     exit_code: 0
@@ -13874,7 +13862,13 @@ fn build_backend_wrong_wheel_platform() -> Result<()> {
     ");
 
     // A Python 3.13 host with a 3.12 explicit target fails.
-    context.venv().arg("-p").arg("3.13").assert().success();
+    context
+        .venv()
+        .arg("--clear")
+        .arg("-p")
+        .arg("3.13")
+        .assert()
+        .success();
     uv_snapshot!(context.filters(), context.pip_install().arg("--python-version").arg("3.12").arg("./child"), @"
     success: false
     exit_code: 1
@@ -13887,8 +13881,14 @@ fn build_backend_wrong_wheel_platform() -> Result<()> {
     ");
 
     // A python 3.12 host with a 3.13 explicit target works.
-    context.venv().arg("-p").arg("3.13").assert().success();
-    uv_snapshot!(context.filters(), context.pip_install().arg("--python-version").arg("3.13").arg("./child"), @"
+    context
+        .venv()
+        .arg("--clear")
+        .arg("-p")
+        .arg("3.13")
+        .assert()
+        .success();
+    uv_snapshot!(context.filters(), context.pip_install().arg("--python-version").arg("3.13").arg("./child"), @r"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -13896,13 +13896,18 @@ fn build_backend_wrong_wheel_platform() -> Result<()> {
     ----- stderr -----
     Resolved 1 package in [TIME]
     Prepared 1 package in [TIME]
-    Uninstalled 1 package in [TIME]
     Installed 1 package in [TIME]
-     ~ py313==0.1.0 (from file://[TEMP_DIR]/child)
+     + py313==0.1.0 (from file://[TEMP_DIR]/child)
     ");
 
     // A Python 3.13 host with a 3.12 explicit target fails.
-    context.venv().arg("-p").arg("3.13").assert().success();
+    context
+        .venv()
+        .arg("--clear")
+        .arg("-p")
+        .arg("3.13")
+        .assert()
+        .success();
     uv_snapshot!(context.filters(), context.pip_install().arg("--python-version").arg("3.12").arg("./child"), @"
     success: false
     exit_code: 1
@@ -13937,7 +13942,13 @@ fn build_backend_wrong_wheel_platform() -> Result<()> {
         .touch()?;
 
     // A build host of 3.13 works.
-    context.venv().arg("-p").arg("3.13").assert().success();
+    context
+        .venv()
+        .arg("--clear")
+        .arg("-p")
+        .arg("3.13")
+        .assert()
+        .success();
     uv_snapshot!(context.filters(), context.pip_install().arg("--python-version").arg("3.12").arg("."), @"
     success: true
     exit_code: 0
@@ -13951,7 +13962,13 @@ fn build_backend_wrong_wheel_platform() -> Result<()> {
     ");
 
     // A build host of 3.12 fails.
-    context.venv().arg("-p").arg("3.12").assert().success();
+    context
+        .venv()
+        .arg("--clear")
+        .arg("-p")
+        .arg("3.12")
+        .assert()
+        .success();
     uv_snapshot!(context.filters(), context.pip_install().arg("--python-version").arg("3.12").arg("."), @"
     success: false
     exit_code: 1

@@ -66,6 +66,10 @@ class BioStudiesRESTTool(BaseTool):
                 return f"{self.base_url}/studies/{accession}"
 
         elif tool_name == "biostudies_search_by_collection":
+            # Collection goes in URL path per API docs: /api/v1/{collection}/search
+            collection = args.get("collection", "")
+            if collection:
+                return f"{self.base_url}/{collection}/search"
             return f"{self.base_url}/search"
 
         return f"{self.base_url}/search"
@@ -82,8 +86,9 @@ class BioStudiesRESTTool(BaseTool):
             else:
                 params["query"] = "*"  # Default to all
 
-            # Collection filter
-            if "collection" in args:
+            # Note: for biostudies_search_by_collection, collection is in URL path, not params
+            # For biostudies_search, collection can still be used as a filter
+            if tool_name == "biostudies_search" and "collection" in args:
                 params["collection"] = args["collection"]
 
             # Pagination

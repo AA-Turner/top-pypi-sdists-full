@@ -90,7 +90,10 @@ class ScanServer(BECService):
         queue = msg.metadata.get("queue", "primary")
         if Alarms(msg.content["severity"]) == Alarms.MAJOR:
             logger.info(f"Received alarm: {msg}")
-            parent.queue_manager.set_abort(queue=queue)
+            scan_id = msg.metadata.get("scan_id")
+            parent.queue_manager.set_abort(
+                scan_id=scan_id, queue=queue, exit_info=("aborted", "alarm")
+            )
 
     @property
     def scan_number(self) -> int:

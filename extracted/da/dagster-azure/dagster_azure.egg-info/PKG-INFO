@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-azure
-Version: 0.28.13
+Version: 0.28.14
 Summary: Package for Azure-specific Dagster framework op and resource components.
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-azure
 Author: Dagster Labs
@@ -20,7 +20,7 @@ Requires-Dist: azure-identity<2.0.0,>=1.7.0
 Requires-Dist: azure-ai-ml<2.0.0,>=1.28.0
 Requires-Dist: azure-storage-blob<13.0.0,>=12.5.0
 Requires-Dist: azure-storage-file-datalake<13.0.0,>=12.5
-Requires-Dist: dagster==1.12.13
+Requires-Dist: dagster==1.12.14
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

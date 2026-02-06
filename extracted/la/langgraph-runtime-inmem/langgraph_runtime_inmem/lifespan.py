@@ -29,7 +29,7 @@ async def lifespan(
     **kwargs: Any,
 ):
     import langgraph_api.config as config
-    from langgraph_api import __version__, feature_flags, graph, thread_ttl
+    from langgraph_api import __version__, feature_flags, graph
     from langgraph_api import (
         _checkpointer as api_checkpointer,
     )
@@ -87,7 +87,6 @@ async def lifespan(
                 tg.create_task(store_instance.start_ttl_sweeper())  # type: ignore
             else:
                 await logger.ainfo("Using custom store. Skipping store TTL sweeper.")
-            tg.create_task(thread_ttl.thread_ttl_sweep_loop())
 
             if feature_flags.USE_RUNTIME_CONTEXT_API:
                 from langgraph._internal._constants import CONFIG_KEY_RUNTIME

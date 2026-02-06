@@ -3,6 +3,7 @@ from kubernetes.utils import parse_quantity
 from adam.checks.check_result import CheckResult
 from adam.checks.memory import Memory as MemoryCheck
 from adam.columns.column import Column
+from adam.utils import log_exc
 
 class Memory(Column):
     def name(self):
@@ -18,7 +19,5 @@ class Memory(Column):
         return f"{Memory.to_g(mem['used'])}/{Memory.to_g(mem['limit'])}"
 
     def to_g(v: str):
-        try:
+        with log_exc():
             return f'{round(parse_quantity(v) / 1024 / 1024 / 1024, 2)}G'
-        except:
-            return '-'

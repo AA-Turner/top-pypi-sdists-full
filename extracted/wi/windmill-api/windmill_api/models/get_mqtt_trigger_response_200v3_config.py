@@ -10,7 +10,8 @@ T = TypeVar("T", bound="GetMqttTriggerResponse200V3Config")
 
 @_attrs_define
 class GetMqttTriggerResponse200V3Config:
-    """
+    """MQTT v3 specific configuration (clean_session)
+
     Attributes:
         clean_session (Union[Unset, bool]):
     """

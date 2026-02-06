@@ -519,16 +519,25 @@ async def check_token_for_aimlapi(api_key, threshold: float = 10000):
 
 @retrying()
 async def check_token_for_aimlapi(api_key, threshold: float = 10000):
-    base_url = "https://billing.aimlapi.com/v1"
+    base_url = "https://api.aimlapi.com/v1"
     if not isinstance(api_key, str):
         return await check_tokens(api_key, check_token_for_aimlapi)
 
     try:
         client = AsyncOpenAI(base_url=base_url, api_key=api_key)
-        data = await client.get("/billing/balance", cast_to=object)
-        logger.debug(bjson(data))
+        response = await client.chat.completions.create(
+            model="baidu/ernie-4-5-0-3b",
+            max_tokens=10,
+            messages=[
+                {
+                    "role": "user",
+                    "content": "hi"
+                },
+            ],
+        )
+        logger.debug(response)
 
-        return data['balance'] > threshold
+        return True
 
     except TimeoutException as e:
         raise

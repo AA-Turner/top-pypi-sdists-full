@@ -192,24 +192,18 @@ async def execute_shell_streaming(
 
     try:
         halt_task = asyncio.create_task(monitor_halt()) if should_halt else None
-        timeout_handle = asyncio.get_running_loop().call_later(
-            timeout_seconds, on_timeout
-        )
+        timeout_handle = asyncio.get_running_loop().call_later(timeout_seconds, on_timeout)
 
         # Create decoders for each stream
         stdout_decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
         stderr_decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
 
         # Create initial read tasks
-        stdout_task: asyncio.Task[StreamedOutputPiece | None] | None = (
-            asyncio.create_task(
-                read_stream_chunk(process.stdout, STDOUT_FD, output, stdout_decoder)
-            )
+        stdout_task: asyncio.Task[StreamedOutputPiece | None] | None = asyncio.create_task(
+            read_stream_chunk(process.stdout, STDOUT_FD, output, stdout_decoder)
         )
-        stderr_task: asyncio.Task[StreamedOutputPiece | None] | None = (
-            asyncio.create_task(
-                read_stream_chunk(process.stderr, STDERR_FD, output, stderr_decoder)
-            )
+        stderr_task: asyncio.Task[StreamedOutputPiece | None] | None = asyncio.create_task(
+            read_stream_chunk(process.stderr, STDERR_FD, output, stderr_decoder)
         )
 
         # Helper to check if process has exited using os.waitpid with WNOHANG
@@ -287,18 +281,14 @@ async def execute_shell_streaming(
                             stdout_task = None
                         else:
                             stdout_task = asyncio.create_task(
-                                read_stream_chunk(
-                                    process.stdout, STDOUT_FD, output, stdout_decoder
-                                )
+                                read_stream_chunk(process.stdout, STDOUT_FD, output, stdout_decoder)
                             )
                     elif task is stderr_task:
                         if piece is None or process.stderr.at_eof():
                             stderr_task = None
                         else:
                             stderr_task = asyncio.create_task(
-                                read_stream_chunk(
-                                    process.stderr, STDERR_FD, output, stderr_decoder
-                                )
+                                read_stream_chunk(process.stderr, STDERR_FD, output, stderr_decoder)
                             )
                 except Exception:
                     # On any error, stop reading from that stream

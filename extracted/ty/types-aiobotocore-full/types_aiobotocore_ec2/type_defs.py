@@ -1812,6 +1812,7 @@ __all__ = (
     "DnsServersOptionsModifyStructureTypeDef",
     "EbsBlockDeviceResponseTypeDef",
     "EbsBlockDeviceTypeDef",
+    "EbsCardInfoTypeDef",
     "EbsInfoTypeDef",
     "EbsInstanceBlockDeviceSpecificationTypeDef",
     "EbsInstanceBlockDeviceTypeDef",
@@ -2846,6 +2847,7 @@ __all__ = (
     "SearchTransitGatewayMulticastGroupsRequestPaginateTypeDef",
     "SearchTransitGatewayMulticastGroupsRequestTypeDef",
     "SearchTransitGatewayMulticastGroupsResultTypeDef",
+    "SearchTransitGatewayRoutesRequestPaginateTypeDef",
     "SearchTransitGatewayRoutesRequestTypeDef",
     "SearchTransitGatewayRoutesResultTypeDef",
     "SecurityGroupCreateTagsRequestTypeDef",
@@ -3654,6 +3656,7 @@ class AttachVerifiedAccessTrustProviderRequestTypeDef(TypedDict):
 class AttachVolumeRequestInstanceAttachVolumeTypeDef(TypedDict):
     Device: str
     VolumeId: str
+    EbsCardIndex: NotRequired[int]
     DryRun: NotRequired[bool]
 
 
@@ -3661,12 +3664,14 @@ class AttachVolumeRequestTypeDef(TypedDict):
     Device: str
     InstanceId: str
     VolumeId: str
+    EbsCardIndex: NotRequired[int]
     DryRun: NotRequired[bool]
 
 
 class AttachVolumeRequestVolumeAttachToInstanceTypeDef(TypedDict):
     Device: str
     InstanceId: str
+    EbsCardIndex: NotRequired[int]
     DryRun: NotRequired[bool]
 
 
@@ -3771,6 +3776,7 @@ class EbsBlockDeviceTypeDef(TypedDict):
     Encrypted: NotRequired[bool]
     VolumeInitializationRate: NotRequired[int]
     AvailabilityZoneId: NotRequired[str]
+    EbsCardIndex: NotRequired[int]
 
 
 class BlockPublicAccessStatesTypeDef(TypedDict):
@@ -6168,6 +6174,16 @@ class DnsServersOptionsModifyStructureTypeDef(TypedDict):
     Enabled: NotRequired[bool]
 
 
+class EbsCardInfoTypeDef(TypedDict):
+    EbsCardIndex: NotRequired[int]
+    BaselineBandwidthInMbps: NotRequired[int]
+    BaselineThroughputInMBps: NotRequired[float]
+    BaselineIops: NotRequired[int]
+    MaximumBandwidthInMbps: NotRequired[int]
+    MaximumThroughputInMBps: NotRequired[float]
+    MaximumIops: NotRequired[int]
+
+
 class EbsOptimizedInfoTypeDef(TypedDict):
     BaselineBandwidthInMbps: NotRequired[int]
     BaselineThroughputInMBps: NotRequired[float]
@@ -7389,6 +7405,7 @@ class LaunchTemplateEbsBlockDeviceRequestTypeDef(TypedDict):
     VolumeType: NotRequired[VolumeTypeType]
     Throughput: NotRequired[int]
     VolumeInitializationRate: NotRequired[int]
+    EbsCardIndex: NotRequired[int]
 
 
 class LaunchTemplateEbsBlockDeviceTypeDef(TypedDict):
@@ -7401,6 +7418,7 @@ class LaunchTemplateEbsBlockDeviceTypeDef(TypedDict):
     VolumeType: NotRequired[VolumeTypeType]
     Throughput: NotRequired[int]
     VolumeInitializationRate: NotRequired[int]
+    EbsCardIndex: NotRequired[int]
 
 
 class LaunchTemplateCpuOptionsRequestTypeDef(TypedDict):
@@ -8139,6 +8157,7 @@ class NetworkCardInfoTypeDef(TypedDict):
     NetworkCardIndex: NotRequired[int]
     NetworkPerformance: NotRequired[str]
     MaximumNetworkInterfaces: NotRequired[int]
+    AdditionalFlexibleNetworkInterfaces: NotRequired[int]
     BaselineBandwidthInGbps: NotRequired[float]
     PeakBandwidthInGbps: NotRequired[float]
     DefaultEnaQueueCountPerInterface: NotRequired[int]
@@ -9131,6 +9150,7 @@ class VolumeAttachmentTypeDef(TypedDict):
     DeleteOnTermination: NotRequired[bool]
     AssociatedResource: NotRequired[str]
     InstanceOwningService: NotRequired[str]
+    EbsCardIndex: NotRequired[int]
     VolumeId: NotRequired[str]
     InstanceId: NotRequired[str]
     Device: NotRequired[str]
@@ -10069,6 +10089,7 @@ class VolumeAttachmentResponseTypeDef(TypedDict):
     DeleteOnTermination: bool
     AssociatedResource: str
     InstanceOwningService: str
+    EbsCardIndex: int
     VolumeId: str
     InstanceId: str
     Device: str
@@ -14664,11 +14685,19 @@ class SearchTransitGatewayMulticastGroupsRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
 
+class SearchTransitGatewayRoutesRequestPaginateTypeDef(TypedDict):
+    TransitGatewayRouteTableId: str
+    Filters: Sequence[FilterTypeDef]
+    DryRun: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class SearchTransitGatewayRoutesRequestTypeDef(TypedDict):
     TransitGatewayRouteTableId: str
     Filters: Sequence[FilterTypeDef]
     MaxResults: NotRequired[int]
     DryRun: NotRequired[bool]
+    NextToken: NotRequired[str]
 
 
 class DescribeAggregateIdFormatResultTypeDef(TypedDict):
@@ -15356,6 +15385,8 @@ class EbsInfoTypeDef(TypedDict):
     NvmeSupport: NotRequired[EbsNvmeSupportType]
     MaximumEbsAttachments: NotRequired[int]
     AttachmentLimitType: NotRequired[AttachmentLimitTypeType]
+    MaximumEbsCards: NotRequired[int]
+    EbsCards: NotRequired[list[EbsCardInfoTypeDef]]
 
 
 class InstanceBlockDeviceMappingSpecificationTypeDef(TypedDict):
@@ -15373,6 +15404,7 @@ class EbsInstanceBlockDeviceTypeDef(TypedDict):
     AssociatedResource: NotRequired[str]
     VolumeOwnerId: NotRequired[str]
     Operator: NotRequired[OperatorResponseTypeDef]
+    EbsCardIndex: NotRequired[int]
 
 
 class LaunchTemplateTypeDef(TypedDict):
@@ -15735,6 +15767,9 @@ class GpuDeviceInfoTypeDef(TypedDict):
     Name: NotRequired[str]
     Manufacturer: NotRequired[str]
     Count: NotRequired[int]
+    LogicalGpuCount: NotRequired[int]
+    GpuPartitionSize: NotRequired[float]
+    Workloads: NotRequired[list[str]]
     MemoryInfo: NotRequired[GpuDeviceMemoryInfoTypeDef]
 
 
@@ -19763,6 +19798,7 @@ class SearchTransitGatewayRoutesResultTypeDef(TypedDict):
     Routes: list[TransitGatewayRouteTypeDef]
     AdditionalRoutesAvailable: bool
     ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class AcceptTransitGatewayVpcAttachmentResultTypeDef(TypedDict):

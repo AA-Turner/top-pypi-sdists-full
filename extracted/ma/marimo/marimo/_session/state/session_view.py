@@ -15,6 +15,7 @@ from marimo._messaging.notification import (
     DataSourceConnectionsNotification,
     InstallingPackageAlertNotification,
     InterruptedNotification,
+    ModelLifecycleNotification,
     NotificationMessage,
     SQLTableListPreviewNotification,
     SQLTablePreviewNotification,
@@ -41,7 +42,7 @@ from marimo._sql.connection_utils import (
     update_table_list_in_connection,
 )
 from marimo._sql.engines.duckdb import INTERNAL_DUCKDB_ENGINE
-from marimo._types.ids import CellId_t, WidgetModelId
+from marimo._types.ids import CellId_t, UIElementId, WidgetModelId
 from marimo._utils.lists import as_list
 
 LOGGER = _loggers.marimo_logger()
@@ -111,7 +112,11 @@ class SessionView:
         self.stale_code: Optional[UpdateCellCodesNotification] = None
         # Model messages
         self.model_messages: dict[
-            WidgetModelId, list[UIElementMessageNotification]
+            WidgetModelId, list[ModelLifecycleNotification]
+        ] = {}
+        # UI element messages
+        self.ui_element_messages: dict[
+            UIElementId, list[UIElementMessageNotification]
         ] = {}
 
         # Startup logs for startup command - only one at a time
@@ -299,12 +304,24 @@ class SessionView:
             self.stale_code = notification
 
         elif isinstance(notification, UIElementMessageNotification):
-            if notification.model_id is None:
-                return
-            messages = self.model_messages.get(notification.model_id, [])
-            messages.append(notification)
-            # TODO: cleanup/merge previous 'update' messages
-            self.model_messages[notification.model_id] = messages
+            # TODO(perf): Consider merging consecutive 'update' messages
+            # to reduce replay size. Could keep only the latest state for
+            # each model_id instead of the full message history.
+            # TODO: cleanup old UI messages
+            ui_element_id = notification.ui_element
+            if ui_element_id not in self.ui_element_messages:
+                self.ui_element_messages[ui_element_id] = []
+            self.ui_element_messages[ui_element_id].append(notification)
+
+        elif isinstance(notification, ModelLifecycleNotification):
+            model_id = notification.model_id
+            if model_id not in self.model_messages:
+                self.model_messages[model_id] = []
+            # TODO(perf): Consider merging consecutive 'update' messages
+            # to reduce replay size. Could keep only the latest state for
+            # each model_id instead of the full message history.
+            # TODO: cleanup old UI messages
+            self.model_messages[model_id].append(notification)
 
         elif isinstance(notification, StartupLogsNotification):
             prev = self.startup_logs.content if self.startup_logs else ""
@@ -440,12 +457,20 @@ class SessionView:
             all_notifications.append(self.datasets)
         if self.data_connectors.connections:
             all_notifications.append(self.data_connectors)
+
+        # Model messages must come before cell notifications to ensure
+        # the model exists before the view tries to use it.
+        if self.model_messages:
+            for model_messages in self.model_messages.values():
+                all_notifications.extend(model_messages)
+
+        if self.ui_element_messages:
+            for ui_messages in self.ui_element_messages.values():
+                all_notifications.extend(ui_messages)
+
         all_notifications.extend(self.cell_notifications.values())
         if self.stale_code:
             all_notifications.append(self.stale_code)
-        if self.model_messages:
-            for messages in self.model_messages.values():
-                all_notifications.extend(messages)
         # Only include startup logs if they are in progress (not done)
         if self.startup_logs and self.startup_logs.status != "done":
             all_notifications.append(self.startup_logs)

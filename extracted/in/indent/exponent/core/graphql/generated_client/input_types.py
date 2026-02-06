@@ -25,6 +25,9 @@ class AttachmentInput(BaseModel):
     sql_attachment: Optional["SQLAttachmentInput"] = Field(
         alias="sqlAttachment", default=None
     )
+    skill_attachment: Optional["SkillAttachmentInput"] = Field(
+        alias="skillAttachment", default=None
+    )
 
 
 class ChatConfig(BaseModel):
@@ -116,6 +119,10 @@ class RepositoryResourceConfigInput(BaseModel):
 
 class SQLAttachmentInput(BaseModel):
     query_content: str = Field(alias="queryContent")
+
+
+class SkillAttachmentInput(BaseModel):
+    skill_name: str = Field(alias="skillName")
 
 
 class TableSchemaAttachmentInput(BaseModel):

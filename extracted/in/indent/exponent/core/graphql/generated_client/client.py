@@ -34,7 +34,6 @@ class IndentGraphQLClient(AsyncBaseClient):
                 }
                 ... on Chats {
                   chats {
-                    id
                     chatUuid
                     name
                     subtitle
@@ -63,13 +62,13 @@ class IndentGraphQLClient(AsyncBaseClient):
 
     async def create_cloud_chat_from_repository(
         self,
-        repository_id: str,
+        repository_uuid: str,
         provider: Union[Optional[SandboxProvider], UnsetType] = UNSET,
         **kwargs: Any
     ) -> CreateCloudChatFromRepository:
         query = gql("""
-            mutation CreateCloudChatFromRepository($repositoryId: String!, $provider: SandboxProvider) {
-              createCloudChat(repositoryId: $repositoryId, provider: $provider) {
+            mutation CreateCloudChatFromRepository($repositoryUuid: String!, $provider: SandboxProvider) {
+              createCloudChat(repositoryUuid: $repositoryUuid, provider: $provider) {
                 __typename
                 ... on Chat {
                   chatUuid
@@ -89,7 +88,7 @@ class IndentGraphQLClient(AsyncBaseClient):
             }
             """)
         variables: dict[str, object] = {
-            "repositoryId": repository_id,
+            "repositoryUuid": repository_uuid,
             "provider": provider,
         }
         response = await self.execute(
@@ -132,9 +131,6 @@ class IndentGraphQLClient(AsyncBaseClient):
                 ... on CloudSessionError {
                   message
                 }
-                ... on Error {
-                  message
-                }
               }
             }
             """)
@@ -161,9 +157,6 @@ class IndentGraphQLClient(AsyncBaseClient):
                     createdAt
                     updatedAt
                   }
-                }
-                ... on Error {
-                  message
                 }
               }
             }
@@ -230,9 +223,6 @@ class IndentGraphQLClient(AsyncBaseClient):
                   message
                 }
                 ... on CloudSessionError {
-                  message
-                }
-                ... on Error {
                   message
                 }
               }

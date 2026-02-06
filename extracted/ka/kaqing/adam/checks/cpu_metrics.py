@@ -33,17 +33,16 @@ class CpuMetrics(Check):
             if metrics:
                 usage = details['cpu'] = metrics["usage"]["cpu"]
 
-            if ctx.find_issues:
-                cpu_threshold = Config().get('checks.cpu-threshold', 0.0)
-                if  cpu_threshold != 0.0 and usage != "Unknown" and parse_quantity(usage) > cpu_threshold:
-                    issues.append(Issue(
-                        statefulset=ctx.statefulset,
-                        namespace=ctx.namespace,
-                        pod=ctx.pod,
-                        category='cpu',
-                        desc=f'CPU is too busy: {usage}',
-                        suggestion=f"qing restart {ctx.pod}@{ctx.namespace}"
-                    ))
+            cpu_threshold = Config().get('checks.cpu-threshold', 0.0)
+            if  cpu_threshold != 0.0 and usage != "Unknown" and parse_quantity(usage) > cpu_threshold:
+                issues.append(Issue(
+                    statefulset=ctx.statefulset,
+                    namespace=ctx.namespace,
+                    pod=ctx.pod,
+                    category='cpu',
+                    desc=f'CPU is too busy: {usage}',
+                    suggestion=f"qing restart {ctx.pod}@{ctx.namespace}"
+                ))
         except Exception as e:
             issues.append(self.issue_from_err(sts_name=ctx.statefulset, ns=ctx.namespace, pod_name=ctx.pod, exception=e))
 

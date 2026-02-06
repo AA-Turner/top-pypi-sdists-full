@@ -1,0 +1,2 @@
+import{d as l,v as n,h as s,c as u,o as m,i as a,k as t,m as o,da as p,db as c}from"./index-DS86r6aC.js";import{u as _}from"./usePageTitle-BXVkHaWQ.js";const C=l({__name:"WorkPoolQueueCreate",setup(k){const e=n("workPoolName");return _("Create Work Pool Queue"),(d,f)=>{const r=s("p-layout-default");return m(),u(r,null,{header:a(()=>[t(o(c),{"work-pool-name":o(e)},null,8,["work-pool-name"])]),default:a(()=>[t(o(p),{"work-pool-name":o(e)},null,8,["work-pool-name"])]),_:1})}}});export{C as default};
+//# sourceMappingURL=WorkPoolQueueCreate-BDTuIRGA.js.map

@@ -16,13 +16,8 @@ from langgraph_api.encryption.middleware import (
     encrypt_request,
 )
 from langgraph_api.encryption.shared import using_aes_encryption
-from langgraph_api.feature_flags import (
-    FF_USE_CORE_API,
-    IS_POSTGRES_OR_GRPC_BACKEND,
-)
+from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.graph import _validate_assistant_id
-from langgraph_api.grpc.ops import Runs as GrpcRuns
-from langgraph_api.grpc.ops import Threads as GrpcThreads
 from langgraph_api.models.run import create_valid_run
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
 from langgraph_api.schema import (
@@ -55,27 +50,22 @@ from langgraph_api.validation import (
 from langgraph_api.webhook import validate_webhook_url_or_raise
 from langgraph_license.validation import plus_features_enabled
 from langgraph_runtime.database import connect
-from langgraph_runtime.ops import Crons, Runs
+from langgraph_runtime.ops import Crons
 from langgraph_runtime.retry import retry_db
 
-CrudRuns = GrpcRuns if FF_USE_CORE_API else Runs
-
 if IS_POSTGRES_OR_GRPC_BACKEND:
-    CrudThreads = GrpcThreads
+    from langgraph_api.grpc.ops import Runs, Threads
 else:
-    from langgraph_runtime.ops import Threads
-
-    CrudThreads = Threads
+    from langgraph_runtime.ops import Runs, Threads
 
 
 logger = structlog.stdlib.get_logger(__name__)
 
 
 # Type alias for stream handlers (GrpcStreamHandler or ContextQueue).
-# CrudRuns is selected at runtime, and the implementations have different
+# Runs is selected at runtime, and the implementations have different
 # type signatures, so we use Any for compatibility.
 _StreamHandler = Any
-
 
 _RunResultFallback = Callable[[], Awaitable[bytes]]
 
@@ -91,7 +81,7 @@ def _ensure_crons_enabled() -> None:
 def _thread_values_fallback(thread_id: UUID) -> _RunResultFallback:
     async def fetch_thread_values() -> bytes:
         async with connect() as conn:
-            thread_iter = await CrudThreads.get(conn, thread_id)
+            thread_iter = await Threads.get(conn, thread_id)
             try:
                 row = await anext(thread_iter)
                 # Decrypt thread fields (values, interrupts, error) if encryption is enabled
@@ -142,7 +132,7 @@ def _run_result_body(
     async def consume() -> None:
         vchunk: bytes | None = None
         try:
-            async for mode, chunk, _ in CrudRuns.Stream.join(
+            async for mode, chunk, _ in Runs.Stream.join(
                 run_id,
                 stream_channel=sub,
                 cancel_on_disconnect=cancel_on_disconnect,
@@ -206,7 +196,7 @@ async def create_run(request: ApiRequest):
             request.headers,
             request_start_time=request.scope.get("request_start_time_ms"),
         )
-    if not FF_USE_CORE_API or using_aes_encryption():
+    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
         run = await decrypt_response(run, "run", RUN_ENCRYPTION_FIELDS)
     return ApiResponse(
         run,
@@ -227,7 +217,7 @@ async def create_stateless_run(request: ApiRequest):
             request.headers,
             request_start_time=request.scope.get("request_start_time_ms"),
         )
-    if not FF_USE_CORE_API or using_aes_encryption():
+    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
         run = await decrypt_response(run, "run", RUN_ENCRYPTION_FIELDS)
     return ApiResponse(
         run,
@@ -238,7 +228,7 @@ async def create_stateless_run(request: ApiRequest):
 async def create_stateless_run_batch(request: ApiRequest):
     """Create a batch of stateless backround runs."""
     batch_payload = await request.json(RunBatchCreate)
-    async with connect() as conn, conn.pipeline():
+    async with connect() as conn:
         # barrier so all queries are sent before fetching any results
         barrier = asyncio.Barrier(len(batch_payload))
         coros = [
@@ -253,7 +243,7 @@ async def create_stateless_run_batch(request: ApiRequest):
             for payload in batch_payload
         ]
         runs = await asyncio.gather(*coros)
-    if not FF_USE_CORE_API or using_aes_encryption():
+    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
         runs = await decrypt_responses(list(runs), "run", RUN_ENCRYPTION_FIELDS)
     return ApiResponse(runs)
 
@@ -267,7 +257,7 @@ async def stream_run(
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid7()
 
-    sub = await CrudRuns.Stream.subscribe(run_id, thread_id)
+    sub = await Runs.Stream.subscribe(run_id, thread_id)
     try:
         async with connect() as conn:
             run = await create_valid_run(
@@ -285,7 +275,7 @@ async def stream_run(
 
     async def body():
         try:
-            async for event, message, stream_id in CrudRuns.Stream.join(
+            async for event, message, stream_id in Runs.Stream.join(
                 run["run_id"],
                 thread_id=thread_id,
                 cancel_on_disconnect=on_disconnect == "cancel",
@@ -315,7 +305,7 @@ async def stream_run_stateless(
     run_id = uuid7()
     thread_id = uuid4()
 
-    sub = await CrudRuns.Stream.subscribe(run_id, thread_id)
+    sub = await Runs.Stream.subscribe(run_id, thread_id)
     try:
         async with connect() as conn:
             run = await create_valid_run(
@@ -334,7 +324,7 @@ async def stream_run_stateless(
 
     async def body():
         try:
-            async for event, message, stream_id in CrudRuns.Stream.join(
+            async for event, message, stream_id in Runs.Stream.join(
                 run["run_id"],
                 thread_id=run["thread_id"],
                 ignore_404=True,
@@ -362,7 +352,7 @@ async def wait_run(request: ApiRequest):
     payload = await request.json(RunCreateStateful)
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid7()
-    sub = await CrudRuns.Stream.subscribe(run_id, thread_id)
+    sub = await Runs.Stream.subscribe(run_id, thread_id)
     try:
         async with connect() as conn:
             run = await create_valid_run(
@@ -405,7 +395,7 @@ async def wait_run_stateless(request: ApiRequest):
     run_id = uuid7()
     thread_id = uuid4()
 
-    sub = await CrudRuns.Stream.subscribe(run_id, thread_id)
+    sub = await Runs.Stream.subscribe(run_id, thread_id)
     try:
         async with connect() as conn:
             run = await create_valid_run(
@@ -464,10 +454,10 @@ async def list_runs(
         request.query_params.getlist("select") or None, RUN_FIELDS
     )
 
-    async with connect() as conn, conn.pipeline():
+    async with connect() as conn:
         thread, runs = await asyncio.gather(
-            CrudThreads.get(conn, thread_id),
-            CrudRuns.search(
+            Threads.get(conn, thread_id),
+            Runs.search(
                 conn,
                 thread_id,
                 limit=limit,
@@ -480,7 +470,7 @@ async def list_runs(
 
     # Collect and decrypt runs
     runs_list = [run async for run in runs]
-    if not FF_USE_CORE_API or using_aes_encryption():
+    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
         runs_list = await decrypt_responses(runs_list, "run", RUN_ENCRYPTION_FIELDS)
     return ApiResponse(runs_list)
 
@@ -493,10 +483,10 @@ async def get_run(request: ApiRequest):
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     validate_uuid(run_id, "Invalid run ID: must be a UUID")
 
-    async with connect() as conn, conn.pipeline():
+    async with connect() as conn:
         thread, run = await asyncio.gather(
-            CrudThreads.get(conn, thread_id),
-            CrudRuns.get(
+            Threads.get(conn, thread_id),
+            Runs.get(
                 conn,
                 run_id,
                 thread_id=thread_id,
@@ -506,7 +496,7 @@ async def get_run(request: ApiRequest):
     run_dict = await fetchone(run)
 
     # Decrypt run metadata and kwargs
-    if not FF_USE_CORE_API or using_aes_encryption():
+    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
         run_dict = await decrypt_response(run_dict, "run", RUN_ENCRYPTION_FIELDS)
 
     return ApiResponse(run_dict)
@@ -521,8 +511,8 @@ async def join_run(request: ApiRequest):
     validate_uuid(run_id, "Invalid run ID: must be a UUID")
 
     # A touch redundant, but to meet the existing signature of join, we need to throw any 404s before we enter the streaming body
-    await CrudRuns.Stream.check_run_stream_auth(run_id, thread_id)
-    sub = await CrudRuns.Stream.subscribe(run_id, thread_id)
+    await Runs.Stream.check_run_stream_auth(run_id, thread_id)
+    sub = await Runs.Stream.subscribe(run_id, thread_id)
     body = _run_result_body(
         run_id=run_id,
         thread_id=thread_id,
@@ -553,9 +543,9 @@ async def join_run_stream(request: ApiRequest):
     last_event_id = request.headers.get("last-event-id") or None
 
     async def body():
-        sub = await CrudRuns.Stream.subscribe(run_id, thread_id)
+        sub = await Runs.Stream.subscribe(run_id, thread_id)
         try:
-            async for event, message, stream_id in CrudRuns.Stream.join(
+            async for event, message, stream_id in Runs.Stream.join(
                 run_id,
                 thread_id=thread_id,
                 cancel_on_disconnect=cancel_on_disconnect,
@@ -594,10 +584,10 @@ async def cancel_run(
         action_str if action_str in {"interrupt", "rollback"} else "interrupt",
     )
 
-    sub = await CrudRuns.Stream.subscribe(run_id, thread_id) if wait else None
+    sub = await Runs.Stream.subscribe(run_id, thread_id) if wait else None
     try:
         async with connect() as conn:
-            await CrudRuns.cancel(
+            await Runs.cancel(
                 conn,
                 [run_id],
                 action=action,
@@ -661,7 +651,7 @@ async def cancel_runs(
     )
 
     async with connect() as conn:
-        await CrudRuns.cancel(
+        await Runs.cancel(
             conn,
             run_ids,
             action=action,
@@ -680,7 +670,7 @@ async def delete_run(request: ApiRequest):
     validate_uuid(run_id, "Invalid run ID: must be a UUID")
 
     async with connect() as conn:
-        rid = await CrudRuns.delete(
+        rid = await Runs.delete(
             conn,
             run_id,
             thread_id=thread_id,
@@ -706,7 +696,7 @@ async def create_cron(request: ApiRequest):
 
     enabled = payload.get("enabled", True)
 
-    async with connect() as conn:
+    async with connect(supports_core_api=False) as conn:
         cron = await Crons.put(
             conn,
             thread_id=None,
@@ -740,7 +730,7 @@ async def create_thread_cron(request: ApiRequest):
         CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
     )
 
-    async with connect() as conn:
+    async with connect(supports_core_api=False) as conn:
         cron = await Crons.put(
             conn,
             thread_id=thread_id,
@@ -778,7 +768,7 @@ async def patch_cron(request: ApiRequest):
         CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
     )
 
-    async with connect() as conn:
+    async with connect(supports_core_api=False) as conn:
         cron = await Crons.update(
             conn,
             cron_id=cron_id,
@@ -802,7 +792,7 @@ async def delete_cron(request: ApiRequest):
     cron_id = request.path_params["cron_id"]
     validate_uuid(cron_id, "Invalid cron ID: must be a UUID")
 
-    async with connect() as conn:
+    async with connect(supports_core_api=False) as conn:
         cid = await Crons.delete(
             conn,
             cron_id=cron_id,
@@ -823,7 +813,7 @@ async def search_crons(request: ApiRequest):
         validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
 
     offset = int(payload.get("offset", 0))
-    async with connect() as conn:
+    async with connect(supports_core_api=False) as conn:
         crons_iter, next_offset = await Crons.search(
             conn,
             assistant_id=assistant_id,
@@ -854,7 +844,7 @@ async def count_crons(request: ApiRequest):
     if thread_id := payload.get("thread_id"):
         validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
 
-    async with connect() as conn:
+    async with connect(supports_core_api=False) as conn:
         count = await Crons.count(
             conn,
             assistant_id=assistant_id,

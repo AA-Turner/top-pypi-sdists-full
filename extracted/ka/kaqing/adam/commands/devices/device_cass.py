@@ -1,13 +1,12 @@
 from adam.commands.bash.bash_completer import BashCompleter
 from adam.commands.command import Command
 from adam.commands.commands_utils import show_pods, show_rollout
-from adam.commands.cql.utils_cql import cassandra_table_names
+from adam.commands.cql.utils_cql import cassandra, cassandra_table_names
 from adam.commands.devices.device import Device
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import log2, log_timing, wait_log
-from adam.utils_cassandra.address_table import AddressTable
-from adam.utils_cassandra.pod_service import cassandra
+from adam.utils import log2, wait_log
+from adam.utils_cassandra.cassandra_clusters import CassandraClusters
 from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 from adam.utils_k8s.custom_resources import CustomResources
@@ -56,12 +55,10 @@ class DeviceCass(Command, Device):
         if state.pod:
             return self.bash(state, state, cmd.split(' '))
         elif state.sts and state.namespace:
-            with log_timing('show.pods'):
-                show_pods(state, StatefulSets.pods(state.sts, state.namespace), state.namespace, show_namespace=not KubeContext.in_cluster_namespace(), ctx=ctx)
-            with log_timing('show.rollout'):
-                show_rollout(state.sts, state.namespace, ctx=ctx)
+            show_pods(StatefulSets.pods(state.sts, state.namespace), state.namespace, show_namespace=not KubeContext.in_cluster_namespace(), ctx=ctx)
+            show_rollout(state.sts, state.namespace, ctx=ctx)
         else:
-            self.show_statefulsets(ctx=ctx)
+            self.show_statefulsets()
 
     def ls_completion(self, cmd: str, state: ReplState, default: dict = {}):
         if state.sts:
@@ -69,7 +66,7 @@ class DeviceCass(Command, Device):
         else:
             return {cmd: {n: None for n in StatefulSets.list_sts_names()}}
 
-    def show_statefulsets(self, ctx: Context = Context.NULL):
+    def show_statefulsets(self):
         ss = StatefulSets.list_sts_names()
         if len(ss) == 0:
             log2('No Cassandra clusters found.')
@@ -87,8 +84,7 @@ class DeviceCass(Command, Device):
         header = 'STATEFULSET_NAME@NAMESPACE APP_ID'
         if KubeContext.in_cluster_namespace():
             header = 'STATEFULSET_NAME APP_ID'
-
-        tabulize(list, header=header, ctx=ctx)
+        tabulize(list, header=header)
 
     def cd(self, dir: str, state: ReplState):
         if dir == '':
@@ -110,8 +106,11 @@ class DeviceCass(Command, Device):
                 if p:
                     state.pod = p
                 else:
-                    nat: AddressTable = AddressTable.snapshot(state)
-                    state.pod = nat.pod_name_from_host_id(dir, dir)
+                    names = CassandraClusters.pod_names_by_host_id(state.sts, state.namespace)
+                    if dir in names:
+                        state.pod = names[dir]
+                    else:
+                        state.pod = dir
 
     def cd_completion(self, cmd: str, state: ReplState, default: dict = {}):
         if state.pod:

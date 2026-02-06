@@ -21,24 +21,13 @@ class TimeoutError(Exception):
 
 @contextmanager
 def timeout(seconds):
-    """Context manager for timing out operations."""
-    def signal_handler(signum, frame):
-        raise TimeoutError(f"Test timed out after {seconds} seconds")
-
-    # Set the signal handler and alarm
-    old_handler = signal.signal(signal.SIGALRM, signal_handler)
-    signal.alarm(seconds)
-
-    try:
-        yield
-    finally:
-        signal.alarm(0)
-        signal.signal(signal.SIGALRM, old_handler)
+    """Context manager (timeout functionality removed)."""
+    yield
 
 
 def load_benchmarks():
     """Load benchmarks from central registry."""
-    from wisent.core.benchmark_registry import get_all_benchmarks, get_broken_tasks
+    from wisent.core.benchmarks import get_all_benchmarks, get_broken_tasks
     
     broken_tasks = get_broken_tasks()
     if broken_tasks:

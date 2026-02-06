@@ -8,7 +8,7 @@ T = TypeVar("T", bound="EmailTriggerExtraPerms")
 
 @_attrs_define
 class EmailTriggerExtraPerms:
-    """ """
+    """Additional permissions for this trigger"""
 
     additional_properties: Dict[str, bool] = _attrs_field(init=False, factory=dict)
 

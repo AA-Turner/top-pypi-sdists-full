@@ -346,7 +346,7 @@ StatusType = Literal[
     "DELETE_IN_PROGRESS",
 ]
 SyncStatusType = Literal["CREATE_IN_PROGRESS", "SYNCING_IN_PROGRESS", "SYNC_FAILED", "SYNC_SUCCESS"]
-TargetTypeType = Literal["RECOMMENDATION", "RESULT"]
+TargetTypeType = Literal["MESSAGE", "RECOMMENDATION", "RESULT"]
 ToolOverrideInputValueTypeType = Literal["JSON_STRING", "NUMBER", "STRING"]
 ToolTypeType = Literal["CONSTANT", "MODEL_CONTEXT_PROTOCOL", "RETURN_TO_CONTROL"]
 VisibilityStatusType = Literal["PUBLISHED", "SAVED"]

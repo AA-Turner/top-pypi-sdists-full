@@ -4,7 +4,7 @@ from unittest.mock import ANY, AsyncMock, MagicMock, Mock, call, patch
 
 import pytest
 
-from strands.agent import Agent, AgentResult
+from strands.agent import Agent, AgentBase, AgentResult
 from strands.agent.state import AgentState
 from strands.hooks import AgentInitializedEvent, BeforeNodeCallEvent
 from strands.hooks.registry import HookProvider, HookRegistry
@@ -1102,9 +1102,6 @@ async def test_state_reset_only_with_cycles_enabled():
 
     # Create GraphNode
     node = GraphNode("test_node", agent)
-
-    # Simulate agent being in completed_nodes (as if revisited)
-    from strands.multiagent.graph import GraphState
 
     state = GraphState()
     state.completed_nodes.add(node)
@@ -2228,7 +2225,8 @@ def test_graph_interrupt_on_agent(agenerator):
         ],
     )
     graph._interrupt_state.context["test_agent"] = {
-        "activated": True,
+        "from_hook": False,
+        "interrupt_ids": [interrupt.id],
         "interrupt_state": {
             "activated": True,
             "context": {},
@@ -2259,3 +2257,151 @@ def test_graph_interrupt_on_agent(agenerator):
     assert len(multiagent_result.results) == 1
 
     agent.stream_async.assert_called_once_with(responses, invocation_state={})
+
+
+def test_graph_interrupt_on_multiagent(agenerator):
+    exp_interrupts = [
+        Interrupt(
+            id="test_id",
+            name="test_name",
+            reason="test_reason",
+        )
+    ]
+
+    multiagent = create_mock_multi_agent("test_multiagent", "Multi-agent completed")
+    multiagent.stream_async = Mock()
+    multiagent.stream_async.return_value = agenerator(
+        [
+            {
+                "result": MultiAgentResult(
+                    results={},
+                    status=Status.INTERRUPTED,
+                    interrupts=exp_interrupts,
+                ),
+            },
+        ],
+    )
+
+    builder = GraphBuilder()
+    builder.add_node(multiagent, "test_multiagent")
+    graph = builder.build()
+
+    multiagent_result = graph("Test task")
+
+    tru_result_status = multiagent_result.status
+    exp_result_status = Status.INTERRUPTED
+    assert tru_result_status == exp_result_status
+
+    tru_state_status = graph.state.status
+    exp_state_status = Status.INTERRUPTED
+    assert tru_state_status == exp_state_status
+
+    tru_node_ids = [node.node_id for node in graph.state.interrupted_nodes]
+    exp_node_ids = ["test_multiagent"]
+    assert tru_node_ids == exp_node_ids
+
+    tru_interrupts = multiagent_result.interrupts
+    assert tru_interrupts == exp_interrupts
+
+    interrupt = multiagent_result.interrupts[0]
+
+    multiagent.stream_async = Mock()
+    multiagent.stream_async.return_value = agenerator(
+        [
+            {
+                "result": MultiAgentResult(
+                    results={
+                        "inner_node": NodeResult(
+                            result=AgentResult(
+                                message={"role": "assistant", "content": [{"text": "Inner completed"}]},
+                                stop_reason="end_turn",
+                                state={},
+                                metrics={},
+                            )
+                        )
+                    },
+                    status=Status.COMPLETED,
+                ),
+            },
+        ],
+    )
+    graph._interrupt_state.context["test_multiagent"] = {
+        "from_hook": False,
+        "interrupt_ids": [interrupt.id],
+    }
+
+    responses = [
+        {
+            "interruptResponse": {
+                "interruptId": interrupt.id,
+                "response": "test_response",
+            },
+        },
+    ]
+    multiagent_result = graph(responses)
+
+    tru_result_status = multiagent_result.status
+    exp_result_status = Status.COMPLETED
+    assert tru_result_status == exp_result_status
+
+    tru_state_status = graph.state.status
+    exp_state_status = Status.COMPLETED
+    assert tru_state_status == exp_state_status
+
+    assert len(multiagent_result.results) == 1
+
+    multiagent.stream_async.assert_called_once_with(responses, {})
+
+
+@pytest.mark.asyncio
+async def test_graph_with_agentbase_implementation(mock_strands_tracer, mock_use_span):
+    """Test that Graph accepts any AgentBase implementation (not just Agent)."""
+
+    # Create a minimal AgentBase implementation
+    class CustomAgentBase:
+        """Custom AgentBase implementation for testing."""
+
+        def __init__(self, name: str, response_text: str):
+            self.name = name
+            self.id = f"{name}_id"
+            self._response_text = response_text
+
+        def __call__(self, prompt=None, **kwargs):
+            return AgentResult(
+                message={"role": "assistant", "content": [{"text": self._response_text}]},
+                stop_reason="end_turn",
+                state={},
+                metrics=Mock(
+                    accumulated_usage={"inputTokens": 10, "outputTokens": 20, "totalTokens": 30},
+                    accumulated_metrics={"latencyMs": 100.0},
+                ),
+            )
+
+        async def invoke_async(self, prompt=None, **kwargs):
+            return self(prompt, **kwargs)
+
+        async def stream_async(self, prompt=None, **kwargs):
+            yield {"start": True}
+            yield {"result": self(prompt, **kwargs)}
+
+    # Verify it satisfies AgentBase protocol
+    custom_agent = CustomAgentBase("custom", "Custom response")
+    assert isinstance(custom_agent, AgentBase)
+
+    # Create a regular mock agent
+    regular_agent = create_mock_agent("regular", "Regular response")
+
+    # Build graph with both
+    builder = GraphBuilder()
+    builder.add_node(custom_agent, "custom_node")
+    builder.add_node(regular_agent, "regular_node")
+    builder.add_edge("custom_node", "regular_node")
+    builder.set_entry_point("custom_node")
+    graph = builder.build()
+
+    result = await graph.invoke_async("Test task")
+
+    assert result.status == Status.COMPLETED
+    assert result.completed_nodes == 2
+    assert "custom_node" in result.results
+    assert "regular_node" in result.results

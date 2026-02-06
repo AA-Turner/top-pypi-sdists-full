@@ -29,25 +29,29 @@ T = TypeVar("T", bound="ListMqttTriggersResponse200Item")
 class ListMqttTriggersResponse200Item:
     """
     Attributes:
-        mqtt_resource_path (str):
-        subscribe_topics (List['ListMqttTriggersResponse200ItemSubscribeTopicsItem']):
-        path (str):
-        script_path (str):
-        email (str):
-        extra_perms (ListMqttTriggersResponse200ItemExtraPerms):
-        workspace_id (str):
-        edited_by (str):
-        edited_at (datetime.datetime):
-        is_flow (bool):
+        mqtt_resource_path (str): Path to the MQTT resource containing broker connection configuration
+        subscribe_topics (List['ListMqttTriggersResponse200ItemSubscribeTopicsItem']): Array of MQTT topics to subscribe
+            to, each with topic name and QoS level
+        path (str): The unique path identifier for this trigger
+        script_path (str): Path to the script or flow to execute when triggered
+        email (str): Email of the user who owns this trigger, used for permissioned_as
+        extra_perms (ListMqttTriggersResponse200ItemExtraPerms): Additional permissions for this trigger
+        workspace_id (str): The workspace this trigger belongs to
+        edited_by (str): Username of the last person who edited this trigger
+        edited_at (datetime.datetime): Timestamp of the last edit
+        is_flow (bool): True if script_path points to a flow, false if it points to a script
         mode (ListMqttTriggersResponse200ItemMode): job trigger mode
-        v3_config (Union[Unset, ListMqttTriggersResponse200ItemV3Config]):
-        v5_config (Union[Unset, ListMqttTriggersResponse200ItemV5Config]):
-        client_id (Union[Unset, str]):
-        client_version (Union[Unset, ListMqttTriggersResponse200ItemClientVersion]):
-        server_id (Union[Unset, str]):
-        last_server_ping (Union[Unset, datetime.datetime]):
-        error (Union[Unset, str]):
-        error_handler_path (Union[Unset, str]):
+        v3_config (Union[Unset, ListMqttTriggersResponse200ItemV3Config]): MQTT v3 specific configuration
+            (clean_session)
+        v5_config (Union[Unset, ListMqttTriggersResponse200ItemV5Config]): MQTT v5 specific configuration (clean_start,
+            topic_alias_maximum, session_expiry_interval)
+        client_id (Union[Unset, str]): MQTT client ID for this connection
+        client_version (Union[Unset, ListMqttTriggersResponse200ItemClientVersion]): MQTT protocol version ('v3' or
+            'v5')
+        server_id (Union[Unset, str]): ID of the server currently handling this trigger (internal)
+        last_server_ping (Union[Unset, datetime.datetime]): Timestamp of last server heartbeat (internal)
+        error (Union[Unset, str]): Last error message if the trigger failed
+        error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, ListMqttTriggersResponse200ItemErrorHandlerArgs]): The arguments to pass to the
             script or flow
         retry (Union[Unset, ListMqttTriggersResponse200ItemRetry]): Retry configuration for failed module executions

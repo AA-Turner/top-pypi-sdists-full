@@ -19,24 +19,27 @@ T = TypeVar("T", bound="GcpTriggerData")
 
 @_attrs_define
 class GcpTriggerData:
-    """
+    """Data for creating or updating a Google Cloud Pub/Sub trigger.
+
     Attributes:
-        gcp_resource_path (str):
+        gcp_resource_path (str): Path to the GCP resource containing service account credentials for authentication.
         subscription_mode (GcpTriggerDataSubscriptionMode): The mode of subscription. 'existing' means using an existing
             GCP subscription, while 'create_update' involves creating or updating a new subscription.
-        topic_id (str):
-        path (str):
-        script_path (str):
-        is_flow (bool):
-        subscription_id (Union[Unset, str]):
-        base_endpoint (Union[Unset, str]):
-        delivery_type (Union[Unset, GcpTriggerDataDeliveryType]):
-        delivery_config (Union[Unset, GcpTriggerDataDeliveryConfig]):
+        topic_id (str): Google Cloud Pub/Sub topic ID to subscribe to.
+        path (str): The unique path identifier for this trigger.
+        script_path (str): Path to the script or flow to execute when a message is received.
+        is_flow (bool): True if script_path points to a flow, false if it points to a script.
+        subscription_id (Union[Unset, str]): Google Cloud Pub/Sub subscription ID.
+        base_endpoint (Union[Unset, str]): Base URL for push delivery endpoint.
+        delivery_type (Union[Unset, GcpTriggerDataDeliveryType]): Delivery mode for messages. 'push' for HTTP push
+            delivery where messages are sent to a webhook endpoint, 'pull' for polling where the trigger actively fetches
+            messages.
+        delivery_config (Union[Unset, GcpTriggerDataDeliveryConfig]): Configuration for push delivery mode.
         mode (Union[Unset, GcpTriggerDataMode]): job trigger mode
-        auto_acknowledge_msg (Union[Unset, bool]):
+        auto_acknowledge_msg (Union[Unset, bool]): If true, automatically acknowledge messages after processing.
         ack_deadline (Union[Unset, int]): Time in seconds within which the message must be acknowledged. If not
             provided, defaults to the subscription's acknowledgment deadline (600 seconds).
-        error_handler_path (Union[Unset, str]):
+        error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails.
         error_handler_args (Union[Unset, GcpTriggerDataErrorHandlerArgs]): The arguments to pass to the script or flow
         retry (Union[Unset, GcpTriggerDataRetry]): Retry configuration for failed module executions
     """

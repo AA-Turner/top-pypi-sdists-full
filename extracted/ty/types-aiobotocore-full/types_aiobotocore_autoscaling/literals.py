@@ -32,6 +32,7 @@ __all__ = (
     "CapacityDistributionStrategyType",
     "CapacityReservationPreferenceType",
     "CpuManufacturerType",
+    "DeletionProtectionType",
     "DescribeAutoScalingGroupsPaginatorName",
     "DescribeAutoScalingInstancesPaginatorName",
     "DescribeLaunchConfigurationsPaginatorName",
@@ -83,6 +84,7 @@ CapacityReservationPreferenceType = Literal[
     "capacity-reservations-first", "capacity-reservations-only", "default", "none"
 ]
 CpuManufacturerType = Literal["amazon-web-services", "amd", "apple", "intel"]
+DeletionProtectionType = Literal["none", "prevent-all-deletion", "prevent-force-deletion"]
 DescribeAutoScalingGroupsPaginatorName = Literal["describe_auto_scaling_groups"]
 DescribeAutoScalingInstancesPaginatorName = Literal["describe_auto_scaling_instances"]
 DescribeLaunchConfigurationsPaginatorName = Literal["describe_launch_configurations"]

@@ -48,7 +48,6 @@ from langgraph_api.schema import ThreadUpdateResponse
 from langgraph_api.serde import json_dumpb, json_dumpb_optional, json_loads
 from langgraph_api.state import patch_interrupt, state_snapshot_to_thread_state
 from langgraph_api.utils import fetchone
-from langgraph_runtime.ops import Runs as ApiRuns
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -1046,12 +1045,11 @@ class Threads(Authenticated):
                         expected_status=("interrupted", "idle", "error"),
                     )
 
-                    # Publish state update event
                     event_data = {
                         "state": state_snapshot_to_thread_state(state),
                         "thread_id": str(thread_id),
                     }
-                    await ApiRuns.Stream.publish(
+                    await Runs.Stream.publish(
                         "*",
                         "state_update",
                         json_dumpb(event_data),
@@ -1146,12 +1144,11 @@ class Threads(Authenticated):
                         None,
                     )
 
-                    # Publish state update event
                     event_data = {
                         "state": state_snapshot_to_thread_state(state),
                         "thread_id": str(thread_id),
                     }
-                    await ApiRuns.Stream.publish(
+                    await Runs.Stream.publish(
                         "*",
                         "state_update",
                         json_dumpb(event_data),

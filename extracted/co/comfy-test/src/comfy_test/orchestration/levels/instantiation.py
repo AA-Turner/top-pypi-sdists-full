@@ -1,9 +1,11 @@
 """INSTANTIATION level - Test node constructors."""
 
 import json
+import os
 import subprocess
 
 from ...common.errors import TestError
+from ...common.comfy_env import get_cuda_packages
 from ..context import LevelContext
 
 
@@ -14,9 +16,11 @@ import os
 import json
 from pathlib import Path
 
-# Disable CUDA to prevent crashes on CPU-only machines
+# Disable CUDA on CPU-only machines to prevent crashes
 # (model_management.py calls torch.cuda at import time)
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
+is_gpu_runner = {is_gpu_runner}
+if not is_gpu_runner:
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 # Mock CUDA packages if needed
 cuda_packages = {cuda_packages_json}
@@ -41,32 +45,44 @@ node_name = "{node_name}"
 try:
     import importlib
     module = importlib.import_module(node_name)
-except ImportError as e:
-    print(json.dumps({{"success": False, "error": f"Failed to import {{node_name}}: {{e}}"}}))
+except Exception as e:
+    import traceback
+    tb = traceback.format_exc()
+    print(f"IMPORT ERROR: {{e}}", flush=True)
+    print(tb, flush=True)
+    print(json.dumps({{"success": False, "error": f"Failed to import {{node_name}}: {{e}}", "traceback": tb}}))
     sys.exit(1)
 
-# Get NODE_CLASS_MAPPINGS
-mappings = getattr(module, "NODE_CLASS_MAPPINGS", {{}})
+# Get NODE_CLASS_MAPPINGS and run instantiation with full error capture
+try:
+    mappings = getattr(module, "NODE_CLASS_MAPPINGS", {{}})
 
-errors = []
-instantiated = []
+    errors = []
+    instantiated = []
 
-for name, cls in mappings.items():
-    print(f"Instantiating: {{name}}", flush=True)
-    try:
-        instance = cls()
-        instantiated.append(name)
-        print(f"  OK: {{name}}", flush=True)
-    except Exception as e:
-        print(f"  FAILED: {{name}} - {{e}}", flush=True)
-        errors.append({{"node": name, "error": str(e)}})
+    for name, cls in mappings.items():
+        print(f"Instantiating: {{name}}", flush=True)
+        try:
+            instance = cls()
+            instantiated.append(name)
+            print(f"  OK: {{name}}", flush=True)
+        except Exception as e:
+            print(f"  FAILED: {{name}} - {{e}}", flush=True)
+            errors.append({{"node": name, "error": str(e)}})
 
-result = {{
-    "success": len(errors) == 0,
-    "instantiated": instantiated,
-    "errors": errors,
-}}
-print(json.dumps(result))
+    result = {{
+        "success": len(errors) == 0,
+        "instantiated": instantiated,
+        "errors": errors,
+    }}
+    print(json.dumps(result))
+except Exception as e:
+    import traceback
+    tb = traceback.format_exc()
+    print(f"FATAL ERROR: {{e}}", flush=True)
+    print(tb, flush=True)
+    print(json.dumps({{"success": False, "error": str(e), "traceback": tb}}))
+    sys.exit(1)
 '''
 
 
@@ -85,13 +101,23 @@ def run(ctx: LevelContext) -> LevelContext:
     Raises:
         TestError: If any node fails to instantiate
     """
+    ctx.log(f"[DEBUG] server={ctx.server}, server_url={ctx.server_url}, api={ctx.api}")
     ctx.log("Testing node constructors...")
 
+    # Get CUDA packages if not already set (e.g., when INSTALL was skipped)
+    cuda_packages = ctx.cuda_packages
+    if not cuda_packages and not os.environ.get("COMFY_TEST_GPU"):
+        cuda_packages = tuple(get_cuda_packages(ctx.node_dir))
+        if cuda_packages:
+            ctx.log(f"Found CUDA packages to mock: {', '.join(cuda_packages)}")
+
     # Build the test script
+    is_gpu_runner = os.environ.get("COMFY_TEST_GPU") == "1"
     script = INSTANTIATION_SCRIPT.format(
         custom_nodes_dir=str(ctx.paths.custom_nodes_dir).replace("\\", "/"),
         node_name=ctx.node_dir.name,
-        cuda_packages_json=json.dumps(list(ctx.cuda_packages)),
+        cuda_packages_json=json.dumps(list(cuda_packages)),
+        is_gpu_runner="True" if is_gpu_runner else "False",
     )
 
     # Run the script

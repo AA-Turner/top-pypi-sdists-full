@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: athena-intelligence
-Version: 0.1.586
+Version: 0.1.619
 Summary: Athena Intelligence Python Library
 Requires-Python: >=3.9,<4.0
 Classifier: Intended Audience :: Developers
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Dist: fastapi (==0.115.10)
+Requires-Dist: fastapi (>=0.115.10,<0.130.0)
 Requires-Dist: httpx (>=0.21.2)
 Requires-Dist: langchain_core (>=0.3.40,<0.4.0)
 Requires-Dist: langserve (>=0.3.1,<0.4.0)

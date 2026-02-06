@@ -20,6 +20,12 @@ from hfortix_fortios.models import (
     FortiObjectList,
 )
 
+# Import child table helper types
+from ._bfd_child_tables import (
+    NeighborHelper,
+    MultihopTemplateHelper,
+)
+
 
 # ================================================================
 # TypedDict Payloads
@@ -104,6 +110,10 @@ class Bfd:
     path: ClassVar[str] = ...
     category: ClassVar[str] = ...
     capabilities: ClassVar[dict[str, Any]] = ...
+    
+    # Child table helpers
+    neighbor: NeighborHelper
+    multihop_template: MultihopTemplateHelper
     
     def __init__(self, client: Any) -> None:
         """Initialize endpoint with HTTP client."""

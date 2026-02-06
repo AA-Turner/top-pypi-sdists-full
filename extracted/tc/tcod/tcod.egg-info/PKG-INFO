@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tcod
-Version: 19.6.3
+Version: 20.0.0
 Summary: The official Python port of libtcod.
 Author-email: Kyle Benesch <4b796c65+tcod@gmail.com>
 License-Expression: BSD-2-Clause
@@ -10,7 +10,7 @@ Project-URL: Changelog, https://github.com/libtcod/python-tcod/blob/main/CHANGEL
 Project-URL: Source, https://github.com/libtcod/python-tcod
 Project-URL: Tracker, https://github.com/libtcod/python-tcod/issues
 Project-URL: Forum, https://github.com/libtcod/python-tcod/discussions
-Keywords: roguelike,cffi,Unicode,libtcod,field-of-view,pathfinding
+Keywords: roguelike,roguelikedev,gamedev,Unicode,libtcod,libtcodpy,field-of-view,pathfinding
 Platform: Windows
 Platform: MacOS
 Platform: Linux
@@ -24,10 +24,7 @@ Classifier: Operating System :: POSIX
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Games/Entertainment

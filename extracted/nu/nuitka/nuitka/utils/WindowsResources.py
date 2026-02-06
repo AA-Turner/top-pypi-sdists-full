@@ -1,7 +1,7 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Module for handling Windows resources.
+"""Module for handling Windows resources.
 
 Nuitka needs to do a couple of things with Windows resources, e.g. adding
 and removing manifests amd copying icon image resources into the created
@@ -19,7 +19,7 @@ import ctypes
 import os
 import struct
 
-from nuitka import TreeXML
+from nuitka.TreeXML import convertStringToXML, convertXmlToBytes
 
 from .Utils import decoratorRetries
 
@@ -267,10 +267,10 @@ def addResourceToFile(target_filename, data, resource_kind, lang_id, res_name, l
 
 class WindowsExecutableManifest(object):
     def __init__(self, template):
-        self.tree = TreeXML.fromString(template)
+        self.tree = convertStringToXML(template)
 
     def addResourceToFile(self, filename, logger):
-        manifest_data = TreeXML.toBytes(self.tree, indent=False)
+        manifest_data = convertXmlToBytes(self.tree, indent=False)
 
         addResourceToFile(
             target_filename=filename,
@@ -639,11 +639,11 @@ def addVersionInfoResource(
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

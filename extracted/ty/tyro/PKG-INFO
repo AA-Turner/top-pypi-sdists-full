@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tyro
-Version: 1.0.5
+Version: 1.0.6
 Summary: CLI interfaces & config objects, from types
 Project-URL: GitHub, https://github.com/brentyi/tyro
 Author-email: brentyi <brentyi@berkeley.edu>
@@ -41,7 +41,7 @@ Provides-Extra: dev-nn
 Requires-Dist: attrs>=21.4.0; extra == 'dev-nn'
 Requires-Dist: coverage[toml]>=6.5.0; extra == 'dev-nn'
 Requires-Dist: eval-type-backport>=0.1.3; extra == 'dev-nn'
-Requires-Dist: flax>=0.6.9; (python_version <= '3.13') and extra == 'dev-nn'
+Requires-Dist: flax>=0.6.9; (python_version >= '3.10' and python_version <= '3.13') and extra == 'dev-nn'
 Requires-Dist: ml-collections>=0.1.0; extra == 'dev-nn'
 Requires-Dist: msgspec>=0.18.6; extra == 'dev-nn'
 Requires-Dist: mypy>=1.4.1; extra == 'dev-nn'

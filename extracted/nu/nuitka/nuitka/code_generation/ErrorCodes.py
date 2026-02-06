@@ -1,7 +1,7 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Error codes
+"""Error codes
 
 These are the helper functions that will emit the error exit codes. They
 can abstractly check conditions or values directly. The release of statement
@@ -65,6 +65,21 @@ def getErrorExitBoolCode(
     fetched_exception=False,
     needs_check=True,
 ):
+    """Emit error exit code based on a condition.
+
+    Args:
+        condition: C boolean expression checking for error.
+        emit: Function to emit code.
+        context: Code generation context.
+        release_names: Tuple/list of variable names to release.
+        release_name: Single variable name to release.
+        fetched_exception: Whether exception is already fetched.
+        needs_check: Whether validation of condition is needed.
+
+    Notes:
+        `release_name` and `release_names` are mutually exclusive.
+        Use `release_name` for a single variable, `release_names` for multiple.
+    """
     assert not condition.endswith(";")
 
     if release_names:
@@ -98,8 +113,7 @@ def getErrorExitBoolCode(
                         getFrameVariableTypeDescriptionCode(context)
                     ),
                     "line_number_code": indented(getErrorLineNumberUpdateCode(context)),
-                },
-                0,
+                }
             )
         )
     else:
@@ -115,8 +129,7 @@ def getErrorExitBoolCode(
                         getFrameVariableTypeDescriptionCode(context)
                     ),
                     "line_number_code": indented(getErrorLineNumberUpdateCode(context)),
-                },
-                0,
+                }
             )
         )
 
@@ -130,6 +143,21 @@ def getErrorExitCode(
     fetched_exception=False,
     needs_check=True,
 ):
+    """Emit error exit code by checking a variable.
+
+    Args:
+        check_name: Variable to check for error condition.
+        emit: Function to emit code.
+        context: Code generation context.
+        release_names: Tuple/list of variable names to release.
+        release_name: Single variable name to release.
+        fetched_exception: Whether exception is already fetched.
+        needs_check: Whether validation of condition is needed.
+
+    Notes:
+        `release_name` and `release_names` are mutually exclusive.
+        Use `release_name` for a single variable, `release_names` for multiple.
+    """
     getErrorExitBoolCode(
         condition=check_name.getCType().getExceptionCheckCondition(check_name),
         release_names=release_names,
@@ -268,11 +296,11 @@ def getNameReferenceErrorCode(variable_name, condition, emit, context):
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

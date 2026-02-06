@@ -96,9 +96,7 @@ def run(
     base_api_url = settings.get_base_api_url()
     base_ws_url = settings.get_base_ws_url()
 
-    chat_uuid = chat_id or loop.run_until_complete(
-        create_chat(api_key, base_api_url, base_ws_url, ChatSource.CLI_RUN)
-    )
+    chat_uuid = chat_id or loop.run_until_complete(create_chat(api_key, base_api_url, base_ws_url, ChatSource.CLI_RUN))
 
     if isinstance(timeout_seconds, int) and timeout_seconds <= 0:
         click.secho("Error: --timeout-seconds must be a positive integer", fg="red")
@@ -219,9 +217,7 @@ def run_chat(
         pass
 
     try:
-        done, _ = loop.run_until_complete(
-            asyncio.wait({client_fut, conn_fut}, return_when=asyncio.FIRST_COMPLETED)
-        )
+        done, _ = loop.run_until_complete(asyncio.wait({client_fut, conn_fut}, return_when=asyncio.FIRST_COMPLETED))
 
         if client_fut in done:
             return client_fut.result()
@@ -241,9 +237,7 @@ def run_chat(
         _cleanup_tasks(loop)
 
 
-async def handle_connection_changes(
-    connection_tracker: ConnectionTracker, start_ts: float
-) -> None:
+async def handle_connection_changes(connection_tracker: ConnectionTracker, start_ts: float) -> None:
     try:
         async with timeout(5):
             assert await connection_tracker.next_change()

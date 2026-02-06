@@ -59,6 +59,7 @@ Usage::
         ListSecurityProfilePermissionsPaginator,
         ListSecurityProfilesPaginator,
         ListTaskTemplatesPaginator,
+        ListTestCasesPaginator,
         ListTrafficDistributionGroupUsersPaginator,
         ListTrafficDistributionGroupsPaginator,
         ListUseCasesPaginator,
@@ -84,6 +85,7 @@ Usage::
         SearchResourceTagsPaginator,
         SearchRoutingProfilesPaginator,
         SearchSecurityProfilesPaginator,
+        SearchTestCasesPaginator,
         SearchUserHierarchyGroupsPaginator,
         SearchUsersPaginator,
         SearchViewsPaginator,
@@ -145,6 +147,7 @@ Usage::
     list_security_profile_permissions_paginator: ListSecurityProfilePermissionsPaginator = client.get_paginator("list_security_profile_permissions")
     list_security_profiles_paginator: ListSecurityProfilesPaginator = client.get_paginator("list_security_profiles")
     list_task_templates_paginator: ListTaskTemplatesPaginator = client.get_paginator("list_task_templates")
+    list_test_cases_paginator: ListTestCasesPaginator = client.get_paginator("list_test_cases")
     list_traffic_distribution_group_users_paginator: ListTrafficDistributionGroupUsersPaginator = client.get_paginator("list_traffic_distribution_group_users")
     list_traffic_distribution_groups_paginator: ListTrafficDistributionGroupsPaginator = client.get_paginator("list_traffic_distribution_groups")
     list_use_cases_paginator: ListUseCasesPaginator = client.get_paginator("list_use_cases")
@@ -170,6 +173,7 @@ Usage::
     search_resource_tags_paginator: SearchResourceTagsPaginator = client.get_paginator("search_resource_tags")
     search_routing_profiles_paginator: SearchRoutingProfilesPaginator = client.get_paginator("search_routing_profiles")
     search_security_profiles_paginator: SearchSecurityProfilesPaginator = client.get_paginator("search_security_profiles")
+    search_test_cases_paginator: SearchTestCasesPaginator = client.get_paginator("search_test_cases")
     search_user_hierarchy_groups_paginator: SearchUserHierarchyGroupsPaginator = client.get_paginator("search_user_hierarchy_groups")
     search_users_paginator: SearchUsersPaginator = client.get_paginator("search_users")
     search_views_paginator: SearchViewsPaginator = client.get_paginator("search_views")
@@ -228,6 +232,7 @@ from .paginator import (
     ListSecurityProfilePermissionsPaginator,
     ListSecurityProfilesPaginator,
     ListTaskTemplatesPaginator,
+    ListTestCasesPaginator,
     ListTrafficDistributionGroupsPaginator,
     ListTrafficDistributionGroupUsersPaginator,
     ListUseCasesPaginator,
@@ -253,6 +258,7 @@ from .paginator import (
     SearchResourceTagsPaginator,
     SearchRoutingProfilesPaginator,
     SearchSecurityProfilesPaginator,
+    SearchTestCasesPaginator,
     SearchUserHierarchyGroupsPaginator,
     SearchUsersPaginator,
     SearchViewsPaginator,
@@ -313,6 +319,7 @@ __all__ = (
     "ListSecurityProfilePermissionsPaginator",
     "ListSecurityProfilesPaginator",
     "ListTaskTemplatesPaginator",
+    "ListTestCasesPaginator",
     "ListTrafficDistributionGroupUsersPaginator",
     "ListTrafficDistributionGroupsPaginator",
     "ListUseCasesPaginator",
@@ -338,6 +345,7 @@ __all__ = (
     "SearchResourceTagsPaginator",
     "SearchRoutingProfilesPaginator",
     "SearchSecurityProfilesPaginator",
+    "SearchTestCasesPaginator",
     "SearchUserHierarchyGroupsPaginator",
     "SearchUsersPaginator",
     "SearchViewsPaginator",

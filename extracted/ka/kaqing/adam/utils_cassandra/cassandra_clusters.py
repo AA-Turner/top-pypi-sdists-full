@@ -22,7 +22,7 @@ class CassandraClusters:
         results: list[PodExecResult] = []
 
         # filter out pods that're reported as non-runnig by k8s API server
-        pod_names = log_timing('k8s.running.pods', lambda: StatefulSets.running_pods(sts, namespace))
+        pod_names = log_timing('running.pods', lambda: StatefulSets.running_pods(sts, namespace))
         if not pod_names:
             # no pod was reported as runnning; just try with the non-running pods
             pod_names = StatefulSets.pod_names(sts, namespace)
@@ -37,8 +37,7 @@ class CassandraClusters:
         # 2. If at least 3 samples are acquired, the method returns with the first 3 samples.
         # 3. If not all 3 samples are acquired, the next 32 pods are examined concurrently, and so on.
         # 4. After all 96 nodes are examined, if the number of samples is less than 3, the samples are returned.
-        # s = min(len(pod_names), max(samples * 3, int(len(pod_names) / 3)))
-        s = min(len(pod_names), samples * 3)
+        s = min(len(pod_names), max(samples * 3, int(len(pod_names) / 3)))
 
         # emulate more than one batch
         # s = 3
@@ -49,7 +48,7 @@ class CassandraClusters:
         results: list[PodExecResult] = []
         while samples and pns:
             msg = 'd`Running|Ran ' + action + ' command onto {size} pods'
-            with log_timing(f'CassandraClusters.parallelize({len(pns)}, name={action})'):
+            with log_timing(f'Pods.parallelize({len(pns)})'):
                 with Pods.parallelize(pns, max_workers, -1, msg, collect=False, action=action) as exec:
                     rs: Iterator[PodExecResult] = exec.map(lambda pod: CassandraNodes.exec(pod, namespace, command, False, shell, ctx.copy(show_out=False)))
 
@@ -74,3 +73,8 @@ class CassandraClusters:
                 r.log(ctx)
 
         return results
+
+    def pod_names_by_host_id(sts: str, ns: str):
+        pods = StatefulSets.pods(sts, ns)
+
+        return {CassandraNodes.get_host_id(pod.metadata.name, ns): pod.metadata.name for pod in pods}

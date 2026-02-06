@@ -1,7 +1,7 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Module for constants in Nuitka.
+"""Module for constants in Nuitka.
 
 This contains tools to compare, classify and test constants.
 """
@@ -335,6 +335,19 @@ def isCompileTimeConstantValue(value):
         return False
 
 
+if python_version < 0x3C0:
+
+    def isConstantImmortal(value):
+        # Not happening before 3.12, pylint: disable=unused-argument
+        return False
+
+else:
+
+    def isConstantImmortal(value):
+        # TODO: Add way more than these few ones.
+        return value in (True, False, None)
+
+
 # Shared empty values, it would cost time to create them locally.
 the_empty_dict = {}
 the_empty_list = []
@@ -412,11 +425,11 @@ def getConstantValueGuide(constant, elements_only):
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

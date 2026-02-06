@@ -16,7 +16,8 @@ T = TypeVar("T", bound="NewPostgresTriggerPublication")
 
 @_attrs_define
 class NewPostgresTriggerPublication:
-    """
+    """Configuration for creating/managing the publication (tables, operations)
+
     Attributes:
         transaction_to_track (List[str]):
         table_to_track (Union[Unset, List['NewPostgresTriggerPublicationTableToTrackItem']]):

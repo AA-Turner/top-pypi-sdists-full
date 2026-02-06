@@ -141,6 +141,8 @@ def register_udf(
             attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
             raise exception
     session = get_or_create_snowpark_session()
+    from snowflake.snowpark_connect.utils.udf_utils import _get_resource_constraint
+
     kwargs = {
         "common_inline_user_defined_function": udf_proto,
         "called_from": "register_udf",
@@ -148,6 +150,7 @@ def register_udf(
         "udf_packages": global_config.get("snowpark.connect.udf.packages", ""),
         "udf_imports": get_python_udxf_import_files(session),
         "original_return_type": original_return_type,
+        "resource_constraint": _get_resource_constraint(),
     }
 
     if require_creating_udf_in_sproc(udf_proto):
@@ -201,6 +204,8 @@ def map_common_inline_user_defined_udf(
         udf_proto: expressions_proto.CommonInlineUserDefinedFunction,
     ) -> SnowparkUDF:
         session = get_or_create_snowpark_session()
+        from snowflake.snowpark_connect.utils.udf_utils import _get_resource_constraint
+
         kwargs = {
             "common_inline_user_defined_function": udf_proto,
             "input_types": input_types,
@@ -209,6 +214,7 @@ def map_common_inline_user_defined_udf(
             "udf_packages": global_config.get("snowpark.connect.udf.packages", ""),
             "udf_imports": get_python_udxf_import_files(session),
             "original_return_type": original_return_type,
+            "resource_constraint": _get_resource_constraint(),
         }
         if require_creating_udf_in_sproc(udf_proto):
             snowpark_udf = process_udf_in_sproc(**kwargs)

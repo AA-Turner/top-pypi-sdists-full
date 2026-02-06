@@ -1,4 +1,3 @@
-from functools import partial
 from typing import get_args
 from uuid import uuid4
 
@@ -16,7 +15,6 @@ from langgraph_api.encryption.shared import (
     using_custom_encryption,
 )
 from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
-from langgraph_api.grpc.ops import Threads as GrpcThreads
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
 from langgraph_api.schema import (
     THREAD_ENCRYPTION_FIELDS,
@@ -47,13 +45,9 @@ from langgraph_runtime.database import connect
 from langgraph_runtime.retry import retry_db
 
 if IS_POSTGRES_OR_GRPC_BACKEND:
-    CrudThreads = GrpcThreads
+    from langgraph_api.grpc.ops import Threads
 else:
     from langgraph_runtime.ops import Threads
-
-    CrudThreads = Threads
-
-grpc_connect = partial(connect, supports_core_api=IS_POSTGRES_OR_GRPC_BACKEND)
 
 
 @retry_db
@@ -74,31 +68,43 @@ async def create_thread(
             ["metadata"],
         )
 
-    async with connect() as conn:
-        thread_id = thread_id or str(uuid4())
-        iter = await CrudThreads.put(
-            conn,
+    thread_id = thread_id or str(uuid4())
+    supersteps = payload.get("supersteps")
+
+    if IS_POSTGRES_OR_GRPC_BACKEND and not supersteps:
+        iter = await Threads.put(
+            None,
             thread_id,
             metadata=effective_payload.get("metadata") or {},
             if_exists=payload.get("if_exists") or "raise",
             ttl=payload.get("ttl"),
         )
-        config = {
-            "configurable": {
-                **get_configurable_headers(request.headers),
-                "thread_id": thread_id,
+    else:
+        # Need connection for inmem put or gRPC State.bulk
+        async with connect(supports_core_api=False) as conn:
+            iter = await Threads.put(
+                conn,
+                thread_id,
+                metadata=effective_payload.get("metadata") or {},
+                if_exists=payload.get("if_exists") or "raise",
+                ttl=payload.get("ttl"),
+            )
+            config = {
+                "configurable": {
+                    **get_configurable_headers(request.headers),
+                    "thread_id": thread_id,
+                }
             }
-        }
-        if supersteps := payload.get("supersteps"):
-            try:
-                await CrudThreads.State.bulk(
-                    conn,
-                    config=config,
-                    supersteps=supersteps,
-                )
-            except HTTPException as e:
-                detail = f"Thread {thread_id} was created, but there were problems updating the state: {e.detail}"
-                raise HTTPException(status_code=201, detail=detail) from e
+            if supersteps:
+                try:
+                    await Threads.State.bulk(
+                        conn,
+                        config=config,
+                        supersteps=supersteps,
+                    )
+                except HTTPException as e:
+                    detail = f"Thread {thread_id} was created, but there were problems updating the state: {e.detail}"
+                    raise HTTPException(status_code=201, detail=detail) from e
 
     thread = await fetchone(iter, not_found_code=409)
     if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
@@ -120,8 +126,8 @@ async def search_threads(
     limit = int(payload.get("limit") or 10)
     offset = int(payload.get("offset") or 0)
 
-    async with grpc_connect() as conn:
-        threads_iter, next_offset = await CrudThreads.search(
+    async with connect() as conn:
+        threads_iter, next_offset = await Threads.search(
             conn,
             status=payload.get("status"),
             values=payload.get("values"),
@@ -155,8 +161,8 @@ async def count_threads(
 ):
     """Count threads."""
     payload = await request.json(ThreadCountRequest)
-    async with grpc_connect() as conn:
-        count = await CrudThreads.count(
+    async with connect() as conn:
+        count = await Threads.count(
             conn,
             status=payload.get("status"),
             values=payload.get("values"),
@@ -173,7 +179,7 @@ async def get_thread_state(
     thread_id = request.path_params["thread_id"]
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     subgraphs = request.query_params.get("subgraphs") in ("true", "True")
-    async with connect() as conn:
+    async with connect(supports_core_api=False) as conn:
         config = {
             "configurable": {
                 **get_configurable_headers(request.headers),
@@ -181,7 +187,7 @@ async def get_thread_state(
             }
         }
         state = state_snapshot_to_thread_state(
-            await CrudThreads.State.get(conn, config=config, subgraphs=subgraphs)
+            await Threads.State.get(conn, config=config, subgraphs=subgraphs)
         )
     return ApiResponse(state)
 
@@ -194,7 +200,7 @@ async def get_thread_state_at_checkpoint(
     thread_id = request.path_params["thread_id"]
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     checkpoint_id = request.path_params["checkpoint_id"]
-    async with connect() as conn:
+    async with connect(supports_core_api=False) as conn:
         config = {
             "configurable": {
                 **get_configurable_headers(request.headers),
@@ -203,7 +209,7 @@ async def get_thread_state_at_checkpoint(
             }
         }
         state = state_snapshot_to_thread_state(
-            await CrudThreads.State.get(
+            await Threads.State.get(
                 conn,
                 config=config,
                 subgraphs=request.query_params.get("subgraphs") in ("true", "True"),
@@ -220,7 +226,7 @@ async def get_thread_state_at_checkpoint_post(
     thread_id = request.path_params["thread_id"]
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     payload = await request.json(ThreadStateCheckpointRequest)
-    async with connect() as conn:
+    async with connect(supports_core_api=False) as conn:
         config = {
             "configurable": {
                 **payload["checkpoint"],
@@ -229,7 +235,7 @@ async def get_thread_state_at_checkpoint_post(
             }
         }
         state = state_snapshot_to_thread_state(
-            await CrudThreads.State.get(
+            await Threads.State.get(
                 conn,
                 config=config,
                 subgraphs=payload.get("subgraphs", False),
@@ -257,8 +263,8 @@ async def update_thread_state(
     except AssertionError:
         pass
     config["configurable"].update(get_configurable_headers(request.headers))
-    async with connect() as conn:
-        inserted = await CrudThreads.State.post(
+    async with connect(supports_core_api=False) as conn:
+        inserted = await Threads.State.post(
             conn,
             config,
             payload.get("values"),
@@ -287,10 +293,10 @@ async def get_thread_history(
             **get_configurable_headers(request.headers),
         }
     }
-    async with connect() as conn:
+    async with connect(supports_core_api=False) as conn:
         states = [
             state_snapshot_to_thread_state(c)
-            for c in await CrudThreads.State.list(
+            for c in await Threads.State.list(
                 conn, config=config, limit=limit, before=before
             )
         ]
@@ -308,10 +314,10 @@ async def get_thread_history_post(
     config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
     config["configurable"].update(payload.get("checkpoint", {}))
     config["configurable"].update(get_configurable_headers(request.headers))
-    async with connect() as conn:
+    async with connect(supports_core_api=False) as conn:
         states = [
             state_snapshot_to_thread_state(c)
-            for c in await CrudThreads.State.list(
+            for c in await Threads.State.list(
                 conn,
                 config=config,
                 limit=int(payload.get("limit") or 1),
@@ -335,8 +341,8 @@ async def get_thread(
     include_fields = [f.strip() for f in include_param.split(",") if f.strip()]
     include_ttl = "ttl" in include_fields
 
-    async with grpc_connect() as conn:
-        thread = await CrudThreads.get(conn, thread_id, include_ttl=include_ttl)
+    async with connect() as conn:
+        thread = await Threads.get(conn, thread_id, include_ttl=include_ttl)
 
     thread_data = await fetchone(thread)
     if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
@@ -366,8 +372,8 @@ async def patch_thread(
             ["metadata"],
         )
 
-    async with grpc_connect() as conn:
-        thread = await CrudThreads.patch(
+    async with connect() as conn:
+        thread = await Threads.patch(
             conn,
             thread_id,
             metadata=effective_payload.get("metadata") or {},
@@ -389,8 +395,8 @@ async def delete_thread(request: ApiRequest):
     """Delete a thread by ID."""
     thread_id = request.path_params["thread_id"]
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
-    async with grpc_connect() as conn:
-        tid = await CrudThreads.delete(conn, thread_id)
+    async with connect() as conn:
+        tid = await Threads.delete(conn, thread_id)
     await fetchone(tid)
     return Response(status_code=204)
 
@@ -417,7 +423,7 @@ async def prune_threads(request: ApiRequest):
     if not thread_ids:
         return ApiResponse({"pruned_count": 0})
 
-    pruned_count = await CrudThreads.prune(
+    pruned_count = await Threads.prune(
         thread_ids=thread_ids,
         strategy=strategy,
     )
@@ -428,8 +434,8 @@ async def prune_threads(request: ApiRequest):
 @retry_db
 async def copy_thread(request: ApiRequest):
     thread_id = request.path_params["thread_id"]
-    async with grpc_connect() as conn:
-        iter = await CrudThreads.copy(conn, thread_id)
+    async with connect() as conn:
+        iter = await Threads.copy(conn, thread_id)
 
     thread_data = await fetchone(iter, not_found_code=409)
     if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
@@ -471,7 +477,7 @@ async def join_thread_stream(request: ApiRequest):
         stream_modes = ["run_modes"]
 
     return EventSourceResponse(
-        CrudThreads.Stream.join(
+        Threads.Stream.join(
             thread_id,
             last_event_id=last_event_id,
             stream_modes=stream_modes,

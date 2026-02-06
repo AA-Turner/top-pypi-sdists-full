@@ -19,6 +19,7 @@ from meutils.apis.gitee import videos as gitee_videos
 from meutils.apis.hailuoai import openai_videos as hailuoai_videos
 from meutils.apis.aiping import videos as aiping_videos
 from meutils.apis.replicate import videos as replicate_videos
+from meutils.apis.grok import videos as grok_videos
 
 from meutils.apis.runware import videos as runware_videos  # todo 兼容
 
@@ -42,7 +43,10 @@ class OpenAIVideos(object):
     async def create(self, request: SoraVideoRequest):
         response = {}
 
-        if "aiping" in self.base_url:
+        if "xai" in self.base_url:
+            response = await grok_videos.Tasks(api_key=self.api_key).create(request)
+
+        elif "aiping" in self.base_url:
             response = await aiping_videos.Tasks(api_key=self.api_key).create(request)
 
         elif any(i in self.base_url for i in {"hailuo"}):
@@ -65,6 +69,7 @@ class OpenAIVideos(object):
                 or response.get("id")
                 or response.get("task_id")
                 or response.get("generation_id")
+                or response.get("request_id")
         )):
             task_id = task_id.replace("/", "@")
             # task_id = f"{self.biz}::{task_id}"  # 组装biz # todo base url  # 区分不同平台
@@ -114,7 +119,11 @@ class OpenAIVideos(object):
 
         task_id = task_id.replace("@", "/")  # 还原
 
-        if api_key.startswith("QC-"):
+        if api_key.startswith("xai-"):
+            video = await grok_videos.Tasks(api_key=api_key).get(task_id)
+            return video
+
+        elif api_key.startswith("QC-"):
             video = await aiping_videos.Tasks(api_key=api_key, base_url=self.base_url).get(task_id)
             return video
 

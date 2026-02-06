@@ -26,7 +26,6 @@ class ChatsChatsChats(BaseModel):
 
 
 class ChatsChatsChatsChats(BaseModel):
-    id: str
     chat_uuid: str = Field(alias="chatUuid")
     name: Optional[str]
     subtitle: Optional[str]

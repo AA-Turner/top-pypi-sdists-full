@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation-google-genai
-Version: 0.1.9
+Version: 0.1.10
 Summary: OpenInference Google GenAI Instrumentation
 Project-URL: homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-google-genai
 Author-email: OpenInference Authors <oss@arize.com>
@@ -11,13 +11,12 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: <3.15,>=3.9
+Requires-Python: <3.15,>=3.10
 Requires-Dist: openinference-instrumentation>=0.1.17
 Requires-Dist: openinference-semantic-conventions
 Requires-Dist: opentelemetry-api
@@ -25,9 +24,9 @@ Requires-Dist: opentelemetry-instrumentation
 Requires-Dist: opentelemetry-semantic-conventions
 Requires-Dist: wrapt
 Provides-Extra: instruments
-Requires-Dist: google-genai>=1.8.0; extra == 'instruments'
+Requires-Dist: google-genai>=1.57.0; extra == 'instruments'
 Provides-Extra: test
-Requires-Dist: google-genai>=1.8.0; extra == 'test'
+Requires-Dist: google-genai>=1.57.0; extra == 'test'
 Requires-Dist: opentelemetry-sdk; extra == 'test'
 Description-Content-Type: text/markdown
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-""" This is our runner for the inline copy of scons.
+"""This is our runner for the inline copy of scons.
 
 It dispatches based on the Python version it is running in, with 2.6 using a
 very old version. Once scons stops supporting Python2.7 as well, we might have
@@ -20,10 +20,15 @@ if __name__ == "__main__":
         # Non-Windows, Python 2.6, mostly older RHEL
         scons_version = "scons-2.3.2"
     elif os.name == "nt" and sys.version_info >= (3, 7):
+        # Windows can use latest, supported MSVC 2026 this way
         scons_version = "scons-4.10.1"
     elif os.name == "nt" and sys.version_info >= (3, 5):
         # Windows can use latest, supported MSVC 2022 this way
         scons_version = "scons-4.3.0"
+
+        # The caching of MSVC is not supported for the older Scons,
+        # so remove that.
+        del os.environ["SCONS_CACHE_MSVC_CONFIG"]
     else:
         # Everything else 2.7 or higher works with this.
         scons_version = "scons-3.1.2"

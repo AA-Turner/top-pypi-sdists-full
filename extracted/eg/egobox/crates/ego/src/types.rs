@@ -67,6 +67,19 @@ pub enum QEiStrategy {
     ConstantLiarMinimum,
 }
 
+/// Strategy to handle objective computation failure at a given x point
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[non_exhaustive]
+pub enum FailsafeStrategy {
+    /// Failure point x is ignored
+    #[default]
+    Rejection,
+    /// Use objective surrogate prediction: y <- prediction(x) + variance(x)
+    Imputation,
+    /// Use a surrogate to model viability (ie probability of evaluation success)
+    Viability,
+}
+
 /// An interface for objective function to be optimized
 ///
 /// The function is expected to return a matrix allowing nrows evaluations at once.
@@ -210,7 +223,7 @@ pub type Cstr = fn(&[f64], Option<&mut [f64]>, &mut InfillObjData<f64>) -> f64;
 /// compute the various infill criteria implemented by [`crate::Egor`].
 ///
 /// See [`crate::criteria`]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct InfillObjData<F: Float> {
     /// Current objective minimum found
     #[serde(default = "F::max_value")]
@@ -243,5 +256,26 @@ impl<F: Float> Default for InfillObjData<F> {
             feasibility: false,
             sigma_weight: F::one(),
         }
+    }
+}
+
+impl<F: Float> std::fmt::Debug for InfillObjData<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InfillObjData")
+            .field("fmin", &self.fmin)
+            .field("xbest", &self.xbest)
+            .field("scale_infill_obj", &self.scale_infill_obj)
+            .field(
+                "scale_cstr",
+                &self
+                    .scale_cstr
+                    .as_ref()
+                    .map(|sc| sc.to_vec())
+                    .unwrap_or_default(),
+            )
+            .field("scale_wb2", &self.scale_wb2)
+            .field("feasibility", &self.feasibility)
+            .field("sigma_weight", &self.sigma_weight)
+            .finish()
     }
 }

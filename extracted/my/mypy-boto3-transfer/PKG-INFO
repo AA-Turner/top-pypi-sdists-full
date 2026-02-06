@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-transfer
-Version: 1.42.3
-Summary: Type annotations for boto3 Transfer 1.42.3 service generated with mypy-boto3-builder 8.12.0
+Version: 1.42.43
+Summary: Type annotations for boto3 Transfer 1.42.43 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 Transfer 1.42.3](https://pypi.org/project/boto3/)
+Type annotations for [boto3 Transfer 1.42.43](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.3' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.43' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `Transfer` service.
 4. Use provided commands to install generated packages.
@@ -428,12 +428,12 @@ Full list of `Transfer` TypeDefs can be found in
 
 ```python
 # TypedDict usage example
-from mypy_boto3_transfer.type_defs import As2ConnectorConfigTypeDef
+from mypy_boto3_transfer.type_defs import As2AsyncMdnConnectorConfigOutputTypeDef
 
 
-def get_value() -> As2ConnectorConfigTypeDef:
+def get_value() -> As2AsyncMdnConnectorConfigOutputTypeDef:
     return {
-        "LocalProfileId": ...,
+        "Url": ...,
     }
 ```
 

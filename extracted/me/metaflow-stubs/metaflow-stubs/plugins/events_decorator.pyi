@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.17                                                                                #
-# Generated on 2026-01-22T21:47:05.889479                                                            #
+# MF version: 2.19.18                                                                                #
+# Generated on 2026-02-05T18:18:14.329738                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from ..metaflow_current import current as current
 from ..exception import MetaflowException as MetaflowException
 from ..parameters import DeployTimeField as DeployTimeField
 from ..parameters import deploy_time_eval as deploy_time_eval
+from ..parameters import ParameterContext as ParameterContext
 
 class TriggerDecorator(metaflow.decorators.FlowDecorator, metaclass=type):
     """
@@ -48,12 +49,23 @@ class TriggerDecorator(metaflow.decorators.FlowDecorator, metaclass=type):
     @trigger(event={'name':'foo', 'parameters':{'common_name': 'common_name', 'flow_param': 'event_field'}})
     ```
     
+    For namespaced events, you can use `namespaced_event_name` which resolves the
+    full event name at deploy time based on @project settings:
+    ```
+    from metaflow import namespaced_event_name
+    
+    @trigger(event=namespaced_event_name('foo'))
+    
+    @trigger(event={'name': namespaced_event_name('foo'), 'parameters': {'x': 'y'}})
+    ```
+    
     Parameters
     ----------
-    event : Union[str, Dict[str, Any]], optional, default None
-        Event dependency for this flow.
-    events : List[Union[str, Dict[str, Any]]], default []
-        Events dependency for this flow.
+    event : Union[str, Dict[str, Any], Callable[[ParameterContext], Union[str, Dict[str, Any]]]], optional, default None
+        Event dependency for this flow. Can be a string, dict, or a callable that
+        returns a string or dict at deploy time.
+    events : List[Union[str, Dict[str, Any],Callable[[ParameterContext], Union[str, Dict[str, Any]]]]], default []
+        Events dependency for this flow. Each element can be a string, dict, or callable.
     options : Dict[str, Any], default {}
         Backend-specific configuration for tuning eventing behavior.
     

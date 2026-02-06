@@ -8,7 +8,7 @@ T = TypeVar("T", bound="GetNatsTriggerResponse200ExtraPerms")
 
 @_attrs_define
 class GetNatsTriggerResponse200ExtraPerms:
-    """ """
+    """Additional permissions for this trigger"""
 
     additional_properties: Dict[str, bool] = _attrs_field(init=False, factory=dict)
 

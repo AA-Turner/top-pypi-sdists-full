@@ -48,7 +48,7 @@ interactions:
             to access it.
           status: 404
           title: Not Found
-          traceId: 10396a527487d2c0f4cc699e32513694
+          traceId: 2076e592bc32b87f8abab79e5db7a102
   - request:
       method: POST
       uri: http://localhost:3000/api/v1/entities/dataSources
@@ -104,15 +104,15 @@ interactions:
       body:
         string:
           data:
-            id: test
-            type: dataSource
             attributes:
               url: jdbc:snowflake://gooddata.snowflakecomputing.com:443/?application=GoodData_GoodDataCN&db=TIGER&useProxy=true&warehouse=TIGER
               username: demouser
               authenticationType: USERNAME_PASSWORD
-              name: Test
               type: SNOWFLAKE
+              name: Test
               schema: demo
+            id: test
+            type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources/test
   - request:
@@ -158,15 +158,15 @@ interactions:
       body:
         string:
           data:
-            id: test
-            type: dataSource
             attributes:
               url: jdbc:snowflake://gooddata.snowflakecomputing.com:443/?application=GoodData_GoodDataCN&db=TIGER&useProxy=true&warehouse=TIGER
               username: demouser
               authenticationType: USERNAME_PASSWORD
-              name: Test
               type: SNOWFLAKE
+              name: Test
               schema: demo
+            id: test
+            type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources/test
   - request:
@@ -253,7 +253,7 @@ interactions:
             to access it.
           status: 404
           title: Not Found
-          traceId: a4f8c3a845a6f04781da846f358a1f54
+          traceId: dfb95c335d2656d607ba11dcfcd30378
   - request:
       method: POST
       uri: http://localhost:3000/api/v1/entities/dataSources
@@ -310,15 +310,15 @@ interactions:
       body:
         string:
           data:
-            id: test
-            type: dataSource
             attributes:
               url: jdbc:snowflake://gooddata.snowflakecomputing.com:443/?application=GoodData_GoodDataCN&db=TIGER&useProxy=true&warehouse=TIGER
               username: demouser
               authenticationType: KEY_PAIR
-              name: Test
               type: SNOWFLAKE
+              name: Test
               schema: demo
+            id: test
+            type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources/test
   - request:
@@ -364,15 +364,15 @@ interactions:
       body:
         string:
           data:
-            id: test
-            type: dataSource
             attributes:
               url: jdbc:snowflake://gooddata.snowflakecomputing.com:443/?application=GoodData_GoodDataCN&db=TIGER&useProxy=true&warehouse=TIGER
               username: demouser
               authenticationType: KEY_PAIR
-              name: Test
               type: SNOWFLAKE
+              name: Test
               schema: demo
+            id: test
+            type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources/test
   - request:

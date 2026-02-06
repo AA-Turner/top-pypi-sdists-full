@@ -16,7 +16,4 @@ class Cpu(Column):
         cpu = r.details[CpuCheck().name()]
         busy = 100.0 - float(cpu['idle'])
 
-        try:
-            return f'{round(busy)}%/{parse_quantity(cpu["limit"]) * 100}%'
-        except:
-            return '-'
+        return f'{round(busy)}%/{parse_quantity(cpu["limit"]) * 100}%'

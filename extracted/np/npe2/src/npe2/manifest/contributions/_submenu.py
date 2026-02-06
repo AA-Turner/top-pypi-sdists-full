@@ -1,6 +1,4 @@
-from typing import Optional, Union
-
-from npe2._pydantic_compat import BaseModel, Field
+from pydantic import BaseModel, Field
 
 from ._icon import Icon
 
@@ -17,7 +15,7 @@ class SubmenuContribution(BaseModel):
     label: str = Field(
         description="The label of the menu item which leads to this submenu."
     )
-    icon: Optional[Union[str, Icon]] = Field(
+    icon: str | Icon | None = Field(
         None,
         description=(
             "(Optional) Icon which is used to represent the command in the UI."

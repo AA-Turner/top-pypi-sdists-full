@@ -530,7 +530,6 @@ Z = Optional["Y"]
 );
 
 testcase!(
-    bug = "The recursive instance of X is resolved to Unknown",
     test_type_alias_recursive,
     r#"
 type X = int | list["X"]
@@ -538,7 +537,7 @@ x1: X = 1
 x2: X = [1]
 x3: X = [[1, 2]]
 x4: X = [1, [2, 3]]
-x5: X = ["foo"]  # Not OK
+x5: X = ["foo"]  # E: not assignable
 "#,
 );
 
@@ -1116,10 +1115,13 @@ type RecursiveTypeAlias7 = RecursiveTypeAlias6
 );
 
 testcase!(
-    bug = "conformance: Should error on redeclared type aliases",
     test_type_statement_redeclaration_conformance,
     r#"
-type BadTypeAlias14 = int  # should error: redeclared
 type BadTypeAlias14 = int
+type BadTypeAlias14 = int # E: Cannot redefine existing name `BadTypeAlias14` as a type alias
+
+class C:
+    type T = int
+    type T = int # E: Cannot redefine existing name `T` as a type alias
 "#,
 );

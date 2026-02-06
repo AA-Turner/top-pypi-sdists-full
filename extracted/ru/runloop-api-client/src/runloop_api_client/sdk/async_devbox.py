@@ -119,6 +119,50 @@ class AsyncDevbox:
             **options,
         )
 
+    async def get_tunnel(
+        self,
+        **options: Unpack[BaseRequestOptions],
+    ) -> TunnelView | None:
+        """Retrieve the V2 tunnel information for this devbox.
+
+        :param options: Optional request configuration
+        :return: Tunnel details if a tunnel is enabled, None otherwise
+        :rtype: TunnelView | None
+
+        Example:
+            >>> tunnel = await devbox.get_tunnel()
+            >>> if tunnel:
+            ...     print(f"Tunnel key: {tunnel.tunnel_key}")
+        """
+        info = await self.get_info(**options)
+        return info.tunnel
+
+    async def get_tunnel_url(
+        self,
+        port: int,
+        **options: Unpack[BaseRequestOptions],
+    ) -> str | None:
+        """Get the public tunnel URL for a specific port.
+
+        Constructs the tunnel URL using the format:
+        ``https://{port}-{tunnel_key}.tunnel.runloop.ai``
+
+        :param port: The port number to construct the URL for
+        :type port: int
+        :param options: Optional request configuration
+        :return: The public tunnel URL if a tunnel is enabled, None otherwise
+        :rtype: str | None
+
+        Example:
+            >>> url = await devbox.get_tunnel_url(8080)
+            >>> if url:
+            ...     print(f"Access your service at: {url}")
+        """
+        tunnel_view = await self.get_tunnel(**options)
+        if tunnel_view is None:
+            return None
+        return f"https://{port}-{tunnel_view.tunnel_key}.tunnel.runloop.ai"
+
     async def await_running(self, *, polling_config: PollingConfig | None = None) -> DevboxView:
         """Wait for the devbox to reach running state.
 
@@ -735,7 +779,7 @@ class AsyncNetworkInterface:
     ) -> DevboxTunnelView:
         """[Deprecated] Create a legacy tunnel to expose a devbox port publicly.
 
-        Use :meth:`enable_tunnel` instead for the V2 tunnel API.
+        Use :meth:`enable_tunnel` or configure a tunnel during devbox creation instead.
 
         :param params: See :typeddict:`~runloop_api_client.sdk._types.SDKDevboxCreateTunnelParams` for available parameters
         :return: Details about the public endpoint
@@ -745,6 +789,11 @@ class AsyncNetworkInterface:
             >>> tunnel = await devbox.net.create_tunnel(port=8080)
             >>> print(f"Public URL: {tunnel.url}")
         """
+        warnings.warn(
+            "create_tunnel is deprecated; use enable_tunnel or configure a tunnel at devbox creation.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
             return await self._devbox._client.devboxes.create_tunnel(  # type: ignore[deprecated]
@@ -780,7 +829,7 @@ class AsyncNetworkInterface:
         self,
         **params: Unpack[SDKDevboxRemoveTunnelParams],
     ) -> object:
-        """Remove a network tunnel, disabling public access to the port.
+        """[Deprecated] V2 tunnels cannot be removed and close on devbox shutdown.
 
         :param params: See :typeddict:`~runloop_api_client.sdk._types.SDKDevboxRemoveTunnelParams` for available parameters
         :return: Response confirming the tunnel removal
@@ -789,6 +838,11 @@ class AsyncNetworkInterface:
         Example:
             >>> await devbox.net.remove_tunnel(port=8080)
         """
+        warnings.warn(
+            "remove_tunnel is deprecated; V2 tunnels cannot be removed and close on devbox shutdown.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
             return await self._devbox._client.devboxes.remove_tunnel(  # type: ignore[deprecated]

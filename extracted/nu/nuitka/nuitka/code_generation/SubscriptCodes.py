@@ -1,13 +1,13 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Subscript related code generation.
+"""Subscript related code generation.
 
 There is special handling for integer indexes, which can be dealt with
 much faster than general subscript lookups.
 """
 
-from nuitka import Options
+from nuitka.States import states
 
 from .CodeHelpers import (
     generateChildExpressionCode,
@@ -54,7 +54,7 @@ def generateAssignmentSubscriptCode(statement, emit, context):
 
     with context.withCurrentSourceCodeReference(
         value.getSourceReference()
-        if Options.is_full_compat
+        if states.is_full_compat
         else statement.getSourceReference()
     ):
         if integer_subscript:
@@ -89,7 +89,7 @@ def generateDelSubscriptCode(statement, emit, context):
 
     with context.withCurrentSourceCodeReference(
         subscript.getSourceReference()
-        if Options.is_full_compat
+        if states.is_full_compat
         else statement.getSourceReference()
     ):
         _getSubscriptDelCode(
@@ -250,11 +250,11 @@ def _getSubscriptDelCode(target_name, subscript_name, emit, context):
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

@@ -34,14 +34,17 @@ from tenacity import asyncio as tasyncio
 from tenacity import retry, retry_if_exception, retry_if_result, stop_after_attempt
 from tenacity.wait import wait_fixed
 
-from .test_tenacity import NoIOErrorAfterCount, current_time_ms
+from .test_tenacity import (
+    NoIOErrorAfterCount,
+    NoneReturnUntilAfterCount,
+    current_time_ms,
+)
 
 
 def asynctest(callable_):
     @wraps(callable_)
     def wrapper(*a, **kw):
-        loop = asyncio.get_event_loop()
-        return loop.run_until_complete(callable_(*a, **kw))
+        return asyncio.run(callable_(*a, **kw))
 
     return wrapper
 
@@ -462,6 +465,27 @@ async def my_async_sleep(x: float) -> None:
 @retry(sleep=my_async_sleep)
 async def foo():
     pass
+
+
+class TestSyncFunctionWithAsyncSleep(unittest.TestCase):
+    @asynctest
+    async def test_sync_function_with_async_sleep(self):
+        """A sync function with an async sleep callable uses AsyncRetrying."""
+        mock_sleep = mock.AsyncMock()
+
+        thing = NoneReturnUntilAfterCount(2)
+
+        @retry(
+            sleep=mock_sleep,
+            wait=wait_fixed(1),
+            retry=retry_if_result(lambda x: x is None),
+        )
+        def sync_function():
+            return thing.go()
+
+        result = await sync_function()
+        assert result is True
+        assert mock_sleep.await_count == 2
 
 
 if __name__ == "__main__":

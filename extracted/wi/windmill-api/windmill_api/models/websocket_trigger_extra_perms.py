@@ -8,7 +8,7 @@ T = TypeVar("T", bound="WebsocketTriggerExtraPerms")
 
 @_attrs_define
 class WebsocketTriggerExtraPerms:
-    """ """
+    """Additional permissions for this trigger"""
 
     additional_properties: Dict[str, bool] = _attrs_field(init=False, factory=dict)
 

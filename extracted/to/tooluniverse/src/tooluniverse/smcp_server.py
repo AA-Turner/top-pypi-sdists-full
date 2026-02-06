@@ -1026,5 +1026,20 @@ Examples:
         sys.exit(1)
 
 
+def run_default_stdio_server():
+    """
+    Default ToolUniverse command that runs stdio server with compact mode enabled.
+
+    This is a convenience wrapper around run_stdio_server that automatically
+    enables --compact-mode for quick setup.
+    """
+    # Inject --compact-mode into sys.argv if not already present
+    import sys
+
+    if "--compact-mode" not in sys.argv:
+        sys.argv.append("--compact-mode")
+    run_stdio_server()
+
+
 if __name__ == "__main__":
     run_smcp_server()

@@ -52,6 +52,12 @@ from hfortix_fortios._helpers import (
 # Import metadata mixin for schema introspection
 from hfortix_fortios._helpers.metadata_mixin import MetadataMixin
 
+# Import child table helpers
+from ._bfd_child_tables import (
+    NeighborHelper,
+    MultihopTemplateHelper,
+)
+
 # Import Protocol-based type hints (eliminates need for local @overload decorators)
 from hfortix_fortios._protocols import CRUDEndpoint
 
@@ -95,6 +101,10 @@ class Bfd(CRUDEndpoint, MetadataMixin):
     def __init__(self, client: "IHTTPClient"):
         """Initialize Bfd endpoint."""
         self._client = client
+
+        # Initialize child table helpers
+        self.neighbor = NeighborHelper(self)
+        self.multihop_template = MultihopTemplateHelper(self)
 
     # ========================================================================
     # GET Method

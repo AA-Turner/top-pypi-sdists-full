@@ -69,11 +69,11 @@ pub mod linguist;
 pub mod processor;
 pub mod registry;
 
-pub use config::{CodeBlockToolsConfig, LanguageToolConfig, NormalizeLanguage, OnError, ToolDefinition};
+pub use config::{CodeBlockToolsConfig, LanguageToolConfig, NormalizeLanguage, OnError, OnMissing, ToolDefinition};
 pub use executor::{ExecutorError, ToolExecutor, ToolOutput};
 pub use linguist::LinguistResolver;
 pub use processor::{
     CodeBlockDiagnostic, CodeBlockResult, CodeBlockToolProcessor, DiagnosticSeverity, FencedCodeBlockInfo,
-    ProcessorError,
+    FormatOutput, ProcessorError, RUMDL_BUILTIN_TOOL,
 };
 pub use registry::ToolRegistry;

@@ -20,6 +20,11 @@ from hfortix_fortios.models import (
     FortiObjectList,
 )
 
+# Import child table helper types
+from ._multicast6_child_tables import (
+    InterfaceHelper,
+)
+
 
 # ================================================================
 # TypedDict Payloads
@@ -114,6 +119,9 @@ class Multicast6:
     path: ClassVar[str] = ...
     category: ClassVar[str] = ...
     capabilities: ClassVar[dict[str, Any]] = ...
+    
+    # Child table helpers
+    interface: InterfaceHelper
     
     def __init__(self, client: Any) -> None:
         """Initialize endpoint with HTTP client."""

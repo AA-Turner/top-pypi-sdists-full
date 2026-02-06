@@ -17,7 +17,10 @@ import snowflake.snowpark_connect.utils.udf_utils as udf_utils
 from snowflake.snowpark import Session
 from snowflake.snowpark.types import DataType, _parse_datatype_json_value
 from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
-from snowflake.snowpark_connect.config import global_config
+from snowflake.snowpark_connect.config import (
+    global_config,
+    is_force_create_sproc_enabled,
+)
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.expression.map_expression import (
@@ -36,7 +39,6 @@ from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_sess
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 
 CREATE_UDF_SPROC_NAME_PREFIX = "__SC_BUILD_IN_CREATE_UDF"
-TEST_FLAG_FORCE_CREATE_SPROC = False
 
 
 class SnowparkUDF(NamedTuple):
@@ -60,10 +62,10 @@ def require_creating_udf_in_sproc(
     * Version Compatibility: If the Python version specified in the UDF metadata
       does not match the current runtime version, a SPROC environment is required
       to provide the correct execution runtime.
-    * Testing: When the `TEST_FLAG_FORCE_CREATE_SPROC` override is active.
+    * Testing: When the `snowpark.connect.test.force_create_sproc` config is enabled.
     """
     return udf_proto.WhichOneof("function") == "python_udf" and (
-        TEST_FLAG_FORCE_CREATE_SPROC
+        is_force_create_sproc_enabled()
         or tcm.TCM_MODE
         or (
             udf_proto.python_udf.python_ver is not None
@@ -84,6 +86,7 @@ def process_udf_in_sproc(
     udf_packages: str = "",
     udf_imports: str = "",
     original_return_type: DataType | None = None,
+    resource_constraint: dict[str, str] | None = None,
 ) -> SnowparkUDF:
     """Helper method to call the sproc to create inline UDF and return the essential info of the UDF."""
     session = get_or_create_snowpark_session()
@@ -112,6 +115,11 @@ def process_udf_in_sproc(
         else json.dumps(original_return_type.json_value())
     )
 
+    # resource_constraint is passed from caller (captured on SAS server side)
+    resource_constraint_json_str = (
+        None if resource_constraint is None else json.dumps(resource_constraint)
+    )
+
     sproc_res = session.call(
         sproc_name,
         called_from,
@@ -124,6 +132,7 @@ def process_udf_in_sproc(
         udf_imports,
         udf_proto_encoded,
         original_return_type_json_str,
+        resource_constraint_json_str,
     )
 
     udf_attr = json.loads(sproc_res)
@@ -165,7 +174,8 @@ CREATE OR REPLACE TEMPORARY PROCEDURE {sproc_name}(
     udf_packages VARCHAR,
     udf_imports VARCHAR,
     base64_str VARCHAR,
-    original_return_type VARCHAR
+    original_return_type VARCHAR,
+    resource_constraint_json VARCHAR
 )
 RETURNS STRING
 LANGUAGE PYTHON
@@ -197,8 +207,12 @@ def parse_return_type(return_type_json_str) -> Optional[DataType]:
         result = result._as_nested()
     return result
 
+def parse_resource_constraint(resource_constraint_json) -> Optional[dict[str, str]]:
+    if resource_constraint_json is None:
+        return None
+    return json.loads(resource_constraint_json)
 
-def create(session, called_from, return_type_json_str, input_types_json_str, input_column_names_json_str, udf_name, replace, udf_packages, udf_imports, b64_str, original_return_type):
+def create(session, called_from, return_type_json_str, input_types_json_str, input_column_names_json_str, udf_name, replace, udf_packages, udf_imports, b64_str, original_return_type, resource_constraint_json):
     session._use_scoped_temp_objects = False
     import snowflake.snowpark.context as context
     context._use_structured_type_semantics = True
@@ -218,6 +232,7 @@ def create(session, called_from, return_type_json_str, input_types_json_str, inp
         udf_packages=udf_packages,
         udf_imports=udf_imports,
         original_return_type=parse_return_type(original_return_type) if original_return_type else None,
+        resource_constraint=parse_resource_constraint(resource_constraint_json),
     )
     udf = udf_processor.create_udf()
     return json.dumps({{"name": udf.name, "return_type": udf._return_type.json_value(), "input_types": [t.json_value() for t in udf._input_types]}})

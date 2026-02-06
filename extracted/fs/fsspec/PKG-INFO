@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fsspec
-Version: 2026.1.0
+Version: 2026.2.0
 Summary: File-system specification
 Project-URL: Changelog, https://filesystem-spec.readthedocs.io/en/latest/changelog.html
 Project-URL: Documentation, https://filesystem-spec.readthedocs.io/en/latest/
@@ -63,7 +63,7 @@ Requires-Dist: tqdm; extra == 'full'
 Provides-Extra: fuse
 Requires-Dist: fusepy; extra == 'fuse'
 Provides-Extra: gcs
-Requires-Dist: gcsfs; extra == 'gcs'
+Requires-Dist: gcsfs>2024.2.0; extra == 'gcs'
 Provides-Extra: git
 Requires-Dist: pygit2; extra == 'git'
 Provides-Extra: github
@@ -81,7 +81,7 @@ Requires-Dist: libarchive-c; extra == 'libarchive'
 Provides-Extra: oci
 Requires-Dist: ocifs; extra == 'oci'
 Provides-Extra: s3
-Requires-Dist: s3fs; extra == 's3'
+Requires-Dist: s3fs>2024.2.0; extra == 's3'
 Provides-Extra: sftp
 Requires-Dist: paramiko; extra == 'sftp'
 Provides-Extra: smb
@@ -124,7 +124,7 @@ Requires-Dist: lz4; extra == 'test-full'
 Requires-Dist: notebook; extra == 'test-full'
 Requires-Dist: numpy; extra == 'test-full'
 Requires-Dist: ocifs; extra == 'test-full'
-Requires-Dist: pandas; extra == 'test-full'
+Requires-Dist: pandas<3.0.0; extra == 'test-full'
 Requires-Dist: panel; extra == 'test-full'
 Requires-Dist: paramiko; extra == 'test-full'
 Requires-Dist: pyarrow; extra == 'test-full'
@@ -144,6 +144,7 @@ Requires-Dist: smbprotocol; extra == 'test-full'
 Requires-Dist: tqdm; extra == 'test-full'
 Requires-Dist: urllib3; extra == 'test-full'
 Requires-Dist: zarr; extra == 'test-full'
+Requires-Dist: zstandard; (python_version < '3.14') and extra == 'test-full'
 Provides-Extra: tqdm
 Requires-Dist: tqdm; extra == 'tqdm'
 Description-Content-Type: text/markdown

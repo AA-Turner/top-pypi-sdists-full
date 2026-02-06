@@ -13,6 +13,7 @@ from enum import IntEnum, StrEnum, unique
 import logging
 from typing import Final, Unpack, override
 
+from aiohomematic.client import CommandPriority
 from aiohomematic.const import DataPointCategory, DataPointUsage, DeviceProfile, Field, Parameter
 from aiohomematic.converter import convert_hm_level_to_cpv
 from aiohomematic.model.custom.data_point import CustomDataPoint
@@ -201,7 +202,7 @@ class CustomDpCover(PositionMixin, CustomDataPoint):
         )
         await self._set_level(level=level, collector=collector)
 
-    @bind_collector(enabled=False)
+    @bind_collector(enabled=False, priority=CommandPriority.CRITICAL)
     async def stop(self, *, collector: CallParameterCollector | None = None) -> None:
         """Stop the device if in motion."""
         await self._dp_stop.send_value(value=True, collector=collector)
@@ -290,16 +291,40 @@ class CustomDpBlind(CustomDpCover):
 
     @property
     def _target_level(self) -> float | None:
-        """Return the level of last service call."""
+        """
+        Return target level if command is pending.
+
+        Uses optimistic value if available (preferred), falls back to
+        CommandTracker for backward compatibility when optimistic updates
+        are disabled.
+        """
+        # Prefer optimistic value (new mechanism)
+        if self._dp_level.is_optimistic and self._dp_level.value is not None:
+            return float(self._dp_level.value)
+
+        # Fallback to CommandTracker (when optimistic updates disabled)
         if (last_value_send := self._dp_level.unconfirmed_last_value_send) is not None:
             return float(last_value_send)
+
         return None
 
     @property
     def _target_tilt_level(self) -> float | None:
-        """Return the tilt level of last service call."""
+        """
+        Return target tilt level if command is pending.
+
+        Uses optimistic value if available (preferred), falls back to
+        CommandTracker for backward compatibility when optimistic updates
+        are disabled.
+        """
+        # Prefer optimistic value (new mechanism)
+        if self._dp_level_2.is_optimistic and self._dp_level_2.value is not None:
+            return float(self._dp_level_2.value)
+
+        # Fallback to CommandTracker (when optimistic updates disabled)
         if (last_value_send := self._dp_level_2.unconfirmed_last_value_send) is not None:
             return float(last_value_send)
+
         return None
 
     @state_property
@@ -384,7 +409,7 @@ class CustomDpBlind(CustomDpCover):
         )
         await self._set_level(level=level, tilt_level=tilt_level, collector=collector)
 
-    @bind_collector(enabled=False)
+    @bind_collector(enabled=False, priority=CommandPriority.CRITICAL)
     async def stop(self, *, collector: CallParameterCollector | None = None) -> None:
         """Stop the device if in motion."""
         try:
@@ -402,7 +427,7 @@ class CustomDpBlind(CustomDpCover):
             if acquired:
                 self._command_processing_lock.release()
 
-    @bind_collector(enabled=False)
+    @bind_collector(enabled=False, priority=CommandPriority.CRITICAL)
     async def stop_tilt(self, *, collector: CallParameterCollector | None = None) -> None:
         """Stop the device if in motion. Use only when command_processing_lock is held."""
         await self.stop(collector=collector)
@@ -616,7 +641,7 @@ class CustomDpGarage(PositionMixin, CustomDataPoint):
         if _CoverPosition.CLOSED <= position <= _CoverPosition.VENT:
             await self.close(collector=collector)
 
-    @bind_collector(enabled=False)
+    @bind_collector(enabled=False, priority=CommandPriority.CRITICAL)
     async def stop(self, *, collector: CallParameterCollector | None = None) -> None:
         """Stop the device if in motion."""
         await self._dp_door_command.send_value(value=_GarageDoorCommand.STOP, collector=collector)

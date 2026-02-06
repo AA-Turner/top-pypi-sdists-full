@@ -123,8 +123,8 @@ exclude_lines = [
     # code blocks starting with the following pragamas will be ignores:
     'if TYPE_CHECKING:',
 ]
-# threshold underwhich to fail tests. This is equal to running the command in the CLI with `--cov-fail-under=75`
-fail_under = 75
+# threshold underwhich to fail tests. This is equal to running the command in the CLI with `--cov-fail-under=83`
+fail_under = 83
 
 [tool.mypy]
 python_version = "3.12"

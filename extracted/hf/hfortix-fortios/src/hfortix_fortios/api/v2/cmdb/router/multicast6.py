@@ -52,6 +52,11 @@ from hfortix_fortios._helpers import (
 # Import metadata mixin for schema introspection
 from hfortix_fortios._helpers.metadata_mixin import MetadataMixin
 
+# Import child table helpers
+from ._multicast6_child_tables import (
+    InterfaceHelper,
+)
+
 # Import Protocol-based type hints (eliminates need for local @overload decorators)
 from hfortix_fortios._protocols import CRUDEndpoint
 
@@ -90,6 +95,9 @@ class Multicast6(CRUDEndpoint, MetadataMixin):
     def __init__(self, client: "IHTTPClient"):
         """Initialize Multicast6 endpoint."""
         self._client = client
+
+        # Initialize child table helpers
+        self.interface = InterfaceHelper(self)
 
     # ========================================================================
     # GET Method

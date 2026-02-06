@@ -1,13 +1,20 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from bec_lib.messages import ErrorInfo
+    from bec_server.scan_server.scan_queue import ExitInfoType
 
 
 class ScanAbortion(Exception):
     pass
+
+
+class UserScanInterruption(ScanAbortion):
+    def __init__(self, exit_info: ExitInfoType):
+        super().__init__()
+        self.exit_info: ExitInfoType = exit_info
 
 
 class LimitError(Exception):

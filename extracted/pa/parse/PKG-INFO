@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: parse
-Version: 1.20.2
+Version: 1.21.0
 Summary: parse() is the opposite of format()
 Author-email: Richard Jones <richard@python.org>
-Maintainer-email: Wim Glenn <hey@wimglenn.com>
+Maintainer-email: Wim Jeantine-Glenn <hey@wimglenn.com>
 License: Copyright (c) 2012-2019 Richard Jones <richard@python.org>
         
         Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,6 +33,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: License :: OSI Approved :: MIT License
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Dynamic: license-file
 
 Installation
 ------------
@@ -170,7 +171,8 @@ sense of the result:
     to seek the holy grail!
 
 If the text you're matching has braces in it you can match those by including
-a double-brace ``{{`` or ``}}`` in your format string, just like format() does.
+a double-brace ``{{`` or ``}}`` in your format string, the same escaping method
+used in the ``format()`` syntax.
 
 
 Format Specification
@@ -181,7 +183,7 @@ format specification might have been used.
 
 Most of `format()`'s `Format Specification Mini-Language`_ is supported:
 
-   [[fill]align][sign][0][width][.precision][type]
+   [[fill]align][sign][0][width][grouping][.precision][type]
 
 The differences between `parse()` and `format()` are:
 
@@ -211,7 +213,7 @@ w     Letters, numbers and underscore             str
 W     Not letters, numbers and underscore         str
 s     Whitespace                                  str
 S     Non-whitespace                              str
-d     Digits (effectively integer numbers)        int
+d     Integer numbers (optional sign, digits)     int
 D     Non-digit                                   str
 n     Numbers with thousands separators (, or .)  int
 %     Percentage (converted to value/100.0)       float
@@ -477,6 +479,7 @@ To run the tests locally:
 Changelog
 ---------
 
+- 1.21.0 Allow grouping char (,_) in decimal format string (thanks @moi90)
 - 1.20.2 Template field names can now contain - character i.e. HYPHEN-MINUS, chr(0x2d)
 - 1.20.1 The `%f` directive accepts 1-6 digits, like strptime (thanks @bbertincourt)
 - 1.20.0 Added support for strptime codes (thanks @bendichter)

@@ -24,13 +24,13 @@ def BLAST_nucleotide_search(
     Parameters
     ----------
     sequence : str
-        DNA sequence to search
+        DNA sequence to search (minimum 10 nucleotides)
     database : str
-        Database (nt, est, etc.)
+        Database to search. Options: 'nt' (comprehensive but slow), 'refseq_select_rn...
     expect : float
-        E-value threshold
+        E-value threshold for reporting hits
     hitlist_size : int
-        Max hits to return
+        Maximum number of hits to return
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False

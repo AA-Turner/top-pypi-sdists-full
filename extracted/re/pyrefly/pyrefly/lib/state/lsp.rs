@@ -28,6 +28,7 @@ use pyrefly_python::module_path::ModuleStyle;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_python::sys_info::SysInfo;
+use pyrefly_types::type_alias::TypeAliasData;
 use pyrefly_types::types::Union;
 use pyrefly_util::gas::Gas;
 use pyrefly_util::lock::Mutex;
@@ -65,6 +66,7 @@ use crate::config::error_kind::ErrorKind;
 use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
 use crate::lsp::module_helpers::collect_symbol_def_paths;
+use crate::lsp::wasm::completion::CompletionOptions;
 use crate::state::ide::IntermediateDefinition;
 use crate::state::ide::import_regular_import_edit;
 use crate::state::ide::insert_import_edit;
@@ -929,7 +931,9 @@ impl<'a> Transaction<'a> {
             Type::ClassType(class_type) => solver.type_order().instance_as_dunder_call(&class_type),
             Type::SelfType(class_type) => solver.type_order().instance_as_dunder_call(&class_type),
             Type::Union(box Union { members, .. }) => Self::callable_from_types(solver, members),
-            Type::TypeAlias(alias) => Self::callable_from_type(solver, alias.as_type()),
+            Type::TypeAlias(box TypeAliasData::Value(alias)) => {
+                Self::callable_from_type(solver, alias.as_type())
+            }
             Type::Type(box inner) => Self::callable_from_type(solver, inner),
             Type::Quantified(box quantified) => match quantified.restriction {
                 Restriction::Bound(bound) => Self::callable_from_type(solver, bound),
@@ -2076,6 +2080,13 @@ impl<'a> Transaction<'a> {
     ) -> Option<Vec<LocalRefactorCodeAction>> {
         quick_fixes::introduce_parameter::introduce_parameter_code_actions(self, handle, selection)
     }
+    pub fn convert_star_import_code_actions(
+        &self,
+        handle: &Handle,
+        selection: TextRange,
+    ) -> Option<Vec<LocalRefactorCodeAction>> {
+        quick_fixes::convert_star_import::convert_star_import_code_actions(self, handle, selection)
+    }
 
     /// Determines whether a module is a third-party package.
     ///
@@ -2584,8 +2595,49 @@ impl<'a> Transaction<'a> {
         Some(references)
     }
 
-    // Kept for backwards compatibility - used by external callers (lsp/server.rs, playground.rs)
-    // who don't need the is_incomplete flag
+    /// Suggest Literal values when completing inside a `match` value pattern.
+    ///
+    /// We can't reuse the call-argument literal completion path here because
+    /// `case <value>:` isn't a call site, so we never get parameter types to
+    /// infer literals from. Instead, we look for a match value/singleton
+    /// pattern at the cursor and pull the `match` subject's type to surface
+    /// its Literal members.
+    pub(crate) fn add_match_literal_completions(
+        &self,
+        handle: &Handle,
+        covering_nodes: &[AnyNodeRef],
+        completions: &mut Vec<CompletionItem>,
+        in_string_literal: bool,
+    ) {
+        let mut is_match_value_pattern = false;
+        let mut subject = None;
+        for node in covering_nodes {
+            match node {
+                AnyNodeRef::PatternMatchValue(_) | AnyNodeRef::PatternMatchSingleton(_) => {
+                    is_match_value_pattern = true;
+                }
+                AnyNodeRef::StmtMatch(stmt_match) => {
+                    subject = Some(stmt_match.subject.as_ref());
+                }
+                _ => {}
+            }
+            if is_match_value_pattern && subject.is_some() {
+                break;
+            }
+        }
+        if !is_match_value_pattern {
+            return;
+        }
+        let Some(subject) = subject else {
+            return;
+        };
+        if let Some(subject_type) = self.get_type_trace(handle, subject.range()) {
+            Self::add_literal_completions_from_type(&subject_type, completions, in_string_literal);
+        }
+    }
+
+    // Kept for backwards compatibility - used by external callers who don't need the
+    // is_incomplete flag.
     pub fn completion(
         &self,
         handle: &Handle,
@@ -2597,7 +2649,10 @@ impl<'a> Transaction<'a> {
             handle,
             position,
             import_format,
-            supports_completion_item_details,
+            CompletionOptions {
+                supports_completion_item_details,
+                ..Default::default()
+            },
         )
         .0
     }
@@ -2608,7 +2663,7 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         position: TextSize,
         import_format: ImportFormat,
-        supports_completion_item_details: bool,
+        options: CompletionOptions,
     ) -> (Vec<CompletionItem>, bool) {
         // Check if position is in a disabled range (comments)
         if let Some(module) = self.get_module_info(handle) {
@@ -2618,12 +2673,8 @@ impl<'a> Transaction<'a> {
             }
         }
 
-        let (mut results, is_incomplete) = self.completion_sorted_opt_with_incomplete(
-            handle,
-            position,
-            import_format,
-            supports_completion_item_details,
-        );
+        let (mut results, is_incomplete) =
+            self.completion_sorted_opt_with_incomplete(handle, position, import_format, options);
         results.sort_by(|item1, item2| {
             item1
                 .sort_text
@@ -2673,12 +2724,14 @@ impl<'a> Transaction<'a> {
     /// - Handles stdlib patterns where a public module (`io`) re-exports from a
     ///   private implementation module (`_io`).
     fn should_include_reexport(original: &Handle, canonical: &Handle) -> bool {
-        let canonical_components = canonical.module().components();
+        let canonical_module = canonical.module();
+        let original_module = original.module();
+        let canonical_components = canonical_module.components();
         let canonical_component = canonical_components
             .last()
             .map(|name| name.as_str())
             .unwrap_or("");
-        let original_components = original.module().components();
+        let original_components = original_module.components();
         let original_component = original_components
             .last()
             .map(|name| name.as_str())
@@ -2690,15 +2743,23 @@ impl<'a> Transaction<'a> {
             return true;
         }
 
-        // Include re-export if original is a parent package of canonical
-        if canonical_components.len() > original_components.len() {
-            canonical_components
+        // Include re-export if original is a parent package of canonical.
+        if canonical_components.len() > original_components.len()
+            && canonical_components
                 .iter()
                 .zip(original_components.iter())
                 .all(|(c, o)| c == o)
-        } else {
-            false
+        {
+            return true;
         }
+        // Some stdlib shims encode dotted modules with underscores (e.g. _collections_abc).
+        if canonical_module.as_str().starts_with('_') && original_module.as_str().contains('.') {
+            let canonical_trim = canonical_module.as_str().trim_start_matches('_');
+            if canonical_trim == original_module.as_str().replace('.', "_") {
+                return true;
+            }
+        }
+        false
     }
 
     pub fn search_exports_exact(&self, name: &str) -> Vec<(Handle, Export)> {

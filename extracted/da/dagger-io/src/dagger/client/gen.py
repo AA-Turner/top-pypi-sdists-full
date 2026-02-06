@@ -151,6 +151,16 @@ class GeneratedCodeID(Scalar):
     object of type GeneratedCode."""
 
 
+class GeneratorGroupID(Scalar):
+    """The `GeneratorGroupID` scalar type represents an identifier for an
+    object of type GeneratorGroup."""
+
+
+class GeneratorID(Scalar):
+    """The `GeneratorID` scalar type represents an identifier for an
+    object of type Generator."""
+
+
 class GitRefID(Scalar):
     """The `GitRefID` scalar type represents an identifier for an object
     of type GitRef."""
@@ -309,6 +319,37 @@ class CacheSharingMode(Enum):
     """Shares the cache volume amongst many build pipelines"""
 
 
+class ChangesetMergeConflict(Enum):
+    """Strategy to use when merging changesets with conflicting
+    changes."""
+
+    FAIL = "FAIL"
+    """Attempt the merge and fail if git merge fails due to conflicts"""
+
+    FAIL_EARLY = "FAIL_EARLY"
+    """Fail before attempting merge if file-level conflicts are detected"""
+
+    LEAVE_CONFLICT_MARKERS = "LEAVE_CONFLICT_MARKERS"
+    """Let git create conflict markers in files. For modify/delete conflicts, keeps the modified version. Fails on binary conflicts."""
+
+    PREFER_OURS = "PREFER_OURS"
+    """The conflict is resolved by applying the version of the calling changeset"""
+
+    PREFER_THEIRS = "PREFER_THEIRS"
+    """The conflict is resolved by applying the version of the other changeset"""
+
+
+class ChangesetsMergeConflict(Enum):
+    """Strategy to use when merging multiple changesets with git octopus
+    merge."""
+
+    FAIL = "FAIL"
+    """Attempt the octopus merge and fail if git merge fails due to conflicts"""
+
+    FAIL_EARLY = "FAIL_EARLY"
+    """Fail before attempting merge if file-level conflicts are detected between any changesets"""
+
+
 class ExistsType(Enum):
     """File type."""
 
@@ -412,10 +453,10 @@ class ReturnType(Enum):
     """Expected return type of an execution"""
 
     ANY = "ANY"
-    """Any execution (exit codes 0-127)"""
+    """Any execution (exit codes 0-127 and 192-255)"""
 
     FAILURE = "FAILURE"
-    """A failed execution (exit codes 1-127)"""
+    """A failed execution (exit codes 1-127 and 192-255)"""
 
     SUCCESS = "SUCCESS"
     """A successful execution (exit code 0)"""
@@ -740,6 +781,18 @@ class Binding(Type):
         _args: list[Arg] = []
         _ctx = self._select("asFile", _args)
         return File(_ctx)
+
+    def as_generator(self) -> "Generator":
+        """Retrieve the binding value, as type Generator"""
+        _args: list[Arg] = []
+        _ctx = self._select("asGenerator", _args)
+        return Generator(_ctx)
+
+    def as_generator_group(self) -> "GeneratorGroup":
+        """Retrieve the binding value, as type GeneratorGroup"""
+        _args: list[Arg] = []
+        _ctx = self._select("asGeneratorGroup", _args)
+        return GeneratorGroup(_ctx)
 
     def as_git_ref(self) -> "GitRef":
         """Retrieve the binding value, as type GitRef"""
@@ -1151,6 +1204,67 @@ class Changeset(Type):
     def __await__(self):
         return self.sync().__await__()
 
+    def with_changeset(
+        self,
+        changes: Self,
+        *,
+        on_conflict: ChangesetMergeConflict | None = ChangesetMergeConflict.FAIL,
+    ) -> Self:
+        """Add changes to an existing changeset
+
+        By default the operation will fail in case of conflicts, for instance
+        a file modified in both changesets. The behavior can be adjusted using
+        onConflict argument
+
+        Parameters
+        ----------
+        changes:
+            Changes to merge into the actual changeset
+        on_conflict:
+            What to do on a merge conflict
+        """
+        _args = [
+            Arg("changes", changes),
+            Arg("onConflict", on_conflict, ChangesetMergeConflict.FAIL),
+        ]
+        _ctx = self._select("withChangeset", _args)
+        return Changeset(_ctx)
+
+    def with_changesets(
+        self,
+        changes: list["Changeset"],
+        *,
+        on_conflict: ChangesetsMergeConflict | None = ChangesetsMergeConflict.FAIL,
+    ) -> Self:
+        """Add changes from multiple changesets using git octopus merge strategy
+
+        This is more efficient than chaining multiple withChangeset calls when
+        merging many changesets.
+
+        Only FAIL and FAIL_EARLY conflict strategies are supported (octopus
+        merge cannot use -X ours/theirs).
+
+        Parameters
+        ----------
+        changes:
+            List of changesets to merge into the actual changeset
+        on_conflict:
+            What to do on a merge conflict
+        """
+        _args = [
+            Arg("changes", changes),
+            Arg("onConflict", on_conflict, ChangesetsMergeConflict.FAIL),
+        ]
+        _ctx = self._select("withChangesets", _args)
+        return Changeset(_ctx)
+
+    def with_(self, cb: Callable[["Changeset"], "Changeset"]) -> "Changeset":
+        """Call the provided callable with current Changeset.
+
+        This is useful for reusability and readability by not breaking the calling chain.
+        """
+        return cb(self)
+
 
 @typecheck
 class Check(Type):
@@ -1305,12 +1419,6 @@ class Check(Type):
         _args: list[Arg] = []
         _ctx = self._select("run", _args)
         return Check(_ctx)
-
-    def source(self) -> "ModuleSource":
-        """The module source where the check is defined (i.e., toolchains)"""
-        _args: list[Arg] = []
-        _ctx = self._select("source", _args)
-        return ModuleSource(_ctx)
 
     def with_(self, cb: Callable[["Check"], "Check"]) -> "Check":
         """Call the provided callable with current Check.
@@ -3494,6 +3602,28 @@ class CurrentModule(Type):
         _ctx = self._select("generatedContextDirectory", _args)
         return Directory(_ctx)
 
+    def generators(
+        self,
+        *,
+        include: list[str] | None = None,
+    ) -> "GeneratorGroup":
+        """Return all generators defined by the module
+
+        .. caution::
+            Experimental: This API is highly experimental and may be removed
+            or replaced entirely.
+
+        Parameters
+        ----------
+        include:
+            Only include generators matching the specified patterns
+        """
+        _args = [
+            Arg("include", include, None),
+        ]
+        _ctx = self._select("generators", _args)
+        return GeneratorGroup(_ctx)
+
     async def id(self) -> CurrentModuleID:
         """A unique identifier for this CurrentModule.
 
@@ -3751,6 +3881,7 @@ class Directory(Type):
         target: str | None = "",
         secrets: "list[Secret] | None" = None,
         no_init: bool | None = False,
+        ssh: "Socket | None" = None,
     ) -> Container:
         """Use Dockerfile compatibility to build a container from this directory.
         Only use this function for Dockerfile compatibility. Otherwise use the
@@ -3776,6 +3907,11 @@ class Directory(Type):
             This should only be used if the user requires that their exec
             processes be the pid 1 process in the container. Otherwise it may
             result in unexpected behavior.
+        ssh:
+            A socket to use for SSH authentication during the build
+            (e.g., for Dockerfile RUN --mount=type=ssh instructions).
+            Typically obtained via host.unixSocket() pointing to the
+            SSH_AUTH_SOCK.
         """
         _args = [
             Arg("dockerfile", dockerfile, "Dockerfile"),
@@ -3784,6 +3920,7 @@ class Directory(Type):
             Arg("target", target, ""),
             Arg("secrets", [] if secrets is None else secrets, []),
             Arg("noInit", no_init, False),
+            Arg("ssh", ssh, None),
         ]
         _ctx = self._select("dockerBuild", _args)
         return Container(_ctx)
@@ -5168,6 +5305,47 @@ class EnumValueTypeDef(Type):
 
 @typecheck
 class Env(Type):
+    def check(self, name: str) -> Check:
+        """Return the check with the given name from the installed modules. Must
+        match exactly one check.
+
+        .. caution::
+            Experimental: Checks API is highly experimental and may be removed
+            or replaced entirely.
+
+        Parameters
+        ----------
+        name:
+            The name of the check to retrieve
+        """
+        _args = [
+            Arg("name", name),
+        ]
+        _ctx = self._select("check", _args)
+        return Check(_ctx)
+
+    def checks(
+        self,
+        *,
+        include: list[str] | None = None,
+    ) -> CheckGroup:
+        """Return all checks defined by the installed modules
+
+        .. caution::
+            Experimental: Checks API is highly experimental and may be removed
+            or replaced entirely.
+
+        Parameters
+        ----------
+        include:
+            Only include checks matching the specified patterns
+        """
+        _args = [
+            Arg("include", include, None),
+        ]
+        _ctx = self._select("checks", _args)
+        return CheckGroup(_ctx)
+
     async def id(self) -> EnvID:
         """A unique identifier for this Env.
 
@@ -5693,6 +5871,91 @@ class Env(Type):
         _ctx = self._select("withFileOutput", _args)
         return Env(_ctx)
 
+    def with_generator_group_input(
+        self,
+        name: str,
+        value: "GeneratorGroup",
+        description: str,
+    ) -> Self:
+        """Create or update a binding of type GeneratorGroup in the environment
+
+        Parameters
+        ----------
+        name:
+            The name of the binding
+        value:
+            The GeneratorGroup value to assign to the binding
+        description:
+            The purpose of the input
+        """
+        _args = [
+            Arg("name", name),
+            Arg("value", value),
+            Arg("description", description),
+        ]
+        _ctx = self._select("withGeneratorGroupInput", _args)
+        return Env(_ctx)
+
+    def with_generator_group_output(self, name: str, description: str) -> Self:
+        """Declare a desired GeneratorGroup output to be assigned in the
+        environment
+
+        Parameters
+        ----------
+        name:
+            The name of the binding
+        description:
+            A description of the desired value of the binding
+        """
+        _args = [
+            Arg("name", name),
+            Arg("description", description),
+        ]
+        _ctx = self._select("withGeneratorGroupOutput", _args)
+        return Env(_ctx)
+
+    def with_generator_input(
+        self,
+        name: str,
+        value: "Generator",
+        description: str,
+    ) -> Self:
+        """Create or update a binding of type Generator in the environment
+
+        Parameters
+        ----------
+        name:
+            The name of the binding
+        value:
+            The Generator value to assign to the binding
+        description:
+            The purpose of the input
+        """
+        _args = [
+            Arg("name", name),
+            Arg("value", value),
+            Arg("description", description),
+        ]
+        _ctx = self._select("withGeneratorInput", _args)
+        return Env(_ctx)
+
+    def with_generator_output(self, name: str, description: str) -> Self:
+        """Declare a desired Generator output to be assigned in the environment
+
+        Parameters
+        ----------
+        name:
+            The name of the binding
+        description:
+            A description of the desired value of the binding
+        """
+        _args = [
+            Arg("name", name),
+            Arg("description", description),
+        ]
+        _ctx = self._select("withGeneratorOutput", _args)
+        return Env(_ctx)
+
     def with_git_ref_input(
         self,
         name: str,
@@ -5820,13 +6083,34 @@ class Env(Type):
         _ctx = self._select("withJSONValueOutput", _args)
         return Env(_ctx)
 
+    def with_main_module(self, module: "Module") -> Self:
+        """Sets the main module for this environment (the project being worked
+        on)
+
+        Contextual path arguments will be populated using the environment's
+        workspace.
+        """
+        _args = [
+            Arg("module", module),
+        ]
+        _ctx = self._select("withMainModule", _args)
+        return Env(_ctx)
+
     def with_module(self, module: "Module") -> Self:
         """Installs a module into the environment, exposing its functions to the
         model
 
         Contextual path arguments will be populated using the environment's
         workspace.
+
+        .. deprecated::
+            Use withMainModule instead
         """
+        warnings.warn(
+            'Method "with_module" is deprecated: Use withMainModule instead',
+            DeprecationWarning,
+            stacklevel=4,
+        )
         _args = [
             Arg("module", module),
         ]
@@ -7283,6 +7567,7 @@ class Function(Type):
         ignore: list[str] | None = None,
         source_map: "SourceMap | None" = None,
         deprecated: str | None = None,
+        default_address: str | None = "",
     ) -> Self:
         """Returns the function with the provided argument
 
@@ -7306,6 +7591,7 @@ class Function(Type):
             The source map for the argument definition.
         deprecated:
             If deprecated, the reason or migration path.
+        default_address:
         """
         _args = [
             Arg("name", name),
@@ -7316,6 +7602,7 @@ class Function(Type):
             Arg("ignore", [] if ignore is None else ignore, []),
             Arg("sourceMap", source_map, None),
             Arg("deprecated", deprecated, None),
+            Arg("defaultAddress", default_address, ""),
         ]
         _ctx = self._select("withArg", _args)
         return Function(_ctx)
@@ -7377,6 +7664,12 @@ class Function(Type):
         _ctx = self._select("withDescription", _args)
         return Function(_ctx)
 
+    def with_generator(self) -> Self:
+        """Returns the function with a flag indicating it's a generator."""
+        _args: list[Arg] = []
+        _ctx = self._select("withGenerator", _args)
+        return Function(_ctx)
+
     def with_source_map(self, source_map: "SourceMap") -> Self:
         """Returns the function with the given source map.
 
@@ -7404,6 +7697,28 @@ class FunctionArg(Type):
     """An argument accepted by a function.  This is a specification for an
     argument at function definition time, not an argument passed at
     function call time."""
+
+    async def default_address(self) -> str:
+        """Only applies to arguments of type Container. If the argument is not
+        set, load it from the given address (e.g. alpine:latest)
+
+        Returns
+        -------
+        str
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("defaultAddress", _args)
+        return await _ctx.execute(str)
 
     async def default_path(self) -> str:
         """Only applies to arguments of type File or Directory. If the argument
@@ -7888,6 +8203,225 @@ class GeneratedCode(Type):
         self, cb: Callable[["GeneratedCode"], "GeneratedCode"]
     ) -> "GeneratedCode":
         """Call the provided callable with current GeneratedCode.
+
+        This is useful for reusability and readability by not breaking the calling chain.
+        """
+        return cb(self)
+
+
+@typecheck
+class Generator(Type):
+    def changes(self) -> Changeset:
+        """The generated changeset"""
+        _args: list[Arg] = []
+        _ctx = self._select("changes", _args)
+        return Changeset(_ctx)
+
+    async def completed(self) -> bool:
+        """Whether the generator complete
+
+        Returns
+        -------
+        bool
+            The `Boolean` scalar type represents `true` or `false`.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("completed", _args)
+        return await _ctx.execute(bool)
+
+    async def description(self) -> str:
+        """Return the description of the generator
+
+        Returns
+        -------
+        str
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("description", _args)
+        return await _ctx.execute(str)
+
+    async def id(self) -> GeneratorID:
+        """A unique identifier for this Generator.
+
+        Note
+        ----
+        This is lazily evaluated, no operation is actually run.
+
+        Returns
+        -------
+        GeneratorID
+            The `GeneratorID` scalar type represents an identifier for an
+            object of type Generator.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("id", _args)
+        return await _ctx.execute(GeneratorID)
+
+    async def is_empty(self) -> bool:
+        """Wether changeset from the generator execution is empty or not
+
+        Returns
+        -------
+        bool
+            The `Boolean` scalar type represents `true` or `false`.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("isEmpty", _args)
+        return await _ctx.execute(bool)
+
+    async def name(self) -> str:
+        """Return the fully qualified name of the generator
+
+        Returns
+        -------
+        str
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("name", _args)
+        return await _ctx.execute(str)
+
+    def run(self) -> Self:
+        """Execute the generator"""
+        _args: list[Arg] = []
+        _ctx = self._select("run", _args)
+        return Generator(_ctx)
+
+    def with_(self, cb: Callable[["Generator"], "Generator"]) -> "Generator":
+        """Call the provided callable with current Generator.
+
+        This is useful for reusability and readability by not breaking the calling chain.
+        """
+        return cb(self)
+
+
+@typecheck
+class GeneratorGroup(Type):
+    def changes(
+        self,
+        *,
+        on_conflict: ChangesetsMergeConflict
+        | None = ChangesetsMergeConflict.FAIL_EARLY,
+    ) -> Changeset:
+        """The combined changes from the generators execution
+
+        If any conflict occurs, for instance if the same file is modified by
+        multiple generators, or if a file is both modified and deleted, an
+        error is raised and the merge of the changesets will failed.
+
+        Set 'continueOnConflicts' flag to force to merge the changes in a
+        'last write wins' strategy.
+
+        Parameters
+        ----------
+        on_conflict:
+            Strategy to apply on conflicts between generators
+        """
+        _args = [
+            Arg("onConflict", on_conflict, ChangesetsMergeConflict.FAIL_EARLY),
+        ]
+        _ctx = self._select("changes", _args)
+        return Changeset(_ctx)
+
+    async def id(self) -> GeneratorGroupID:
+        """A unique identifier for this GeneratorGroup.
+
+        Note
+        ----
+        This is lazily evaluated, no operation is actually run.
+
+        Returns
+        -------
+        GeneratorGroupID
+            The `GeneratorGroupID` scalar type represents an identifier for an
+            object of type GeneratorGroup.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("id", _args)
+        return await _ctx.execute(GeneratorGroupID)
+
+    async def is_empty(self) -> bool:
+        """Whether the generated changeset is empty or not
+
+        Returns
+        -------
+        bool
+            The `Boolean` scalar type represents `true` or `false`.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("isEmpty", _args)
+        return await _ctx.execute(bool)
+
+    async def list_(self) -> list[Generator]:
+        """Return a list of individual generators and their details"""
+        _args: list[Arg] = []
+        _ctx = self._select("list", _args)
+        return await _ctx.execute_object_list(Generator)
+
+    def run(self) -> Self:
+        """Execute all selected generators"""
+        _args: list[Arg] = []
+        _ctx = self._select("run", _args)
+        return GeneratorGroup(_ctx)
+
+    def with_(
+        self, cb: Callable[["GeneratorGroup"], "GeneratorGroup"]
+    ) -> "GeneratorGroup":
+        """Call the provided callable with current GeneratorGroup.
 
         This is useful for reusability and readability by not breaking the calling chain.
         """
@@ -9502,6 +10036,47 @@ class Module(Type):
         _args: list[Arg] = []
         _ctx = self._select("generatedContextDirectory", _args)
         return Directory(_ctx)
+
+    def generator(self, name: str) -> Generator:
+        """Return the generator defined by the module with the given name. Must
+        match to exactly one generator.
+
+        .. caution::
+            Experimental: This API is highly experimental and may be removed
+            or replaced entirely.
+
+        Parameters
+        ----------
+        name:
+            The name of the generator to retrieve
+        """
+        _args = [
+            Arg("name", name),
+        ]
+        _ctx = self._select("generator", _args)
+        return Generator(_ctx)
+
+    def generators(
+        self,
+        *,
+        include: list[str] | None = None,
+    ) -> GeneratorGroup:
+        """Return all generators defined by the module
+
+        .. caution::
+            Experimental: This API is highly experimental and may be removed
+            or replaced entirely.
+
+        Parameters
+        ----------
+        include:
+            Only include generators matching the specified patterns
+        """
+        _args = [
+            Arg("include", include, None),
+        ]
+        _ctx = self._select("generators", _args)
+        return GeneratorGroup(_ctx)
 
     async def id(self) -> ModuleID:
         """A unique identifier for this Module.
@@ -11405,6 +11980,22 @@ class Client(Root):
         _ctx = self._select("loadGeneratedCodeFromID", _args)
         return GeneratedCode(_ctx)
 
+    def load_generator_from_id(self, id: GeneratorID) -> Generator:
+        """Load a Generator from its ID."""
+        _args = [
+            Arg("id", id),
+        ]
+        _ctx = self._select("loadGeneratorFromID", _args)
+        return Generator(_ctx)
+
+    def load_generator_group_from_id(self, id: GeneratorGroupID) -> GeneratorGroup:
+        """Load a GeneratorGroup from its ID."""
+        _args = [
+            Arg("id", id),
+        ]
+        _ctx = self._select("loadGeneratorGroupFromID", _args)
+        return GeneratorGroup(_ctx)
+
     def load_git_ref_from_id(self, id: GitRefID) -> GitRef:
         """Load a GitRef from its ID."""
         _args = [
@@ -13144,6 +13735,8 @@ __all__ = [
     "CacheVolumeID",
     "Changeset",
     "ChangesetID",
+    "ChangesetMergeConflict",
+    "ChangesetsMergeConflict",
     "Check",
     "CheckGroup",
     "CheckGroupID",
@@ -13196,6 +13789,10 @@ __all__ = [
     "FunctionID",
     "GeneratedCode",
     "GeneratedCodeID",
+    "Generator",
+    "GeneratorGroup",
+    "GeneratorGroupID",
+    "GeneratorID",
     "GitRef",
     "GitRefID",
     "GitRepository",

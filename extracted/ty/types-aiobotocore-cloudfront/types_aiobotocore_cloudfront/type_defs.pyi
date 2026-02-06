@@ -539,6 +539,7 @@ __all__ = (
     "OriginGroupsOutputTypeDef",
     "OriginGroupsTypeDef",
     "OriginGroupsUnionTypeDef",
+    "OriginMtlsConfigTypeDef",
     "OriginOutputTypeDef",
     "OriginRequestPolicyConfigOutputTypeDef",
     "OriginRequestPolicyConfigTypeDef",
@@ -944,6 +945,9 @@ class CustomErrorResponseTypeDef(TypedDict):
 class OriginCustomHeaderTypeDef(TypedDict):
     HeaderName: str
     HeaderValue: str
+
+class OriginMtlsConfigTypeDef(TypedDict):
+    ClientCertificateArn: str
 
 class OriginSslProtocolsOutputTypeDef(TypedDict):
     Quantity: int
@@ -2022,6 +2026,7 @@ class CustomOriginConfigOutputTypeDef(TypedDict):
     OriginReadTimeout: NotRequired[int]
     OriginKeepaliveTimeout: NotRequired[int]
     IpAddressType: NotRequired[IpAddressTypeType]
+    OriginMtlsConfig: NotRequired[OriginMtlsConfigTypeDef]
 
 class VpcOriginEndpointConfigOutputTypeDef(TypedDict):
     Name: str
@@ -2746,6 +2751,7 @@ class CustomOriginConfigTypeDef(TypedDict):
     OriginReadTimeout: NotRequired[int]
     OriginKeepaliveTimeout: NotRequired[int]
     IpAddressType: NotRequired[IpAddressTypeType]
+    OriginMtlsConfig: NotRequired[OriginMtlsConfigTypeDef]
 
 VpcOriginEndpointConfigUnionTypeDef = Union[
     VpcOriginEndpointConfigTypeDef, VpcOriginEndpointConfigOutputTypeDef

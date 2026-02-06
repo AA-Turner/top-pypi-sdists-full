@@ -1631,16 +1631,6 @@ class ConformancePackDetailTypeDef(TypedDict):
     TemplateSSMDocumentDetails: NotRequired[TemplateSSMDocumentDetailsTypeDef]
 
 
-class PutConformancePackRequestTypeDef(TypedDict):
-    ConformancePackName: str
-    TemplateS3Uri: NotRequired[str]
-    TemplateBody: NotRequired[str]
-    DeliveryS3Bucket: NotRequired[str]
-    DeliveryS3KeyPrefix: NotRequired[str]
-    ConformancePackInputParameters: NotRequired[Sequence[ConformancePackInputParameterTypeDef]]
-    TemplateSSMDocumentDetails: NotRequired[TemplateSSMDocumentDetailsTypeDef]
-
-
 class GetConformancePackComplianceDetailsRequestTypeDef(TypedDict):
     ConformancePackName: str
     Filters: NotRequired[ConformancePackEvaluationFiltersTypeDef]
@@ -2073,6 +2063,17 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
 class PutAggregationAuthorizationRequestTypeDef(TypedDict):
     AuthorizedAccountId: str
     AuthorizedAwsRegion: str
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class PutConformancePackRequestTypeDef(TypedDict):
+    ConformancePackName: str
+    TemplateS3Uri: NotRequired[str]
+    TemplateBody: NotRequired[str]
+    DeliveryS3Bucket: NotRequired[str]
+    DeliveryS3KeyPrefix: NotRequired[str]
+    ConformancePackInputParameters: NotRequired[Sequence[ConformancePackInputParameterTypeDef]]
+    TemplateSSMDocumentDetails: NotRequired[TemplateSSMDocumentDetailsTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 

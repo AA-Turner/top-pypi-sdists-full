@@ -1,15 +1,15 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Code generation for implicit and explicit exception raises.
+"""Code generation for implicit and explicit exception raises.
 
 Exceptions from other operations are consider ErrorCodes domain.
 
 """
 
-from nuitka import Options
 from nuitka.Builtins import isBaseExceptionSimpleExtension
 from nuitka.PythonVersions import python_version
+from nuitka.States import states
 
 from .CodeHelpers import (
     generateChildExpressionsCode,
@@ -251,7 +251,7 @@ def generateRaiseExpressionCode(to_name, expression, emit, context):
 
     # Missed optimization opportunity, please report it, this should not
     # normally happen. We are supposed to propagate this upwards.
-    if Options.is_debug:
+    if states.is_debug:
         # TODO: Need to optimize ExpressionLocalsVariableRefOrFallback once we know
         # it handles cases where the value is not in locals dict properly.
 
@@ -468,11 +468,11 @@ def _getRaiseExceptionWithTracebackCode(
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

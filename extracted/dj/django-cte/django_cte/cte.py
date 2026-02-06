@@ -1,5 +1,6 @@
 from copy import copy
 
+import django
 from django.db.models import Manager, sql
 from django.db.models.expressions import Ref
 from django.db.models.query import Q, QuerySet, ValuesIterable
@@ -45,20 +46,29 @@ class CTE:
     """
 
     def __init__(self, queryset, name="cte", materialized=False):
-        self.query = None if queryset is None else queryset.query
+        self._set_queryset(queryset)
         self.name = name
         self.col = CTEColumns(self)
         self.materialized = materialized
 
     def __getstate__(self):
-        return (self.query, self.name, self.materialized)
+        return (self.query, self.name, self.materialized, self._iterable_class)
 
     def __setstate__(self, state):
-        self.query, self.name, self.materialized = state
+        if len(state) == 3:
+            # Keep compatibility with the previous serialization method
+            self.query, self.name, self.materialized = state
+            self._iterable_class = ValuesIterable
+        else:
+            self.query, self.name, self.materialized, self._iterable_class = state
         self.col = CTEColumns(self)
 
     def __repr__(self):
-        return "<With {}>".format(self.name)
+        return f"<{type(self).__name__} {self.name}>"
+
+    def _set_queryset(self, queryset):
+        self.query = None if queryset is None else queryset.query
+        self._iterable_class = getattr(queryset, "_iterable_class", ValuesIterable)
 
     @classmethod
     def recursive(cls, make_cte_queryset, name="cte", materialized=False):
@@ -73,14 +83,13 @@ class CTE:
         :returns: The fully constructed recursive cte object.
         """
         cte = cls(None, name, materialized)
-        cte.query = make_cte_queryset(cte).query
+        cte._set_queryset(make_cte_queryset(cte))
         return cte
 
     def join(self, model_or_queryset, *filter_q, **filter_kw):
         """Join this CTE to the given model or queryset
 
         This CTE will be referenced by the returned queryset, but the
-
         corresponding `WITH ...` statement will not be prepended to the
         queryset's SQL output; use `with_cte(cte, select=cte.join(...))`
         to achieve that outcome.
@@ -106,7 +115,12 @@ class CTE:
         q_object = Q(*filter_q, **filter_kw)
         map = query.alias_map
         existing_inner = set(a for a in map if map[a].join_type == INNER)
-        on_clause, _ = query._add_q(q_object, query.used_aliases)
+        if django.VERSION >= (5, 2):
+            on_clause, _ = query._add_q(
+                q_object, query.used_aliases, update_join_types=(join_type == INNER)
+            )
+        else:
+            on_clause, _ = query._add_q(q_object, query.used_aliases)
         query.demote_joins(existing_inner)
 
         parent = query.get_initial_alias()
@@ -125,23 +139,30 @@ class CTE:
         """
         cte_query = self.query
         qs = cte_query.model._default_manager.get_queryset()
+        qs._iterable_class = self._iterable_class
+        qs._fields = ()  # Allow any field names to be used in further annotations
 
         query = jit_mixin(sql.Query(cte_query.model), CTEQuery)
         query.join(BaseTable(self.name, None))
         query.default_cols = cte_query.default_cols
         query.deferred_loading = cte_query.deferred_loading
-        if cte_query.values_select:
+
+        if django.VERSION < (5, 2) and cte_query.values_select:
             query.set_values(cte_query.values_select)
-            qs._iterable_class = ValuesIterable
-        for alias in getattr(cte_query, "selected", None) or ():
-            if alias not in cte_query.annotations:
-                col = Ref(alias, cte_query.resolve_ref(alias))
-                query.add_annotation(col, alias)
+
         if cte_query.annotations:
             for alias, value in cte_query.annotations.items():
                 col = CTEColumnRef(alias, self.name, value.output_field)
                 query.add_annotation(col, alias)
         query.annotation_select_mask = cte_query.annotation_select_mask
+
+        if selected := getattr(cte_query, "selected", None):
+            for alias in selected:
+                if alias not in cte_query.annotations:
+                    output_field = cte_query.resolve_ref(alias).output_field
+                    col = CTEColumnRef(alias, self.name, output_field)
+                    query.add_annotation(col, alias)
+            query.selected = {alias: alias for alias in selected}
 
         qs.query = query
         return qs

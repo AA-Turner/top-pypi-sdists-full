@@ -30,6 +30,7 @@ from .literals import (
     CapacityDistributionStrategyType,
     CapacityReservationPreferenceType,
     CpuManufacturerType,
+    DeletionProtectionType,
     ImpairedZoneHealthCheckBehaviorType,
     InstanceGenerationType,
     InstanceMetadataEndpointStateType,
@@ -611,14 +612,6 @@ class DescribePoliciesTypeTypeDef(TypedDict):
     MaxRecords: NotRequired[int]
 
 
-class DescribeScalingActivitiesTypeTypeDef(TypedDict):
-    ActivityIds: NotRequired[Sequence[str]]
-    AutoScalingGroupName: NotRequired[str]
-    IncludeDeletedGroups: NotRequired[bool]
-    MaxRecords: NotRequired[int]
-    NextToken: NotRequired[str]
-
-
 TimestampTypeDef = Union[datetime, str]
 
 
@@ -1019,6 +1012,15 @@ class AutoScalingGroupNamesTypeTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
 
 
+class DescribeScalingActivitiesTypeTypeDef(TypedDict):
+    ActivityIds: NotRequired[Sequence[str]]
+    AutoScalingGroupName: NotRequired[str]
+    IncludeDeletedGroups: NotRequired[bool]
+    MaxRecords: NotRequired[int]
+    NextToken: NotRequired[str]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+
+
 class DescribeTagsTypeTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
@@ -1063,6 +1065,7 @@ class DescribeScalingActivitiesTypePaginateTypeDef(TypedDict):
     ActivityIds: NotRequired[Sequence[str]]
     AutoScalingGroupName: NotRequired[str]
     IncludeDeletedGroups: NotRequired[bool]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -1696,6 +1699,7 @@ class AutoScalingGroupTypeDef(TypedDict):
     DefaultInstanceWarmup: NotRequired[int]
     TrafficSources: NotRequired[list[TrafficSourceIdentifierTypeDef]]
     InstanceMaintenancePolicy: NotRequired[InstanceMaintenancePolicyTypeDef]
+    DeletionProtection: NotRequired[DeletionProtectionType]
     AvailabilityZoneDistribution: NotRequired[AvailabilityZoneDistributionTypeDef]
     AvailabilityZoneImpairmentPolicy: NotRequired[AvailabilityZoneImpairmentPolicyTypeDef]
     CapacityReservationSpecification: NotRequired[CapacityReservationSpecificationOutputTypeDef]
@@ -1796,6 +1800,7 @@ class CreateAutoScalingGroupTypeTypeDef(TypedDict):
     NewInstancesProtectedFromScaleIn: NotRequired[bool]
     CapacityRebalance: NotRequired[bool]
     LifecycleHookSpecificationList: NotRequired[Sequence[LifecycleHookSpecificationTypeDef]]
+    DeletionProtection: NotRequired[DeletionProtectionType]
     Tags: NotRequired[Sequence[TagTypeDef]]
     ServiceLinkedRoleARN: NotRequired[str]
     MaxInstanceLifetime: NotRequired[int]
@@ -1839,6 +1844,7 @@ class UpdateAutoScalingGroupTypeTypeDef(TypedDict):
     SkipZonalShiftValidation: NotRequired[bool]
     CapacityReservationSpecification: NotRequired[CapacityReservationSpecificationUnionTypeDef]
     InstanceLifecyclePolicy: NotRequired[InstanceLifecyclePolicyTypeDef]
+    DeletionProtection: NotRequired[DeletionProtectionType]
 
 
 class PoliciesTypeTypeDef(TypedDict):

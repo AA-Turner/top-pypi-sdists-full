@@ -19,6 +19,7 @@ from bec_lib.alarm_handler import AlarmBase
 from bec_lib.bec_errors import ScanAbortion, ScanInterruption
 from bec_lib.endpoints import MessageEndpoints
 from bec_lib.logger import bec_logger
+from bec_lib.scan_repeat import scan_repeat
 
 logger = bec_logger.logger
 
@@ -351,13 +352,13 @@ def test_scan_restart(bec_ipython_client_fixture):
     scan_number_start = bec.queue.next_scan_number
     # start repeat thread
     threading.Thread(target=send_repeat, args=(bec,), daemon=True).start()
-    # start scan
-    scan1 = scans.line_scan(
-        dev.samx, -5, 5, steps=50, exp_time=0.1, hide_report=True, relative=True
-    )
-    scan2 = scans.line_scan(
-        dev.samx, -5, 5, steps=50, exp_time=0.1, hide_report=True, relative=True
-    )
+
+    # We start two scans to ensure that the scan restart logic works correctly in a queued scenario
+    # The first scan is started without printout to allow us to submit the second scan immediately after
+    scans.line_scan(dev.samx, -5, 5, steps=50, exp_time=0.1, hide_report=True, relative=True)
+
+    # The second scan is using the live table printout. It should properly continue after the restart
+    scan2 = scans.line_scan(dev.samx, -5, 5, steps=50, exp_time=0.1, relative=True)
 
     scan2.wait()
 
@@ -868,3 +869,108 @@ def test_grid_scan_secondary_queue(capsys, bec_ipython_client_fixture):
     assert "finished. Scan ID" in captured.out
 
     assert "secondary" in bec.queue.queue_storage.current_scan_queue
+
+
+@pytest.mark.timeout(100)
+def test_scan_after_scan_lock(capsys, bec_ipython_client_fixture):
+    """
+    Test that pending scans are properly executed after a scan lock is released.
+    """
+    bec: BECIPythonClient = bec_ipython_client_fixture
+    scans = bec.scans
+    bec.metadata.update({"unit_test": "test_scan_after_scan_lock"})
+    dev = bec.device_manager.devices
+    bec.queue.add_queue_lock(queue="primary", reason="unit_test_scan_lock", lock_id="test_lock")
+    scans.line_scan(dev.samx, -5, 5, steps=10, exp_time=0.01, relative=True, hide_report=True)
+    scan2 = scans.line_scan(
+        dev.samx, -5, 5, steps=10, exp_time=0.01, relative=True, hide_report=True
+    )
+
+    time.sleep(2)  # wait to ensure the scan is pending
+    print(bec.queue)
+    captured = capsys.readouterr()
+    assert "LOCKED" in captured.out
+
+    bec.queue.remove_queue_lock(queue="primary", lock_id="test_lock")
+    scan2.wait()
+
+
+@pytest.mark.timeout(100)
+def test_scan_repeat_decorator(bec_ipython_client_fixture):
+    """
+    Test the scan_repeat decorator by simulating a communication failure during a scan.
+    The scan should be retried according to the specified max_repeats and exc_handler.
+    """
+
+    bec = bec_ipython_client_fixture
+    bec.metadata.update({"unit_test": "test_scan_repeat_decorator"})
+    scans = bec.scans
+    dev = bec.device_manager.devices
+
+    # add the SimPositionerWithCommFailure to the device manager for testing
+    config = {
+        "positioner_with_failure": {
+            "deviceClass": "ophyd_devices.sim.sim_test_devices.SimPositionerWithCommFailure",
+            "deviceConfig": {
+                "delay": 1,
+                "limits": [-100, 100],
+                "tolerance": 0.1,
+                "update_frequency": 400,
+            },
+            "readoutPriority": "baseline",
+            "deviceTags": {"user motors"},
+            "enabled": True,
+            "readOnly": False,
+        }
+    }
+    bec.device_manager.config_helper.send_config_request(action="add", config=config)
+    dev.positioner_with_failure.fails.set(1).wait()
+
+    def exc_handler(exception: Exception, attempt: int) -> bool:
+        """
+        Exception handler for scan_repeat decorator.
+        """
+        if isinstance(exception, AlarmBase):
+            device = exception.alarm.info.device
+            if device == "positioner_with_failure":
+                logger.info("Resetting failure condition on positioner_with_failure.")
+                dev.positioner_with_failure.fails.set(0).wait()
+                return True  # Retry the scan
+        return False  # Do not retry
+
+    @scan_repeat(max_repeats=2, exc_handler=exc_handler)
+    def my_scan():
+        scans.line_scan(dev.positioner_with_failure, -5, 5, steps=10, exp_time=0.01, relative=True)
+
+    my_scan()
+
+    bec.device_manager.config_helper.send_config_request(
+        action="remove", config={"positioner_with_failure": {}}
+    )
+
+
+@pytest.mark.timeout(100)
+def test_scan_set_completed(bec_ipython_client_fixture):
+    """
+    Test that a scan can be manually set to completed.
+    """
+    bec = bec_ipython_client_fixture
+    scans = bec.scans
+    bec.metadata.update({"unit_test": "test_scan_set_completed"})
+    dev = bec.device_manager.devices
+
+    def _set_scan_completed(bec):
+        while True:
+            if not bec.queue.scan_storage.current_scan:
+                continue
+            if len(bec.queue.scan_storage.current_scan.live_data) >= 5:
+                bec.queue.request_set_completed()
+                break
+            time.sleep(0.1)
+
+    threading.Thread(target=_set_scan_completed, args=(bec,), daemon=True).start()
+
+    scans.grid_scan(dev.samx, -5, 5, 10, dev.samy, -5, 5, 10, exp_time=0.01, relative=True)
+
+    # Now add a second scan to ensure scans can continue after setting completed
+    scans.line_scan(dev.samx, -5, 5, steps=10, exp_time=0.01, relative=True)

@@ -19,7 +19,7 @@ from websockets.asyncio import client as asyncio_websockets_client
 from websockets.asyncio.client import ClientConnection, connect
 
 from exponent.commands.utils import ConnectionTracker
-from exponent.core.config import is_editable_install
+from exponent.core.config import get_indent_home, is_editable_install
 from exponent.core.remote_execution import files, system_context
 from exponent.core.remote_execution.background_tracker import (
     BackgroundProcessTracker,
@@ -117,15 +117,11 @@ class RemoteExecutionClient:
 
         self._last_request_time: float | None = None
 
-        self._pending_upload_requests: dict[
-            str, asyncio.Future[GenerateUploadUrlResponse]
-        ] = {}
+        self._pending_upload_requests: dict[str, asyncio.Future[GenerateUploadUrlResponse]] = {}
         self._upload_request_lock = asyncio.Lock()
         self._websocket: ClientConnection | None = None
 
-        self._background_tracker = BackgroundProcessTracker(
-            on_complete=self._on_background_process_complete
-        )
+        self._background_tracker = BackgroundProcessTracker(on_complete=self._on_background_process_complete)
 
     @property
     def working_directory(self) -> str:
@@ -152,9 +148,7 @@ class RemoteExecutionClient:
     async def halt_all_code_executions(self) -> None:
         logger.info(f"Halting all code executions: {self._halt_states}")
         async with self._halt_lock:
-            self._halt_states = {
-                correlation_id: True for correlation_id in self._halt_states.keys()
-            }
+            self._halt_states = {correlation_id: True for correlation_id in self._halt_states.keys()}
 
     async def clear_halt_state(self, correlation_id: str) -> None:
         async with self._halt_lock:
@@ -186,9 +180,7 @@ class RemoteExecutionClient:
         )
         await self._send_background_notification(notification)
 
-    async def _send_background_notification(
-        self, notification: BackgroundProcessCompletedNotification
-    ) -> None:
+    async def _send_background_notification(self, notification: BackgroundProcessCompletedNotification) -> None:
         if self._websocket is None:
             logger.warning(
                 "Cannot send background process notification: no websocket connection",
@@ -218,9 +210,7 @@ class RemoteExecutionClient:
                 extra={"pid": notification.pid, "error": str(e)},
             )
 
-    async def _timeout_monitor(
-        self, timeout_seconds: int | None
-    ) -> WSDisconnected | None:
+    async def _timeout_monitor(self, timeout_seconds: int | None) -> WSDisconnected | None:
         try:
             while True:
                 await asyncio.sleep(1)
@@ -229,12 +219,8 @@ class RemoteExecutionClient:
                     and self._last_request_time is not None
                     and time.time() - self._last_request_time > timeout_seconds
                 ):
-                    logger.info(
-                        f"No requests received for {timeout_seconds} seconds. Shutting down..."
-                    )
-                    return WSDisconnected(
-                        error_message=f"Timeout after {timeout_seconds} seconds of inactivity"
-                    )
+                    logger.info(f"No requests received for {timeout_seconds} seconds. Shutting down...")
+                    return WSDisconnected(error_message=f"Timeout after {timeout_seconds} seconds of inactivity")
         except asyncio.CancelledError:
             return None
 
@@ -255,9 +241,7 @@ class RemoteExecutionClient:
                 if isinstance(response.response, GenerateUploadUrlResponse):
                     async with self._upload_request_lock:
                         if response.request_id in self._pending_upload_requests:
-                            future = self._pending_upload_requests.pop(
-                                response.request_id
-                            )
+                            future = self._pending_upload_requests.pop(response.request_id)
                             future.set_result(response.response)
             except Exception as e:
                 logger.error(f"Error handling upload URL response: {e}")
@@ -272,11 +256,8 @@ class RemoteExecutionClient:
             request = msgspec.json.decode(data)
             if isinstance(request, dict) and "request_id" in request:
                 request_id = request["request_id"]
-                if (
-                    request.get("request", {}).get("type", {}) == "tool_execution"
-                ) and (
-                    "tool_input" in request["request"]
-                    and "tool_name" in request["request"]["tool_input"]
+                if (request.get("request", {}).get("type", {}) == "tool_execution") and (
+                    "tool_input" in request["request"] and "tool_name" in request["request"]["tool_input"]
                 ):
                     tool_name = request["request"]["tool_input"]["tool_name"]
                     logger.error(
@@ -442,9 +423,7 @@ class RemoteExecutionClient:
             )
             return None
         elif isinstance(request.request, StopTerminalRequest):
-            success = await terminal_session_manager.stop_session(
-                session_id=request.request.session_id
-            )
+            success = await terminal_session_manager.stop_session(session_id=request.request.session_id)
             await websocket.send(
                 json.dumps(
                     {
@@ -484,10 +463,7 @@ class RemoteExecutionClient:
             ):
                 await self.add_code_execution_to_halt_states(request.request_id)
             elif isinstance(request.request, BatchToolExecutionRequest):
-                if any(
-                    isinstance(tool_input, BashToolInput)
-                    for tool_input in request.request.tool_inputs
-                ):
+                if any(isinstance(tool_input, BashToolInput) for tool_input in request.request.tool_inputs):
                     await self.add_code_execution_to_halt_states(request.request_id)
 
             await requests.put(request)
@@ -519,9 +495,7 @@ class RemoteExecutionClient:
                     )
 
                     if isinstance(request.request, StreamingCodeExecutionRequest):
-                        async for streaming_response in self.handle_streaming_request(
-                            request.request
-                        ):
+                        async for streaming_response in self.handle_streaming_request(request.request):
                             async with results_lock:
                                 await results.put(
                                     CliRpcResponse(
@@ -590,15 +564,11 @@ class RemoteExecutionClient:
             pending = {recv, get_beat, get_result, get_terminal_output}
 
             while True:
-                done, pending = await asyncio.wait(
-                    pending, return_when=asyncio.FIRST_COMPLETED
-                )
+                done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
 
                 if recv in done:
                     msg = str(recv.result())
-                    exit_info = await self._handle_websocket_message(
-                        msg, websocket, requests, terminal_session_manager
-                    )
+                    exit_info = await self._handle_websocket_message(msg, websocket, requests, terminal_session_manager)
                     if exit_info is not None:
                         return exit_info
 
@@ -629,9 +599,7 @@ class RemoteExecutionClient:
                     msg = json.dumps({"type": "terminal_message", "data": data})
                     await websocket.send(msg)
 
-                    get_terminal_output = asyncio.create_task(
-                        terminal_output_queue.get()
-                    )
+                    get_terminal_output = asyncio.create_task(terminal_output_queue.get())
                     pending.add(get_terminal_output)
         finally:
             for task in pending:
@@ -670,11 +638,7 @@ class RemoteExecutionClient:
                 if e.rcvd.code == 1000:
                     return WSDisconnected()
                 elif e.rcvd.code == 1008:
-                    error_message = (
-                        "Error connecting to websocket"
-                        if e.rcvd.reason is None
-                        else e.rcvd.reason
-                    )
+                    error_message = "Error connecting to websocket" if e.rcvd.reason is None else e.rcvd.reason
                     return WSDisconnected(error_message=error_message)
             logger.debug("Websocket connection closed by remote.")
             return None
@@ -731,9 +695,7 @@ class RemoteExecutionClient:
                     if result is not None:
                         return result
 
-            return WSDisconnected(
-                error_message="Could not establish websocket connection"
-            )
+            return WSDisconnected(error_message="Could not establish websocket connection")
         finally:
             await terminal_session_manager.stop_all_sessions()
 
@@ -765,9 +727,7 @@ class RemoteExecutionClient:
             )
         return cast(dict[str, Any], response.json())
 
-    async def trigger_workflow(
-        self, workflow_name: str, workflow_input: WorkflowInput
-    ) -> WorkflowTriggerResponse:
+    async def trigger_workflow(self, workflow_name: str, workflow_input: WorkflowInput) -> WorkflowTriggerResponse:
         response = await self.api_client.post(
             "/api/remote_execution/trigger_workflow",
             json=WorkflowTriggerRequest(
@@ -783,6 +743,7 @@ class RemoteExecutionClient:
             exponent_version=get_installed_version(),
             editable_installation=is_editable_install(),
             cli_uuid=str(cli_uuid),
+            config_dir=get_indent_home(),
         )
 
     async def send_heartbeat(self, chat_uuid: str) -> CLIConnectedState:
@@ -794,16 +755,12 @@ class RemoteExecutionClient:
             timeout=60,
         )
         if response.status_code != http_status.OK:
-            raise Exception(
-                f"Heartbeat failed with status code {response.status_code} and response {response.text}"
-            )
+            raise Exception(f"Heartbeat failed with status code {response.status_code} and response {response.text}")
         connected_state = await deserialize_api_response(response, CLIConnectedState)
         logger.info(f"Heartbeat response: {connected_state}")
         return connected_state
 
-    async def request_upload_url(
-        self, s3_key: str, content_type: str
-    ) -> GenerateUploadUrlResponse:
+    async def request_upload_url(self, s3_key: str, content_type: str) -> GenerateUploadUrlResponse:
         if self._websocket is None:
             raise RuntimeError("No active websocket connection")
 
@@ -818,9 +775,7 @@ class RemoteExecutionClient:
             self._pending_upload_requests[request_id] = future
 
         try:
-            await self._websocket.send(
-                json.dumps({"type": "request", "data": msgspec.to_builtins(request)})
-            )
+            await self._websocket.send(json.dumps({"type": "request", "data": msgspec.to_builtins(request)}))
 
             response = await asyncio.wait_for(future, timeout=30)
             return response
@@ -856,9 +811,7 @@ class RemoteExecutionClient:
                     else:
                         raw_result = bash_result
                 else:
-                    raw_result = await execute_tool(
-                        request.request.tool_input, self.working_directory, self
-                    )
+                    raw_result = await execute_tool(request.request.tool_input, self.working_directory, self)
                 tool_result = truncate_result(raw_result, self.chat_uuid)
                 return CliRpcResponse(
                     request_id=request.request_id,
@@ -873,9 +826,7 @@ class RemoteExecutionClient:
                     response=GetAllFilesResponse(files=files_list),
                 )
             elif isinstance(request.request, BatchToolExecutionRequest):
-                coros: list[
-                    Coroutine[Any, Any, ToolResultType | BackgroundBashResult]
-                ] = []
+                coros: list[Coroutine[Any, Any, ToolResultType | BackgroundBashResult]] = []
                 tool_inputs = request.request.tool_inputs
                 for tool_input in tool_inputs:
                     if isinstance(tool_input, BashToolInput):
@@ -888,20 +839,16 @@ class RemoteExecutionClient:
                             )
                         )
                     else:
-                        coros.append(
-                            execute_tool(tool_input, self.working_directory, self)
-                        )
+                        coros.append(execute_tool(tool_input, self.working_directory, self))
 
-                results_list: list[
-                    ToolResultType | BackgroundBashResult | BaseException
-                ] = await asyncio.gather(*coros, return_exceptions=True)
+                results_list: list[ToolResultType | BackgroundBashResult | BaseException] = await asyncio.gather(
+                    *coros, return_exceptions=True
+                )
 
                 processed_results: list[ToolResultType] = []
                 for i, result in enumerate(results_list):
                     if isinstance(result, BaseException):
-                        processed_results.append(
-                            ErrorToolResult(error_message=str(result))
-                        )
+                        processed_results.append(ErrorToolResult(error_message=str(result)))
                     elif isinstance(result, BackgroundBashResult):
                         tool_input = tool_inputs[i]
                         assert isinstance(tool_input, BashToolInput)
@@ -911,13 +858,9 @@ class RemoteExecutionClient:
                             command=tool_input.command,
                             correlation_id=f"{request.request_id}_{i}",
                         )
-                        processed_results.append(
-                            truncate_result(result.result, self.chat_uuid)
-                        )
+                        processed_results.append(truncate_result(result.result, self.chat_uuid))
                     else:
-                        processed_results.append(
-                            truncate_result(result, self.chat_uuid)
-                        )
+                        processed_results.append(truncate_result(result, self.chat_uuid))
 
                 return CliRpcResponse(
                     request_id=request.request_id,
@@ -938,38 +881,22 @@ class RemoteExecutionClient:
                     response=download_response,
                 )
             elif isinstance(request.request, TerminateRequest):
-                raise ValueError(
-                    "TerminateRequest should not be handled by handle_request"
-                )
+                raise ValueError("TerminateRequest should not be handled by handle_request")
 
             elif isinstance(request.request, SwitchCLIChatRequest):
-                raise ValueError(
-                    "SwitchCLIChatRequest should not be handled by handle_request"
-                )
+                raise ValueError("SwitchCLIChatRequest should not be handled by handle_request")
             elif isinstance(request.request, KeepAliveCliChatRequest):
-                raise ValueError(
-                    "KeepAliveCliChatRequest should not be handled by handle_request"
-                )
+                raise ValueError("KeepAliveCliChatRequest should not be handled by handle_request")
             elif isinstance(request.request, StartTerminalRequest):
-                raise ValueError(
-                    "StartTerminalRequest should not be handled by handle_request"
-                )
+                raise ValueError("StartTerminalRequest should not be handled by handle_request")
             elif isinstance(request.request, TerminalInputRequest):
-                raise ValueError(
-                    "TerminalInputRequest should not be handled by handle_request"
-                )
+                raise ValueError("TerminalInputRequest should not be handled by handle_request")
             elif isinstance(request.request, TerminalResizeRequest):
-                raise ValueError(
-                    "TerminalResizeRequest should not be handled by handle_request"
-                )
+                raise ValueError("TerminalResizeRequest should not be handled by handle_request")
             elif isinstance(request.request, StopTerminalRequest):
-                raise ValueError(
-                    "StopTerminalRequest should not be handled by handle_request"
-                )
+                raise ValueError("StopTerminalRequest should not be handled by handle_request")
             elif isinstance(request.request, ListTerminalsRequest):
-                raise ValueError(
-                    "ListTerminalsRequest should not be handled by handle_request"
-                )
+                raise ValueError("ListTerminalsRequest should not be handled by handle_request")
 
             raise ValueError(f"Unhandled request type: {type(request)}")
 
@@ -982,10 +909,7 @@ class RemoteExecutionClient:
             ):
                 await self.clear_halt_state(request.request_id)
             elif isinstance(request.request, BatchToolExecutionRequest):
-                if any(
-                    isinstance(tool_input, BashToolInput)
-                    for tool_input in request.request.tool_inputs
-                ):
+                if any(isinstance(tool_input, BashToolInput) for tool_input in request.request.tool_inputs):
                     await self.clear_halt_state(request.request_id)
 
     async def handle_streaming_request(
@@ -1007,11 +931,7 @@ class RemoteExecutionClient:
             yield output
 
     def ws_connect(self, path: str) -> connect:
-        base_url = (
-            str(self.ws_client.base_url)
-            .replace("http://", "ws://")
-            .replace("https://", "wss://")
-        )
+        base_url = str(self.ws_client.base_url).replace("http://", "ws://").replace("https://", "wss://")
 
         url = f"{base_url}{path}"
         headers = {"api-key": self.api_client.headers["api-key"]}
@@ -1029,9 +949,7 @@ class RemoteExecutionClient:
 
         asyncio_websockets_client.backoff = custom_backoff  # type: ignore[attr-defined, assignment]
 
-        conn = connect(
-            url, additional_headers=headers, open_timeout=10, ping_timeout=10
-        )
+        conn = connect(url, additional_headers=headers, open_timeout=10, ping_timeout=10)
 
         return conn
 
@@ -1044,7 +962,5 @@ class RemoteExecutionClient:
         working_directory: str,
         file_cache: files.FileCache | None = None,
     ) -> AsyncGenerator[RemoteExecutionClient, None]:
-        async with get_session(
-            working_directory, base_url, base_ws_url, api_key
-        ) as session:
+        async with get_session(working_directory, base_url, base_ws_url, api_key) as session:
             yield RemoteExecutionClient(session, file_cache)

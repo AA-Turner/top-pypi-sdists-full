@@ -1,14 +1,14 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" CType enum class for void, a special value to represent discarding stuff.
+"""CType enum class for void, a special value to represent discarding stuff.
 
 Cannot be read from obviously. Also drops references immediately when trying
 to assign to it, but allows to check for exception.
 """
 
-from nuitka import Options
 from nuitka.code_generation.ErrorCodes import getReleaseCode
+from nuitka.States import states
 
 from .CTypeBases import CTypeBase, CTypeNotReferenceCountedMixin
 
@@ -43,7 +43,7 @@ class CTypeNuitkaVoidEnum(CTypeNotReferenceCountedMixin, CTypeBase):
 
         # The only possible value, and in this case never read, but the compiler hates
         # it being defined which is hard for us to know ahead of time.
-        if Options.is_debug:
+        if states.is_debug:
             emit("%s = NUITKA_VOID_OK;" % to_name)
 
     @classmethod
@@ -55,7 +55,7 @@ class CTypeNuitkaVoidEnum(CTypeNotReferenceCountedMixin, CTypeBase):
 
         # The only possible value, and in this case never read, but the compiler hates
         # it being defined which is hard for us to know ahead of time.
-        if Options.is_debug:
+        if states.is_debug:
             emit("%s = NUITKA_VOID_OK;" % to_name)
 
     @classmethod
@@ -72,14 +72,14 @@ class CTypeNuitkaVoidEnum(CTypeNotReferenceCountedMixin, CTypeBase):
     def emitAssignmentCodeFromBoolCondition(cls, to_name, condition, emit):
         # The only possible value, and in this case never read, but the compiler hates
         # it being defined which is hard for us to know ahead of time.
-        if Options.is_debug:
+        if states.is_debug:
             emit("%s = NUITKA_VOID_OK;" % to_name)
 
     @classmethod
     def emitAssignInplaceNegatedValueCode(cls, to_name, needs_check, emit, context):
         # The only possible value, and in this case never read, but the compiler hates
         # it being defined which is hard for us to know ahead of time.
-        if Options.is_debug:
+        if states.is_debug:
             emit("%s = NUITKA_VOID_OK;" % to_name)
 
     @classmethod
@@ -94,11 +94,11 @@ class CTypeNuitkaVoidEnum(CTypeNotReferenceCountedMixin, CTypeBase):
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

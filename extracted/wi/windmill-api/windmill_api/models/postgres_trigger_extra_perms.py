@@ -8,7 +8,7 @@ T = TypeVar("T", bound="PostgresTriggerExtraPerms")
 
 @_attrs_define
 class PostgresTriggerExtraPerms:
-    """ """
+    """Additional permissions for this trigger"""
 
     additional_properties: Dict[str, bool] = _attrs_field(init=False, factory=dict)
 

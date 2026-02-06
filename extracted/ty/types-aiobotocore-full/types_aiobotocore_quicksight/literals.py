@@ -281,6 +281,7 @@ __all__ = (
     "SheetControlListTypeType",
     "SheetControlSliderTypeType",
     "SheetImageScalingTypeType",
+    "SheetLayoutGroupMemberTypeType",
     "SimpleAttributeAggregationFunctionType",
     "SimpleNumericalAggregationFunctionType",
     "SimpleTotalAggregationFunctionType",
@@ -1077,6 +1078,7 @@ SheetControlSliderTypeType = Literal["RANGE", "SINGLE_POINT"]
 SheetImageScalingTypeType = Literal[
     "SCALE_NONE", "SCALE_TO_CONTAINER", "SCALE_TO_HEIGHT", "SCALE_TO_WIDTH"
 ]
+SheetLayoutGroupMemberTypeType = Literal["ELEMENT", "GROUP"]
 SimpleAttributeAggregationFunctionType = Literal["UNIQUE_VALUE"]
 SimpleNumericalAggregationFunctionType = Literal[
     "AVERAGE",

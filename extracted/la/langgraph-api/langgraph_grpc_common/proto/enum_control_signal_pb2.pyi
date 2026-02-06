@@ -30,6 +30,8 @@ class _ControlSignalEnumTypeWrapper(_enum_type_wrapper._EnumTypeWrapper[_Control
     """cancel run action: rollback (see `CancelRunAction` enum)"""
     done: _ControlSignal.ValueType  # 3
     """done marker (no need to cancel)"""
+    subscribed: _ControlSignal.ValueType  # 4
+    """subscription confirmation (server → client)"""
 
 class ControlSignal(_ControlSignal, metaclass=_ControlSignalEnumTypeWrapper):
     """A run control signal (generally sent via pub/sub)."""
@@ -42,4 +44,6 @@ rollback: ControlSignal.ValueType  # 2
 """cancel run action: rollback (see `CancelRunAction` enum)"""
 done: ControlSignal.ValueType  # 3
 """done marker (no need to cancel)"""
+subscribed: ControlSignal.ValueType  # 4
+"""subscription confirmation (server → client)"""
 Global___ControlSignal: _TypeAlias = ControlSignal  # noqa: Y015

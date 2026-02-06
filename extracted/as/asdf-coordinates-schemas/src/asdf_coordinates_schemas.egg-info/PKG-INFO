@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asdf_coordinates_schemas
-Version: 0.5.0
+Version: 0.5.1
 Summary: ASDF schemas for coordinates
 Author: The ASDF Developers
 Project-URL: tracker, https://github.com/asdf-format/asdf-coordinates-schemas/issues

@@ -409,6 +409,7 @@ __all__ = (
     "ObjectCopyRequestTypeDef",
     "ObjectDownloadFileRequestTypeDef",
     "ObjectDownloadFileobjRequestTypeDef",
+    "ObjectEncryptionTypeDef",
     "ObjectIdentifierTypeDef",
     "ObjectLockConfigurationTypeDef",
     "ObjectLockLegalHoldTypeDef",
@@ -529,6 +530,7 @@ __all__ = (
     "S3LocationTypeDef",
     "S3TablesDestinationResultTypeDef",
     "S3TablesDestinationTypeDef",
+    "SSEKMSEncryptionTypeDef",
     "SSEKMSTypeDef",
     "ScanRangeTypeDef",
     "SelectObjectContentEventStreamTypeDef",
@@ -567,6 +569,8 @@ __all__ = (
     "TransitionUnionTypeDef",
     "UpdateBucketMetadataInventoryTableConfigurationRequestTypeDef",
     "UpdateBucketMetadataJournalTableConfigurationRequestTypeDef",
+    "UpdateObjectEncryptionRequestTypeDef",
+    "UpdateObjectEncryptionResponseTypeDef",
     "UploadPartCopyOutputTypeDef",
     "UploadPartCopyRequestMultipartUploadPartCopyFromTypeDef",
     "UploadPartCopyRequestTypeDef",
@@ -1490,6 +1494,11 @@ class ObjectDownloadFileRequestTypeDef(TypedDict):
     Config: NotRequired[TransferConfig | None]
 
 
+class SSEKMSEncryptionTypeDef(TypedDict):
+    KMSKeyArn: str
+    BucketKeyEnabled: NotRequired[bool]
+
+
 class RestoreStatusTypeDef(TypedDict):
     IsRestoreInProgress: NotRequired[bool]
     RestoreExpiryDate: NotRequired[datetime]
@@ -1868,6 +1877,11 @@ class PutObjectTaggingOutputTypeDef(TypedDict):
 class RestoreObjectOutputTypeDef(TypedDict):
     RequestCharged: Literal["requester"]
     RestoreOutputPath: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateObjectEncryptionResponseTypeDef(TypedDict):
+    RequestCharged: Literal["requester"]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3023,6 +3037,10 @@ class NotificationConfigurationDeprecatedResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ObjectEncryptionTypeDef(TypedDict):
+    SSEKMS: NotRequired[SSEKMSEncryptionTypeDef]
+
+
 class ObjectTypeDef(TypedDict):
     Key: NotRequired[str]
     LastModified: NotRequired[datetime]
@@ -3646,6 +3664,17 @@ class DestinationTypeDef(TypedDict):
     EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
     ReplicationTime: NotRequired[ReplicationTimeTypeDef]
     Metrics: NotRequired[MetricsTypeDef]
+
+
+class UpdateObjectEncryptionRequestTypeDef(TypedDict):
+    Bucket: str
+    Key: str
+    ObjectEncryption: ObjectEncryptionTypeDef
+    VersionId: NotRequired[str]
+    RequestPayer: NotRequired[Literal["requester"]]
+    ExpectedBucketOwner: NotRequired[str]
+    ContentMD5: NotRequired[str]
+    ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
 
 
 class ListObjectsOutputTypeDef(TypedDict):

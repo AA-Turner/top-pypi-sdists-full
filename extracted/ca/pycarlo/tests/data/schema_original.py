@@ -70,6 +70,7 @@ class AccountNotificationSettingsModelType(sgqlc.types.Enum):
     * `AZURE_DEVOPS`: Azure Devops
     * `DATADOG`: Datadog
     * `EMAIL`: Email
+    * `FIREHYDRANT`: Firehydrant
     * `GOOGLE_CHAT`: Google Chat
     * `INCIDENTIO`: Incidentio
     * `JIRA`: Jira
@@ -90,6 +91,7 @@ class AccountNotificationSettingsModelType(sgqlc.types.Enum):
         "AZURE_DEVOPS",
         "DATADOG",
         "EMAIL",
+        "FIREHYDRANT",
         "GOOGLE_CHAT",
         "INCIDENTIO",
         "JIRA",
@@ -271,6 +273,7 @@ class AgentMonitorSelectExpressionType(sgqlc.types.Enum):
     """Enumeration Choices:
 
     * `ALL`None
+    * `ATTR_MAP_KEYS`None
     * `COUNT`None
     * `EVALUATION`None
     * `SPAN_TREE`None
@@ -278,7 +281,7 @@ class AgentMonitorSelectExpressionType(sgqlc.types.Enum):
     """
 
     __schema__ = schema
-    __choices__ = ("ALL", "COUNT", "EVALUATION", "SPAN_TREE", "SPAN_VIEW")
+    __choices__ = ("ALL", "ATTR_MAP_KEYS", "COUNT", "EVALUATION", "SPAN_TREE", "SPAN_VIEW")
 
 
 class AgentTraceFormatEnum(sgqlc.types.Enum):
@@ -3375,6 +3378,7 @@ class IntegrationKeyScope(sgqlc.types.Enum):
     * `DatabricksWebhook`None
     * `DbtCloudWebhook`None
     * `MCP`None
+    * `OpenTelemetry`None
     * `S3PresignedUrl`None
     * `SCIM_v2`None
     * `Spark`None
@@ -3389,6 +3393,7 @@ class IntegrationKeyScope(sgqlc.types.Enum):
         "DatabricksWebhook",
         "DbtCloudWebhook",
         "MCP",
+        "OpenTelemetry",
         "S3PresignedUrl",
         "SCIM_v2",
         "Spark",
@@ -4106,6 +4111,26 @@ class OotbTableMonitorTypeEnum(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("FRESHNESS", "SCHEMA", "VOLUME_SIZE_DIFF", "VOLUME_UNCHANGED_SIZE")
+
+
+class OpenTelemetryAuthType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `AWS_IAM_AUTH`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AWS_IAM_AUTH",)
+
+
+class OpenTelemetryStorageType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `S3`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("S3",)
 
 
 class PerformanceDashboardAccessValidationCode(sgqlc.types.Enum):
@@ -6655,7 +6680,7 @@ class AudienceNotificationSettingInput(sgqlc.types.Input):
     """Specify the notification integration to use. Supported options
     include: email, opsgenie, pagerduty, slack, slack_v2, google_chat,
     webhook, msteams, msteams_v2, alation, servicenow, jira, webex,
-    incidentio, datadog, azure_devops
+    incidentio, datadog, azure_devops, firehydrant
     """
 
     extra = sgqlc.types.Field("NotificationExtra", graphql_name="extra")
@@ -14864,6 +14889,7 @@ class AudienceRoutingStats(sgqlc.types.Type):
         "sample_mcons_routing_not_table_monitor_excluding_importance",
         "sample_mcons_table_monitor_not_routing",
         "uses_monitoring_filters_fallback",
+        "uses_routing_filters_only",
         "mcons_new_routed_from_importance",
         "ignored_routing_rules",
         "excludes_non_monitored_tables",
@@ -14903,6 +14929,10 @@ class AudienceRoutingStats(sgqlc.types.Type):
 
     uses_monitoring_filters_fallback = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="usesMonitoringFiltersFallback"
+    )
+
+    uses_routing_filters_only = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="usesRoutingFiltersOnly"
     )
 
     mcons_new_routed_from_importance = sgqlc.types.Field(
@@ -16839,6 +16869,7 @@ class CollectionDetails(sgqlc.types.Type):
         "aws_region",
         "private_link_details",
         "active_node_details",
+        "open_telemetry_collector_details",
     )
     aws_account_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="awsAccountId")
     """AWS Account ID"""
@@ -16855,6 +16886,11 @@ class CollectionDetails(sgqlc.types.Type):
         sgqlc.types.list_of(ActiveNodeDetails), graphql_name="activeNodeDetails"
     )
     """List of active nodes"""
+
+    open_telemetry_collector_details = sgqlc.types.Field(
+        "OpenTelemetryCollectorDetails", graphql_name="openTelemetryCollectorDetails"
+    )
+    """OpenTelemetry collector information"""
 
 
 class CollectionNode(sgqlc.types.Type):
@@ -17450,6 +17486,7 @@ class ConversionResult(sgqlc.types.Type):
         "sample_mcons_affected_by_unexpanded_regex",
         "all_unexpanded_regex_patterns",
         "audiences_with_excluded_non_monitored_tables",
+        "audiences_with_routing_filters_only",
         "audience_routing_stats",
         "text_output",
         "summary_text",
@@ -17624,6 +17661,11 @@ class ConversionResult(sgqlc.types.Type):
     audiences_with_excluded_non_monitored_tables = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
         graphql_name="audiencesWithExcludedNonMonitoredTables",
+    )
+
+    audiences_with_routing_filters_only = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="audiencesWithRoutingFiltersOnly",
     )
 
     audience_routing_stats = sgqlc.types.Field(
@@ -17896,6 +17938,18 @@ class CreateMcpIntegrationKey(sgqlc.types.Type):
     __field_names__ = ("key",)
     key = sgqlc.types.Field("IntegrationKey", graphql_name="key")
     """Integration key id and secret (only available once)."""
+
+
+class CreateOpenTelemetryDataStore(sgqlc.types.Type):
+    """Create an OpenTelemetry data store"""
+
+    __schema__ = schema
+    __field_names__ = ("key", "data_store")
+    key = sgqlc.types.Field("IntegrationKey", graphql_name="key")
+    """Integration key with id and secret (only available once)."""
+
+    data_store = sgqlc.types.Field("OpenTelemetryDataStore", graphql_name="dataStore")
+    """The created data store"""
 
 
 class CreateOpsgenieIntegration(sgqlc.types.Type):
@@ -21363,6 +21417,15 @@ class DeleteObjectProperty(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
+
+
+class DeleteOpenTelemetryDataStore(sgqlc.types.Type):
+    """Delete an OpenTelemetry data store"""
+
+    __schema__ = schema
+    __field_names__ = ("deleted",)
+    deleted = sgqlc.types.Field(Boolean, graphql_name="deleted")
+    """True if the data store was deleted, false if not found"""
 
 
 class DeleteOpsgenieIntegration(sgqlc.types.Type):
@@ -28139,6 +28202,8 @@ class Mutation(sgqlc.types.Type):
         "update_streaming_system_name",
         "update_streaming_cluster_name",
         "toggle_size_collection",
+        "create_open_telemetry_data_store",
+        "delete_open_telemetry_data_store",
         "create_mcp_integration_key",
         "delete_mcp_integration_key",
         "create_opsgenie_integration",
@@ -32733,6 +32798,80 @@ class Mutation(sgqlc.types.Type):
       to the collection query
     """
 
+    create_open_telemetry_data_store = sgqlc.types.Field(
+        CreateOpenTelemetryDataStore,
+        graphql_name="createOpenTelemetryDataStore",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "auth_type",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(OpenTelemetryAuthType),
+                        graphql_name="authType",
+                        default=None,
+                    ),
+                ),
+                (
+                    "credentials",
+                    sgqlc.types.Arg(JSONString, graphql_name="credentials", default=None),
+                ),
+                (
+                    "name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="name", default=None
+                    ),
+                ),
+                (
+                    "storage_identifier",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="storageIdentifier", default=None
+                    ),
+                ),
+                (
+                    "storage_type",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(OpenTelemetryStorageType),
+                        graphql_name="storageType",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create an OpenTelemetry data store
+
+    Arguments:
+
+    * `auth_type` (`OpenTelemetryAuthType!`): Authentication type
+      (e.g. AWS_IAM_AUTH)
+    * `credentials` (`JSONString`): Credentials for accessing the
+      storage.
+    * `name` (`String!`): Name of the data store
+    * `storage_identifier` (`String!`): Storage identifier (e.g., S3
+      bucket name)
+    * `storage_type` (`OpenTelemetryStorageType!`): Storage type (e.g.
+      S3)
+    """
+
+    delete_open_telemetry_data_store = sgqlc.types.Field(
+        DeleteOpenTelemetryDataStore,
+        graphql_name="deleteOpenTelemetryDataStore",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "uuid",
+                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="uuid", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Delete an OpenTelemetry data store
+
+    Arguments:
+
+    * `uuid` (`UUID!`): UUID of the data store to delete
+    """
+
     create_mcp_integration_key = sgqlc.types.Field(
         CreateMcpIntegrationKey,
         graphql_name="createMcpIntegrationKey",
@@ -34492,7 +34631,7 @@ class Mutation(sgqlc.types.Type):
       integration to use. Supported options include: email, opsgenie,
       pagerduty, slack, slack_v2, google_chat, webhook, msteams,
       msteams_v2, alation, servicenow, jira, webex, incidentio,
-      datadog, azure_devops
+      datadog, azure_devops, firehydrant
     * `recipient` (`String`): Deprecated
     * `recipients` (`[String]`): Destination to send notifications to
     * `rules` (`NotificationRoutingRules`): Routing rules
@@ -34664,7 +34803,7 @@ class Mutation(sgqlc.types.Type):
       integration to use. Supported options include: email, opsgenie,
       pagerduty, slack, slack_v2, google_chat, webhook, msteams,
       msteams_v2, alation, servicenow, jira, webex, incidentio,
-      datadog, azure_devops
+      datadog, azure_devops, firehydrant
     * `recipients` (`[String]!`): Destination to send notifications to
     * `recipients_display_names` (`[String]`): Display names for the
       recipients. If this input parameter is provided, it should
@@ -47531,6 +47670,46 @@ class ObjectPropertyEntry(sgqlc.types.Type):
     value = sgqlc.types.Field(String, graphql_name="value")
 
 
+class OpenTelemetryCollectorDetails(sgqlc.types.Type):
+    """OpenTelemetry collector information"""
+
+    __schema__ = schema
+    __field_names__ = ("task_role_arn",)
+    task_role_arn = sgqlc.types.Field(String, graphql_name="taskRoleArn")
+    """OTEL Collector ECS Task Role ARN"""
+
+
+class OpenTelemetryDataStore(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "name",
+        "storage_type",
+        "storage_identifier",
+        "auth_type",
+        "created_time",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Unique UUID of the data store"""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Name of the data store"""
+
+    storage_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="storageType")
+    """Type of storage (e.g., S3)"""
+
+    storage_identifier = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="storageIdentifier"
+    )
+    """Storage identifier (e.g., bucket name)"""
+
+    auth_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="authType")
+    """Authentication type"""
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+    """When the data store was created"""
+
+
 class OpsgenieIntegrationOutput(sgqlc.types.Type):
     """An Opsgenie integration"""
 
@@ -48481,6 +48660,7 @@ class Query(sgqlc.types.Type):
         "load_custom_dashboard_widget_data",
         "lookup_custom_dashboard_time_series_id_by_mcon",
         "lookup_custom_dashboard_time_series_id_by_monitor",
+        "get_open_telemetry_data_stores",
         "get_agent_metadata",
         "get_agent_trace_tables",
         "get_traces_filters",
@@ -49166,6 +49346,11 @@ class Query(sgqlc.types.Type):
     * `field` (`String`)None
     * `where_condition` (`String`)None
     """
+
+    get_open_telemetry_data_stores = sgqlc.types.Field(
+        sgqlc.types.list_of(OpenTelemetryDataStore), graphql_name="getOpenTelemetryDataStores"
+    )
+    """(experimental) List all OpenTelemetry data stores for the account"""
 
     get_agent_metadata = sgqlc.types.Field(
         sgqlc.types.list_of(AgentMetadata),
@@ -64351,9 +64536,25 @@ class Query(sgqlc.types.Type):
     """
 
     favorite_assets = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(FavoriteAsset)), graphql_name="favoriteAssets"
+        sgqlc.types.list_of(sgqlc.types.non_null(FavoriteAsset)),
+        graphql_name="favoriteAssets",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "object_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="objectTypes", default=None
+                    ),
+                ),
+            )
+        ),
     )
-    """(experimental) Get all favorite assets for the current user"""
+    """(experimental) Get all favorite assets for the current user
+
+    Arguments:
+
+    * `object_types` (`[String]`): Filter by object types
+    """
 
     is_favorite = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean),
@@ -71259,6 +71460,7 @@ class TableMonitorSpec(sgqlc.types.Type):
         "distinct_mcons_count",
         "notes",
         "uses_monitoring_filters_fallback",
+        "uses_routing_filters_only",
         "ignored_routing_rules",
         "unexpanded_regex_patterns",
         "excludes_non_monitored_tables",
@@ -71307,6 +71509,10 @@ class TableMonitorSpec(sgqlc.types.Type):
 
     uses_monitoring_filters_fallback = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="usesMonitoringFiltersFallback"
+    )
+
+    uses_routing_filters_only = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="usesRoutingFiltersOnly"
     )
 
     ignored_routing_rules = sgqlc.types.Field(

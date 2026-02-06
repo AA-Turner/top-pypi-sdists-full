@@ -62,7 +62,7 @@ def redirect_to_login(settings: SettingsProtocol, cause: str = "detected") -> No
 
 
 def inside_ssh_session() -> bool:
-    return (os.environ.get("SSH_TTY") or os.environ.get("SSH_TTY")) is not None
+    return (os.environ.get("SSH_TTY") or os.environ.get("SSH_CONNECTION")) is not None
 
 
 async def inside_git_repo() -> bool:
@@ -75,9 +75,7 @@ def missing_ssl_certs() -> bool:
     if platform.system().lower() != "darwin":
         return False
 
-    openssl_dir, openssl_cafile = os.path.split(
-        ssl.get_default_verify_paths().openssl_cafile
-    )
+    openssl_dir, openssl_cafile = os.path.split(ssl.get_default_verify_paths().openssl_cafile)
 
     return not os.path.exists(os.path.join(openssl_dir, openssl_cafile))
 
@@ -94,9 +92,7 @@ def install_ssl_certs() -> None:
         | stat.S_IXOTH
     )
 
-    openssl_dir, openssl_cafile = os.path.split(
-        ssl.get_default_verify_paths().openssl_cafile
-    )
+    openssl_dir, openssl_cafile = os.path.split(ssl.get_default_verify_paths().openssl_cafile)
 
     cwd = os.getcwd()
     # change working directory to the default SSL directory
@@ -119,8 +115,7 @@ def install_ssl_certs() -> None:
 def check_ssl() -> None:
     if missing_ssl_certs():
         click.confirm(
-            "Missing root SSL certs required for python to make HTTP requests, "
-            "install certifi certificates now?",
+            "Missing root SSL certs required for python to make HTTP requests, install certifi certificates now?",
             abort=True,
             default=True,
         )
@@ -137,18 +132,14 @@ async def check_inside_git_repo(settings: SettingsProtocol) -> None:
                 bold=True,
             )
         )
-        click.echo(
-            "This is a check to make sure you are running Indent from the root of your project."
-        )
+        click.echo("This is a check to make sure you are running Indent from the root of your project.")
 
         click.echo(f"\nCurrent directory: {click.style(os.getcwd(), fg='cyan')}")
 
         click.echo("\nRecommendation:")
         click.echo("  Run Indent from the root directory of your codebase.")
         click.echo("\nExample:")
-        click.echo(
-            f"  If your project is in {click.style('~/my-project', fg='cyan')}, run:"
-        )
+        click.echo(f"  If your project is in {click.style('~/my-project', fg='cyan')}, run:")
         click.echo(f"  {click.style('cd ~/my-project && exponent run', fg='green')}")
 
         # Tell the user they can run exponent config --no-git-warning to disable this check
@@ -176,15 +167,11 @@ def check_running_from_home_directory(require_confirmation: bool = True) -> bool
                 bold=True,
             )
         )
-        click.echo(
-            "Running Indent from your home directory can cause unexpected issues."
-        )
+        click.echo("Running Indent from your home directory can cause unexpected issues.")
         click.echo("\nRecommendation:")
         click.echo("  Run Indent from the root directory of your codebase.")
         click.echo("\nExample:")
-        click.echo(
-            f"  If your project is in {click.style('~/my-project', fg='cyan')}, run:"
-        )
+        click.echo(f"  If your project is in {click.style('~/my-project', fg='cyan')}, run:")
         click.echo(f"  {click.style('cd ~/my-project && indent run', fg='green')}")
 
         if require_confirmation:
@@ -224,15 +211,12 @@ def run_until_complete(coro: Coroutine[Any, Any, Any]) -> Any:
     except ExponentError as e:
         try:
             settings = get_settings()
-            loop.run_until_complete(
-                send_exception_log(e, session=None, settings=settings)
-            )
+            loop.run_until_complete(send_exception_log(e, session=None, settings=settings))
         except Exception:
             pass
         click.secho(f"Encountered error: {e}", fg="red")
         click.secho(
-            "The Indent team has been notified, "
-            "please try again and reach out if the problem persists.",
+            "The Indent team has been notified, please try again and reach out if the problem persists.",
             fg="yellow",
         )
         sys.exit(1)
@@ -241,12 +225,8 @@ def run_until_complete(coro: Coroutine[Any, Any, Any]) -> Any:
         sys.exit(1)
 
 
-async def start_chat_turn(
-    api_key: str, base_api_url: str, base_ws_url: str, chat_uuid: str, prompt: str
-) -> None:
-    graphql_client = GraphQLClient(
-        api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url
-    )
+async def start_chat_turn(api_key: str, base_api_url: str, base_ws_url: str, chat_uuid: str, prompt: str) -> None:
+    graphql_client = GraphQLClient(api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url)
 
     result = await graphql_client.start_chat_turn(
         chat_uuid=chat_uuid,
@@ -302,17 +282,13 @@ async def start_client(
         working_directory=os.getcwd(),
         file_cache=file_cache,
     ) as client:
-        main_coro = client.run_connection(
-            chat_uuid, connection_tracker, timeout_seconds
-        )
+        main_coro = client.run_connection(chat_uuid, connection_tracker, timeout_seconds)
         aux_coros: list[Coroutine[Any, Any, None]] = []
 
         if prompt:
             # If given a prompt, we also need to send a request
             # to kick off the initial turn loop for the chat
-            aux_coros.append(
-                start_chat_turn(api_key, base_api_url, base_ws_url, chat_uuid, prompt)
-            )
+            aux_coros.append(start_chat_turn(api_key, base_api_url, base_ws_url, chat_uuid, prompt))
         elif workflow_id:
             # Similarly, if given a workflow ID, we need to send
             # a request to kick off the workflow
@@ -323,13 +299,9 @@ async def start_client(
 
 
 # Helper functions
-async def create_chat(
-    api_key: str, base_api_url: str, base_ws_url: str, chat_source: ChatSource
-) -> str | None:
+async def create_chat(api_key: str, base_api_url: str, base_ws_url: str, chat_source: ChatSource) -> str | None:
     try:
-        async with RemoteExecutionClient.session(
-            api_key, base_api_url, base_ws_url, os.getcwd()
-        ) as client:
+        async with RemoteExecutionClient.session(api_key, base_api_url, base_ws_url, os.getcwd()) as client:
             chat = await client.create_chat(chat_source)
             return chat.chat_uuid
     except (httpx.ConnectError, ExponentError) as e:
@@ -338,9 +310,7 @@ async def create_chat(
 
 
 async def set_login_complete(api_key: str, base_api_url: str, base_ws_url: str) -> None:
-    graphql_client = GraphQLClient(
-        api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url
-    )
+    graphql_client = GraphQLClient(api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url)
     result = await graphql_client.set_login_complete()
 
     data = result.set_login_complete
@@ -353,13 +323,9 @@ async def set_login_complete(api_key: str, base_api_url: str, base_ws_url: str) 
             # We got a user object back, but the api_key is different
             # than the one used in the user's request...
             # This should never happen
-            raise HandledExponentError(
-                "Invalid API key, login to https://indent.com to find your API key."
-            )
+            raise HandledExponentError("Invalid API key, login to https://indent.com to find your API key.")
     else:
-        raise HandledExponentError(
-            f"Unexpected response type from setLoginComplete: {type(data).__name__}"
-        )
+        raise HandledExponentError(f"Unexpected response type from setLoginComplete: {type(data).__name__}")
 
 
 async def refresh_api_key_task(
@@ -371,9 +337,7 @@ async def refresh_api_key_task(
     result = await graphql_client.refresh_api_key()
 
     # Handle error case
-    if isinstance(
-        result.refresh_api_key, RefreshApiKeyRefreshApiKeyUnauthenticatedError
-    ):
+    if isinstance(result.refresh_api_key, RefreshApiKeyRefreshApiKeyUnauthenticatedError):
         click.secho(f"Error: {result.refresh_api_key.message}", fg="red")
         return
 
@@ -411,9 +375,7 @@ async def report_sandbox_info(
     Raises:
         HandledExponentError: If the mutation fails
     """
-    graphql_client = GraphQLClient(
-        api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url
-    )
+    graphql_client = GraphQLClient(api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url)
 
     result = await graphql_client.report_sandbox_info(
         sandbox_id=sandbox_id,

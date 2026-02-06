@@ -24,17 +24,19 @@ T = TypeVar("T", bound="UpdateMqttTriggerJsonBody")
 class UpdateMqttTriggerJsonBody:
     """
     Attributes:
-        mqtt_resource_path (str):
-        subscribe_topics (List['UpdateMqttTriggerJsonBodySubscribeTopicsItem']):
-        path (str):
-        script_path (str):
-        is_flow (bool):
-        client_id (Union[Unset, str]):
-        v3_config (Union[Unset, UpdateMqttTriggerJsonBodyV3Config]):
-        v5_config (Union[Unset, UpdateMqttTriggerJsonBodyV5Config]):
-        client_version (Union[Unset, UpdateMqttTriggerJsonBodyClientVersion]):
+        mqtt_resource_path (str): Path to the MQTT resource containing broker connection configuration
+        subscribe_topics (List['UpdateMqttTriggerJsonBodySubscribeTopicsItem']): Array of MQTT topics to subscribe to,
+            each with topic name and QoS level
+        path (str): The unique path identifier for this trigger
+        script_path (str): Path to the script or flow to execute when a message is received
+        is_flow (bool): True if script_path points to a flow, false if it points to a script
+        client_id (Union[Unset, str]): MQTT client ID for this connection
+        v3_config (Union[Unset, UpdateMqttTriggerJsonBodyV3Config]): MQTT v3 specific configuration (clean_session)
+        v5_config (Union[Unset, UpdateMqttTriggerJsonBodyV5Config]): MQTT v5 specific configuration (clean_start,
+            topic_alias_maximum, session_expiry_interval)
+        client_version (Union[Unset, UpdateMqttTriggerJsonBodyClientVersion]): MQTT protocol version ('v3' or 'v5')
         mode (Union[Unset, UpdateMqttTriggerJsonBodyMode]): job trigger mode
-        error_handler_path (Union[Unset, str]):
+        error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, UpdateMqttTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
             script or flow
         retry (Union[Unset, UpdateMqttTriggerJsonBodyRetry]): Retry configuration for failed module executions

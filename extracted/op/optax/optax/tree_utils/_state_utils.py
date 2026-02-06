@@ -141,7 +141,7 @@ def tree_map_params(
   """
 
   # Cast for pytype checks (no-op for other usages).
-  placeholder = cast(base.chex.ArrayTree, _ParamsPlaceholder())
+  placeholder = cast(base.ArrayTree, _ParamsPlaceholder())
 
   if isinstance(initable, Initable):
     initable = cast(Initable, initable)  # for pytype checks
@@ -268,7 +268,7 @@ def tree_get(
   Search in the ``tree`` for a specific ``key`` (which can be a key
   from a dictionary, a field from a NamedTuple or the name of a NamedTuple).
 
-  If the ``tree`` does not containt ``key`` returns ``default``.
+  If the ``tree`` does not contain ``key`` returns ``default``.
 
   Raises a ``KeyError`` if multiple values of ``key`` are found in ``tree``.
 

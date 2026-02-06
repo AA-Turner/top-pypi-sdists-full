@@ -23,12 +23,7 @@ from langgraph_api.encryption.middleware import (
     extract_blob_encryption_context,
 )
 from langgraph_api.errors import UserInterrupt, UserRollback, UserTimeout
-from langgraph_api.feature_flags import (
-    FF_USE_CORE_API,
-    IS_POSTGRES_OR_GRPC_BACKEND,
-)
-from langgraph_api.grpc.ops import Runs as GrpcRuns
-from langgraph_api.grpc.ops import Threads as GrpcThreads
+from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.js.errors import RemoteException
 from langgraph_api.metadata import incr_runs
 from langgraph_api.otel_context import restore_otel_trace_context
@@ -37,17 +32,12 @@ from langgraph_api.state import state_snapshot_to_thread_state
 from langgraph_api.stream import AnyStream, astream_state, consume
 from langgraph_api.utils import with_user
 from langgraph_runtime.database import connect
-from langgraph_runtime.ops import Runs
 from langgraph_runtime.retry import RETRIABLE_EXCEPTIONS
 
-CrudRuns = GrpcRuns if FF_USE_CORE_API else Runs
-
 if IS_POSTGRES_OR_GRPC_BACKEND:
-    CrudThreads = GrpcThreads
+    from langgraph_api.grpc.ops import Runs, Threads
 else:
-    from langgraph_runtime.ops import Threads
-
-    CrudThreads = Threads
+    from langgraph_runtime.ops import Runs, Threads
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -189,7 +179,7 @@ async def worker(
                 raise UserTimeout(e) from e
             raise
 
-    async with CrudRuns.enter(run_id, run["thread_id"], main_loop, resumable) as done:
+    async with Runs.enter(run_id, run["thread_id"], main_loop, resumable) as done:
         # attempt the run
         try:
             if attempt > BG_JOB_MAX_RETRIES:
@@ -287,7 +277,7 @@ async def worker(
                         run_attempt=attempt,
                     )
                     try:
-                        state_snapshot = await CrudThreads.State.get(
+                        state_snapshot = await Threads.State.get(
                             conn, run["kwargs"]["config"], subgraphs=False
                         )
                         checkpoint = state_snapshot_to_thread_state(state_snapshot)
@@ -299,7 +289,7 @@ async def worker(
                             run_attempt=attempt,
                         )
                 if not temporary:
-                    await CrudThreads.set_joint_status(
+                    await Threads.set_joint_status(
                         conn,
                         run["thread_id"],
                         run_id,
@@ -314,7 +304,7 @@ async def worker(
                     **log_info,
                 )
                 if not temporary:
-                    await CrudThreads.set_joint_status(
+                    await Threads.set_joint_status(
                         conn,
                         run["thread_id"],
                         run_id,
@@ -327,7 +317,7 @@ async def worker(
                 status = "rollback"
                 if not temporary:
                     try:
-                        await CrudThreads.set_joint_status(
+                        await Threads.set_joint_status(
                             conn,
                             run["thread_id"],
                             run_id,
@@ -356,7 +346,7 @@ async def worker(
                     **log_info,
                 )
                 if not temporary:
-                    await CrudThreads.set_joint_status(
+                    await Threads.set_joint_status(
                         conn,
                         run["thread_id"],
                         run_id,
@@ -373,7 +363,7 @@ async def worker(
                 )
                 # Don't update thread status yet.
                 # Apply this even for temporary runs, so we retry
-                await CrudRuns.set_status(conn, run_id, "pending")
+                await Runs.set_status(conn, run_id, "pending")
             else:
                 status = "error"
 
@@ -387,7 +377,7 @@ async def worker(
                     **log_info,
                 )
                 if not temporary:
-                    await CrudThreads.set_joint_status(
+                    await Threads.set_joint_status(
                         conn,
                         run["thread_id"],
                         run_id,
@@ -399,7 +389,7 @@ async def worker(
 
             # delete thread if it's temporary and we don't want to retry
             if temporary and not isinstance(exception, ALL_RETRIABLE_EXCEPTIONS):
-                await CrudThreads.delete(conn, run["thread_id"])
+                await Threads.delete(conn, run["thread_id"])
 
         if isinstance(exception, ALL_RETRIABLE_EXCEPTIONS):
             await logger.awarning("RETRYING", exc_info=exception)

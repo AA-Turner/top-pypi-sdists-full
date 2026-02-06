@@ -126,6 +126,7 @@ class Exceptions(BaseClientExceptions):
     InternalServerException: type[BotocoreClientError]
     InvalidInputException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
+    RetryableConflictException: type[BotocoreClientError]
     RuntimeClientError: type[BotocoreClientError]
     ServiceException: type[BotocoreClientError]
     ServiceQuotaExceededException: type[BotocoreClientError]

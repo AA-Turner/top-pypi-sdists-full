@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19\x65num_control_signal.proto\x12\x11\x65numControlSignal*C\n\rControlSignal\x12\x0b\n\x07unknown\x10\x00\x12\r\n\tinterrupt\x10\x01\x12\x0c\n\x08rollback\x10\x02\x12\x08\n\x04\x64one\x10\x03\x42;Z9github.com/langchain-ai/langgraph-api/core/internal/enumsb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19\x65num_control_signal.proto\x12\x11\x65numControlSignal*S\n\rControlSignal\x12\x0b\n\x07unknown\x10\x00\x12\r\n\tinterrupt\x10\x01\x12\x0c\n\x08rollback\x10\x02\x12\x08\n\x04\x64one\x10\x03\x12\x0e\n\nsubscribed\x10\x04\x42;Z9github.com/langchain-ai/langgraph-api/core/internal/enumsb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,5 +33,5 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'Z9github.com/langchain-ai/langgraph-api/core/internal/enums'
   _globals['_CONTROLSIGNAL']._serialized_start=48
-  _globals['_CONTROLSIGNAL']._serialized_end=115
+  _globals['_CONTROLSIGNAL']._serialized_end=131
 # @@protoc_insertion_point(module_scope)

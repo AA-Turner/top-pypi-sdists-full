@@ -7,7 +7,7 @@ from packaging.version import Version
 
 ROOT_PATH = Path(__file__).parent.parent
 
-RESOURCES_PATH = ROOT_PATH / "resources"
+RESOURCES_PATH = ROOT_PATH / "resources" / "stable"
 
 SCHEMAS_PATH = RESOURCES_PATH / "schemas" / "stsci.edu" / "asdf"
 DOCS_PATH = ROOT_PATH / "docs" / "source"
@@ -74,7 +74,7 @@ def yaml_tag_to_id(yaml_tag):
 
 
 def _relative_stem(path):
-    return f"{str((path.parent).relative_to(SCHEMAS_PATH))}/{str(path.stem)}"
+    return f"{(path.parent).relative_to(SCHEMAS_PATH)!s}/{path.stem!s}"
 
 
 def path_to_tag(path):

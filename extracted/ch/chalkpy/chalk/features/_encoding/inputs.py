@@ -2,7 +2,7 @@ import collections
 import collections.abc
 import dataclasses
 import warnings
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union, cast
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple, Union, cast
 
 import pyarrow as pa
 
@@ -201,3 +201,54 @@ def recursive_encode_inputs(
 ) -> Tuple[Dict[str, Union[TJSON, pa.Scalar]], List[str]]:
     bulk_result, warnings = recursive_encode_bulk_inputs({k: [v] for k, v in inputs.items()}, options=options)
     return {k: next(iter(v)) for (k, v) in bulk_result.items()}, warnings
+
+
+def _flatten_feature_instance(
+    instance: Features, prefix: str, root_namespace: str, strip_namespace: bool
+) -> Iterator[Tuple[str, Any]]:
+    """Recursively flatten a feature instance, yielding (key, value) pairs."""
+    for fqn, value in instance.items():
+        if strip_namespace:
+            # Strip the namespace from the fqn to get the relative key
+            relative_key = fqn.removeprefix(f"{instance.__chalk_namespace__}.")
+            full_key = f"{prefix}.{relative_key}" if prefix else relative_key
+        else:
+            full_key = fqn
+
+        if isinstance(value, Features):
+            # Recursively flatten nested has-one features
+            yield from _flatten_feature_instance(value, full_key, root_namespace, strip_namespace)
+        else:
+            yield full_key, value
+
+
+def features_to_columnar(instances: Sequence[Features], strip_namespace: bool = True) -> Dict[str, List[Any]]:
+    """
+    Convert a list of feature instances (row-oriented) to a columnar dict.
+
+    Handles nested has-one relationships by flattening them with dotted keys.
+
+    Parameters
+    ----------
+    instances
+        A list of feature class instances, e.g. [User(id=1, name="Alice"), User(id=2, name="Bob")]
+    strip_namespace
+        If True, strip the root namespace from the keys. e.g. "user.name" becomes "name".
+        If False, keep the full FQN as keys.
+
+    Returns
+    -------
+    Dict[str, List[Any]]
+        A dict mapping feature names to lists of values, e.g. {"id": [1, 2], "name": ["Alice", "Bob"]}
+    """
+    if not instances:
+        return {}
+
+    result: Dict[str, List[Any]] = collections.defaultdict(list)
+    root_namespace = instances[0].__chalk_namespace__
+
+    for instance in instances:
+        for key, value in _flatten_feature_instance(instance, "", root_namespace, strip_namespace):
+            result[key].append(value)
+
+    return dict(result)

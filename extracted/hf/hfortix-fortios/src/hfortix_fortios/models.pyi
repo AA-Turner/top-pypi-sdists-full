@@ -265,11 +265,6 @@ class FortiObject(Generic[_DataT]):
         """
         ...
 
-    # NOTE: __getattr__ is intentionally omitted from the stub.
-    # This allows typed subclasses (like AddressObject, SettingObject) to properly
-    # report errors for nonexistent fields. The runtime implementation still has
-    # __getattr__ for dynamic access, but the stub omits it for better type safety.
-
     def get_full(self, name: str) -> Any:
         """
         Get raw field value without automatic processing.

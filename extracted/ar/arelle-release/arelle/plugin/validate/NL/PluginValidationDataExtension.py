@@ -155,6 +155,7 @@ class PluginValidationDataExtension(PluginData):
     formattedExplanationItemTypeQn: QName | None
     ifrsIdentifier: str
     mandatoryFactQNames: frozenset[QName] | None
+    nonDimensionalLineItemsQName: QName | None
     permissibleGAAPRootAbstracts: frozenset[QName]
     permissibleIFRSRootAbstracts: frozenset[QName]
     textFormattingSchemaPath: str
@@ -531,6 +532,12 @@ class PluginValidationDataExtension(PluginData):
             if filenameParts and filenameParts['base'] == 'kvk':
                 return doc
         return None
+
+    @lru_cache(1)
+    def getFilingInformationFacts(self, modelXbrl: ModelXbrl) -> tuple[ModelFact, ...]:
+        filingInformationDocument = self.getFilingInformationDocument(modelXbrl)
+        facts = tuple(fact for fact in modelXbrl.facts if fact.modelDocument == filingInformationDocument)
+        return facts
 
     @lru_cache(1)
     def getIxdsDocBasenames(self, modelXbrl: ModelXbrl) -> tuple[str, ...]:

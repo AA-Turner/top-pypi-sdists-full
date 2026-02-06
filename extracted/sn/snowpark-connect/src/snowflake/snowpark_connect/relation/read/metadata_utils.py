@@ -23,6 +23,24 @@ from snowflake.snowpark_connect.error.error_utils import attach_custom_error_cod
 METADATA_FILENAME_COLUMN = "METADATA$FILENAME"
 
 
+def populate_metadata(
+    options: dict | None = None,
+):
+    # NOTE: SNOWPARK_POPULATE_FILE_METADATA_DEFAULT is an internal environment variable
+    # used only for CI testing to verify no metadata columns leak in regular file operations.
+    # This environment variable should NOT be exposed to end users. Users should only use snowpark.populateFileMetadata
+    # to enable metadata population.
+    metadata_default = os.environ.get(
+        "SNOWPARK_POPULATE_FILE_METADATA_DEFAULT", "false"
+    )
+
+    return (
+        options.get("snowpark.populateFileMetadata", metadata_default)
+        if options
+        else metadata_default
+    ).lower() == "true"
+
+
 def add_filename_metadata_to_reader(
     reader: snowpark.DataFrameReader,
     options: dict | None = None,
@@ -37,21 +55,8 @@ def add_filename_metadata_to_reader(
     Returns:
         DataFrameReader with filename metadata enabled if configured, otherwise unchanged
     """
-    # NOTE: SNOWPARK_POPULATE_FILE_METADATA_DEFAULT is an internal environment variable
-    # used only for CI testing to verify no metadata columns leak in regular file operations.
-    # This environment variable should NOT be exposed to end users. Users should only use snowpark.populateFileMetadata
-    # to enable metadata population.
-    metadata_default = os.environ.get(
-        "SNOWPARK_POPULATE_FILE_METADATA_DEFAULT", "false"
-    )
 
-    populate_metadata = (
-        options.get("snowpark.populateFileMetadata", metadata_default)
-        if options
-        else metadata_default
-    ).lower() == "true"
-
-    if populate_metadata:
+    if populate_metadata(options):
         return reader.with_metadata(METADATA_FILENAME)
     else:
         return reader

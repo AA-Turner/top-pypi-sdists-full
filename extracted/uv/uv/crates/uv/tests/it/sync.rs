@@ -754,7 +754,7 @@ fn mixed_requires_python() -> Result<()> {
 /// Ensure that group requires-python solves an actual problem
 #[test]
 #[cfg(not(windows))]
-#[cfg(feature = "python-eol")]
+#[cfg(feature = "test-python-eol")]
 fn group_requires_python_useful_defaults() -> Result<()> {
     let context = TestContext::new_with_versions(&["3.8", "3.9"]);
 
@@ -899,7 +899,7 @@ fn group_requires_python_useful_defaults() -> Result<()> {
 /// Ensure that group requires-python solves an actual problem
 #[test]
 #[cfg(not(windows))]
-#[cfg(feature = "python-eol")]
+#[cfg(feature = "test-python-eol")]
 fn group_requires_python_useful_non_defaults() -> Result<()> {
     let context = TestContext::new_with_versions(&["3.8", "3.9"]);
 
@@ -1953,13 +1953,12 @@ fn sync_extra_build_dependencies() -> Result<()> {
     "#})?;
 
     context.venv().arg("--clear").assert().success();
-    uv_snapshot!(context.filters(), context.sync(), @"
+    uv_snapshot!(context.filters(), context.sync(), @r"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
     Prepared [N] packages in [TIME]
     Installed [N] packages in [TIME]
@@ -1967,13 +1966,12 @@ fn sync_extra_build_dependencies() -> Result<()> {
     ");
 
     context.venv().arg("--clear").assert().success();
-    uv_snapshot!(context.filters(), context.sync(), @"
+    uv_snapshot!(context.filters(), context.sync(), @r"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
     Installed [N] packages in [TIME]
      + child==0.1.0 (from file://[TEMP_DIR]/child)
@@ -1996,13 +1994,12 @@ fn sync_extra_build_dependencies() -> Result<()> {
     "#})?;
 
     context.venv().arg("--clear").assert().success();
-    uv_snapshot!(context.filters(), context.sync(), @"
+    uv_snapshot!(context.filters(), context.sync(), @r"
     success: false
     exit_code: 1
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
       × Failed to build `child @ file://[TEMP_DIR]/child`
       ├─▶ The build backend returned an error
@@ -2065,13 +2062,12 @@ fn sync_extra_build_dependencies() -> Result<()> {
 
     // Confirm that `bad_child` fails if anyio is provided
     context.venv().arg("--clear").assert().success();
-    uv_snapshot!(context.filters(), context.sync(), @"
+    uv_snapshot!(context.filters(), context.sync(), @r"
     success: false
     exit_code: 1
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
       × Failed to build `bad-child @ file://[TEMP_DIR]/bad_child`
       ├─▶ The build backend returned an error
@@ -2101,13 +2097,12 @@ fn sync_extra_build_dependencies() -> Result<()> {
     "#})?;
 
     context.venv().arg("--clear").assert().success();
-    uv_snapshot!(context.filters(), context.sync(), @"
+    uv_snapshot!(context.filters(), context.sync(), @r"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
     Prepared [N] packages in [TIME]
     Installed [N] packages in [TIME]
@@ -2194,13 +2189,12 @@ fn sync_extra_build_dependencies_setuptools_legacy() -> Result<()> {
     "#})?;
 
     context.venv().arg("--clear").assert().success();
-    uv_snapshot!(context.filters(), context.sync(), @"
+    uv_snapshot!(context.filters(), context.sync(), @r"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
     Prepared [N] packages in [TIME]
     Installed [N] packages in [TIME]
@@ -2301,13 +2295,12 @@ fn sync_extra_build_dependencies_setuptools() -> Result<()> {
     "#})?;
 
     context.venv().arg("--clear").assert().success();
-    uv_snapshot!(context.filters(), context.sync(), @"
+    uv_snapshot!(context.filters(), context.sync(), @r"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
     Prepared [N] packages in [TIME]
     Installed [N] packages in [TIME]
@@ -2376,13 +2369,12 @@ fn sync_extra_build_dependencies_sources() -> Result<()> {
     })?;
 
     // Running `uv sync` should succeed, as `anyio` is provided as a source
-    uv_snapshot!(context.filters(), context.sync(), @"
+    uv_snapshot!(context.filters(), context.sync(), @r"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
     Prepared [N] packages in [TIME]
     Installed [N] packages in [TIME]
@@ -2512,13 +2504,12 @@ fn sync_extra_build_dependencies_index() -> Result<()> {
 
     // The child should be rebuilt with `3.5` on reinstall, the "latest" on Test PyPI.
     uv_snapshot!(context.filters(), context.sync()
-        .arg("--reinstall-package").arg("child").env(EnvVars::EXPECTED_ANYIO_VERSION, "4.3"), @"
+        .arg("--reinstall-package").arg("child").env(EnvVars::EXPECTED_ANYIO_VERSION, "4.3"), @r"
     success: false
     exit_code: 1
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
       × Failed to build `child @ file://[TEMP_DIR]/child`
       ├─▶ The build backend returned an error
@@ -2532,13 +2523,12 @@ fn sync_extra_build_dependencies_index() -> Result<()> {
     ");
 
     uv_snapshot!(context.filters(), context.sync()
-        .arg("--reinstall-package").arg("child").env(EnvVars::EXPECTED_ANYIO_VERSION, "3.5"), @"
+        .arg("--reinstall-package").arg("child").env(EnvVars::EXPECTED_ANYIO_VERSION, "3.5"), @r"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
     Prepared [N] packages in [TIME]
     Uninstalled [N] packages in [TIME]
@@ -2610,13 +2600,12 @@ fn sync_extra_build_dependencies_sources_from_child() -> Result<()> {
     })?;
 
     // Running `uv sync` should fail due to the unapplied source
-    uv_snapshot!(context.filters(), context.sync().arg("--reinstall").arg("--refresh"), @"
+    uv_snapshot!(context.filters(), context.sync().arg("--reinstall").arg("--refresh"), @r"
     success: false
     exit_code: 1
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
       × Failed to build `child @ file://[TEMP_DIR]/child`
       ├─▶ The build backend returned an error
@@ -2718,13 +2707,12 @@ fn sync_build_dependencies_module_error_hints() -> Result<()> {
     "#})?;
 
     context.venv().arg("--clear").assert().success();
-    uv_snapshot!(context.filters(), context.sync(), @"
+    uv_snapshot!(context.filters(), context.sync(), @r"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
     Prepared [N] packages in [TIME]
     Installed [N] packages in [TIME]
@@ -2748,7 +2736,6 @@ fn sync_build_dependencies_module_error_hints() -> Result<()> {
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
       × Failed to build `child @ file://[TEMP_DIR]/child`
       ├─▶ The build backend returned an error
@@ -2786,13 +2773,12 @@ fn sync_build_dependencies_module_error_hints() -> Result<()> {
     "#})?;
 
     context.venv().arg("--clear").assert().success();
-    uv_snapshot!(context.filters(), context.sync(), @"
+    uv_snapshot!(context.filters(), context.sync(), @r"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
     Prepared [N] packages in [TIME]
     Installed [N] packages in [TIME]
@@ -7047,7 +7033,7 @@ fn sync_active_script_environment_json() -> Result<()> {
 }
 
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn sync_workspace_custom_environment_path() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -8847,7 +8833,7 @@ fn sync_no_sources_missing_member() -> Result<()> {
 
 /// Test `--no-sources-package` with sync to selectively disable sources.
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn sync_no_sources_package() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -9869,7 +9855,7 @@ fn sync_derivation_chain_group() -> Result<()> {
 
 /// See: <https://github.com/astral-sh/uv/issues/9743>
 #[test]
-#[cfg(all(feature = "slow-tests", feature = "git"))]
+#[cfg(all(feature = "test-slow", feature = "test-git"))]
 fn sync_stale_egg_info() -> Result<()> {
     let context = TestContext::new("3.13");
 
@@ -9975,7 +9961,7 @@ fn sync_stale_egg_info() -> Result<()> {
 
 /// See: <https://github.com/astral-sh/uv/issues/8887>
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn sync_git_repeated_member_static_metadata() -> Result<()> {
     let context = TestContext::new("3.13");
 
@@ -10069,7 +10055,7 @@ fn sync_git_repeated_member_static_metadata() -> Result<()> {
 
 /// See: <https://github.com/astral-sh/uv/issues/8887>
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn sync_git_repeated_member_dynamic_metadata() -> Result<()> {
     let context = TestContext::new("3.13");
 
@@ -10187,7 +10173,7 @@ fn sync_git_repeated_member_dynamic_metadata() -> Result<()> {
 
 /// See: <https://github.com/astral-sh/uv/issues/8887>
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn sync_git_repeated_member_backwards_path() -> Result<()> {
     let context = TestContext::new("3.13");
 
@@ -10370,7 +10356,7 @@ fn mismatched_name_cached_wheel() -> Result<()> {
 ///
 /// See: <https://github.com/astral-sh/uv/issues/9516>
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn sync_git_path_dependency() -> Result<()> {
     let context = TestContext::new("3.13");
 
@@ -12733,7 +12719,8 @@ dependencies = [
         .arg("--exclude-newer")
         .arg("2022-04-04T12:00:00Z")
         .arg("--exclude-newer-package")
-        .arg("tqdm=2022-09-04T00:00:00Z"), @"
+        .arg("tqdm=2022-09-04T00:00:00Z")
+        .arg("--upgrade"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -12816,7 +12803,8 @@ exclude-newer-package = { tqdm = "2022-09-04T00:00:00Z" }
     // Sync again with the package-specific override
     uv_snapshot!(context.filters(), context
         .sync()
-        .env_remove(EnvVars::UV_EXCLUDE_NEWER), @"
+        .env_remove(EnvVars::UV_EXCLUDE_NEWER)
+        .arg("--upgrade"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -13735,13 +13723,12 @@ fn sync_build_dependencies_respect_locked_versions() -> Result<()> {
     "#})?;
 
     // The child should be built with anyio 4.0
-    uv_snapshot!(context.filters(), context.sync().env(EnvVars::EXPECTED_ANYIO_VERSION, "4.0"), @"
+    uv_snapshot!(context.filters(), context.sync().env(EnvVars::EXPECTED_ANYIO_VERSION, "4.0"), @r"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
     Prepared [N] packages in [TIME]
     Installed [N] packages in [TIME]
@@ -13768,13 +13755,12 @@ fn sync_build_dependencies_respect_locked_versions() -> Result<()> {
 
     // The child should be rebuilt with anyio 3.7, without `--reinstall`
     uv_snapshot!(context.filters(), context.sync()
-        .arg("--reinstall-package").arg("child").env(EnvVars::EXPECTED_ANYIO_VERSION, "4.0"), @"
+        .arg("--reinstall-package").arg("child").env(EnvVars::EXPECTED_ANYIO_VERSION, "4.0"), @r"
     success: false
     exit_code: 1
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
       × Failed to build `child @ file://[TEMP_DIR]/child`
       ├─▶ The build backend returned an error
@@ -13788,36 +13774,18 @@ fn sync_build_dependencies_respect_locked_versions() -> Result<()> {
     ");
 
     uv_snapshot!(context.filters(), context.sync()
-        .arg("--reinstall-package").arg("child").env(EnvVars::EXPECTED_ANYIO_VERSION, "3.7"), @"
+        .arg("--reinstall-package").arg("child").env(EnvVars::EXPECTED_ANYIO_VERSION, "3.7"), @r"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
     Prepared [N] packages in [TIME]
     Uninstalled [N] packages in [TIME]
     Installed [N] packages in [TIME]
      - anyio==4.0.0
      + anyio==3.7.1
-     ~ child==0.1.0 (from file://[TEMP_DIR]/child)
-    ");
-
-    // With preview enabled, there's no warning
-    uv_snapshot!(context.filters(), context.sync()
-        .arg("--preview-features").arg("extra-build-dependencies")
-        .arg("--reinstall-package").arg("child")
-        .env(EnvVars::EXPECTED_ANYIO_VERSION, "3.7"), @"
-    success: true
-    exit_code: 0
-    ----- stdout -----
-
-    ----- stderr -----
-    Resolved [N] packages in [TIME]
-    Prepared [N] packages in [TIME]
-    Uninstalled [N] packages in [TIME]
-    Installed [N] packages in [TIME]
      ~ child==0.1.0 (from file://[TEMP_DIR]/child)
     ");
 
@@ -13851,13 +13819,12 @@ fn sync_build_dependencies_respect_locked_versions() -> Result<()> {
 
     // This should fail
     uv_snapshot!(context.filters(), context.sync()
-        .arg("--reinstall-package").arg("child").env(EnvVars::EXPECTED_ANYIO_VERSION, "4.1"), @"
+        .arg("--reinstall-package").arg("child").env(EnvVars::EXPECTED_ANYIO_VERSION, "4.1"), @r"
     success: false
     exit_code: 1
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
       × Failed to build `child @ file://[TEMP_DIR]/child`
       ├─▶ Failed to resolve requirements from `build-system.requires` and `extra-build-dependencies`
@@ -13881,13 +13848,12 @@ fn sync_build_dependencies_respect_locked_versions() -> Result<()> {
         child = [{ requirement = "anyio>4", match-runtime = true }]
     "#})?;
 
-    uv_snapshot!(context.filters(), context.sync(), @"
+    uv_snapshot!(context.filters(), context.sync(), @r"
     success: false
     exit_code: 2
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved [N] packages in [TIME]
     error: Dependencies marked with `match-runtime = true` cannot include version specifiers, but found: `anyio>4`
     ");
@@ -14051,13 +14017,12 @@ fn reject_unmatched_runtime() -> Result<()> {
         "#,
     )?;
 
-    uv_snapshot!(context.filters(), context.lock(), @"
+    uv_snapshot!(context.filters(), context.lock(), @r"
     success: false
     exit_code: 1
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
       × Failed to download and build `source-distribution==0.0.3`
       ╰─▶ Extra build requirement `iniconfig` was declared with `match-runtime = true`, but `source-distribution` does not declare static metadata, making runtime-matching impossible
       help: `source-distribution` (v0.0.3) was included because `foo` (v0.1.0) depends on `source-distribution`
@@ -14068,7 +14033,7 @@ fn reject_unmatched_runtime() -> Result<()> {
 
 /// Test Git LFS configuration.
 #[test]
-#[cfg(feature = "git-lfs")]
+#[cfg(feature = "test-git-lfs")]
 fn sync_git_lfs() -> Result<()> {
     let context = TestContext::new("3.13").with_git_lfs_config();
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
@@ -14083,7 +14048,7 @@ fn sync_git_lfs() -> Result<()> {
         dependencies = ["test-lfs-repo"]
 
         [tool.uv.sources]
-        test-lfs-repo = { git = "https://github.com/astral-sh/test-lfs-repo.git", rev = "657500f0703dc173ac5d68dfa1d7e8c985c84424", lfs = true }
+        test-lfs-repo = { git = "https://github.com/astral-sh/test-lfs-repo.git", rev = "0fe88f7c2e2883521bf065c108d9ee8eb115674b", lfs = true }
         "#,
     )?;
 
@@ -14096,7 +14061,7 @@ fn sync_git_lfs() -> Result<()> {
     Resolved 2 packages in [TIME]
     Prepared 1 package in [TIME]
     Installed 1 package in [TIME]
-     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@657500f0703dc173ac5d68dfa1d7e8c985c84424#lfs=true)
+     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@0fe88f7c2e2883521bf065c108d9ee8eb115674b#lfs=true)
     ");
 
     // Verify that we can import the module and access LFS content
@@ -14126,7 +14091,7 @@ fn sync_git_lfs() -> Result<()> {
         [[package]]
         name = "test-lfs-repo"
         version = "0.1.0"
-        source = { git = "https://github.com/astral-sh/test-lfs-repo.git?lfs=true&rev=657500f0703dc173ac5d68dfa1d7e8c985c84424#657500f0703dc173ac5d68dfa1d7e8c985c84424" }
+        source = { git = "https://github.com/astral-sh/test-lfs-repo.git?lfs=true&rev=0fe88f7c2e2883521bf065c108d9ee8eb115674b#0fe88f7c2e2883521bf065c108d9ee8eb115674b" }
 
         [[package]]
         name = "test-project"
@@ -14137,7 +14102,7 @@ fn sync_git_lfs() -> Result<()> {
         ]
 
         [package.metadata]
-        requires-dist = [{ name = "test-lfs-repo", git = "https://github.com/astral-sh/test-lfs-repo.git?lfs=true&rev=657500f0703dc173ac5d68dfa1d7e8c985c84424" }]
+        requires-dist = [{ name = "test-lfs-repo", git = "https://github.com/astral-sh/test-lfs-repo.git?lfs=true&rev=0fe88f7c2e2883521bf065c108d9ee8eb115674b" }]
         "#
         );
     });
@@ -14153,7 +14118,7 @@ fn sync_git_lfs() -> Result<()> {
     Prepared 1 package in [TIME]
     Uninstalled 1 package in [TIME]
     Installed 1 package in [TIME]
-     ~ test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@657500f0703dc173ac5d68dfa1d7e8c985c84424#lfs=true)
+     ~ test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@0fe88f7c2e2883521bf065c108d9ee8eb115674b#lfs=true)
     ");
 
     uv_snapshot!(context.filters(), context.python_command()
@@ -14176,7 +14141,7 @@ fn sync_git_lfs() -> Result<()> {
         dependencies = ["test-lfs-repo"]
 
         [tool.uv.sources]
-        test-lfs-repo = { git = "https://github.com/astral-sh/test-lfs-repo.git", rev = "657500f0703dc173ac5d68dfa1d7e8c985c84424", lfs = false }
+        test-lfs-repo = { git = "https://github.com/astral-sh/test-lfs-repo.git", rev = "0fe88f7c2e2883521bf065c108d9ee8eb115674b", lfs = false }
         "#,
     )?;
 
@@ -14190,8 +14155,8 @@ fn sync_git_lfs() -> Result<()> {
     Prepared 1 package in [TIME]
     Uninstalled 1 package in [TIME]
     Installed 1 package in [TIME]
-     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@657500f0703dc173ac5d68dfa1d7e8c985c84424#lfs=true)
-     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@657500f0703dc173ac5d68dfa1d7e8c985c84424)
+     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@0fe88f7c2e2883521bf065c108d9ee8eb115674b#lfs=true)
+     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@0fe88f7c2e2883521bf065c108d9ee8eb115674b)
     ");
 
     // Verify that LFS content is missing (import should fail)
@@ -14223,7 +14188,7 @@ fn sync_git_lfs() -> Result<()> {
     Prepared 1 package in [TIME]
     Uninstalled 1 package in [TIME]
     Installed 1 package in [TIME]
-     ~ test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@657500f0703dc173ac5d68dfa1d7e8c985c84424)
+     ~ test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@0fe88f7c2e2883521bf065c108d9ee8eb115674b)
     ");
 
     uv_snapshot!(context.filters(), context.python_command()
@@ -14259,7 +14224,7 @@ fn sync_git_lfs() -> Result<()> {
         [[package]]
         name = "test-lfs-repo"
         version = "0.1.0"
-        source = { git = "https://github.com/astral-sh/test-lfs-repo.git?rev=657500f0703dc173ac5d68dfa1d7e8c985c84424#657500f0703dc173ac5d68dfa1d7e8c985c84424" }
+        source = { git = "https://github.com/astral-sh/test-lfs-repo.git?rev=0fe88f7c2e2883521bf065c108d9ee8eb115674b#0fe88f7c2e2883521bf065c108d9ee8eb115674b" }
 
         [[package]]
         name = "test-project"
@@ -14270,7 +14235,7 @@ fn sync_git_lfs() -> Result<()> {
         ]
 
         [package.metadata]
-        requires-dist = [{ name = "test-lfs-repo", git = "https://github.com/astral-sh/test-lfs-repo.git?rev=657500f0703dc173ac5d68dfa1d7e8c985c84424" }]
+        requires-dist = [{ name = "test-lfs-repo", git = "https://github.com/astral-sh/test-lfs-repo.git?rev=0fe88f7c2e2883521bf065c108d9ee8eb115674b" }]
         "#
         );
     });
@@ -14285,7 +14250,7 @@ fn sync_git_lfs() -> Result<()> {
         dependencies = ["test-lfs-repo"]
 
         [tool.uv.sources]
-        test-lfs-repo = { git = "https://github.com/astral-sh/test-lfs-repo.git", rev = "657500f0703dc173ac5d68dfa1d7e8c985c84424" }
+        test-lfs-repo = { git = "https://github.com/astral-sh/test-lfs-repo.git", rev = "0fe88f7c2e2883521bf065c108d9ee8eb115674b" }
         "#,
     )?;
 
@@ -14299,8 +14264,8 @@ fn sync_git_lfs() -> Result<()> {
     Prepared 1 package in [TIME]
     Uninstalled 1 package in [TIME]
     Installed 1 package in [TIME]
-     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@657500f0703dc173ac5d68dfa1d7e8c985c84424)
-     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@657500f0703dc173ac5d68dfa1d7e8c985c84424#lfs=true)
+     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@0fe88f7c2e2883521bf065c108d9ee8eb115674b)
+     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@0fe88f7c2e2883521bf065c108d9ee8eb115674b#lfs=true)
     ");
 
     // Verify that we can import the module when UV_GIT_LFS is set
@@ -14326,8 +14291,8 @@ fn sync_git_lfs() -> Result<()> {
     Prepared 1 package in [TIME]
     Uninstalled 1 package in [TIME]
     Installed 1 package in [TIME]
-     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@657500f0703dc173ac5d68dfa1d7e8c985c84424#lfs=true)
-     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@657500f0703dc173ac5d68dfa1d7e8c985c84424)
+     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@0fe88f7c2e2883521bf065c108d9ee8eb115674b#lfs=true)
+     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@0fe88f7c2e2883521bf065c108d9ee8eb115674b)
     ");
 
     uv_snapshot!(context.filters(), context.python_command()
@@ -14358,8 +14323,8 @@ fn sync_git_lfs() -> Result<()> {
     Prepared 1 package in [TIME]
     Uninstalled 1 package in [TIME]
     Installed 1 package in [TIME]
-     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@657500f0703dc173ac5d68dfa1d7e8c985c84424)
-     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@657500f0703dc173ac5d68dfa1d7e8c985c84424#lfs=true)
+     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@0fe88f7c2e2883521bf065c108d9ee8eb115674b)
+     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@0fe88f7c2e2883521bf065c108d9ee8eb115674b#lfs=true)
     ");
 
     uv_snapshot!(context.filters(), context.python_command()
@@ -14384,8 +14349,8 @@ fn sync_git_lfs() -> Result<()> {
     Prepared 1 package in [TIME]
     Uninstalled 1 package in [TIME]
     Installed 1 package in [TIME]
-     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@657500f0703dc173ac5d68dfa1d7e8c985c84424#lfs=true)
-     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@657500f0703dc173ac5d68dfa1d7e8c985c84424)
+     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@0fe88f7c2e2883521bf065c108d9ee8eb115674b#lfs=true)
+     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@0fe88f7c2e2883521bf065c108d9ee8eb115674b)
     ");
 
     uv_snapshot!(context.filters(), context.python_command()
@@ -14421,7 +14386,7 @@ fn sync_git_lfs() -> Result<()> {
         [[package]]
         name = "test-lfs-repo"
         version = "0.1.0"
-        source = { git = "https://github.com/astral-sh/test-lfs-repo.git?rev=657500f0703dc173ac5d68dfa1d7e8c985c84424#657500f0703dc173ac5d68dfa1d7e8c985c84424" }
+        source = { git = "https://github.com/astral-sh/test-lfs-repo.git?rev=0fe88f7c2e2883521bf065c108d9ee8eb115674b#0fe88f7c2e2883521bf065c108d9ee8eb115674b" }
 
         [[package]]
         name = "test-project"
@@ -14432,7 +14397,7 @@ fn sync_git_lfs() -> Result<()> {
         ]
 
         [package.metadata]
-        requires-dist = [{ name = "test-lfs-repo", git = "https://github.com/astral-sh/test-lfs-repo.git?rev=657500f0703dc173ac5d68dfa1d7e8c985c84424" }]
+        requires-dist = [{ name = "test-lfs-repo", git = "https://github.com/astral-sh/test-lfs-repo.git?rev=0fe88f7c2e2883521bf065c108d9ee8eb115674b" }]
         "#
         );
     });
@@ -14448,8 +14413,8 @@ fn sync_git_lfs() -> Result<()> {
     Prepared 1 package in [TIME]
     Uninstalled 1 package in [TIME]
     Installed 1 package in [TIME]
-     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@657500f0703dc173ac5d68dfa1d7e8c985c84424)
-     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@657500f0703dc173ac5d68dfa1d7e8c985c84424#lfs=true)
+     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@0fe88f7c2e2883521bf065c108d9ee8eb115674b)
+     + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@0fe88f7c2e2883521bf065c108d9ee8eb115674b#lfs=true)
     ");
 
     uv_snapshot!(context.filters(), context.python_command()
@@ -14479,7 +14444,7 @@ fn sync_git_lfs() -> Result<()> {
         [[package]]
         name = "test-lfs-repo"
         version = "0.1.0"
-        source = { git = "https://github.com/astral-sh/test-lfs-repo.git?lfs=true&rev=657500f0703dc173ac5d68dfa1d7e8c985c84424#657500f0703dc173ac5d68dfa1d7e8c985c84424" }
+        source = { git = "https://github.com/astral-sh/test-lfs-repo.git?lfs=true&rev=0fe88f7c2e2883521bf065c108d9ee8eb115674b#0fe88f7c2e2883521bf065c108d9ee8eb115674b" }
 
         [[package]]
         name = "test-project"
@@ -14490,7 +14455,7 @@ fn sync_git_lfs() -> Result<()> {
         ]
 
         [package.metadata]
-        requires-dist = [{ name = "test-lfs-repo", git = "https://github.com/astral-sh/test-lfs-repo.git?lfs=true&rev=657500f0703dc173ac5d68dfa1d7e8c985c84424" }]
+        requires-dist = [{ name = "test-lfs-repo", git = "https://github.com/astral-sh/test-lfs-repo.git?lfs=true&rev=0fe88f7c2e2883521bf065c108d9ee8eb115674b" }]
         "#
         );
     });
@@ -14522,13 +14487,12 @@ fn match_runtime_optional() -> Result<()> {
         "#,
     )?;
 
-    uv_snapshot!(context.filters(), context.sync(), @"
+    uv_snapshot!(context.filters(), context.sync(), @r"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved 3 packages in [TIME]
     Audited in [TIME]
     ");
@@ -14614,13 +14578,12 @@ fn sync_extra_build_dependencies_cache() -> Result<()> {
     "#})?;
 
     // Running `uv sync` should rebuild the child package with the new build dependency.
-    uv_snapshot!(context.filters(), context.sync(), @"
+    uv_snapshot!(context.filters(), context.sync(), @r"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved 2 packages in [TIME]
     Prepared 1 package in [TIME]
     Uninstalled 1 package in [TIME]
@@ -14629,13 +14592,12 @@ fn sync_extra_build_dependencies_cache() -> Result<()> {
     ");
 
     // Running `uv sync` again should be a no-op.
-    uv_snapshot!(context.filters(), context.sync(), @"
+    uv_snapshot!(context.filters(), context.sync(), @r"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved 2 packages in [TIME]
     Audited 1 package in [TIME]
     ");
@@ -14655,13 +14617,12 @@ fn sync_extra_build_dependencies_cache() -> Result<()> {
         child = [{ requirement = "iniconfig>0", match-runtime = false }]
     "#})?;
 
-    uv_snapshot!(context.filters(), context.sync(), @"
+    uv_snapshot!(context.filters(), context.sync(), @r"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
-    warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
     Resolved 2 packages in [TIME]
     Prepared 1 package in [TIME]
     Uninstalled 1 package in [TIME]

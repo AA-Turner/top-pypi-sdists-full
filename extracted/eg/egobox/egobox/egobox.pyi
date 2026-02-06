@@ -107,10 +107,19 @@ class Egor:
         hot_start nb of iters is reached (provided the stopping criterion is max_iters)
         Checkpoint information is stored in .checkpoint/egor.arg binary file.
     
+    failsafe_strategy (FailsafeStrategy enum):
+        Strategy to handle objective computation failure at a given x point.
+        A failure is detected when the objective function returns NaN value(s).
+        Can be either FailsafeStrategy.REJECTION, FailsafeStrategy.IMPUTATION, or FailsafeStrategy.VIABILITY
+        Rejection simply ignores the failed point whereas Imputation
+        uses the objective surrogate prediction to fill the missing value.
+        In the third case Viability, a surrogate is used to model the failure region
+        which is used as a constraint and drive the optimization toward the viable region.
+    
     seed (int >= 0):
         Random generator seed to allow computation reproducibility.
     """
-    def __new__(cls, xspecs: typing.Any, gp_config: GpConfig = ..., n_cstr: builtins.int = 0, cstr_tol: typing.Optional[typing.Sequence[builtins.float]] = None, n_start: builtins.int = 20, n_doe: builtins.int = 0, doe: typing.Optional[numpy.typing.NDArray[numpy.float64]] = None, infill_strategy: InfillStrategy = InfillStrategy.LOG_EI, cstr_infill: builtins.bool = False, cstr_strategy: ConstraintStrategy = ConstraintStrategy.MC, qei_config: QEiConfig = ..., infill_optimizer: InfillOptimizer = InfillOptimizer.COBYLA, trego: typing.Optional[typing.Any] = None, coego_n_coop: builtins.int = 0, target: builtins.float = -1.7976931348623157e+308, outdir: typing.Optional[builtins.str] = None, warm_start: builtins.bool = False, hot_start: typing.Optional[builtins.int] = None, seed: typing.Optional[builtins.int] = None) -> Egor: ...
+    def __new__(cls, xspecs: typing.Any, gp_config: GpConfig = ..., n_cstr: builtins.int = 0, cstr_tol: typing.Optional[typing.Sequence[builtins.float]] = None, n_start: builtins.int = 20, n_doe: builtins.int = 0, doe: typing.Optional[numpy.typing.NDArray[numpy.float64]] = None, infill_strategy: InfillStrategy = InfillStrategy.LOG_EI, cstr_infill: builtins.bool = False, cstr_strategy: ConstraintStrategy = ConstraintStrategy.MC, qei_config: QEiConfig = ..., infill_optimizer: InfillOptimizer = InfillOptimizer.COBYLA, trego: typing.Optional[typing.Any] = None, coego_n_coop: builtins.int = 0, target: builtins.float = -1.7976931348623157e+308, outdir: typing.Optional[builtins.str] = None, warm_start: builtins.bool = False, hot_start: typing.Optional[builtins.int] = None, failsafe_strategy: FailsafeStrategy = FailsafeStrategy.REJECTION, seed: typing.Optional[builtins.int] = None) -> Egor: ...
     def minimize(self, fun: typing.Any, fcstrs: typing.Sequence[typing.Any] = [], max_iters: builtins.int = 20, run_info: typing.Optional[typing.Any] = None) -> OptimResult:
         r"""
         ```ignore
@@ -582,32 +591,32 @@ class QEiConfig:
         For example, with q_optmod=2, hyperparameters are optimized every 2 points.
     """
     @property
-    def q_batch(self) -> builtins.int:
+    def batch(self) -> builtins.int:
         r"""
         Number of points to evaluate in parallel
         """
-    @q_batch.setter
-    def q_batch(self, value: builtins.int) -> None:
+    @batch.setter
+    def batch(self, value: builtins.int) -> None:
         r"""
         Number of points to evaluate in parallel
         """
     @property
-    def q_ei_strategy(self) -> QEiStrategy:
+    def strategy(self) -> QEiStrategy:
         r"""
         Strategy for selecting multiple points in parallel
         """
-    @q_ei_strategy.setter
-    def q_ei_strategy(self, value: QEiStrategy) -> None:
+    @strategy.setter
+    def strategy(self, value: QEiStrategy) -> None:
         r"""
         Strategy for selecting multiple points in parallel
         """
     @property
-    def q_optmod(self) -> builtins.int:
+    def optmod(self) -> builtins.int:
         r"""
         Interval between hyperparameter optimizations
         """
-    @q_optmod.setter
-    def q_optmod(self, value: builtins.int) -> None:
+    @optmod.setter
+    def optmod(self, value: builtins.int) -> None:
         r"""
         Interval between hyperparameter optimizations
         """
@@ -902,6 +911,12 @@ class XSpec:
 class ConstraintStrategy(enum.Enum):
     MC = ...
     UTB = ...
+
+@typing.final
+class FailsafeStrategy(enum.Enum):
+    REJECTION = ...
+    IMPUTATION = ...
+    VIABILITY = ...
 
 @typing.final
 class InfillOptimizer(enum.Enum):

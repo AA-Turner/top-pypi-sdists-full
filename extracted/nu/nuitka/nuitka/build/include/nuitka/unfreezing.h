@@ -18,6 +18,11 @@
 
 #define NUITKA_PERFECT_SUPPORTED_FLAG 32
 
+#if _NUITKA_STANDALONE_MODE && !defined(_NUITKA_DEPLOYMENT_MODE) &&                                                    \
+    !defined(_NUITKA_NO_DEPLOYMENT_EXCLUDED_MODULE_USAGE)
+#define NUITKA_EXCLUDED_MODULE_FLAG 64
+#endif
+
 struct Nuitka_MetaPathBasedLoaderEntry;
 
 typedef PyObject *(*module_init_func)(PyThreadState *tstate, PyObject *module,
@@ -85,11 +90,11 @@ extern bool Nuitka_DistributionNext(Py_ssize_t *pos, PyObject **distribution_nam
 //     Part of "Nuitka", an optimizing Python compiler that is compatible and
 //     integrates with CPython, but also works on its own.
 //
-//     Licensed under the Apache License, Version 2.0 (the "License");
+//     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 //     you may not use this file except in compliance with the License.
 //     You may obtain a copy of the License at
 //
-//        http://www.apache.org/licenses/LICENSE-2.0
+//        http://www.gnu.org/licenses/agpl.txt
 //
 //     Unless required by applicable law or agreed to in writing, software
 //     distributed under the License is distributed on an "AS IS" BASIS,

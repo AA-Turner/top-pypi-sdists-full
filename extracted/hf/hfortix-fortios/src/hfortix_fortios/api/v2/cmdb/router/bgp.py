@@ -52,6 +52,24 @@ from hfortix_fortios._helpers import (
 # Import metadata mixin for schema introspection
 from hfortix_fortios._helpers.metadata_mixin import MetadataMixin
 
+# Import child table helpers
+from ._bgp_child_tables import (
+    ConfederationPeersHelper,
+    AggregateAddressHelper,
+    AggregateAddress6Helper,
+    NeighborHelper,
+    NeighborGroupHelper,
+    NeighborRangeHelper,
+    NeighborRange6Helper,
+    NetworkHelper,
+    Network6Helper,
+    RedistributeHelper,
+    Redistribute6Helper,
+    AdminDistanceHelper,
+    VrfHelper,
+    Vrf6Helper,
+)
+
 # Import Protocol-based type hints (eliminates need for local @overload decorators)
 from hfortix_fortios._protocols import CRUDEndpoint
 
@@ -155,6 +173,22 @@ class Bgp(CRUDEndpoint, MetadataMixin):
     def __init__(self, client: "IHTTPClient"):
         """Initialize Bgp endpoint."""
         self._client = client
+
+        # Initialize child table helpers
+        self.confederation_peers = ConfederationPeersHelper(self)
+        self.aggregate_address = AggregateAddressHelper(self)
+        self.aggregate_address6 = AggregateAddress6Helper(self)
+        self.neighbor = NeighborHelper(self)
+        self.neighbor_group = NeighborGroupHelper(self)
+        self.neighbor_range = NeighborRangeHelper(self)
+        self.neighbor_range6 = NeighborRange6Helper(self)
+        self.network = NetworkHelper(self)
+        self.network6 = Network6Helper(self)
+        self.redistribute = RedistributeHelper(self)
+        self.redistribute6 = Redistribute6Helper(self)
+        self.admin_distance = AdminDistanceHelper(self)
+        self.vrf = VrfHelper(self)
+        self.vrf6 = Vrf6Helper(self)
 
     # ========================================================================
     # GET Method

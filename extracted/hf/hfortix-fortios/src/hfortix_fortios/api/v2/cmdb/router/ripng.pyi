@@ -20,6 +20,19 @@ from hfortix_fortios.models import (
     FortiObjectList,
 )
 
+# Import child table helper types
+from ._ripng_child_tables import (
+    DistanceHelper,
+    DistributeListHelper,
+    NeighborHelper,
+    NetworkHelper,
+    AggregateAddressHelper,
+    OffsetListHelper,
+    PassiveInterfaceHelper,
+    RedistributeHelper,
+    InterfaceHelper,
+)
+
 
 # ================================================================
 # TypedDict Payloads
@@ -241,6 +254,17 @@ class Ripng:
     path: ClassVar[str] = ...
     category: ClassVar[str] = ...
     capabilities: ClassVar[dict[str, Any]] = ...
+    
+    # Child table helpers
+    distance: DistanceHelper
+    distribute_list: DistributeListHelper
+    neighbor: NeighborHelper
+    network: NetworkHelper
+    aggregate_address: AggregateAddressHelper
+    offset_list: OffsetListHelper
+    passive_interface: PassiveInterfaceHelper
+    redistribute: RedistributeHelper
+    interface: InterfaceHelper
     
     def __init__(self, client: Any) -> None:
         """Initialize endpoint with HTTP client."""

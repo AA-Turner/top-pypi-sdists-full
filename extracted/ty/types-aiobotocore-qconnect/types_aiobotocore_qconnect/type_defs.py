@@ -1698,6 +1698,13 @@ class WebCrawlerLimitsTypeDef(TypedDict):
     rateLimit: NotRequired[int]
 
 
+class UpdateAssistantAIAgentRequestTypeDef(TypedDict):
+    assistantId: str
+    aiAgentType: AIAgentTypeType
+    configuration: AIAgentConfigurationDataTypeDef
+    orchestratorUseCase: NotRequired[str]
+
+
 class AIGuardrailContentPolicyConfigOutputTypeDef(TypedDict):
     filtersConfig: list[GuardrailContentFilterConfigTypeDef]
 
@@ -1809,13 +1816,6 @@ class AssistantAssociationInputDataTypeDef(TypedDict):
 class AssistantAssociationOutputDataTypeDef(TypedDict):
     knowledgeBaseAssociation: NotRequired[KnowledgeBaseAssociationDataTypeDef]
     externalBedrockKnowledgeBaseConfig: NotRequired[ExternalBedrockKnowledgeBaseConfigTypeDef]
-
-
-class UpdateAssistantAIAgentRequestTypeDef(TypedDict):
-    assistantId: str
-    aiAgentType: AIAgentTypeType
-    configuration: AIAgentConfigurationDataTypeDef
-    orchestratorConfigurationList: NotRequired[Sequence[OrchestratorConfigurationEntryTypeDef]]
 
 
 AssistantDataTypeDef = TypedDict(

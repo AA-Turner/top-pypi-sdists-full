@@ -48,6 +48,7 @@ __all__ = (
     "AudioOnlyHlsTrackTypeType",
     "AudioTypeType",
     "AuthenticationSchemeType",
+    "Av1BitDepthType",
     "Av1GopSizeUnitsType",
     "Av1LevelType",
     "Av1LookAheadRateControlType",
@@ -461,6 +462,7 @@ AudioTypeType = Literal[
     "CLEAN_EFFECTS", "HEARING_IMPAIRED", "UNDEFINED", "VISUAL_IMPAIRED_COMMENTARY"
 ]
 AuthenticationSchemeType = Literal["AKAMAI", "COMMON"]
+Av1BitDepthType = Literal["DEPTH_10", "DEPTH_8"]
 Av1GopSizeUnitsType = Literal["FRAMES", "SECONDS"]
 Av1LevelType = Literal[
     "AV1_LEVEL_2",

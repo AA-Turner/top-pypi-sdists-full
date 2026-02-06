@@ -1,15 +1,13 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Plugin to pre-process PMW for inclusion.
-
-"""
+"""Plugin to pre-process PMW for inclusion."""
 
 import os
 import re
 
-from nuitka import Options
 from nuitka.__past__ import StringIO
+from nuitka.options.Options import isStandaloneMode
 from nuitka.plugins.PluginBase import NuitkaPluginBase
 from nuitka.utils.FileOperations import getFileContents, listDir
 
@@ -58,7 +56,7 @@ files = [
 
 class NuitkaPluginPmw(NuitkaPluginBase):
     plugin_name = "pmw-freezer"
-    plugin_desc = "Required by the 'Pmw' package."
+    plugin_desc = "Required by 'Pmw' package."
     plugin_category = "package-support"
 
     def __init__(self, need_blt, need_color):
@@ -225,7 +223,7 @@ class NuitkaPluginDetectorPmw(NuitkaPluginBase):
 
     @classmethod
     def isRelevant(cls):
-        return Options.isStandaloneMode()
+        return isStandaloneMode()
 
     def onModuleDiscovered(self, module):
         if module.getFullName() == "Pmw":
@@ -235,11 +233,11 @@ class NuitkaPluginDetectorPmw(NuitkaPluginBase):
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

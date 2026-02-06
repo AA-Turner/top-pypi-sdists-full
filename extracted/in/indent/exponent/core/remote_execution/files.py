@@ -170,9 +170,7 @@ async def get_all_file_contents(
     return batches
 
 
-async def normalize_files(
-    working_directory: str, file_paths: list[FilePath]
-) -> list[RemoteFile]:
+async def normalize_files(working_directory: str, file_paths: list[FilePath]) -> list[RemoteFile]:
     """Normalize file paths to be relative to the working directory.
 
     Args:

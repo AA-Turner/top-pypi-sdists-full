@@ -24,40 +24,47 @@ T = TypeVar("T", bound="ScheduleWJobs")
 class ScheduleWJobs:
     """
     Attributes:
-        path (str):
-        edited_by (str):
-        edited_at (datetime.datetime):
-        schedule (str):
-        timezone (str):
-        enabled (bool):
-        script_path (str):
-        is_flow (bool):
-        extra_perms (ScheduleWJobsExtraPerms):
-        email (str):
+        path (str): The unique path identifier for this schedule
+        edited_by (str): Username of the last person who edited this schedule
+        edited_at (datetime.datetime): Timestamp of the last edit
+        schedule (str): Cron expression with 6 fields (seconds, minutes, hours, day of month, month, day of week).
+            Example '0 0 12 * * *' for daily at noon
+        timezone (str): IANA timezone for the schedule (e.g., 'UTC', 'Europe/Paris', 'America/New_York')
+        enabled (bool): Whether the schedule is currently active and will trigger jobs
+        script_path (str): Path to the script or flow to execute when triggered
+        is_flow (bool): True if script_path points to a flow, false if it points to a script
+        extra_perms (ScheduleWJobsExtraPerms): Additional permissions for this schedule
+        email (str): Email of the user who owns this schedule, used for permissioned_as
         args (Union[Unset, ScheduleWJobsArgs]): The arguments to pass to the script or flow
-        error (Union[Unset, str]):
-        on_failure (Union[Unset, str]):
-        on_failure_times (Union[Unset, float]):
-        on_failure_exact (Union[Unset, bool]):
+        error (Union[Unset, str]): Last error message if the schedule failed to trigger
+        on_failure (Union[Unset, str]): Path to a script or flow to run when the scheduled job fails
+        on_failure_times (Union[Unset, float]): Number of consecutive failures before the on_failure handler is
+            triggered (default 1)
+        on_failure_exact (Union[Unset, bool]): If true, trigger on_failure handler only on exactly N failures, not on
+            every failure after N
         on_failure_extra_args (Union[Unset, ScheduleWJobsOnFailureExtraArgs]): The arguments to pass to the script or
             flow
-        on_recovery (Union[Unset, str]):
-        on_recovery_times (Union[Unset, float]):
+        on_recovery (Union[Unset, str]): Path to a script or flow to run when the schedule recovers after failures
+        on_recovery_times (Union[Unset, float]): Number of consecutive successes before the on_recovery handler is
+            triggered (default 1)
         on_recovery_extra_args (Union[Unset, ScheduleWJobsOnRecoveryExtraArgs]): The arguments to pass to the script or
             flow
-        on_success (Union[Unset, str]):
+        on_success (Union[Unset, str]): Path to a script or flow to run after each successful execution
         on_success_extra_args (Union[Unset, ScheduleWJobsOnSuccessExtraArgs]): The arguments to pass to the script or
             flow
-        ws_error_handler_muted (Union[Unset, bool]):
+        ws_error_handler_muted (Union[Unset, bool]): If true, the workspace-level error handler will not be triggered
+            for this schedule's failures
         retry (Union[Unset, ScheduleWJobsRetry]): Retry configuration for failed module executions
-        summary (Union[Unset, str]):
-        description (Union[Unset, str]):
-        no_flow_overlap (Union[Unset, bool]):
-        tag (Union[Unset, str]):
-        paused_until (Union[Unset, datetime.datetime]):
-        cron_version (Union[Unset, str]):
+        summary (Union[Unset, str]): Short summary describing the purpose of this schedule
+        description (Union[Unset, str]): Detailed description of what this schedule does
+        no_flow_overlap (Union[Unset, bool]): If true, skip this schedule's execution if the previous run is still in
+            progress (prevents concurrent runs)
+        tag (Union[Unset, str]): Worker tag to route jobs to specific worker groups
+        paused_until (Union[Unset, datetime.datetime]): ISO 8601 datetime until which the schedule is paused. Schedule
+            resumes automatically after this time
+        cron_version (Union[Unset, str]): Cron parser version. Use 'v2' for extended syntax with additional features
         dynamic_skip (Union[Unset, str]): Path to a script that validates scheduled datetimes. Receives scheduled_for
-            datetime and returns boolean.
+            datetime and returns boolean to skip (true) or run (false)
         jobs (Union[Unset, List['ScheduleWJobsJobsItem']]):
     """
 

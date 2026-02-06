@@ -157,6 +157,7 @@ from .type_defs import (
     DeleteColumnStatisticsForTableRequestTypeDef,
     DeleteColumnStatisticsTaskSettingsRequestTypeDef,
     DeleteConnectionRequestTypeDef,
+    DeleteConnectionTypeRequestTypeDef,
     DeleteCrawlerRequestTypeDef,
     DeleteCustomEntityTypeRequestTypeDef,
     DeleteCustomEntityTypeResponseTypeDef,
@@ -423,6 +424,8 @@ from .type_defs import (
     PutWorkflowRunPropertiesRequestTypeDef,
     QuerySchemaVersionMetadataInputTypeDef,
     QuerySchemaVersionMetadataResponseTypeDef,
+    RegisterConnectionTypeRequestTypeDef,
+    RegisterConnectionTypeResponseTypeDef,
     RegisterSchemaVersionInputTypeDef,
     RegisterSchemaVersionResponseTypeDef,
     RemoveSchemaVersionMetadataInputTypeDef,
@@ -1191,6 +1194,16 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/delete_connection.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#delete_connection)
+        """
+
+    def delete_connection_type(
+        self, **kwargs: Unpack[DeleteConnectionTypeRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a custom connection type in Glue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/delete_connection_type.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#delete_connection_type)
         """
 
     def delete_crawler(self, **kwargs: Unpack[DeleteCrawlerRequestTypeDef]) -> dict[str, Any]:
@@ -2614,6 +2627,16 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/query_schema_version_metadata.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#query_schema_version_metadata)
+        """
+
+    def register_connection_type(
+        self, **kwargs: Unpack[RegisterConnectionTypeRequestTypeDef]
+    ) -> RegisterConnectionTypeResponseTypeDef:
+        """
+        Registers a custom connection type in Glue based on the configuration provided.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/register_connection_type.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#register_connection_type)
         """
 
     def register_schema_version(

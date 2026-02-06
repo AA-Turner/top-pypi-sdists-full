@@ -45,6 +45,8 @@ from .literals import (
     ConnectionPropertyKeyType,
     ConnectionStatusType,
     ConnectionTypeType,
+    ConnectorOAuth2GrantTypeType,
+    ContentTypeType,
     CrawlerHistoryStateType,
     CrawlerLineageSettingsType,
     CrawlerStateType,
@@ -76,6 +78,7 @@ from .literals import (
     FilterValueTypeType,
     FunctionTypeType,
     GlueRecordTypeType,
+    HTTPMethodType,
     HudiTargetCompressionTypeType,
     IcebergNullOrderType,
     IcebergSortDirectionType,
@@ -106,6 +109,7 @@ from .literals import (
     PermissionTypeType,
     PiiTypeType,
     PrincipalTypeType,
+    PropertyLocationType,
     PropertyTypeType,
     QuoteCharType,
     RecrawlBehaviorType,
@@ -193,6 +197,7 @@ __all__ = (
     "AutoDataQualityTypeDef",
     "BackfillErrorTypeDef",
     "BasicAuthenticationCredentialsTypeDef",
+    "BasicAuthenticationPropertiesTypeDef",
     "BasicCatalogTargetOutputTypeDef",
     "BasicCatalogTargetTypeDef",
     "BasicCatalogTargetUnionTypeDef",
@@ -281,6 +286,7 @@ __all__ = (
     "CheckSchemaVersionValidityInputTypeDef",
     "CheckSchemaVersionValidityResponseTypeDef",
     "ClassifierTypeDef",
+    "ClientCredentialsPropertiesTypeDef",
     "CloudWatchEncryptionTypeDef",
     "CodeGenConfigurationNodeOutputTypeDef",
     "CodeGenConfigurationNodePaginatorTypeDef",
@@ -316,18 +322,25 @@ __all__ = (
     "ConfusionMatrixTypeDef",
     "ConnectionInputTypeDef",
     "ConnectionPasswordEncryptionTypeDef",
+    "ConnectionPropertiesConfigurationTypeDef",
     "ConnectionTypeBriefTypeDef",
     "ConnectionTypeDef",
     "ConnectionTypeVariantTypeDef",
     "ConnectionsListOutputTypeDef",
     "ConnectionsListTypeDef",
     "ConnectionsListUnionTypeDef",
+    "ConnectorAuthenticationConfigurationTypeDef",
+    "ConnectorAuthorizationCodePropertiesTypeDef",
     "ConnectorDataSourceOutputTypeDef",
     "ConnectorDataSourceTypeDef",
     "ConnectorDataSourceUnionTypeDef",
     "ConnectorDataTargetOutputTypeDef",
     "ConnectorDataTargetTypeDef",
     "ConnectorDataTargetUnionTypeDef",
+    "ConnectorOAuth2PropertiesTypeDef",
+    "ConnectorPropertyOutputTypeDef",
+    "ConnectorPropertyTypeDef",
+    "ConnectorPropertyUnionTypeDef",
     "CrawlTypeDef",
     "CrawlerHistoryTypeDef",
     "CrawlerMetricsTypeDef",
@@ -390,6 +403,8 @@ __all__ = (
     "CreateWorkflowResponseTypeDef",
     "CreateXMLClassifierRequestTypeDef",
     "CsvClassifierTypeDef",
+    "CursorConfigurationTypeDef",
+    "CustomAuthenticationPropertiesTypeDef",
     "CustomCodeOutputTypeDef",
     "CustomCodeTypeDef",
     "CustomCodeUnionTypeDef",
@@ -447,6 +462,7 @@ __all__ = (
     "DeleteColumnStatisticsForTableRequestTypeDef",
     "DeleteColumnStatisticsTaskSettingsRequestTypeDef",
     "DeleteConnectionRequestTypeDef",
+    "DeleteConnectionTypeRequestTypeDef",
     "DeleteCrawlerRequestTypeDef",
     "DeleteCustomEntityTypeRequestTypeDef",
     "DeleteCustomEntityTypeResponseTypeDef",
@@ -528,6 +544,8 @@ __all__ = (
     "EncryptionConfigurationOutputTypeDef",
     "EncryptionConfigurationTypeDef",
     "EncryptionConfigurationUnionTypeDef",
+    "EntityConfigurationOutputTypeDef",
+    "EntityConfigurationTypeDef",
     "EntityTypeDef",
     "ErrorDetailTypeDef",
     "ErrorDetailsTypeDef",
@@ -542,9 +560,11 @@ __all__ = (
     "ExecutionAttemptTypeDef",
     "ExecutionPropertyTypeDef",
     "ExportLabelsTaskRunPropertiesTypeDef",
+    "ExtractedParameterTypeDef",
     "FederatedCatalogTypeDef",
     "FederatedDatabaseTypeDef",
     "FederatedTableTypeDef",
+    "FieldDefinitionTypeDef",
     "FieldTypeDef",
     "FillMissingValuesOutputTypeDef",
     "FillMissingValuesTypeDef",
@@ -797,6 +817,7 @@ __all__ = (
     "JDBCConnectorTargetOutputTypeDef",
     "JDBCConnectorTargetTypeDef",
     "JDBCConnectorTargetUnionTypeDef",
+    "JWTBearerPropertiesTypeDef",
     "JdbcTargetOutputTypeDef",
     "JdbcTargetTypeDef",
     "JobBookmarkEntryTypeDef",
@@ -927,6 +948,7 @@ __all__ = (
     "OAuth2CredentialsTypeDef",
     "OAuth2PropertiesInputTypeDef",
     "OAuth2PropertiesTypeDef",
+    "OffsetConfigurationTypeDef",
     "OpenTableFormatInputTypeDef",
     "OptionTypeDef",
     "OracleSQLCatalogSourceTypeDef",
@@ -940,6 +962,7 @@ __all__ = (
     "PIIDetectionOutputTypeDef",
     "PIIDetectionTypeDef",
     "PIIDetectionUnionTypeDef",
+    "PaginationConfigurationTypeDef",
     "PaginatorConfigTypeDef",
     "PartitionErrorTypeDef",
     "PartitionIndexDescriptorTypeDef",
@@ -993,6 +1016,8 @@ __all__ = (
     "RedshiftTargetOutputTypeDef",
     "RedshiftTargetTypeDef",
     "RedshiftTargetUnionTypeDef",
+    "RegisterConnectionTypeRequestTypeDef",
+    "RegisterConnectionTypeResponseTypeDef",
     "RegisterSchemaVersionInputTypeDef",
     "RegisterSchemaVersionResponseTypeDef",
     "RegistryIdTypeDef",
@@ -1006,7 +1031,12 @@ __all__ = (
     "ResetJobBookmarkRequestTypeDef",
     "ResetJobBookmarkResponseTypeDef",
     "ResourceUriTypeDef",
+    "ResponseConfigurationTypeDef",
+    "ResponseExtractionMappingTypeDef",
     "ResponseMetadataTypeDef",
+    "RestConfigurationOutputTypeDef",
+    "RestConfigurationTypeDef",
+    "RestConfigurationUnionTypeDef",
     "ResumeWorkflowRunRequestTypeDef",
     "ResumeWorkflowRunResponseTypeDef",
     "RetentionConfigurationTypeDef",
@@ -1118,6 +1148,8 @@ __all__ = (
     "SnowflakeTargetTypeDef",
     "SnowflakeTargetUnionTypeDef",
     "SortCriterionTypeDef",
+    "SourceConfigurationOutputTypeDef",
+    "SourceConfigurationTypeDef",
     "SourceControlDetailsTypeDef",
     "SourceProcessingPropertiesTypeDef",
     "SourceTableConfigOutputTypeDef",
@@ -1768,6 +1800,20 @@ class XMLClassifierTypeDef(TypedDict):
     RowTag: NotRequired[str]
 
 
+ConnectorPropertyTypeDef = TypedDict(
+    "ConnectorPropertyTypeDef",
+    {
+        "Name": str,
+        "Required": bool,
+        "PropertyType": PropertyTypeType,
+        "KeyOverride": NotRequired[str],
+        "DefaultValue": NotRequired[str],
+        "AllowedValues": NotRequired[Sequence[str]],
+        "PropertyLocation": NotRequired[PropertyLocationType],
+    },
+)
+
+
 class CloudWatchEncryptionTypeDef(TypedDict):
     CloudWatchEncryptionMode: NotRequired[CloudWatchEncryptionModeType]
     KmsKeyArn: NotRequired[str]
@@ -2116,6 +2162,20 @@ class ConnectorDataTargetTypeDef(TypedDict):
     ConnectionType: str
     Data: Mapping[str, str]
     Inputs: NotRequired[Sequence[str]]
+
+
+ConnectorPropertyOutputTypeDef = TypedDict(
+    "ConnectorPropertyOutputTypeDef",
+    {
+        "Name": str,
+        "Required": bool,
+        "PropertyType": PropertyTypeType,
+        "KeyOverride": NotRequired[str],
+        "DefaultValue": NotRequired[str],
+        "AllowedValues": NotRequired[list[str]],
+        "PropertyLocation": NotRequired[PropertyLocationType],
+    },
+)
 
 
 class CrawlTypeDef(TypedDict):
@@ -2606,6 +2666,10 @@ class DeleteConnectionRequestTypeDef(TypedDict):
     CatalogId: NotRequired[str]
 
 
+class DeleteConnectionTypeRequestTypeDef(TypedDict):
+    ConnectionType: str
+
+
 class DeleteCrawlerRequestTypeDef(TypedDict):
     Name: str
 
@@ -2835,6 +2899,11 @@ class S3EncryptionTypeDef(TypedDict):
     KmsKeyArn: NotRequired[str]
 
 
+class FieldDefinitionTypeDef(TypedDict):
+    Name: str
+    FieldDataType: FieldDataTypeType
+
+
 class EntityTypeDef(TypedDict):
     EntityName: NotRequired[str]
     Label: NotRequired[str]
@@ -2851,6 +2920,11 @@ class ErrorDetailsTypeDef(TypedDict):
 
 class ExportLabelsTaskRunPropertiesTypeDef(TypedDict):
     OutputS3Path: NotRequired[str]
+
+
+class ResponseExtractionMappingTypeDef(TypedDict):
+    ContentPath: NotRequired[str]
+    HeaderKey: NotRequired[str]
 
 
 class FederatedTableTypeDef(TypedDict):
@@ -3806,6 +3880,11 @@ class ResourceUriTypeDef(TypedDict):
     Uri: NotRequired[str]
 
 
+class ResponseConfigurationTypeDef(TypedDict):
+    ResultPath: str
+    ErrorPath: NotRequired[str]
+
+
 class ResumeWorkflowRunRequestTypeDef(TypedDict):
     Name: str
     RunId: str
@@ -4243,6 +4322,8 @@ PropertyTypeDef = TypedDict(
         "DefaultValue": NotRequired[str],
         "AllowedValues": NotRequired[list[AllowedValueTypeDef]],
         "DataOperationScopes": NotRequired[list[DataOperationType]],
+        "KeyOverride": NotRequired[str],
+        "PropertyLocation": NotRequired[PropertyLocationType],
     },
 )
 
@@ -4724,6 +4805,11 @@ class PutSchemaVersionMetadataResponseTypeDef(TypedDict):
     SchemaVersionId: str
     MetadataKey: str
     MetadataValue: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class RegisterConnectionTypeResponseTypeDef(TypedDict):
+    ConnectionTypeArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -5325,6 +5411,7 @@ ConnectionsListUnionTypeDef = Union[ConnectionsListTypeDef, ConnectionsListOutpu
 ConnectorDataTargetUnionTypeDef = Union[
     ConnectorDataTargetTypeDef, ConnectorDataTargetOutputTypeDef
 ]
+ConnectorPropertyUnionTypeDef = Union[ConnectorPropertyTypeDef, ConnectorPropertyOutputTypeDef]
 
 
 class CrawlerNodeDetailsTypeDef(TypedDict):
@@ -6017,6 +6104,13 @@ class ListEntitiesResponseTypeDef(TypedDict):
 class SchemaVersionErrorItemTypeDef(TypedDict):
     VersionNumber: NotRequired[int]
     ErrorDetails: NotRequired[ErrorDetailsTypeDef]
+
+
+class ExtractedParameterTypeDef(TypedDict):
+    Key: NotRequired[str]
+    DefaultValue: NotRequired[str]
+    PropertyLocation: NotRequired[PropertyLocationType]
+    Value: NotRequired[ResponseExtractionMappingTypeDef]
 
 
 FillMissingValuesUnionTypeDef = Union[FillMissingValuesTypeDef, FillMissingValuesOutputTypeDef]
@@ -6831,6 +6925,52 @@ class CreateSessionRequestTypeDef(TypedDict):
     RequestOrigin: NotRequired[str]
 
 
+class BasicAuthenticationPropertiesTypeDef(TypedDict):
+    Username: NotRequired[ConnectorPropertyUnionTypeDef]
+    Password: NotRequired[ConnectorPropertyUnionTypeDef]
+
+
+class ClientCredentialsPropertiesTypeDef(TypedDict):
+    TokenUrl: NotRequired[ConnectorPropertyUnionTypeDef]
+    RequestMethod: NotRequired[HTTPMethodType]
+    ContentType: NotRequired[ContentTypeType]
+    ClientId: NotRequired[ConnectorPropertyUnionTypeDef]
+    ClientSecret: NotRequired[ConnectorPropertyUnionTypeDef]
+    Scope: NotRequired[ConnectorPropertyUnionTypeDef]
+    TokenUrlParameters: NotRequired[Sequence[ConnectorPropertyTypeDef]]
+
+
+class ConnectionPropertiesConfigurationTypeDef(TypedDict):
+    Url: NotRequired[ConnectorPropertyUnionTypeDef]
+    AdditionalRequestParameters: NotRequired[Sequence[ConnectorPropertyUnionTypeDef]]
+
+
+class ConnectorAuthorizationCodePropertiesTypeDef(TypedDict):
+    AuthorizationCodeUrl: NotRequired[ConnectorPropertyUnionTypeDef]
+    AuthorizationCode: NotRequired[ConnectorPropertyUnionTypeDef]
+    RedirectUri: NotRequired[ConnectorPropertyUnionTypeDef]
+    TokenUrl: NotRequired[ConnectorPropertyUnionTypeDef]
+    RequestMethod: NotRequired[HTTPMethodType]
+    ContentType: NotRequired[ContentTypeType]
+    ClientId: NotRequired[ConnectorPropertyUnionTypeDef]
+    ClientSecret: NotRequired[ConnectorPropertyUnionTypeDef]
+    Scope: NotRequired[ConnectorPropertyUnionTypeDef]
+    Prompt: NotRequired[ConnectorPropertyUnionTypeDef]
+    TokenUrlParameters: NotRequired[Sequence[ConnectorPropertyTypeDef]]
+
+
+class CustomAuthenticationPropertiesTypeDef(TypedDict):
+    AuthenticationParameters: Sequence[ConnectorPropertyUnionTypeDef]
+
+
+class JWTBearerPropertiesTypeDef(TypedDict):
+    TokenUrl: NotRequired[ConnectorPropertyUnionTypeDef]
+    RequestMethod: NotRequired[HTTPMethodType]
+    ContentType: NotRequired[ContentTypeType]
+    JwtToken: NotRequired[ConnectorPropertyUnionTypeDef]
+    TokenUrlParameters: NotRequired[Sequence[ConnectorPropertyTypeDef]]
+
+
 class CrawlerTypeDef(TypedDict):
     Name: NotRequired[str]
     Role: NotRequired[str]
@@ -7089,6 +7229,16 @@ EncryptionConfigurationUnionTypeDef = Union[
 class DeleteSchemaVersionsResponseTypeDef(TypedDict):
     SchemaVersionErrors: list[SchemaVersionErrorItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CursorConfigurationTypeDef(TypedDict):
+    NextPage: ExtractedParameterTypeDef
+    LimitParameter: NotRequired[ExtractedParameterTypeDef]
+
+
+class OffsetConfigurationTypeDef(TypedDict):
+    OffsetParameter: ExtractedParameterTypeDef
+    LimitParameter: ExtractedParameterTypeDef
 
 
 class FilterOutputTypeDef(TypedDict):
@@ -8014,21 +8164,6 @@ class RedshiftTargetTypeDef(TypedDict):
 AggregateUnionTypeDef = Union[AggregateTypeDef, AggregateOutputTypeDef]
 
 
-class DescribeConnectionTypeResponseTypeDef(TypedDict):
-    ConnectionType: str
-    Description: str
-    Capabilities: CapabilitiesTypeDef
-    ConnectionProperties: dict[str, PropertyTypeDef]
-    ConnectionOptions: dict[str, PropertyTypeDef]
-    AuthenticationConfiguration: AuthConfigurationTypeDef
-    ComputeEnvironmentConfigurations: dict[str, ComputeEnvironmentConfigurationTypeDef]
-    PhysicalConnectionRequirements: dict[str, PropertyTypeDef]
-    AthenaConnectionProperties: dict[str, PropertyTypeDef]
-    PythonConnectionProperties: dict[str, PropertyTypeDef]
-    SparkConnectionProperties: dict[str, PropertyTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class AmazonRedshiftSourceTypeDef(TypedDict):
     Name: NotRequired[str]
     Data: NotRequired[AmazonRedshiftNodeDataUnionTypeDef]
@@ -8239,6 +8374,13 @@ class MLTransformTypeDef(TypedDict):
     TransformEncryption: NotRequired[TransformEncryptionTypeDef]
 
 
+class ConnectorOAuth2PropertiesTypeDef(TypedDict):
+    OAuth2GrantType: ConnectorOAuth2GrantTypeType
+    ClientCredentialsProperties: NotRequired[ClientCredentialsPropertiesTypeDef]
+    JWTBearerProperties: NotRequired[JWTBearerPropertiesTypeDef]
+    AuthorizationCodeProperties: NotRequired[ConnectorAuthorizationCodePropertiesTypeDef]
+
+
 class BatchGetCrawlersResponseTypeDef(TypedDict):
     Crawlers: list[CrawlerTypeDef]
     CrawlersNotFound: list[str]
@@ -8425,6 +8567,11 @@ class GetSecurityConfigurationsResponseTypeDef(TypedDict):
 class CreateSecurityConfigurationRequestTypeDef(TypedDict):
     Name: str
     EncryptionConfiguration: EncryptionConfigurationUnionTypeDef
+
+
+class PaginationConfigurationTypeDef(TypedDict):
+    CursorConfiguration: NotRequired[CursorConfigurationTypeDef]
+    OffsetConfiguration: NotRequired[OffsetConfigurationTypeDef]
 
 
 class RouteOutputTypeDef(TypedDict):
@@ -8745,6 +8892,13 @@ class GetMLTransformsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class ConnectorAuthenticationConfigurationTypeDef(TypedDict):
+    AuthenticationTypes: Sequence[AuthenticationTypeType]
+    OAuth2Properties: NotRequired[ConnectorOAuth2PropertiesTypeDef]
+    BasicAuthenticationProperties: NotRequired[BasicAuthenticationPropertiesTypeDef]
+    CustomAuthenticationProperties: NotRequired[CustomAuthenticationPropertiesTypeDef]
+
+
 class CreateCatalogRequestTypeDef(TypedDict):
     Name: str
     CatalogInput: CatalogInputTypeDef
@@ -8819,6 +8973,22 @@ class UnfilteredPartitionTypeDef(TypedDict):
     Partition: NotRequired[PartitionTypeDef]
     AuthorizedColumns: NotRequired[list[str]]
     IsRegisteredWithLakeFormation: NotRequired[bool]
+
+
+class SourceConfigurationOutputTypeDef(TypedDict):
+    RequestMethod: NotRequired[HTTPMethodType]
+    RequestPath: NotRequired[str]
+    RequestParameters: NotRequired[list[ConnectorPropertyOutputTypeDef]]
+    ResponseConfiguration: NotRequired[ResponseConfigurationTypeDef]
+    PaginationConfiguration: NotRequired[PaginationConfigurationTypeDef]
+
+
+class SourceConfigurationTypeDef(TypedDict):
+    RequestMethod: NotRequired[HTTPMethodType]
+    RequestPath: NotRequired[str]
+    RequestParameters: NotRequired[Sequence[ConnectorPropertyTypeDef]]
+    ResponseConfiguration: NotRequired[ResponseConfigurationTypeDef]
+    PaginationConfiguration: NotRequired[PaginationConfigurationTypeDef]
 
 
 CodeGenConfigurationNodeOutputTypeDef = TypedDict(
@@ -9225,6 +9395,16 @@ class GetUnfilteredPartitionsMetadataResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class EntityConfigurationOutputTypeDef(TypedDict):
+    SourceConfiguration: NotRequired[SourceConfigurationOutputTypeDef]
+    Schema: NotRequired[dict[str, FieldDefinitionTypeDef]]
+
+
+class EntityConfigurationTypeDef(TypedDict):
+    SourceConfiguration: NotRequired[SourceConfigurationTypeDef]
+    Schema: NotRequired[Mapping[str, FieldDefinitionTypeDef]]
+
+
 class JobTypeDef(TypedDict):
     Name: NotRequired[str]
     JobMode: NotRequired[JobModeType]
@@ -9393,6 +9573,18 @@ class WorkflowRunTypeDef(TypedDict):
     StartingEventBatchCondition: NotRequired[StartingEventBatchConditionTypeDef]
 
 
+class RestConfigurationOutputTypeDef(TypedDict):
+    GlobalSourceConfiguration: NotRequired[SourceConfigurationOutputTypeDef]
+    ValidationEndpointConfiguration: NotRequired[SourceConfigurationOutputTypeDef]
+    EntityConfigurations: NotRequired[dict[str, EntityConfigurationOutputTypeDef]]
+
+
+class RestConfigurationTypeDef(TypedDict):
+    GlobalSourceConfiguration: NotRequired[SourceConfigurationTypeDef]
+    ValidationEndpointConfiguration: NotRequired[SourceConfigurationTypeDef]
+    EntityConfigurations: NotRequired[Mapping[str, EntityConfigurationTypeDef]]
+
+
 class BatchGetJobsResponseTypeDef(TypedDict):
     Jobs: list[JobTypeDef]
     JobsNotFound: list[str]
@@ -9472,6 +9664,23 @@ class WorkflowTypeDef(TypedDict):
     BlueprintDetails: NotRequired[BlueprintDetailsTypeDef]
 
 
+class DescribeConnectionTypeResponseTypeDef(TypedDict):
+    ConnectionType: str
+    Description: str
+    Capabilities: CapabilitiesTypeDef
+    ConnectionProperties: dict[str, PropertyTypeDef]
+    ConnectionOptions: dict[str, PropertyTypeDef]
+    AuthenticationConfiguration: AuthConfigurationTypeDef
+    ComputeEnvironmentConfigurations: dict[str, ComputeEnvironmentConfigurationTypeDef]
+    PhysicalConnectionRequirements: dict[str, PropertyTypeDef]
+    AthenaConnectionProperties: dict[str, PropertyTypeDef]
+    PythonConnectionProperties: dict[str, PropertyTypeDef]
+    SparkConnectionProperties: dict[str, PropertyTypeDef]
+    RestConfiguration: RestConfigurationOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+RestConfigurationUnionTypeDef = Union[RestConfigurationTypeDef, RestConfigurationOutputTypeDef]
 RouteUnionTypeDef = Union[RouteTypeDef, RouteOutputTypeDef]
 ColumnStatisticsUnionTypeDef = Union[ColumnStatisticsTypeDef, ColumnStatisticsOutputTypeDef]
 
@@ -9485,6 +9694,16 @@ class BatchGetWorkflowsResponseTypeDef(TypedDict):
 class GetWorkflowResponseTypeDef(TypedDict):
     Workflow: WorkflowTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class RegisterConnectionTypeRequestTypeDef(TypedDict):
+    ConnectionType: str
+    IntegrationType: Literal["REST"]
+    ConnectionProperties: ConnectionPropertiesConfigurationTypeDef
+    ConnectorAuthenticationConfiguration: ConnectorAuthenticationConfigurationTypeDef
+    RestConfiguration: RestConfigurationUnionTypeDef
+    Description: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
 
 
 CodeGenConfigurationNodeTypeDef = TypedDict(

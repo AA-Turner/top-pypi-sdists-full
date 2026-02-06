@@ -1,11 +1,11 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Matplotlib standard plugin module. """
+"""Matplotlib standard plugin module."""
 
 import os
 
-from nuitka.Options import isStandaloneMode
+from nuitka.options.Options import isStandaloneMode
 from nuitka.plugins.PluginBase import NuitkaPluginBase
 from nuitka.plugins.Plugins import (
     getActiveQtPlugin,
@@ -34,7 +34,7 @@ class NuitkaPluginMatplotlib(NuitkaPluginBase):
     """
 
     plugin_name = "matplotlib"  # Nuitka knows us by this name
-    plugin_desc = "Required for 'matplotlib' module."
+    plugin_desc = "Required by 'matplotlib' package."
     plugin_category = "package-support"
 
     @staticmethod
@@ -243,11 +243,11 @@ os.environ["QT_API"] = "{{qt_binding_name}}"
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

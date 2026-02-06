@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.17                                                                                #
-# Generated on 2026-01-22T21:47:05.843191                                                            #
+# MF version: 2.19.18                                                                                #
+# Generated on 2026-02-05T18:18:14.282634                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
+    import metaflow._vendor.click.types
     import typing
     import metaflow.parameters
-    import metaflow._vendor.click.types
 
 from ._vendor import click as click
 from .exception import ParameterFieldFailed as ParameterFieldFailed

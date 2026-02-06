@@ -409,6 +409,11 @@ class Repo(Protocol):
         """Get the default branch name."""
         ...
 
+    @property
+    def created_at(self) -> str:
+        """Get the repository creation timestamp."""
+        ...
+
     async def get_remote_url(
         self,
         *,

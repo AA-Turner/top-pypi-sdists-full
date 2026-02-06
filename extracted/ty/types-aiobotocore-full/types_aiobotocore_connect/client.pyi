@@ -77,6 +77,7 @@ from .paginator import (
     ListSecurityProfilePermissionsPaginator,
     ListSecurityProfilesPaginator,
     ListTaskTemplatesPaginator,
+    ListTestCasesPaginator,
     ListTrafficDistributionGroupsPaginator,
     ListTrafficDistributionGroupUsersPaginator,
     ListUseCasesPaginator,
@@ -102,6 +103,7 @@ from .paginator import (
     SearchResourceTagsPaginator,
     SearchRoutingProfilesPaginator,
     SearchSecurityProfilesPaginator,
+    SearchTestCasesPaginator,
     SearchUserHierarchyGroupsPaginator,
     SearchUsersPaginator,
     SearchViewsPaginator,
@@ -207,6 +209,8 @@ from .type_defs import (
     CreateSecurityProfileResponseTypeDef,
     CreateTaskTemplateRequestTypeDef,
     CreateTaskTemplateResponseTypeDef,
+    CreateTestCaseRequestTypeDef,
+    CreateTestCaseResponseTypeDef,
     CreateTrafficDistributionGroupRequestTypeDef,
     CreateTrafficDistributionGroupResponseTypeDef,
     CreateUseCaseRequestTypeDef,
@@ -251,6 +255,7 @@ from .type_defs import (
     DeleteRuleRequestTypeDef,
     DeleteSecurityProfileRequestTypeDef,
     DeleteTaskTemplateRequestTypeDef,
+    DeleteTestCaseRequestTypeDef,
     DeleteTrafficDistributionGroupRequestTypeDef,
     DeleteUseCaseRequestTypeDef,
     DeleteUserHierarchyGroupRequestTypeDef,
@@ -310,6 +315,8 @@ from .type_defs import (
     DescribeRuleResponseTypeDef,
     DescribeSecurityProfileRequestTypeDef,
     DescribeSecurityProfileResponseTypeDef,
+    DescribeTestCaseRequestTypeDef,
+    DescribeTestCaseResponseTypeDef,
     DescribeTrafficDistributionGroupRequestTypeDef,
     DescribeTrafficDistributionGroupResponseTypeDef,
     DescribeUserHierarchyGroupRequestTypeDef,
@@ -370,6 +377,8 @@ from .type_defs import (
     GetPromptFileResponseTypeDef,
     GetTaskTemplateRequestTypeDef,
     GetTaskTemplateResponseTypeDef,
+    GetTestCaseExecutionSummaryRequestTypeDef,
+    GetTestCaseExecutionSummaryResponseTypeDef,
     GetTrafficDistributionRequestTypeDef,
     GetTrafficDistributionResponseTypeDef,
     ImportPhoneNumberRequestTypeDef,
@@ -477,6 +486,12 @@ from .type_defs import (
     ListTagsForResourceResponseTypeDef,
     ListTaskTemplatesRequestTypeDef,
     ListTaskTemplatesResponseTypeDef,
+    ListTestCaseExecutionRecordsRequestTypeDef,
+    ListTestCaseExecutionRecordsResponseTypeDef,
+    ListTestCaseExecutionsRequestTypeDef,
+    ListTestCaseExecutionsResponseTypeDef,
+    ListTestCasesRequestTypeDef,
+    ListTestCasesResponseTypeDef,
     ListTrafficDistributionGroupsRequestTypeDef,
     ListTrafficDistributionGroupsResponseTypeDef,
     ListTrafficDistributionGroupUsersRequestTypeDef,
@@ -544,6 +559,8 @@ from .type_defs import (
     SearchRoutingProfilesResponseTypeDef,
     SearchSecurityProfilesRequestTypeDef,
     SearchSecurityProfilesResponseTypeDef,
+    SearchTestCasesRequestTypeDef,
+    SearchTestCasesResponseTypeDef,
     SearchUserHierarchyGroupsRequestTypeDef,
     SearchUserHierarchyGroupsResponseTypeDef,
     SearchUsersRequestTypeDef,
@@ -580,12 +597,15 @@ from .type_defs import (
     StartScreenSharingRequestTypeDef,
     StartTaskContactRequestTypeDef,
     StartTaskContactResponseTypeDef,
+    StartTestCaseExecutionRequestTypeDef,
+    StartTestCaseExecutionResponseTypeDef,
     StartWebRTCContactRequestTypeDef,
     StartWebRTCContactResponseTypeDef,
     StopContactMediaProcessingRequestTypeDef,
     StopContactRecordingRequestTypeDef,
     StopContactRequestTypeDef,
     StopContactStreamingRequestTypeDef,
+    StopTestCaseExecutionRequestTypeDef,
     SubmitContactEvaluationRequestTypeDef,
     SubmitContactEvaluationResponseTypeDef,
     SuspendContactRecordingRequestTypeDef,
@@ -648,6 +668,7 @@ from .type_defs import (
     UpdateSecurityProfileRequestTypeDef,
     UpdateTaskTemplateRequestTypeDef,
     UpdateTaskTemplateResponseTypeDef,
+    UpdateTestCaseRequestTypeDef,
     UpdateTrafficDistributionRequestTypeDef,
     UpdateUserHierarchyGroupNameRequestTypeDef,
     UpdateUserHierarchyRequestTypeDef,
@@ -689,6 +710,7 @@ class Exceptions(BaseClientExceptions):
     InvalidContactFlowModuleException: type[BotocoreClientError]
     InvalidParameterException: type[BotocoreClientError]
     InvalidRequestException: type[BotocoreClientError]
+    InvalidTestCaseException: type[BotocoreClientError]
     LimitExceededException: type[BotocoreClientError]
     MaximumResultReturnedException: type[BotocoreClientError]
     OutboundContactNotPermittedException: type[BotocoreClientError]
@@ -1322,6 +1344,17 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_task_template)
         """
 
+    async def create_test_case(
+        self, **kwargs: Unpack[CreateTestCaseRequestTypeDef]
+    ) -> CreateTestCaseResponseTypeDef:
+        """
+        Creates a test case with its content and metadata for the specified Amazon
+        Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_test_case.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_test_case)
+        """
+
     async def create_traffic_distribution_group(
         self, **kwargs: Unpack[CreateTrafficDistributionGroupRequestTypeDef]
     ) -> CreateTrafficDistributionGroupResponseTypeDef:
@@ -1669,6 +1702,17 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_task_template)
         """
 
+    async def delete_test_case(
+        self, **kwargs: Unpack[DeleteTestCaseRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the test case that has already been created for the specified Amazon
+        Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_test_case.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_test_case)
+        """
+
     async def delete_traffic_distribution_group(
         self, **kwargs: Unpack[DeleteTrafficDistributionGroupRequestTypeDef]
     ) -> dict[str, Any]:
@@ -2010,6 +2054,17 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_security_profile)
         """
 
+    async def describe_test_case(
+        self, **kwargs: Unpack[DescribeTestCaseRequestTypeDef]
+    ) -> DescribeTestCaseResponseTypeDef:
+        """
+        Describes the specified test case and allows you to get the content and
+        metadata of the test case for the specified Amazon Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_test_case.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_test_case)
+        """
+
     async def describe_traffic_distribution_group(
         self, **kwargs: Unpack[DescribeTrafficDistributionGroupRequestTypeDef]
     ) -> DescribeTrafficDistributionGroupResponseTypeDef:
@@ -2300,7 +2355,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[GetContactMetricsRequestTypeDef]
     ) -> GetContactMetricsResponseTypeDef:
         """
-        Retrieves the position of the contact in the queue.
+        Retrieves contact metric data for a specified contact.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_contact_metrics.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_contact_metrics)
@@ -2395,6 +2450,17 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_task_template.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_task_template)
+        """
+
+    async def get_test_case_execution_summary(
+        self, **kwargs: Unpack[GetTestCaseExecutionSummaryRequestTypeDef]
+    ) -> GetTestCaseExecutionSummaryResponseTypeDef:
+        """
+        Retrieves an overview of a test execution that includes the status of the
+        execution, start and end time, and observation summary.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_test_case_execution_summary.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_test_case_execution_summary)
         """
 
     async def get_traffic_distribution(
@@ -2955,6 +3021,40 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_task_templates)
         """
 
+    async def list_test_case_execution_records(
+        self, **kwargs: Unpack[ListTestCaseExecutionRecordsRequestTypeDef]
+    ) -> ListTestCaseExecutionRecordsResponseTypeDef:
+        """
+        Lists detailed steps of test case execution that includes all observations
+        along with actions taken and data associated in the specified Amazon Connect
+        instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_test_case_execution_records.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_test_case_execution_records)
+        """
+
+    async def list_test_case_executions(
+        self, **kwargs: Unpack[ListTestCaseExecutionsRequestTypeDef]
+    ) -> ListTestCaseExecutionsResponseTypeDef:
+        """
+        Lists all test case executions and allows filtering by test case id, test case
+        name, start time, end time or status of the execution for the specified Amazon
+        Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_test_case_executions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_test_case_executions)
+        """
+
+    async def list_test_cases(
+        self, **kwargs: Unpack[ListTestCasesRequestTypeDef]
+    ) -> ListTestCasesResponseTypeDef:
+        """
+        Lists the test cases present in the specific Amazon Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_test_cases.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_test_cases)
+        """
+
     async def list_traffic_distribution_group_users(
         self, **kwargs: Unpack[ListTrafficDistributionGroupUsersRequestTypeDef]
     ) -> ListTrafficDistributionGroupUsersResponseTypeDef:
@@ -3327,6 +3427,17 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_security_profiles)
         """
 
+    async def search_test_cases(
+        self, **kwargs: Unpack[SearchTestCasesRequestTypeDef]
+    ) -> SearchTestCasesResponseTypeDef:
+        """
+        Searches for test cases in the specified Amazon Connect instance, with optional
+        filtering.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_test_cases.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_test_cases)
+        """
+
     async def search_user_hierarchy_groups(
         self, **kwargs: Unpack[SearchUserHierarchyGroupsRequestTypeDef]
     ) -> SearchUserHierarchyGroupsResponseTypeDef:
@@ -3534,6 +3645,16 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#start_task_contact)
         """
 
+    async def start_test_case_execution(
+        self, **kwargs: Unpack[StartTestCaseExecutionRequestTypeDef]
+    ) -> StartTestCaseExecutionResponseTypeDef:
+        """
+        Starts executing a published test case.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/start_test_case_execution.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#start_test_case_execution)
+        """
+
     async def start_web_rtc_contact(
         self, **kwargs: Unpack[StartWebRTCContactRequestTypeDef]
     ) -> StartWebRTCContactResponseTypeDef:
@@ -3581,6 +3702,16 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/stop_contact_streaming.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#stop_contact_streaming)
+        """
+
+    async def stop_test_case_execution(
+        self, **kwargs: Unpack[StopTestCaseExecutionRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Stops a running test execution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/stop_test_case_execution.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#stop_test_case_execution)
         """
 
     async def submit_contact_evaluation(
@@ -4102,6 +4233,17 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_task_template.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_task_template)
+        """
+
+    async def update_test_case(
+        self, **kwargs: Unpack[UpdateTestCaseRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates any of the metadata for a test case, such as the name, description, and
+        status or content of an existing test case.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_test_case.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_test_case)
         """
 
     async def update_traffic_distribution(
@@ -4777,6 +4919,17 @@ class ConnectClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_test_cases"]
+    ) -> ListTestCasesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_traffic_distribution_group_users"]
     ) -> ListTrafficDistributionGroupUsersPaginator:
         """
@@ -5043,6 +5196,17 @@ class ConnectClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["search_security_profiles"]
     ) -> SearchSecurityProfilesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_test_cases"]
+    ) -> SearchTestCasesPaginator:
         """
         Create a paginator for an operation.
 

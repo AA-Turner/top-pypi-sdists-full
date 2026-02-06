@@ -126,12 +126,7 @@ class TerminalSession:
             raise RuntimeError(f"Terminal session {self.session_id} already running")
 
         # Default to user's shell if no command specified
-        default_shell = (
-            os.environ.get("SHELL")
-            or shutil.which("bash")
-            or shutil.which("sh")
-            or "/bin/sh"
-        )
+        default_shell = os.environ.get("SHELL") or shutil.which("bash") or shutil.which("sh") or "/bin/sh"
 
         # Create PTY with window size set BEFORE fork to eliminate race condition
         master_fd = None
@@ -190,25 +185,13 @@ class TerminalSession:
                     | termios.ECHOCTL
                 )
                 # Disable: echok echonl echoprt noflsh tostop
-                attrs[3] &= ~(
-                    termios.ECHOK
-                    | termios.ECHONL
-                    | termios.ECHOPRT
-                    | termios.NOFLSH
-                    | termios.TOSTOP
-                )
+                attrs[3] &= ~(termios.ECHOK | termios.ECHONL | termios.ECHOPRT | termios.NOFLSH | termios.TOSTOP)
                 if hasattr(termios, "PENDIN"):
                     attrs[3] |= termios.PENDIN
 
                 # Input flags (iflags)
                 # Enable: icrnl ixon ixany imaxbel brkint
-                attrs[0] |= (
-                    termios.ICRNL
-                    | termios.IXON
-                    | termios.IXANY
-                    | termios.IMAXBEL
-                    | termios.BRKINT
-                )
+                attrs[0] |= termios.ICRNL | termios.IXON | termios.IXANY | termios.IMAXBEL | termios.BRKINT
                 # Disable: istrip inlcr igncr ixoff ignbrk inpck ignpar parmrk
                 attrs[0] &= ~(
                     termios.ISTRIP
@@ -231,9 +214,7 @@ class TerminalSession:
                 # Enable: cread cs8 hupcl
                 attrs[2] |= termios.CREAD | termios.CS8 | termios.HUPCL
                 # Disable: parenb parodd clocal cstopb crtscts
-                attrs[2] &= ~(
-                    termios.PARENB | termios.PARODD | termios.CLOCAL | termios.CSTOPB
-                )
+                attrs[2] &= ~(termios.PARENB | termios.PARODD | termios.CLOCAL | termios.CSTOPB)
                 if hasattr(termios, "CRTSCTS"):
                     attrs[2] &= ~termios.CRTSCTS
 

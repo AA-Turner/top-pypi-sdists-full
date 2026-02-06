@@ -93,12 +93,12 @@ class ButtonGroup(_message.Message):
     DISABLED_FIELD_NUMBER: _builtins.int
     CLICK_MODE_FIELD_NUMBER: _builtins.int
     FORM_ID_FIELD_NUMBER: _builtins.int
-    VALUE_FIELD_NUMBER: _builtins.int
     SET_VALUE_FIELD_NUMBER: _builtins.int
     STYLE_FIELD_NUMBER: _builtins.int
     LABEL_FIELD_NUMBER: _builtins.int
     LABEL_VISIBILITY_FIELD_NUMBER: _builtins.int
     HELP_FIELD_NUMBER: _builtins.int
+    RAW_VALUES_FIELD_NUMBER: _builtins.int
     id: _builtins.str
     disabled: _builtins.bool
     click_mode: Global___ButtonGroup.ClickMode.ValueType
@@ -114,11 +114,13 @@ class ButtonGroup(_message.Message):
         """default is an array of indexes that are selected by default"""
 
     @_builtins.property
-    def value(self) -> _containers.RepeatedScalarFieldContainer[_builtins.int]:
-        """value passed by the backend"""
-
-    @_builtins.property
     def label_visibility(self) -> _LabelVisibility_pb2.LabelVisibility: ...
+    @_builtins.property
+    def raw_values(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """For multi-select mode, this contains all selected option strings.
+        For single-select mode, this contains at most one selected option string.
+        """
+
     def __init__(
         self,
         *,
@@ -128,16 +130,16 @@ class ButtonGroup(_message.Message):
         disabled: _builtins.bool = ...,
         click_mode: Global___ButtonGroup.ClickMode.ValueType = ...,
         form_id: _builtins.str = ...,
-        value: _abc.Iterable[_builtins.int] | None = ...,
         set_value: _builtins.bool = ...,
         style: Global___ButtonGroup.Style.ValueType = ...,
         label: _builtins.str = ...,
         label_visibility: _LabelVisibility_pb2.LabelVisibility | None = ...,
         help: _builtins.str | None = ...,
+        raw_values: _abc.Iterable[_builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["_help", b"_help", "help", b"help", "label_visibility", b"label_visibility"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_help", b"_help", "click_mode", b"click_mode", "default", b"default", "disabled", b"disabled", "form_id", b"form_id", "help", b"help", "id", b"id", "label", b"label", "label_visibility", b"label_visibility", "options", b"options", "set_value", b"set_value", "style", b"style", "value", b"value"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_help", b"_help", "click_mode", b"click_mode", "default", b"default", "disabled", b"disabled", "form_id", b"form_id", "help", b"help", "id", b"id", "label", b"label", "label_visibility", b"label_visibility", "options", b"options", "raw_values", b"raw_values", "set_value", b"set_value", "style", b"style"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__help: _TypeAlias = _typing.Literal["help"]  # noqa: Y015
     _WhichOneofArgType__help: _TypeAlias = _typing.Literal["_help", b"_help"]  # noqa: Y015

@@ -135,11 +135,11 @@ def _has_isolated_subdirs(node_dir: Path) -> bool:
 
 
 def _install_via_pixi(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], None], dry_run: bool, is_root: bool = True) -> None:
-    from .packages.pixi import ensure_pixi, get_pixi_python, pixi_clean
+    from .packages.pixi import ensure_pixi
     from .packages.toml_generator import write_pixi_toml
     from .packages.cuda_wheels import get_wheel_url, CUDA_TORCH_MAP
     from .detection import get_recommended_cuda_version
-    from .environment.cache import get_central_env_path, write_marker, write_env_metadata, MARKER_FILE, get_cache_dir, cleanup_orphaned_envs
+    from .environment.cache import get_cache_dir, get_junction_name, create_junction, get_env_name, cleanup_orphaned_envs, write_junction_path
     import shutil, subprocess, sys
 
     # Clean up orphaned environments before installing
@@ -159,11 +159,32 @@ def _install_via_pixi(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], 
     if pypi_deps: log(f"  PyPI: {len(pypi_deps)}")
     if dry_run: return
 
-    log("[DEBUG] pixi_clean...")
-    pixi_clean(node_dir, log)
-    log("[DEBUG] mkdir .pixi...")
-    (node_dir / ".pixi").mkdir(parents=True, exist_ok=True)
-    (node_dir / ".pixi" / "config.toml").write_text("detached-environments = false\n")
+    # Find config file path
+    config_path = node_dir / CONFIG_FILE_NAME
+    if not config_path.exists():
+        config_path = node_dir / ROOT_CONFIG_FILE_NAME
+
+    # Find main node dir (for naming)
+    main_node_dir = node_dir
+    for parent in node_dir.parents:
+        if parent.parent.name == "custom_nodes":
+            main_node_dir = parent
+            break
+
+    # Central env path and local junction
+    central_env = get_cache_dir() / get_env_name(main_node_dir, config_path)
+    junction_name = get_junction_name(config_path)
+    junction_path = node_dir / junction_name
+
+    # Create env at short central path from the start
+    env_work_dir = central_env.parent / f"{central_env.name}_build"
+    log(f"[DEBUG] env_work_dir={env_work_dir}")
+    log(f"[DEBUG] junction={junction_path}")
+
+    # Clean up any previous build
+    if env_work_dir.exists():
+        shutil.rmtree(env_work_dir)
+    env_work_dir.mkdir(parents=True, exist_ok=True)
 
     log("[DEBUG] ensure_pixi...")
     pixi_path = ensure_pixi(log=log)
@@ -178,18 +199,20 @@ def _install_via_pixi(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], 
             torch_version = CUDA_TORCH_MAP.get(".".join(cuda_version.split(".")[:2]), "2.8")
             log(f"[DEBUG] torch_version={torch_version}")
 
+    # Write pixi.toml to short path and run pixi there
     log("[DEBUG] write_pixi_toml...")
-    write_pixi_toml(cfg, node_dir, log)
+    write_pixi_toml(cfg, env_work_dir, log)
     log("Running pixi install...")
-    result = subprocess.run([str(pixi_path), "install"], cwd=node_dir, capture_output=True, text=True)
+    result = subprocess.run([str(pixi_path), "install"], cwd=env_work_dir, capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(f"pixi install failed:\nstderr: {result.stderr}\nstdout: {result.stdout}")
 
-    if cfg.cuda_packages and cuda_version:
-        log(f"Installing CUDA packages...")
-        python_path = get_pixi_python(node_dir)
-        if not python_path:
-            raise RuntimeError("No Python in pixi env")
+    if cfg.cuda_packages and sys.platform != "darwin":
+        # Get Python from the build dir
+        pixi_env = env_work_dir / ".pixi" / "envs" / "default"
+        python_path = pixi_env / ("python.exe" if sys.platform == "win32" else "bin/python")
+        if not python_path.exists():
+            raise RuntimeError(f"No Python in pixi env: {python_path}")
 
         result = subprocess.run([str(python_path), "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"],
                                capture_output=True, text=True)
@@ -199,55 +222,61 @@ def _install_via_pixi(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], 
         pytorch_packages = {"torch", "torchvision", "torchaudio"}
         # torchvision has different versioning scheme
         torchvision_map = {"2.8": "0.23", "2.4": "0.19"}
-        cuda_short = cuda_version.replace(".", "")[:3]
-        pytorch_index = f"https://download.pytorch.org/whl/cu{cuda_short}"
+
+        if cuda_version:
+            # GPU mode - use CUDA index
+            pytorch_index = f"https://download.pytorch.org/whl/cu{cuda_version.replace('.', '')[:3]}"
+            pin_torch_version = torch_version
+            log(f"Installing CUDA packages from {pytorch_index}")
+        else:
+            # CPU mode - use CPU index
+            pytorch_index = "https://download.pytorch.org/whl/cpu"
+            pin_torch_version = "2.8"  # Default torch version for CPU
+            log(f"Installing CPU packages from {pytorch_index}")
 
         for package in cfg.cuda_packages:
             if package in pytorch_packages:
-                # Install from PyTorch CUDA index with version pinning
+                # Install from PyTorch index with version pinning
                 if package == "torch":
-                    pin_version = torch_version
+                    pin_version = pin_torch_version
                 elif package == "torchvision":
-                    pin_version = torchvision_map.get(torch_version, "0.23")
+                    pin_version = torchvision_map.get(pin_torch_version, "0.23")
                 else:  # torchaudio follows torch versioning
-                    pin_version = torch_version
+                    pin_version = pin_torch_version
                 pkg_spec = f"{package}=={pin_version}.*"
-                log(f"  {package} (from PyTorch index, pinned to {pin_version}.*)")
-                result = subprocess.run([str(python_path), "-m", "pip", "install", "--no-cache-dir",
-                                        "--extra-index-url", pytorch_index, pkg_spec],
-                                       capture_output=True, text=True)
-            else:
-                # Install from cuda-wheels
+                pip_cmd = [str(python_path), "-m", "pip", "install", "--no-cache-dir",
+                          "--extra-index-url", pytorch_index, pkg_spec]
+                log(f"  {' '.join(pip_cmd)}")
+                result = subprocess.run(pip_cmd, capture_output=True, text=True)
+                if result.returncode != 0:
+                    raise RuntimeError(f"Failed to install {package}:\nstderr: {result.stderr}\nstdout: {result.stdout}")
+            elif cuda_version:
+                # Install GPU-only packages from cuda-wheels (skip on CPU)
                 wheel_url = get_wheel_url(package, torch_version, cuda_version, py_version)
                 if not wheel_url:
                     raise RuntimeError(f"No wheel for {package}")
-                log(f"  {package}")
+                log(f"  {package} from {wheel_url}")
                 result = subprocess.run([str(python_path), "-m", "pip", "install", "--no-deps", "--no-cache-dir", wheel_url],
                                        capture_output=True, text=True)
-            if result.returncode != 0:
-                raise RuntimeError(f"Failed to install {package}:\nstderr: {result.stderr}\nstdout: {result.stdout}")
+                if result.returncode != 0:
+                    raise RuntimeError(f"Failed to install {package}:\nstderr: {result.stderr}\nstdout: {result.stdout}")
+            else:
+                # CPU mode - skip GPU-only packages
+                log(f"  {package} (skipped - GPU only)")
 
-    # Find config file for marker
-    config_path = node_dir / CONFIG_FILE_NAME
-    if not config_path.exists():
-        config_path = node_dir / ROOT_CONFIG_FILE_NAME
-
-    old_env = node_dir / ".pixi" / "envs" / "default"
-    main_node_dir = node_dir
-    for parent in node_dir.parents:
-        if parent.parent.name == "custom_nodes":
-            main_node_dir = parent
-            break
-
-    central_env = get_central_env_path(main_node_dir, config_path)
-    if old_env.exists():
-        get_cache_dir()
-        if central_env.exists(): shutil.rmtree(central_env)
-        shutil.move(str(old_env), str(central_env))
-        write_marker(config_path, central_env)
-        write_env_metadata(central_env, config_path.parent / MARKER_FILE)
+    # Move env from build dir to final location and create junction
+    pixi_env = env_work_dir / ".pixi" / "envs" / "default"
+    if pixi_env.exists():
+        if central_env.exists():
+            shutil.rmtree(central_env)
+        shutil.move(str(pixi_env), str(central_env))
+        create_junction(junction_path, central_env)
+        write_junction_path(central_env, junction_path)
+        shutil.rmtree(env_work_dir, ignore_errors=True)
+        # Clean up any old .pixi in node_dir
         shutil.rmtree(node_dir / ".pixi", ignore_errors=True)
         log(f"Env: {central_env}")
+        log(f"Junction: {junction_path} -> {central_env}")
 
 
 def _install_to_host_python(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], None], dry_run: bool) -> None:

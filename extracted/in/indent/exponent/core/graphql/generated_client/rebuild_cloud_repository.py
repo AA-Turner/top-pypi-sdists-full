@@ -13,7 +13,6 @@ class RebuildCloudRepository(BaseModel):
         "RebuildCloudRepositoryRebuildCloudRepositoryNotFoundError",
         "RebuildCloudRepositoryRebuildCloudRepositoryCloudSessionError",
         "RebuildCloudRepositoryRebuildCloudRepositoryContainerImages",
-        "RebuildCloudRepositoryRebuildCloudRepositoryError",
         "RebuildCloudRepositoryRebuildCloudRepositoryInputValidationError",
         "RebuildCloudRepositoryRebuildCloudRepositoryUnauthenticatedError",
     ] = Field(alias="rebuildCloudRepository", discriminator="typename__")
@@ -40,11 +39,6 @@ class RebuildCloudRepositoryRebuildCloudRepositoryContainerImagesImages(BaseMode
     build_ref: str = Field(alias="buildRef")
     created_at: Any = Field(alias="createdAt")
     updated_at: Any = Field(alias="updatedAt")
-
-
-class RebuildCloudRepositoryRebuildCloudRepositoryError(BaseModel):
-    typename__: Literal["Error"] = Field(alias="__typename")
-    message: str
 
 
 class RebuildCloudRepositoryRebuildCloudRepositoryInputValidationError(BaseModel):

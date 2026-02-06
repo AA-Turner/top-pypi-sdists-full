@@ -16,6 +16,7 @@ Usage::
         ListAgentRuntimeVersionsPaginator,
         ListAgentRuntimesPaginator,
         ListApiKeyCredentialProvidersPaginator,
+        ListBrowserProfilesPaginator,
         ListBrowsersPaginator,
         ListCodeInterpretersPaginator,
         ListEvaluatorsPaginator,
@@ -38,6 +39,7 @@ Usage::
     list_agent_runtime_versions_paginator: ListAgentRuntimeVersionsPaginator = client.get_paginator("list_agent_runtime_versions")
     list_agent_runtimes_paginator: ListAgentRuntimesPaginator = client.get_paginator("list_agent_runtimes")
     list_api_key_credential_providers_paginator: ListApiKeyCredentialProvidersPaginator = client.get_paginator("list_api_key_credential_providers")
+    list_browser_profiles_paginator: ListBrowserProfilesPaginator = client.get_paginator("list_browser_profiles")
     list_browsers_paginator: ListBrowsersPaginator = client.get_paginator("list_browsers")
     list_code_interpreters_paginator: ListCodeInterpretersPaginator = client.get_paginator("list_code_interpreters")
     list_evaluators_paginator: ListEvaluatorsPaginator = client.get_paginator("list_evaluators")
@@ -70,6 +72,8 @@ from .type_defs import (
     ListAgentRuntimeVersionsResponseTypeDef,
     ListApiKeyCredentialProvidersRequestPaginateTypeDef,
     ListApiKeyCredentialProvidersResponseTypeDef,
+    ListBrowserProfilesRequestPaginateTypeDef,
+    ListBrowserProfilesResponseTypeDef,
     ListBrowsersRequestPaginateTypeDef,
     ListBrowsersResponseTypeDef,
     ListCodeInterpretersRequestPaginateTypeDef,
@@ -108,6 +112,7 @@ __all__ = (
     "ListAgentRuntimeVersionsPaginator",
     "ListAgentRuntimesPaginator",
     "ListApiKeyCredentialProvidersPaginator",
+    "ListBrowserProfilesPaginator",
     "ListBrowsersPaginator",
     "ListCodeInterpretersPaginator",
     "ListEvaluatorsPaginator",
@@ -195,6 +200,24 @@ class ListApiKeyCredentialProvidersPaginator(_ListApiKeyCredentialProvidersPagin
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListApiKeyCredentialProviders.html#BedrockAgentCoreControl.Paginator.ListApiKeyCredentialProviders.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listapikeycredentialproviderspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListBrowserProfilesPaginatorBase = Paginator[ListBrowserProfilesResponseTypeDef]
+else:
+    _ListBrowserProfilesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListBrowserProfilesPaginator(_ListBrowserProfilesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListBrowserProfiles.html#BedrockAgentCoreControl.Paginator.ListBrowserProfiles)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listbrowserprofilespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListBrowserProfilesRequestPaginateTypeDef]
+    ) -> PageIterator[ListBrowserProfilesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListBrowserProfiles.html#BedrockAgentCoreControl.Paginator.ListBrowserProfiles.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listbrowserprofilespaginator)
         """
 
 if TYPE_CHECKING:

@@ -3,7 +3,7 @@ Type annotations for neptune-graph service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_neptune_graph/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -235,7 +235,7 @@ class NeptuneGraphClient(BaseClient):
         self, **kwargs: Unpack[CreatePrivateGraphEndpointInputTypeDef]
     ) -> CreatePrivateGraphEndpointOutputTypeDef:
         """
-        Create a private graph endpoint to allow private access from to the graph from
+        Create a private graph endpoint to allow private access to the graph from
         within a VPC.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/neptune-graph/client/create_private_graph_endpoint.html)
@@ -254,7 +254,7 @@ class NeptuneGraphClient(BaseClient):
         self, **kwargs: Unpack[DeleteGraphSnapshotInputTypeDef]
     ) -> DeleteGraphSnapshotOutputTypeDef:
         """
-        Deletes the specifed graph snapshot.
+        Deletes the specified graph snapshot.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/neptune-graph/client/delete_graph_snapshot.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_neptune_graph/client/#delete_graph_snapshot)

@@ -110,8 +110,8 @@ class MarketplaceMeteringClient(AioBaseClient):
         self, **kwargs: Unpack[BatchMeterUsageRequestTypeDef]
     ) -> BatchMeterUsageResultTypeDef:
         """
-        The <code>CustomerIdentifier</code> parameter is scheduled for deprecation on
-        March 31, 2026.
+        The <code>CustomerIdentifier</code> and <code>CustomerAWSAccountID</code> are
+        mutually exclusive parameters.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/meteringmarketplace/client/batch_meter_usage.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_meteringmarketplace/client/#batch_meter_usage)
@@ -121,7 +121,9 @@ class MarketplaceMeteringClient(AioBaseClient):
         self, **kwargs: Unpack[MeterUsageRequestTypeDef]
     ) -> MeterUsageResultTypeDef:
         """
-        API to emit metering records.
+        As a seller, your software hosted in the buyer's Amazon Web Services account
+        uses this API action to emit metering records directly to Amazon Web Services
+        Marketplace.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/meteringmarketplace/client/meter_usage.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_meteringmarketplace/client/#meter_usage)

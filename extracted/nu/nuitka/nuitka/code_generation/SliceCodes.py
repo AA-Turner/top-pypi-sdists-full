@@ -1,15 +1,15 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Code generation for slicing.
+"""Code generation for slicing.
 
 This is about slice lookups, assignments, and deletions. There is also a
 special case, for using index values instead of objects. The slice objects
 are also created here, and can be used for indexing.
 """
 
-from nuitka import Options
 from nuitka.PythonVersions import python_version
+from nuitka.States import states
 
 from .CodeHelpers import (
     generateChildExpressionsCode,
@@ -164,7 +164,7 @@ def generateAssignmentSliceCode(statement, emit, context):
 
         with context.withCurrentSourceCodeReference(
             value.getSourceReference()
-            if Options.is_full_compat
+            if states.is_full_compat
             else statement.getSourceReference()
         ):
             _getSliceAssignmentIndexesCode(
@@ -185,7 +185,7 @@ def generateAssignmentSliceCode(statement, emit, context):
 
         with context.withCurrentSourceCodeReference(
             value.getSourceReference()
-            if Options.is_full_compat
+            if states.is_full_compat
             else statement.getSourceReference()
         ):
             _getSliceAssignmentCode(
@@ -218,7 +218,7 @@ def generateDelSliceCode(statement, emit, context):
 
         with context.withCurrentSourceCodeReference(
             (upper or lower or statement).getSourceReference()
-            if Options.is_full_compat
+            if states.is_full_compat
             else statement.getSourceReference()
         ):
             _getSliceDelIndexesCode(
@@ -238,7 +238,7 @@ def generateDelSliceCode(statement, emit, context):
 
         with context.withCurrentSourceCodeReference(
             (upper or lower or target).getSourceReference()
-            if Options.is_full_compat
+            if states.is_full_compat
             else statement.getSourceReference()
         ):
             _getSliceDelCode(
@@ -452,11 +452,11 @@ def _getSliceDelCode(target_name, lower_name, upper_name, emit, context):
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

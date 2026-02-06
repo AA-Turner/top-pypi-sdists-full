@@ -45,7 +45,7 @@ class AutoCompleteOption(click.Option):
         ).unsafe_ask()
 
 
-class StrategyChoice(click.Choice[str]):
+class StrategyChoice(click.Choice):
     def __init__(self, choices: Sequence[StrategyInfo]) -> None:
         self.strategy_choices = choices
         self.choices = [strategy.strategy_name.value for strategy in choices]
@@ -58,9 +58,7 @@ class StrategyOption(AutoCompleteOption):
         self.default = self.default_choice(type.strategy_choices)
         self.strategy_choices = type.strategy_choices
 
-    def _format_strategy_info(
-        self, strategy_info: StrategyInfo, formatter: click.HelpFormatter
-    ) -> None:
+    def _format_strategy_info(self, strategy_info: StrategyInfo, formatter: click.HelpFormatter) -> None:
         row = (strategy_info.strategy_name.value, strategy_info.display_name)
         formatter.write_dl([row])
         with formatter.indentation():
@@ -78,9 +76,7 @@ class StrategyOption(AutoCompleteOption):
 
 
 class ExponentCommand(click.Command):
-    def format_options(
-        self, ctx: click.Context, formatter: click.HelpFormatter
-    ) -> None:
+    def format_options(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         """Writes all the options into the formatter if they exist."""
         opts = []
         for param in self.get_params(ctx):

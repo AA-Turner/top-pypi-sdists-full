@@ -1,9 +1,7 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Code to generate and interact with compiled function objects.
-
-"""
+"""Code to generate and interact with compiled function objects."""
 
 from nuitka.PythonVersions import python_version
 from nuitka.Tracing import general
@@ -371,7 +369,7 @@ def getFunctionCreationCode(
             "to_name": to_name,
             "function_maker_identifier": function_maker_identifier,
             "args": ", ".join(str(arg) for arg in args),
-            "closure_copy": indented(closure_copy, 0, True),
+            "closure_copy": indented(closure_copy),
         }
     )
 
@@ -787,6 +785,7 @@ def generateFunctionOutlineCode(to_name, expression, emit, context):
         old_exception_target = context.setExceptionEscape(exception_target)
     else:
         exception_target = None
+        old_exception_target = None
 
     with withObjectCodeTemporaryAssignment(
         to_name, "outline_return_value", expression, emit, context
@@ -845,11 +844,11 @@ def generateFunctionErrorStrCode(to_name, expression, emit, context):
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

@@ -22,6 +22,7 @@ Usage::
         OutputDeletedWaiter,
         OutputRoutedWaiter,
         OutputStandbyWaiter,
+        OutputUnroutedWaiter,
     )
 
     session = get_session()
@@ -38,6 +39,7 @@ Usage::
         output_deleted_waiter: OutputDeletedWaiter = client.get_waiter("output_deleted")
         output_routed_waiter: OutputRoutedWaiter = client.get_waiter("output_routed")
         output_standby_waiter: OutputStandbyWaiter = client.get_waiter("output_standby")
+        output_unrouted_waiter: OutputUnroutedWaiter = client.get_waiter("output_unrouted")
     ```
 """
 
@@ -54,6 +56,7 @@ from .type_defs import (
     GetRouterInputRequestWaitExtraExtraTypeDef,
     GetRouterInputRequestWaitExtraTypeDef,
     GetRouterInputRequestWaitTypeDef,
+    GetRouterOutputRequestWaitExtraExtraExtraExtraTypeDef,
     GetRouterOutputRequestWaitExtraExtraExtraTypeDef,
     GetRouterOutputRequestWaitExtraExtraTypeDef,
     GetRouterOutputRequestWaitExtraTypeDef,
@@ -76,6 +79,7 @@ __all__ = (
     "OutputDeletedWaiter",
     "OutputRoutedWaiter",
     "OutputStandbyWaiter",
+    "OutputUnroutedWaiter",
 )
 
 class FlowActiveWaiter(AIOWaiter):
@@ -206,4 +210,17 @@ class OutputStandbyWaiter(AIOWaiter):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/waiter/OutputStandby.html#MediaConnect.Waiter.OutputStandby.wait)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconnect/waiters/#outputstandbywaiter)
+        """
+
+class OutputUnroutedWaiter(AIOWaiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/waiter/OutputUnrouted.html#MediaConnect.Waiter.OutputUnrouted)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconnect/waiters/#outputunroutedwaiter)
+    """
+    async def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[GetRouterOutputRequestWaitExtraExtraExtraExtraTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/waiter/OutputUnrouted.html#MediaConnect.Waiter.OutputUnrouted.wait)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconnect/waiters/#outputunroutedwaiter)
         """

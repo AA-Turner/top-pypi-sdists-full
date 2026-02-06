@@ -1,7 +1,6 @@
 import time
 import logging
 from uuid import UUID
-from openai import BaseModel
 from coze_coding_utils.log.config import LOG_DIR
 from coze_coding_utils.log.common import get_execute_mode, is_prod
 import uuid

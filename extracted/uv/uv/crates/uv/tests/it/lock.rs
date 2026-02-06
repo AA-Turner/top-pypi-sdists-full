@@ -6,7 +6,7 @@ use insta::assert_snapshot;
 use std::io::BufReader;
 use url::Url;
 
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 use crate::common::{READ_ONLY_GITHUB_TOKEN, decode_token};
 use crate::common::{
     TestContext, build_vendor_links_url, download_to_disk, packse_index_url, uv_snapshot,
@@ -242,7 +242,7 @@ fn lock_sdist_registry() -> Result<()> {
 
 /// Lock a Git requirement using `tool.uv.sources`.
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn lock_sdist_git() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -512,7 +512,7 @@ fn lock_sdist_git() -> Result<()> {
 
 /// Lock a Git requirement using PEP 508.
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn lock_sdist_git_subdirectory() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -606,7 +606,7 @@ fn lock_sdist_git_subdirectory() -> Result<()> {
 
 /// Lock a Git requirement using PEP 508.
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn lock_sdist_git_pep508() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -841,7 +841,7 @@ fn lock_sdist_git_pep508() -> Result<()> {
 
 /// Lock a Git requirement using `tool.uv.sources` with a short revision.
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn lock_sdist_git_short_rev() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -2421,7 +2421,7 @@ fn lock_dependency_extra() -> Result<()> {
 }
 
 /// Lock a project with a dependency that has a conditional extra.
-#[cfg(feature = "python-eol")]
+#[cfg(feature = "test-python-eol")]
 #[test]
 fn lock_conditional_dependency_extra() -> Result<()> {
     let context = TestContext::new("3.12");
@@ -4750,7 +4750,7 @@ fn lock_preference() -> Result<()> {
 
 /// If the user includes `git+` in a `tool.uv.sources` entry, we shouldn't fail.
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn lock_git_plus_prefix() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -4836,7 +4836,7 @@ fn lock_git_plus_prefix() -> Result<()> {
 }
 
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn lock_partial_git() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -5077,7 +5077,7 @@ fn lock_unsupported_tag() -> Result<()> {
 
 /// Respect locked versions with `uv lock`, unless `--upgrade` is passed.
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn lock_git_sha() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -6004,7 +6004,7 @@ fn lock_requires_python_upper() -> Result<()> {
 }
 
 /// Lock a requirement from PyPI with an exact Python bound.
-#[cfg(feature = "python-patch")]
+#[cfg(feature = "test-python-patch")]
 #[test]
 fn lock_requires_python_exact() -> Result<()> {
     let context = TestContext::new("3.13.0");
@@ -6084,7 +6084,7 @@ fn lock_requires_python_exact() -> Result<()> {
 }
 
 /// Lock a requirement from PyPI with a compatible release Python bound.
-#[cfg(feature = "python-patch")]
+#[cfg(feature = "test-python-patch")]
 #[test]
 fn lock_requires_python_compatible_specifier() -> Result<()> {
     let context = TestContext::new("3.13.0");
@@ -10024,7 +10024,7 @@ fn lock_index_url_username_change_no_update() -> Result<()> {
 }
 
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn lock_redact_git_pep508() -> Result<()> {
     let context = TestContext::new("3.12").with_filtered_link_mode_warning();
     let token = decode_token(READ_ONLY_GITHUB_TOKEN);
@@ -10109,7 +10109,7 @@ fn lock_redact_git_pep508() -> Result<()> {
 }
 
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn lock_redact_git_sources() -> Result<()> {
     let context = TestContext::new("3.12").with_filtered_link_mode_warning();
     let token = decode_token(READ_ONLY_GITHUB_TOKEN);
@@ -10197,7 +10197,7 @@ fn lock_redact_git_sources() -> Result<()> {
 }
 
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn lock_redact_git_pep508_non_project() -> Result<()> {
     let context = TestContext::new("3.12").with_filtered_link_mode_warning();
     let token = decode_token(READ_ONLY_GITHUB_TOKEN);
@@ -13508,7 +13508,7 @@ fn lock_transitive_extra() -> Result<()> {
 /// If a source is provided via `tool.uv.sources` _and_ a URL is provided in `project.dependencies`,
 /// we accept the source in `tool.uv.sources`, unless `--no-sources` is provided.
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn lock_mismatched_sources() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -13622,7 +13622,7 @@ fn lock_mismatched_sources() -> Result<()> {
 ///
 /// See: <https://github.com/astral-sh/uv/issues/4604>
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn lock_mismatched_versions() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -13709,7 +13709,7 @@ fn lock_mismatched_versions() -> Result<()> {
 
 /// Test that `--no-sources-package` allows selectively disabling sources for specific packages.
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn lock_no_sources_package() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -13814,7 +13814,7 @@ fn lock_no_sources_package() -> Result<()> {
 
 /// Test that `--no-sources-package` works with multiple packages.
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn lock_no_sources_package_multiple() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -13932,7 +13932,7 @@ fn lock_no_sources_package_multiple() -> Result<()> {
 
 /// Test that `--no-sources` takes precedence over `--no-sources-package`.
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn lock_no_sources_with_no_sources_package() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -14042,7 +14042,7 @@ fn lock_no_sources_with_no_sources_package() -> Result<()> {
 
 /// Test that `UV_NO_SOURCES_PACKAGE` environment variable works.
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn lock_no_sources_package_env_var() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -18849,7 +18849,7 @@ fn lock_explicit_default_index() -> Result<()> {
     DEBUG Using Python request `>=3.12` from `requires-python` metadata
     DEBUG Checking for Python environment at: `.venv`
     DEBUG The project environment's Python version satisfies the request: `Python >=3.12`
-    DEBUG Using request timeout of [TIME]
+    DEBUG Using request connect timeout of [TIME] and read timeout of [TIME]
     DEBUG Found static `pyproject.toml` for: project @ file://[TEMP_DIR]/
     DEBUG No workspace root found, using project root
     DEBUG Resolving despite existing lockfile due to mismatched requirements for: `project==0.1.0`
@@ -18906,6 +18906,50 @@ fn lock_explicit_default_index() -> Result<()> {
         "#
         );
     });
+
+    Ok(())
+}
+
+/// Error when an explicit index does not have a name.
+#[test]
+fn lock_unnamed_explicit_index() -> Result<()> {
+    let context = TestContext::new("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["iniconfig==2.0.0"]
+
+        [[tool.uv.index]]
+        url = "https://test.pypi.org/simple"
+        explicit = true
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @r#"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    warning: Failed to parse `pyproject.toml` during settings discovery:
+      TOML parse error at line 8, column 9
+        |
+      8 |         [[tool.uv.index]]
+        |         ^^^^^^^^^^^^^^^^^
+      An index with `explicit = true` requires a `name`: https://test.pypi.org/simple
+
+    error: Failed to parse: `pyproject.toml`
+      Caused by: TOML parse error at line 8, column 9
+      |
+    8 |         [[tool.uv.index]]
+      |         ^^^^^^^^^^^^^^^^^
+    An index with `explicit = true` requires a `name`: https://test.pypi.org/simple
+    "#);
 
     Ok(())
 }
@@ -19276,15 +19320,19 @@ fn lock_multiple_default_indexes() -> Result<()> {
         "#,
     )?;
 
-    uv_snapshot!(context.filters(), context.lock(), @"
-    success: true
-    exit_code: 0
+    uv_snapshot!(context.filters(), context.lock(), @r###"
+    success: false
+    exit_code: 2
     ----- stdout -----
 
     ----- stderr -----
-    warning: Found multiple indexes with `default = true`; only one index may be marked as default. This will become an error in the future.
-    Resolved 2 packages in [TIME]
-    ");
+    error: Failed to parse: `pyproject.toml`
+      Caused by: TOML parse error at line 8, column 9
+      |
+    8 |         [[tool.uv.index]]
+      |         ^^^^^^^^^^^^^^^^^
+    found multiple indexes with `default = true`; only one index may be marked as default
+    "###);
 
     Ok(())
 }
@@ -21200,7 +21248,7 @@ fn lock_dependency_metadata() -> Result<()> {
 }
 
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn lock_dependency_metadata_git() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -24779,7 +24827,7 @@ fn lock_group_workspace() -> Result<()> {
 }
 
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn lock_transitive_git() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -28068,7 +28116,7 @@ fn lock_split_on_windows() -> Result<()> {
 }
 
 #[test]
-#[cfg(feature = "git")]
+#[cfg(feature = "test-git")]
 fn lock_missing_git_prefix() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -31171,7 +31219,7 @@ fn lock_conflict_for_disjoint_python_version() -> Result<()> {
 }
 
 /// Check that we hint if the resolution failed for a different platform.
-#[cfg(feature = "python-patch")]
+#[cfg(feature = "test-python-patch")]
 #[test]
 fn lock_requires_python_empty_lock_file() -> Result<()> {
     // N.B. These versions were selected based on what was
@@ -33308,64 +33356,17 @@ fn lock_check_multiple_default_indexes_explicit_assignment_dependency_group() ->
     )?;
 
     uv_snapshot!(context.filters(), context.lock(), @"
-    success: true
-    exit_code: 0
+    success: false
+    exit_code: 2
     ----- stdout -----
 
     ----- stderr -----
-    warning: Found multiple indexes with `default = true`; only one index may be marked as default. This will become an error in the future.
-    Resolved 2 packages in [TIME]
-    ");
-
-    let lock = context.read("uv.lock");
-
-    insta::with_settings!({
-        filters => context.filters(),
-    }, {
-        assert_snapshot!(
-            lock, @r#"
-        version = 1
-        revision = 3
-        requires-python = ">=3.12"
-
-        [options]
-        exclude-newer = "2025-01-30T00:00:00Z"
-
-        [[package]]
-        name = "iniconfig"
-        version = "2.0.0"
-        source = { registry = "https://pypi-proxy.fly.dev/basic-auth/simple" }
-        sdist = { url = "https://pypi-proxy.fly.dev/basic-auth/files/packages/d7/4b/cbd8e699e64a6f16ca3a8220661b5f83792b3017d0f79807cb8708d33913/iniconfig-2.0.0.tar.gz", hash = "sha256:2d91e135bf72d31a410b17c16da610a82cb55f6b0477d1a902134b24a455b8b3", size = 4646, upload-time = "2023-01-07T11:08:11.254Z" }
-        wheels = [
-            { url = "https://pypi-proxy.fly.dev/basic-auth/files/packages/ef/a6/62565a6e1cf69e10f5727360368e451d4b7f58beeac6173dc9db836a5b46/iniconfig-2.0.0-py3-none-any.whl", hash = "sha256:b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374", size = 5892, upload-time = "2023-01-07T11:08:09.864Z" },
-        ]
-
-        [[package]]
-        name = "project"
-        version = "0.1.0"
-        source = { virtual = "." }
-
-        [package.dev-dependencies]
-        dev = [
-            { name = "iniconfig" },
-        ]
-
-        [package.metadata]
-
-        [package.metadata.requires-dev]
-        dev = [{ name = "iniconfig", index = "https://pypi-proxy.fly.dev/basic-auth/simple" }]
-        "#
-        );
-    });
-
-    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
-    success: true
-    exit_code: 0
-    ----- stdout -----
-
-    ----- stderr -----
-    warning: Found multiple indexes with `default = true`; only one index may be marked as default. This will become an error in the future.
-    Resolved 2 packages in [TIME]
+    error: Failed to parse: `pyproject.toml`
+      Caused by: TOML parse error at line 13, column 9
+       |
+    13 |         [[tool.uv.index]]
+       |         ^^^^^^^^^^^^^^^^^
+    found multiple indexes with `default = true`; only one index may be marked as default
     ");
 
     Ok(())

@@ -42,9 +42,7 @@ for source in sources:
         cli.add_command(command)
 
 
-def format_commands(
-    ctx: Context, formatter: HelpFormatter, include_hidden: bool = False
-) -> None:
+def format_commands(ctx: Context, formatter: HelpFormatter, include_hidden: bool = False) -> None:
     commands = []
     hidden_commands = []
     for cmd_name in cli.list_commands(ctx):
@@ -57,12 +55,8 @@ def format_commands(
             commands.append((cmd_name, cmd))
 
     if commands:
-        max_cmd_length = (
-            max(len(cmd_name) for cmd_name, _ in commands) if commands else 0
-        )
-        limit = (
-            (formatter.width or 80) - 6 - max_cmd_length
-        )  # Default width to 80 if None
+        max_cmd_length = max(len(cmd_name) for cmd_name, _ in commands) if commands else 0
+        limit = (formatter.width or 80) - 6 - max_cmd_length  # Default width to 80 if None
         rows = []
         for cmd_name, cmd in commands:
             help_text = cmd.get_short_help_str(limit)
@@ -72,14 +66,8 @@ def format_commands(
             formatter.write_dl(rows)
 
     if include_hidden and hidden_commands:
-        max_cmd_length = (
-            max(len(cmd_name) for cmd_name, _ in hidden_commands)
-            if hidden_commands
-            else 0
-        )
-        limit = (
-            (formatter.width or 80) - 6 - max_cmd_length
-        )  # Default width to 80 if None
+        max_cmd_length = max(len(cmd_name) for cmd_name, _ in hidden_commands) if hidden_commands else 0
+        limit = (formatter.width or 80) - 6 - max_cmd_length  # Default width to 80 if None
         hidden_rows = []
         for cmd_name, cmd in hidden_commands:
             help_text = cmd.get_short_help_str(limit)
@@ -96,9 +84,7 @@ def hidden(ctx: Context) -> None:
     formatter = ctx.make_formatter()
     with formatter.section("Usage"):
         if ctx.parent and ctx.parent.command:
-            formatter.write_usage(
-                ctx.parent.command.name or "indent", "COMMAND [ARGS]..."
-            )
+            formatter.write_usage(ctx.parent.command.name or "indent", "COMMAND [ARGS]...")
     formatter.write_paragraph()
     with formatter.indentation():
         if cli.help:

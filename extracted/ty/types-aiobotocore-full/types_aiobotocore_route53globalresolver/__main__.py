@@ -12,8 +12,8 @@ def print_info() -> None:
     Print package info to stdout.
     """
     sys.stdout.write(
-        "Type annotations for aiobotocore Route53GlobalResolver 3.1.1\n"
-        "Version:         3.1.1\n"
+        "Type annotations for aiobotocore Route53GlobalResolver 3.1.2\n"
+        "Version:         3.1.2\n"
         "Builder version: 8.12.0\n"
         "Docs:            https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_route53globalresolver//\n"
         "Boto3 docs:      https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver.html#route53globalresolver\n"
@@ -26,7 +26,7 @@ def print_version() -> None:
     """
     Print package version to stdout.
     """
-    sys.stdout.write("3.1.1\n")
+    sys.stdout.write("3.1.2\n")
 
 
 def main() -> None:

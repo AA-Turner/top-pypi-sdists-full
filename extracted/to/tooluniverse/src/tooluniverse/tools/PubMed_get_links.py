@@ -10,7 +10,6 @@ from ._shared_client import get_shared_client
 
 def PubMed_get_links(
     pmid: str,
-    api_key: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -23,8 +22,6 @@ def PubMed_get_links(
     ----------
     pmid : str
         PubMed ID (PMID) for which to retrieve external links (e.g., '19880848', '198...
-    api_key : str
-        Optional NCBI API key for higher rate limits.
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -39,7 +36,7 @@ def PubMed_get_links(
     # Handle mutable defaults to avoid B006 linting error
 
     return get_shared_client().run_one_function(
-        {"name": "PubMed_get_links", "arguments": {"pmid": pmid, "api_key": api_key}},
+        {"name": "PubMed_get_links", "arguments": {"pmid": pmid}},
         stream_callback=stream_callback,
         use_cache=use_cache,
         validate=validate,

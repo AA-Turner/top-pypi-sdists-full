@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-monitoring-dashboards
-Version: 2.20.0
+Version: 2.20.1
 Summary: Google Cloud Monitoring Dashboards API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-monitoring-dashboards
 Author: Google LLC

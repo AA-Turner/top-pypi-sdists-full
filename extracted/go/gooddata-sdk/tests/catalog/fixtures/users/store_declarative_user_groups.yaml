@@ -203,8 +203,6 @@ interactions:
       body:
         string:
           data:
-            id: default
-            type: organization
             attributes:
               name: Default Organization
               hostname: localhost
@@ -219,6 +217,8 @@ interactions:
                 - enableUserManagement
                 - enableRawExports
                 - enableFlexibleDashboardLayout
+            id: default
+            type: organization
           links:
             self: http://localhost:3000/api/v1/entities/admin/organizations/default
   - request:
@@ -304,8 +304,6 @@ interactions:
       body:
         string:
           data:
-            id: default
-            type: organization
             attributes:
               name: Default Organization
               hostname: localhost
@@ -320,5 +318,7 @@ interactions:
                 - enableUserManagement
                 - enableRawExports
                 - enableFlexibleDashboardLayout
+            id: default
+            type: organization
           links:
             self: http://localhost:3000/api/v1/entities/admin/organizations/default

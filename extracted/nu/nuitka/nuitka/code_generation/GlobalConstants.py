@@ -1,14 +1,13 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Global constant values.
+"""Global constant values."""
 
-"""
-
-from nuitka import Options
 from nuitka.__past__ import long
-from nuitka.plugins.Plugins import Plugins
+from nuitka.options.Options import isDeploymentMode, shallMakeModule
+from nuitka.plugins.Hooks import getExtraConstantDefaultPopulation
 from nuitka.PythonVersions import python_version
+from nuitka.States import states
 from nuitka.utils.Utils import isWin32Windows
 
 # spell-checker: ignore fromlist
@@ -142,6 +141,8 @@ def getConstantDefaultPopulation():
     if python_version >= 0x300:
         # Modules have that attribute starting with Python3
         result.append("__loader__")
+        # Also very unavoidable with Python3
+        result.append("__annotations__")
 
         # YIELD_FROM uses this
         result.append("send")
@@ -167,12 +168,12 @@ def getConstantDefaultPopulation():
         result.append("xrange")
 
     # Executables only
-    if not Options.shallMakeModule():
+    if not shallMakeModule():
         # The "site" module is referenced in inspect patching.
         result.append("site")
 
     # Built-in original values
-    if not Options.shallMakeModule():
+    if not shallMakeModule():
         result += ("type", "len", "range", "repr", "int", "iter")
 
         if python_version < 0x300:
@@ -190,10 +191,10 @@ def getConstantDefaultPopulation():
         result.append("ascii")
         result.append("punycode")
 
-    if not Options.shallMakeModule():
+    if not shallMakeModule():
         result.append("__main__")
 
-    if Options.shallMakeModule():
+    if shallMakeModule():
         result.append("loader")
 
     # Resource reader files interface, including for backport
@@ -214,7 +215,7 @@ def getConstantDefaultPopulation():
     if python_version >= 0x3A0:
         result.append("__match_args__")
 
-        if Options.is_debug:
+        if states.is_debug:
             result.append("__args__")
 
     if python_version >= 0x3B0:
@@ -227,10 +228,10 @@ def getConstantDefaultPopulation():
     if isWin32Windows():
         result.append("fileno")
 
-    if not Options.isDeploymentMode():
+    if not isDeploymentMode():
         result.append("args")
 
-    for value in Plugins.getExtraConstantDefaultPopulation():
+    for value in getExtraConstantDefaultPopulation():
         if value not in result:
             result.append(value)
 
@@ -240,11 +241,11 @@ def getConstantDefaultPopulation():
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

@@ -90,6 +90,8 @@ from .type_defs import (
     ListSessionsOutputTypeDef,
     RetrieveMemoryRecordsInputTypeDef,
     RetrieveMemoryRecordsOutputTypeDef,
+    SaveBrowserSessionProfileRequestTypeDef,
+    SaveBrowserSessionProfileResponseTypeDef,
     StartBrowserSessionRequestTypeDef,
     StartBrowserSessionResponseTypeDef,
     StartCodeInterpreterSessionRequestTypeDef,
@@ -258,7 +260,7 @@ class BedrockAgentCoreClient(BaseClient):
     ) -> GetBrowserSessionResponseTypeDef:
         """
         Retrieves detailed information about a specific browser session in Amazon
-        Bedrock.
+        Bedrock AgentCore.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_browser_session.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#get_browser_session)
@@ -269,7 +271,7 @@ class BedrockAgentCoreClient(BaseClient):
     ) -> GetCodeInterpreterSessionResponseTypeDef:
         """
         Retrieves detailed information about a specific code interpreter session in
-        Amazon Bedrock.
+        Amazon Bedrock AgentCore.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_code_interpreter_session.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#get_code_interpreter_session)
@@ -361,7 +363,8 @@ class BedrockAgentCoreClient(BaseClient):
         self, **kwargs: Unpack[InvokeCodeInterpreterRequestTypeDef]
     ) -> InvokeCodeInterpreterResponseTypeDef:
         """
-        Executes code within an active code interpreter session in Amazon Bedrock.
+        Executes code within an active code interpreter session in Amazon Bedrock
+        AgentCore.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/invoke_code_interpreter.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#invoke_code_interpreter)
@@ -379,8 +382,8 @@ class BedrockAgentCoreClient(BaseClient):
         self, **kwargs: Unpack[ListBrowserSessionsRequestTypeDef]
     ) -> ListBrowserSessionsResponseTypeDef:
         """
-        Retrieves a list of browser sessions in Amazon Bedrock that match the specified
-        criteria.
+        Retrieves a list of browser sessions in Amazon Bedrock AgentCore that match the
+        specified criteria.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/list_browser_sessions.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#list_browser_sessions)
@@ -390,8 +393,8 @@ class BedrockAgentCoreClient(BaseClient):
         self, **kwargs: Unpack[ListCodeInterpreterSessionsRequestTypeDef]
     ) -> ListCodeInterpreterSessionsResponseTypeDef:
         """
-        Retrieves a list of code interpreter sessions in Amazon Bedrock that match the
-        specified criteria.
+        Retrieves a list of code interpreter sessions in Amazon Bedrock AgentCore that
+        match the specified criteria.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/list_code_interpreter_sessions.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#list_code_interpreter_sessions)
@@ -448,11 +451,22 @@ class BedrockAgentCoreClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#retrieve_memory_records)
         """
 
+    def save_browser_session_profile(
+        self, **kwargs: Unpack[SaveBrowserSessionProfileRequestTypeDef]
+    ) -> SaveBrowserSessionProfileResponseTypeDef:
+        """
+        Saves the current state of a browser session as a reusable profile in Amazon
+        Bedrock AgentCore.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/save_browser_session_profile.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#save_browser_session_profile)
+        """
+
     def start_browser_session(
         self, **kwargs: Unpack[StartBrowserSessionRequestTypeDef]
     ) -> StartBrowserSessionResponseTypeDef:
         """
-        Creates and initializes a browser session in Amazon Bedrock.
+        Creates and initializes a browser session in Amazon Bedrock AgentCore.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/start_browser_session.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#start_browser_session)
@@ -462,7 +476,7 @@ class BedrockAgentCoreClient(BaseClient):
         self, **kwargs: Unpack[StartCodeInterpreterSessionRequestTypeDef]
     ) -> StartCodeInterpreterSessionResponseTypeDef:
         """
-        Creates and initializes a code interpreter session in Amazon Bedrock.
+        Creates and initializes a code interpreter session in Amazon Bedrock AgentCore.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/start_code_interpreter_session.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#start_code_interpreter_session)
@@ -484,7 +498,7 @@ class BedrockAgentCoreClient(BaseClient):
         self, **kwargs: Unpack[StopBrowserSessionRequestTypeDef]
     ) -> StopBrowserSessionResponseTypeDef:
         """
-        Terminates an active browser session in Amazon Bedrock.
+        Terminates an active browser session in Amazon Bedrock AgentCore.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/stop_browser_session.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#stop_browser_session)
@@ -494,7 +508,7 @@ class BedrockAgentCoreClient(BaseClient):
         self, **kwargs: Unpack[StopCodeInterpreterSessionRequestTypeDef]
     ) -> StopCodeInterpreterSessionResponseTypeDef:
         """
-        Terminates an active code interpreter session in Amazon Bedrock.
+        Terminates an active code interpreter session in Amazon Bedrock AgentCore.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/stop_code_interpreter_session.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#stop_code_interpreter_session)

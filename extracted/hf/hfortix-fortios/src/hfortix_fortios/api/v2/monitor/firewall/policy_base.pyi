@@ -32,24 +32,68 @@ class PolicyPayload(TypedDict, total=False):
 
 
 # ================================================================
-# Response Types (TypedDict for dict-style access)
+# Response Types for Monitor/Log/Service Endpoints
 # ================================================================
 
 class PolicyResponse(TypedDict, total=False):
     """Response type for Policy - use with .dict property for typed dict access."""
-    policyid: list[str]
-    ip_version: Literal["ipv4", "ipv6"]
+    policyid: int
+    active_sessions: int
+    bytes: int
+    packets: int
+    last_used: int
+    first_used: int
+    hit_count: int
+    uuid: str
+    uuid_type: str
+    session_count: int
+    session_first_used: int
+    session_last_used: int
+    software_bytes: int
+    software_packets: int
+    asic_bytes: int
+    asic_packets: int
+    nturbo_bytes: int
+    nturbo_packets: int
+    cgn_bytes: int
+    cgn_packets: int
+    cgn_last_used: int
+    cgn_first_used: int
+    cgn_hit_count: int
+    oversize: bool
+    x1_week_ipv4: str
+    x1_week_ipv6: str
 
 
-# ================================================================
-# Response Types (Class for attribute access)
-# ================================================================
-
-
-class PolicyObject(FortiObject):
+class PolicyObject(FortiObject[PolicyResponse]):
     """Typed FortiObject for Policy with field access."""
-    policyid: list[str]
-    ip_version: Literal["ipv4", "ipv6"]
+    policyid: int
+    active_sessions: int
+    bytes: int
+    packets: int
+    last_used: int
+    first_used: int
+    hit_count: int
+    uuid: str
+    uuid_type: str
+    session_count: int
+    session_first_used: int
+    session_last_used: int
+    software_bytes: int
+    software_packets: int
+    asic_bytes: int
+    asic_packets: int
+    nturbo_bytes: int
+    nturbo_packets: int
+    cgn_bytes: int
+    cgn_packets: int
+    cgn_last_used: int
+    cgn_first_used: int
+    cgn_hit_count: int
+    oversize: bool
+    x1_week_ipv4: str
+    x1_week_ipv6: str
+
 
 
 # ================================================================
@@ -90,7 +134,7 @@ class Policy:
         vdom: str | bool | None = ...,
         error_mode: Literal["raise", "return", "print"] | None = ...,
         error_format: Literal["detailed", "simple", "code_only"] | None = ...,
-    ) -> PolicyObject: ...
+    ) -> FortiObjectList[PolicyObject]: ...
     
 
 
@@ -156,7 +200,6 @@ class Policy:
 
 __all__ = [
     "Policy",
-    "PolicyPayload",
     "PolicyResponse",
     "PolicyObject",
 ]

@@ -56,6 +56,7 @@ __all__ = (
     "FeatureTypeType",
     "FeedbackValueTypeType",
     "IdentityProviderTypeTypeType",
+    "InboundFederationLambdaVersionTypeType",
     "ListGroupsPaginatorName",
     "ListIdentityProvidersPaginatorName",
     "ListResourceServersPaginatorName",
@@ -178,6 +179,7 @@ FeedbackValueTypeType = Literal["Invalid", "Valid"]
 IdentityProviderTypeTypeType = Literal[
     "Facebook", "Google", "LoginWithAmazon", "OIDC", "SAML", "SignInWithApple"
 ]
+InboundFederationLambdaVersionTypeType = Literal["V1_0"]
 ListGroupsPaginatorName = Literal["list_groups"]
 ListIdentityProvidersPaginatorName = Literal["list_identity_providers"]
 ListResourceServersPaginatorName = Literal["list_resource_servers"]

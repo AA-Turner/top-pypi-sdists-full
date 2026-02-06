@@ -1,7 +1,7 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Cleanup of caches for Nuitka.
+"""Cleanup of caches for Nuitka.
 
 This is triggered by "--clean-cache=" usage, and can cleanup all kinds of
 caches and is supposed to run before or instead of Nuitka compilation.
@@ -16,7 +16,7 @@ from nuitka.utils.FileOperations import removeDirectory
 
 
 def _cleanCacheDirectory(cache_name, cache_dir):
-    from nuitka.Options import shallCleanCache
+    from nuitka.options.Options import shallCleanCache
 
     if shallCleanCache(cache_name) and os.path.exists(cache_dir):
         cache_logger.info(
@@ -34,6 +34,7 @@ def _cleanCacheDirectory(cache_name, cache_dir):
 def cleanCaches():
     _cleanCacheDirectory("ccache", getCacheDir("ccache"))
     _cleanCacheDirectory("clcache", getCacheDir("clcache"))
+    _cleanCacheDirectory("zig", getCacheDir("zig"))
     _cleanCacheDirectory("bytecode", getBytecodeCacheDir())
     _cleanCacheDirectory("dll-dependencies", getCacheDir("library_dependencies"))
 
@@ -41,11 +42,11 @@ def cleanCaches():
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

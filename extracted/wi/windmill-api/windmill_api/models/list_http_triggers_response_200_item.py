@@ -31,28 +31,34 @@ T = TypeVar("T", bound="ListHttpTriggersResponse200Item")
 class ListHttpTriggersResponse200Item:
     """
     Attributes:
-        route_path (str):
-        http_method (ListHttpTriggersResponse200ItemHttpMethod):
-        request_type (ListHttpTriggersResponse200ItemRequestType):
-        authentication_method (ListHttpTriggersResponse200ItemAuthenticationMethod):
-        is_static_website (bool):
-        workspaced_route (bool):
-        wrap_body (bool):
-        raw_string (bool):
-        path (str):
-        script_path (str):
-        email (str):
-        extra_perms (ListHttpTriggersResponse200ItemExtraPerms):
-        workspace_id (str):
-        edited_by (str):
-        edited_at (datetime.datetime):
-        is_flow (bool):
+        route_path (str): The URL route path that will trigger this endpoint (e.g., 'api/myendpoint'). Must NOT start
+            with a /.
+        http_method (ListHttpTriggersResponse200ItemHttpMethod): HTTP method (get, post, put, delete, patch) that
+            triggers this endpoint
+        request_type (ListHttpTriggersResponse200ItemRequestType): How the request is handled - 'sync' waits for result,
+            'async' returns job ID immediately, 'sync_sse' streams results via Server-Sent Events
+        authentication_method (ListHttpTriggersResponse200ItemAuthenticationMethod): How requests are authenticated -
+            'none' (public), 'windmill' (Windmill token), 'api_key', 'basic_http', 'custom_script', 'signature'
+        is_static_website (bool): If true, serves static files from S3/storage instead of running a script
+        workspaced_route (bool): If true, the route includes the workspace ID in the path
+        wrap_body (bool): If true, wraps the request body in a 'body' parameter
+        raw_string (bool): If true, passes the request body as a raw string instead of parsing as JSON
+        path (str): The unique path identifier for this trigger
+        script_path (str): Path to the script or flow to execute when triggered
+        email (str): Email of the user who owns this trigger, used for permissioned_as
+        extra_perms (ListHttpTriggersResponse200ItemExtraPerms): Additional permissions for this trigger
+        workspace_id (str): The workspace this trigger belongs to
+        edited_by (str): Username of the last person who edited this trigger
+        edited_at (datetime.datetime): Timestamp of the last edit
+        is_flow (bool): True if script_path points to a flow, false if it points to a script
         mode (ListHttpTriggersResponse200ItemMode): job trigger mode
-        static_asset_config (Union[Unset, ListHttpTriggersResponse200ItemStaticAssetConfig]):
-        authentication_resource_path (Union[Unset, str]):
-        summary (Union[Unset, str]):
-        description (Union[Unset, str]):
-        error_handler_path (Union[Unset, str]):
+        static_asset_config (Union[Unset, ListHttpTriggersResponse200ItemStaticAssetConfig]): Configuration for serving
+            static assets (s3 bucket, storage path, filename)
+        authentication_resource_path (Union[Unset, str]): Path to the resource containing authentication configuration
+            (for api_key, basic_http, custom_script, signature methods)
+        summary (Union[Unset, str]): Short summary describing the purpose of this trigger
+        description (Union[Unset, str]): Detailed description of what this trigger does
+        error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, ListHttpTriggersResponse200ItemErrorHandlerArgs]): The arguments to pass to the
             script or flow
         retry (Union[Unset, ListHttpTriggersResponse200ItemRetry]): Retry configuration for failed module executions

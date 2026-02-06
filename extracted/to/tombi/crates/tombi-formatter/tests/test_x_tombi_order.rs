@@ -3,6 +3,7 @@ mod table_keys_order {
 
     mod pyproject {
         use super::*;
+        use tombi_config::FormatRules;
         use tombi_test_lib::pyproject_schema_path;
 
         test_format! {
@@ -377,6 +378,72 @@ mod table_keys_order {
                   { format = "sdist", path = "www.schemastore.org/**/*.json" },
                   { format = "sdist", path = "www.schemastore.tombi/**/*.json" },
                 ]
+                "#
+            )
+        }
+
+        test_format! {
+            #[tokio::test]
+            async fn test_tool_table_keys_order_disabled_is_true(
+                r#"
+                [project]
+                name = "test-project"
+
+                [tool]  # tombi: format.rules.table-keys-order.disabled = true
+                [tool.uv]
+                [tool.pyright]
+                "#,
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [project]
+                name = "test-project"
+
+                [tool]  # tombi: format.rules.table-keys-order.disabled = true
+                [tool.uv]
+
+                [tool.pyright]
+                "#
+            )
+        }
+
+        test_format! {
+            #[tokio::test]
+            async fn test_tool_table_keys_order_disabled_is_true_inline(
+                r#"
+                project.name = "test-project"
+
+                tool = { uv = {}, pyright = { } }  # tombi: format.rules.table-keys-order.disabled = true
+                "#,
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                project.name = "test-project"
+                tool = { uv = {}, pyright = {} }  # tombi: format.rules.table-keys-order.disabled = true
+                "#
+            )
+        }
+
+        test_format! {
+            #[tokio::test]
+            async fn test_tool_table_keys_order_disabled_is_true_inline_with_inline_table_brace_space_width_zero(
+                r#"
+                project.name = "test-project"
+
+                tool = { uv = {}, pyright = { } }  # tombi: format.rules.table-keys-order.disabled = true
+                "#,
+                SchemaPath(pyproject_schema_path()),
+                FormatOptions {
+                    rules: Some(FormatRules {
+                        inline_table_brace_space_width: Some(0.into()),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }
+            ) -> Ok(
+                r#"
+                project.name = "test-project"
+                tool = {uv = {}, pyright = {}}  # tombi: format.rules.table-keys-order.disabled = true
                 "#
             )
         }

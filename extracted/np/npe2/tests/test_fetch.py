@@ -9,16 +9,15 @@ from npe2 import PluginManifest, fetch_manifest
 from npe2._inspection._fetch import (
     _get_manifest_from_zip_url,
     _manifest_from_pypi_sdist,
-    get_hub_plugin,
     get_manifest_from_wheel,
     get_pypi_url,
 )
 
 
 def test_fetch_npe2_manifest():
-    mf = fetch_manifest("napari-omero")
-    assert mf.name == "napari-omero"
-    assert any(mf.contributions.dict().values())
+    mf = fetch_manifest("napari-svg")
+    assert mf.name == "napari-svg"
+    assert any(mf.contributions.model_dump().values())
     assert mf.npe1_shim is False
 
 
@@ -78,11 +77,6 @@ def test_get_manifest_from_wheel(tmp_path):
     urllib.request.urlretrieve(url, dest)
     mf = get_manifest_from_wheel(dest)
     assert mf.name == "affinder"
-
-
-def test_get_hub_plugin():
-    info = get_hub_plugin("napari-svg")
-    assert info["name"] == "napari-svg"
 
 
 @pytest.mark.skipif(not os.getenv("CI"), reason="slow, only run on CI")

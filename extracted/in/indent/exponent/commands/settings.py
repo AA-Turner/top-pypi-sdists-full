@@ -39,9 +39,7 @@ def use_settings(f: Callable[..., Any]) -> Callable[..., Any]:
         prod = kwargs.pop("prod", False)
         staging = kwargs.pop("staging", False)
         shadow_prod = kwargs.pop("shadow_prod", False)
-        settings = get_settings(
-            use_prod=prod, use_staging=staging, shadow_prod=shadow_prod
-        )
+        settings = get_settings(use_prod=prod, use_staging=staging, shadow_prod=shadow_prod)
 
         if is_editable_install() and not (prod or staging or shadow_prod):
             assert settings.environment in (Environment.development, Environment.test)

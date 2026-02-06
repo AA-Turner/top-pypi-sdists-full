@@ -20,6 +20,8 @@ use pyrefly_python::module_path::ModuleStyle;
 use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::symbol_kind::SymbolKind;
+use pyrefly_types::type_alias::TypeAlias;
+use pyrefly_types::type_alias::TypeAliasIndex;
 use pyrefly_util::assert_bytes;
 use pyrefly_util::assert_words;
 use pyrefly_util::display::DisplayWith;
@@ -84,6 +86,7 @@ use crate::types::types::Var;
 
 assert_words!(Key, 6);
 assert_bytes!(KeyExpect, 12);
+assert_bytes!(KeyTypeAlias, 4);
 assert_words!(KeyExport, 3);
 assert_words!(KeyClass, 1);
 assert_bytes!(KeyTParams, 4);
@@ -103,6 +106,7 @@ assert_words!(KeyUndecoratedFunction, 1);
 
 assert_words!(Binding, 11);
 assert_words!(BindingExpect, 16);
+assert_words!(BindingTypeAlias, 6);
 assert_words!(BindingAnnotation, 15);
 assert_words!(BindingClass, 15);
 assert_words!(BindingTParams, 10);
@@ -123,12 +127,14 @@ assert_words!(BindingUndecoratedFunction, 14);
 pub enum AnyIdx {
     Key(Idx<Key>),
     KeyExpect(Idx<KeyExpect>),
+    KeyTypeAlias(Idx<KeyTypeAlias>),
     KeyConsistentOverrideCheck(Idx<KeyConsistentOverrideCheck>),
     KeyClass(Idx<KeyClass>),
     KeyTParams(Idx<KeyTParams>),
     KeyClassBaseType(Idx<KeyClassBaseType>),
     KeyClassField(Idx<KeyClassField>),
     KeyVariance(Idx<KeyVariance>),
+    KeyVarianceCheck(Idx<KeyVarianceCheck>),
     KeyClassSynthesizedFields(Idx<KeyClassSynthesizedFields>),
     KeyExport(Idx<KeyExport>),
     KeyDecorator(Idx<KeyDecorator>),
@@ -148,12 +154,14 @@ impl DisplayWith<Bindings> for AnyIdx {
         match self {
             Self::Key(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyExpect(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyTypeAlias(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyConsistentOverrideCheck(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyClass(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyTParams(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyClassBaseType(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyClassField(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyVariance(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyVarianceCheck(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyClassSynthesizedFields(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyExport(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyDecorator(idx) => write!(f, "{}", ctx.display(*idx)),
@@ -183,6 +191,47 @@ pub enum AnyExportedKey {
     KeyClassMetadata(KeyClassMetadata),
     KeyClassMro(KeyClassMro),
     KeyAbstractClassCheck(KeyAbstractClassCheck),
+    KeyTypeAlias(KeyTypeAlias),
+}
+
+/// Represents a changed export for fine-grained incremental invalidation.
+/// This is either a name (for `KeyExport`), a class index (for class-related keys),
+/// a wildcard set change (for `from M import *`), or a name existence change.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum ChangedExport {
+    /// A changed export name (from `KeyExport`). The type of this export changed.
+    Name(Name),
+    /// A changed class (from class-related keys like `KeyClassField`, `KeyClassMetadata`, etc.).
+    ClassDefIndex(ClassDefIndex),
+    /// The wildcard set changed (names exported via `from M import *`).
+    Wildcard,
+    /// A name was added or removed from the module's definitions.
+    /// This is detected at the Exports step, before types are computed.
+    NameExistence(Name),
+    /// The metadata of an export changed (is_reexport, implicitly_imported_submodule, deprecation, special_export).
+    /// This is detected at the Exports step by comparing Definition metadata.
+    Metadata(Name),
+    /// A changed type alias
+    TypeAliasIndex(TypeAliasIndex),
+}
+
+impl AnyExportedKey {
+    /// Convert this key to the corresponding `ChangedExport`.
+    /// `KeyExport` maps to `ChangedExport::Name`, all other keys map to `ChangedExport::ClassDefIndex`.
+    pub fn to_changed_export(&self) -> ChangedExport {
+        match self {
+            AnyExportedKey::KeyExport(k) => ChangedExport::Name(k.0.clone()),
+            AnyExportedKey::KeyTParams(k) => ChangedExport::ClassDefIndex(k.0),
+            AnyExportedKey::KeyClassBaseType(k) => ChangedExport::ClassDefIndex(k.0),
+            AnyExportedKey::KeyClassField(k) => ChangedExport::ClassDefIndex(k.0),
+            AnyExportedKey::KeyClassSynthesizedFields(k) => ChangedExport::ClassDefIndex(k.0),
+            AnyExportedKey::KeyVariance(k) => ChangedExport::ClassDefIndex(k.0),
+            AnyExportedKey::KeyClassMetadata(k) => ChangedExport::ClassDefIndex(k.0),
+            AnyExportedKey::KeyClassMro(k) => ChangedExport::ClassDefIndex(k.0),
+            AnyExportedKey::KeyAbstractClassCheck(k) => ChangedExport::ClassDefIndex(k.0),
+            AnyExportedKey::KeyTypeAlias(k) => ChangedExport::TypeAliasIndex(k.0),
+        }
+    }
 }
 
 /// Any key that sets `EXPORTED` to `true` should not include positions
@@ -193,12 +242,6 @@ pub trait Keyed: Hash + Eq + Clone + DisplayWith<ModuleInfo> + Debug + Ranged + 
     type Value: Debug + DisplayWith<Bindings>;
     type Answer: Clone + Debug + Display + TypeEq + VisitMut<Type>;
     fn to_anyidx(idx: Idx<Self>) -> AnyIdx;
-
-    /// If this key represents an exported name (like KeyExport), return the name.
-    /// This is used for fine-grained incremental invalidation.
-    fn as_export_name(&self) -> Option<&Name> {
-        None
-    }
 
     /// Convert this key to an AnyExportedKey if it is an exported key.
     /// Returns None for non-exported keys.
@@ -225,6 +268,19 @@ impl Keyed for KeyExpect {
     type Answer = EmptyAnswer;
     fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
         AnyIdx::KeyExpect(idx)
+    }
+}
+impl Keyed for KeyTypeAlias {
+    const EXPORTED: bool = true;
+    type Value = BindingTypeAlias;
+    type Answer = TypeAlias;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyTypeAlias(idx)
+    }
+}
+impl Exported for KeyTypeAlias {
+    fn to_anykey(&self) -> AnyExportedKey {
+        AnyExportedKey::KeyTypeAlias(self.clone())
     }
 }
 impl Keyed for KeyConsistentOverrideCheck {
@@ -321,15 +377,23 @@ impl Exported for KeyVariance {
         AnyExportedKey::KeyVariance(self.clone())
     }
 }
+impl Keyed for KeyVarianceCheck {
+    const EXPORTED: bool = false;
+    type Value = BindingVarianceCheck;
+    type Answer = EmptyAnswer;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyVarianceCheck(idx)
+    }
+    fn try_to_anykey(&self) -> Option<AnyExportedKey> {
+        None
+    }
+}
 impl Keyed for KeyExport {
     const EXPORTED: bool = true;
     type Value = BindingExport;
     type Answer = Type;
     fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
         AnyIdx::KeyExport(idx)
-    }
-    fn as_export_name(&self) -> Option<&Name> {
-        Some(&self.0)
     }
     fn try_to_anykey(&self) -> Option<AnyExportedKey> {
         Some(AnyExportedKey::KeyExport(self.clone()))
@@ -693,6 +757,21 @@ impl DisplayWith<ModuleInfo> for KeyExpect {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct KeyTypeAlias(pub TypeAliasIndex);
+
+impl Ranged for KeyTypeAlias {
+    fn range(&self) -> TextRange {
+        TextRange::default()
+    }
+}
+
+impl DisplayWith<ModuleInfo> for KeyTypeAlias {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, _ctx: &ModuleInfo) -> fmt::Result {
+        write!(f, "KeyTypeAlias({})", self.0)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum ExprOrBinding {
     Expr(Expr),
@@ -845,6 +924,42 @@ impl DisplayWith<Bindings> for BindingExpect {
                     ctx.module().display(range),
                     termination_keys
                 )
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum BindingTypeAlias {
+    /// Legacy type aliases, like `X = list[int]` or `X: TypeAlias = list[int]`.
+    /// Note that type alias bindings are created only for aliases that are detectable in the
+    /// bindings phase. Ambiguous assignments like `X = Foo` are treated as regular assignments
+    /// until we resolve their RHS in the answers phase.
+    Legacy {
+        name: Name,
+        annotation: Option<(AnnotationStyle, Idx<KeyAnnotation>)>,
+        expr: Box<Expr>,
+        is_explicit: bool,
+    },
+    /// Scoped type aliases, like `type X = list[int]`.
+    Scoped { name: Name, expr: Box<Expr> },
+    /// Calls to TypeAliasType, like `X = TypeAliasType('X', list[int])`.
+    TypeAliasType {
+        name: Name,
+        annotation: Option<Idx<KeyAnnotation>>,
+        expr: Option<Box<Expr>>,
+    },
+}
+
+impl DisplayWith<Bindings> for BindingTypeAlias {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, _ctx: &Bindings) -> fmt::Result {
+        match self {
+            Self::Legacy { name, .. } => {
+                write!(f, "BindingTypeAlias::Legacy({name})")
+            }
+            Self::Scoped { name, .. } => write!(f, "BindingTypeAlias::Scoped({name})"),
+            Self::TypeAliasType { name, .. } => {
+                write!(f, "BindingTypeAlias::TypeAliasType({name})")
             }
         }
     }
@@ -1046,6 +1161,22 @@ impl Ranged for KeyVariance {
 impl DisplayWith<ModuleInfo> for KeyVariance {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, _ctx: &ModuleInfo) -> fmt::Result {
         write!(f, "KeyVariance(class{})", self.0)
+    }
+}
+
+/// A key for checking variance violations (separate from KeyVariance to avoid cycles)
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct KeyVarianceCheck(pub ClassDefIndex);
+
+impl Ranged for KeyVarianceCheck {
+    fn range(&self) -> TextRange {
+        TextRange::default()
+    }
+}
+
+impl DisplayWith<ModuleInfo> for KeyVarianceCheck {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, _ctx: &ModuleInfo) -> fmt::Result {
+        write!(f, "KeyVarianceCheck(class{})", self.0)
     }
 }
 
@@ -1541,6 +1672,13 @@ pub struct BranchInfo {
 }
 
 #[derive(Clone, Debug)]
+pub enum TypeAliasParams {
+    Legacy(Option<Box<[Idx<KeyLegacyTypeParam>]>>),
+    Scoped(Option<TypeParams>),
+    TypeAliasType(Vec<Expr>),
+}
+
+#[derive(Clone, Debug)]
 pub enum Binding {
     /// An expression, optionally with a Key saying what the type must be.
     /// The Key must be a type of types, e.g. `Type::Type`.
@@ -1641,10 +1779,16 @@ pub enum Binding {
         legacy_tparams: Option<Box<[Idx<KeyLegacyTypeParam>]>>,
         is_in_function_scope: bool,
     },
-    /// A type alias declared with the `type` soft keyword
-    ScopedTypeAlias(Name, Option<TypeParams>, Box<Expr>),
-    /// A type alias declared with the `TypeAliasType` constructor
-    TypeAliasType(Option<Idx<KeyAnnotation>>, Identifier, Box<ExprCall>),
+    /// A type alias (legacy, scoped, or `TypeAliasType` call).
+    /// Note that ambiguous assignments like `X = Foo` are handled via `NameAssign` bindings, which
+    /// are possibly converted to type aliases in the answers phase. Only assignments that we can
+    /// unambiguously determine are type aliases without type info get `TypeAlias` bindings.
+    TypeAlias {
+        name: Name,
+        tparams: TypeAliasParams,
+        key_type_alias: Idx<KeyTypeAlias>,
+        range: TextRange,
+    },
     /// An entry in a MatchMapping. The Key looks up the value being matched, the Expr is the key we're extracting.
     PatternMatchMapping(Expr, Idx<Key>),
     /// An entry in a MatchClass. The Key looks up the value being matched, the Expr is the class name.
@@ -1895,20 +2039,7 @@ impl DisplayWith<Bindings> for Binding {
                     m.display(expr)
                 )
             }
-            Self::ScopedTypeAlias(name, params, expr) => {
-                write!(
-                    f,
-                    "ScopedTypeAlias({name}, {}, {})",
-                    match params {
-                        None => "None".to_owned(),
-                        Some(params) => commas_iter(|| params.iter().map(|p| p.name())).to_string(),
-                    },
-                    m.display(expr)
-                )
-            }
-            Self::TypeAliasType(a, name, x) => {
-                write!(f, "TypeAliasType({}, {name}, {})", ann(a), m.display(x))
-            }
+            Self::TypeAlias { name, .. } => write!(f, "TypeAlias({name})"),
             Self::PatternMatchMapping(mapping_key, binding_key) => {
                 write!(
                     f,
@@ -2065,9 +2196,7 @@ impl Binding {
             }
             Binding::ClassDef(_, _) => Some(SymbolKind::Class),
             Binding::Module(_, _, _) => Some(SymbolKind::Module),
-            Binding::ScopedTypeAlias(_, _, _) | Binding::TypeAliasType(_, _, _) => {
-                Some(SymbolKind::TypeAlias)
-            }
+            Binding::TypeAlias { .. } => Some(SymbolKind::TypeAlias),
             Binding::NameAssign { name, .. } if name.as_str() == name.to_uppercase() => {
                 Some(SymbolKind::Constant)
             }
@@ -2452,6 +2581,19 @@ pub struct BindingVariance {
 impl DisplayWith<Bindings> for BindingVariance {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
         write!(f, "BindingVariance({})", ctx.display(self.class_key))
+    }
+}
+
+/// Binding for checking variance violations.
+/// This is separate from BindingVariance to avoid cycles when checking violations.
+#[derive(Clone, Debug)]
+pub struct BindingVarianceCheck {
+    pub class_idx: Idx<KeyClass>,
+}
+
+impl DisplayWith<Bindings> for BindingVarianceCheck {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
+        write!(f, "BindingVarianceCheck({})", ctx.display(self.class_idx))
     }
 }
 

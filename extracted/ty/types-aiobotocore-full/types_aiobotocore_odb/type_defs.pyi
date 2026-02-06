@@ -204,6 +204,12 @@ class CloudAutonomousVmClusterResourceDetailsTypeDef(TypedDict):
     cloudAutonomousVmClusterId: NotRequired[str]
     unallocatedAdbStorageInTBs: NotRequired[float]
 
+class IamRoleTypeDef(TypedDict):
+    iamRoleArn: NotRequired[str]
+    status: NotRequired[IamRoleStatusType]
+    statusReason: NotRequired[str]
+    awsIntegration: NotRequired[Literal["KmsTde"]]
+
 class CustomerContactTypeDef(TypedDict):
     email: NotRequired[str]
 
@@ -211,12 +217,6 @@ class DataCollectionOptionsTypeDef(TypedDict):
     isDiagnosticsEventsEnabled: NotRequired[bool]
     isHealthMonitoringEnabled: NotRequired[bool]
     isIncidentLogsEnabled: NotRequired[bool]
-
-class IamRoleTypeDef(TypedDict):
-    iamRoleArn: NotRequired[str]
-    status: NotRequired[IamRoleStatusType]
-    statusReason: NotRequired[str]
-    awsIntegration: NotRequired[Literal["KmsTde"]]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -1031,6 +1031,7 @@ class CloudAutonomousVmClusterSummaryTypeDef(TypedDict):
     timeOrdsCertificateExpires: NotRequired[datetime]
     timeZone: NotRequired[str]
     totalContainerDatabases: NotRequired[int]
+    iamRoles: NotRequired[list[IamRoleTypeDef]]
 
 class CloudAutonomousVmClusterTypeDef(TypedDict):
     cloudAutonomousVmClusterId: str
@@ -1084,6 +1085,7 @@ class CloudAutonomousVmClusterTypeDef(TypedDict):
     timeOrdsCertificateExpires: NotRequired[datetime]
     timeZone: NotRequired[str]
     totalContainerDatabases: NotRequired[int]
+    iamRoles: NotRequired[list[IamRoleTypeDef]]
 
 class CloudExadataInfrastructureSummaryTypeDef(TypedDict):
     cloudExadataInfrastructureId: str

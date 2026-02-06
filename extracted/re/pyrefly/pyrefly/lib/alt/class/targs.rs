@@ -33,6 +33,7 @@ use crate::types::quantified::Quantified;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::tuple::Tuple;
 use crate::types::type_var::PreInferenceVariance;
+use crate::types::type_var::Restriction;
 use crate::types::typed_dict::TypedDict;
 use crate::types::types::Forall;
 use crate::types::types::Forallable;
@@ -213,14 +214,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn instantiate_type_var_tuple(&self) -> (TParams, Type) {
-        let quantified = Quantified::type_var_tuple(Name::new_static("Ts"), self.uniques, None);
+        let quantified = Quantified::new(
+            self.uniques.fresh(),
+            Name::new_static("Ts"),
+            QuantifiedKind::TypeVarTuple,
+            None,
+            Restriction::Unrestricted,
+            PreInferenceVariance::Covariant,
+        );
         let tparams = TParams::new(vec![TParam {
             quantified: quantified.clone(),
-            variance: PreInferenceVariance::Covariant,
         }]);
         let tuple_ty = Type::Tuple(Tuple::Unpacked(Box::new((
             Vec::new(),
-            Type::Quantified(Box::new(quantified)),
+            self.heap.mk_quantified(quantified),
             Vec::new(),
         ))));
         (tparams, tuple_ty)
@@ -261,7 +268,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> (QuantifiedHandle, Function) {
         let (qs, t) =
             self.solver()
-                .fresh_quantified(tparams, Type::Function(Box::new(func)), self.uniques);
+                .fresh_quantified(tparams, self.heap.mk_function(func), self.uniques);
         match t {
             Type::Function(func) => (qs, *func),
             // We passed a Function to fresh_quantified(), so we know we get a Function back out.
@@ -276,7 +283,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> (QuantifiedHandle, Callable) {
         let (qs, t) =
             self.solver()
-                .fresh_quantified(tparams, Type::Callable(Box::new(c)), self.uniques);
+                .fresh_quantified(tparams, self.heap.mk_callable_from(c), self.uniques);
         match t {
             Type::Callable(c) => (qs, *c),
             // We passed a Function to fresh_quantified(), so we know we get a Function back out.

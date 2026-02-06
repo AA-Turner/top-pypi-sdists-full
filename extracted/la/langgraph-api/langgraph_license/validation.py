@@ -11,8 +11,8 @@ async def get_license_status() -> bool:
 
 
 def plus_features_enabled() -> bool:
-    """Always return false"""
-    return False
+    """Always return true"""
+    return True
 
 
 async def check_license_periodically(_: int = 60):

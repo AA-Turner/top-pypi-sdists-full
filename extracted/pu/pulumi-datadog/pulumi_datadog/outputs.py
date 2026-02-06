@@ -52,6 +52,10 @@ __all__ = [
     'CloudInventorySyncConfigGcp',
     'ComplianceCustomFrameworkRequirement',
     'ComplianceCustomFrameworkRequirementControl',
+    'CostBudgetBudgetLine',
+    'CostBudgetBudgetLineChildTagFilter',
+    'CostBudgetBudgetLineParentTagFilter',
+    'CostBudgetBudgetLineTagFilter',
     'CostBudgetEntry',
     'CostBudgetEntryTagFilter',
     'CsmThreatsAgentRuleAction',
@@ -1498,6 +1502,10 @@ __all__ = [
     'GetAzureUcConfigActualBillConfigResult',
     'GetAzureUcConfigAmortizedBillConfigResult',
     'GetCloudWorkloadSecurityAgentRulesAgentRuleResult',
+    'GetCostBudgetBudgetLineResult',
+    'GetCostBudgetBudgetLineChildTagFilterResult',
+    'GetCostBudgetBudgetLineParentTagFilterResult',
+    'GetCostBudgetBudgetLineTagFilterResult',
     'GetCostBudgetEntryResult',
     'GetCostBudgetEntryTagFilterResult',
     'GetCsmThreatsAgentRulesAgentRuleResult',
@@ -3298,15 +3306,22 @@ class CloudInventorySyncConfigGcp(dict):
 @pulumi.output_type
 class ComplianceCustomFrameworkRequirement(dict):
     def __init__(__self__, *,
-                 name: _builtins.str,
-                 controls: Optional[Sequence['outputs.ComplianceCustomFrameworkRequirementControl']] = None):
+                 controls: Sequence['outputs.ComplianceCustomFrameworkRequirementControl'],
+                 name: _builtins.str):
         """
-        :param _builtins.str name: The name of the requirement. String length must be at least 1.
         :param Sequence['ComplianceCustomFrameworkRequirementControlArgs'] controls: The controls of the requirement. Length must be at least 1.
+        :param _builtins.str name: The name of the requirement. String length must be at least 1.
         """
+        pulumi.set(__self__, "controls", controls)
         pulumi.set(__self__, "name", name)
-        if controls is not None:
-            pulumi.set(__self__, "controls", controls)
+
+    @_builtins.property
+    @pulumi.getter
+    def controls(self) -> Sequence['outputs.ComplianceCustomFrameworkRequirementControl']:
+        """
+        The controls of the requirement. Length must be at least 1.
+        """
+        return pulumi.get(self, "controls")
 
     @_builtins.property
     @pulumi.getter
@@ -3315,14 +3330,6 @@ class ComplianceCustomFrameworkRequirement(dict):
         The name of the requirement. String length must be at least 1.
         """
         return pulumi.get(self, "name")
-
-    @_builtins.property
-    @pulumi.getter
-    def controls(self) -> Optional[Sequence['outputs.ComplianceCustomFrameworkRequirementControl']]:
-        """
-        The controls of the requirement. Length must be at least 1.
-        """
-        return pulumi.get(self, "controls")
 
 
 @pulumi.output_type
@@ -3369,6 +3376,213 @@ class ComplianceCustomFrameworkRequirementControl(dict):
         The set of rules IDs for the control. Length must be at least 1.
         """
         return pulumi.get(self, "rules_ids")
+
+
+@pulumi.output_type
+class CostBudgetBudgetLine(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "childTagFilters":
+            suggest = "child_tag_filters"
+        elif key == "parentTagFilters":
+            suggest = "parent_tag_filters"
+        elif key == "tagFilters":
+            suggest = "tag_filters"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CostBudgetBudgetLine. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CostBudgetBudgetLine.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CostBudgetBudgetLine.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 amounts: Mapping[str, _builtins.float],
+                 child_tag_filters: Optional[Sequence['outputs.CostBudgetBudgetLineChildTagFilter']] = None,
+                 parent_tag_filters: Optional[Sequence['outputs.CostBudgetBudgetLineParentTagFilter']] = None,
+                 tag_filters: Optional[Sequence['outputs.CostBudgetBudgetLineTagFilter']] = None):
+        """
+        :param Mapping[str, _builtins.float] amounts: Map of month (YYYYMM) to budget amount. Example: {"202601": 1000.0, "202602": 1200.0}
+        :param Sequence['CostBudgetBudgetLineChildTagFilterArgs'] child_tag_filters: Child tag filters for hierarchical budgets. **Note:** Must be used with parent*tag*filters. Cannot be used with tag*filters.
+        :param Sequence['CostBudgetBudgetLineParentTagFilterArgs'] parent_tag_filters: Parent tag filters for hierarchical budgets. **Note:** Must be used with child*tag*filters. Cannot be used with tag*filters.
+        :param Sequence['CostBudgetBudgetLineTagFilterArgs'] tag_filters: Tag filters for non-hierarchical budgets. **Note:** Cannot be used with parent*tag*filters/child*tag*filters.
+        """
+        pulumi.set(__self__, "amounts", amounts)
+        if child_tag_filters is not None:
+            pulumi.set(__self__, "child_tag_filters", child_tag_filters)
+        if parent_tag_filters is not None:
+            pulumi.set(__self__, "parent_tag_filters", parent_tag_filters)
+        if tag_filters is not None:
+            pulumi.set(__self__, "tag_filters", tag_filters)
+
+    @_builtins.property
+    @pulumi.getter
+    def amounts(self) -> Mapping[str, _builtins.float]:
+        """
+        Map of month (YYYYMM) to budget amount. Example: {"202601": 1000.0, "202602": 1200.0}
+        """
+        return pulumi.get(self, "amounts")
+
+    @_builtins.property
+    @pulumi.getter(name="childTagFilters")
+    def child_tag_filters(self) -> Optional[Sequence['outputs.CostBudgetBudgetLineChildTagFilter']]:
+        """
+        Child tag filters for hierarchical budgets. **Note:** Must be used with parent*tag*filters. Cannot be used with tag*filters.
+        """
+        return pulumi.get(self, "child_tag_filters")
+
+    @_builtins.property
+    @pulumi.getter(name="parentTagFilters")
+    def parent_tag_filters(self) -> Optional[Sequence['outputs.CostBudgetBudgetLineParentTagFilter']]:
+        """
+        Parent tag filters for hierarchical budgets. **Note:** Must be used with child*tag*filters. Cannot be used with tag*filters.
+        """
+        return pulumi.get(self, "parent_tag_filters")
+
+    @_builtins.property
+    @pulumi.getter(name="tagFilters")
+    def tag_filters(self) -> Optional[Sequence['outputs.CostBudgetBudgetLineTagFilter']]:
+        """
+        Tag filters for non-hierarchical budgets. **Note:** Cannot be used with parent*tag*filters/child*tag*filters.
+        """
+        return pulumi.get(self, "tag_filters")
+
+
+@pulumi.output_type
+class CostBudgetBudgetLineChildTagFilter(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "tagKey":
+            suggest = "tag_key"
+        elif key == "tagValue":
+            suggest = "tag_value"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CostBudgetBudgetLineChildTagFilter. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CostBudgetBudgetLineChildTagFilter.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CostBudgetBudgetLineChildTagFilter.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 tag_key: _builtins.str,
+                 tag_value: _builtins.str):
+        """
+        :param _builtins.str tag_key: Must be one of the tags from the `metrics_query`.
+        """
+        pulumi.set(__self__, "tag_key", tag_key)
+        pulumi.set(__self__, "tag_value", tag_value)
+
+    @_builtins.property
+    @pulumi.getter(name="tagKey")
+    def tag_key(self) -> _builtins.str:
+        """
+        Must be one of the tags from the `metrics_query`.
+        """
+        return pulumi.get(self, "tag_key")
+
+    @_builtins.property
+    @pulumi.getter(name="tagValue")
+    def tag_value(self) -> _builtins.str:
+        return pulumi.get(self, "tag_value")
+
+
+@pulumi.output_type
+class CostBudgetBudgetLineParentTagFilter(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "tagKey":
+            suggest = "tag_key"
+        elif key == "tagValue":
+            suggest = "tag_value"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CostBudgetBudgetLineParentTagFilter. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CostBudgetBudgetLineParentTagFilter.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CostBudgetBudgetLineParentTagFilter.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 tag_key: _builtins.str,
+                 tag_value: _builtins.str):
+        """
+        :param _builtins.str tag_key: Must be one of the tags from the `metrics_query`.
+        """
+        pulumi.set(__self__, "tag_key", tag_key)
+        pulumi.set(__self__, "tag_value", tag_value)
+
+    @_builtins.property
+    @pulumi.getter(name="tagKey")
+    def tag_key(self) -> _builtins.str:
+        """
+        Must be one of the tags from the `metrics_query`.
+        """
+        return pulumi.get(self, "tag_key")
+
+    @_builtins.property
+    @pulumi.getter(name="tagValue")
+    def tag_value(self) -> _builtins.str:
+        return pulumi.get(self, "tag_value")
+
+
+@pulumi.output_type
+class CostBudgetBudgetLineTagFilter(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "tagKey":
+            suggest = "tag_key"
+        elif key == "tagValue":
+            suggest = "tag_value"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CostBudgetBudgetLineTagFilter. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CostBudgetBudgetLineTagFilter.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CostBudgetBudgetLineTagFilter.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 tag_key: _builtins.str,
+                 tag_value: _builtins.str):
+        """
+        :param _builtins.str tag_key: Must be one of the tags from the `metrics_query`.
+        """
+        pulumi.set(__self__, "tag_key", tag_key)
+        pulumi.set(__self__, "tag_value", tag_value)
+
+    @_builtins.property
+    @pulumi.getter(name="tagKey")
+    def tag_key(self) -> _builtins.str:
+        """
+        Must be one of the tags from the `metrics_query`.
+        """
+        return pulumi.get(self, "tag_key")
+
+    @_builtins.property
+    @pulumi.getter(name="tagValue")
+    def tag_value(self) -> _builtins.str:
+        return pulumi.get(self, "tag_value")
 
 
 @pulumi.output_type
@@ -30811,6 +31025,8 @@ class DashboardWidgetTimeseriesDefinitionRequestStyle(dict):
             suggest = "line_type"
         elif key == "lineWidth":
             suggest = "line_width"
+        elif key == "orderBy":
+            suggest = "order_by"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetTimeseriesDefinitionRequestStyle. Access the value via the '{suggest}' property getter instead.")
@@ -30826,16 +31042,20 @@ class DashboardWidgetTimeseriesDefinitionRequestStyle(dict):
     def __init__(__self__, *,
                  line_type: Optional[_builtins.str] = None,
                  line_width: Optional[_builtins.str] = None,
+                 order_by: Optional[_builtins.str] = None,
                  palette: Optional[_builtins.str] = None):
         """
         :param _builtins.str line_type: The type of lines displayed. Valid values are `dashed`, `dotted`, `solid`.
         :param _builtins.str line_width: The width of line displayed. Valid values are `normal`, `thick`, `thin`.
+        :param _builtins.str order_by: How to order series in timeseries visualizations. Valid values are `tags`, `values`.
         :param _builtins.str palette: A color palette to apply to the widget. The available options are available at: https://docs.datadoghq.com/dashboards/widgets/timeseries/#appearance.
         """
         if line_type is not None:
             pulumi.set(__self__, "line_type", line_type)
         if line_width is not None:
             pulumi.set(__self__, "line_width", line_width)
+        if order_by is not None:
+            pulumi.set(__self__, "order_by", order_by)
         if palette is not None:
             pulumi.set(__self__, "palette", palette)
 
@@ -30854,6 +31074,14 @@ class DashboardWidgetTimeseriesDefinitionRequestStyle(dict):
         The width of line displayed. Valid values are `normal`, `thick`, `thin`.
         """
         return pulumi.get(self, "line_width")
+
+    @_builtins.property
+    @pulumi.getter(name="orderBy")
+    def order_by(self) -> Optional[_builtins.str]:
+        """
+        How to order series in timeseries visualizations. Valid values are `tags`, `values`.
+        """
+        return pulumi.get(self, "order_by")
 
     @_builtins.property
     @pulumi.getter
@@ -36788,10 +37016,10 @@ class LogsCustomDestinationElasticsearchDestination(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "basicAuth":
-            suggest = "basic_auth"
-        elif key == "indexName":
+        if key == "indexName":
             suggest = "index_name"
+        elif key == "basicAuth":
+            suggest = "basic_auth"
         elif key == "indexRotation":
             suggest = "index_rotation"
 
@@ -36807,14 +37035,14 @@ class LogsCustomDestinationElasticsearchDestination(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 basic_auth: 'outputs.LogsCustomDestinationElasticsearchDestinationBasicAuth',
                  endpoint: _builtins.str,
                  index_name: _builtins.str,
+                 basic_auth: Optional['outputs.LogsCustomDestinationElasticsearchDestinationBasicAuth'] = None,
                  index_rotation: Optional[_builtins.str] = None):
         """
-        :param 'LogsCustomDestinationElasticsearchDestinationBasicAuthArgs' basic_auth: Basic access authentication.
         :param _builtins.str endpoint: The destination for which logs will be forwarded to. Must have HTTPS scheme. Forwarding back to Datadog is not allowed.
         :param _builtins.str index_name: Name of the Elasticsearch index (must follow [Elasticsearch's criteria](https://www.elastic.co/guide/en/elasticsearch/reference/8.11/indices-create-index.html#indices-create-api-path-params)).
+        :param 'LogsCustomDestinationElasticsearchDestinationBasicAuthArgs' basic_auth: Basic access authentication.
         :param _builtins.str index_rotation: Date pattern with US locale and UTC timezone to be appended to the index name after adding '-'
                						(that is, '${index_name}-${indexPattern}').
                						You can customize the index rotation naming pattern by choosing one of these options:
@@ -36825,19 +37053,12 @@ class LogsCustomDestinationElasticsearchDestination(dict):
                						If this field is missing or is blank, it means that the index name will always be the same
                						(that is, no rotation).
         """
-        pulumi.set(__self__, "basic_auth", basic_auth)
         pulumi.set(__self__, "endpoint", endpoint)
         pulumi.set(__self__, "index_name", index_name)
+        if basic_auth is not None:
+            pulumi.set(__self__, "basic_auth", basic_auth)
         if index_rotation is not None:
             pulumi.set(__self__, "index_rotation", index_rotation)
-
-    @_builtins.property
-    @pulumi.getter(name="basicAuth")
-    def basic_auth(self) -> 'outputs.LogsCustomDestinationElasticsearchDestinationBasicAuth':
-        """
-        Basic access authentication.
-        """
-        return pulumi.get(self, "basic_auth")
 
     @_builtins.property
     @pulumi.getter
@@ -36854,6 +37075,14 @@ class LogsCustomDestinationElasticsearchDestination(dict):
         Name of the Elasticsearch index (must follow [Elasticsearch's criteria](https://www.elastic.co/guide/en/elasticsearch/reference/8.11/indices-create-index.html#indices-create-api-path-params)).
         """
         return pulumi.get(self, "index_name")
+
+    @_builtins.property
+    @pulumi.getter(name="basicAuth")
+    def basic_auth(self) -> Optional['outputs.LogsCustomDestinationElasticsearchDestinationBasicAuth']:
+        """
+        Basic access authentication.
+        """
+        return pulumi.get(self, "basic_auth")
 
     @_builtins.property
     @pulumi.getter(name="indexRotation")
@@ -44095,19 +44324,18 @@ class ObservabilityPipelineConfigDestinationAmazonOpensearch(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonOpensearchAuth'] = None,
+                 auth: 'outputs.ObservabilityPipelineConfigDestinationAmazonOpensearchAuth',
                  bulk_index: Optional[_builtins.str] = None):
         """
         :param _builtins.str bulk_index: The index or datastream to write logs to.
         """
-        if auth is not None:
-            pulumi.set(__self__, "auth", auth)
+        pulumi.set(__self__, "auth", auth)
         if bulk_index is not None:
             pulumi.set(__self__, "bulk_index", bulk_index)
 
     @_builtins.property
     @pulumi.getter
-    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationAmazonOpensearchAuth']:
+    def auth(self) -> 'outputs.ObservabilityPipelineConfigDestinationAmazonOpensearchAuth':
         return pulumi.get(self, "auth")
 
     @_builtins.property
@@ -46122,19 +46350,18 @@ class ObservabilityPipelineConfigDestinationSentinelOne(dict):
 class ObservabilityPipelineConfigDestinationSocket(dict):
     def __init__(__self__, *,
                  encoding: _builtins.str,
+                 framing: 'outputs.ObservabilityPipelineConfigDestinationSocketFraming',
                  mode: _builtins.str,
-                 framing: Optional['outputs.ObservabilityPipelineConfigDestinationSocketFraming'] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigDestinationSocketTls'] = None):
         """
         :param _builtins.str encoding: Encoding format for log events. Valid values are `json`, `raw_message`.
-        :param _builtins.str mode: The protocol used to send logs. Valid values are `tcp`, `udp`.
         :param 'ObservabilityPipelineConfigDestinationSocketFramingArgs' framing: Defines the framing method for outgoing messages.
+        :param _builtins.str mode: The protocol used to send logs. Valid values are `tcp`, `udp`.
         :param 'ObservabilityPipelineConfigDestinationSocketTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         pulumi.set(__self__, "encoding", encoding)
+        pulumi.set(__self__, "framing", framing)
         pulumi.set(__self__, "mode", mode)
-        if framing is not None:
-            pulumi.set(__self__, "framing", framing)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
 
@@ -46148,19 +46375,19 @@ class ObservabilityPipelineConfigDestinationSocket(dict):
 
     @_builtins.property
     @pulumi.getter
+    def framing(self) -> 'outputs.ObservabilityPipelineConfigDestinationSocketFraming':
+        """
+        Defines the framing method for outgoing messages.
+        """
+        return pulumi.get(self, "framing")
+
+    @_builtins.property
+    @pulumi.getter
     def mode(self) -> _builtins.str:
         """
         The protocol used to send logs. Valid values are `tcp`, `udp`.
         """
         return pulumi.get(self, "mode")
-
-    @_builtins.property
-    @pulumi.getter
-    def framing(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSocketFraming']:
-        """
-        Defines the framing method for outgoing messages.
-        """
-        return pulumi.get(self, "framing")
 
     @_builtins.property
     @pulumi.getter
@@ -47089,16 +47316,15 @@ class ObservabilityPipelineConfigProcessorGroupProcessorAddEnvVarsVariable(dict)
 @pulumi.output_type
 class ObservabilityPipelineConfigProcessorGroupProcessorAddFields(dict):
     def __init__(__self__, *,
-                 fields: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorAddFieldsField']] = None):
+                 fields: Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorAddFieldsField']):
         """
         :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorAddFieldsFieldArgs'] fields: A list of static fields (key-value pairs) that is added to each log event processed by this component.
         """
-        if fields is not None:
-            pulumi.set(__self__, "fields", fields)
+        pulumi.set(__self__, "fields", fields)
 
     @_builtins.property
     @pulumi.getter
-    def fields(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorAddFieldsField']]:
+    def fields(self) -> Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorAddFieldsField']:
         """
         A list of static fields (key-value pairs) that is added to each log event processed by this component.
         """
@@ -47143,16 +47369,15 @@ class ObservabilityPipelineConfigProcessorGroupProcessorAddHostname(dict):
 @pulumi.output_type
 class ObservabilityPipelineConfigProcessorGroupProcessorCustomProcessor(dict):
     def __init__(__self__, *,
-                 remaps: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorCustomProcessorRemap']] = None):
+                 remaps: Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorCustomProcessorRemap']):
         """
         :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorCustomProcessorRemapArgs'] remaps: Array of VRL remap configurations. Each remap defines a transformation rule with its own filter and VRL script.
         """
-        if remaps is not None:
-            pulumi.set(__self__, "remaps", remaps)
+        pulumi.set(__self__, "remaps", remaps)
 
     @_builtins.property
     @pulumi.getter
-    def remaps(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorCustomProcessorRemap']]:
+    def remaps(self) -> Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorCustomProcessorRemap']:
         """
         Array of VRL remap configurations. Each remap defines a transformation rule with its own filter and VRL script.
         """
@@ -47377,15 +47602,14 @@ class ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTable(dict):
 @pulumi.output_type
 class ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFile(dict):
     def __init__(__self__, *,
-                 encoding: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileEncoding'] = None,
+                 encoding: 'outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileEncoding',
                  keys: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileKey']] = None,
                  path: Optional[_builtins.str] = None):
         """
         :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileKeyArgs'] keys: Key fields used to look up enrichment values.
         :param _builtins.str path: Path to the CSV file.
         """
-        if encoding is not None:
-            pulumi.set(__self__, "encoding", encoding)
+        pulumi.set(__self__, "encoding", encoding)
         if keys is not None:
             pulumi.set(__self__, "keys", keys)
         if path is not None:
@@ -47393,7 +47617,7 @@ class ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFile(dict
 
     @_builtins.property
     @pulumi.getter
-    def encoding(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileEncoding']:
+    def encoding(self) -> 'outputs.ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableFileEncoding':
         return pulumi.get(self, "encoding")
 
     @_builtins.property
@@ -47684,22 +47908,21 @@ class ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMe
                  include: _builtins.str,
                  metric_type: _builtins.str,
                  name: _builtins.str,
-                 group_bies: Optional[Sequence[_builtins.str]] = None,
-                 value: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMetricValue'] = None):
+                 value: 'outputs.ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMetricValue',
+                 group_bies: Optional[Sequence[_builtins.str]] = None):
         """
         :param _builtins.str include: Datadog filter query to match logs for metric generation.
         :param _builtins.str metric_type: Type of metric to create.
         :param _builtins.str name: Name of the custom metric to be created.
-        :param Sequence[_builtins.str] group_bies: Optional fields used to group the metric series.
         :param 'ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMetricValueArgs' value: Specifies how the value of the generated metric is computed.
+        :param Sequence[_builtins.str] group_bies: Optional fields used to group the metric series.
         """
         pulumi.set(__self__, "include", include)
         pulumi.set(__self__, "metric_type", metric_type)
         pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "value", value)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
-        if value is not None:
-            pulumi.set(__self__, "value", value)
 
     @_builtins.property
     @pulumi.getter
@@ -47726,20 +47949,20 @@ class ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMe
         return pulumi.get(self, "name")
 
     @_builtins.property
+    @pulumi.getter
+    def value(self) -> 'outputs.ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMetricValue':
+        """
+        Specifies how the value of the generated metric is computed.
+        """
+        return pulumi.get(self, "value")
+
+    @_builtins.property
     @pulumi.getter(name="groupBies")
     def group_bies(self) -> Optional[Sequence[_builtins.str]]:
         """
         Optional fields used to group the metric series.
         """
         return pulumi.get(self, "group_bies")
-
-    @_builtins.property
-    @pulumi.getter
-    def value(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMetricValue']:
-        """
-        Specifies how the value of the generated metric is computed.
-        """
-        return pulumi.get(self, "value")
 
 
 @pulumi.output_type
@@ -47775,16 +47998,15 @@ class ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsMe
 @pulumi.output_type
 class ObservabilityPipelineConfigProcessorGroupProcessorMetricTags(dict):
     def __init__(__self__, *,
-                 rules: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorMetricTagsRule']] = None):
+                 rules: Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorMetricTagsRule']):
         """
         :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorMetricTagsRuleArgs'] rules: A list of rules for filtering metric tags.
         """
-        if rules is not None:
-            pulumi.set(__self__, "rules", rules)
+        pulumi.set(__self__, "rules", rules)
 
     @_builtins.property
     @pulumi.getter
-    def rules(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorMetricTagsRule']]:
+    def rules(self) -> Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorMetricTagsRule']:
         """
         A list of rules for filtering metric tags.
         """
@@ -48251,10 +48473,10 @@ class ObservabilityPipelineConfigProcessorGroupProcessorQuota(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 limit: 'outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuotaLimit',
                  name: _builtins.str,
                  drop_events: Optional[_builtins.bool] = None,
                  ignore_when_missing_partitions: Optional[_builtins.bool] = None,
-                 limit: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuotaLimit'] = None,
                  overflow_action: Optional[_builtins.str] = None,
                  overrides: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverride']] = None,
                  partition_fields: Optional[Sequence[_builtins.str]] = None,
@@ -48268,13 +48490,12 @@ class ObservabilityPipelineConfigProcessorGroupProcessorQuota(dict):
         :param Sequence[_builtins.str] partition_fields: List of partition fields.
         :param _builtins.str too_many_buckets_action: The action to take when the max number of buckets is exceeded: `drop`, `no_action`, or `overflow_routing`.
         """
+        pulumi.set(__self__, "limit", limit)
         pulumi.set(__self__, "name", name)
         if drop_events is not None:
             pulumi.set(__self__, "drop_events", drop_events)
         if ignore_when_missing_partitions is not None:
             pulumi.set(__self__, "ignore_when_missing_partitions", ignore_when_missing_partitions)
-        if limit is not None:
-            pulumi.set(__self__, "limit", limit)
         if overflow_action is not None:
             pulumi.set(__self__, "overflow_action", overflow_action)
         if overrides is not None:
@@ -48283,6 +48504,11 @@ class ObservabilityPipelineConfigProcessorGroupProcessorQuota(dict):
             pulumi.set(__self__, "partition_fields", partition_fields)
         if too_many_buckets_action is not None:
             pulumi.set(__self__, "too_many_buckets_action", too_many_buckets_action)
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> 'outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuotaLimit':
+        return pulumi.get(self, "limit")
 
     @_builtins.property
     @pulumi.getter
@@ -48307,11 +48533,6 @@ class ObservabilityPipelineConfigProcessorGroupProcessorQuota(dict):
         Whether to ignore when partition fields are missing.
         """
         return pulumi.get(self, "ignore_when_missing_partitions")
-
-    @_builtins.property
-    @pulumi.getter
-    def limit(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuotaLimit']:
-        return pulumi.get(self, "limit")
 
     @_builtins.property
     @pulumi.getter(name="overflowAction")
@@ -48378,15 +48599,19 @@ class ObservabilityPipelineConfigProcessorGroupProcessorQuotaLimit(dict):
 @pulumi.output_type
 class ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverride(dict):
     def __init__(__self__, *,
-                 fields: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverrideField']] = None,
-                 limit: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverrideLimit'] = None):
+                 limit: 'outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverrideLimit',
+                 fields: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverrideField']] = None):
         """
         :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverrideFieldArgs'] fields: Fields that trigger this override.
         """
+        pulumi.set(__self__, "limit", limit)
         if fields is not None:
             pulumi.set(__self__, "fields", fields)
-        if limit is not None:
-            pulumi.set(__self__, "limit", limit)
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> 'outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverrideLimit':
+        return pulumi.get(self, "limit")
 
     @_builtins.property
     @pulumi.getter
@@ -48395,11 +48620,6 @@ class ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverride(dict):
         Fields that trigger this override.
         """
         return pulumi.get(self, "fields")
-
-    @_builtins.property
-    @pulumi.getter
-    def limit(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorQuotaOverrideLimit']:
-        return pulumi.get(self, "limit")
 
 
 @pulumi.output_type
@@ -48559,16 +48779,15 @@ class ObservabilityPipelineConfigProcessorGroupProcessorRemoveFields(dict):
 @pulumi.output_type
 class ObservabilityPipelineConfigProcessorGroupProcessorRenameFields(dict):
     def __init__(__self__, *,
-                 fields: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorRenameFieldsField']] = None):
+                 fields: Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorRenameFieldsField']):
         """
         :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorRenameFieldsFieldArgs'] fields: List of fields to rename.
         """
-        if fields is not None:
-            pulumi.set(__self__, "fields", fields)
+        pulumi.set(__self__, "fields", fields)
 
     @_builtins.property
     @pulumi.getter
-    def fields(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorRenameFieldsField']]:
+    def fields(self) -> Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorRenameFieldsField']:
         """
         List of fields to rename.
         """
@@ -49147,16 +49366,15 @@ class ObservabilityPipelineConfigProcessorGroupProcessorSensitiveDataScannerRule
 @pulumi.output_type
 class ObservabilityPipelineConfigProcessorGroupProcessorSplitArray(dict):
     def __init__(__self__, *,
-                 arrays: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSplitArrayArray']] = None):
+                 arrays: Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSplitArrayArray']):
         """
         :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorSplitArrayArrayArgs'] arrays: A list of array split configurations.
         """
-        if arrays is not None:
-            pulumi.set(__self__, "arrays", arrays)
+        pulumi.set(__self__, "arrays", arrays)
 
     @_builtins.property
     @pulumi.getter
-    def arrays(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSplitArrayArray']]:
+    def arrays(self) -> Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorSplitArrayArray']:
         """
         A list of array split configurations.
         """
@@ -50970,19 +51188,26 @@ class ObservabilityPipelineConfigSourceRsyslogTls(dict):
 @pulumi.output_type
 class ObservabilityPipelineConfigSourceSocket(dict):
     def __init__(__self__, *,
+                 framing: 'outputs.ObservabilityPipelineConfigSourceSocketFraming',
                  mode: _builtins.str,
-                 framing: Optional['outputs.ObservabilityPipelineConfigSourceSocketFraming'] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigSourceSocketTls'] = None):
         """
-        :param _builtins.str mode: The protocol used to receive logs. Valid values are `tcp`, `udp`.
         :param 'ObservabilityPipelineConfigSourceSocketFramingArgs' framing: Defines the framing method for incoming messages.
+        :param _builtins.str mode: The protocol used to receive logs. Valid values are `tcp`, `udp`.
         :param 'ObservabilityPipelineConfigSourceSocketTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
+        pulumi.set(__self__, "framing", framing)
         pulumi.set(__self__, "mode", mode)
-        if framing is not None:
-            pulumi.set(__self__, "framing", framing)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
+
+    @_builtins.property
+    @pulumi.getter
+    def framing(self) -> 'outputs.ObservabilityPipelineConfigSourceSocketFraming':
+        """
+        Defines the framing method for incoming messages.
+        """
+        return pulumi.get(self, "framing")
 
     @_builtins.property
     @pulumi.getter
@@ -50991,14 +51216,6 @@ class ObservabilityPipelineConfigSourceSocket(dict):
         The protocol used to receive logs. Valid values are `tcp`, `udp`.
         """
         return pulumi.get(self, "mode")
-
-    @_builtins.property
-    @pulumi.getter
-    def framing(self) -> Optional['outputs.ObservabilityPipelineConfigSourceSocketFraming']:
-        """
-        Defines the framing method for incoming messages.
-        """
-        return pulumi.get(self, "framing")
 
     @_builtins.property
     @pulumi.getter
@@ -89065,6 +89282,8 @@ class PowerpackWidgetTimeseriesDefinitionRequestStyle(dict):
             suggest = "line_type"
         elif key == "lineWidth":
             suggest = "line_width"
+        elif key == "orderBy":
+            suggest = "order_by"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetTimeseriesDefinitionRequestStyle. Access the value via the '{suggest}' property getter instead.")
@@ -89080,16 +89299,20 @@ class PowerpackWidgetTimeseriesDefinitionRequestStyle(dict):
     def __init__(__self__, *,
                  line_type: Optional[_builtins.str] = None,
                  line_width: Optional[_builtins.str] = None,
+                 order_by: Optional[_builtins.str] = None,
                  palette: Optional[_builtins.str] = None):
         """
         :param _builtins.str line_type: The type of lines displayed. Valid values are `dashed`, `dotted`, `solid`.
         :param _builtins.str line_width: The width of line displayed. Valid values are `normal`, `thick`, `thin`.
+        :param _builtins.str order_by: How to order series in timeseries visualizations. Valid values are `tags`, `values`.
         :param _builtins.str palette: A color palette to apply to the widget. The available options are available at: https://docs.datadoghq.com/dashboards/widgets/timeseries/#appearance.
         """
         if line_type is not None:
             pulumi.set(__self__, "line_type", line_type)
         if line_width is not None:
             pulumi.set(__self__, "line_width", line_width)
+        if order_by is not None:
+            pulumi.set(__self__, "order_by", order_by)
         if palette is not None:
             pulumi.set(__self__, "palette", palette)
 
@@ -89108,6 +89331,14 @@ class PowerpackWidgetTimeseriesDefinitionRequestStyle(dict):
         The width of line displayed. Valid values are `normal`, `thick`, `thin`.
         """
         return pulumi.get(self, "line_width")
+
+    @_builtins.property
+    @pulumi.getter(name="orderBy")
+    def order_by(self) -> Optional[_builtins.str]:
+        """
+        How to order series in timeseries visualizations. Valid values are `tags`, `values`.
+        """
+        return pulumi.get(self, "order_by")
 
     @_builtins.property
     @pulumi.getter
@@ -104776,6 +105007,117 @@ class GetCloudWorkloadSecurityAgentRulesAgentRuleResult(dict):
         The name of the Agent rule.
         """
         return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class GetCostBudgetBudgetLineResult(dict):
+    def __init__(__self__, *,
+                 amounts: Mapping[str, _builtins.float],
+                 child_tag_filters: Optional[Sequence['outputs.GetCostBudgetBudgetLineChildTagFilterResult']] = None,
+                 parent_tag_filters: Optional[Sequence['outputs.GetCostBudgetBudgetLineParentTagFilterResult']] = None,
+                 tag_filters: Optional[Sequence['outputs.GetCostBudgetBudgetLineTagFilterResult']] = None):
+        """
+        :param Mapping[str, _builtins.float] amounts: Map of month (YYYYMM as string) to budget amount.
+        :param Sequence['GetCostBudgetBudgetLineChildTagFilterArgs'] child_tag_filters: Child tag filters for hierarchical budgets (second tag in 'by' clause).
+        :param Sequence['GetCostBudgetBudgetLineParentTagFilterArgs'] parent_tag_filters: Parent tag filters for hierarchical budgets (first tag in 'by' clause).
+        :param Sequence['GetCostBudgetBudgetLineTagFilterArgs'] tag_filters: Tag filters for non-hierarchical budgets (single tag or no tags).
+        """
+        pulumi.set(__self__, "amounts", amounts)
+        if child_tag_filters is not None:
+            pulumi.set(__self__, "child_tag_filters", child_tag_filters)
+        if parent_tag_filters is not None:
+            pulumi.set(__self__, "parent_tag_filters", parent_tag_filters)
+        if tag_filters is not None:
+            pulumi.set(__self__, "tag_filters", tag_filters)
+
+    @_builtins.property
+    @pulumi.getter
+    def amounts(self) -> Mapping[str, _builtins.float]:
+        """
+        Map of month (YYYYMM as string) to budget amount.
+        """
+        return pulumi.get(self, "amounts")
+
+    @_builtins.property
+    @pulumi.getter(name="childTagFilters")
+    def child_tag_filters(self) -> Optional[Sequence['outputs.GetCostBudgetBudgetLineChildTagFilterResult']]:
+        """
+        Child tag filters for hierarchical budgets (second tag in 'by' clause).
+        """
+        return pulumi.get(self, "child_tag_filters")
+
+    @_builtins.property
+    @pulumi.getter(name="parentTagFilters")
+    def parent_tag_filters(self) -> Optional[Sequence['outputs.GetCostBudgetBudgetLineParentTagFilterResult']]:
+        """
+        Parent tag filters for hierarchical budgets (first tag in 'by' clause).
+        """
+        return pulumi.get(self, "parent_tag_filters")
+
+    @_builtins.property
+    @pulumi.getter(name="tagFilters")
+    def tag_filters(self) -> Optional[Sequence['outputs.GetCostBudgetBudgetLineTagFilterResult']]:
+        """
+        Tag filters for non-hierarchical budgets (single tag or no tags).
+        """
+        return pulumi.get(self, "tag_filters")
+
+
+@pulumi.output_type
+class GetCostBudgetBudgetLineChildTagFilterResult(dict):
+    def __init__(__self__, *,
+                 tag_key: _builtins.str,
+                 tag_value: _builtins.str):
+        pulumi.set(__self__, "tag_key", tag_key)
+        pulumi.set(__self__, "tag_value", tag_value)
+
+    @_builtins.property
+    @pulumi.getter(name="tagKey")
+    def tag_key(self) -> _builtins.str:
+        return pulumi.get(self, "tag_key")
+
+    @_builtins.property
+    @pulumi.getter(name="tagValue")
+    def tag_value(self) -> _builtins.str:
+        return pulumi.get(self, "tag_value")
+
+
+@pulumi.output_type
+class GetCostBudgetBudgetLineParentTagFilterResult(dict):
+    def __init__(__self__, *,
+                 tag_key: _builtins.str,
+                 tag_value: _builtins.str):
+        pulumi.set(__self__, "tag_key", tag_key)
+        pulumi.set(__self__, "tag_value", tag_value)
+
+    @_builtins.property
+    @pulumi.getter(name="tagKey")
+    def tag_key(self) -> _builtins.str:
+        return pulumi.get(self, "tag_key")
+
+    @_builtins.property
+    @pulumi.getter(name="tagValue")
+    def tag_value(self) -> _builtins.str:
+        return pulumi.get(self, "tag_value")
+
+
+@pulumi.output_type
+class GetCostBudgetBudgetLineTagFilterResult(dict):
+    def __init__(__self__, *,
+                 tag_key: _builtins.str,
+                 tag_value: _builtins.str):
+        pulumi.set(__self__, "tag_key", tag_key)
+        pulumi.set(__self__, "tag_value", tag_value)
+
+    @_builtins.property
+    @pulumi.getter(name="tagKey")
+    def tag_key(self) -> _builtins.str:
+        return pulumi.get(self, "tag_key")
+
+    @_builtins.property
+    @pulumi.getter(name="tagValue")
+    def tag_value(self) -> _builtins.str:
+        return pulumi.get(self, "tag_value")
 
 
 @pulumi.output_type

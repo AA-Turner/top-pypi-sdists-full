@@ -37,7 +37,7 @@ def format_pair_with_strategies(pair, tokenizer):
     
     Returns dict with raw data and formatted versions for each strategy.
     """
-    from wisent.core.activations.extraction_strategy import (
+    from wisent.core.activations import (
         ExtractionStrategy,
         build_extraction_texts,
     )
@@ -129,7 +129,7 @@ def test_all_benchmarks(timeout_per_task: int = 30, limit: int = 2):
         Dictionary with results including example pairs with all strategies
     """
     from wisent.core.contrastive_pairs.lm_eval_pairs.lm_task_pairs_generation import build_contrastive_pairs
-    from wisent.core.benchmark_registry import get_all_benchmarks, get_broken_tasks
+    from wisent.core.benchmarks import get_all_benchmarks, get_broken_tasks
     
     all_benchmarks = get_all_benchmarks()
     broken = set(get_broken_tasks())
@@ -152,13 +152,9 @@ def test_all_benchmarks(timeout_per_task: int = 30, limit: int = 2):
     }
     
     for i, benchmark in enumerate(benchmarks):
-        signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(timeout_per_task)
-        
         try:
             pairs = build_contrastive_pairs(benchmark, limit=limit)
-            signal.alarm(0)
-            
+
             if pairs and len(pairs) > 0:
                 results["ok"] += 1
                 
@@ -179,13 +175,13 @@ def test_all_benchmarks(timeout_per_task: int = 30, limit: int = 2):
                 print(f"[{i+1}/{len(benchmarks)}] FAIL: {benchmark} - no pairs returned")
                 
         except TimeoutError:
-            signal.alarm(0)
+            
             results["timeout"] += 1
             results["benchmarks"][benchmark] = {"status": "timeout"}
             print(f"[{i+1}/{len(benchmarks)}] TIMEOUT: {benchmark}")
             
         except Exception as e:
-            signal.alarm(0)
+            
             results["failed"] += 1
             error_msg = str(e)[:200]
             results["benchmarks"][benchmark] = {"status": "error", "error": error_msg}

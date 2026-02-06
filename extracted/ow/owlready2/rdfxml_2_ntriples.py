@@ -180,18 +180,18 @@ def parse(f, on_prepare_obj = None, on_prepare_data = None, new_blank = None, de
             
       else:
         iri = attrs.get("http://www.w3.org/1999/02/22-rdf-syntax-ns#resource")
-        if iri:
+        if not iri is None:
           if   iri.startswith("#"): iri = xml_base + iri
           elif iri.startswith("/"): iri = xml_dir  + iri[1:]
           elif not iri:             iri = xml_base
           elif not ":" in iri:      iri = urljoin(xml_dir, iri)
           if iri.endswith("/"): iri = iri[:-1]
           stack.append(["Resource", iri])
-          
+                
         else:
           iri = attrs.get("http://www.w3.org/1999/02/22-rdf-syntax-ns#nodeID")
           
-          if iri:
+          if not iri is None:
             iri = node_2_blanks[iri]
             known_nodes.add(iri)
             stack.append(["Resource", iri])

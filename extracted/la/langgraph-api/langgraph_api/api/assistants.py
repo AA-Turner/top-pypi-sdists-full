@@ -1,4 +1,3 @@
-from functools import partial
 from typing import Any
 from uuid import uuid4
 
@@ -29,7 +28,6 @@ from langgraph_api.feature_flags import (
     USE_RUNTIME_CONTEXT_API,
 )
 from langgraph_api.graph import get_assistant_id, get_graph
-from langgraph_api.grpc.ops import Assistants as GrpcAssistants
 from langgraph_api.js.base import BaseRemotePregel
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
 from langgraph_api.schema import ASSISTANT_ENCRYPTION_FIELDS, ASSISTANT_FIELDS
@@ -50,19 +48,15 @@ from langgraph_api.validation import (
     AssistantVersionsSearchRequest,
     ConfigValidator,
 )
-from langgraph_runtime.database import connect as base_connect
+from langgraph_runtime.database import connect
 from langgraph_runtime.retry import retry_db
 
 logger = structlog.stdlib.get_logger(__name__)
 
 if IS_POSTGRES_OR_GRPC_BACKEND:
-    CrudAssistants = GrpcAssistants
+    from langgraph_api.grpc.ops import Assistants
 else:
     from langgraph_runtime.ops import Assistants
-
-    CrudAssistants = Assistants
-
-connect = partial(base_connect, supports_core_api=IS_POSTGRES_OR_GRPC_BACKEND)
 
 EXCLUDED_CONFIG_SCHEMA = (
     "__pregel_checkpointer",
@@ -203,7 +197,7 @@ async def create_assistant(request: ApiRequest) -> ApiResponse:
         )
 
     async with connect() as conn:
-        assistant = await CrudAssistants.put(
+        assistant = await Assistants.put(
             conn,
             assistant_id or str(uuid4()),
             config=effective_payload.get("config") or {},
@@ -240,7 +234,7 @@ async def search_assistants(
         except jsonschema_rs.ValidationError as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
     async with connect() as conn:
-        assistants_iter, next_offset = await CrudAssistants.search(
+        assistants_iter, next_offset = await Assistants.search(
             conn,
             graph_id=payload.get("graph_id"),
             name=payload.get("name"),
@@ -274,7 +268,7 @@ async def count_assistants(
     """Count assistants."""
     payload = await request.json(AssistantCountRequest)
     async with connect() as conn:
-        count = await CrudAssistants.count(
+        count = await Assistants.count(
             conn,
             graph_id=payload.get("graph_id"),
             name=payload.get("name"),
@@ -291,7 +285,7 @@ async def get_assistant(
     """Get an assistant by ID."""
     validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")
     async with connect() as conn:
-        assistant = await CrudAssistants.get(conn, assistant_id)
+        assistant = await Assistants.get(conn, assistant_id)
 
     assistant_data = await fetchone(assistant)
     if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
@@ -311,7 +305,7 @@ async def get_assistant_graph(
     assistant_id = get_assistant_id(str(request.path_params["assistant_id"]))
     validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")
     async with connect() as conn:
-        assistant_ = await CrudAssistants.get(conn, assistant_id)
+        assistant_ = await Assistants.get(conn, assistant_id)
         assistant = await fetchone(assistant_)
     config = json_loads(assistant["config"])
     configurable = config.setdefault("configurable", {})
@@ -369,7 +363,7 @@ async def get_assistant_subgraphs(
     assistant_id = request.path_params["assistant_id"]
     validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")
     async with connect() as conn:
-        assistant_ = await CrudAssistants.get(conn, assistant_id)
+        assistant_ = await Assistants.get(conn, assistant_id)
         assistant = await fetchone(assistant_)
 
     config = json_loads(assistant["config"])
@@ -418,7 +412,7 @@ async def get_assistant_schemas(
     assistant_id = request.path_params["assistant_id"]
     validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")
     async with connect() as conn:
-        assistant_ = await CrudAssistants.get(conn, assistant_id)
+        assistant_ = await Assistants.get(conn, assistant_id)
         assistant = await fetchone(assistant_)
 
     config = json_loads(assistant["config"])
@@ -479,7 +473,7 @@ async def patch_assistant(
         )
 
     async with connect() as conn:
-        assistant = await CrudAssistants.patch(
+        assistant = await Assistants.patch(
             conn,
             assistant_id,
             config=effective_payload.get("config"),
@@ -512,7 +506,7 @@ async def delete_assistant(request: ApiRequest) -> Response:
     validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")
     delete_threads = request.query_params.get("delete_threads", "").lower() == "true"
 
-    aid = await CrudAssistants.delete(
+    aid = await Assistants.delete(
         None,
         assistant_id,
         delete_threads=delete_threads,
@@ -528,7 +522,7 @@ async def get_assistant_versions(request: ApiRequest) -> ApiResponse:
     validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")
     payload = await request.json(AssistantVersionsSearchRequest)
     async with connect() as conn:
-        assistants_iter = await CrudAssistants.get_versions(
+        assistants_iter = await Assistants.get_versions(
             conn,
             assistant_id,
             metadata=payload.get("metadata") or {},
@@ -560,7 +554,7 @@ async def set_latest_assistant_version(request: ApiRequest) -> ApiResponse:
     payload = await request.json(AssistantVersionChange)
     validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")
     async with connect() as conn:
-        assistant = await CrudAssistants.set_latest(
+        assistant = await Assistants.set_latest(
             conn, assistant_id, payload.get("version")
         )
 

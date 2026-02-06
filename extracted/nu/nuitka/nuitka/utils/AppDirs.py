@@ -1,7 +1,7 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Wrapper around appdirs from PyPI
+"""Wrapper around appdirs from PyPI
 
 We do not assume to be installed and fallback to an inline copy and if that
 is not installed, we use our own code for best effort.
@@ -65,7 +65,7 @@ def _getCacheDir():
             if e.errno != errno.EACCES:
                 raise
 
-            general.sysexit(
+            return general.sysexit(
                 """\
 Error, failed to create cache directory '%s'. If this is due to a special environment, \
 please consider making a PR for a general solution that adds support for it, or use \
@@ -86,8 +86,8 @@ def getCacheDir(cache_basename):
     cache_dir = os.getenv(getCacheDirEnvironmentVariableName(cache_basename))
     if cache_dir is None:
         cache_dir = os.path.join(_getCacheDir(), cache_basename)
-    else:
-        cache_dir = getNormalizedPath(cache_dir)
+
+    cache_dir = getNormalizedPath(cache_dir)
 
     return cache_dir
 
@@ -95,11 +95,11 @@ def getCacheDir(cache_basename):
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

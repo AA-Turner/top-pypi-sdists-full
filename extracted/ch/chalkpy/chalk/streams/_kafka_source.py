@@ -28,6 +28,9 @@ _KAFKA_SASL_USERNAME_NAME = "KAFKA_SASL_USERNAME"
 _KAFKA_SASL_PASSWORD_NAME = "KAFKA_SASL_PASSWORD"
 _KAFKA_ADDITIONAL_KAFKA_ARGS_NAME = "KAFKA_ADDITIONAL_KAFKA_ARGS"
 _KAFKA_DEAD_LETTER_QUEUE_TOPIC = "KAFKA_DEAD_LETTER_QUEUE_TOPIC"
+_KAFKA_MSK_IAM_AUTH_NAME = "KAFKA_MSK_IAM_AUTH"
+_KAFKA_AWS_REGION_NAME = "KAFKA_AWS_REGION"
+_KAFKA_AWS_ROLE_ARN_NAME = "KAFKA_AWS_ROLE_ARN"
 
 
 class KafkaSource(StreamSource, SinkIntegrationProtocol, BaseModel, frozen=True):
@@ -101,6 +104,25 @@ class KafkaSource(StreamSource, SinkIntegrationProtocol, BaseModel, frozen=True)
     See https://kafka.apache.org/documentation/#consumerconfigs for more details.
     """
 
+    msk_iam_auth: bool = False
+    """
+    Enable AWS MSK IAM authentication. When enabled, `security_protocol` will be
+    set to `"SASL_SSL"` and `sasl_mechanism` will be set to `"OAUTHBEARER"`.
+    You must also set `aws_region` when enabling MSK IAM auth.
+    """
+
+    aws_region: Optional[str] = None
+    """
+    AWS region for MSK IAM authentication (e.g., "us-east-1").
+    Required when `msk_iam_auth` is True.
+    """
+
+    aws_role_arn: Optional[str] = None
+    """
+    Optional IAM role ARN to assume for MSK IAM authentication.
+    If not provided, the default credentials chain will be used.
+    """
+
     def __init__(
         self,
         *,
@@ -118,8 +140,28 @@ class KafkaSource(StreamSource, SinkIntegrationProtocol, BaseModel, frozen=True)
         late_arrival_deadline: Duration = "infinity",
         dead_letter_queue_topic: Optional[str] = None,
         additional_kafka_args: Optional[Dict[str, Any]] = None,
+        msk_iam_auth: Optional[bool] = None,
+        aws_region: Optional[str] = None,
+        aws_role_arn: Optional[str] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
     ):
+        # Load MSK IAM auth settings first to determine effective security settings
+        effective_msk_iam_auth = (
+            msk_iam_auth
+            if msk_iam_auth is not None
+            else load_integration_variable(
+                name=_KAFKA_MSK_IAM_AUTH_NAME,
+                integration_name=name,
+                override=integration_variable_override,
+                parser=lambda x: x.lower() in ("true", "1", "yes"),
+            )
+        ) or False
+
+        # When MSK IAM auth is enabled, override security_protocol and sasl_mechanism
+        if effective_msk_iam_auth:
+            security_protocol = "SASL_SSL"
+            sasl_mechanism = "OAUTHBEARER"
+
         super(KafkaSource, self).__init__(
             bootstrap_server=bootstrap_server
             or load_integration_variable(
@@ -181,6 +223,15 @@ class KafkaSource(StreamSource, SinkIntegrationProtocol, BaseModel, frozen=True)
                 override=integration_variable_override,
                 parser=json.loads,
             ),
+            msk_iam_auth=effective_msk_iam_auth,
+            aws_region=aws_region
+            or load_integration_variable(
+                name=_KAFKA_AWS_REGION_NAME, integration_name=name, override=integration_variable_override
+            ),
+            aws_role_arn=aws_role_arn
+            or load_integration_variable(
+                name=_KAFKA_AWS_ROLE_ARN_NAME, integration_name=name, override=integration_variable_override
+            ),
         )
         self.registry.append(self)
 
@@ -217,6 +268,11 @@ class KafkaSource(StreamSource, SinkIntegrationProtocol, BaseModel, frozen=True)
                 create_integration_variable(_KAFKA_SASL_USERNAME_NAME, self.name, self.sasl_username),
                 create_integration_variable(_KAFKA_SASL_PASSWORD_NAME, self.name, self.sasl_password),
                 create_integration_variable(_KAFKA_ADDITIONAL_KAFKA_ARGS_NAME, self.name, self.additional_kafka_args),
+                create_integration_variable(
+                    _KAFKA_MSK_IAM_AUTH_NAME, self.name, str(self.msk_iam_auth).lower() if self.msk_iam_auth else None
+                ),
+                create_integration_variable(_KAFKA_AWS_REGION_NAME, self.name, self.aws_region),
+                create_integration_variable(_KAFKA_AWS_ROLE_ARN_NAME, self.name, self.aws_role_arn),
             ]
             if v is not None
         }

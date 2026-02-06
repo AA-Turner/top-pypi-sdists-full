@@ -10,7 +10,8 @@ T = TypeVar("T", bound="ListMqttTriggersResponse200ItemV5Config")
 
 @_attrs_define
 class ListMqttTriggersResponse200ItemV5Config:
-    """
+    """MQTT v5 specific configuration (clean_start, topic_alias_maximum, session_expiry_interval)
+
     Attributes:
         clean_start (Union[Unset, bool]):
         topic_alias_maximum (Union[Unset, float]):

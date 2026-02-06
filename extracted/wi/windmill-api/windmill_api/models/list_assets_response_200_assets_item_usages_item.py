@@ -29,7 +29,7 @@ class ListAssetsResponse200AssetsItemUsagesItem:
     Attributes:
         path (str):
         kind (ListAssetsResponse200AssetsItemUsagesItemKind):
-        access_type (Union[Unset, ListAssetsResponse200AssetsItemUsagesItemAccessType]):
+        access_type (Union[Unset, None, ListAssetsResponse200AssetsItemUsagesItemAccessType]):
         columns (Union[Unset, ListAssetsResponse200AssetsItemUsagesItemColumns]): The columns used (for tables)
         created_at (Union[Unset, datetime.datetime]): When the asset was detected
         metadata (Union[Unset, ListAssetsResponse200AssetsItemUsagesItemMetadata]):
@@ -37,7 +37,7 @@ class ListAssetsResponse200AssetsItemUsagesItem:
 
     path: str
     kind: ListAssetsResponse200AssetsItemUsagesItemKind
-    access_type: Union[Unset, ListAssetsResponse200AssetsItemUsagesItemAccessType] = UNSET
+    access_type: Union[Unset, None, ListAssetsResponse200AssetsItemUsagesItemAccessType] = UNSET
     columns: Union[Unset, "ListAssetsResponse200AssetsItemUsagesItemColumns"] = UNSET
     created_at: Union[Unset, datetime.datetime] = UNSET
     metadata: Union[Unset, "ListAssetsResponse200AssetsItemUsagesItemMetadata"] = UNSET
@@ -47,9 +47,9 @@ class ListAssetsResponse200AssetsItemUsagesItem:
         path = self.path
         kind = self.kind.value
 
-        access_type: Union[Unset, str] = UNSET
+        access_type: Union[Unset, None, str] = UNSET
         if not isinstance(self.access_type, Unset):
-            access_type = self.access_type.value
+            access_type = self.access_type.value if self.access_type else None
 
         columns: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.columns, Unset):
@@ -97,8 +97,10 @@ class ListAssetsResponse200AssetsItemUsagesItem:
         kind = ListAssetsResponse200AssetsItemUsagesItemKind(d.pop("kind"))
 
         _access_type = d.pop("access_type", UNSET)
-        access_type: Union[Unset, ListAssetsResponse200AssetsItemUsagesItemAccessType]
-        if isinstance(_access_type, Unset):
+        access_type: Union[Unset, None, ListAssetsResponse200AssetsItemUsagesItemAccessType]
+        if _access_type is None:
+            access_type = None
+        elif isinstance(_access_type, Unset):
             access_type = UNSET
         else:
             access_type = ListAssetsResponse200AssetsItemUsagesItemAccessType(_access_type)

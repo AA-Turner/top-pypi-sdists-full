@@ -4,9 +4,10 @@ from adam.commands import extract_trailing_options
 from adam.commands.command import Command
 from adam.commands.command_helpers import ClusterOrPodCommandHelper
 from adam.commands.cql.completions_c import completions_c
+from adam.commands.cql.utils_cql import cassandra
+from adam.commands.devices.devices import Devices
 from adam.repl_state import ReplState, RequiredState
 from adam.utils import log
-from adam.utils_cassandra.pod_service import cassandra
 from adam.utils_context import Context
 
 class Cqlsh(Command):
@@ -41,7 +42,18 @@ class Cqlsh(Command):
             return {}
 
         if state.sts or state.pod:
-            return completions_c(state)
+            c = completions_c(state)
+
+            # pods=Devices.of(state).pods(state, '-')
+            # pod_names = pods[0]
+            # pod = pods[1]
+            # print('SEAN c', c)
+
+            # c1 = {f'@{p}': c for p in pod_names if p != pod}
+
+            # print('SEAN c1', c1)
+
+            return c
 
         return {}
 

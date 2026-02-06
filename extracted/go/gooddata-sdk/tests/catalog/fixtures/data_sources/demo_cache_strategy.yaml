@@ -22,7 +22,7 @@ interactions:
         Cache-Control:
           - no-cache, no-store, max-age=0, must-revalidate
         Content-Length:
-          - '329'
+          - '371'
         Content-Type:
           - application/json
         DATE: &id001
@@ -45,15 +45,16 @@ interactions:
       body:
         string:
           data:
-            id: demo-test-ds
-            type: dataSource
             attributes:
               url: jdbc:postgresql://postgres:5432/tiger?sslmode=prefer
               username: postgres
               authenticationType: USERNAME_PASSWORD
-              name: demo-test-ds
+              alternativeDataSourceId: ds-put-abc-id
               type: POSTGRESQL
+              name: demo-test-ds
               schema: demo
+            id: demo-test-ds
+            type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources/demo-test-ds
   - request:
@@ -86,7 +87,7 @@ interactions:
         Cache-Control:
           - no-cache, no-store, max-age=0, must-revalidate
         Content-Length:
-          - '353'
+          - '395'
         Content-Type:
           - application/json
         DATE: *id001
@@ -108,16 +109,17 @@ interactions:
       body:
         string:
           data:
-            id: demo-test-ds
-            type: dataSource
             attributes:
               url: jdbc:postgresql://postgres:5432/tiger?sslmode=prefer
               username: postgres
               cacheStrategy: NEVER
               authenticationType: USERNAME_PASSWORD
-              name: demo-test-ds
+              alternativeDataSourceId: ds-put-abc-id
               type: POSTGRESQL
+              name: demo-test-ds
               schema: demo
+            id: demo-test-ds
+            type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources/demo-test-ds
   - request:
@@ -141,7 +143,7 @@ interactions:
         Cache-Control:
           - no-cache, no-store, max-age=0, must-revalidate
         Content-Length:
-          - '353'
+          - '395'
         Content-Type:
           - application/json
         DATE: *id001
@@ -163,16 +165,17 @@ interactions:
       body:
         string:
           data:
-            id: demo-test-ds
-            type: dataSource
             attributes:
               url: jdbc:postgresql://postgres:5432/tiger?sslmode=prefer
               username: postgres
               cacheStrategy: NEVER
               authenticationType: USERNAME_PASSWORD
-              name: demo-test-ds
+              alternativeDataSourceId: ds-put-abc-id
               type: POSTGRESQL
+              name: demo-test-ds
               schema: demo
+            id: demo-test-ds
+            type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources/demo-test-ds
   - request:
@@ -195,6 +198,7 @@ interactions:
                   id: demoGroup
                   type: userGroup
                 name: USE
+            alternativeDataSourceId: ds-put-abc-id
             password: passw0rd
       headers:
         Accept-Encoding:

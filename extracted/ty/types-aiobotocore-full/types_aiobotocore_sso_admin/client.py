@@ -48,10 +48,13 @@ from .paginator import (
     ListPermissionSetProvisioningStatusPaginator,
     ListPermissionSetsPaginator,
     ListPermissionSetsProvisionedToAccountPaginator,
+    ListRegionsPaginator,
     ListTagsForResourcePaginator,
     ListTrustedTokenIssuersPaginator,
 )
 from .type_defs import (
+    AddRegionRequestTypeDef,
+    AddRegionResponseTypeDef,
     AttachCustomerManagedPolicyReferenceToPermissionSetRequestTypeDef,
     AttachManagedPolicyToPermissionSetRequestTypeDef,
     CreateAccountAssignmentRequestTypeDef,
@@ -97,6 +100,8 @@ from .type_defs import (
     DescribePermissionSetProvisioningStatusResponseTypeDef,
     DescribePermissionSetRequestTypeDef,
     DescribePermissionSetResponseTypeDef,
+    DescribeRegionRequestTypeDef,
+    DescribeRegionResponseTypeDef,
     DescribeTrustedTokenIssuerRequestTypeDef,
     DescribeTrustedTokenIssuerResponseTypeDef,
     DetachCustomerManagedPolicyReferenceFromPermissionSetRequestTypeDef,
@@ -152,6 +157,8 @@ from .type_defs import (
     ListPermissionSetsProvisionedToAccountResponseTypeDef,
     ListPermissionSetsRequestTypeDef,
     ListPermissionSetsResponseTypeDef,
+    ListRegionsRequestTypeDef,
+    ListRegionsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     ListTrustedTokenIssuersRequestTypeDef,
@@ -165,6 +172,8 @@ from .type_defs import (
     PutApplicationSessionConfigurationRequestTypeDef,
     PutInlinePolicyToPermissionSetRequestTypeDef,
     PutPermissionsBoundaryToPermissionSetRequestTypeDef,
+    RemoveRegionRequestTypeDef,
+    RemoveRegionResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateApplicationRequestTypeDef,
@@ -227,6 +236,16 @@ class SSOAdminClient(AioBaseClient):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sso-admin/client/generate_presigned_url.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sso_admin/client/#generate_presigned_url)
+        """
+
+    async def add_region(
+        self, **kwargs: Unpack[AddRegionRequestTypeDef]
+    ) -> AddRegionResponseTypeDef:
+        """
+        Adds a Region to an IAM Identity Center instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sso-admin/client/add_region.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sso_admin/client/#add_region)
         """
 
     async def attach_customer_managed_policy_reference_to_permission_set(
@@ -546,6 +565,17 @@ class SSOAdminClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sso_admin/client/#describe_permission_set_provisioning_status)
         """
 
+    async def describe_region(
+        self, **kwargs: Unpack[DescribeRegionRequestTypeDef]
+    ) -> DescribeRegionResponseTypeDef:
+        """
+        Retrieves details about a specific Region enabled in an IAM Identity Center
+        instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sso-admin/client/describe_region.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sso_admin/client/#describe_region)
+        """
+
     async def describe_trusted_token_issuer(
         self, **kwargs: Unpack[DescribeTrustedTokenIssuerRequestTypeDef]
     ) -> DescribeTrustedTokenIssuerResponseTypeDef:
@@ -841,6 +871,17 @@ class SSOAdminClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sso_admin/client/#list_permission_sets_provisioned_to_account)
         """
 
+    async def list_regions(
+        self, **kwargs: Unpack[ListRegionsRequestTypeDef]
+    ) -> ListRegionsResponseTypeDef:
+        """
+        Lists all enabled Regions of an IAM Identity Center instance, including those
+        that are being added or removed.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sso-admin/client/list_regions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sso_admin/client/#list_regions)
+        """
+
     async def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
@@ -943,6 +984,16 @@ class SSOAdminClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sso-admin/client/put_permissions_boundary_to_permission_set.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sso_admin/client/#put_permissions_boundary_to_permission_set)
+        """
+
+    async def remove_region(
+        self, **kwargs: Unpack[RemoveRegionRequestTypeDef]
+    ) -> RemoveRegionResponseTypeDef:
+        """
+        Removes an additional Region from an IAM Identity Center instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sso-admin/client/remove_region.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sso_admin/client/#remove_region)
         """
 
     async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
@@ -1205,6 +1256,17 @@ class SSOAdminClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_permission_sets_provisioned_to_account"]
     ) -> ListPermissionSetsProvisionedToAccountPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sso-admin/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sso_admin/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_regions"]
+    ) -> ListRegionsPaginator:
         """
         Create a paginator for an operation.
 

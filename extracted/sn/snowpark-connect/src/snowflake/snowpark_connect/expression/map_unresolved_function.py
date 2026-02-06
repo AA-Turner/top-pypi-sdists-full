@@ -166,6 +166,15 @@ MIN_32BIT_SIGNED_INT = -2_147_483_648
 MAX_DAY_TIME_DAYS = 106751991  # Maximum days for day-time intervals
 MAX_10_DIGIT_LIMIT = 1000000000  # 10-digit limit (1 billion) for interval operands
 
+# date field name constants
+_YEAR_FIELDS = ("year", "y", "years", "yr", "yrs")
+_MONTH_FIELDS = ("month", "mon", "mons", "months")
+_DAY_FIELDS = ("day", "d", "days")
+_HOUR_FIELDS = ("hour", "h", "hours", "hr", "hrs")
+_MINUTE_FIELDS = ("minute", "m", "min", "mins", "minutes")
+_SECOND_FIELDS = ("second", "s", "sec", "seconds", "secs")
+_DAYOFWEEK_FIELDS = ("dayofweek", "weekday", "dow", "dw")
+
 NUMBER_FORMAT_DIGITS = "99,999,999,999,999,999,999,999,999,999,999,999,990"
 
 NAN, INFINITY = float("nan"), float("inf")
@@ -638,6 +647,26 @@ def map_unresolved_function(
             # No structured type conversion needed
             result = aggregate_func(typed_arg.col)
             return TypedColumn(result, lambda: expected_types)
+
+    def _create_xpath_expression(udf_method, udf_return_type):
+        """Helper to create xpath UDF expressions."""
+        xpath_udf = register_cached_java_udf(
+            f"com.snowflake.snowpark_connect.udfs.XPathUdfs.{udf_method}",
+            ["STRING", "STRING"],
+            udf_return_type,
+        )
+
+        return xpath_udf(*snowpark_args)
+
+    def _cast_and_handle_nan_xpath_expression(xpath_udf_expression, cast_type):
+        """Handle NaN by returning 0 and casting to given to result_type.
+
+        Since xpath_number by default may return NaN, we need to handle it and
+        return 0 instead for certain return types (Int, Long, Short).
+        """
+        return snowpark_fn.when(
+            snowpark_fn.equal_nan(xpath_udf_expression), snowpark_fn.lit(0)
+        ).otherwise(snowpark_fn.cast(xpath_udf_expression, cast_type))
 
     match function_name:
         case func_name if func_name.lower() in session._udfs:
@@ -2048,9 +2077,15 @@ def map_unresolved_function(
                     )
                 )
         case "array_size":
+            # When array_size function is called it utilizes Size class
+            # https://github.com/apache/spark/blob/v3.5.3/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/collectionOperations.scala#L166
+            # which has dataType = Integer
+            # https://github.com/apache/spark/blob/v3.5.3/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/collectionOperations.scala#L115
+            result_type = IntegerType()
+
             array_type = snowpark_typed_args[0].typ
             if isinstance(array_type, NullType):
-                result_exp = TypedColumn(snowpark_fn.lit(None), lambda: [LongType()])
+                result_exp = snowpark_fn.lit(None)
             elif not isinstance(array_type, ArrayType):
                 exception = AnalysisException(
                     f"Expected argument '{snowpark_arg_names[0]}' to have an ArrayType."
@@ -2058,21 +2093,32 @@ def map_unresolved_function(
                 attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                 raise exception
             else:
-                result_exp = TypedColumn(
-                    snowpark_fn.array_size(*snowpark_args), lambda: [LongType()]
-                )
+                result_exp = snowpark_fn.array_size(*snowpark_args)
+            result_exp = result_exp.cast(result_type)
         case "cardinality":
+            # When cardinality function is called it utilizes Size class
+            # https://github.com/apache/spark/blob/v3.5.3/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/analysis/FunctionRegistry.scala#L691
+            # which has dataType = Integer
+            # https://github.com/apache/spark/blob/v3.5.3/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/collectionOperations.scala#L115
+            result_type = IntegerType()
+            null_value = (
+                snowpark_fn.lit(None) if spark_sql_ansi_enabled else snowpark_fn.lit(-1)
+            )
+
             arg_type = snowpark_typed_args[0].typ
-            if isinstance(arg_type, (ArrayType, MapType)):
-                result_exp = TypedColumn(
-                    snowpark_fn.size(*snowpark_args), lambda: [LongType()]
-                )
+            if isinstance(arg_type, NullType):
+                result_exp = null_value
+            elif isinstance(arg_type, (ArrayType, MapType)):
+                result_exp = snowpark_fn.when(
+                    snowpark_fn.is_null(*snowpark_args), null_value
+                ).otherwise(snowpark_fn.size(*snowpark_args))
             else:
                 exception = AnalysisException(
                     f"Expected argument '{snowpark_arg_names[0]}' to have an ArrayType or MapType, but got {arg_type.simpleString()}."
                 )
                 attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                 raise exception
+            result_exp = result_exp.cast(result_type)
         case "array_sort":
             result_exp = TypedColumn(
                 snowpark_fn.array_sort(*snowpark_args),
@@ -3407,25 +3453,60 @@ def map_unresolved_function(
                 result_type = DoubleType()
             else:
                 field_lit = field_lit.lower()
-
                 result_exp = snowpark_fn.date_part(field_lit, snowpark_args[1])
+
+                # Determine the source type to apply correct return types
+                source_type = snowpark_typed_args[1].typ
+
+                # Validate field compatibility with interval types
+                # YearMonthIntervalType can only extract: YEAR, MONTH
+                if isinstance(source_type, YearMonthIntervalType):
+                    if field_lit not in _YEAR_FIELDS + _MONTH_FIELDS:
+                        exception = AnalysisException(
+                            f'[INVALID_EXTRACT_FIELD] Cannot extract `{field_lit.upper()}` from "{snowpark_arg_names[1]}".'
+                        )
+                        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+                        raise exception
+                # DayTimeIntervalType can only extract: DAY, HOUR, MINUTE, SECOND
+                elif isinstance(source_type, DayTimeIntervalType):
+                    if (
+                        field_lit
+                        not in _DAY_FIELDS
+                        + _HOUR_FIELDS
+                        + _MINUTE_FIELDS
+                        + _SECOND_FIELDS
+                    ):
+                        exception = AnalysisException(
+                            f'[INVALID_EXTRACT_FIELD] Cannot extract `{field_lit.upper()}` from "{snowpark_arg_names[1]}".'
+                        )
+                        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+                        raise exception
+
                 # Spark 3.5.3: DatePart.parseExtractField delegates to GetDateField/GetTimeField expressions
                 # which define dataType = IntegerType (except SECOND which uses DecimalType(8,6))
                 # https://github.com/apache/spark/blob/v3.5.3/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/datetimeExpressions.scala#L2783
                 result_type = IntegerType()
 
-                if field_lit in ("dayofweek", "weekday", "dow", "dw"):
+                # Special handling for dayofweek: adjust from Snowflake's 0-6 to Spark's 1-7
+                if field_lit in _DAYOFWEEK_FIELDS:
                     result_exp += 1
 
-                if field_lit in ("second", "s", "sec", "seconds", "secs"):
+                if field_lit in _SECOND_FIELDS:
                     result_type = DecimalType(8, 6)
-
                     s_part = snowpark_fn.cast(result_exp, DoubleType())
                     ns_part = snowpark_fn.cast(
                         snowpark_fn.date_part("ns", snowpark_args[1]), DoubleType()
                     )
-
                     result_exp = s_part + (ns_part / snowpark_fn.lit(1e9))
+
+                # Interval-specific: MONTH, HOUR, MINUTE return ByteType (not IntegerType as is in Date/Timestamp)
+                # See https://github.com/apache/spark/blob/v3.5.3/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/intervalExpressions.scala
+                if isinstance(
+                    source_type, (YearMonthIntervalType, DayTimeIntervalType)
+                ):
+                    if field_lit in _MONTH_FIELDS + _HOUR_FIELDS + _MINUTE_FIELDS:
+                        result_type = ByteType()
+
                 result_exp = snowpark_fn.cast(result_exp, result_type)
 
             if function_name in ("datepart", "extract"):
@@ -3439,7 +3520,9 @@ def map_unresolved_function(
             result_type = DoubleType()
         case "dense_rank":
             result_exp = snowpark_fn.dense_rank()
-            result_exp = TypedColumn(result_exp, lambda: [LongType()])
+            # IntegerType per Spark's DenseRank case class which extends AggregateWindowFunction, which defines dataType = IntegerType
+            # https://github.com/apache/spark/blob/34d9413ca161f4531544565976a46c6da7d371cd/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/windowExpressions.scala#L626
+            result_exp = _resolve_aggregate_exp(result_exp, IntegerType())
         case "desc":
             result_exp = TypedColumn(
                 snowpark_fn.desc(snowpark_args[0]), lambda: snowpark_typed_args[0].types
@@ -3494,8 +3577,8 @@ def map_unresolved_function(
                 result_type = LongType()
         case "e":
             spark_function_name = "E()"
-            result_exp = snowpark_fn.lit(math.e)
-            result_type = FloatType()
+            result_type = DoubleType()
+            result_exp = snowpark_fn.lit(math.e, datatype=result_type)
         case "element_at":
             spark_index = snowpark_args[1]
             data = snowpark_typed_args[0].col
@@ -6404,7 +6487,9 @@ def map_unresolved_function(
             spark_function_name = f"nth_value({snowpark_arg_names[0]}, {n}){' ignore nulls' if ignore_nulls else ''}"
         case "ntile":
             result_exp = snowpark_fn.ntile(snowpark_args[0])
-            result_exp = TypedColumn(result_exp, lambda: [LongType()])
+            # IntegerType per Spark's NTile case class which extends AggregateWindowFunction, which defines dataType = IntegerType
+            # https://github.com/apache/spark/blob/34d9413ca161f4531544565976a46c6da7d371cd/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/windowExpressions.scala#L626
+            result_exp = _resolve_aggregate_exp(result_exp, IntegerType())
         case "nullif":
             result_exp = TypedColumn(
                 snowpark_fn.call_function("nullif", *snowpark_args),
@@ -6780,8 +6865,8 @@ def map_unresolved_function(
             spark_function_name = f"{function_name}({unwrap_literal(percentage_arg)}) WITHIN GROUP (ORDER BY {snowpark_arg_names[0]}{direction_part})"
         case "pi":
             spark_function_name = "PI()"
-            result_exp = snowpark_fn.lit(math.pi)
-            result_type = FloatType()
+            result_type = DoubleType()
+            result_exp = snowpark_fn.lit(math.pi, datatype=result_type)
         case "pmod":
             dividend_type = snowpark_typed_args[0].typ
             divisor_type = snowpark_typed_args[1].typ
@@ -7052,7 +7137,9 @@ def map_unresolved_function(
             result_type = DoubleType()
         case "rank":
             result_exp = snowpark_fn.rank()
-            result_exp = TypedColumn(result_exp, lambda: [LongType()])
+            # IntegerType per Spark's Rank case class which extends AggregateWindowFunction, which defines dataType = IntegerType
+            # https://github.com/apache/spark/blob/34d9413ca161f4531544565976a46c6da7d371cd/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/windowExpressions.scala#L626
+            result_exp = _resolve_aggregate_exp(result_exp, IntegerType())
         case "reduce":
             # Call aggregator provided as a snowpark argument
             result_exp = snowpark_args[0]
@@ -7472,7 +7559,9 @@ def map_unresolved_function(
                 result_type = snowpark_typed_args[0].typ
         case "row_number":
             result_exp = snowpark_fn.row_number()
-            result_exp = TypedColumn(result_exp, lambda: [LongType()])
+            # IntegerType per Spark's RowNumberLike case class which extends AggregateWindowFunction, which defines dataType = IntegerType
+            # https://github.com/apache/spark/blob/34d9413ca161f4531544565976a46c6da7d371cd/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/windowExpressions.scala#L626
+            result_exp = _resolve_aggregate_exp(result_exp, IntegerType())
         case "schema_of_csv":
             # Validate that the input is a foldable STRING expression
             if (
@@ -7908,28 +7997,33 @@ def map_unresolved_function(
             result_exp = snowpark_fn.sinh(snowpark_args[0])
             result_type = DoubleType()
         case "size":
+            # When size function is called size has type integer in Spark
+            # https://github.com/apache/spark/blob/master/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/collectionOperations.scala#L123
+            result_type = IntegerType()
+
             v = snowpark_fn.cast(snowpark_args[0], VariantType())
             null_value = (
                 snowpark_fn.lit(None) if spark_sql_ansi_enabled else snowpark_fn.lit(-1)
             )
             result_exp = (
-                snowpark_fn.when(
-                    snowpark_fn.is_array(v),
-                    snowpark_fn.array_size(v),
+                (
+                    snowpark_fn.when(
+                        snowpark_fn.is_array(v),
+                        snowpark_fn.array_size(v),
+                    )
+                    .when(
+                        snowpark_fn.is_object(v),
+                        snowpark_fn.array_size(snowpark_fn.object_keys(v)),
+                    )
+                    .when(
+                        snowpark_fn.is_null(v),
+                        null_value,
+                    )
+                    .otherwise(snowpark_fn.lit(None))
                 )
-                .when(
-                    snowpark_fn.is_object(v),
-                    snowpark_fn.array_size(snowpark_fn.object_keys(v)),
-                )
-                .when(
-                    snowpark_fn.is_null(v),
-                    null_value,
-                )
-                .otherwise(snowpark_fn.lit(None))
-            ).alias(f"SIZE({snowpark_args[0]})")
-            # When size function is called size has type integer in Spark
-            # https://github.com/apache/spark/blob/master/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/collectionOperations.scala#L123
-            result_type = IntegerType()
+                .cast(result_type)
+                .alias(f"SIZE({snowpark_args[0]})")
+            )
         case "skewness":
             # SNOW-2177354
             if isinstance(snowpark_typed_args[0].typ, _NumericType):
@@ -10269,61 +10363,38 @@ def map_unresolved_function(
             # TODO SNOW-2034495: figure out how to specify the type of a window
             result_exp = _type_with_typer(result_exp)
         case "xpath":
-            xpath_list_udf = register_cached_java_udf(
-                "com.snowflake.snowpark_connect.udfs.XPathUdfs.xpath_list",
-                ["STRING", "STRING"],
-                "ARRAY(STRING)",
-            )
-
-            result_exp = xpath_list_udf(snowpark_args[0], snowpark_args[1])
             result_type = ArrayType(StringType())
+            result_exp = _create_xpath_expression("xpath_list", "ARRAY(STRING)")
         case "xpath_boolean":
-            xpath_boolean_udf = register_cached_java_udf(
-                "com.snowflake.snowpark_connect.udfs.XPathUdfs.xpath_boolean",
-                ["STRING", "STRING"],
-                "BOOLEAN",
-            )
-
-            result_exp = xpath_boolean_udf(*snowpark_args)
             result_type = BooleanType()
-        case "xpath_double" | "xpath_float" | "xpath_number":
-            xpath_number_udf = register_cached_java_udf(
-                "com.snowflake.snowpark_connect.udfs.XPathUdfs.xpath_number",
-                ["STRING", "STRING"],
-                "DOUBLE",
-            )
-
-            result_exp = xpath_number_udf(*snowpark_args)
+            result_exp = _create_xpath_expression("xpath_boolean", "BOOLEAN")
+        case "xpath_double" | "xpath_number":
             result_type = DoubleType()
-        case "xpath_int" | "xpath_long" | "xpath_short":
-            xpath_number_udf = register_cached_java_udf(
-                "com.snowflake.snowpark_connect.udfs.XPathUdfs.xpath_number",
-                ["STRING", "STRING"],
-                "DOUBLE",
+            result_exp = _create_xpath_expression("xpath_number", "DOUBLE")
+        case "xpath_float":
+            result_type = FloatType()
+            result_exp = _create_xpath_expression("xpath_number", "DOUBLE")
+        case "xpath_int":
+            result_type = IntegerType()
+            xpath_expression = _create_xpath_expression("xpath_number", "DOUBLE")
+            result_exp = _cast_and_handle_nan_xpath_expression(
+                xpath_expression, result_type
             )
-
-            udf_result = xpath_number_udf(*snowpark_args)
-
-            match function_name:
-                case "xpath_int":
-                    result_type = IntegerType()
-                case "xpath_short":
-                    result_type = ShortType()
-                case "xpath_long":
-                    result_type = LongType()
-
-            result_exp = snowpark_fn.when(
-                snowpark_fn.equal_nan(udf_result), snowpark_fn.lit(0)
-            ).otherwise(snowpark_fn.cast(udf_result, result_type))
+        case "xpath_long":
+            result_type = LongType()
+            xpath_expression = _create_xpath_expression("xpath_number", "DOUBLE")
+            result_exp = _cast_and_handle_nan_xpath_expression(
+                xpath_expression, result_type
+            )
+        case "xpath_short":
+            result_type = ShortType()
+            xpath_expression = _create_xpath_expression("xpath_number", "DOUBLE")
+            result_exp = _cast_and_handle_nan_xpath_expression(
+                xpath_expression, result_type
+            )
         case "xpath_string":
-            xpath_string_udf = register_cached_java_udf(
-                "com.snowflake.snowpark_connect.udfs.XPathUdfs.xpath_string",
-                ["STRING", "STRING"],
-                "STRING",
-            )
-
-            result_exp = xpath_string_udf(*snowpark_args)
             result_type = StringType()
+            result_exp = _create_xpath_expression("xpath_string", "STRING")
         case "xxhash64":
             import snowflake.snowpark_connect.utils.xxhash64 as xxhash64
 
@@ -11870,14 +11941,19 @@ def _arithmetic_operation(
         return tc.col.cast(typ)
 
     op_for_overflow_check = op(arg1.col.cast(DoubleType()), arg2.col.cast(DoubleType()))
-    safe_op = op(_cast_arg(arg1), _cast_arg(arg2))
+    direct_op = op(arg1.col, arg2.col)
 
     if overflow_possible:
+        if not isinstance(arg1.typ, DecimalType) or not isinstance(
+            arg2.typ, DecimalType
+        ):
+            direct_op = op(_cast_arg(arg1), _cast_arg(arg2))
+
         return _cast_arithmetic_operation_result(
-            op_for_overflow_check, safe_op, target_type, should_raise_on_overflow
+            op_for_overflow_check, direct_op, target_type, should_raise_on_overflow
         )
     else:
-        return op(arg1.col, arg2.col).cast(target_type)
+        return direct_op.cast(target_type)
 
 
 def _cast_arithmetic_operation_result(

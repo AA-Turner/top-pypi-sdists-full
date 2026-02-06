@@ -33,6 +33,7 @@ from .literals import (
     ThroughputModeType,
     TypeStatusType,
     ViewTypeType,
+    WarmThroughputStatusType,
 )
 
 if sys.version_info >= (3, 12):
@@ -113,6 +114,8 @@ __all__ = (
     "UpdateKeyspaceResponseTypeDef",
     "UpdateTableRequestTypeDef",
     "UpdateTableResponseTypeDef",
+    "WarmThroughputSpecificationSummaryTypeDef",
+    "WarmThroughputSpecificationTypeDef",
 )
 
 
@@ -198,6 +201,11 @@ class TimeToLiveTypeDef(TypedDict):
     status: Literal["ENABLED"]
 
 
+class WarmThroughputSpecificationTypeDef(TypedDict):
+    readUnitsPerSecond: NotRequired[int]
+    writeUnitsPerSecond: NotRequired[int]
+
+
 FieldDefinitionTypeDef = TypedDict(
     "FieldDefinitionTypeDef",
     {
@@ -244,6 +252,12 @@ class GetTableRequestTypeDef(TypedDict):
 class PointInTimeRecoverySummaryTypeDef(TypedDict):
     status: PointInTimeRecoveryStatusType
     earliestRestorableTimestamp: NotRequired[datetime]
+
+
+class WarmThroughputSpecificationSummaryTypeDef(TypedDict):
+    readUnitsPerSecond: int
+    writeUnitsPerSecond: int
+    status: WarmThroughputStatusType
 
 
 class GetTypeRequestTypeDef(TypedDict):
@@ -308,12 +322,6 @@ class AutoScalingPolicyTypeDef(TypedDict):
     targetTrackingScalingPolicyConfiguration: NotRequired[
         TargetTrackingScalingPolicyConfigurationTypeDef
     ]
-
-
-class ReplicaSpecificationSummaryTypeDef(TypedDict):
-    region: NotRequired[str]
-    status: NotRequired[TableStatusType]
-    capacitySpecification: NotRequired[CapacitySpecificationSummaryTypeDef]
 
 
 class CdcSpecificationTypeDef(TypedDict):
@@ -426,6 +434,13 @@ class GetKeyspaceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ReplicaSpecificationSummaryTypeDef(TypedDict):
+    region: NotRequired[str]
+    status: NotRequired[TableStatusType]
+    capacitySpecification: NotRequired[CapacitySpecificationSummaryTypeDef]
+    warmThroughputSpecification: NotRequired[WarmThroughputSpecificationSummaryTypeDef]
+
+
 class ListKeyspacesResponseTypeDef(TypedDict):
     keyspaces: list[KeyspaceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -495,6 +510,7 @@ class GetTableResponseTypeDef(TypedDict):
     replicaSpecifications: list[ReplicaSpecificationSummaryTypeDef]
     latestStreamArn: str
     cdcSpecification: CdcSpecificationSummaryTypeDef
+    warmThroughputSpecification: WarmThroughputSpecificationSummaryTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -532,6 +548,7 @@ class CreateTableRequestTypeDef(TypedDict):
     autoScalingSpecification: NotRequired[AutoScalingSpecificationTypeDef]
     replicaSpecifications: NotRequired[Sequence[ReplicaSpecificationTypeDef]]
     cdcSpecification: NotRequired[CdcSpecificationTypeDef]
+    warmThroughputSpecification: NotRequired[WarmThroughputSpecificationTypeDef]
 
 
 class RestoreTableRequestTypeDef(TypedDict):
@@ -561,6 +578,7 @@ class UpdateTableRequestTypeDef(TypedDict):
     autoScalingSpecification: NotRequired[AutoScalingSpecificationTypeDef]
     replicaSpecifications: NotRequired[Sequence[ReplicaSpecificationTypeDef]]
     cdcSpecification: NotRequired[CdcSpecificationTypeDef]
+    warmThroughputSpecification: NotRequired[WarmThroughputSpecificationTypeDef]
 
 
 class GetTableAutoScalingSettingsResponseTypeDef(TypedDict):

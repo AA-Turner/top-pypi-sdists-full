@@ -215,6 +215,7 @@ from .waiter import (
     OutputDeletedWaiter,
     OutputRoutedWaiter,
     OutputStandbyWaiter,
+    OutputUnroutedWaiter,
 )
 
 if sys.version_info >= (3, 12):
@@ -1323,6 +1324,17 @@ class MediaConnectClient(AioBaseClient):
     def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["output_standby"]
     ) -> OutputStandbyWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/get_waiter.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconnect/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["output_unrouted"]
+    ) -> OutputUnroutedWaiter:
         """
         Returns an object that can wait for some condition.
 

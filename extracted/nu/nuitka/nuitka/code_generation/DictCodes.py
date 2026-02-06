@@ -1,12 +1,10 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Code generation for dictionaries.
+"""Code generation for dictionaries."""
 
-"""
-
-from nuitka import Options
 from nuitka.PythonVersions import python_version
+from nuitka.States import states
 from nuitka.utils.Jinja2 import renderTemplateFromString
 
 from .CallCodes import getCallCodePosArgsQuick
@@ -886,7 +884,7 @@ def generateDictOperationRemoveCode(statement, emit, context):
 
     with context.withCurrentSourceCodeReference(
         statement.subnode_key.getSourceReference()
-        if Options.is_full_compat
+        if states.is_full_compat
         else statement.getSourceReference()
     ):
         res_name = context.getBoolResName()
@@ -905,11 +903,11 @@ def generateDictOperationRemoveCode(statement, emit, context):
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

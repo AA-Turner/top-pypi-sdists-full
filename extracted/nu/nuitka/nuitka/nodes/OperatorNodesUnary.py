@@ -1,13 +1,13 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Nodes for unary operations.
+"""Nodes for unary operations.
 
 Some of these come from built-ins, e.g. abs, some from syntax, and repr from both.
 """
 
-from nuitka import PythonOperators
 from nuitka.Errors import NuitkaAssumptionError
+from nuitka.PythonOperators import unary_operator_functions
 
 from .ChildrenHavingMixins import ChildHavingOperandMixin
 from .ConstantRefNodes import makeConstantRefNode
@@ -213,7 +213,7 @@ class ExpressionOperationUnarySub(
     kind = "EXPRESSION_OPERATION_UNARY_SUB"
 
     operator = "USub"
-    simulator = PythonOperators.unary_operator_functions[operator]
+    simulator = unary_operator_functions[operator]
 
     __slots__ = ("type_shape", "escape_desc")
 
@@ -239,7 +239,7 @@ class ExpressionOperationUnaryAdd(
     kind = "EXPRESSION_OPERATION_UNARY_ADD"
 
     operator = "UAdd"
-    simulator = PythonOperators.unary_operator_functions[operator]
+    simulator = unary_operator_functions[operator]
 
     __slots__ = ("type_shape", "escape_desc")
 
@@ -263,7 +263,7 @@ class ExpressionOperationUnaryInvert(ExpressionOperationUnaryBase):
     kind = "EXPRESSION_OPERATION_UNARY_INVERT"
 
     operator = "Invert"
-    simulator = PythonOperators.unary_operator_functions[operator]
+    simulator = unary_operator_functions[operator]
 
     def __init__(self, operand, source_ref):
         ExpressionOperationUnaryBase.__init__(
@@ -277,7 +277,7 @@ class ExpressionOperationNot(
     kind = "EXPRESSION_OPERATION_NOT"
 
     operator = "Not"
-    simulator = PythonOperators.unary_operator_functions[operator]
+    simulator = unary_operator_functions[operator]
 
     def __init__(self, operand, source_ref):
         ExpressionOperationUnaryBase.__init__(
@@ -329,7 +329,7 @@ class ExpressionOperationUnaryAbs(ExpressionOperationUnaryBase):
     kind = "EXPRESSION_OPERATION_UNARY_ABS"
 
     operator = "Abs"
-    simulator = PythonOperators.unary_operator_functions[operator]
+    simulator = unary_operator_functions[operator]
 
     def __init__(self, operand, source_ref):
         ExpressionOperationUnaryBase.__init__(
@@ -390,11 +390,11 @@ def makeExpressionOperationUnary(operator, operand, source_ref):
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

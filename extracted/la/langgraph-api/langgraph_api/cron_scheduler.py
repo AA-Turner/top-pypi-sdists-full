@@ -25,7 +25,7 @@ async def cron_scheduler():
     logger.info("Starting cron scheduler")
     while True:
         try:
-            async with connect() as conn:
+            async with connect(supports_core_api=False) as conn:
                 async for cron in Crons.next(conn):
                     on_run_completed = cron.get("on_run_completed")
 

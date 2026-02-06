@@ -27,7 +27,6 @@ use crate::export::definitions::DefinitionStyle;
 use crate::export::definitions::Definitions;
 use crate::export::definitions::DunderAllEntry;
 use crate::export::definitions::DunderAllKind;
-use crate::export::definitions::SyntacticDeps;
 use crate::export::special::SpecialExport;
 use crate::module::module_info::ModuleInfo;
 use crate::state::loader::FindingOrError;
@@ -45,8 +44,8 @@ pub trait LookupExport {
     /// Get the wildcard exports for a module. Records a dependency on `module` regardless of if it exists.
     fn get_wildcard(&self, module: ModuleName) -> Option<Arc<SmallSet<Name>>>;
 
-    /// Get all export names for a module. Records a dependency on all changes to `module`.
-    fn get_every_export(&self, module: ModuleName) -> Option<SmallSet<Name>>;
+    /// Get all export names for a module. Records no dependencies.
+    fn get_every_export_untracked(&self, module: ModuleName) -> Option<SmallSet<Name>>;
 
     /// Check if a submodule is imported implicitly. Records a dependency on `name` from `module` regardless of if it exists.
     fn is_submodule_imported_implicitly(&self, module: ModuleName, name: &Name) -> bool;
@@ -175,15 +174,101 @@ impl Exports {
         self.0.wildcard.calculate(f).unwrap_or_default()
     }
 
+    /// Check if the wildcard set would be different between self and other.
+    /// This compares the raw `__all__` entries without using the lookup,
+    /// so it's safe to call during incremental updates.
+    pub fn wildcard_entries_changed(&self, other: &Self) -> bool {
+        let self_entries = &self.0.definitions.dunder_all.entries;
+        let other_entries = &other.0.definitions.dunder_all.entries;
+
+        if self_entries.len() != other_entries.len() {
+            return true;
+        }
+
+        // Compare entries ignoring ranges
+        for (a, b) in self_entries.iter().zip(other_entries.iter()) {
+            let same = match (a, b) {
+                (DunderAllEntry::Name(_, na), DunderAllEntry::Name(_, nb)) => na == nb,
+                (DunderAllEntry::Module(_, ma), DunderAllEntry::Module(_, mb)) => ma == mb,
+                (DunderAllEntry::Remove(_, ra), DunderAllEntry::Remove(_, rb)) => ra == rb,
+                _ => false,
+            };
+            if !same {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    /// Get the names that were added or removed between self and other.
+    /// Returns the symmetric difference: names that exist in one but not the other.
+    pub fn changed_definition_names(&self, other: &Self) -> SmallSet<Name> {
+        let self_defs = &self.0.definitions.definitions;
+        let other_defs = &other.0.definitions.definitions;
+
+        // Fast path: if key sets are identical, no changes
+        if self_defs.len() == other_defs.len()
+            && self_defs.keys().all(|k| other_defs.contains_key(k))
+        {
+            return SmallSet::new();
+        }
+
+        // Compute symmetric difference: (self - other) ∪ (other - self)
+        self_defs
+            .keys()
+            .filter(|name| !other_defs.contains_key(*name))
+            .chain(
+                other_defs
+                    .keys()
+                    .filter(|name| !self_defs.contains_key(*name)),
+            )
+            .cloned()
+            .collect()
+    }
+
+    /// Get the names where metadata changed between self and other.
+    /// Checks: is_import status, implicitly_imported_submodules, deprecated, special_exports.
+    /// Only checks names that exist in both versions (existence changes tracked separately).
+    /// Ignores TextRange fields (range, docstring_range) per design doc.
+    pub fn changed_metadata_names(&self, other: &Self) -> SmallSet<Name> {
+        let self_defs = &self.0.definitions;
+        let other_defs = &other.0.definitions;
+
+        let mut changed = SmallSet::new();
+
+        // Check names that exist in both
+        for (name, self_def) in self_defs.definitions.iter() {
+            if let Some(other_def) = other_defs.definitions.get(name) {
+                // Check is_import status (is_reexport)
+                if self_def.style.is_import() != other_def.style.is_import() {
+                    changed.insert(name.clone());
+                    continue;
+                }
+                // Check implicitly_imported_submodules
+                let self_implicit = self_defs.implicitly_imported_submodules.contains(name);
+                let other_implicit = other_defs.implicitly_imported_submodules.contains(name);
+                if self_implicit != other_implicit {
+                    changed.insert(name.clone());
+                    continue;
+                }
+                // Check deprecated
+                if self_defs.deprecated.get(name) != other_defs.deprecated.get(name) {
+                    changed.insert(name.clone());
+                    continue;
+                }
+                // Check special_exports
+                if self_defs.special_exports.get(name) != other_defs.special_exports.get(name) {
+                    changed.insert(name.clone());
+                }
+            }
+        }
+        changed
+    }
+
     /// Get the docstring for this module.
     pub fn docstring_range(&self) -> Option<TextRange> {
         self.0.docstring_range
-    }
-
-    /// Get the syntactic dependencies for this module.
-    /// Includes imports from all scopes (module-level and nested in functions/classes).
-    pub fn syntactic_deps(&self) -> &SyntacticDeps {
-        &self.0.definitions.syntactic_deps
     }
 
     pub fn is_submodule_imported_implicitly(&self, name: &Name) -> bool {
@@ -343,7 +428,7 @@ mod tests {
             self.get(&module).map(|x| x.wildcard(self))
         }
 
-        fn get_every_export(&self, module: ModuleName) -> Option<SmallSet<Name>> {
+        fn get_every_export_untracked(&self, module: ModuleName) -> Option<SmallSet<Name>> {
             self.get(&module)
                 .map(|x| x.exports(self).keys().cloned().collect::<SmallSet<Name>>())
         }

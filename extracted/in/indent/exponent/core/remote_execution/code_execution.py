@@ -17,9 +17,7 @@ from exponent.core.remote_execution.truncation import (
 EMPTY_OUTPUT_STRING = "(No output)"
 
 
-def _truncate_shell_output(
-    content: str, chat_uuid: str
-) -> tuple[str, bool, str | None]:
+def _truncate_shell_output(content: str, chat_uuid: str) -> tuple[str, bool, str | None]:
     """Write shell output to disk and truncate if needed.
 
     Returns:
@@ -48,9 +46,7 @@ async def execute_code_streaming(
     working_directory: str,
     should_halt: Callable[[], bool] | None = None,
     chat_uuid: str | None = None,
-) -> AsyncGenerator[
-    StreamingCodeExecutionResponseChunk | StreamingCodeExecutionResponse, None
-]:
+) -> AsyncGenerator[StreamingCodeExecutionResponseChunk | StreamingCodeExecutionResponse, None]:
     """Execute code and stream output.
 
     Shell output is truncated to BASH_CHARACTER_LIMIT (8k chars) with full output
@@ -74,9 +70,7 @@ async def execute_code_streaming(
                 content = shell_output.output or EMPTY_OUTPUT_STRING
                 output_file: str | None = None
                 if chat_uuid:
-                    truncated_content, was_truncated, output_file = (
-                        _truncate_shell_output(content, chat_uuid)
-                    )
+                    truncated_content, was_truncated, output_file = _truncate_shell_output(content, chat_uuid)
                 elif len(content) > BASH_CHARACTER_LIMIT:
                     truncated_content = content[-BASH_CHARACTER_LIMIT:]
                     was_truncated = True

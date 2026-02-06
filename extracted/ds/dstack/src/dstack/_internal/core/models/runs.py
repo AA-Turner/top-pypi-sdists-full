@@ -17,6 +17,7 @@ from dstack._internal.core.models.common import (
 )
 from dstack._internal.core.models.configurations import (
     DEFAULT_PROBE_METHOD,
+    DEFAULT_PROBE_UNTIL_READY,
     DEFAULT_REPLICA_GROUP_NAME,
     LEGACY_REPO_DIR,
     AnyRunConfiguration,
@@ -190,6 +191,7 @@ class JobTerminationReason(str, Enum):
         error_mapping = {
             JobTerminationReason.INSTANCE_UNREACHABLE: "instance unreachable",
             JobTerminationReason.WAITING_INSTANCE_LIMIT_EXCEEDED: "waiting instance limit exceeded",
+            JobTerminationReason.WAITING_RUNNER_LIMIT_EXCEEDED: "waiting runner limit exceeded",
             JobTerminationReason.VOLUME_ERROR: "volume error",
             JobTerminationReason.GATEWAY_ERROR: "gateway error",
             JobTerminationReason.SCALED_DOWN: "scaled down",
@@ -247,6 +249,7 @@ class ProbeSpec(CoreModel):
     timeout: int
     interval: int
     ready_after: int
+    until_ready: bool = DEFAULT_PROBE_UNTIL_READY
 
 
 class JobSpec(CoreModel):

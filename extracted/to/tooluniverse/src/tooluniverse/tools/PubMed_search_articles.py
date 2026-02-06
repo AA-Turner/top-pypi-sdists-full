@@ -11,7 +11,6 @@ from ._shared_client import get_shared_client
 def PubMed_search_articles(
     query: str,
     limit: Optional[int] = 10,
-    api_key: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -26,8 +25,6 @@ def PubMed_search_articles(
         Search query for PubMed articles. Use keywords, author names, journal names, ...
     limit : int
         Number of articles to return. This sets the maximum number of articles retrie...
-    api_key : str
-        Optional NCBI API key for higher rate limits (10 req/sec vs 3 req/sec). Get y...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -44,7 +41,7 @@ def PubMed_search_articles(
     return get_shared_client().run_one_function(
         {
             "name": "PubMed_search_articles",
-            "arguments": {"query": query, "limit": limit, "api_key": api_key},
+            "arguments": {"query": query, "limit": limit},
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

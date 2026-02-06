@@ -1,14 +1,11 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Node for constant expressions. Can be all common built-in types.
-
-"""
+"""Node for constant expressions. Can be all common built-in types."""
 
 import sys
 from abc import abstractmethod
 
-from nuitka import Options
 from nuitka.__past__ import (
     GenericAlias,
     UnionType,
@@ -35,6 +32,7 @@ from nuitka.Constants import (
     the_empty_unicode,
 )
 from nuitka.PythonVersions import python_version
+from nuitka.States import states
 from nuitka.Tracing import optimization_logger
 
 from .ExpressionBases import CompileTimeConstantExpressionBase
@@ -284,7 +282,7 @@ class ExpressionConstantRefBase(ExpressionConstantUntrackedRefBase):
 
         self.user_provided = user_provided
 
-        if not user_provided and Options.is_debug:
+        if not user_provided and states.is_debug:
             try:
                 if type(constant) in (str, unicode, bytes):
                     max_size = 1000
@@ -1294,7 +1292,9 @@ class ExpressionConstantTypeRef(ExpressionConstantUntrackedRefBase):
             )
 
             new_node, tags, message = computeBuiltinCall(
-                builtin_name=self.constant.__name__, call_node=call_node
+                builtin_name=self.constant.__name__,
+                call_node=call_node,
+                trace_collection=trace_collection,
             )
 
             return new_node, tags, message
@@ -1704,11 +1704,11 @@ class ExpressionConstantSysVersionInfoRef(ExpressionConstantUntrackedRefBase):
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

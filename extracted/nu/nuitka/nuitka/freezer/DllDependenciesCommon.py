@@ -1,13 +1,13 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-"""DLL dependency scan methods that are shared. """
+"""DLL dependency scan methods that are shared."""
 
 import os
 
 from nuitka.containers.OrderedSets import OrderedSet
 from nuitka.importing.Importing import locateModule
-from nuitka.plugins.Plugins import Plugins
+from nuitka.plugins.Hooks import getModuleSpecificDllPaths
 from nuitka.Tracing import inclusion_logger
 from nuitka.utils.FileOperations import getSubDirectoriesWithDlls
 from nuitka.utils.ModuleNames import ModuleName
@@ -63,7 +63,7 @@ that should not happen. Please report the issue."""
             scan_dirs.update(getSubDirectoriesWithDlls(package_dir))
 
         if consider_plugins:
-            for plugin_provided_dir in Plugins.getModuleSpecificDllPaths(package_name):
+            for plugin_provided_dir in getModuleSpecificDllPaths(package_name):
                 if os.path.isdir(plugin_provided_dir):
                     scan_dirs.add(plugin_provided_dir)
                     scan_dirs.update(getSubDirectoriesWithDlls(plugin_provided_dir))
@@ -84,11 +84,11 @@ that should not happen. Please report the issue."""
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

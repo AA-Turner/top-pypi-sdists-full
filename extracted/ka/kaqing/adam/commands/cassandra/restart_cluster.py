@@ -33,7 +33,7 @@ class RestartCluster(Command):
 
         with self.validate(args, state) as (args, state):
             with extract_options(args, '--force') as (args, forced):
-                ctx = self.context()
+                ctx = Context.new(show_out=True)
 
                 log2(f'Restarting all pods from {state.sts}...')
                 for pod_name in StatefulSets.pod_names(state.sts, state.namespace):
@@ -41,7 +41,7 @@ class RestartCluster(Command):
                         ctx.log(f'[{pod_name}] Restarting...')
                     else:
                         ctx.log(f'[{pod_name}] Checking...')
-                        node: NodeRestartability = NodeRestartability.probe(state, pod_name, in_restartings=NodeScheduler.restartings(ctx=ctx), ctx=ctx.copy(show_out=False))
+                        node: NodeRestartability = CassandraStatus.probe(state, pod_name, in_restartings=NodeScheduler.restartings(ctx=ctx), ctx=ctx.copy(show_out=False))
                         if not node.restartable():
                             node.log(ctx=ctx.copy(text_color=Color.gray))
                             ctx.log2('Please add --force for restarting pod unsafely.')

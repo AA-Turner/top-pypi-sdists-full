@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hfortix-fortios"
-version = "0.5.158"
+version = "0.5.159"
 description = "Type-safe Python client for FortiGate automation and FortiOS REST API - 1,348+ endpoints with async support and atomic transactions"
 authors = [{name = "Herman W. Jacobsen", email = "herman@wjacobsen.fo"}]
 maintainers = [{name = "Herman W. Jacobsen", email = "herman@wjacobsen.fo"}]
@@ -63,3 +63,6 @@ Download = "https://pypi.org/project/hfortix-fortios/#files"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+hfortix_fortios = ["py.typed", "**/*.pyi"]

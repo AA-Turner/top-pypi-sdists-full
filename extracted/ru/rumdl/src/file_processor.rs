@@ -730,10 +730,16 @@ pub fn process_file_with_formatter(
         if config.code_block_tools.enabled {
             let processor = rumdl_lib::code_block_tools::CodeBlockToolProcessor::new(&config.code_block_tools);
             match processor.format(&content) {
-                Ok(formatted) => {
-                    if formatted != content {
-                        content = formatted;
+                Ok(output) => {
+                    if output.content != content {
+                        content = output.content;
                         warnings_fixed += 1;
+                    }
+                    // Report any errors that occurred during formatting
+                    if output.had_errors && !silent {
+                        for msg in &output.error_messages {
+                            eprintln!("Warning: {msg}");
+                        }
                     }
                 }
                 Err(e) => {
@@ -781,10 +787,16 @@ pub fn process_file_with_formatter(
         if config.code_block_tools.enabled {
             let processor = rumdl_lib::code_block_tools::CodeBlockToolProcessor::new(&config.code_block_tools);
             match processor.format(&content) {
-                Ok(formatted) => {
-                    if formatted != content {
-                        content = formatted;
+                Ok(output) => {
+                    if output.content != content {
+                        content = output.content;
                         warnings_fixed += 1;
+                    }
+                    // Report any errors that occurred during formatting
+                    if output.had_errors && !silent {
+                        for msg in &output.error_messages {
+                            eprintln!("Warning: {msg}");
+                        }
                     }
                 }
                 Err(e) => {
@@ -1123,9 +1135,12 @@ pub fn process_file_with_index(
     // Combine all warnings
     let mut all_warnings = warnings_result.unwrap_or_default();
 
-    // Check embedded markdown blocks and add their warnings
-    let embedded_warnings = check_embedded_markdown_blocks(&content, &filtered_rules, config);
-    all_warnings.extend(embedded_warnings);
+    // Check embedded markdown blocks if configured in code-block-tools
+    // The special tool "rumdl" in [code-block-tools.languages.markdown] enables this
+    if should_lint_embedded_markdown(&config.code_block_tools) {
+        let embedded_warnings = check_embedded_markdown_blocks(&content, &filtered_rules, config);
+        all_warnings.extend(embedded_warnings);
+    }
 
     // Run code block tools linting if enabled
     if config.code_block_tools.enabled {
@@ -1136,9 +1151,17 @@ pub fn process_file_with_index(
                 all_warnings.extend(tool_warnings);
             }
             Err(e) => {
-                if !silent {
-                    eprintln!("Warning: Code block tool linting failed: {e}");
-                }
+                // Convert processor error to a warning so it counts toward exit code
+                all_warnings.push(rumdl_lib::rule::LintWarning {
+                    message: e.to_string(),
+                    line: 1,
+                    column: 1,
+                    end_line: 1,
+                    end_column: 1,
+                    severity: rumdl_lib::rule::Severity::Error,
+                    fix: None,
+                    rule_name: Some("code-block-tools".to_string()),
+                });
             }
         }
     }
@@ -1373,6 +1396,31 @@ fn format_embedded_markdown_blocks_recursive(
     }
 
     formatted_count
+}
+
+/// Check if embedded markdown linting is enabled via code-block-tools configuration.
+///
+/// Returns true if the special "rumdl" tool is configured for markdown/md language,
+/// indicating that rumdl's built-in markdown linting should be applied to markdown code blocks.
+fn should_lint_embedded_markdown(config: &rumdl_lib::code_block_tools::CodeBlockToolsConfig) -> bool {
+    if !config.enabled {
+        return false;
+    }
+
+    // Check if markdown language is configured with the built-in rumdl tool
+    // Also check "md" since it's a common alias
+    for lang_key in ["markdown", "md"] {
+        if let Some(lang_config) = config.languages.get(lang_key)
+            && lang_config
+                .lint
+                .iter()
+                .any(|tool| tool == rumdl_lib::code_block_tools::RUMDL_BUILTIN_TOOL)
+        {
+            return true;
+        }
+    }
+
+    false
 }
 
 /// Check markdown content embedded in fenced code blocks with `markdown` or `md` language.
@@ -2424,5 +2472,81 @@ mod tests {
             format_content.contains("# Another\n\n## Outside disabled"),
             "Second block should have blank line added"
         );
+    }
+
+    #[test]
+    fn test_should_lint_embedded_markdown_disabled_by_default() {
+        use rumdl_lib::code_block_tools::CodeBlockToolsConfig;
+        // Default config has code_block_tools.enabled = false
+        let config = CodeBlockToolsConfig::default();
+        assert!(!should_lint_embedded_markdown(&config));
+    }
+
+    #[test]
+    fn test_should_lint_embedded_markdown_enabled_but_no_markdown_config() {
+        use rumdl_lib::code_block_tools::CodeBlockToolsConfig;
+        // code_block_tools enabled but no markdown language configured
+        let config = CodeBlockToolsConfig {
+            enabled: true,
+            ..Default::default()
+        };
+        assert!(!should_lint_embedded_markdown(&config));
+    }
+
+    #[test]
+    fn test_should_lint_embedded_markdown_with_rumdl_tool() {
+        use rumdl_lib::code_block_tools::{CodeBlockToolsConfig, LanguageToolConfig, RUMDL_BUILTIN_TOOL};
+        // Properly configured: enabled with markdown lint = ["rumdl"]
+        let mut config = CodeBlockToolsConfig {
+            enabled: true,
+            ..Default::default()
+        };
+        config.languages.insert(
+            "markdown".to_string(),
+            LanguageToolConfig {
+                lint: vec![RUMDL_BUILTIN_TOOL.to_string()],
+                format: vec![],
+                on_error: None,
+            },
+        );
+        assert!(should_lint_embedded_markdown(&config));
+    }
+
+    #[test]
+    fn test_should_lint_embedded_markdown_with_md_alias() {
+        use rumdl_lib::code_block_tools::{CodeBlockToolsConfig, LanguageToolConfig, RUMDL_BUILTIN_TOOL};
+        // Using "md" instead of "markdown" should also work
+        let mut config = CodeBlockToolsConfig {
+            enabled: true,
+            ..Default::default()
+        };
+        config.languages.insert(
+            "md".to_string(),
+            LanguageToolConfig {
+                lint: vec![RUMDL_BUILTIN_TOOL.to_string()],
+                format: vec![],
+                on_error: None,
+            },
+        );
+        assert!(should_lint_embedded_markdown(&config));
+    }
+
+    #[test]
+    fn test_should_lint_embedded_markdown_with_other_tool() {
+        use rumdl_lib::code_block_tools::{CodeBlockToolsConfig, LanguageToolConfig};
+        // If markdown is configured with a different tool (not rumdl), don't lint
+        let mut config = CodeBlockToolsConfig {
+            enabled: true,
+            ..Default::default()
+        };
+        config.languages.insert(
+            "markdown".to_string(),
+            LanguageToolConfig {
+                lint: vec!["some-other-tool".to_string()],
+                format: vec![],
+                on_error: None,
+            },
+        );
+        assert!(!should_lint_embedded_markdown(&config));
     }
 }

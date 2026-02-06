@@ -1,7 +1,7 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" This module maintains the parameter specification classes.
+"""This module maintains the parameter specification classes.
 
 These are used for function, lambdas, generators. They are also a factory
 for the respective variable objects. One of the difficulty of Python and
@@ -15,13 +15,13 @@ flexible.
 
 """
 
-from nuitka import Variables
 from nuitka.PythonVersions import python_version
 from nuitka.utils.InstanceCounters import (
     counted_del,
     counted_init,
     isCountingInstances,
 )
+from nuitka.Variables import ParameterVariable
 
 
 class TooManyArguments(Exception):
@@ -183,7 +183,7 @@ class ParameterSpec(object):
 
         for normal_arg in self.normal_args:
             if type(normal_arg) is str:
-                normal_variable = Variables.ParameterVariable(
+                normal_variable = ParameterVariable(
                     owner=self.owner, parameter_name=normal_arg
                 )
             else:
@@ -192,26 +192,26 @@ class ParameterSpec(object):
             self.normal_variables.append(normal_variable)
 
         if self.list_star_arg:
-            self.list_star_variable = Variables.ParameterVariable(
+            self.list_star_variable = ParameterVariable(
                 owner=owner, parameter_name=self.list_star_arg
             )
         else:
             self.list_star_variable = None
 
         if self.dict_star_arg:
-            self.dict_star_variable = Variables.ParameterVariable(
+            self.dict_star_variable = ParameterVariable(
                 owner=owner, parameter_name=self.dict_star_arg
             )
         else:
             self.dict_star_variable = None
 
         self.kw_only_variables = [
-            Variables.ParameterVariable(owner=self.owner, parameter_name=kw_only_arg)
+            ParameterVariable(owner=self.owner, parameter_name=kw_only_arg)
             for kw_only_arg in self.kw_only_args
         ]
 
         self.pos_only_variables = [
-            Variables.ParameterVariable(owner=self.owner, parameter_name=pos_only_arg)
+            ParameterVariable(owner=self.owner, parameter_name=pos_only_arg)
             for pos_only_arg in self.pos_only_args
         ]
 
@@ -617,11 +617,11 @@ def matchCall(
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

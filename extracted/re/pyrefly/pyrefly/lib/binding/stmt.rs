@@ -26,8 +26,10 @@ use ruff_python_ast::StmtAssign;
 use ruff_python_ast::StmtExpr;
 use ruff_python_ast::StmtImportFrom;
 use ruff_python_ast::StmtReturn;
+use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+use starlark_map::Hashed;
 use starlark_map::small_set::SmallSet;
 
 use crate::binding::binding::AnnAssignHasValue;
@@ -35,19 +37,23 @@ use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingExpect;
+use crate::binding::binding::BindingTypeAlias;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::IsAsync;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyExpect;
+use crate::binding::binding::KeyTypeAlias;
 use crate::binding::binding::LinkedKey;
 use crate::binding::binding::NarrowUseLocation;
 use crate::binding::binding::RaisedException;
+use crate::binding::binding::TypeAliasParams;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::expr::Usage;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::LoopExit;
+use crate::binding::scope::NameReadInfo;
 use crate::binding::scope::Scope;
 use crate::config::error_kind::ErrorKind;
 use crate::error::context::ErrorInfo;
@@ -275,15 +281,137 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
+    fn typealiastype_from_call(&self, name: &Name, x: &ExprCall) -> (Option<Expr>, Vec<Expr>) {
+        let mut arg_name = false;
+        let mut value = None;
+        let mut type_params = None;
+        let check_name_arg = |arg: &Expr| {
+            if let Expr::StringLiteral(lit) = arg {
+                if lit.value.to_str() != name.as_str() {
+                    self.error(
+                        x.range,
+                        ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
+                        format!(
+                            "TypeAliasType must be assigned to a variable named `{}`",
+                            lit.value.to_str()
+                        ),
+                    );
+                }
+            } else {
+                self.error(
+                    arg.range(),
+                    ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
+                    "Expected first argument of `TypeAliasType` to be a string literal".to_owned(),
+                );
+            }
+        };
+        if let Some(arg) = x.arguments.args.first() {
+            check_name_arg(arg);
+            arg_name = true;
+        }
+        if let Some(arg) = x.arguments.args.get(1) {
+            value = Some(arg.clone());
+        }
+        if let Some(arg) = x.arguments.args.get(2) {
+            self.error(
+                arg.range(),
+                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
+                "Unexpected positional argument to `TypeAliasType`".to_owned(),
+            );
+        }
+        for kw in &x.arguments.keywords {
+            match &kw.arg {
+                Some(id) => match id.id.as_str() {
+                    "name" => {
+                        if arg_name {
+                            self.error(
+                                kw.range,
+                                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
+                                "Multiple values for argument `name`".to_owned(),
+                            );
+                        } else {
+                            check_name_arg(&kw.value);
+                            arg_name = true;
+                        }
+                    }
+                    "value" => {
+                        if value.is_some() {
+                            self.error(
+                                kw.range,
+                                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
+                                "Multiple values for argument `value`".to_owned(),
+                            );
+                        } else {
+                            value = Some(kw.value.clone());
+                        }
+                    }
+                    "type_params" => {
+                        if let Expr::Tuple(tuple) = &kw.value {
+                            type_params = Some(tuple.elts.clone());
+                        } else {
+                            self.error(
+                                kw.range,
+                                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
+                                "Value for argument `type_params` must be a tuple literal"
+                                    .to_owned(),
+                            );
+                        }
+                    }
+                    _ => {
+                        self.error(
+                            kw.range,
+                            ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
+                            format!("Unexpected keyword argument `{}` to `TypeAliasType`", id.id),
+                        );
+                    }
+                },
+                _ => {
+                    self.error(
+                        kw.range,
+                        ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
+                        "Cannot pass unpacked keyword arguments to `TypeAliasType`".to_owned(),
+                    );
+                }
+            }
+        }
+        if !arg_name {
+            self.error(
+                x.range,
+                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
+                "Missing `name` argument".to_owned(),
+            );
+        }
+        if let Some(value) = value {
+            (Some(value), type_params.unwrap_or_default())
+        } else {
+            self.error(
+                x.range,
+                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
+                "Missing `value` argument".to_owned(),
+            );
+            (None, type_params.unwrap_or_default())
+        }
+    }
+
     fn assign_type_alias_type(&mut self, name: &ExprName, call: &mut ExprCall) {
         self.ensure_type_alias_type_args(call);
-        self.bind_legacy_type_var_or_typing_alias(name, |ann| {
-            Binding::TypeAliasType(
-                ann,
-                Ast::expr_name_identifier(name.clone()),
-                Box::new(call.clone()),
-            )
-        })
+        let assigned = self.declare_current_idx(Key::Definition(ShortIdentifier::expr_name(name)));
+        let ann = self.bind_current(&name.id, &assigned, FlowStyle::Other);
+        let (value, type_params) = self.typealiastype_from_call(&name.id, call);
+        let key_type_alias = KeyTypeAlias(self.type_alias_index());
+        let binding_type_alias = BindingTypeAlias::TypeAliasType {
+            name: name.id.clone(),
+            annotation: ann,
+            expr: value.map(Box::new),
+        };
+        let idx_type_alias = self.insert_binding(key_type_alias, binding_type_alias);
+        let binding = Binding::TypeAlias {
+            name: name.id.clone(),
+            tparams: TypeAliasParams::TypeAliasType(type_params),
+            key_type_alias: idx_type_alias,
+            range: call.range(),
+        };
+        self.insert_binding_current(assigned, binding);
     }
 
     /// Bind the annotation in an `AnnAssign`
@@ -684,6 +812,19 @@ impl<'a> BindingsBuilder<'a> {
                     );
                 }
                 if let Expr::Name(name) = *x.name {
+                    if let NameReadInfo::Flow { .. } = self
+                        .scopes
+                        .look_up_name_for_read(Hashed::new(&name.id), &Usage::StaticTypeInformation)
+                    {
+                        self.error(
+                            name.range(),
+                            ErrorInfo::Kind(ErrorKind::Redefinition),
+                            format!(
+                                "Cannot redefine existing name `{}` as a type alias",
+                                name.id
+                            ),
+                        );
+                    }
                     // Create a new scope for the type alias type parameters
                     self.scopes.push(Scope::type_alias(x.range));
                     if let Some(params) = &mut x.type_params {
@@ -692,11 +833,19 @@ impl<'a> BindingsBuilder<'a> {
                     self.ensure_type(&mut x.value, &mut None);
                     // Pop the type alias scope before binding the definition
                     self.scopes.pop();
-                    let binding = Binding::ScopedTypeAlias(
-                        name.id.clone(),
-                        x.type_params.map(|x| *x),
-                        x.value,
-                    );
+                    let range = x.value.range();
+                    let key_type_alias = KeyTypeAlias(self.type_alias_index());
+                    let binding_type_alias = BindingTypeAlias::Scoped {
+                        name: name.id.clone(),
+                        expr: x.value,
+                    };
+                    let idx_type_alias = self.insert_binding(key_type_alias, binding_type_alias);
+                    let binding = Binding::TypeAlias {
+                        name: name.id.clone(),
+                        tparams: TypeAliasParams::Scoped(x.type_params.map(|x| *x)),
+                        key_type_alias: idx_type_alias,
+                        range,
+                    };
                     self.bind_definition(
                         &Ast::expr_name_identifier(name),
                         binding,

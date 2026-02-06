@@ -44,6 +44,7 @@ from langgraph_api.errors import (
     value_error_handler,
 )
 from langgraph_api.js.base import is_js_path
+from langgraph_api.middleware.ensure_store import EnsureStoreAccessible
 from langgraph_api.middleware.http_logger import AccessLoggerMiddleware
 from langgraph_api.middleware.private_network import PrivateNetworkMiddleware
 from langgraph_api.middleware.request_id import RequestIdMiddleware
@@ -170,8 +171,8 @@ protected_mount = Mount(
     ),
 )
 
-
 if user_router:
+    _store_access_middleware = [Middleware(EnsureStoreAccessible)]
     # Merge routes
     app = user_router
     if auth_before_custom_middleware:
@@ -196,7 +197,7 @@ if user_router:
             )
             + route_level_custom_middleware,
         )
-        app.user_middleware = global_middleware
+        app.user_middleware = global_middleware + _store_access_middleware
     else:
         user_app = (
             apply_middleware(
@@ -206,7 +207,9 @@ if user_router:
             if enable_auth_on_custom_routes
             else app.routes
         )
-        app.user_middleware = custom_middleware + global_middleware
+        app.user_middleware = (
+            custom_middleware + global_middleware + _store_access_middleware
+        )
 
     app.router.routes = (
         apply_middleware(unshadowable_meta_routes, route_level_custom_middleware)

@@ -1,10 +1,11 @@
 from adam.commands import extract_trailing_options
 from adam.commands.command import Command
+from adam.commands.cql.utils_cql import cassandra
 from adam.repl_state import ReplState, RequiredState
-from adam.utils_cassandra.pod_service import cassandra
+from adam.utils_context import Context
 
 class ShowCassandraRepairs(Command):
-    COMMAND = 'show repairs'
+    COMMAND = 'show cassandra repairs'
 
     # the singleton pattern
     def __new__(cls, *args, **kwargs):
@@ -28,7 +29,7 @@ class ShowCassandraRepairs(Command):
         with self.validate(args, state) as (args, state):
             with extract_trailing_options(args, '&') as (args, background):
                 with cassandra(state) as pods:
-                    return pods.nodetool('repair_admin list', self.context().copy(background=background))
+                    return pods.nodetool('repair_admin list', Context.new(cmd, background=background))
 
     def completion(self, state: ReplState):
         return super().completion(state, {'&': None})

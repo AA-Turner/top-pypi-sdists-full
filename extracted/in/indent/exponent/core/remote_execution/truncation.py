@@ -38,9 +38,7 @@ def _write_full_output_to_file(output: str, chat_uuid: str) -> str | None:
         artifacts_dir = get_chat_artifacts_dir(chat_uuid)
         os.makedirs(artifacts_dir, exist_ok=True)
 
-        fd, path = tempfile.mkstemp(
-            prefix="bash_output_", suffix=".txt", dir=artifacts_dir
-        )
+        fd, path = tempfile.mkstemp(prefix="bash_output_", suffix=".txt", dir=artifacts_dir)
         try:
             os.write(fd, output.encode("utf-8", errors="replace"))
         finally:
@@ -128,9 +126,7 @@ class ListFieldTruncation(TruncationStrategy[_T]):
 
         truncated_count = max(0, total_items - 2 * self.preview_items)
         truncated_list = (
-            value[: self.preview_items]
-            + [f"... {truncated_count} items truncated ..."]
-            + value[-self.preview_items :]
+            value[: self.preview_items] + [f"... {truncated_count} items truncated ..."] + value[-self.preview_items :]
         )
 
         updates: dict[str, Any] = {self.field_name: truncated_list}
@@ -201,7 +197,9 @@ class TailTruncation(TruncationStrategy[_T]):
             truncated_value = truncated_value[newline_pos + 1 :]
 
         if file_path:
-            truncation_msg = f"[Truncated to last {self.character_limit} characters. Full output written to: {file_path}]\n"
+            truncation_msg = (
+                f"[Truncated to last {self.character_limit} characters. Full output written to: {file_path}]\n"
+            )
         else:
             truncation_msg = f"[Truncated to last {self.character_limit} characters.]\n"
         truncated_value = truncation_msg + truncated_value
@@ -259,9 +257,7 @@ class StringListTruncation(TruncationStrategy[_T]):
 
         return False
 
-    def _truncate_item_content(
-        self, item: str | dict[str, Any]
-    ) -> str | dict[str, Any]:
+    def _truncate_item_content(self, item: str | dict[str, Any]) -> str | dict[str, Any]:
         """Truncate an individual item's content."""
         if isinstance(item, str):
             if len(item) <= self.max_item_length:
@@ -273,9 +269,7 @@ class StringListTruncation(TruncationStrategy[_T]):
             # Handle dict-style items (e.g., with metadata like file path and line number)
             if len(item["content"]) <= self.max_item_length:
                 return item
-            truncated_content, _ = truncate_output(
-                item["content"], self.max_item_length
-            )
+            truncated_content, _ = truncate_output(item["content"], self.max_item_length)
             return {**item, "content": truncated_content}
         else:
             return item
@@ -315,9 +309,7 @@ TRUNCATION_REGISTRY: dict[type[ToolResult], TruncationStrategy[Any]] = {
     WriteToolResult: StringFieldTruncation("message"),
     GrepToolResult: StringListTruncation("matches"),
     GlobToolResult: StringListTruncation("filenames", max_item_length=4096),
-    BashToolResult: TailTruncation(
-        "shell_output", character_limit=BASH_CHARACTER_LIMIT
-    ),
+    BashToolResult: TailTruncation("shell_output", character_limit=BASH_CHARACTER_LIMIT),
 }
 
 

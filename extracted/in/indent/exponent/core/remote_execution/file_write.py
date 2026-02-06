@@ -10,9 +10,7 @@ from exponent.core.remote_execution.utils import (
 )
 
 
-async def execute_full_file_rewrite(
-    file_path: FilePath, content: str, working_directory: str
-) -> str:
+async def execute_full_file_rewrite(file_path: FilePath, content: str, working_directory: str) -> str:
     try:
         # Construct the absolute path
         full_file_path = AsyncPath(os.path.join(working_directory, file_path))

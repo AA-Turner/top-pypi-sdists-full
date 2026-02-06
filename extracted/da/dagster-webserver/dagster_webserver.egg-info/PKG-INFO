@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-webserver
-Version: 1.12.13
+Version: 1.12.14
 Summary: Web UI for dagster.
 Home-page: https://github.com/dagster-io/dagster
 Author: Dagster Labs
@@ -17,8 +17,8 @@ Requires-Python: >=3.10,<3.15
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: click<9.0,>=7.0
-Requires-Dist: dagster==1.12.13
-Requires-Dist: dagster-graphql==1.12.13
+Requires-Dist: dagster==1.12.14
+Requires-Dist: dagster-graphql==1.12.14
 Requires-Dist: starlette!=0.36.0
 Requires-Dist: uvicorn[standard]
 Provides-Extra: notebook

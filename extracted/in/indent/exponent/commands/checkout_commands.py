@@ -76,8 +76,7 @@ def get_all_open_prs(chat: ChatsChatsChatsChats) -> list[tuple[int, str]]:
     return [
         (pr.number, pr.title)
         for pr in chat.pr_status
-        if isinstance(pr, ChatsChatsChatsChatsPrStatusPRInfo)
-        and pr.status == PRStatus.OPEN
+        if isinstance(pr, ChatsChatsChatsChatsPrStatusPRInfo) and pr.status == PRStatus.OPEN
     ]
 
 
@@ -138,7 +137,7 @@ def select_pr_interactive(pr_choices: list[PRChoice]) -> PRChoice:
 
 
 def find_prs_by_chat_id(pr_choices: list[PRChoice], chat_id: str) -> list[PRChoice]:
-    return [pr for pr in pr_choices if chat_id in {pr.chat.chat_uuid, pr.chat.id}]
+    return [pr for pr in pr_choices if chat_id == pr.chat.chat_uuid]
 
 
 def get_local_head() -> str | None:
@@ -274,9 +273,7 @@ def show_local_changes_and_confirm(pr_number: int) -> bool:
 
 def live_sync_pr(pr_number: int, poll_interval: int) -> None:
     last_local_head = get_local_head()
-    click.echo(
-        f"\nLive syncing PR #{pr_number} (polling every {poll_interval}s, Ctrl+C to stop)..."
-    )
+    click.echo(f"\nLive syncing PR #{pr_number} (polling every {poll_interval}s, Ctrl+C to stop)...")
     click.echo("Will exit if local changes are detected.\n")
 
     try:
@@ -298,9 +295,7 @@ def live_sync_pr(pr_number: int, poll_interval: int) -> None:
 
             remote_head = get_remote_head(pr_number)
             if remote_head is None:
-                click.secho(
-                    "Could not fetch remote head, PR may be closed", fg="yellow"
-                )
+                click.secho("Could not fetch remote head, PR may be closed", fg="yellow")
                 break
 
             if current_local_head != remote_head:

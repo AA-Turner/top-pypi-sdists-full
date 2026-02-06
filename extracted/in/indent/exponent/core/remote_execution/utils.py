@@ -60,9 +60,7 @@ DEFAULT_CHARACTER_LIMIT = 20_000
 MAX_LINES = 10_000
 
 
-def truncate_output(
-    output: str, character_limit: int = DEFAULT_CHARACTER_LIMIT
-) -> tuple[str, bool]:
+def truncate_output(output: str, character_limit: int = DEFAULT_CHARACTER_LIMIT) -> tuple[str, bool]:
     output_length = len(output)
     lines = output.split("\n")
 
@@ -130,9 +128,7 @@ def ws_retry(
     connection_name = connection_name.capitalize()
     reconnect_msg = f"{connection_name} reconnecting."
     disconnect_msg = f"{connection_name} connection closed."
-    max_disconnect_msg = (
-        f"{connection_name} connection closed {max_retries} times, exiting."
-    )
+    max_disconnect_msg = f"{connection_name} connection closed {max_retries} times, exiting."
 
     def decorator(
         f: Callable[..., Awaitable[None]],
@@ -213,9 +209,7 @@ def smart_decode(b: bytes) -> tuple[str, str] | None:
     # the special windows smart quotes.
     b = UnicodeDammit.detwingle(b)
 
-    encoding = UnicodeDammit(
-        b, known_definite_encodings=["utf-8", "cp1252"]
-    ).original_encoding
+    encoding = UnicodeDammit(b, known_definite_encodings=["utf-8", "cp1252"]).original_encoding
 
     if not encoding:
         return None

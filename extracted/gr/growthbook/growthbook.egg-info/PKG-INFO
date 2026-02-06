@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: growthbook
-Version: 2.1.2
+Version: 2.1.3
 Summary: Powerful Feature flagging and A/B testing for Python apps
 Home-page: https://github.com/growthbook/growthbook-python
 Author: GrowthBook

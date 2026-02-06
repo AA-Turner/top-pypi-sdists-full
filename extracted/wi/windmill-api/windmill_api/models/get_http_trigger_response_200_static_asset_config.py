@@ -10,11 +10,12 @@ T = TypeVar("T", bound="GetHttpTriggerResponse200StaticAssetConfig")
 
 @_attrs_define
 class GetHttpTriggerResponse200StaticAssetConfig:
-    """
+    """Configuration for serving static assets (s3 bucket, storage path, filename)
+
     Attributes:
-        s3 (str):
-        storage (Union[Unset, str]):
-        filename (Union[Unset, str]):
+        s3 (str): S3 bucket path for static assets
+        storage (Union[Unset, str]): Storage path for static assets
+        filename (Union[Unset, str]): Filename for the static asset
     """
 
     s3: str

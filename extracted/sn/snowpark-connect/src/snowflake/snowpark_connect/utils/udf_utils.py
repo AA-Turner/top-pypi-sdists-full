@@ -25,6 +25,21 @@ from snowflake.snowpark.types import (
 MAP_IN_ARROW_EVAL_TYPE = 207
 
 
+def _get_resource_constraint() -> dict[str, str] | None:
+    """Get resource constraint from config if enabled.
+
+    Returns:
+        A dict with architecture constraint (e.g., {"architecture": "x86"}) if configured,
+        otherwise None.
+    """
+    from snowflake.snowpark_connect.config import global_config
+
+    arch = global_config.get("snowpark.connect.udf.resource_constraint.architecture")
+    if arch:
+        return {"architecture": arch}
+    return None
+
+
 def create_null_safe_wrapper(func):
     """
     Create a wrapper function that handles sqlNullWrapper objects by converting them to None.
@@ -60,6 +75,7 @@ class ProcessCommonInlineUserDefinedFunction:
         udf_packages: str = "",
         udf_imports: str = "",
         original_return_type: DataType | None = None,
+        resource_constraint: dict[str, str] | None = None,
     ) -> None:
         context._use_structured_type_semantics = True
         context._is_snowpark_connect_compatible_mode = True
@@ -85,6 +101,7 @@ class ProcessCommonInlineUserDefinedFunction:
         self._udf_imports = udf_imports
         self._original_return_type = original_return_type
         self._return_type = return_type
+        self._resource_constraint = resource_constraint
         match self._function_type:
             case "python_udf":
                 self._eval_type = (
@@ -300,6 +317,7 @@ class ProcessCommonInlineUserDefinedFunction:
                 packages=packages,
                 imports=imports,
                 immutable=self._is_deterministic,
+                resource_constraint=self._resource_constraint,
             )
 
         is_pandas_udf, _, return_types, _ = extract_return_input_types(
@@ -383,6 +401,7 @@ class ProcessCommonInlineUserDefinedFunction:
             packages=packages,
             imports=imports,
             immutable=self._is_deterministic,
+            resource_constraint=self._resource_constraint,
         )
 
     def create_udf(self):

@@ -120,6 +120,7 @@ from marimo._runtime.commands import (
     ListDataSourceConnectionCommand,
     ListSecretKeysCommand,
     ListSQLTablesCommand,
+    ModelCommand,
     PreviewDatasetColumnCommand,
     PreviewSQLTableCommand,
     RefreshSecretsCommand,
@@ -129,7 +130,6 @@ from marimo._runtime.commands import (
     UpdateCellConfigCommand,
     UpdateUIElementCommand,
     UpdateUserConfigCommand,
-    UpdateWidgetModelCommand,
     ValidateSQLCommand,
 )
 from marimo._runtime.context import (
@@ -2275,13 +2275,20 @@ class Kernel:
             await self.rename_file(request.filename)
 
         async def handle_receive_model_message(
-            request: UpdateWidgetModelCommand,
+            request: ModelCommand,
         ) -> None:
-            buffers = request.buffers or []
-            buffers_as_bytes = [buffer.encode("utf-8") for buffer in buffers]
-            WIDGET_COMM_MANAGER.receive_comm_message(
-                request.model_id, request.message, buffers_as_bytes
+            ui_element_id, state = WIDGET_COMM_MANAGER.receive_comm_message(
+                request
             )
+
+            # If there's a ui_element_id, trigger a cell re-run
+            if ui_element_id and state:
+                await self.set_ui_element_value(
+                    UpdateUIElementCommand.from_ids_and_values(
+                        [(UIElementId(ui_element_id), state)]
+                    )
+                )
+                broadcast_notification(CompletedRunNotification())
 
         async def handle_function_call(request: InvokeFunctionCommand) -> None:
             status, ret, _ = await self.function_call_request(request)
@@ -2323,9 +2330,7 @@ class Kernel:
         handler.register(RenameNotebookCommand, handle_rename)
         handler.register(UpdateCellConfigCommand, self.set_cell_config)
         handler.register(UpdateUIElementCommand, handle_set_ui_element_value)
-        handler.register(
-            UpdateWidgetModelCommand, handle_receive_model_message
-        )
+        handler.register(ModelCommand, handle_receive_model_message)
         handler.register(UpdateUserConfigCommand, handle_set_user_config)
         handler.register(StopKernelCommand, handle_stop)
         # Datasets
@@ -3153,11 +3158,18 @@ def launch_kernel(
     interrupt_queue: QueueType[bool] | None = None,
     profile_path: Optional[str] = None,
     log_level: int | None = None,
+    is_ipc: bool = False,
 ) -> None:
     if log_level is not None:
         _loggers.set_level(log_level)
     LOGGER.debug("Launching kernel")
-    if is_edit_mode:
+
+    # Determine behavior:
+    # - is_subprocess: edit mode uses Process, IPC uses subprocess - both can receive signals
+    # - Run mode (not edit) uses autorun config regardless of IPC
+    is_subprocess = is_edit_mode or is_ipc
+
+    if is_subprocess:
         restore_signals()
 
     profiler = None
@@ -3261,7 +3273,10 @@ def launch_kernel(
         # completions only provided in edit mode
         kernel.start_completion_worker(completion_queue)
 
-        # In edit mode, kernel runs in its own process so it's interruptible.
+    if is_subprocess:
+        # Subprocess kernels (EDIT and IPC_RUN) can receive signals and need
+        # their own formatter registration since they don't share state with
+        # the host process.
         from marimo._output.formatters.formatters import register_formatters
 
         # TODO: Windows workaround -- find a way to make the process
@@ -3272,8 +3287,7 @@ def launch_kernel(
             # Ctrl+C in particular.
             os.setsid()
 
-        # kernels are processes in edit mode, and each process needs to
-        # install the formatter import hooks
+        # Each subprocess kernel needs to install the formatter import hooks
         register_formatters(theme=user_config["display"]["theme"])
 
         signal.signal(signal.SIGINT, handlers.construct_interrupt_handler(ctx))
@@ -3313,7 +3327,9 @@ def launch_kernel(
                 # triggered on Windows when quit with Ctrl+C
                 LOGGER.debug("kernel queue.get() failed %s", e)
                 break
-            LOGGER.debug("Received control request: %s", request)
+            LOGGER.debug(
+                "Received control request: %s", type(request).__name__
+            )
             if isinstance(request, StopKernelCommand):
                 break
             elif isinstance(request, UpdateUIElementCommand):

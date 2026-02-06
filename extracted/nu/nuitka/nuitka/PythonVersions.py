@@ -1,7 +1,7 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" Python version specifics.
+"""Python version specifics.
 
 This abstracts the Python version decisions. This makes decisions based on
 the numbers, and attempts to give them meaningful names. Where possible it
@@ -225,7 +225,7 @@ def getRunningPythonDLLPath():
 def getTargetPythonDLLPath():
     dll_path = getRunningPythonDLLPath()
 
-    from nuitka.Options import shallUsePythonDebug
+    from nuitka.options.Options import shallUsePythonDebug
 
     if dll_path.endswith("_d.dll"):
         if not shallUsePythonDebug():
@@ -266,7 +266,7 @@ def getPythonABI():
         abiflags = sys.abiflags
 
         # Cyclic dependency here.
-        from nuitka.Options import shallUsePythonDebug
+        from nuitka.options.Options import shallUsePythonDebug
 
         # spell-checker: ignore getobjects
         if shallUsePythonDebug() or hasattr(sys, "getobjects"):
@@ -507,14 +507,19 @@ def isPythonWithGil():
     return python_version < 0x3D0 or sys.flags.gil
 
 
+def getSitePackageCandidateNames():
+    """Get the list of site package candidate names."""
+    return ("site-packages", "dist-packages", "vendor-packages")
+
+
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

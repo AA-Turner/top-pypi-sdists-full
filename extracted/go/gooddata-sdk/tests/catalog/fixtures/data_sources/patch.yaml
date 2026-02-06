@@ -45,17 +45,17 @@ interactions:
       body:
         string:
           data:
-            - id: demo-test-ds
-              type: dataSource
-              attributes:
+            - attributes:
                 url: jdbc:postgresql://postgres:5432/tiger?sslmode=prefer
                 username: postgres
                 authenticationType: USERNAME_PASSWORD
-                name: demo-test-ds
                 type: POSTGRESQL
+                name: demo-test-ds
                 schema: demo
+              id: demo-test-ds
               links:
                 self: http://localhost:3000/api/v1/entities/dataSources/demo-test-ds
+              type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources?page=0&size=500
             next: http://localhost:3000/api/v1/entities/dataSources?page=1&size=500
@@ -105,7 +105,7 @@ interactions:
             to access it.
           status: 404
           title: Not Found
-          traceId: a3d654e324a05e61ef7c88e7e8893671
+          traceId: 53b771424ff67149623782276f80070a
   - request:
       method: POST
       uri: http://localhost:3000/api/v1/entities/dataSources
@@ -161,15 +161,15 @@ interactions:
       body:
         string:
           data:
-            id: test
-            type: dataSource
             attributes:
               url: jdbc:postgresql://localhost:5432/demo?autosave=true&sslmode=prefer
               username: demouser
               authenticationType: USERNAME_PASSWORD
-              name: Test
               type: POSTGRESQL
+              name: Test
               schema: demo
+            id: test
+            type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources/test
   - request:
@@ -215,15 +215,15 @@ interactions:
       body:
         string:
           data:
-            id: test
-            type: dataSource
             attributes:
               url: jdbc:postgresql://localhost:5432/demo?autosave=true&sslmode=prefer
               username: demouser
               authenticationType: USERNAME_PASSWORD
-              name: Test
               type: POSTGRESQL
+              name: Test
               schema: demo
+            id: test
+            type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources/test
   - request:
@@ -269,15 +269,15 @@ interactions:
       body:
         string:
           data:
-            id: test
-            type: dataSource
             attributes:
               url: jdbc:postgresql://localhost:5432/demo?autosave=true&sslmode=prefer
               username: demouser
               authenticationType: USERNAME_PASSWORD
-              name: Test
               type: POSTGRESQL
+              name: Test
               schema: demo
+            id: test
+            type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources/test
   - request:
@@ -287,6 +287,7 @@ interactions:
         data:
           attributes:
             name: Test2
+            alternativeDataSourceId: ds-patch-abc-id
             type: POSTGRESQL
             url: jdbc:postgresql://localhost:5432/demo?autosave=true&sslmode=prefer
           id: test
@@ -310,7 +311,7 @@ interactions:
         Cache-Control:
           - no-cache, no-store, max-age=0, must-revalidate
         Content-Length:
-          - '320'
+          - '364'
         Content-Type:
           - application/json
         DATE: *id001
@@ -332,15 +333,16 @@ interactions:
       body:
         string:
           data:
-            id: test
-            type: dataSource
             attributes:
               url: jdbc:postgresql://localhost:5432/demo?autosave=true&sslmode=prefer
               username: demouser
               authenticationType: USERNAME_PASSWORD
-              name: Test2
+              alternativeDataSourceId: ds-patch-abc-id
               type: POSTGRESQL
+              name: Test2
               schema: demo
+            id: test
+            type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources/test
   - request:
@@ -364,7 +366,7 @@ interactions:
         Cache-Control:
           - no-cache, no-store, max-age=0, must-revalidate
         Content-Length:
-          - '320'
+          - '364'
         Content-Type:
           - application/json
         DATE: *id001
@@ -386,15 +388,16 @@ interactions:
       body:
         string:
           data:
-            id: test
-            type: dataSource
             attributes:
               url: jdbc:postgresql://localhost:5432/demo?autosave=true&sslmode=prefer
               username: demouser
               authenticationType: USERNAME_PASSWORD
-              name: Test2
+              alternativeDataSourceId: ds-patch-abc-id
               type: POSTGRESQL
+              name: Test2
               schema: demo
+            id: test
+            type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources/test
   - request:

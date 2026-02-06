@@ -22,23 +22,24 @@ T = TypeVar("T", bound="SqsTrigger")
 class SqsTrigger:
     """
     Attributes:
-        queue_url (str):
-        aws_auth_resource_type (SqsTriggerAwsAuthResourceType):
-        aws_resource_path (str):
-        path (str):
-        script_path (str):
-        email (str):
-        extra_perms (SqsTriggerExtraPerms):
-        workspace_id (str):
-        edited_by (str):
-        edited_at (datetime.datetime):
-        is_flow (bool):
+        queue_url (str): The full URL of the AWS SQS queue to poll for messages
+        aws_auth_resource_type (SqsTriggerAwsAuthResourceType): Authentication type - 'credentials' for access
+            key/secret, 'oidc' for OpenID Connect
+        aws_resource_path (str): Path to the AWS resource containing credentials or OIDC configuration
+        path (str): The unique path identifier for this trigger
+        script_path (str): Path to the script or flow to execute when triggered
+        email (str): Email of the user who owns this trigger, used for permissioned_as
+        extra_perms (SqsTriggerExtraPerms): Additional permissions for this trigger
+        workspace_id (str): The workspace this trigger belongs to
+        edited_by (str): Username of the last person who edited this trigger
+        edited_at (datetime.datetime): Timestamp of the last edit
+        is_flow (bool): True if script_path points to a flow, false if it points to a script
         mode (SqsTriggerMode): job trigger mode
-        message_attributes (Union[Unset, List[str]]):
-        server_id (Union[Unset, str]):
-        last_server_ping (Union[Unset, datetime.datetime]):
-        error (Union[Unset, str]):
-        error_handler_path (Union[Unset, str]):
+        message_attributes (Union[Unset, List[str]]): Array of SQS message attribute names to include with each message
+        server_id (Union[Unset, str]): ID of the server currently handling this trigger (internal)
+        last_server_ping (Union[Unset, datetime.datetime]): Timestamp of last server heartbeat (internal)
+        error (Union[Unset, str]): Last error message if the trigger failed
+        error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, SqsTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
         retry (Union[Unset, SqsTriggerRetry]): Retry configuration for failed module executions
     """

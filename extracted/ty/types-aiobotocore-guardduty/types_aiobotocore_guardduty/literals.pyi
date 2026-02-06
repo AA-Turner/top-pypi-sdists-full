@@ -322,6 +322,7 @@ ScanResultStatusType = Literal["NO_THREATS_FOUND", "THREATS_FOUND"]
 ScanResultType = Literal["CLEAN", "INFECTED"]
 ScanStatusReasonType = Literal[
     "ACCESS_DENIED",
+    "ALL_FILES_SKIPPED_OR_FAILED",
     "AMI_SNAPSHOT_LIMIT_EXCEEDED",
     "BASE_CREATED_AFTER_TARGET",
     "BASE_RESOURCE_NOT_SCANNED",
@@ -840,6 +841,7 @@ RegionName = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",

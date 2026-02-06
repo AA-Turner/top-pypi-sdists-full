@@ -6,10 +6,10 @@ import datetime
 import decimal
 import os
 import tempfile
+import threading
 from concurrent.futures import ALL_COMPLETED, ThreadPoolExecutor, as_completed, wait
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 
-import jaydebeapi
 import pytz
 from _decimal import ROUND_HALF_EVEN, ROUND_HALF_UP
 from dateutil import parser
@@ -40,6 +40,7 @@ from snowflake.snowpark.types import (
 )
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+from snowflake.snowpark_connect.relation import jdbc_utils
 from snowflake.snowpark_connect.relation.neo4j_utils import validate_cypher_identifier
 from snowflake.snowpark_connect.relation.read.utils import (
     DATA_SOURCE_SQL_COMMENT,
@@ -191,6 +192,41 @@ class JdbcDialect:
         """
         return None
 
+    def set_fetch_size_on_cursor(self, cursor: Any, fetch_size: int) -> bool:
+        """
+        Set fetch size hint on the JDBC cursor/statement if supported.
+        This provides a hint to JDBC drivers for optimal data transfer and memory usage.
+        Some JDBC drivers use this internally to control how many rows are fetched
+        from the database server in a single network round-trip.
+
+        :param cursor: The database cursor (jdbc_utils.Cursor)
+        :param fetch_size: Number of rows to fetch per network round-trip
+        :return: True if fetch size was successfully set, False otherwise
+        """
+        if fetch_size <= 0:
+            return False
+
+        try:
+            # For jdbc_utils, the cursor wraps a Java Statement
+            # Try to access the underlying Statement and set fetch size
+            if hasattr(cursor, "_jdbc_stmt") and cursor._jdbc_stmt is not None:
+                # jdbc_utils Cursor - access the underlying JDBC Statement
+                cursor._jdbc_stmt.setFetchSize(fetch_size)
+                logger.debug(f"Set fetch size {fetch_size} on Statement")
+                return True
+        except Exception as e:
+            logger.debug(f"Could not set JDBC fetch size to {fetch_size}: {e}")
+
+        # Also try to set cursor arraysize as a Python-level hint
+        try:
+            cursor.arraysize = fetch_size
+            logger.debug(f"Set cursor arraysize to {fetch_size}")
+            return True
+        except Exception as e:
+            logger.debug(f"Could not set cursor arraysize to {fetch_size}: {e}")
+
+        return False
+
 
 # We will derive it from DataFrameReader of Snowpark once they merge and we refactor
 # the code to reuse as much from Snowpark.
@@ -223,6 +259,7 @@ class JdbcDataFrameReader(DataFrameReader):
         num_partitions: Optional[int] = None,
         max_workers: Optional[int] = None,
         query_timeout: Optional[int] = 0,
+        fetch_size: Optional[int] = 0,
         predicates: Optional[List[str]] = None,
     ) -> DataFrame:
 
@@ -233,7 +270,17 @@ class JdbcDataFrameReader(DataFrameReader):
         Read rows using query provided. Execute this query against the JDBC Datasource to get rows.
         table name and query are mutually execlusive options. Both can't be used at the same time.
         Query option won't read in parallel as column parameters won't allowed.
-        If column is specified then predicates will be ignored
+        If column is specified then predicates will be ignored.
+
+        Args:
+            fetch_size: The number of rows to fetch per batch from the JDBC datasource.
+                       If 0 (default), all rows are fetched at once using fetchall().
+                       If > 0, rows are fetched in batches using fetchmany(fetch_size),
+                       and each batch is written to a separate parquet file.
+                       This can improve performance for large datasets by reducing memory usage.
+                       Note: The JDBC driver's Statement.setFetchSize() is also set to this value
+                       if supported by the driver, which can provide hints to the database for
+                       optimal data transfer.
         """
         url = self.jdbc_options.get("url", None)
         jdbc_dialect = get_jdbc_dialect(url)
@@ -335,31 +382,70 @@ class JdbcDataFrameReader(DataFrameReader):
                 # TODO: Use a thread pool executor that uses ordered or priority queue.
                 # It is likely (but not guaranteed) that the first partitions have more rows
                 # than later partitions.
+
+                # Thread-safe list to collect upload futures from fetch threads
+                upload_futures_lock = threading.Lock()
+                upload_thread_pool_futures = []
+                error_event = threading.Event()
+
                 with ThreadPoolExecutor(
                     max_workers=max_workers
                 ) as query_thread_executor, ThreadPoolExecutor(
                     max_workers=max_workers
                 ) as upload_thread_executor:
-                    upload_thread_pool_futures = []
-                    query_thread_pool_futures = [
-                        query_thread_executor.submit(
-                            _task_fetch_from_data_source,
+
+                    def fetch_and_submit_uploads(
+                        partition_index: int,
+                        partition_query: str,
+                    ):
+                        """
+                        Fetch data in batches and submit upload tasks immediately.
+                        This enables parallel fetch and upload - while one batch uploads,
+                        the next batch is being fetched.
+                        """
+                        for path in _task_fetch_from_data_source_generator(
                             create_connection,
                             self.jdbc_options,
                             close_connection,
-                            query,
+                            partition_query,
                             raw_schema,
-                            i,
+                            partition_index,
                             tmp_dir,
                             query_timeout,
+                            fetch_size,
+                        ):
+                            if error_event.is_set():
+                                # Stop if an error occurred elsewhere
+                                break
+                            if path:
+                                # Submit upload task immediately to upload thread pool
+                                future = upload_thread_executor.submit(
+                                    self._upload_and_copy_into_table,
+                                    path,
+                                    snowflake_stage_name,
+                                    snowflake_table_name,
+                                    "abort_statement",
+                                )
+                                with upload_futures_lock:
+                                    upload_thread_pool_futures.append(future)
+
+                    # Start fetch threads for each partition
+                    query_thread_pool_futures = [
+                        query_thread_executor.submit(
+                            fetch_and_submit_uploads,
+                            query_index,
+                            query,
                         )
-                        for i, query in enumerate(partitioned_queries)
+                        for query_index, query in enumerate(partitioned_queries)
                     ]
+
+                    # Wait for all fetch tasks to complete
                     for future in as_completed(query_thread_pool_futures):
                         if isinstance(future.result(), Exception):
                             logger.debug(
                                 "fetch from data source failed, canceling all running tasks"
                             )
+                            error_event.set()
                             query_thread_executor.shutdown(wait=False)
                             upload_thread_executor.shutdown(wait=False)
                             exception = future.result()
@@ -367,21 +453,19 @@ class JdbcDataFrameReader(DataFrameReader):
                                 exception, ErrorCodes.INTERNAL_ERROR
                             )
                             raise exception
-                        else:
-                            path = future.result()
-                            if not path:
-                                logger.error("We can skip the empty path")
-                                continue
-
-                            upload_thread_pool_futures.append(
-                                upload_thread_executor.submit(
-                                    self._upload_and_copy_into_table,
-                                    path,
-                                    snowflake_stage_name,
-                                    snowflake_table_name,
-                                    "abort_statement",
-                                )
+                        try:
+                            future.result()  # This will raise if there was an error
+                        except Exception as e:
+                            logger.debug(
+                                "fetch from data source failed, canceling all running tasks"
                             )
+                            error_event.set()
+                            query_thread_executor.shutdown(wait=False)
+                            upload_thread_executor.shutdown(wait=False)
+                            attach_custom_error_code(e, ErrorCodes.INTERNAL_ERROR)
+                            raise e
+
+                    # Wait for all uploads to complete
                     completed_futures = wait(
                         upload_thread_pool_futures, return_when=ALL_COMPLETED
                     )
@@ -455,6 +539,18 @@ class JdbcDataFrameReader(DataFrameReader):
             attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_TYPE)
             raise exception
 
+    def validate_numeric_precision_scale(
+        self, precision: Optional[int], scale: Optional[int]
+    ) -> bool:
+        if precision is not None:
+            if not (0 <= precision <= 38):
+                return False
+            if scale is not None and not (0 <= scale <= precision):
+                return False
+        elif scale is not None:
+            return False
+        return True
+
     def _to_snowpark_type(
         self, schema: Tuple[tuple], jdbc_dialect: Optional[JdbcDialect] = None
     ) -> StructType:
@@ -474,25 +570,32 @@ class JdbcDataFrameReader(DataFrameReader):
                 is_nullable = True
 
             match dbapi_type:
-                case jaydebeapi.NUMBER:
+                case jdbc_utils.NUMBER:
                     field = StructField(column_name, IntegerType(), is_nullable)
-                case jaydebeapi.FLOAT:
+                case jdbc_utils.FLOAT:
                     field = StructField(column_name, FloatType(), is_nullable)
-                case jaydebeapi.DECIMAL:
+                case jdbc_utils.DECIMAL:
+                    precision, scale = int(precision), int(scale)
+                    if not self.validate_numeric_precision_scale(precision, scale):
+                        precision, scale = None, None
+
                     field = StructField(
                         column_name,
-                        DecimalType(int(precision), int(scale)),
+                        DecimalType(
+                            precision if precision is not None else 38,
+                            scale if scale is not None else 0,
+                        ),
                         is_nullable,
                     )
-                case jaydebeapi.STRING:
+                case jdbc_utils.STRING:
                     field = StructField(column_name, StringType(), is_nullable)
-                case jaydebeapi.DATE:
+                case jdbc_utils.DATE:
                     field = StructField(column_name, DateType(), is_nullable)
-                case jaydebeapi.TIME:
+                case jdbc_utils.TIME:
                     field = StructField(column_name, TimeType(), is_nullable)
-                case jaydebeapi.DATETIME:
+                case jdbc_utils.DATETIME:
                     field = StructField(column_name, TimestampType(), is_nullable)
-                case jaydebeapi.BINARY:
+                case jdbc_utils.BINARY:
                     field = StructField(column_name, BinaryType(), is_nullable)
                 case _:
                     if jdbc_dialect and jdbc_dialect.allow_unknown_types():
@@ -626,6 +729,131 @@ class JdbcDataFrameReader(DataFrameReader):
         )
 
 
+def _task_fetch_from_data_source_generator(
+    create_connection: Callable[[dict[str, str]], "Connection"],
+    jdbc_options: dict[str, str],
+    close_connection: Callable[[Connection], None],
+    query: str,
+    schema: tuple[tuple[str, Any, int, int, int, int, bool]],
+    partitioned_query_index: int,
+    tmp_dir: str,
+    query_timeout: int = 0,
+    fetch_size: int = 0,
+) -> Generator[str, None, None]:
+    """
+    Generator that fetches data from a JDBC datasource and yields file paths as batches complete.
+
+    This generator enables parallel reading and uploading by yielding each file path
+    immediately after the batch is written, allowing the caller to start uploading
+    while fetching continues.
+
+    Args:
+        create_connection: Factory function to create a JDBC connection
+        jdbc_options: JDBC connection options
+        close_connection: Function to close the JDBC connection
+        query: SQL query to execute
+        schema: Schema tuple describing the result columns
+        partitioned_query_index: Index of this partition (for file naming)
+        tmp_dir: Temporary directory to write parquet files
+        query_timeout: Query timeout in seconds (0 = no timeout)
+        fetch_size: Number of rows to fetch per batch.
+                   If 0, all rows are fetched at once using fetchall().
+                   If > 0, rows are fetched in batches using fetchmany(fetch_size),
+                   and each batch file path is yielded immediately after writing.
+
+    Yields:
+        File paths as they are written, enabling parallel upload while fetch continues.
+    """
+    conn = None
+    try:
+        # Ensure dialects are registered (needed since this runs in a worker thread)
+        register_all_supported_jdbc_dialect()
+
+        # TODO: This should use connection pooling.
+        conn = create_connection(jdbc_options)
+        # this is specified to pyodbc, need other way to manage timeout on other drivers
+        conn.timeout = query_timeout
+        cursor = conn.cursor()
+
+        # Set fetch size on the cursor if the driver supports it.
+        # This provides a hint to JDBC drivers for optimal data transfer.
+        # Some JDBC drivers use this internally for memory optimization.
+        if fetch_size > 0:
+            url = jdbc_options.get("url", "")
+            jdbc_dialect = get_jdbc_dialect(url)
+            jdbc_dialect.set_fetch_size_on_cursor(cursor, fetch_size)
+
+        cursor.execute(query)
+
+        columns = [col[0] for col in schema]
+
+        if fetch_size == 0:
+            # Original behavior: fetch all rows at once
+            result = cursor.fetchall()
+
+            # We will only go through with writing an empty file for the first partition.
+            # Otherwise, yield nothing to indicate there is no data.
+            if not result and partitioned_query_index != 0:
+                logger.info(f"Query gave no results {query}")
+                cursor.close()
+                return
+
+            df = pd.DataFrame.from_records(result, columns=columns)
+            path = os.path.join(tmp_dir, f"data_{partitioned_query_index}.parquet")
+            df.to_parquet(path)
+            cursor.close()
+            yield path
+        else:
+            # Batched reading: fetch rows in chunks and yield file paths immediately
+            batch_index = 0
+            has_data = False
+
+            while True:
+                rows = cursor.fetchmany(fetch_size)
+
+                if not rows:
+                    # No more data
+                    break
+
+                has_data = True
+                df = pd.DataFrame.from_records(rows, columns=columns)
+                # Create unique file name with partition index and batch number
+                path = os.path.join(
+                    tmp_dir,
+                    f"data_{partitioned_query_index}_batch_{batch_index}.parquet",
+                )
+                df.to_parquet(path)
+                logger.debug(
+                    f"Partition {partitioned_query_index}: wrote batch {batch_index} "
+                    f"with {len(rows)} rows to {path}"
+                )
+                batch_index += 1
+                # Yield immediately so upload can start while we fetch the next batch
+                yield path
+
+            cursor.close()
+
+            # If no data and not the first partition, don't yield anything
+            if not has_data and partitioned_query_index != 0:
+                logger.info(f"Query gave no results {query}")
+                return
+
+            # If no data but first partition, create an empty file
+            if not has_data:
+                df = pd.DataFrame(columns=columns)
+                path = os.path.join(
+                    tmp_dir, f"data_{partitioned_query_index}_batch_0.parquet"
+                )
+                df.to_parquet(path)
+                yield path
+
+            logger.info(
+                f"Partition {partitioned_query_index}: completed with {batch_index} batches"
+            )
+    finally:
+        close_connection(conn)
+
+
 @exponential_backoff
 def _task_fetch_from_data_source(
     create_connection: Callable[[dict[str, str]], "Connection"],
@@ -636,32 +864,48 @@ def _task_fetch_from_data_source(
     partitioned_query_index: int,
     tmp_dir: str,
     query_timeout: int = 0,
-) -> str:
-    conn = None
-    try:
-        # TODO: This should use connection pooling.
-        conn = create_connection(jdbc_options)
-        # this is specified to pyodbc, need other way to manage timeout on other drivers
-        conn.timeout = query_timeout
-        cursor = conn.cursor()
-        cursor.execute(query)
-        result = cursor.fetchall()
+    fetch_size: int = 0,
+) -> Union[str, List[str]]:
+    """
+    Fetch data from a JDBC datasource and write to parquet file(s).
+    This is a wrapper around the generator for backward compatibility.
 
-        # We will only go through with writing an empty file for the first partition.
-        # Otherwise, we will return an empty path to indicate there is no data.
-        if not result and partitioned_query_index != 0:
-            logger.info(f"Query gave no results {query}")
-            cursor.close()
-            return ""
+    Args:
+        create_connection: Factory function to create a JDBC connection
+        jdbc_options: JDBC connection options
+        close_connection: Function to close the JDBC connection
+        query: SQL query to execute
+        schema: Schema tuple describing the result columns
+        partitioned_query_index: Index of this partition (for file naming)
+        tmp_dir: Temporary directory to write parquet files
+        query_timeout: Query timeout in seconds (0 = no timeout)
+        fetch_size: Number of rows to fetch per batch.
+                   If 0, all rows are fetched at once using fetchall().
+                   If > 0, rows are fetched in batches using fetchmany(fetch_size),
+                   and each batch is written to a separate parquet file.
 
-        columns = [col[0] for col in schema]
-        df = pd.DataFrame.from_records(result, columns=columns)
-        path = os.path.join(tmp_dir, f"data_{partitioned_query_index}.parquet")
-        df.to_parquet(path)
-        cursor.close()
-    finally:
-        close_connection(conn)
-    return path
+    Returns:
+        If fetch_size == 0: A single file path string, or "" if no data.
+        If fetch_size > 0: A list of file paths, or [] if no data.
+    """
+    paths = list(
+        _task_fetch_from_data_source_generator(
+            create_connection,
+            jdbc_options,
+            close_connection,
+            query,
+            schema,
+            partitioned_query_index,
+            tmp_dir,
+            query_timeout,
+            fetch_size,
+        )
+    )
+
+    if fetch_size == 0:
+        return paths[0] if paths else ""
+    else:
+        return paths
 
 
 # Hold all registered JDBC Dialects

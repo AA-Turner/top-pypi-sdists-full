@@ -41,6 +41,7 @@ from .literals import (
     ExportStatusType,
     ExportTypeType,
     ExportViewTypeType,
+    GlobalTableSettingsReplicationModeType,
     GlobalTableStatusType,
     ImportStatusType,
     IndexStatusType,
@@ -152,17 +153,21 @@ __all__ = (
     "DescribeContinuousBackupsInputTypeDef",
     "DescribeContinuousBackupsOutputTypeDef",
     "DescribeContributorInsightsInputTypeDef",
+    "DescribeContributorInsightsInputWaitTypeDef",
     "DescribeContributorInsightsOutputTypeDef",
     "DescribeEndpointsResponseTypeDef",
     "DescribeExportInputTypeDef",
+    "DescribeExportInputWaitTypeDef",
     "DescribeExportOutputTypeDef",
     "DescribeGlobalTableInputTypeDef",
     "DescribeGlobalTableOutputTypeDef",
     "DescribeGlobalTableSettingsInputTypeDef",
     "DescribeGlobalTableSettingsOutputTypeDef",
     "DescribeImportInputTypeDef",
+    "DescribeImportInputWaitTypeDef",
     "DescribeImportOutputTypeDef",
     "DescribeKinesisStreamingDestinationInputTypeDef",
+    "DescribeKinesisStreamingDestinationInputWaitTypeDef",
     "DescribeKinesisStreamingDestinationOutputTypeDef",
     "DescribeLimitsOutputTypeDef",
     "DescribeTableInputTypeDef",
@@ -579,6 +584,10 @@ class DescribeContributorInsightsInputTypeDef(TypedDict):
     TableName: str
     IndexName: NotRequired[str]
 
+class WaiterConfigTypeDef(TypedDict):
+    Delay: NotRequired[int]
+    MaxAttempts: NotRequired[int]
+
 class FailureExceptionTypeDef(TypedDict):
     ExceptionName: NotRequired[str]
     ExceptionDescription: NotRequired[str]
@@ -610,10 +619,6 @@ class KinesisDataStreamDestinationTypeDef(TypedDict):
 
 class DescribeTableInputTypeDef(TypedDict):
     TableName: str
-
-class WaiterConfigTypeDef(TypedDict):
-    Delay: NotRequired[int]
-    MaxAttempts: NotRequired[int]
 
 class DescribeTableReplicaAutoScalingInputTypeDef(TypedDict):
     TableName: str
@@ -991,6 +996,31 @@ class ReplicaUpdateTypeDef(TypedDict):
     Create: NotRequired[CreateReplicaActionTypeDef]
     Delete: NotRequired[DeleteReplicaActionTypeDef]
 
+class DescribeContributorInsightsInputWaitTypeDef(TypedDict):
+    TableName: str
+    IndexName: NotRequired[str]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class DescribeExportInputWaitTypeDef(TypedDict):
+    ExportArn: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class DescribeImportInputWaitTypeDef(TypedDict):
+    ImportArn: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class DescribeKinesisStreamingDestinationInputWaitTypeDef(TypedDict):
+    TableName: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class DescribeTableInputWaitExtraTypeDef(TypedDict):
+    TableName: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class DescribeTableInputWaitTypeDef(TypedDict):
+    TableName: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
 class DescribeContributorInsightsOutputTypeDef(TypedDict):
     TableName: str
     IndexName: str
@@ -1009,14 +1039,6 @@ class DescribeKinesisStreamingDestinationOutputTypeDef(TypedDict):
     TableName: str
     KinesisDataStreamDestinations: list[KinesisDataStreamDestinationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
-
-class DescribeTableInputWaitExtraTypeDef(TypedDict):
-    TableName: str
-    WaiterConfig: NotRequired[WaiterConfigTypeDef]
-
-class DescribeTableInputWaitTypeDef(TypedDict):
-    TableName: str
-    WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 class DescribeTimeToLiveOutputTypeDef(TypedDict):
     TimeToLiveDescription: TimeToLiveDescriptionTypeDef
@@ -1562,6 +1584,7 @@ ReplicaDescriptionTypeDef = TypedDict(
         "GlobalSecondaryIndexes": NotRequired[list[ReplicaGlobalSecondaryIndexDescriptionTypeDef]],
         "ReplicaInaccessibleDateTime": NotRequired[datetime],
         "ReplicaTableClassSummary": NotRequired[TableClassSummaryTypeDef],
+        "GlobalTableSettingsReplicationMode": NotRequired[GlobalTableSettingsReplicationModeType],
     },
 )
 
@@ -1847,6 +1870,7 @@ class TableDescriptionTypeDef(TypedDict):
     GlobalTableVersion: NotRequired[str]
     Replicas: NotRequired[list[ReplicaDescriptionTypeDef]]
     GlobalTableWitnesses: NotRequired[list[GlobalTableWitnessDescriptionTypeDef]]
+    GlobalTableSettingsReplicationMode: NotRequired[GlobalTableSettingsReplicationModeType]
     RestoreSummary: NotRequired[RestoreSummaryTypeDef]
     SSEDescription: NotRequired[SSEDescriptionTypeDef]
     ArchivalSummary: NotRequired[ArchivalSummaryTypeDef]
@@ -2069,9 +2093,9 @@ class UpdateTableInputTypeDef(TypedDict):
     WarmThroughput: NotRequired[WarmThroughputTypeDef]
 
 class CreateTableInputServiceResourceCreateTableTypeDef(TypedDict):
-    AttributeDefinitions: Sequence[AttributeDefinitionTypeDef]
     TableName: str
-    KeySchema: Sequence[KeySchemaElementTypeDef]
+    AttributeDefinitions: NotRequired[Sequence[AttributeDefinitionTypeDef]]
+    KeySchema: NotRequired[Sequence[KeySchemaElementTypeDef]]
     LocalSecondaryIndexes: NotRequired[Sequence[LocalSecondaryIndexTypeDef]]
     GlobalSecondaryIndexes: NotRequired[Sequence[GlobalSecondaryIndexUnionTypeDef]]
     BillingMode: NotRequired[BillingModeType]
@@ -2084,11 +2108,13 @@ class CreateTableInputServiceResourceCreateTableTypeDef(TypedDict):
     WarmThroughput: NotRequired[WarmThroughputTypeDef]
     ResourcePolicy: NotRequired[str]
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
+    GlobalTableSourceArn: NotRequired[str]
+    GlobalTableSettingsReplicationMode: NotRequired[GlobalTableSettingsReplicationModeType]
 
 class CreateTableInputTypeDef(TypedDict):
-    AttributeDefinitions: Sequence[AttributeDefinitionTypeDef]
     TableName: str
-    KeySchema: Sequence[KeySchemaElementTypeDef]
+    AttributeDefinitions: NotRequired[Sequence[AttributeDefinitionTypeDef]]
+    KeySchema: NotRequired[Sequence[KeySchemaElementTypeDef]]
     LocalSecondaryIndexes: NotRequired[Sequence[LocalSecondaryIndexTypeDef]]
     GlobalSecondaryIndexes: NotRequired[Sequence[GlobalSecondaryIndexUnionTypeDef]]
     BillingMode: NotRequired[BillingModeType]
@@ -2101,6 +2127,8 @@ class CreateTableInputTypeDef(TypedDict):
     WarmThroughput: NotRequired[WarmThroughputTypeDef]
     ResourcePolicy: NotRequired[str]
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
+    GlobalTableSourceArn: NotRequired[str]
+    GlobalTableSettingsReplicationMode: NotRequired[GlobalTableSettingsReplicationModeType]
 
 class RestoreTableFromBackupInputTypeDef(TypedDict):
     TargetTableName: str

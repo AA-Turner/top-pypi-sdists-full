@@ -5,9 +5,9 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
   "pre-commit>=4.2.0",
-  "pytest>=8.4.0",
+  "pytest>=8.4.2",
   "pytest-asyncio>=1.0.0",
-  "pytest-cov>=6.1.1",
+  "pytest-cov>=7.0.0",
   "httpx>=0.25.0",
   "hatch>=1.14.1",
   "pyyaml>=6.0.2",
@@ -22,7 +22,7 @@ dev = [
 
 [project]
 name = "llama-index-workflows"
-version = "2.13.1"
+version = "2.14.0"
 description = "An event-driven, async-first, step-based way to control the execution flow of AI applications like Agents."
 readme = "README.md"
 license = "MIT"
@@ -34,9 +34,17 @@ dependencies = [
   "typing-extensions>=4.6.0"
 ]
 
+# backward compatibility, for when these were embedded.
+# Optionals are now just an alias to additionally install
+# a less pinned version of the client/server packages.
 [project.optional-dependencies]
-server = ["starlette>=0.39.0", "uvicorn>=0.32.0"]
-client = ["httpx>=0.28.1,<1"]
+server = ["llama-agents-server>=0.1.0,<1.0.0"]
+client = ["llama-agents-client>=0.1.0,<1.0.0"]
+
+[tool.basedpyright]
+exclude = ["**/.venv", "**/node_modules", "**/.uv"]
+# Python 3.14 beta has stdlib changes that basedpyright doesn't understand yet
+ignore = ["**/cpython-3.14*/**"]
 
 [tool.hatch.envs.server]
 features = ["server"]
@@ -47,7 +55,11 @@ openapi = "python -m workflows.server.server --output openapi.json"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "module"
+asyncio_default_test_loop_scope = "module"
 testpaths = ["tests"]
+addopts = "-nauto --timeout=10"
 
 [tool.uv.build-backend]
-module-name = "workflows"
+module-name = ["workflows", "llama_agents.workflows"]
+namespace = true

@@ -14,6 +14,7 @@ class CreateCloudChatFromRepository(BaseModel):
         "CreateCloudChatFromRepositoryCreateCloudChatNotFoundError",
         "CreateCloudChatFromRepositoryCreateCloudChatCloudSessionError",
         "CreateCloudChatFromRepositoryCreateCloudChatError",
+        "CreateCloudChatFromRepositoryCreateCloudChatInputValidationError",
         "CreateCloudChatFromRepositoryCreateCloudChatPlanError",
         "CreateCloudChatFromRepositoryCreateCloudChatUnauthenticatedError",
     ] = Field(alias="createCloudChat", discriminator="typename__")
@@ -38,6 +39,10 @@ class CreateCloudChatFromRepositoryCreateCloudChatCloudSessionError(BaseModel):
 
 class CreateCloudChatFromRepositoryCreateCloudChatError(BaseModel):
     typename__: Literal["Error"] = Field(alias="__typename")
+
+
+class CreateCloudChatFromRepositoryCreateCloudChatInputValidationError(BaseModel):
+    typename__: Literal["InputValidationError"] = Field(alias="__typename")
 
 
 class CreateCloudChatFromRepositoryCreateCloudChatPlanError(BaseModel):

@@ -86,6 +86,7 @@ __all__ = (
     "EvaluationTranscriptTypeType",
     "EvaluationTypeType",
     "EventSourceNameType",
+    "ExecutionRecordStatusType",
     "FailureReasonCodeType",
     "FileStatusTypeType",
     "FileUseCaseTypeType",
@@ -154,6 +155,7 @@ __all__ = (
     "ListSecurityProfilePermissionsPaginatorName",
     "ListSecurityProfilesPaginatorName",
     "ListTaskTemplatesPaginatorName",
+    "ListTestCasesPaginatorName",
     "ListTrafficDistributionGroupUsersPaginatorName",
     "ListTrafficDistributionGroupsPaginatorName",
     "ListUseCasesPaginatorName",
@@ -229,6 +231,7 @@ __all__ = (
     "SearchResourceTagsPaginatorName",
     "SearchRoutingProfilesPaginatorName",
     "SearchSecurityProfilesPaginatorName",
+    "SearchTestCasesPaginatorName",
     "SearchUserHierarchyGroupsPaginatorName",
     "SearchUsersPaginatorName",
     "SearchViewsPaginatorName",
@@ -250,6 +253,9 @@ __all__ = (
     "TargetListTypeType",
     "TaskTemplateFieldTypeType",
     "TaskTemplateStatusType",
+    "TestCaseEntryPointTypeType",
+    "TestCaseExecutionStatusType",
+    "TestCaseStatusType",
     "TimerEligibleParticipantRolesType",
     "TrafficDistributionGroupStatusType",
     "TrafficTypeType",
@@ -341,7 +347,7 @@ ContactInteractionTypeType = Literal["AGENT", "AUTOMATED"]
 ContactMediaProcessingFailureModeType = Literal[
     "DELIVER_UNPROCESSED_MESSAGE", "DO_NOT_DELIVER_UNPROCESSED_MESSAGE"
 ]
-ContactMetricNameType = Literal["POSITION_IN_QUEUE"]
+ContactMetricNameType = Literal["ESTIMATED_WAIT_TIME", "POSITION_IN_QUEUE"]
 ContactParticipantRoleType = Literal["AGENT", "CUSTOM_BOT", "SYSTEM"]
 ContactRecordingTypeType = Literal["AGENT", "IVR", "SCREEN"]
 ContactStateType = Literal[
@@ -366,6 +372,7 @@ CurrentMetricNameType = Literal[
     "AGENTS_STAFFED",
     "CONTACTS_IN_QUEUE",
     "CONTACTS_SCHEDULED",
+    "ESTIMATED_WAIT_TIME",
     "OLDEST_CONTACT_AGE",
     "SLOTS_ACTIVE",
     "SLOTS_AVAILABLE",
@@ -433,6 +440,7 @@ EventSourceNameType = Literal[
     "OnZendeskTicketCreate",
     "OnZendeskTicketStatusUpdate",
 ]
+ExecutionRecordStatusType = Literal["FAILED", "IN_PROGRESS", "PASSED", "STOPPED"]
 FailureReasonCodeType = Literal[
     "IDEMPOTENCY_EXCEPTION",
     "INTERNAL_ERROR",
@@ -614,6 +622,7 @@ ListSecurityProfileFlowModulesPaginatorName = Literal["list_security_profile_flo
 ListSecurityProfilePermissionsPaginatorName = Literal["list_security_profile_permissions"]
 ListSecurityProfilesPaginatorName = Literal["list_security_profiles"]
 ListTaskTemplatesPaginatorName = Literal["list_task_templates"]
+ListTestCasesPaginatorName = Literal["list_test_cases"]
 ListTrafficDistributionGroupUsersPaginatorName = Literal["list_traffic_distribution_group_users"]
 ListTrafficDistributionGroupsPaginatorName = Literal["list_traffic_distribution_groups"]
 ListUseCasesPaginatorName = Literal["list_use_cases"]
@@ -975,6 +984,7 @@ SearchQuickConnectsPaginatorName = Literal["search_quick_connects"]
 SearchResourceTagsPaginatorName = Literal["search_resource_tags"]
 SearchRoutingProfilesPaginatorName = Literal["search_routing_profiles"]
 SearchSecurityProfilesPaginatorName = Literal["search_security_profiles"]
+SearchTestCasesPaginatorName = Literal["search_test_cases"]
 SearchUserHierarchyGroupsPaginatorName = Literal["search_user_hierarchy_groups"]
 SearchUsersPaginatorName = Literal["search_users"]
 SearchViewsPaginatorName = Literal["search_views"]
@@ -1018,6 +1028,9 @@ TaskTemplateFieldTypeType = Literal[
     "URL",
 ]
 TaskTemplateStatusType = Literal["ACTIVE", "INACTIVE"]
+TestCaseEntryPointTypeType = Literal["VOICE_CALL"]
+TestCaseExecutionStatusType = Literal["FAILED", "INITIATED", "IN_PROGRESS", "PASSED", "STOPPED"]
+TestCaseStatusType = Literal["PUBLISHED", "SAVED"]
 TimerEligibleParticipantRolesType = Literal["AGENT", "CUSTOMER"]
 TrafficDistributionGroupStatusType = Literal[
     "ACTIVE",
@@ -1544,6 +1557,7 @@ PaginatorName = Literal[
     "list_security_profile_permissions",
     "list_security_profiles",
     "list_task_templates",
+    "list_test_cases",
     "list_traffic_distribution_group_users",
     "list_traffic_distribution_groups",
     "list_use_cases",
@@ -1569,6 +1583,7 @@ PaginatorName = Literal[
     "search_resource_tags",
     "search_routing_profiles",
     "search_security_profiles",
+    "search_test_cases",
     "search_user_hierarchy_groups",
     "search_users",
     "search_views",

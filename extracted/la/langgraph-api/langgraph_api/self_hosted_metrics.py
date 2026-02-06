@@ -12,14 +12,16 @@ from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 
 from langgraph_api import asyncio as lg_asyncio
 from langgraph_api import config, metadata
-from langgraph_api.feature_flags import FF_USE_CORE_API
-from langgraph_api.grpc.ops import Runs as GrpcRuns
+from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.http_metrics_utils import HTTP_LATENCY_BUCKETS
 from langgraph_runtime.database import connect, pool_stats
 from langgraph_runtime.metrics import get_metrics
-from langgraph_runtime.ops import Runs
 
-CrudRuns = GrpcRuns if FF_USE_CORE_API else Runs
+if IS_POSTGRES_OR_GRPC_BACKEND:
+    from langgraph_api.grpc.ops import Runs
+else:
+    from langgraph_runtime.ops import Runs
+
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -254,7 +256,7 @@ def _get_queue_stats():
     async def _fetch_queue_stats():
         try:
             async with connect() as conn:
-                return await CrudRuns.stats(conn)
+                return await Runs.stats(conn)
         except Exception as e:
             logger.warning("Failed to get queue stats from database", exc_info=e)
             return {

@@ -56,6 +56,7 @@ def map_relation(
     from snowflake.snowpark_connect.relation import (
         map_aggregate,
         map_catalog,
+        map_cogroup_map,
         map_column_ops,
         map_crosstab,
         map_extension,
@@ -287,6 +288,8 @@ def map_relation(
                 raise exception
             case "group_map":
                 result = map_column_ops.map_group_map(rel)
+            case "co_group_map":
+                result = map_cogroup_map.map_co_group_map(rel)
             case other:
                 exception = SnowparkConnectNotImplementedError(
                     f"Other Relation {other}"

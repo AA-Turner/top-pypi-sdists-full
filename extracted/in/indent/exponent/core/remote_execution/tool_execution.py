@@ -122,9 +122,7 @@ async def execute_read_file(  # noqa: PLR0911
 ) -> ReadToolResult | ErrorToolResult:
     # Validate absolute path requirement
     if not tool_input.file_path.startswith("/"):
-        return ErrorToolResult(
-            error_message=f"File path must be absolute, got relative path: {tool_input.file_path}"
-        )
+        return ErrorToolResult(error_message=f"File path must be absolute, got relative path: {tool_input.file_path}")
 
     # Validate offset and limit
     offset = tool_input.offset if tool_input.offset is not None else 0
@@ -194,13 +192,9 @@ async def execute_read_file(  # noqa: PLR0911
     try:
         content = await safe_read_file(file)
     except PermissionError:
-        return ErrorToolResult(
-            error_message=f"Permission denied: cannot read {tool_input.file_path}"
-        )
+        return ErrorToolResult(error_message=f"Permission denied: cannot read {tool_input.file_path}")
     except UnicodeDecodeError:
-        return ErrorToolResult(
-            error_message="File appears to be binary or has invalid text encoding"
-        )
+        return ErrorToolResult(error_message="File appears to be binary or has invalid text encoding")
     except Exception as e:
         return ErrorToolResult(error_message=f"Error reading file: {e!s}")
 
@@ -293,14 +287,10 @@ async def execute_read_file(  # noqa: PLR0911
     )
 
 
-async def execute_write_file(
-    tool_input: WriteToolInput, working_directory: str
-) -> WriteToolResult:
+async def execute_write_file(tool_input: WriteToolInput, working_directory: str) -> WriteToolResult:
     file_path = tool_input.file_path
     path = Path(working_directory, file_path)
-    result = await execute_full_file_rewrite(
-        path, tool_input.content, working_directory
-    )
+    result = await execute_full_file_rewrite(path, tool_input.content, working_directory)
     return WriteToolResult(message=result)
 
 
@@ -309,9 +299,7 @@ async def execute_edit_file(  # noqa: PLR0911
 ) -> EditToolResult | ErrorToolResult:
     # Validate absolute path requirement
     if not tool_input.file_path.startswith("/"):
-        return ErrorToolResult(
-            error_message=f"File path must be absolute, got relative path: {tool_input.file_path}"
-        )
+        return ErrorToolResult(error_message=f"File path must be absolute, got relative path: {tool_input.file_path}")
 
     file = AsyncPath(working_directory, tool_input.file_path)
 
@@ -325,19 +313,12 @@ async def execute_edit_file(  # noqa: PLR0911
 
     if tool_input.last_known_modified_timestamp is not None:
         metadata = await safe_get_file_metadata(file)
-        if (
-            metadata is not None
-            and metadata.modified_timestamp > tool_input.last_known_modified_timestamp
-        ):
-            return ErrorToolResult(
-                error_message="File has been modified since last read/write"
-            )
+        if metadata is not None and metadata.modified_timestamp > tool_input.last_known_modified_timestamp:
+            return ErrorToolResult(error_message="File has been modified since last read/write")
 
     try:
         if await file.is_dir():
-            return ErrorToolResult(
-                error_message=f"{await file.absolute()} is a directory"
-            )
+            return ErrorToolResult(error_message=f"{await file.absolute()} is a directory")
     except (OSError, PermissionError) as e:
         return ErrorToolResult(error_message=f"Cannot check file type: {e!s}")
 
@@ -345,28 +326,20 @@ async def execute_edit_file(  # noqa: PLR0911
         # Read the entire file without truncation limits
         content = await safe_read_file(file)
     except PermissionError:
-        return ErrorToolResult(
-            error_message=f"Permission denied: cannot read {tool_input.file_path}"
-        )
+        return ErrorToolResult(error_message=f"Permission denied: cannot read {tool_input.file_path}")
     except UnicodeDecodeError:
-        return ErrorToolResult(
-            error_message="File appears to be binary or has invalid text encoding"
-        )
+        return ErrorToolResult(error_message="File appears to be binary or has invalid text encoding")
     except Exception as e:
         return ErrorToolResult(error_message=f"Error reading file: {e!s}")
 
     # Check if search text exists
     if tool_input.old_string not in content:
-        return ErrorToolResult(
-            error_message=f"Search text not found in {tool_input.file_path}"
-        )
+        return ErrorToolResult(error_message=f"Search text not found in {tool_input.file_path}")
 
     # Handle `old_string_end` parameter for range-based replacement (inclusive)
     if tool_input.old_string_end is not None:
         if tool_input.replace_all:
-            return ErrorToolResult(
-                error_message="Cannot use 'old_string_end' with 'replace_all=True'"
-            )
+            return ErrorToolResult(error_message="Cannot use 'old_string_end' with 'replace_all=True'")
 
         # Both old_string and old_string_end must be unique
         old_string_occurrences = content.count(tool_input.old_string)
@@ -383,9 +356,7 @@ async def execute_edit_file(  # noqa: PLR0911
 
         start_idx = content.find(tool_input.old_string)
         if start_idx == -1:
-            return ErrorToolResult(
-                error_message=f"'old_string' text not found in {tool_input.file_path}"
-            )
+            return ErrorToolResult(error_message=f"'old_string' text not found in {tool_input.file_path}")
 
         search_after_start = start_idx + len(tool_input.old_string)
         until_idx = content.find(tool_input.old_string_end, search_after_start)
@@ -398,9 +369,7 @@ async def execute_edit_file(  # noqa: PLR0911
 
         old_text = content[start_idx:end_idx]
         if old_text == tool_input.new_string:
-            return ErrorToolResult(
-                error_message="Old string and new string are identical"
-            )
+            return ErrorToolResult(error_message="Old string and new string are identical")
 
         new_content = content[:start_idx] + tool_input.new_string + content[end_idx:]
         replaced_old_lines = old_text.count("\n") + 1
@@ -408,9 +377,7 @@ async def execute_edit_file(  # noqa: PLR0911
     else:
         # Standard replacement logic
         if tool_input.old_string == tool_input.new_string:
-            return ErrorToolResult(
-                error_message="Old string and new string are identical"
-            )
+            return ErrorToolResult(error_message="Old string and new string are identical")
 
         if not tool_input.replace_all:
             occurrences = content.count(tool_input.old_string)
@@ -422,9 +389,7 @@ async def execute_edit_file(  # noqa: PLR0911
         if tool_input.replace_all:
             new_content = content.replace(tool_input.old_string, tool_input.new_string)
         else:
-            new_content = content.replace(
-                tool_input.old_string, tool_input.new_string, 1
-            )
+            new_content = content.replace(tool_input.old_string, tool_input.new_string, 1)
         replaced_old_lines = tool_input.old_string.count("\n") + 1
         replaced_new_lines = tool_input.new_string.count("\n") + 1
 
@@ -440,9 +405,7 @@ async def execute_edit_file(  # noqa: PLR0911
         return ErrorToolResult(error_message=f"Error writing file: {e!s}")
 
 
-async def execute_glob_files(
-    tool_input: GlobToolInput, working_directory: str
-) -> GlobToolResult:
+async def execute_glob_files(tool_input: GlobToolInput, working_directory: str) -> GlobToolResult:
     # async timer
     start_time = time()
     results = await files.glob(
@@ -458,9 +421,7 @@ async def execute_glob_files(
     )
 
 
-async def execute_grep_files(
-    tool_input: GrepToolInput, working_directory: str
-) -> GrepToolResult | ErrorToolResult:
+async def execute_grep_files(tool_input: GrepToolInput, working_directory: str) -> GrepToolResult | ErrorToolResult:
     return await files.search_files(
         path_str=working_directory if tool_input.path is None else tool_input.path,
         file_pattern=tool_input.include,
@@ -482,9 +443,7 @@ async def execute_bash_tool(
     and the process object for tracking. For foreground commands, returns BashToolResult.
     """
     if tool_input.background:
-        return await execute_bash_tool_background(
-            tool_input, working_directory, chat_uuid
-        )
+        return await execute_bash_tool_background(tool_input, working_directory, chat_uuid)
 
     start_time = time()
     result = None
@@ -599,9 +558,7 @@ async def execute_download_artifact(
     """Download an artifact from S3 using a pre-signed URL."""
 
     if not tool_input.file_path.startswith("/"):
-        return ErrorToolResult(
-            error_message=f"File path must be absolute, got relative path: {tool_input.file_path}"
-        )
+        return ErrorToolResult(error_message=f"File path must be absolute, got relative path: {tool_input.file_path}")
 
     file_path = Path(tool_input.file_path)
     if file_path.exists() and not tool_input.overwrite:
@@ -610,9 +567,7 @@ async def execute_download_artifact(
         )
 
     try:
-        content = await _download_from_presigned_url(
-            tool_input.presigned_url, file_path
-        )
+        content = await _download_from_presigned_url(tool_input.presigned_url, file_path)
         file_size = len(content)
 
         content_preview = None
@@ -648,9 +603,7 @@ async def execute_download_artifact(
             truncated=truncated,
         )
     except aiohttp.ClientResponseError as e:
-        return ErrorToolResult(
-            error_message=f"Failed to download artifact: HTTP {e.status} - {e.message}"
-        )
+        return ErrorToolResult(error_message=f"Failed to download artifact: HTTP {e.status} - {e.message}")
     except Exception as e:
         logger.exception("Failed to download artifact")
         return ErrorToolResult(error_message=f"Failed to download artifact: {e!s}")
@@ -662,18 +615,14 @@ async def execute_upload_artifact(
     """Upload an artifact to S3 using a pre-signed URL."""
 
     if not tool_input.file_path.startswith("/"):
-        return ErrorToolResult(
-            error_message=f"File path must be absolute, got relative path: {tool_input.file_path}"
-        )
+        return ErrorToolResult(error_message=f"File path must be absolute, got relative path: {tool_input.file_path}")
 
     file_path = Path(tool_input.file_path)
     if not file_path.exists():
         return ErrorToolResult(error_message=f"File not found: {tool_input.file_path}")
 
     if not file_path.is_file():
-        return ErrorToolResult(
-            error_message=f"Path is not a file: {tool_input.file_path}"
-        )
+        return ErrorToolResult(error_message=f"Path is not a file: {tool_input.file_path}")
 
     try:
         content = file_path.read_bytes()
@@ -681,9 +630,7 @@ async def execute_upload_artifact(
 
         async with aiohttp.ClientSession() as session:
             headers = {"Content-Type": tool_input.content_type}
-            async with session.put(
-                tool_input.presigned_url, data=content, headers=headers
-            ) as response:
+            async with session.put(tool_input.presigned_url, data=content, headers=headers) as response:
                 if response.status not in (200, 204):
                     error_text = await response.text()
                     return ErrorToolResult(
@@ -711,11 +658,7 @@ async def execute_store_artifact(
     Downloads from a presigned URL and stores in ~/.indent/chats/{chat_uuid}/{filename}.
     The CLI resolves the path using its own INDENT_HOME configuration.
     """
-    if (
-        "/" in tool_input.filename
-        or "\\" in tool_input.filename
-        or ".." in tool_input.filename
-    ):
+    if "/" in tool_input.filename or "\\" in tool_input.filename or ".." in tool_input.filename:
         return ErrorToolResult(
             error_message=f"Invalid filename (must not contain path separators): {tool_input.filename}"
         )
@@ -725,17 +668,13 @@ async def execute_store_artifact(
     local_path = Path(artifacts_dir) / tool_input.filename
 
     try:
-        content = await _download_from_presigned_url(
-            tool_input.presigned_url, local_path
-        )
+        content = await _download_from_presigned_url(tool_input.presigned_url, local_path)
         return StoreArtifactToolResult(
             local_path=str(local_path),
             file_size_bytes=len(content),
         )
     except aiohttp.ClientResponseError as e:
-        return ErrorToolResult(
-            error_message=f"Failed to download artifact: HTTP {e.status} - {e.message}"
-        )
+        return ErrorToolResult(error_message=f"Failed to download artifact: HTTP {e.status} - {e.message}")
     except Exception as e:
         logger.exception("Failed to store artifact")
         return ErrorToolResult(error_message=f"Failed to store artifact: {e!s}")

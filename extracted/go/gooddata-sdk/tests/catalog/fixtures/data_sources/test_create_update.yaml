@@ -45,17 +45,17 @@ interactions:
       body:
         string:
           data:
-            - id: demo-test-ds
-              type: dataSource
-              attributes:
+            - attributes:
                 url: jdbc:postgresql://postgres:5432/tiger?sslmode=prefer
                 username: postgres
                 authenticationType: USERNAME_PASSWORD
-                name: demo-test-ds
                 type: POSTGRESQL
+                name: demo-test-ds
                 schema: demo
+              id: demo-test-ds
               links:
                 self: http://localhost:3000/api/v1/entities/dataSources/demo-test-ds
+              type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources?page=0&size=500
             next: http://localhost:3000/api/v1/entities/dataSources?page=1&size=500
@@ -105,7 +105,7 @@ interactions:
             to access it.
           status: 404
           title: Not Found
-          traceId: dc509f1924e5574585f7985cee3a5859
+          traceId: 0bf708774d58b37cb11a22070987746b
   - request:
       method: POST
       uri: http://localhost:3000/api/v1/entities/dataSources
@@ -161,15 +161,15 @@ interactions:
       body:
         string:
           data:
-            id: test
-            type: dataSource
             attributes:
               url: jdbc:postgresql://localhost:5432/demo?autosave=true&sslmode=prefer
               username: demouser
               authenticationType: USERNAME_PASSWORD
-              name: Test
               type: POSTGRESQL
+              name: Test
               schema: demo
+            id: test
+            type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources/test
   - request:
@@ -215,15 +215,15 @@ interactions:
       body:
         string:
           data:
-            id: test
-            type: dataSource
             attributes:
               url: jdbc:postgresql://localhost:5432/demo?autosave=true&sslmode=prefer
               username: demouser
               authenticationType: USERNAME_PASSWORD
-              name: Test
               type: POSTGRESQL
+              name: Test
               schema: demo
+            id: test
+            type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources/test
   - request:
@@ -269,15 +269,15 @@ interactions:
       body:
         string:
           data:
-            id: test
-            type: dataSource
             attributes:
               url: jdbc:postgresql://localhost:5432/demo?autosave=true&sslmode=prefer
               username: demouser
               authenticationType: USERNAME_PASSWORD
-              name: Test
               type: POSTGRESQL
+              name: Test
               schema: demo
+            id: test
+            type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources/test
   - request:
@@ -335,15 +335,15 @@ interactions:
       body:
         string:
           data:
-            id: test
-            type: dataSource
             attributes:
               url: jdbc:postgresql://localhost:5432/demo?autosave=false&sslmode=prefer
               username: demouser
               authenticationType: USERNAME_PASSWORD
-              name: Test2
               type: POSTGRESQL
+              name: Test2
               schema: demo
+            id: test
+            type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources/test
   - request:
@@ -389,28 +389,28 @@ interactions:
       body:
         string:
           data:
-            - id: demo-test-ds
-              type: dataSource
-              attributes:
+            - attributes:
                 url: jdbc:postgresql://postgres:5432/tiger?sslmode=prefer
                 username: postgres
                 authenticationType: USERNAME_PASSWORD
-                name: demo-test-ds
                 type: POSTGRESQL
+                name: demo-test-ds
                 schema: demo
+              id: demo-test-ds
               links:
                 self: http://localhost:3000/api/v1/entities/dataSources/demo-test-ds
-            - id: test
               type: dataSource
-              attributes:
+            - attributes:
                 url: jdbc:postgresql://localhost:5432/demo?autosave=false&sslmode=prefer
                 username: demouser
                 authenticationType: USERNAME_PASSWORD
-                name: Test2
                 type: POSTGRESQL
+                name: Test2
                 schema: demo
+              id: test
               links:
                 self: http://localhost:3000/api/v1/entities/dataSources/test
+              type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources?page=0&size=500
             next: http://localhost:3000/api/v1/entities/dataSources?page=1&size=500
@@ -495,17 +495,17 @@ interactions:
       body:
         string:
           data:
-            - id: demo-test-ds
-              type: dataSource
-              attributes:
+            - attributes:
                 url: jdbc:postgresql://postgres:5432/tiger?sslmode=prefer
                 username: postgres
                 authenticationType: USERNAME_PASSWORD
-                name: demo-test-ds
                 type: POSTGRESQL
+                name: demo-test-ds
                 schema: demo
+              id: demo-test-ds
               links:
                 self: http://localhost:3000/api/v1/entities/dataSources/demo-test-ds
+              type: dataSource
           links:
             self: http://localhost:3000/api/v1/entities/dataSources?page=0&size=500
             next: http://localhost:3000/api/v1/entities/dataSources?page=1&size=500

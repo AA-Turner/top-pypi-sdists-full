@@ -1,14 +1,13 @@
 #     Copyright 2025, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
 
 
-""" This tool is generating node variants from Jinja templates.
-
-"""
+"""This tool is generating node variants from Jinja templates."""
 
 import sys
-import nuitka.Options
 
-nuitka.Options.is_full_compat = False
+from nuitka.States import states
+
+states.is_full_compat = False
 
 # isort:start
 
@@ -62,7 +61,7 @@ from .Common import (
     python3_list_methods,
     python3_str_methods,
     python3_type_methods,
-    withFileOpenedAndAutoFormatted,
+    withFileOpenedAndAutoFormattedWithClaim,
     writeLine,
 )
 
@@ -357,7 +356,7 @@ def makeAttributeNodes():
         template_name="AttributeNodeFixed.py.j2",
     )
 
-    with withFileOpenedAndAutoFormatted(
+    with withFileOpenedAndAutoFormattedWithClaim(
         filename_python,
         ignore_errors=True,
         claim=getLicenseTextStandard(),
@@ -430,7 +429,7 @@ def makeBuiltinOperationNodes():
         template_name="BuiltinOperationNodeBases.py.j2",
     )
 
-    with withFileOpenedAndAutoFormatted(
+    with withFileOpenedAndAutoFormattedWithClaim(
         filename_python,
         ignore_errors=True,
         claim=getLicenseTextStandard(),
@@ -790,15 +789,15 @@ def makeChildrenHavingMixinNodes():
 
     mixins_done = set()
 
-    with withFileOpenedAndAutoFormatted(
+    with withFileOpenedAndAutoFormattedWithClaim(
         filename_python,
         ignore_errors=True,
         claim=getLicenseTextStandard(),
-    ) as output_python, withFileOpenedAndAutoFormatted(
+    ) as output_python, withFileOpenedAndAutoFormattedWithClaim(
         filename_python2,
         ignore_errors=True,
         claim=getLicenseTextStandard(),
-    ) as output_python2, withFileOpenedAndAutoFormatted(
+    ) as output_python2, withFileOpenedAndAutoFormattedWithClaim(
         filename_python3,
         ignore_errors=True,
         claim=getLicenseTextStandard(),
@@ -1017,7 +1016,7 @@ def makeHardImportNodes():
         template_name="HardImportCallNode.py.j2",
     )
 
-    with withFileOpenedAndAutoFormatted(
+    with withFileOpenedAndAutoFormattedWithClaim(
         filename_python,
         ignore_errors=True,
         claim=getLicenseTextStandard(),
@@ -1154,11 +1153,11 @@ def main():
 #     Part of "Nuitka", an optimizing Python compiler that is compatible and
 #     integrates with CPython, but also works on its own.
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.gnu.org/licenses/agpl.txt
 #
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,

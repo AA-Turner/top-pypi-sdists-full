@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: commitizen
-Version: 4.13.4
+Version: 4.13.5
 Summary: Python commitizen client tool
 Keywords: commitizen,conventional,commits,git
 Author: Santiago Fraire

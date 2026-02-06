@@ -40,7 +40,7 @@ class Tasks(object):
                 payload['resolution'] = request.resolution  # high 1024p 0.3 0.5
 
             if image_urls := request.input_reference:
-                image_urls[0] = await image_resize(image_urls[0], request.size, "url")
+                image_urls[0] = await image_resize(image_urls[0], request.size, "fal-url")
                 payload["input_reference"] = image_urls[0]
 
         elif request.model.startswith("kwaivgi/kling-v2.6-motion-control"):
